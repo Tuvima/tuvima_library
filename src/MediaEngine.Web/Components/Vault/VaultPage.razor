@@ -270,7 +270,7 @@
     {
         "media" => new List<StatCardModel>
         {
-            new() { Id = "Total", Icon = Icons.Material.Outlined.LocalLibrary, Count = _mediaTypeCounts.Values.Sum(), Label = "LIBRARY", Color = "#C9922E" },
+            new() { Id = "Total", Icon = Icons.Material.Outlined.LocalLibrary, Count = _mediaTypeCounts.Values.Sum(), Label = "LIBRARY", Color = "#C9922E", IsActive = _enabledMediaTypes.Count == _allMediaTypeIds.Length },
             new() { Id = "Movies", Icon = Icons.Material.Outlined.VideoLibrary, Count = _mediaTypeCounts.GetValueOrDefault("Movies", 0), Label = "MOVIES", Color = "#60A5FA", IsActive = _enabledMediaTypes.Contains("Movies") },
             new() { Id = "Books", Icon = Icons.Material.Outlined.MenuBook, Count = _mediaTypeCounts.GetValueOrDefault("Books", 0), Label = "BOOKS", Color = "#5DCAA5", IsActive = _enabledMediaTypes.Contains("Books") },
             new() { Id = "Audiobooks", Icon = Icons.Material.Outlined.Headphones, Count = _mediaTypeCounts.GetValueOrDefault("Audiobooks", 0), Label = "AUDIOBOOKS", Color = "#A78BFA", IsActive = _enabledMediaTypes.Contains("Audiobooks") },
@@ -296,21 +296,33 @@
 
     private Dictionary<string, int> _hubCounts = new();
 
+    private static readonly string[] _allMediaTypeIds = ["Movies", "Books", "Audiobooks", "TV", "Music", "Podcasts"];
+
     private async Task OnStatCardToggled(string cardId)
     {
-        if (cardId == "Total" || cardId == "AllPeople") return; // Summary cards are not filters
-
         if (_activeTab == "media")
         {
-            if (_enabledMediaTypes.Contains(cardId))
-                _enabledMediaTypes.Remove(cardId);
+            if (cardId == "Total")
+            {
+                // Toggle all: if all enabled → clear all; otherwise → enable all
+                if (_enabledMediaTypes.Count == _allMediaTypeIds.Length)
+                    _enabledMediaTypes.Clear();
+                else
+                    _enabledMediaTypes = new HashSet<string>(_allMediaTypeIds);
+            }
             else
-                _enabledMediaTypes.Add(cardId);
+            {
+                if (_enabledMediaTypes.Contains(cardId))
+                    _enabledMediaTypes.Remove(cardId);
+                else
+                    _enabledMediaTypes.Add(cardId);
+            }
             await LoadMediaItems();
             UpdateUrl();
         }
         else if (_activeTab == "people")
         {
+            if (cardId == "AllPeople") return; // Keep people summary as-is for now
             if (_enabledRoles.Contains(cardId))
                 _enabledRoles.Remove(cardId);
             else

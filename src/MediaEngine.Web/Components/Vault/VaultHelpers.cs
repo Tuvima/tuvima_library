@@ -109,17 +109,17 @@ public static class VaultHelpers
         };
     }
 
-    /// <summary>Returns provider lookup buttons based on media type.</summary>
+    /// <summary>Returns provider lookup buttons based on media type, matching configured slot providers.</summary>
     public static string[] GetProviderButtons(string? mediaType) => mediaType?.ToUpperInvariant() switch
     {
-        "MOVIE" or "MOVIES" => ["TMDB", "IMDb"],
-        "TV" => ["TMDB", "IMDb"],
-        "BOOK" or "BOOKS" or "EPUB" => ["Open Library", "Apple Books"],
-        "AUDIOBOOK" or "AUDIOBOOKS" => ["Audible", "Apple Books"],
-        "MUSIC" => ["MusicBrainz", "Spotify"],
-        "COMICS" or "COMIC" => ["Comic Vine"],
-        "PODCASTS" or "PODCAST" => ["Apple Podcasts"],
-        _ => ["Global Search", "MusicBrainz", "Audible"],
+        "MOVIE" or "MOVIES" => ["TMDB"],
+        "TV" => ["TMDB"],
+        "BOOK" or "BOOKS" or "EPUB" => ["Open Library", "Google Books"],
+        "AUDIOBOOK" or "AUDIOBOOKS" => ["Apple API", "Google Books"],
+        "MUSIC" => ["MusicBrainz"],
+        "COMICS" or "COMIC" => [],
+        "PODCASTS" or "PODCAST" => ["Apple Podcasts", "Podcast Index"],
+        _ => [],
     };
 
     /// <summary>Returns the sort parameter string for the API.</summary>

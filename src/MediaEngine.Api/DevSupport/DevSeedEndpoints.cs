@@ -11,7 +11,7 @@ namespace MediaEngine.Api.DevSupport;
 /// Registered conditionally when <c>ASPNETCORE_ENVIRONMENT == "Development"</c>.
 ///
 /// Endpoints:
-///   POST /dev/seed-library  — Drop 37 test files (EPUBs + MP3s) into the Watch Folder
+///   POST /dev/seed-library  — Drop test files into media-type-specific Watch Folders (comics excluded)
 ///   POST /dev/wipe           — Wipe DB, library root, watch folder, and reinitialize
 ///   POST /dev/full-test      — Wipe → Seed → return summary
 /// </summary>
@@ -421,13 +421,13 @@ public static class DevSeedEndpoints
             .WithTags("Development");
 
         group.MapPost("/seed-library", SeedLibraryAsync)
-            .WithSummary($"Drop {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length} test files (EPUBs, MP3s, MP4s, FLACs, CBZs) into the Watch Folder");
+            .WithSummary($"Drop {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length} test files into media-type-specific Watch Folders (comics excluded)");
 
         group.MapPost("/wipe", WipeAsync)
             .WithSummary("Wipe database, library root, and watch folder — then reinitialize a fresh DB");
 
         group.MapPost("/full-test", FullTestAsync)
-            .WithSummary("Wipe everything → seed 37 test files → return summary");
+            .WithSummary("Wipe everything → seed test files (excluding comics) → return per-type summary");
     }
 
     // ── POST /dev/seed-library ───────────────────────────────────────────────
@@ -437,195 +437,128 @@ public static class DevSeedEndpoints
         Storage.Contracts.IConfigurationLoader configLoader,
         ILogger<Program> logger)
     {
-        // Prefer the first library folder's source_path from libraries.json,
-        // falling back to the legacy WatchDirectory from core.json.
-        string? watchDir = null;
-        var libConfig = configLoader.LoadLibraries();
-        if (libConfig.Libraries.Count > 0)
-        {
-            watchDir = libConfig.Libraries[0].SourcePath;
-        }
-        watchDir ??= options.Value.WatchDirectory;
-
-        if (string.IsNullOrWhiteSpace(watchDir))
-        {
-            return Results.BadRequest(new
-            {
-                error = "No library folder or Watch Folder configured. Set it via PUT /settings/folders first."
-            });
-        }
-
-        if (!Directory.Exists(watchDir))
-        {
-            try
-            {
-                Directory.CreateDirectory(watchDir);
-                logger.LogInformation("Created seed target folder at {Path}", watchDir);
-            }
-            catch (Exception ex)
-            {
-                return Results.BadRequest(new
-                {
-                    error = $"Cannot create seed target folder: {ex.Message}"
-                });
-            }
-        }
-
         var created = new List<string>();
+        var perTypeResults = new Dictionary<string, object>();
         int skipped = 0;
 
         // ── Seed EPUBs ──────────────────────────────────────────────────────
-        foreach (SeedBook book in SeedBooks)
+        var booksDir = ResolveWatchDirectory(configLoader, options, "Books");
+        int booksCreated = 0;
+        if (!string.IsNullOrWhiteSpace(booksDir))
         {
-            string fileName = $"{SanitizeFileName(book.Title)}.epub";
-            string filePath = Path.Combine(watchDir, fileName);
-
-            if (File.Exists(filePath))
+            EnsureDirectory(booksDir, logger);
+            foreach (SeedBook book in SeedBooks)
             {
-                skipped++;
-                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
-                continue;
+                string fileName = $"{SanitizeFileName(book.Title)}.epub";
+                string filePath = Path.Combine(booksDir, fileName);
+
+                if (File.Exists(filePath)) { skipped++; continue; }
+
+                byte[] epub = EpubBuilder.Create(
+                    book.Title, book.Author, book.Isbn, book.Year, book.Description,
+                    book.Publisher, book.Language, book.AdditionalAuthors,
+                    book.Series, book.SeriesPosition);
+                await File.WriteAllBytesAsync(filePath, epub);
+                created.Add(fileName);
+                booksCreated++;
+                logger.LogInformation("Seed EPUB created: {Path} [{Category}]", filePath, book.TestCategory ?? "Uncategorised");
             }
-
-            byte[] epub = EpubBuilder.Create(
-                book.Title, book.Author, book.Isbn, book.Year, book.Description,
-                book.Publisher, book.Language, book.AdditionalAuthors,
-                book.Series, book.SeriesPosition);
-
-            await File.WriteAllBytesAsync(filePath, epub);
-
-            created.Add(fileName);
-            logger.LogInformation(
-                "Seed EPUB created: {Path} ({Size} bytes) [{Category}]",
-                filePath, epub.Length, book.TestCategory ?? "Uncategorised");
         }
+        perTypeResults["books"] = new { total = SeedBooks.Length, created = booksCreated, directory = booksDir ?? "not configured" };
 
         // ── Seed MP3 Audiobooks ─────────────────────────────────────────────
-        foreach (SeedAudiobook ab in SeedAudiobooks)
+        // Audiobooks share the Books library folder.
+        int audiobooksCreated = 0;
+        if (!string.IsNullOrWhiteSpace(booksDir))
         {
-            // Use narrator in filename to distinguish multiple editions of the same title.
-            string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
-            string filePath = Path.Combine(watchDir, fileName);
-
-            if (File.Exists(filePath))
+            foreach (SeedAudiobook ab in SeedAudiobooks)
             {
-                skipped++;
-                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
-                continue;
+                string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
+                string filePath = Path.Combine(booksDir, fileName);
+
+                if (File.Exists(filePath)) { skipped++; continue; }
+
+                byte[] mp3 = Mp3Builder.Create(
+                    ab.Title, ab.Artist, narrator: ab.Narrator,
+                    year: ab.Year, language: ab.Language,
+                    series: ab.Series, seriesPosition: ab.SeriesPosition,
+                    asin: ab.Asin);
+                await File.WriteAllBytesAsync(filePath, mp3);
+                created.Add(fileName);
+                audiobooksCreated++;
+                logger.LogInformation("Seed MP3 created: {Path} [{Category}]", filePath, ab.TestCategory ?? "Uncategorised");
             }
-
-            byte[] mp3 = Mp3Builder.Create(
-                ab.Title, ab.Artist, narrator: ab.Narrator,
-                year: ab.Year, language: ab.Language,
-                series: ab.Series, seriesPosition: ab.SeriesPosition,
-                asin: ab.Asin);
-
-            await File.WriteAllBytesAsync(filePath, mp3);
-
-            created.Add(fileName);
-            logger.LogInformation(
-                "Seed MP3 created: {Path} ({Size} bytes) [{Category}]",
-                filePath, mp3.Length, ab.TestCategory ?? "Uncategorised");
         }
+        perTypeResults["audiobooks"] = new { total = SeedAudiobooks.Length, created = audiobooksCreated, directory = booksDir ?? "not configured" };
 
         // ── Seed MP4 Videos (Movies + TV) ─────────────────────────────────
+        int moviesCreated = 0, tvCreated = 0;
         foreach (SeedVideo video in SeedVideos)
         {
+            var category = video.MediaType == "TV" ? "TV" : "Movies";
+            var videoDir = ResolveWatchDirectory(configLoader, options, category);
+            if (string.IsNullOrWhiteSpace(videoDir)) continue;
+            EnsureDirectory(videoDir, logger);
+
             string fileName;
             if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
-            {
                 fileName = $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4";
-            }
             else
-            {
                 fileName = $"{SanitizeFileName(video.Title)} ({video.Year}).mp4";
-            }
-            string filePath = Path.Combine(watchDir, fileName);
 
-            if (File.Exists(filePath))
-            {
-                skipped++;
-                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
-                continue;
-            }
+            string filePath = Path.Combine(videoDir, fileName);
+            if (File.Exists(filePath)) { skipped++; continue; }
 
             byte[] mp4 = Mp4Builder.Create(video.Title, video.Director, video.Year);
             await File.WriteAllBytesAsync(filePath, mp4);
-
             created.Add(fileName);
-            logger.LogInformation(
-                "Seed MP4 created: {Path} ({Size} bytes) [{Category}]",
-                filePath, mp4.Length, video.TestCategory ?? "Uncategorised");
+            if (video.MediaType == "TV") tvCreated++; else moviesCreated++;
+            logger.LogInformation("Seed MP4 created: {Path} [{Category}]", filePath, video.TestCategory ?? "Uncategorised");
         }
+        var moviesDir = ResolveWatchDirectory(configLoader, options, "Movies");
+        var tvDir = ResolveWatchDirectory(configLoader, options, "TV");
+        perTypeResults["movies"] = new { total = SeedVideos.Count(v => v.MediaType == "Movie"), created = moviesCreated, directory = moviesDir ?? "not configured" };
+        perTypeResults["tv"] = new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = tvCreated, directory = tvDir ?? "not configured" };
 
         // ── Seed FLAC Music ───────────────────────────────────────────────
-        foreach (SeedMusic track in SeedMusicTracks)
+        var musicDir = ResolveWatchDirectory(configLoader, options, "Music");
+        int musicCreated = 0;
+        if (!string.IsNullOrWhiteSpace(musicDir))
         {
-            string fileName = $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac";
-            string filePath = Path.Combine(watchDir, fileName);
-
-            if (File.Exists(filePath))
+            EnsureDirectory(musicDir, logger);
+            foreach (SeedMusic track in SeedMusicTracks)
             {
-                skipped++;
-                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
-                continue;
+                string fileName = $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac";
+                string filePath = Path.Combine(musicDir, fileName);
+
+                if (File.Exists(filePath)) { skipped++; continue; }
+
+                byte[] flac = FlacBuilder.Create(
+                    track.Title, track.Artist, track.Album,
+                    track.Year, track.Genre, track.TrackNumber);
+                await File.WriteAllBytesAsync(filePath, flac);
+                created.Add(fileName);
+                musicCreated++;
+                logger.LogInformation("Seed FLAC created: {Path} [{Category}]", filePath, track.TestCategory ?? "Uncategorised");
             }
-
-            byte[] flac = FlacBuilder.Create(
-                track.Title, track.Artist, track.Album,
-                track.Year, track.Genre, track.TrackNumber);
-
-            await File.WriteAllBytesAsync(filePath, flac);
-
-            created.Add(fileName);
-            logger.LogInformation(
-                "Seed FLAC created: {Path} ({Size} bytes) [{Category}]",
-                filePath, flac.Length, track.TestCategory ?? "Uncategorised");
         }
+        perTypeResults["music"] = new { total = SeedMusicTracks.Length, created = musicCreated, directory = musicDir ?? "not configured" };
 
-        // ── Seed CBZ Comics ──────────────────────────────────────────────
-        foreach (SeedComic comic in SeedComics)
-        {
-            string numSuffix = comic.Number is not null ? $" #{comic.Number}" : "";
-            string fileName = $"{SanitizeFileName(comic.Title)}{numSuffix}.cbz";
-            string filePath = Path.Combine(watchDir, fileName);
+        // ── Comics: SKIPPED (Metron provider is down) ───────────────────
+        perTypeResults["comics"] = new { total = SeedComics.Length, created = 0, skipped_reason = "Metron provider is down — comics excluded from testing" };
 
-            if (File.Exists(filePath))
-            {
-                skipped++;
-                logger.LogDebug("Seed file already exists, skipping: {Path}", filePath);
-                continue;
-            }
-
-            byte[] cbz = CbzBuilder.Create(
-                comic.Title, comic.Writer, comic.Series, comic.Number,
-                comic.Year, comic.Genre, comic.Summary, comic.Publisher,
-                comic.Penciller);
-
-            await File.WriteAllBytesAsync(filePath, cbz);
-
-            created.Add(fileName);
-            logger.LogInformation(
-                "Seed CBZ created: {Path} ({Size} bytes) [{Category}]",
-                filePath, cbz.Length, comic.TestCategory ?? "Uncategorised");
-        }
-
-        int totalSeed = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length;
-        string message = created.Count > 0
-            ? $"{created.Count} files dropped into Watch Folder. Ingestion will begin automatically."
-            : "All seed files already exist in the Watch Folder.";
+        int totalSeeded = booksCreated + audiobooksCreated + moviesCreated + tvCreated + musicCreated;
+        int totalSeed = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length;
+        string message = totalSeeded > 0
+            ? $"{totalSeeded} files dropped into Watch Folders. Ingestion will begin automatically."
+            : "All seed files already exist in the Watch Folders.";
 
         return Results.Ok(new
         {
-            files_created = created.Count,
+            files_created = totalSeeded,
             files_skipped = skipped,
-            epubs_total = SeedBooks.Length,
-            audiobooks_total = SeedAudiobooks.Length,
-            videos_total = SeedVideos.Length,
-            music_total = SeedMusicTracks.Length,
-            comics_total = SeedComics.Length,
             total_seed_files = totalSeed,
-            watch_directory = watchDir,
+            per_type = perTypeResults,
             files = created,
             message
         });
@@ -843,15 +776,11 @@ public static class DevSeedEndpoints
         {
             message = "Full test initiated: database wiped, library cleared, seed files dropped, " +
                       "directory scan triggered. Ingestion pipeline will process files automatically. " +
-                      "Monitor via GET /ingestion/batches and SignalR intercom.",
+                      "Monitor via GET /ingestion/batches and SignalR intercom. " +
+                      "Note: Comics excluded (Metron provider down).",
             wipe = wipeResult,
             seed = seedResult,
-            total_test_files = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length,
-            epubs = SeedBooks.Length,
-            audiobooks = SeedAudiobooks.Length,
-            videos = SeedVideos.Length,
-            music = SeedMusicTracks.Length,
-            comics = SeedComics.Length,
+            total_test_files = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length,
             next_steps = new[]
             {
                 "Watch ingestion progress: GET /ingestion/batches",
@@ -903,6 +832,39 @@ public static class DevSeedEndpoints
 
         logger.LogInformation("[Wipe] Wiped {Count} items from {Path}", count, dirPath);
         return count;
+    }
+
+    /// <summary>
+    /// Resolves the correct watch directory for a media type by checking libraries.json.
+    /// Falls back to the legacy watch directory if no specific library is configured.
+    /// </summary>
+    private static string? ResolveWatchDirectory(
+        Storage.Contracts.IConfigurationLoader configLoader,
+        IOptions<IngestionOptions> options,
+        string mediaTypeCategory)
+    {
+        var libConfig = configLoader.LoadLibraries();
+
+        // Find the library entry that matches this media type category.
+        var lib = libConfig.Libraries.FirstOrDefault(l =>
+            l.Category.Equals(mediaTypeCategory, StringComparison.OrdinalIgnoreCase));
+
+        if (lib is not null && !string.IsNullOrWhiteSpace(lib.SourcePath))
+            return lib.SourcePath;
+
+        // Fall back to first library source or legacy watch directory.
+        return libConfig.Libraries.Count > 0
+            ? libConfig.Libraries[0].SourcePath
+            : options.Value.WatchDirectory;
+    }
+
+    private static void EnsureDirectory(string path, ILogger logger)
+    {
+        if (!Directory.Exists(path))
+        {
+            Directory.CreateDirectory(path);
+            logger.LogInformation("Created seed target folder at {Path}", path);
+        }
     }
 
     /// <summary>

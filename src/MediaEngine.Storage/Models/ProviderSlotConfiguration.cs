@@ -54,7 +54,7 @@ public sealed class ProviderSlotConfiguration
 {
     /// <summary>
     /// Maps media type display names to their slot assignments.
-    /// Keys: "Books", "Audiobooks", "Comics", "Movies", "TV Shows".
+    /// Keys: "Books", "Audiobooks", "Comics", "Movies", "TV", "Music", "Podcasts".
     /// </summary>
     [JsonPropertyName("slots")]
     public Dictionary<string, ProviderSlotConfig> Slots { get; set; } = new()
@@ -62,8 +62,10 @@ public sealed class ProviderSlotConfiguration
         ["Books"]      = new() { Primary = "apple_api",  Secondary = "google_books",  Tertiary = "open_library" },
         ["Audiobooks"] = new() { Primary = "apple_api", Secondary = "google_books",  Tertiary = null },
         ["Comics"]     = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
-        ["Movies"]     = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
-        ["TV Shows"]   = new() { Primary = null,                  Secondary = null,                    Tertiary = null },
+        ["Movies"]     = new() { Primary = "tmdb",                Secondary = null,                    Tertiary = null },
+        ["TV"]         = new() { Primary = "tmdb",                Secondary = null,                    Tertiary = null },
+        ["Music"]      = new() { Primary = "musicbrainz",         Secondary = null,                    Tertiary = null },
+        ["Podcasts"]   = new() { Primary = "apple_podcasts",      Secondary = "podcast_index",         Tertiary = null },
     };
 
     /// <summary>
@@ -85,7 +87,7 @@ public sealed class ProviderSlotConfiguration
         Domain.Enums.MediaType.Audiobooks => "Audiobooks",
         Domain.Enums.MediaType.Comics     => "Comics",
         Domain.Enums.MediaType.Movies     => "Movies",
-        Domain.Enums.MediaType.TV         => "TV Shows",
+        Domain.Enums.MediaType.TV         => "TV",
         Domain.Enums.MediaType.Music     => "Music",
         Domain.Enums.MediaType.Podcasts  => "Podcasts",
         _                                => "Books", // Default fallback

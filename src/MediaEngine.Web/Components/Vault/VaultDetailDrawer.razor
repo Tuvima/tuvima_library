@@ -45,10 +45,28 @@
                     <h2 class="vdd-title">@MediaItem.Title</h2>
                     <p class="vdd-subtitle">@(MediaItem.Author?.ToUpperInvariant() ?? L["VaultDetail_Unknown"].ToString().ToUpperInvariant())</p>
                     <div class="vdd-meta">
-                        <span class="vdd-meta-item">
-                            <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px; opacity: 0.5;" />
-                            @VaultHelpers.FormatMediaType(MediaItem.MediaType)
-                        </span>
+                        @if (MediaItem.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed or VaultStatus.Quarantined)
+                        {
+                            <div class="vdd-type-selector">
+                                <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px; opacity: 0.5;" />
+                                <select class="vdd-type-dropdown" value="@_selectedMediaType" @onchange="OnMediaTypeChanged">
+                                    <option value="Books">Books</option>
+                                    <option value="Audiobooks">Audiobooks</option>
+                                    <option value="Movies">Movies</option>
+                                    <option value="TV">TV</option>
+                                    <option value="Music">Music</option>
+                                    <option value="Podcasts">Podcasts</option>
+                                    <option value="Comics">Comics</option>
+                                </select>
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="vdd-meta-item">
+                                <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px; opacity: 0.5;" />
+                                @VaultHelpers.FormatMediaType(MediaItem.MediaType)
+                            </span>
+                        }
                         @if (!string.IsNullOrEmpty(MediaItem.Year))
                         {
                             <span class="vdd-meta-item">@MediaItem.Year</span>
@@ -745,6 +763,7 @@
     private List<RegistryItemViewModel> _searchResults = [];
     private PersonAliasesResponseDto? _aliases;
     private RegistryItemViewModel? _pendingMatch;
+    private string _selectedMediaType = "";
 
     // Universe data
     private UniverseHealthDto? _universeHealth;
@@ -769,6 +788,22 @@
             await OnUnmatchWikidata.InvokeAsync(MediaItem.EntityId);
     }
 
+    private async Task OnMediaTypeChanged(ChangeEventArgs e)
+    {
+        var newType = e.Value?.ToString();
+        if (string.IsNullOrEmpty(newType) || newType == _selectedMediaType || MediaItem is null)
+            return;
+
+        StateHasChanged();
+
+        var success = await ApiClient.ReclassifyMediaTypeAsync(MediaItem.EntityId, newType);
+        if (success)
+        {
+            _selectedMediaType = newType;
+            await OnClose.InvokeAsync();
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         _confirmPurge = false;
@@ -778,6 +813,7 @@
         _aliases = null;
         _pendingMatch = null;
         _searching = false;
+        _selectedMediaType = MediaItem?.MediaType ?? "";
         _universeHealth = null;
         _universeCharacters = [];
         _personCharacterRoles = [];
@@ -1962,5 +1998,40 @@
         background: rgba(167, 139, 250, 0.08);
         border-color: rgba(167, 139, 250, 0.5);
         color: #C4B5FD;
+    }
+
+    .vdd-type-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .vdd-type-dropdown {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 4px;
+        color: rgba(255,255,255,0.7);
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        padding: 2px 6px;
+        cursor: pointer;
+        outline: none;
+        font-family: inherit;
+        text-transform: uppercase;
+    }
+
+    .vdd-type-dropdown:hover {
+        border-color: rgba(201,146,46,0.4);
+        color: rgba(255,255,255,0.9);
+    }
+
+    .vdd-type-dropdown:focus {
+        border-color: #C9922E;
+        box-shadow: 0 0 0 1px rgba(201,146,46,0.2);
+    }
+
+    .vdd-type-dropdown option {
+        background: #1a1a2e;
+        color: rgba(255,255,255,0.9);
     }
 </style>
