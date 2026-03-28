@@ -696,6 +696,7 @@ app.MapAiEnrichmentEndpoints();
 if (app.Environment.IsDevelopment())
 {
     app.MapDevSeedEndpoints();
+    app.MapIntegrationTestEndpoints();
 }
 
 // Seed default managed hubs (System Lists, Mixes, Smart Hubs) on first run

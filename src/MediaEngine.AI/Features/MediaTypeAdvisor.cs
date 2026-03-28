@@ -37,6 +37,17 @@ public sealed class MediaTypeAdvisor : IMediaTypeAdvisor
         string? folderPath,
         CancellationToken ct = default)
     {
+        // Short-circuit when the feature is disabled.
+        if (!_settings.Features.TypeLogic)
+        {
+            return new MediaTypeCandidate
+            {
+                Type = MediaType.Unknown,
+                Confidence = 0,
+                Reason = "AI type classification disabled",
+            };
+        }
+
         try
         {
             var prompt = PromptTemplates.MediaTypePrompt(

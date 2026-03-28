@@ -759,7 +759,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // This prevents MP3 files in a Books/Audiobook folder from being classified
         // as Music when the processor heuristics are ambiguous.
         var candidateList = result.MediaTypeCandidates.ToList();
-        if (_options.LibraryFolders.Count > 0 && candidateList.Count > 0)
+        if (_options.LibraryFolders.Count > 0 && (candidateList.Count > 0 || resolvedMediaType == MediaType.Unknown))
         {
             var matchedFolder = _options.LibraryFolders.FirstOrDefault(f =>
                 !string.IsNullOrWhiteSpace(f.SourcePath) &&
@@ -811,6 +811,25 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         folderTypes[0], candidate.Path,
                         candidateList.Count > 1 ? candidateList[1].Type.ToString() : "none",
                         folderTypes[0]);
+                }
+                else if (candidateList.Count == 0)
+                {
+                    // Processor returned no candidates and the folder has multiple types.
+                    // Add all folder types as candidates at moderate confidence so the
+                    // item is classified rather than staying Unknown.
+                    foreach (var ft in folderTypes)
+                    {
+                        candidateList.Add(new Domain.Models.MediaTypeCandidate
+                        {
+                            Type       = ft,
+                            Confidence = 0.65,
+                            Reason     = $"Library folder configured for {ft} (multi-type folder, needs disambiguation)",
+                        });
+                    }
+
+                    _logger.LogInformation(
+                        "Library folder prior: injected {Count} candidates from multi-type folder [{Types}] for {Path}",
+                        folderTypes.Count, string.Join(", ", folderTypes), candidate.Path);
                 }
                 else
                 {

@@ -377,7 +377,29 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
 
             using var client = _httpFactory.CreateClient(_config.Name);
-            using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
+
+            // Apply bearer API key header if configured.
+            if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
+                && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+            {
+                httpRequest.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue(
+                        "Bearer", _config.HttpClient.ApiKey);
+            }
+            else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
+                && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
+                && !string.IsNullOrWhiteSpace(_config.HttpClient.Password))
+            {
+                var credentials = Convert.ToBase64String(
+                    System.Text.Encoding.UTF8.GetBytes(
+                        $"{_config.HttpClient.Username}:{_config.HttpClient.Password}"));
+                httpRequest.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue(
+                        "Basic", credentials);
+            }
+
+            using var response = await client.SendAsync(httpRequest, ct).ConfigureAwait(false);
             _lastCallUtc = DateTime.UtcNow;
 
             _logger.LogInformation(

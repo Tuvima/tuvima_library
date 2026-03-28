@@ -32,6 +32,17 @@ public sealed class SmartLabeler : ISmartLabeler
         if (string.IsNullOrWhiteSpace(rawFilename))
             return new CleanedSearchQuery { Title = string.Empty, Confidence = 0 };
 
+        // Short-circuit when the feature is disabled — return the raw filename
+        // as-is so the ingestion pipeline never invokes the LLM.
+        if (!_settings.Features.SmartLabeling)
+        {
+            return new CleanedSearchQuery
+            {
+                Title = Path.GetFileNameWithoutExtension(rawFilename),
+                Confidence = 0.5,
+            };
+        }
+
         // Strip extension if present.
         var stem = Path.GetFileNameWithoutExtension(rawFilename);
         if (string.IsNullOrWhiteSpace(stem))
