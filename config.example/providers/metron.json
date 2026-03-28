@@ -69,7 +69,7 @@
       "name": "issue_search",
       "priority": 1,
       "required_fields": ["title"],
-      "url_template": "{base_url}/issue/?name={title}&limit={limit}",
+      "url_template": "{base_url}/issue/?series_name={title}&limit={limit}",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,
