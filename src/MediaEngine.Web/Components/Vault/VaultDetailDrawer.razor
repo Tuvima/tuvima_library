@@ -2,6 +2,7 @@
 @namespace MediaEngine.Web.Components.Vault
 @inject IStringLocalizer<SharedStrings> L
 @inject IEngineApiClient ApiClient
+@inject NavigationManager Nav
 
 @* ── Backdrop ── *@
 <div class="vdd-backdrop" @onclick="OnClose"></div>
@@ -454,6 +455,43 @@
                 </div>
             </DrawerSection>
 
+            @* Character Roles *@
+            @if (_personCharacterRoles.Count > 0)
+            {
+                <DrawerSection Title="@L["VaultDetail_SectionCharacterRoles"]" Icon="@Icons.Material.Outlined.TheaterComedy">
+                    @{
+                        var rolesByUniverse = _personCharacterRoles
+                            .GroupBy(r => r.UniverseLabel ?? "Unknown Universe")
+                            .OrderBy(g => g.Key)
+                            .ToList();
+                    }
+                    @foreach (var univGroup in rolesByUniverse)
+                    {
+                        <div class="vdd-role-universe-group">
+                            <span class="vdd-role-universe-label">@univGroup.Key</span>
+                            <div class="vdd-roles-row">
+                                @foreach (var role in univGroup)
+                                {
+                                    <div class="vdd-role-item">
+                                        <div class="vdd-character-avatar vdd-character-avatar--sm">
+                                            @if (!string.IsNullOrEmpty(role.PortraitUrl))
+                                            {
+                                                <img src="@role.PortraitUrl" alt="@role.CharacterName" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                            }
+                                        </div>
+                                        <span class="vdd-character-name" style="font-size: 11px;">@role.CharacterName</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </DrawerSection>
+            }
+
             <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
                 <div class="vdd-assets">
                     @* Headshot *@
@@ -501,6 +539,110 @@
         else if (Universe is not null)
         {
             @* ── Universe Sections ── *@
+
+            @* Health Score Ring *@
+            @if (_universeHealth is not null)
+            {
+                <div class="vdd-health-ring-wrap">
+                    @{
+                        var hp = _universeHealth.HealthPercent;
+                        var ringColor = hp >= 80 ? "#5DCAA5" : hp >= 50 ? "#C9922E" : "#EF4444";
+                        var circumference = 2 * Math.PI * 22;
+                        var dashOffset = circumference * (1 - hp / 100.0);
+                    }
+                    <div class="vdd-health-ring">
+                        <svg width="64" height="64" viewBox="0 0 64 64">
+                            <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" />
+                            <circle cx="32" cy="32" r="22" fill="none"
+                                    stroke="@ringColor" stroke-width="6"
+                                    stroke-dasharray="@circumference.ToString("F1")"
+                                    stroke-dashoffset="@dashOffset.ToString("F1")"
+                                    stroke-linecap="round"
+                                    transform="rotate(-90 32 32)" />
+                        </svg>
+                        <span class="vdd-health-pct" style="color: @ringColor;">@((int)hp)%</span>
+                    </div>
+                    <div class="vdd-health-label-block">
+                        <span class="vdd-health-title">@L["VaultDetail_HealthScore"]</span>
+                        <span class="vdd-health-sub">@_universeHealth.EntitiesEnriched / @_universeHealth.EntitiesTotal @L["VaultDetail_EntityCounts"]</span>
+                    </div>
+                </div>
+            }
+
+            @* Entity Counts *@
+            @if (_universeHealth is not null && _universeHealth.EntitiesTotal > 0)
+            {
+                <DrawerSection Title="@L["VaultDetail_EntityCounts"]" Icon="@Icons.Material.Outlined.Category">
+                    <div class="vdd-entity-counts">
+                        <div class="vdd-entity-count-item">
+                            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: #A78BFA;" />
+                            <span class="vdd-entity-count-label">Characters</span>
+                            <span class="vdd-entity-count-val">@_universeCharacters.Count</span>
+                        </div>
+                        <div class="vdd-entity-count-item">
+                            <MudIcon Icon="@Icons.Material.Outlined.LocationOn" Style="font-size: 16px; color: #60A5FA;" />
+                            <span class="vdd-entity-count-label">Locations</span>
+                            <span class="vdd-entity-count-val">@(_universeHealth.EntitiesTotal - _universeCharacters.Count)</span>
+                        </div>
+                        <div class="vdd-entity-count-item">
+                            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Style="font-size: 16px; color: #C9922E;" />
+                            <span class="vdd-entity-count-label">Relationships</span>
+                            <span class="vdd-entity-count-val">@_universeHealth.RelationshipsTotal</span>
+                        </div>
+                    </div>
+                </DrawerSection>
+            }
+
+            @* Characters *@
+            <DrawerSection Title="@L["VaultDetail_SectionCharacters"]" Icon="@Icons.Material.Outlined.TheaterComedy">
+                @if (_loadingUniverseData)
+                {
+                    <div style="padding: 12px 0; text-align: center;">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                    </div>
+                }
+                else if (_universeCharacters.Count == 0)
+                {
+                    <p class="vdd-empty-hint">@L["VaultDetail_HintNoCharacters"]</p>
+                }
+                else
+                {
+                    <div class="vdd-characters-grid">
+                        @foreach (var ch in _universeCharacters.Take(12))
+                        {
+                            <div class="vdd-character-item">
+                                <div class="vdd-character-avatar">
+                                    @if (!string.IsNullOrEmpty(ch.PortraitUrl))
+                                    {
+                                        <img src="@ch.PortraitUrl" alt="@ch.CharacterName" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 20px; color: rgba(255,255,255,0.15);" />
+                                    }
+                                </div>
+                                <div class="vdd-character-info">
+                                    <span class="vdd-character-name">@ch.CharacterName</span>
+                                    @if (!string.IsNullOrEmpty(ch.DefaultActorName))
+                                    {
+                                        <span class="vdd-character-actor">@ch.DefaultActorName</span>
+                                    }
+                                    @if (ch.ActorCount > 1)
+                                    {
+                                        <span class="vdd-actor-count-badge">@string.Format(L["VaultDetail_ActorsCount"].ToString(), ch.ActorCount)</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (_universeCharacters.Count > 12)
+                    {
+                        <p class="vdd-stage-hint" style="margin-top: 8px;">+@(_universeCharacters.Count - 12) more — open Universe Explorer to see all</p>
+                    }
+                }
+            </DrawerSection>
+
+            @* Universe Content *@
             <DrawerSection Title="@L["VaultDetail_SectionUniverseContent"]" Icon="@Icons.Material.Outlined.Layers">
                 <div class="vdd-universe-content">
                     @if (Universe.WorkCount > 0)
@@ -532,6 +674,18 @@
                     }
                 </div>
             </DrawerSection>
+
+            @* Trigger enrichment + open explorer actions *@
+            <div class="vdd-universe-actions">
+                <button class="vdd-action-btn vdd-action-btn--primary" @onclick="OpenUniverseExplorer">
+                    <MudIcon Icon="@Icons.Material.Outlined.Hub" Style="font-size: 15px;" />
+                    @L["VaultDetail_OpenExplorer"]
+                </button>
+                <button class="vdd-action-btn" @onclick="TriggerEnrichment">
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 15px;" />
+                    @L["VaultDetail_TriggerEnrichment"]
+                </button>
+            </div>
         }
     </div>
 
@@ -575,6 +729,14 @@
     private PersonAliasesResponseDto? _aliases;
     private RegistryItemViewModel? _pendingMatch;
 
+    // Universe data
+    private UniverseHealthDto? _universeHealth;
+    private IReadOnlyList<UniverseCharacterDto> _universeCharacters = [];
+    private bool _loadingUniverseData;
+
+    // Person character roles
+    private IReadOnlyList<CharacterRoleDto> _personCharacterRoles = [];
+
     private bool IsInLibrary => MediaItem?.Status?.Equals("Confirmed", StringComparison.OrdinalIgnoreCase) == true
                              || MediaItem?.VaultDisplayStatus == VaultStatus.Verified;
 
@@ -599,11 +761,41 @@
         _aliases = null;
         _pendingMatch = null;
         _searching = false;
+        _universeHealth = null;
+        _universeCharacters = [];
+        _personCharacterRoles = [];
 
         if (Person is not null)
         {
-            _aliases = await ApiClient.GetPersonAliasesAsync(Person.Id);
+            var aliasTask = ApiClient.GetPersonAliasesAsync(Person.Id);
+            var rolesTask = ApiClient.GetPersonCharacterRolesAsync(Person.Id);
+            await Task.WhenAll(aliasTask, rolesTask);
+            _aliases = await aliasTask;
+            _personCharacterRoles = await rolesTask;
         }
+        else if (Universe is not null && !string.IsNullOrWhiteSpace(Universe.FictionalUniverseQid))
+        {
+            _loadingUniverseData = true;
+            StateHasChanged();
+
+            var healthTask     = ApiClient.GetUniverseHealthAsync(Universe.FictionalUniverseQid);
+            var charactersTask = ApiClient.GetUniverseCharactersAsync(Universe.FictionalUniverseQid);
+            await Task.WhenAll(healthTask, charactersTask);
+            _universeHealth     = await healthTask;
+            _universeCharacters = await charactersTask;
+            _loadingUniverseData = false;
+        }
+    }
+
+    private void OpenUniverseExplorer()
+    {
+        if (Universe?.FictionalUniverseQid is { } qid)
+            Nav.NavigateTo($"/universe/{qid}/explore");
+    }
+
+    private async Task TriggerEnrichment()
+    {
+        await ApiClient.TriggerUniverseEnrichmentAsync();
     }
 
     private async Task RunManualSearch()
@@ -1516,5 +1708,228 @@
         background: rgba(255, 80, 80, 0.12);
         border-color: rgba(255, 80, 80, 0.5);
         color: rgba(255, 80, 80, 1);
+    }
+
+    /* ── Universe Health Ring ── */
+    .vdd-health-ring-wrap {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 24px;
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-health-ring {
+        position: relative;
+        width: 64px;
+        height: 64px;
+        flex-shrink: 0;
+    }
+
+    .vdd-health-pct {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 900;
+    }
+
+    .vdd-health-label-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-health-title {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vdd-health-sub {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* ── Entity Counts ── */
+    .vdd-entity-counts {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-entity-count-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .vdd-entity-count-item:last-child { border-bottom: none; }
+
+    .vdd-entity-count-label {
+        flex: 1;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.55);
+    }
+
+    .vdd-entity-count-val {
+        font-size: 13px;
+        font-weight: 800;
+        color: white;
+    }
+
+    /* ── Character Grid ── */
+    .vdd-characters-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .vdd-character-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .vdd-character-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(167, 139, 250, 0.08);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    .vdd-character-avatar--sm {
+        width: 34px;
+        height: 34px;
+    }
+
+    .vdd-character-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-character-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .vdd-character-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vdd-character-actor {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.45);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vdd-actor-count-badge {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #C9922E;
+        background: rgba(201, 146, 46, 0.1);
+        border: 1px solid rgba(201, 146, 46, 0.2);
+        border-radius: 4px;
+        padding: 2px 5px;
+        align-self: flex-start;
+    }
+
+    /* ── Character Roles (Person view) ── */
+    .vdd-role-universe-group {
+        margin-bottom: 14px;
+    }
+
+    .vdd-role-universe-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.25);
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .vdd-roles-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .vdd-role-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        width: 60px;
+    }
+
+    /* ── Universe Action Buttons ── */
+    .vdd-universe-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-action-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-action-btn:hover {
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.85);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .vdd-action-btn--primary {
+        border-color: rgba(167, 139, 250, 0.3);
+        color: #A78BFA;
+    }
+
+    .vdd-action-btn--primary:hover {
+        background: rgba(167, 139, 250, 0.08);
+        border-color: rgba(167, 139, 250, 0.5);
+        color: #C4B5FD;
     }
 </style>

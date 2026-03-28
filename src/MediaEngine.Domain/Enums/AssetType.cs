@@ -1,0 +1,28 @@
+namespace MediaEngine.Domain.Enums;
+
+/// <summary>
+/// Classifies image assets stored in the <c>entity_assets</c> table.
+/// Every entity type (Work, Person, Universe, FictionalEntity) shares
+/// the same set of asset type slots — providers fill what they can,
+/// users upload the rest.
+/// </summary>
+public enum AssetType
+{
+    /// <summary>Primary cover art (book cover, movie poster, album art).</summary>
+    CoverArt,
+
+    /// <summary>Person headshot or character portrait.</summary>
+    Headshot,
+
+    /// <summary>Wide promotional banner image.</summary>
+    Banner,
+
+    /// <summary>Transparent title treatment or faction logo.</summary>
+    Logo,
+
+    /// <summary>Cinematic background image (movie backdrop, show background).</summary>
+    Backdrop,
+
+    /// <summary>Actor-in-costume or animated character portrait for a specific performer-character pair.</summary>
+    CharacterPortrait,
+}

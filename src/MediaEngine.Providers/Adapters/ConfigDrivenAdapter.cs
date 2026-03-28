@@ -96,7 +96,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         // Short-circuit when an API key is required but not configured.
         if (_config.RequiresApiKey
-            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey)
+            && (string.IsNullOrWhiteSpace(_config.HttpClient?.Username)
+                || string.IsNullOrWhiteSpace(_config.HttpClient?.Password)))
         {
             _logger.LogWarning(
                 "{Provider}: requires an API key but none is configured — skipping. "
@@ -216,7 +218,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         // Short-circuit when an API key is required but not configured.
         if (_config.RequiresApiKey
-            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey)
+            && (string.IsNullOrWhiteSpace(_config.HttpClient?.Username)
+                || string.IsNullOrWhiteSpace(_config.HttpClient?.Password)))
         {
             _logger.LogWarning(
                 "{Provider}: requires an API key but none is configured — skipping search.",
@@ -660,6 +664,18 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 httpRequest.Headers.Authorization =
                     new System.Net.Http.Headers.AuthenticationHeaderValue(
                         "Bearer", _config.HttpClient.ApiKey);
+            }
+            // Apply HTTP Basic Authentication if configured.
+            else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
+                && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
+                && !string.IsNullOrWhiteSpace(_config.HttpClient.Password))
+            {
+                var credentials = Convert.ToBase64String(
+                    System.Text.Encoding.UTF8.GetBytes(
+                        $"{_config.HttpClient.Username}:{_config.HttpClient.Password}"));
+                httpRequest.Headers.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue(
+                        "Basic", credentials);
             }
 
             using var response = await client.SendAsync(httpRequest, ct).ConfigureAwait(false);

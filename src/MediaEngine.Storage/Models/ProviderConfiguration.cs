@@ -118,7 +118,7 @@ public sealed class ProviderConfiguration
     /// When set, the <c>ConfigDrivenAdapter</c> caches raw JSON responses and
     /// skips HTTP calls for repeated queries within the TTL window.
     /// Default: <c>168</c> (7 days). Set <c>null</c> or <c>0</c> to disable caching.
-    /// Comic Vine recommends a long TTL (720 hours / 30 days) due to strict rate limits.
+    /// Metron recommends a long TTL (168 hours / 7 days) to respect community rate limits.
     /// </summary>
     [JsonPropertyName("cache_ttl_hours")]
     public int? CacheTtlHours { get; set; }
@@ -209,7 +209,7 @@ public sealed class HttpClientConfig
     public string? UserAgent { get; set; }
 
     /// <summary>
-    /// API key or token for authenticated providers (e.g. TMDB Bearer token, Comic Vine API key).
+    /// API key or token for authenticated providers (e.g. TMDB Bearer token, Google Books API key).
     /// Stored in the provider config file. Empty or <c>null</c> = no key configured.
     /// </summary>
     [JsonPropertyName("api_key")]
@@ -218,8 +218,9 @@ public sealed class HttpClientConfig
     /// <summary>
     /// How the API key is delivered to the provider. Values:
     /// <c>"bearer"</c> — sent as <c>Authorization: Bearer {key}</c> header (e.g. TMDB).
-    /// <c>"query"</c> — appended as a query parameter using <see cref="ApiKeyParamName"/> (e.g. Comic Vine).
+    /// <c>"query"</c> — appended as a query parameter using <see cref="ApiKeyParamName"/> (e.g. Google Books).
     /// <c>"header"</c> — sent as a custom header using <see cref="ApiKeyParamName"/> as the header name.
+    /// <c>"basic"</c> — sent as <c>Authorization: Basic {base64(username:password)}</c> header (e.g. Metron).
     /// Default: <c>null</c> (no API key delivery).
     /// </summary>
     [JsonPropertyName("api_key_delivery")]
@@ -227,10 +228,24 @@ public sealed class HttpClientConfig
 
     /// <summary>
     /// The query parameter name (for <c>"query"</c> delivery) or header name (for <c>"header"</c> delivery).
-    /// Example: <c>"api_key"</c> for Comic Vine query parameter.
+    /// Example: <c>"key"</c> for Google Books query parameter.
     /// </summary>
     [JsonPropertyName("api_key_param_name")]
     public string? ApiKeyParamName { get; set; }
+
+    /// <summary>
+    /// Username for HTTP Basic Authentication.
+    /// Used when <see cref="ApiKeyDelivery"/> is <c>"basic"</c>.
+    /// </summary>
+    [JsonPropertyName("username")]
+    public string? Username { get; set; }
+
+    /// <summary>
+    /// Password for HTTP Basic Authentication.
+    /// Used when <see cref="ApiKeyDelivery"/> is <c>"basic"</c>.
+    /// </summary>
+    [JsonPropertyName("password")]
+    public string? Password { get; set; }
 }
 
 /// <summary>Media type and entity type capability filters for config-driven adapters.</summary>

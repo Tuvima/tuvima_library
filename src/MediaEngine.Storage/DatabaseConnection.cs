@@ -1336,6 +1336,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Also adds a UNIQUE index on wikidata_qid for QID-first lookups.
         MigratePersonMultiRole(conn);
 
+        // Migration M-065: Stage 3 tables (entity_assets, character_portraits, series_members).
+        MigrateStage3Tables(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1369,6 +1372,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             ("b9000009-0000-4000-8000-000000000010",   "apple_podcasts",      "1.0"),
             ("ba00000a-0000-4000-8000-000000000011",   "podcast_index",       "1.0"),
             ("d0000000-0000-4000-8000-000000000001",   "user_manual",         "1.0"),
+            ("bb00000b-0000-4000-8000-000000000012",   "fanart_tv",           "1.0"),
         ];
 
         using var cmd = conn.CreateCommand();
@@ -1519,6 +1523,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
             // If the table doesn't exist yet (fresh install), schema.sql handles it.
             if (sql is null)
                 alreadyExpanded = true;
+            // If the 'role' column no longer exists (fresh schema without it), skip.
+            if (sql is not null && !sql.Contains("role", StringComparison.OrdinalIgnoreCase))
+                alreadyExpanded = true;
         }
 
         if (alreadyExpanded)
@@ -1527,6 +1534,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             PRAGMA foreign_keys=OFF;
+
+            DROP TABLE IF EXISTS persons_new;
 
             CREATE TABLE persons_new (
                 id           TEXT NOT NULL PRIMARY KEY,
@@ -1579,6 +1588,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
             var sql = sqlCmd.ExecuteScalar() as string;
             if (sql is null || sql.Contains("Translator", StringComparison.OrdinalIgnoreCase))
                 alreadyExpanded = true;
+            // If the 'role' column no longer exists (fresh schema without it), skip.
+            if (sql is not null && !sql.Contains("role", StringComparison.OrdinalIgnoreCase))
+                alreadyExpanded = true;
         }
 
         if (alreadyExpanded)
@@ -1587,6 +1599,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             PRAGMA foreign_keys=OFF;
+
+            DROP TABLE IF EXISTS persons_new;
 
             CREATE TABLE persons_new (
                 id                TEXT NOT NULL PRIMARY KEY,
@@ -1772,6 +1786,79 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 """;
             idxCmd.ExecuteNonQuery();
         }
+    }
+
+    /// <summary>
+    /// Migration M-065: Stage 3 Universe Enrichment tables.
+    ///
+    /// Creates three tables for the formalized asset type system, character portraits,
+    /// and series completeness tracking.
+    /// <list type="bullet">
+    ///   <item><c>entity_assets</c> — typed image storage for any entity (Work, Person, Universe, FictionalEntity).</item>
+    ///   <item><c>character_portraits</c> — actor-in-costume or animated character images per performer-character pair.</item>
+    ///   <item><c>series_members</c> — tracks all works in a series for completeness scoring.</item>
+    /// </list>
+    /// Idempotent: uses CREATE TABLE IF NOT EXISTS.
+    /// </summary>
+    private static void MigrateStage3Tables(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            -- ── entity_assets ───────────────────────────────────────────────
+            CREATE TABLE IF NOT EXISTS entity_assets (
+                id               TEXT PRIMARY KEY,
+                entity_id        TEXT NOT NULL,
+                entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
+                asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','Backdrop')),
+                image_url        TEXT,
+                local_image_path TEXT,
+                source_provider  TEXT,
+                is_preferred     INTEGER NOT NULL DEFAULT 0,
+                is_user_override INTEGER NOT NULL DEFAULT 0,
+                created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at       TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_entity_assets_entity
+                ON entity_assets(entity_id, entity_type);
+            CREATE INDEX IF NOT EXISTS idx_entity_assets_type
+                ON entity_assets(entity_id, asset_type);
+
+            -- ── character_portraits ─────────────────────────────────────────
+            CREATE TABLE IF NOT EXISTS character_portraits (
+                id                  TEXT PRIMARY KEY,
+                person_id           TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                fictional_entity_id TEXT NOT NULL REFERENCES fictional_entities(id) ON DELETE CASCADE,
+                image_url           TEXT,
+                local_image_path    TEXT,
+                source_provider     TEXT,
+                is_default          INTEGER NOT NULL DEFAULT 0,
+                created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at          TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_character_portraits_character
+                ON character_portraits(fictional_entity_id);
+            CREATE INDEX IF NOT EXISTS idx_character_portraits_person
+                ON character_portraits(person_id);
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_character_portraits_pair
+                ON character_portraits(person_id, fictional_entity_id);
+
+            -- ── series_members ──────────────────────────────────────────────
+            CREATE TABLE IF NOT EXISTS series_members (
+                series_qid TEXT NOT NULL,
+                work_qid   TEXT NOT NULL,
+                work_label TEXT,
+                position   TEXT,
+                owned      INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                PRIMARY KEY (series_qid, work_qid)
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_series_members_series
+                ON series_members(series_qid);
+            """;
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>

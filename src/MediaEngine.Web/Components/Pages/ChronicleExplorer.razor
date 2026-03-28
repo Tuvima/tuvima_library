@@ -50,8 +50,6 @@
     @* ── Mode tabs ── *@
     <MudTabs @bind-ActivePanelIndex="_activeMode" Class="mb-3"
              ApplyEffectsToContainer="false"
-             PanelClass="pa-0"
-             TabPanelClass="pa-0"
              SliderColor="Color.Warning"
              Rounded="false">
         <MudTabPanel Text="Web" Icon="@Icons.Material.Filled.Hub"
@@ -103,7 +101,7 @@
                 </MudStack>
 
                 <MudSelect T="string" Value="@_layout" ValueChanged="OnLayoutChanged"
-                           Label="Layout" Variant="Variant.Outlined" Dense="true"
+                           Label="Layout" Variant="Variant.Outlined" Margin="Margin.Dense"
                            Style="max-width: 160px;">
                     <MudSelectItem T="string" Value="@("cose")">Force-directed</MudSelectItem>
                     <MudSelectItem T="string" Value="@("concentric")">Concentric</MudSelectItem>

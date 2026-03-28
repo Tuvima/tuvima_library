@@ -324,6 +324,51 @@ public sealed class HydrationSettings
     [JsonPropertyName("era_actor_resolution")]
     public bool EraActorResolution { get; set; } = true;
 
+    // ── Stage 3: Universe Enrichment (Background Service) ──────────────
+
+    /// <summary>
+    /// When <c>true</c>, the Universe Enrichment background service runs on
+    /// its cron schedule. When <c>false</c>, Stage 3 is skipped entirely.
+    /// </summary>
+    [JsonPropertyName("stage3_enabled")]
+    public bool Stage3Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Cron expression for the Universe Enrichment sweep.
+    /// Default: <c>"0 3 * * *"</c> (3:00 AM daily).
+    /// </summary>
+    [JsonPropertyName("stage3_schedule_cron")]
+    public string Stage3ScheduleCron { get; set; } = "0 3 * * *";
+
+    /// <summary>
+    /// Milliseconds to delay between each work during a Stage 3 sweep.
+    /// Prevents overwhelming external APIs (Wikidata, Fanart.tv).
+    /// </summary>
+    [JsonPropertyName("stage3_rate_limit_ms")]
+    public int Stage3RateLimitMs { get; set; } = 3000;
+
+    /// <summary>
+    /// Maximum number of works to process in a single Stage 3 sweep.
+    /// Limits processing duration per cycle.
+    /// </summary>
+    [JsonPropertyName("stage3_max_items_per_sweep")]
+    public int Stage3MaxItemsPerSweep { get; set; } = 50;
+
+    /// <summary>
+    /// Number of days after which a previously enriched work is considered stale
+    /// and eligible for re-enrichment during a Stage 3 sweep.
+    /// </summary>
+    [JsonPropertyName("stage3_refresh_days")]
+    public int Stage3RefreshDays { get; set; } = 30;
+
+    /// <summary>
+    /// Maximum depth for recursive fictional entity discovery during Stage 3.
+    /// Overrides <see cref="FictionalEntityEnrichmentDepth"/> within the
+    /// background service context.
+    /// </summary>
+    [JsonPropertyName("stage3_max_depth")]
+    public int Stage3MaxDepth { get; set; } = 2;
+
     // ── Backward compatibility ──────────────────────────────────────────
 
     /// <summary>

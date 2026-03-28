@@ -935,6 +935,74 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
+    /// Fetch Wikidata properties for a fictional entity (Character, Location, Organization).
+    /// Used by Stage 3 Universe Enrichment — the entity QID is already known,
+    /// so no reconciliation is needed, only data extension.
+    /// </summary>
+    /// <param name="qid">The fictional entity's Wikidata QID (e.g. "Q937618" for Paul Atreides).</param>
+    /// <param name="entitySubType">
+    /// One of <c>"Character"</c>, <c>"Location"</c>, or <c>"Organization"</c>.
+    /// Determines which property group to fetch.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Claims extracted from the entity's Wikidata properties.</returns>
+    public async Task<IReadOnlyList<ProviderClaim>> LookupFictionalEntityAsync(
+        string qid, string entitySubType, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(qid);
+        ArgumentException.ThrowIfNullOrWhiteSpace(entitySubType);
+
+        if (_reconciler is null)
+        {
+            _logger.LogWarning("WikidataReconciler not available — skipping fictional entity lookup for {Qid}", qid);
+            return [];
+        }
+
+        // Select property group based on entity sub-type.
+        var propGroup = entitySubType switch
+        {
+            "Character" => _config.DataExtension.CharacterProperties,
+            "Location" => _config.DataExtension.LocationProperties,
+            "Organization" => _config.DataExtension.OrganizationProperties,
+            _ => null,
+        };
+
+        if (propGroup is null || propGroup.Core.Count == 0)
+        {
+            _logger.LogDebug("No properties configured for entity sub-type {SubType} — skipping {Qid}", entitySubType, qid);
+            return [];
+        }
+
+        // Build property list (core + bridges if any).
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+        var props = new List<string>(propGroup.Core);
+        if (propGroup.Bridges.Count > 0)
+            props.AddRange(propGroup.Bridges);
+        props.Add($"L{language}");  // Label in metadata language
+        props.Add($"D{language}");  // Description in metadata language
+
+        // Fetch properties via wbgetentities.
+        var extResult = await ExtendAsync([qid], props, ct);
+
+        if (!extResult.TryGetValue(qid, out var entityProps) || entityProps.Count == 0)
+        {
+            _logger.LogDebug("No properties returned for fictional entity {Qid} ({SubType})", qid, entitySubType);
+            return [];
+        }
+
+        // Convert to provider claims using existing helper.
+        var claims = ExtensionToClaims(
+            qid,
+            entityProps,
+            _config.DataExtension.PropertyLabels,
+            isWork: false,
+            castMemberLimit: 0).ToList();
+
+        _logger.LogDebug("Fictional entity {Qid} ({SubType}): {Count} claims extracted", qid, entitySubType, claims.Count);
+        return claims;
+    }
+
+    /// <summary>
     /// Resolves and downloads a person headshot from Wikimedia Commons to a local folder.
     /// The filename stored in Wikidata P18 is appended to the Commons Special:FilePath URL.
     /// </summary>

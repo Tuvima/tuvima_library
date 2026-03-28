@@ -42,6 +42,7 @@ public static class SettingsEndpoints
             ["google_books"]          = "Google Books",
             ["tmdb"]                  = "TMDB",
             ["comic_vine"]            = "Comic Vine",
+            ["metron"]                = "Metron",
             ["musicbrainz"]           = "MusicBrainz",
         };
 
@@ -56,6 +57,7 @@ public static class SettingsEndpoints
             ["google_books"]          = "google_books",
             ["tmdb"]                  = "tmdb",
             ["comic_vine"]            = "comic_vine",
+            ["metron"]                = "metron",
             ["musicbrainz"]           = "musicbrainz",
         };
 
@@ -434,22 +436,30 @@ public static class SettingsEndpoints
             if (adapter is null)
                 return Results.NotFound(new { error = $"No adapter registered for '{name}'. AdapterType='{providerConfig.AdapterType}', DI providers={string.Join(", ", providers.Select(p => p.Name))}." });
 
-            // Build a test request with "The Fellowship of the Ring" as the sample title.
+            // Build a test request with domain-appropriate test data.
             var baseUrl = GetBaseUrlForProvider(providerConfig);
             var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;
-            // Use domain-appropriate test data: audiobook providers need an audiobook
-            // ASIN; ebook providers use the ebook ASIN. B0099ELYMS is the Audible
-            // ASIN for The Fellowship of the Ring (Rob Inglis narration).
-            var isAudiobook = providerConfig.Domain == ProviderDomain.Audiobook;
+
+            // Select test data based on provider domain so the CanHandle filter passes.
+            var (testMediaType, testTitle, testAuthor, testIsbn, testAsin) = providerConfig.Domain switch
+            {
+                ProviderDomain.Audiobook => (MediaType.Audiobooks, "The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", "B0099ELYMS"),
+                ProviderDomain.Video     => (MediaType.Movies, "The Lord of the Rings: The Fellowship of the Ring", "Peter Jackson", (string?)null, (string?)null),
+                ProviderDomain.Comic     => (MediaType.Comics, "Batman", "DC Comics", (string?)null, (string?)null),
+                ProviderDomain.Music     => (MediaType.Music, "Abbey Road", "The Beatles", (string?)null, (string?)null),
+                ProviderDomain.Podcasts  => (MediaType.Podcasts, "Serial", "", (string?)null, (string?)null),
+                _                        => (MediaType.Books, "The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", "B007978NPG"),
+            };
+
             var testRequest = new ProviderLookupRequest
             {
                 EntityId    = Guid.NewGuid(),
                 EntityType  = EntityType.Work,
-                MediaType   = isAudiobook ? MediaType.Audiobooks : MediaType.Books,
-                Title       = "The Fellowship of the Ring",
-                Author      = "J.R.R. Tolkien",
-                Isbn        = "9780547928210",
-                Asin        = isAudiobook ? "B0099ELYMS" : "B007978NPG",
+                MediaType   = testMediaType,
+                Title       = testTitle,
+                Author      = testAuthor,
+                Isbn        = testIsbn,
+                Asin        = testAsin,
                 BaseUrl     = baseUrl ?? string.Empty,
                 SparqlBaseUrl = sparqlUrl,
             };
@@ -1072,7 +1082,10 @@ public static class SettingsEndpoints
             AvailableFields  = provider.AvailableFields,
             MediaTypes       = mediaTypes,
             RequiresApiKey   = provider.RequiresApiKey,
-            HasApiKey        = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey),
+            HasApiKey        = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey)
+                               || (string.Equals(provider.HttpClient?.ApiKeyDelivery, "basic", StringComparison.OrdinalIgnoreCase)
+                                   && !string.IsNullOrWhiteSpace(provider.HttpClient?.Username)
+                                   && !string.IsNullOrWhiteSpace(provider.HttpClient?.Password)),
             ApiKeyDelivery   = provider.HttpClient?.ApiKeyDelivery,
             ApiKeyParamName  = provider.HttpClient?.ApiKeyParamName,
             TimeoutSeconds   = provider.HttpClient?.TimeoutSeconds ?? 10,

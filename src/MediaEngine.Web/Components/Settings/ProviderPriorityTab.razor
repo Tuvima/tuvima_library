@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject IEngineApiClient ApiClient
 
 @* Providers — full-width priority chain design.
    Icon-above-label category selector. Provider cards flow responsively.
@@ -485,6 +486,35 @@
                 </div>
             </div>
 
+            @* ── Save bar (inside drawer) ── *@
+            <div style="padding: 20px 24px 0;">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           FullWidth="true"
+                           Size="Size.Small"
+                           OnClick="SaveDrawerAsync"
+                           Disabled="@_drawerSaving"
+                           Style="border-radius: 8px; margin-bottom: 12px;">
+                    @if (_drawerSaving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                        @:Saving…
+                    }
+                    else
+                    {
+                        @:Save Provider Settings
+                    }
+                </MudButton>
+                @if (!string.IsNullOrEmpty(_drawerSaveMessage))
+                {
+                    <MudText Typo="Typo.caption"
+                             Style="@($"color: {(_drawerSaveSuccess ? "#4caf50" : "#f44336")}; display: block; margin-bottom: 8px;")">
+                        @_drawerSaveMessage
+                    </MudText>
+                }
+            </div>
+
             @* ── Danger zone ── *@
             <div style="margin-top: auto; padding-top: 20px; border-top: 1px solid rgba(244,67,54,0.2);">
                 <MudButton Variant="Variant.Outlined"
@@ -664,6 +694,11 @@
 
     private bool _saving = false;
 
+    // Drawer save state
+    private bool   _drawerSaving       = false;
+    private string _drawerSaveMessage  = "";
+    private bool   _drawerSaveSuccess  = false;
+
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override void OnInitialized() => ResetToDefaults();
@@ -698,10 +733,11 @@
 
     private void OpenDrawer(string mediaType, int idx)
     {
-        _drawerMediaType  = mediaType;
-        _drawerIndex      = idx;
-        _drawerAssignment = GetChain(mediaType)[idx];
-        _drawerOpen       = true;
+        _drawerMediaType   = mediaType;
+        _drawerIndex       = idx;
+        _drawerAssignment  = GetChain(mediaType)[idx];
+        _drawerOpen        = true;
+        _drawerSaveMessage = "";
     }
 
     private void CloseDrawer()
@@ -719,8 +755,55 @@
 
     private async Task TestConnectionAsync()
     {
-        // Simulated connection test — no Engine API yet.
-        await Task.Delay(600);
+        if (_drawerAssignment is null) return;
+        // Save first so the Engine has the latest API key, then test.
+        await SaveDrawerAsync();
+        // TODO: call POST /settings/providers/{name}/test when UI feedback is designed.
+    }
+
+    private async Task SaveDrawerAsync()
+    {
+        if (_drawerAssignment is null) return;
+        _drawerSaving      = true;
+        _drawerSaveMessage = "";
+        try
+        {
+            var providerName = _drawerAssignment.Name.Replace(" ", "_").ToLowerInvariant();
+            var info = GetProviderInfo(_drawerAssignment.Name);
+            string? apiKeyValue = null;
+            if (info?.RequiresKey == true)
+            {
+                if (info.AuthType == "basic")
+                {
+                    // Metron uses basic auth — send as "username:password"
+                    apiKeyValue = $"{_drawerAssignment.Username}:{_drawerAssignment.Password}";
+                }
+                else
+                {
+                    apiKeyValue = _drawerAssignment.ApiKey;
+                }
+            }
+
+            var config = new MediaEngine.Web.Models.ViewDTOs.ProviderConfigUpdateDto
+            {
+                Enabled         = _drawerAssignment.Enabled,
+                TimeoutSeconds  = _drawerAssignment.TimeoutMs / 1000,
+                ApiKey          = apiKeyValue,
+            };
+
+            var success = await ApiClient.SaveProviderConfigAsync(providerName, config);
+            _drawerSaveSuccess = success;
+            _drawerSaveMessage = success ? "Saved successfully" : "Failed to save — check Engine connection";
+        }
+        catch (Exception ex)
+        {
+            _drawerSaveSuccess = false;
+            _drawerSaveMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _drawerSaving = false;
+        }
     }
 
     // ── Add dialog ───────────────────────────────────────────────────────────────
@@ -769,9 +852,58 @@
     private async Task SaveAsync()
     {
         _saving = true;
-        // No Engine API yet — simulate a brief save operation.
-        await Task.Delay(400);
-        _saving = false;
+        try
+        {
+            // Save per-provider configs (enabled, API key, timeout) for each provider in all chains.
+            var savedProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (_, chain) in _assignments)
+            {
+                foreach (var assignment in chain)
+                {
+                    if (!savedProviders.Add(assignment.Name)) continue;
+                    var providerName = assignment.Name.Replace(" ", "_").ToLowerInvariant();
+                    var info = GetProviderInfo(assignment.Name);
+                    string? apiKeyValue = null;
+                    if (info?.RequiresKey == true)
+                    {
+                        apiKeyValue = info.AuthType == "basic"
+                            ? $"{assignment.Username}:{assignment.Password}"
+                            : assignment.ApiKey;
+                    }
+
+                    var config = new MediaEngine.Web.Models.ViewDTOs.ProviderConfigUpdateDto
+                    {
+                        Enabled        = assignment.Enabled,
+                        TimeoutSeconds = assignment.TimeoutMs / 1000,
+                        ApiKey         = apiKeyValue,
+                    };
+                    await ApiClient.SaveProviderConfigAsync(providerName, config);
+                }
+            }
+
+            // Save priority order per media type via slots.
+            var slots = _assignments.ToDictionary(
+                kv => kv.Key.ToLowerInvariant(),
+                kv =>
+                {
+                    var names = kv.Value.Select(a => a.Name.Replace(" ", "_").ToLowerInvariant()).ToList();
+                    return new MediaEngine.Web.Models.ViewDTOs.ProviderSlotDto
+                    {
+                        Primary   = names.Count > 0 ? names[0] : null,
+                        Secondary = names.Count > 1 ? names[1] : null,
+                        Tertiary  = names.Count > 2 ? names[2] : null,
+                    };
+                });
+            await ApiClient.UpdateProviderSlotsAsync(slots);
+        }
+        catch
+        {
+            // Silently degrade — toast system not yet integrated.
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     // ── Display helpers ──────────────────────────────────────────────────────────

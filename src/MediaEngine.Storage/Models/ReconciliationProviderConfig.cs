@@ -41,6 +41,9 @@ public sealed class DataExtensionSettings
     [JsonPropertyName("work_properties")] public DataExtensionPropertyGroup WorkProperties { get; set; } = new();
     [JsonPropertyName("person_properties")] public DataExtensionPropertyGroup PersonProperties { get; set; } = new();
     [JsonPropertyName("audiobook_edition_properties")] public List<string> AudiobookEditionProperties { get; set; } = [];
+    [JsonPropertyName("character_properties")] public DataExtensionPropertyGroup CharacterProperties { get; set; } = new();
+    [JsonPropertyName("location_properties")] public DataExtensionPropertyGroup LocationProperties { get; set; } = new();
+    [JsonPropertyName("organization_properties")] public DataExtensionPropertyGroup OrganizationProperties { get; set; } = new();
     [JsonPropertyName("property_labels")] public Dictionary<string, string> PropertyLabels { get; set; } = new();
 }
 

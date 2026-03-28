@@ -12,7 +12,7 @@
         <MudSwitch T="bool" @bind-Value="_multiActorOnly" Label="Multi-actor only"
                    Color="Color.Warning" />
         <MudTextField T="string" @bind-Value="_search" Placeholder="Search characters..."
-                      Variant="Variant.Outlined" Dense="true" Style="max-width: 200px;"
+                      Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 200px;"
                       Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Search"
                       Immediate="true" />
@@ -68,7 +68,7 @@
                                 <div class="performer-chip">
                                     @if (!string.IsNullOrWhiteSpace(performer.HeadshotUrl))
                                     {
-                                        <MudAvatar Image="@performer.HeadshotUrl" Size="Size.Small" />
+                                        <MudAvatar Size="Size.Small"><img src="@performer.HeadshotUrl" alt="@performer.Name" style="width:100%;height:100%;object-fit:cover;" /></MudAvatar>
                                     }
                                     else
                                     {

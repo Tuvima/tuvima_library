@@ -42,5 +42,13 @@
   "preserve_html_tags": ["b", "i", "em", "strong", "p", "br"],
   "wikidata_batch_size": 50,
   "local_match_enabled": true,
-  "local_match_fuzzy_threshold": 0.95
+  "local_match_fuzzy_threshold": 0.95,
+
+  "stage3_enabled": true,
+  "stage3_schedule_cron": "0 3 * * *",
+  "stage3_rate_limit_ms": 2000,
+  "stage3_max_items_per_sweep": 50,
+  "stage3_refresh_days": 30,
+  "stage3_media_types_for_images": ["Movies", "TV", "Music"],
+  "stage3_max_depth": 2
 }

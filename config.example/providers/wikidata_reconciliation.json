@@ -50,6 +50,18 @@
       "pen_names": ["P742", "P527", "P1773"]
     },
     "audiobook_edition_properties": ["P175", "P2047", "P5749", "P123"],
+    "character_properties": {
+      "core": ["P31", "P18", "P21", "P22", "P25", "P26", "P40", "P3373", "P451", "P1344", "P1066", "P463", "P945", "P551", "P69", "P131", "P361", "P170", "P39", "P607", "P175", "P3342", "P1416"],
+      "bridges": []
+    },
+    "location_properties": {
+      "core": ["P31", "P18", "P131", "P527", "P361", "P17", "P625"],
+      "bridges": []
+    },
+    "organization_properties": {
+      "core": ["P31", "P18", "P154", "P169", "P749", "P527", "P361", "P463", "P159"],
+      "bridges": []
+    },
     "property_labels": {
       "P31": "instance_of",
       "P50": "author",
@@ -94,7 +106,36 @@
       "P58": "screenwriter",
       "P86": "composer",
       "P110": "illustrator",
-      "P161": "cast_member"
+      "P161": "cast_member",
+      "P453": "character_role",
+      "P144": "based_on",
+      "P941": "inspired_by",
+      "P4969": "derivative_work",
+      "P21": "sex_or_gender",
+      "P22": "father",
+      "P25": "mother",
+      "P26": "spouse",
+      "P40": "child",
+      "P3373": "sibling",
+      "P451": "partner",
+      "P1344": "opponent",
+      "P1066": "student_of",
+      "P463": "member_of",
+      "P945": "allegiance",
+      "P551": "residence",
+      "P69": "educated_at",
+      "P361": "part_of",
+      "P170": "creator",
+      "P39": "position_held",
+      "P607": "conflict",
+      "P3342": "significant_person",
+      "P1416": "affiliation",
+      "P154": "logo_image",
+      "P169": "head_of",
+      "P749": "parent_organization",
+      "P159": "headquarters_location",
+      "P17": "country",
+      "P625": "coordinate_location"
     }
   }
 }

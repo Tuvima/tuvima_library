@@ -1,0 +1,107 @@
+{
+  "name": "metron",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 0.8,
+  "domain": "Comic",
+  "icon": "images/providers/metron.svg",
+  "capability_tags": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "comic_vine_id", "gcd_id", "isbn"],
+  "available_fields": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "issue_number", "comic_vine_id", "gcd_id", "isbn", "upc"],
+  "field_weights": {
+    "title": 0.85,
+    "author": 0.8,
+    "cover": 0.85,
+    "year": 0.85,
+    "description": 0.8,
+    "publisher": 0.85,
+    "genre": 0.7,
+    "series": 0.9,
+    "series_position": 0.9,
+    "issue_number": 0.95,
+    "comic_vine_id": 0.95,
+    "gcd_id": 0.95,
+    "isbn": 0.95,
+    "upc": 0.9
+  },
+  "endpoints": {
+    "api": "https://metron.cloud/api"
+  },
+  "throttle_ms": 500,
+  "max_concurrency": 1,
+  "hydration_stages": [1],
+  "cache_ttl_hours": 168,
+
+  "adapter_type": "config_driven",
+  "provider_id": "b8000008-0000-4000-8000-000000000009",
+  "display_name": "Metron",
+  "requires_api_key": true,
+  "language_strategy": "source",
+
+  "http_client": {
+    "timeout_seconds": 15,
+    "user_agent": "Tuvima Library/1.0 (https://github.com/shyfaruqi/tuvima-library)",
+    "api_key_delivery": "basic",
+    "username": "",
+    "password": ""
+  },
+
+  "can_handle": {
+    "media_types": ["Comics"],
+    "entity_types": ["Work", "MediaAsset"]
+  },
+
+  "preferred_bridge_ids": {
+    "Comics": ["comic_vine_id", "gcd_id", "isbn"]
+  },
+
+  "search_strategies": [
+    {
+      "name": "isbn_lookup",
+      "priority": 0,
+      "required_fields": ["isbn"],
+      "url_template": "{base_url}/issue/?isbn={isbn}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": true,
+      "media_types": ["Comics"]
+    },
+    {
+      "name": "issue_search",
+      "priority": 1,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/issue/?name={title}&limit={limit}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "fetch_limit": 5,
+      "max_results": 10
+    },
+    {
+      "name": "series_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/series/?name={title}&limit={limit}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "fetch_limit": 5,
+      "max_results": 10
+    }
+  ],
+
+  "field_mappings": [
+    { "claim_key": "title",           "json_path": "series.name",              "confidence": 0.85 },
+    { "claim_key": "issue_number",    "json_path": "number",                   "confidence": 0.95 },
+    { "claim_key": "description",     "json_path": "desc",                     "confidence": 0.8,  "transform": "strip_html" },
+    { "claim_key": "cover",           "json_path": "image",                    "confidence": 0.85 },
+    { "claim_key": "year",            "json_path": "cover_date",               "confidence": 0.85, "transform": "first_n_chars", "transform_args": "4" },
+    { "claim_key": "publisher",       "json_path": "publisher.name",           "confidence": 0.85 },
+    { "claim_key": "series",          "json_path": "series.name",              "confidence": 0.9 },
+    { "claim_key": "series_position", "json_path": "number",                   "confidence": 0.9 },
+    { "claim_key": "author",          "json_path": "credits[*].creator",       "confidence": 0.8,  "transform": "array_join" },
+    { "claim_key": "comic_vine_id",   "json_path": "cv_id",                    "confidence": 0.95, "transform": "to_string" },
+    { "claim_key": "gcd_id",          "json_path": "gcd_id",                   "confidence": 0.95, "transform": "to_string" },
+    { "claim_key": "isbn",            "json_path": "isbn",                     "confidence": 0.95 },
+    { "claim_key": "upc",             "json_path": "upc",                      "confidence": 0.9 }
+  ]
+}

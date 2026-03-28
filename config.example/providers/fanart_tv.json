@@ -1,0 +1,71 @@
+{
+  "name": "Fanart.tv",
+  "provider_id": "bb00000b-0000-4000-8000-000000000012",
+  "adapter_type": "config_driven",
+  "enabled": true,
+  "hydration_stages": [3],
+  "requires_api_key": true,
+  "api_key_delivery": "query",
+  "api_key_param_name": "api_key",
+
+  "can_handle": {
+    "media_types": ["Movies", "TV", "Music"]
+  },
+
+  "throttle_ms": 1000,
+  "cache_ttl_hours": 336,
+  "max_concurrency": 1,
+
+  "base_url": "https://webservice.fanart.tv/v3",
+
+  "search_strategies": [
+    {
+      "name": "movie_lookup",
+      "url_template": "{base_url}/movies/{tmdb_id}?api_key={api_key}",
+      "requires_field": "tmdb_id",
+      "method": "GET",
+      "response_format": "json"
+    },
+    {
+      "name": "tv_lookup",
+      "url_template": "{base_url}/tv/{tvdb_id}?api_key={api_key}",
+      "requires_field": "tvdb_id",
+      "method": "GET",
+      "response_format": "json"
+    },
+    {
+      "name": "music_lookup",
+      "url_template": "{base_url}/music/{musicbrainz_id}?api_key={api_key}",
+      "requires_field": "musicbrainz_id",
+      "method": "GET",
+      "response_format": "json"
+    }
+  ],
+
+  "field_mappings": {
+    "Movies": {
+      "movieposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
+      "moviebackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },
+      "hdmovielogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
+      "moviebanner": { "claim_key": "banner", "asset_type": "Banner", "take_first": true }
+    },
+    "TV": {
+      "tvposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
+      "showbackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },
+      "hdtvlogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
+      "tvbanner": { "claim_key": "banner", "asset_type": "Banner", "take_first": true }
+    },
+    "Music": {
+      "albumcover": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
+      "artistbackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },
+      "musiclogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true }
+    }
+  },
+
+  "character_art_fields": {
+    "Movies": "characterart",
+    "TV": "characterart"
+  },
+
+  "language_strategy": "source"
+}

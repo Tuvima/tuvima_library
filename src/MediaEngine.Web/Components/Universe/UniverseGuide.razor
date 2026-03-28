@@ -5,7 +5,7 @@
 <div class="universe-guide">
     @* Search + filter bar *@
     <MudTextField T="string" @bind-Value="_search" Placeholder="Search entities..."
-                  Variant="Variant.Outlined" Dense="true" Class="mb-3"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-3"
                   Adornment="Adornment.Start"
                   AdornmentIcon="@Icons.Material.Filled.Search"
                   Immediate="true" />
@@ -55,7 +55,7 @@
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         @if (!string.IsNullOrWhiteSpace(entity.Image))
                         {
-                            <MudAvatar Image="@entity.Image" Size="Size.Medium" />
+                            <MudAvatar Size="Size.Medium"><img src="@entity.Image" alt="@entity.Label" style="width:100%;height:100%;object-fit:cover;" /></MudAvatar>
                         }
                         else
                         {

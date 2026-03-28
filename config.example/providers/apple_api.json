@@ -26,7 +26,7 @@
   "display_name": "Apple API",
   "http_client": {
     "timeout_seconds": 10,
-    "user_agent": null,
+    "user_agent": "Tuvima Library/1.0 (https://github.com/shyfaruqi/tuvima-library)",
     "api_key": null,
     "api_key_delivery": null,
     "api_key_param_name": null

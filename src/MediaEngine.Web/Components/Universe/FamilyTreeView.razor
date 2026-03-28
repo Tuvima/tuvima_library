@@ -11,7 +11,7 @@
     @* Character selector *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
         <MudSelect T="string" Value="@_selectedCharQid" ValueChanged="OnCharacterSelected"
-                   Label="Character" Variant="Variant.Outlined" Dense="true"
+                   Label="Character" Variant="Variant.Outlined" Margin="Margin.Dense"
                    Style="flex: 1; min-width: 200px;"
                    Placeholder="Select a character...">
             @foreach (var node in Characters)
@@ -20,7 +20,7 @@
             }
         </MudSelect>
         <MudNumericField T="int" @bind-Value="_generations" Label="Generations"
-                         Min="1" Max="5" Style="max-width: 100px;" Dense="true"
+                         Min="1" Max="5" Style="max-width: 100px;" Margin="Margin.Dense"
                          Variant="Variant.Outlined" />
         <MudButton Variant="Variant.Filled" Color="Color.Warning"
                    OnClick="LoadTree" Disabled="@(string.IsNullOrEmpty(_selectedCharQid) || _loading)"
@@ -55,7 +55,7 @@
                             <div class="family-node @(member.Qid == _selectedCharQid ? "family-node-center" : "")">
                                 @if (!string.IsNullOrWhiteSpace(member.Image))
                                 {
-                                    <MudAvatar Image="@member.Image" Size="Size.Medium" />
+                                    <MudAvatar Size="Size.Medium"><img src="@member.Image" alt="@member.Label" style="width:100%;height:100%;object-fit:cover;" /></MudAvatar>
                                 }
                                 else
                                 {

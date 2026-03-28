@@ -54,7 +54,14 @@ else
                             }
                         </td>
                         <td class="vut-td vut-td--center vut-col-people">
-                            <span class="vut-count" style="color: rgba(255,255,255,0.4);">—</span>
+                            @if (PeopleCount is not null && PeopleCount.TryGetValue(u.Id, out var pc) && pc > 0)
+                            {
+                                <span class="vut-count">@pc</span>
+                            }
+                            else
+                            {
+                                <span class="vut-count" style="color: rgba(255,255,255,0.4);">—</span>
+                            }
                         </td>
                     </tr>
                 }
@@ -75,6 +82,8 @@ else
     [Parameter] public List<HubViewModel> Universes { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
+    /// <summary>Optional map of Hub ID → people count. When null, the People column shows "—".</summary>
+    [Parameter] public Dictionary<Guid, int>? PeopleCount { get; set; }
 }
 
 <style>

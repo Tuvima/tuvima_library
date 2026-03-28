@@ -471,8 +471,11 @@ builder.Services.AddSingleton<IRecursiveFictionalEntityService, RecursiveFiction
 builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopulationService>();
 builder.Services.AddSingleton<IUniverseGraphWriterService,      UniverseGraphWriterService>();
 builder.Services.AddSingleton<IUniverseGraphQueryService,       UniverseGraphQueryService>();
+builder.Services.AddSingleton<ICharacterPortraitRepository,      CharacterPortraitRepository>();
+builder.Services.AddSingleton<IEntityAssetRepository,            EntityAssetRepository>();
 builder.Services.AddSingleton<ILoreDeltaService,                LoreDeltaService>();
 builder.Services.AddSingleton<IEraActorResolverService,         EraActorResolverService>();
+builder.Services.AddSingleton<IImageEnrichmentService,           MediaEngine.Providers.Services.ImageEnrichmentService>();
 
 // ── Hydration pipeline (three-stage orchestrator) + review queue ─────────────
 builder.Services.AddSingleton<IOrganizationGate,             OrganizationGate>();
@@ -553,6 +556,7 @@ builder.Services.AddHostedService<MediaEngine.Api.Services.VibeBatchService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.SeriesAlignmentBackgroundService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.TasteProfileBackgroundService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.DescriptionIntelligenceBatchService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.UniverseEnrichmentService>();
 
 // AI inference and feature services.
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
@@ -671,6 +675,7 @@ app.MapPersonEndpoints();
 app.MapProgressEndpoints();
 app.MapActivityEndpoints();
 app.MapUniverseGraphEndpoints();
+app.MapCharacterEndpoints();
 app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
 app.MapRegistryEndpoints();

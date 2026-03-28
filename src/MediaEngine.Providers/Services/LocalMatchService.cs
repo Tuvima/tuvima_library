@@ -50,6 +50,7 @@ public sealed class LocalMatchService : ILocalMatchService
         "imdb_id",
         "musicbrainz_id",
         "comic_vine_id",
+        "gcd_id",
     ];
 
     public LocalMatchService(

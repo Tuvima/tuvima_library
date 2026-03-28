@@ -1165,7 +1165,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 "asin", "apple_books_id",
                 "tmdb_id", "imdb_id",
                 "audible_id", "goodreads_id",
-                "musicbrainz_id", "comic_vine_id",
+                "musicbrainz_id", "comic_vine_id", "gcd_id",
             };
 
             foreach (var claim in rawClaims)
@@ -2042,7 +2042,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         {
             "isbn", "asin", "tmdb_id", "imdb_id", "goodreads_id",
             "musicbrainz_id", "apple_books_id", "audible_asin", "open_library_id",
-            "comic_vine_id", "apple_podcasts_id",
+            "comic_vine_id", "gcd_id", "apple_podcasts_id",
         })
         {
             if (!string.IsNullOrWhiteSpace(h.GetValueOrDefault(key))) return true;
@@ -2146,6 +2146,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             "goodreads_id" => true,
             "musicbrainz_id" => true,
             "comic_vine_id" => true,
+            "gcd_id" => true,
             "apple_podcasts_id" => true,
             "apple_music_id" => true,
             _ => false,

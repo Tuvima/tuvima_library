@@ -90,4 +90,15 @@ public static class RelationshipType
 
     /// <summary>P1416 — Affiliation with a group or organization.</summary>
     public const string Affiliation = "affiliation";
+
+    // ── Adaptation ─────────────────────────────────────────────────────
+
+    /// <summary>P144 — Work is based on another work (adaptation source).</summary>
+    public const string BasedOn = "based_on";
+
+    /// <summary>P4969 — Work is a derivative of another work.</summary>
+    public const string DerivativeWork = "derivative_work";
+
+    /// <summary>P941 — Work is inspired by another work or entity.</summary>
+    public const string InspiredBy = "inspired_by";
 }
