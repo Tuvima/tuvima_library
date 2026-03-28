@@ -9,6 +9,7 @@ using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using MediaEngine.Api.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Options;
 
@@ -75,9 +76,13 @@ public static class IntegrationTestEndpoints
         public string SeedStatus { get; set; } = "";
         public int TotalFilesSeeded { get; set; }
         public TimeSpan IngestionDuration { get; set; }
+        /// <summary>Stage level tested: 1, 12, or 123.</summary>
+        public int StagesLevel { get; set; } = 12;
         public List<MediaTypeResult> MediaTypeResults { get; set; } = [];
         public List<ManualSearchResult> ManualSearchResults { get; set; } = [];
         public List<UniverseResult> UniverseResults { get; set; } = [];
+        public List<VaultCheckResult> VaultChecks { get; set; } = [];
+        public List<StageGatingResult> StageGatingResults { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
         public List<string> FixesApplied { get; set; } = [];
         public int TotalItems { get; set; }
@@ -85,6 +90,35 @@ public static class IntegrationTestEndpoints
         public int TotalNeedsReview { get; set; }
         public int TotalFailed { get; set; }
         public bool OverallPass => IssuesFound.Count == 0;
+    }
+
+    /// <summary>Per-item Vault display validation result.</summary>
+    private sealed class VaultCheckResult
+    {
+        public string Title { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        public Guid EntityId { get; set; }
+        public bool HasCoverArt { get; set; }
+        public bool HasTitle { get; set; }
+        public bool HasCreator { get; set; }
+        public bool HasStatus { get; set; }
+        public bool HasRetailMatch { get; set; }
+        public bool HasWikidataQid { get; set; }
+        public string? Status { get; set; }
+        public string? CoverUrl { get; set; }
+        public string? Creator { get; set; }
+        public string? RetailMatch { get; set; }
+        public string? WikidataQid { get; set; }
+        public bool Pass => HasTitle && HasCreator && HasStatus && HasRetailMatch;
+    }
+
+    /// <summary>Stage gating validation result.</summary>
+    private sealed class StageGatingResult
+    {
+        public string Title { get; set; } = "";
+        public string Check { get; set; } = "";
+        public bool Pass { get; set; }
+        public string? Detail { get; set; }
     }
 
     private sealed class MediaTypeResult
@@ -147,6 +181,7 @@ public static class IntegrationTestEndpoints
     // ── POST /dev/integration-test ────────────────────────────────────────
 
     private static async Task<IResult> RunIntegrationTestAsync(
+        HttpContext context,
         IDatabaseConnection db,
         IOptions<IngestionOptions> options,
         IConfigurationLoader configLoader,
@@ -161,8 +196,24 @@ public static class IntegrationTestEndpoints
         var report = new TestReport();
         var sw = Stopwatch.StartNew();
 
+        // ── Parse optional stages parameter ─────────────────────────────
+        // 1 = Stage 1 only (retail), 12 = Stage 1+2 (default), 123 = full pipeline
+        int stages = 12;
+        if (context.Request.Query.TryGetValue("stages", out var stagesParam) && int.TryParse(stagesParam, out var s))
+            stages = s;
+        report.StagesLevel = stages;
+
+        string stageLabel = stages switch
+        {
+            1 => "Stage 1 (Retail Identification only)",
+            12 => "Stage 1+2 (Retail + Wikidata)",
+            123 => "Stage 1+2+3 (Full pipeline including Universe Enrichment)",
+            _ => $"Stage level {stages} (unknown — defaulting to 1+2)"
+        };
+
         logger.LogInformation("╔══════════════════════════════════════════╗");
         logger.LogInformation("║   INTEGRATION TEST — Starting            ║");
+        logger.LogInformation("║   {StageLabel}                           ║", stageLabel);
         logger.LogInformation("╚══════════════════════════════════════════╝");
 
         // ── Phase 1: Wipe ─────────────────────────────────────────────────
@@ -210,7 +261,7 @@ public static class IntegrationTestEndpoints
 
         logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: 8 minutes)...");
         var ingestionSw = Stopwatch.StartNew();
-        bool ingestionComplete = await WaitForIngestionAsync(db, logger, TimeSpan.FromMinutes(8), ct);
+        bool ingestionComplete = await WaitForIngestionAsync(db, logger, TimeSpan.FromMinutes(8), report.TotalFilesSeeded, ct);
         ingestionSw.Stop();
         report.IngestionDuration = ingestionSw.Elapsed;
 
@@ -224,6 +275,14 @@ public static class IntegrationTestEndpoints
         logger.LogInformation("[Phase 4] Validating ingestion results...");
         await ValidateResultsAsync(registryRepo, report, logger, ct);
 
+        // ── Phase 4b: Vault Display Validation ──────────────────────────
+        logger.LogInformation("[Phase 4b] Vault display validation...");
+        await ValidateVaultDisplayAsync(registryRepo, report, stages, logger, ct);
+
+        // ── Phase 4c: Stage Gating Validation ───────────────────────────
+        logger.LogInformation("[Phase 4c] Stage gating validation...");
+        await ValidateStageGatingAsync(registryRepo, report, stages, logger, ct);
+
         // ── Phase 5: Test manual search for review items ──────────────────
         logger.LogInformation("[Phase 5] Testing manual search on review items...");
         await TestManualSearchAsync(registryRepo, providers, report, logger, ct);
@@ -232,16 +291,24 @@ public static class IntegrationTestEndpoints
         logger.LogInformation("[Phase 6] Checking universe enrichment...");
         await CheckUniversesAsync(registryRepo, report, logger, ct);
 
+        // ── Phase 7: Stage 3 — Universe Enrichment (conditional) ────────
+        if (stages >= 123)
+        {
+            logger.LogInformation("[Phase 7] Triggering Stage 3 Universe Enrichment...");
+            await RunStage3EnrichmentAsync(context, registryRepo, db, report, logger, ct);
+        }
+
         sw.Stop();
         report.TotalDuration = sw.Elapsed;
 
         // ── Generate HTML report ──────────────────────────────────────────
         string html = GenerateHtmlReport(report);
 
-        // Save to disk
+        // Save to disk — prefer repo root tools/reports/, fall back to CWD
         string reportsDir = Path.Combine(
             Path.GetDirectoryName(typeof(IntegrationTestEndpoints).Assembly.Location) ?? ".",
             "..", "..", "..", "..", "..", "tools", "reports");
+        string? savedAbsolutePath = null;
         try
         {
             if (!Directory.Exists(reportsDir))
@@ -252,7 +319,8 @@ public static class IntegrationTestEndpoints
             string fileName = $"integration-test-{DateTime.Now:yyyy-MM-dd-HHmmss}.html";
             string filePath = Path.Combine(reportsDir, fileName);
             await File.WriteAllTextAsync(filePath, html, ct);
-            logger.LogInformation("[Report] HTML report saved to {Path}", filePath);
+            savedAbsolutePath = Path.GetFullPath(filePath);
+            logger.LogInformation("[TEST] HTML report saved to: {Path}", savedAbsolutePath);
         }
         catch (Exception ex)
         {
@@ -326,7 +394,7 @@ public static class IntegrationTestEndpoints
                     SELECT name FROM sqlite_master
                     WHERE type='table'
                       AND name NOT LIKE 'sqlite_%'
-                      AND name NOT IN ('schema_version','provider_registry','provider_config','provider_health','profiles','api_keys')
+                      AND name NOT IN ('schema_version','provider_registry','provider_config','profiles','api_keys')
                     """;
                 using var reader = listCmd.ExecuteReader();
                 while (reader.Read()) tables.Add(reader.GetString(0));
@@ -403,12 +471,12 @@ public static class IntegrationTestEndpoints
                 total++;
             }
 
-            // Audiobooks in dedicated subfolder for unambiguous classification
-            var audiobooksDir = ResolveDir("Audiobooks");
-            // Fall back to an audiobooks subfolder under books if no dedicated library entry
-            if (string.IsNullOrWhiteSpace(audiobooksDir) || audiobooksDir == booksDir)
-                audiobooksDir = Path.Combine(Path.GetDirectoryName(booksDir)!, "audiobooks");
-            EnsureDir(audiobooksDir);
+            // Audiobooks share the Books library folder so the folder prior
+            // (config/libraries.json media_types: ["Books", "Audiobooks"]) applies.
+            // Using the same booksDir ensures the IngestionEngine's folder-matching
+            // StartsWith check finds the configured folder and boosts audiobook
+            // classification confidence.
+            var audiobooksDir = booksDir;
             foreach (var ab in DevSeedEndpoints_SeedAudiobooks())
             {
                 string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
@@ -472,6 +540,14 @@ public static class IntegrationTestEndpoints
         }
 
         logger.LogInformation("[Seed] {Count} test files created (no comics, no podcasts)", total);
+
+        // Allow file handles to fully release before the filesystem watcher triggers.
+        // Without this, the DebounceQueue's file-lock probe may fail repeatedly on
+        // MP3 and EPUB files that are still held by the OS write cache.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        await Task.Delay(3000);
+
         return total;
     }
 
@@ -481,11 +557,15 @@ public static class IntegrationTestEndpoints
         IDatabaseConnection db,
         ILogger logger,
         TimeSpan timeout,
+        int expectedCount,
         CancellationToken ct)
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
 
-        // Phase 1: Wait for asset ingestion to stabilize.
+        // Phase 1: Wait for asset ingestion to reach the expected count.
+        // Use two criteria: reach the expected file count OR stabilize at 8+ consecutive
+        // polls (24+ seconds). Different media types arrive at different rates — books
+        // take much longer than video due to file-lock probing and EPUB processing.
         int lastAssetCount = 0;
         int assetStable = 0;
         while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
@@ -499,20 +579,26 @@ public static class IntegrationTestEndpoints
             else assetStable = 0;
             lastAssetCount = assetCount;
 
-            logger.LogInformation("  Ingestion: {Count} assets, stable={Stable}", assetCount, assetStable);
-            if (assetCount > 0 && assetStable >= 3) break;
+            logger.LogInformation("  Ingestion: {Count}/{Expected} assets, stable={Stable}/8", assetCount, expectedCount, assetStable);
+            // Exit when we have all expected assets OR have been stable for 24+ seconds
+            if (assetCount >= expectedCount) break;
+            if (assetCount > 0 && assetStable >= 8) break;
         }
 
-        // Phase 2: Wait for hydration (review queue + QID resolution) to stabilize.
-        // This tracks the number of items visible in the registry (items with QID or review entries).
+        // Phase 2: Wait for hydration (review queue + QID resolution) to complete.
+        // Track two counts: total works (all ingested) and "resolved" works (have QID, review entry,
+        // or curator_state). Hydration is done when resolved == total and stable for 3 polls.
+        // Also track metadata_claims growth — if claims are still being added, hydration is active.
         int lastVisibleCount = 0;
+        int lastClaimCount = 0;
         int hydrationStable = 0;
         while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
         {
             await Task.Delay(5000, ct);
-            int visibleCount;
+            int totalWorks, visibleCount, claimCount;
             using (var conn = db.CreateConnection())
             {
+                totalWorks = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM works;");
                 visibleCount = conn.ExecuteScalar<int>("""
                     SELECT COUNT(DISTINCT w.id) FROM works w
                     LEFT JOIN editions e ON e.work_id = w.id
@@ -520,15 +606,21 @@ public static class IntegrationTestEndpoints
                     LEFT JOIN review_queue rq ON rq.entity_id = ma.id AND rq.status = 'Pending'
                     WHERE w.wikidata_qid IS NOT NULL OR rq.id IS NOT NULL OR w.curator_state IS NOT NULL
                     """);
+                claimCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM metadata_claims;");
             }
 
-            if (visibleCount == lastVisibleCount && visibleCount > 0) hydrationStable++;
+            bool countsStable = visibleCount == lastVisibleCount && claimCount == lastClaimCount;
+            if (countsStable && visibleCount > 0) hydrationStable++;
             else hydrationStable = 0;
             lastVisibleCount = visibleCount;
+            lastClaimCount = claimCount;
 
-            logger.LogInformation("  Hydration: {Visible}/{Total} visible in registry, stable={Stable}",
-                visibleCount, lastAssetCount, hydrationStable);
-            if (visibleCount > 0 && hydrationStable >= 4) return true;
+            logger.LogInformation("  Hydration: {Visible}/{Total} works resolved, {Claims} claims, stable={Stable}/8",
+                visibleCount, totalWorks, claimCount, hydrationStable);
+            // All works resolved and stable
+            if (visibleCount >= totalWorks && totalWorks > 0 && hydrationStable >= 3) return true;
+            // Claims still growing means hydration is active — wait longer
+            if (visibleCount > 0 && hydrationStable >= 8) return true;
         }
 
         return lastVisibleCount > 0;
@@ -680,6 +772,243 @@ public static class IntegrationTestEndpoints
         }
     }
 
+    // ── Vault display validation ─────────────────────────────────────────
+
+    private static async Task ValidateVaultDisplayAsync(
+        IRegistryRepository registryRepo,
+        TestReport report,
+        int stages,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500), ct);
+
+        foreach (var item in allItems.Items)
+        {
+            // Fetch detail to get creator fields (author/director/artist)
+            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+
+            // Determine creator based on media type
+            string? creator = item.MediaType.ToUpperInvariant() switch
+            {
+                "BOOKS" or "AUDIOBOOKS" => detail?.Author,
+                "MOVIES" or "TV"        => detail?.Director,
+                "MUSIC"                 => detail?.Author ?? item.Author,
+                _                       => detail?.Author ?? item.Author,
+            };
+
+            var validStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Verified", "Provisional", "NeedsReview", "Identified", "Confirmed",
+                "Registered", "InReview", "Quarantined", "Rejected",
+            };
+
+            var check = new VaultCheckResult
+            {
+                Title          = item.Title,
+                MediaType      = item.MediaType,
+                EntityId       = item.EntityId,
+                HasCoverArt    = !string.IsNullOrWhiteSpace(item.CoverUrl),
+                HasTitle       = !string.IsNullOrWhiteSpace(item.Title),
+                HasCreator     = !string.IsNullOrWhiteSpace(creator),
+                HasStatus      = !string.IsNullOrWhiteSpace(item.Status) && validStatuses.Contains(item.Status),
+                HasRetailMatch = !string.IsNullOrWhiteSpace(item.RetailMatch) && item.RetailMatch != "none",
+                HasWikidataQid = !string.IsNullOrWhiteSpace(item.WikidataQid),
+                Status         = item.Status,
+                CoverUrl       = item.CoverUrl,
+                Creator        = creator,
+                RetailMatch    = item.RetailMatch,
+                WikidataQid    = item.WikidataQid,
+            };
+            report.VaultChecks.Add(check);
+
+            if (!check.HasTitle)
+                report.IssuesFound.Add($"Vault: '{item.FileName}' has no title");
+            if (!check.HasCreator)
+                report.IssuesFound.Add($"Vault: '{item.Title}' has no creator (author/director/artist)");
+            if (!check.HasStatus)
+                report.IssuesFound.Add($"Vault: '{item.Title}' has invalid or empty status: '{item.Status}'");
+            if (!check.HasRetailMatch)
+                logger.LogWarning("  Vault: '{Title}' missing retail match", item.Title);
+            if (!check.HasCoverArt)
+                logger.LogWarning("  Vault: '{Title}' missing cover art", item.Title);
+            if (stages >= 12 && !check.HasWikidataQid)
+                logger.LogWarning("  Vault: '{Title}' missing Wikidata QID (Stage 2 expected)", item.Title);
+        }
+
+        int passCount = report.VaultChecks.Count(v => v.Pass);
+        logger.LogInformation("  Vault checks: {Pass}/{Total} items pass core validation",
+            passCount, report.VaultChecks.Count);
+    }
+
+    // ── Stage gating validation ──────────────────────────────────────────
+
+    private static async Task ValidateStageGatingAsync(
+        IRegistryRepository registryRepo,
+        TestReport report,
+        int stages,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500), ct);
+
+        if (stages == 1)
+        {
+            // Stage 1 only: NO items should have a Wikidata QID
+            foreach (var item in allItems.Items)
+            {
+                bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid);
+                var result = new StageGatingResult
+                {
+                    Title  = item.Title,
+                    Check  = "Stage 1 only: no Wikidata QID expected",
+                    Pass   = !hasQid,
+                    Detail = hasQid ? $"Unexpected QID: {item.WikidataQid}" : "Correctly absent",
+                };
+                report.StageGatingResults.Add(result);
+                if (hasQid)
+                    report.IssuesFound.Add($"Stage gating: '{item.Title}' has QID '{item.WikidataQid}' but Stage 2 should not have run");
+            }
+            logger.LogInformation("  Stage 1 gating: {Pass}/{Total} items correctly have no QID",
+                report.StageGatingResults.Count(r => r.Pass), report.StageGatingResults.Count);
+        }
+        else if (stages >= 12)
+        {
+            // Stage 1+2: items WITH a retail match SHOULD have a QID;
+            // items WITHOUT a retail match should NOT have a QID.
+            foreach (var item in allItems.Items)
+            {
+                bool hasRetail = !string.IsNullOrWhiteSpace(item.RetailMatch) && item.RetailMatch != "none";
+                bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid);
+
+                if (hasRetail)
+                {
+                    var result = new StageGatingResult
+                    {
+                        Title  = item.Title,
+                        Check  = "Stage 2: retail match → QID expected",
+                        Pass   = hasQid,
+                        Detail = hasQid ? $"QID: {item.WikidataQid}" : "Missing QID despite retail match",
+                    };
+                    report.StageGatingResults.Add(result);
+                    if (!hasQid)
+                        logger.LogWarning("  Stage gating: '{Title}' has retail match but no QID", item.Title);
+                }
+                else
+                {
+                    var result = new StageGatingResult
+                    {
+                        Title  = item.Title,
+                        Check  = "Stage 2: no retail match → QID not expected",
+                        Pass   = true, // No retail match — QID absence is acceptable
+                        Detail = hasQid ? $"Bonus QID: {item.WikidataQid}" : "No retail, no QID — expected",
+                    };
+                    report.StageGatingResults.Add(result);
+                }
+            }
+
+            int pass = report.StageGatingResults.Count(r => r.Pass);
+            logger.LogInformation("  Stage 1+2 gating: {Pass}/{Total} items pass gating checks",
+                pass, report.StageGatingResults.Count);
+        }
+    }
+
+    // ── Stage 3: Universe Enrichment (conditional) ───────────────────────
+
+    private static async Task RunStage3EnrichmentAsync(
+        HttpContext context,
+        IRegistryRepository registryRepo,
+        IDatabaseConnection db,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Resolve the UniverseEnrichmentService from DI and trigger a manual sweep
+            var universeService = context.RequestServices.GetService<UniverseEnrichmentService>();
+            if (universeService is null)
+            {
+                report.IssuesFound.Add("Stage 3: UniverseEnrichmentService not registered in DI");
+                logger.LogWarning("[Phase 7] UniverseEnrichmentService not found in DI — skipping Stage 3");
+                return;
+            }
+
+            universeService.TriggerManualSweep();
+            logger.LogInformation("[Phase 7] Stage 3 manual sweep triggered — waiting for completion...");
+
+            // Poll for universe/parent hub creation (timeout: 3 minutes)
+            var deadline = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(3);
+            int lastHubCount = 0;
+            int stableCount = 0;
+            while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
+            {
+                await Task.Delay(5000, ct);
+                int hubCount;
+                using (var conn = db.CreateConnection())
+                    hubCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM hubs WHERE parent_hub_id IS NOT NULL;");
+
+                if (hubCount == lastHubCount && hubCount > 0) stableCount++;
+                else stableCount = 0;
+                lastHubCount = hubCount;
+
+                logger.LogInformation("  Stage 3: {Hubs} hubs with parent, stable={Stable}", hubCount, stableCount);
+                if (stableCount >= 3) break;
+            }
+
+            // Validate universe creation for known test data
+            using (var conn = db.CreateConnection())
+            {
+                // Check for parent hubs (universes)
+                var parentHubs = (await conn.QueryAsync<(string Id, string DisplayName, string? WikidataQid)>(
+                    """
+                    SELECT h.id, h.display_name, h.wikidata_qid
+                    FROM hubs h
+                    WHERE EXISTS (SELECT 1 FROM hubs child WHERE child.parent_hub_id = h.id)
+                    """)).ToList();
+
+                foreach (var ph in parentHubs)
+                {
+                    int childCount = await conn.ExecuteScalarAsync<int>(
+                        "SELECT COUNT(*) FROM hubs WHERE parent_hub_id = @id;",
+                        new { id = ph.Id });
+
+                    var universeResult = new UniverseResult
+                    {
+                        Name        = ph.DisplayName,
+                        WikidataQid = ph.WikidataQid,
+                        Found       = true,
+                        SeriesCount = childCount,
+                    };
+                    // Count works under child hubs
+                    int workCount = await conn.ExecuteScalarAsync<int>(
+                        """
+                        SELECT COUNT(*) FROM works w
+                        INNER JOIN hubs child ON w.hub_id = child.id
+                        WHERE child.parent_hub_id = @id
+                        """,
+                        new { id = ph.Id });
+                    universeResult.WorkCount = workCount;
+
+                    report.UniverseResults.Add(universeResult);
+                    logger.LogInformation("  Stage 3 Universe: '{Name}' — {Series} series, {Works} works, QID={Qid}",
+                        ph.DisplayName, childCount, workCount, ph.WikidataQid ?? "none");
+                }
+
+                if (parentHubs.Count == 0)
+                {
+                    report.IssuesFound.Add("Stage 3: No parent hubs (universes) created after enrichment");
+                    logger.LogWarning("[Phase 7] No universes found after Stage 3 enrichment");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            report.IssuesFound.Add($"Stage 3 enrichment error: {ex.Message}");
+            logger.LogError(ex, "[Phase 7] Stage 3 enrichment failed");
+        }
+    }
+
     // ── Check universes ───────────────────────────────────────────────────
 
     private static async Task CheckUniversesAsync(
@@ -787,7 +1116,14 @@ public static class IntegrationTestEndpoints
             ? "<span class=\"badge badge-pass\">ALL PASS</span>"
             : $"<span class=\"badge badge-warn\">{report.IssuesFound.Count} ISSUES</span>";
         sb.AppendLine($"<h1>Tuvima Library — Integration Test Report {overallBadge}</h1>");
-        sb.AppendLine($"<p class=\"subtitle\">{report.Timestamp:yyyy-MM-dd HH:mm:ss UTC} · Duration: {report.TotalDuration.TotalSeconds:F1}s · Ingestion: {report.IngestionDuration.TotalSeconds:F1}s</p>");
+        string stageBadge = report.StagesLevel switch
+        {
+            1   => "<span class=\"badge badge-info\">Stage 1</span>",
+            12  => "<span class=\"badge badge-info\">Stage 1+2</span>",
+            123 => "<span class=\"badge badge-info\">Stage 1+2+3</span>",
+            _   => $"<span class=\"badge badge-warn\">Stage {report.StagesLevel}</span>",
+        };
+        sb.AppendLine($"<p class=\"subtitle\">{report.Timestamp:yyyy-MM-dd HH:mm:ss UTC} · Duration: {report.TotalDuration.TotalSeconds:F1}s · Ingestion: {report.IngestionDuration.TotalSeconds:F1}s · {stageBadge}</p>");
 
         // Summary cards
         sb.AppendLine("<div class=\"summary-grid\">");
@@ -797,6 +1133,8 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.TotalNeedsReview.ToString(), "Needs Review", "#EF9F27");
         SummaryCard(sb, report.TotalFailed.ToString(), "Failed", "#E24B4A");
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
+        SummaryCard(sb, report.VaultChecks.Count(v => v.Pass).ToString() + "/" + report.VaultChecks.Count, "Vault Checks", "#22D3EE");
+        SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
         sb.AppendLine("</div>");
 
         // Issues section (if any)
@@ -867,6 +1205,48 @@ public static class IntegrationTestEndpoints
             sb.AppendLine($"<tr><td>{Esc(u.Name)}</td><td>{u.WorkCount}</td><td>{u.Found}</td><td class=\"mono\">{Esc(u.WikidataQid ?? "—")}</td><td>{badge}</td></tr>");
         }
         sb.AppendLine("</table>");
+
+        // Vault Display Validation
+        if (report.VaultChecks.Count > 0)
+        {
+            int vaultPass = report.VaultChecks.Count(v => v.Pass);
+            string vaultBadge = vaultPass == report.VaultChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.VaultChecks.Count - vaultPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Vault Display Validation {vaultBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Cover Art</th><th>Title</th><th>Creator</th><th>Status</th><th>Retail Match</th><th>QID</th></tr>");
+            foreach (var v in report.VaultChecks.OrderBy(v => v.MediaType).ThenBy(v => v.Title))
+            {
+                string Check(bool ok) => ok ? "<span style=\"color:#5DCAA5\">&#x2713;</span>" : "<span style=\"color:#E24B4A\">&#x2717;</span>";
+                sb.AppendLine($"<tr><td>{Esc(v.Title)}</td><td>{Esc(v.MediaType)}</td>" +
+                    $"<td>{Check(v.HasCoverArt)}</td><td>{Check(v.HasTitle)}</td><td>{Check(v.HasCreator)}</td>" +
+                    $"<td>{Check(v.HasStatus)} <span class=\"mono\">{Esc(v.Status ?? "")}</span></td>" +
+                    $"<td>{Check(v.HasRetailMatch)} <span class=\"mono\">{Esc(v.RetailMatch ?? "")}</span></td>" +
+                    $"<td>{Check(v.HasWikidataQid)} <span class=\"mono\">{Esc(v.WikidataQid ?? "")}</span></td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        // Stage Gating Validation
+        if (report.StageGatingResults.Count > 0)
+        {
+            int gatePass = report.StageGatingResults.Count(r => r.Pass);
+            string gateBadge = gatePass == report.StageGatingResults.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.StageGatingResults.Count - gatePass} ISSUES</span>";
+            sb.AppendLine($"<h2>Stage Gating Validation {gateBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Title</th><th>Check</th><th>Result</th><th>Detail</th></tr>");
+            foreach (var g in report.StageGatingResults.OrderBy(g => g.Title))
+            {
+                string resultBadge = g.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(g.Title)}</td><td>{Esc(g.Check)}</td><td>{resultBadge}</td><td class=\"mono\">{Esc(g.Detail ?? "")}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
 
         // Footer
         sb.AppendLine($"<footer>Generated by Tuvima Library Integration Test Harness · {report.Timestamp:yyyy-MM-dd HH:mm:ss}</footer>");

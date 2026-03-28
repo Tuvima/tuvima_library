@@ -169,21 +169,41 @@ public static class HubEndpoints
 
             var parents = allHubs
                 .Where(h => parentIds.Contains(h.Id))
-                .Select(h => new
+                .Select(h =>
                 {
-                    id             = h.Id,
-                    displayName    = h.DisplayName,
-                    childCount     = allHubs.Count(c => c.ParentHubId == h.Id),
-                    createdAt      = h.CreatedAt,
-                    universeStatus = h.UniverseStatus,
+                    var children = allHubs.Where(c => c.ParentHubId == h.Id).ToList();
+                    // Aggregate media types across all works in child hubs
+                    var mediaTypes = children
+                        .SelectMany(c => c.Works)
+                        .Select(w => w.MediaType.ToString())
+                        .Where(t => !string.IsNullOrWhiteSpace(t))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(t => t)
+                        .ToList();
+
+                    return new ParentHubDto
+                    {
+                        Id             = h.Id,
+                        UniverseId     = h.UniverseId,
+                        DisplayName    = h.DisplayName,
+                        Description    = h.Description,
+                        WikidataQid    = h.WikidataQid,
+                        ParentHubId    = null,
+                        UniverseStatus = h.UniverseStatus,
+                        CreatedAt      = h.CreatedAt,
+                        ChildHubCount  = children.Count,
+                        MediaTypes     = string.Join(", ", mediaTypes),
+                        TotalWorks     = children.Sum(c => c.Works.Count),
+                    };
                 })
-                .OrderBy(h => h.displayName)
+                .OrderBy(h => h.DisplayName)
                 .ToList();
 
             return Results.Ok(parents);
         })
         .WithName("GetParentHubs")
         .WithSummary("Returns all Parent Hubs (franchise-level groupings).")
+        .Produces<List<ParentHubDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // GET /hubs/{id}/children — returns child Hubs of a given parent.

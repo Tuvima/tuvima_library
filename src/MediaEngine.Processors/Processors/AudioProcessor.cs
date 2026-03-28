@@ -76,7 +76,7 @@ public sealed partial class AudioProcessor : IMediaProcessor
         try
         {
             var claims = BuildClaims(filePath, container, tagFile);
-            var candidates = BuildMediaTypeCandidates(container);
+            var candidates = BuildMediaTypeCandidates(container, tagFile);
             var topType = candidates.Count > 0 ? candidates[0].Type : MediaType.Unknown;
 
             // Extract cover art if available.
@@ -284,11 +284,13 @@ public sealed partial class AudioProcessor : IMediaProcessor
     // ── Media type disambiguation ────────────────────────────────────────
 
     /// <summary>
-    /// Returns a single high-confidence candidate for unambiguous audio containers.
-    /// For ambiguous formats (MP3, M4A), returns an empty list — the IngestionEngine
-    /// will call the AI MediaTypeAdvisor to classify these files.
+    /// Returns media type candidates based on container format and embedded tag signals.
+    /// Unambiguous formats (M4B, FLAC, OGG, WAV) return a single high-confidence candidate.
+    /// Ambiguous formats (MP3, M4A) use tag-based heuristics — genre, narrator, ASIN,
+    /// duration — to produce candidates. When no heuristic signals are found, the list
+    /// is empty and the IngestionEngine will call the AI MediaTypeAdvisor.
     /// </summary>
-    private static List<MediaTypeCandidate> BuildMediaTypeCandidates(AudioContainer container)
+    private static List<MediaTypeCandidate> BuildMediaTypeCandidates(AudioContainer container, TagLib.File? tagFile)
     {
         return container switch
         {
@@ -298,9 +300,82 @@ public sealed partial class AudioProcessor : IMediaProcessor
             AudioContainer.Wav  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }],
 
             // MP3 and M4A are ambiguous (could be audiobook, music, or podcast).
-            // Return empty — IngestionEngine will call MediaTypeAdvisor.
-            _ => [],
+            // Use tag-based heuristics to produce candidates when signals are present.
+            // When no signals are found, return empty — IngestionEngine will call MediaTypeAdvisor.
+            _ => BuildAmbiguousAudioCandidates(tagFile),
         };
+    }
+
+    /// <summary>
+    /// Produces media type candidates for ambiguous audio formats (MP3, M4A) by
+    /// examining embedded tag signals. Each signal contributes a confidence boost:
+    ///   - Genre contains "audiobook" or "speech"   → +0.30
+    ///   - Narrator tag present (TXXX:NARRATOR)     → +0.25
+    ///   - ASIN present (Audible identifier)        → +0.25
+    ///   - Duration > 20 minutes                    → +0.10
+    /// When the combined audiobook confidence exceeds 0.50, an Audiobooks candidate
+    /// is returned. Otherwise, a Music candidate is returned if duration is short,
+    /// or an empty list is returned for AI classification.
+    /// </summary>
+    private static List<MediaTypeCandidate> BuildAmbiguousAudioCandidates(TagLib.File? tagFile)
+    {
+        if (tagFile is null)
+            return [];
+
+        double audiobookScore = 0.0;
+        var reasons = new List<string>();
+
+        // Signal 1: Genre tag contains "audiobook" or "speech".
+        var genre = tagFile.Tag.FirstGenre;
+        if (!string.IsNullOrWhiteSpace(genre))
+        {
+            if (genre.Contains("audiobook", StringComparison.OrdinalIgnoreCase)
+                || genre.Contains("speech", StringComparison.OrdinalIgnoreCase))
+            {
+                audiobookScore += 0.30;
+                reasons.Add($"genre tag '{genre}'");
+            }
+        }
+
+        // Signal 2: Narrator tag (TXXX:NARRATOR or Composers).
+        var narrator = ExtractNarrator(tagFile);
+        if (!string.IsNullOrWhiteSpace(narrator))
+        {
+            audiobookScore += 0.25;
+            reasons.Add("narrator tag present");
+        }
+
+        // Signal 3: ASIN (Amazon/Audible identifier).
+        var asin = ExtractAsin(tagFile);
+        if (!string.IsNullOrWhiteSpace(asin))
+        {
+            audiobookScore += 0.25;
+            reasons.Add("ASIN present");
+        }
+
+        // Signal 4: Long duration (> 20 minutes suggests audiobook, not a music track).
+        var durationMinutes = tagFile.Properties.Duration.TotalMinutes;
+        if (durationMinutes > 20)
+        {
+            audiobookScore += 0.10;
+            reasons.Add($"duration {durationMinutes:F0}min");
+        }
+
+        if (audiobookScore >= 0.50)
+        {
+            // Strong audiobook signals — return an Audiobooks candidate.
+            // Cap at 0.90 since tag-based heuristics aren't definitive.
+            var confidence = Math.Min(audiobookScore, 0.90);
+            return [new()
+            {
+                Type       = MediaType.Audiobooks,
+                Confidence = confidence,
+                Reason     = $"Tag signals: {string.Join(", ", reasons)}",
+            }];
+        }
+
+        // No strong audiobook signals — return empty for AI classification.
+        return [];
     }
 
     // ── Narrator extraction ────────────────────────────────────────────

@@ -198,14 +198,11 @@
                     }
                 </div>
 
-                @* Stats *@
-                @if (info is not null)
-                {
-                    <MudText Typo="Typo.caption"
-                             Style="color: var(--mud-palette-text-secondary); display: block; line-height: 1.6;">
-                        @info.LatencyMs ms · @((info.SuccessRate * 100).ToString("F0"))% success
-                    </MudText>
-                }
+                @* Stats — prefer live health data, fall back to catalogue *@
+                <MudText Typo="Typo.caption"
+                         Style="color: var(--mud-palette-text-secondary); display: block; line-height: 1.6;">
+                    @GetLatencyDisplay(assignment.Name) · @GetSuccessRateDisplay(assignment.Name)
+                </MudText>
 
                 @* Reorder buttons *@
                 <div style="display: flex; justify-content: center; gap: 2px; margin-top: 8px; width: 100%;"
@@ -328,19 +325,20 @@
                                Style="align-self: flex-start;" />
             </div>
 
-            @* Stats row *@
+            @* Stats row — prefer live health data *@
             @if (drawerInfo is not null)
             {
+                var healthColor = IsProviderHealthy(_drawerAssignment?.Name ?? "") ? "#4caf50" : "#f44336";
                 <div class="drawer-stats-row">
                     <div class="drawer-stat">
                         <MudIcon Icon="@Icons.Material.Outlined.Speed" Size="Size.Small"
                                  Style="color: var(--mud-palette-text-secondary);" />
-                        <span>@drawerInfo.LatencyMs ms</span>
+                        <span>@GetLatencyDisplay(_drawerAssignment?.Name ?? "")</span>
                     </div>
                     <div class="drawer-stat">
                         <MudIcon Icon="@Icons.Material.Outlined.CheckCircleOutline" Size="Size.Small"
-                                 Style="color: #4caf50;" />
-                        <span>@((drawerInfo.SuccessRate * 100).ToString("F0"))%</span>
+                                 Style="@($"color: {healthColor};")" />
+                        <span>@GetSuccessRateDisplay(_drawerAssignment?.Name ?? "")</span>
                     </div>
                     <div class="drawer-stat">
                         <MudIcon Icon="@Icons.Material.Outlined.VpnKey" Size="Size.Small"
@@ -699,9 +697,93 @@
     private string _drawerSaveMessage  = "";
     private bool   _drawerSaveSuccess  = false;
 
+    // ── Health data ─────────────────────────────────────────────────────────────
+
+    private Dictionary<string, ProviderHealthDto> _healthData = new(StringComparer.OrdinalIgnoreCase);
+
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
-    protected override void OnInitialized() => ResetToDefaults();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFromEngineAsync();
+        await LoadHealthDataAsync();
+    }
+
+    private async Task LoadFromEngineAsync()
+    {
+        try
+        {
+            var slots = await ApiClient.GetProviderSlotsAsync();
+            if (slots is not null && slots.Count > 0)
+            {
+                _assignments = new Dictionary<string, List<ProviderAssignment>>();
+                foreach (var (mediaType, slotConfig) in slots)
+                {
+                    var chain = new List<ProviderAssignment>();
+                    if (!string.IsNullOrWhiteSpace(slotConfig.Primary))
+                        chain.Add(CreateAssignmentFromSlot(slotConfig.Primary));
+                    if (!string.IsNullOrWhiteSpace(slotConfig.Secondary))
+                        chain.Add(CreateAssignmentFromSlot(slotConfig.Secondary));
+                    if (!string.IsNullOrWhiteSpace(slotConfig.Tertiary))
+                        chain.Add(CreateAssignmentFromSlot(slotConfig.Tertiary));
+
+                    // Normalize key to title case (e.g. "books" → "Books")
+                    var normalizedKey = char.ToUpperInvariant(mediaType[0]) + mediaType[1..];
+                    _assignments[normalizedKey] = chain;
+                }
+
+                // Ensure all media types have an entry even if the Engine returned nothing for them.
+                foreach (var mt in _mediaTypes)
+                {
+                    if (!_assignments.ContainsKey(mt))
+                        _assignments[mt] = [];
+                }
+                return;
+            }
+        }
+        catch { /* Fall through to defaults */ }
+
+        ResetToDefaults();
+    }
+
+    private static ProviderAssignment CreateAssignmentFromSlot(string providerSlotName)
+    {
+        // Slot names are stored as "apple_api", "google_books" etc. — convert to display name.
+        var displayName = ResolveDisplayName(providerSlotName);
+        var info = AllProviderCatalogue.FirstOrDefault(p =>
+            p.Name.Replace(" ", "_").Equals(providerSlotName, StringComparison.OrdinalIgnoreCase));
+
+        return new ProviderAssignment
+        {
+            Name             = info?.Name ?? displayName,
+            LanguageStrategy = "source",
+        };
+    }
+
+    private static string ResolveDisplayName(string slotName)
+    {
+        // Try to match against the known catalogue first.
+        var match = AllProviderCatalogue.FirstOrDefault(p =>
+            p.Name.Replace(" ", "_").Equals(slotName, StringComparison.OrdinalIgnoreCase));
+        if (match is not null) return match.Name;
+
+        // Fallback: title-case the slot name (e.g. "apple_api" → "Apple Api")
+        return string.Join(' ', slotName.Split('_')
+            .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
+    }
+
+    private async Task LoadHealthDataAsync()
+    {
+        try
+        {
+            var healthList = await ApiClient.GetProviderHealthAsync();
+            foreach (var h in healthList)
+            {
+                _healthData[h.ProviderId] = h;
+            }
+        }
+        catch { /* ignore — catalogue defaults will be used */ }
+    }
 
     // ── Chain helpers ────────────────────────────────────────────────────────────
 
@@ -758,7 +840,29 @@
         if (_drawerAssignment is null) return;
         // Save first so the Engine has the latest API key, then test.
         await SaveDrawerAsync();
-        // TODO: call POST /settings/providers/{name}/test when UI feedback is designed.
+
+        var providerName = _drawerAssignment.Name.Replace(" ", "_").ToLowerInvariant();
+        try
+        {
+            var result = await ApiClient.TestProviderAsync(providerName);
+            if (result is not null)
+            {
+                _drawerSaveSuccess = result.Success;
+                _drawerSaveMessage = result.Success
+                    ? $"Connected in {result.ResponseTimeMs}ms — {result.SampleFields?.Count ?? 0} fields returned"
+                    : $"Test failed: {result.Message}";
+            }
+            else
+            {
+                _drawerSaveSuccess = false;
+                _drawerSaveMessage = "No response from Engine";
+            }
+        }
+        catch (Exception ex)
+        {
+            _drawerSaveSuccess = false;
+            _drawerSaveMessage = $"Error: {ex.Message}";
+        }
     }
 
     private async Task SaveDrawerAsync()
@@ -935,6 +1039,43 @@
 
     private static ProviderInfo? GetProviderInfo(string name) =>
         AllProviderCatalogue.FirstOrDefault(p => p.Name == name);
+
+    /// <summary>Returns live latency string from health data, or catalogue default.</summary>
+    private string GetLatencyDisplay(string providerName)
+    {
+        var key = providerName.Replace(" ", "_").ToLowerInvariant();
+        if (_healthData.TryGetValue(key, out var h) && h.LastSuccessAt is not null)
+            return h.Status;
+        var info = GetProviderInfo(providerName);
+        return info is not null ? $"{info.LatencyMs} ms" : "—";
+    }
+
+    /// <summary>Returns live success rate or status from health data, or catalogue default.</summary>
+    private string GetSuccessRateDisplay(string providerName)
+    {
+        var key = providerName.Replace(" ", "_").ToLowerInvariant();
+        if (_healthData.TryGetValue(key, out var h))
+        {
+            return h.Status switch
+            {
+                "Healthy"  => "Healthy",
+                "Degraded" => $"Degraded ({h.ConsecutiveFailures} failures)",
+                "Down"     => $"Down — {h.LastFailureReason ?? "unknown"}",
+                _          => h.Status,
+            };
+        }
+        var info = GetProviderInfo(providerName);
+        return info is not null ? $"{(info.SuccessRate * 100):F0}%" : "—";
+    }
+
+    /// <summary>Returns true if health data indicates the provider is not down.</summary>
+    private bool IsProviderHealthy(string providerName)
+    {
+        var key = providerName.Replace(" ", "_").ToLowerInvariant();
+        if (_healthData.TryGetValue(key, out var h))
+            return !string.Equals(h.Status, "Down", StringComparison.OrdinalIgnoreCase);
+        return true; // assume healthy if no health data
+    }
 
     private static string[] GetProviderMediaTypes(string provider) =>
         ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];

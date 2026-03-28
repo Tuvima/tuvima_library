@@ -216,13 +216,34 @@
                             @if (_showRematch)
                             {
                                 <div class="vdd-search-block">
-                                    <input type="text" class="vdd-search-input" placeholder="Search for a match..."
-                                           @bind="_manualSearchQuery" @bind:event="oninput" />
-                                    <button class="vdd-search-btn" @onclick="RunManualSearch"
-                                            disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
-                                        Search
-                                    </button>
+                                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                        <select class="vdd-type-dropdown" style="flex: 1;" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
+                                            <option value="">Select type@("\u2026")</option>
+                                            <option value="Books">Books</option>
+                                            <option value="Audiobooks">Audiobooks</option>
+                                            <option value="Movies">Movies</option>
+                                            <option value="TV">TV</option>
+                                            <option value="Music">Music</option>
+                                            <option value="Comics">Comics</option>
+                                            <option value="Podcasts">Podcasts</option>
+                                        </select>
+                                        <select class="vdd-type-dropdown" style="flex: 1;" value="@_searchProvider" @onchange="OnSearchProviderChanged">
+                                            <option value="">Select provider@("\u2026")</option>
+                                            @foreach (var p in GetProvidersForType(_searchMediaType))
+                                            {
+                                                <option value="@p">@p</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div style="display: flex; gap: 8px;">
+                                        <input type="text" class="vdd-search-input" placeholder="Search for a match..."
+                                               @bind="_manualSearchQuery" @bind:event="oninput" />
+                                        <button class="vdd-search-btn" @onclick="RunManualSearch"
+                                                disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                                            Search
+                                        </button>
+                                    </div>
                                 </div>
                                 @if (_searching)
                                 {
@@ -230,12 +251,12 @@
                                         <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
                                     </div>
                                 }
-                                else if (_searchResults.Count > 0)
+                                else if (_retailSearchResults.Count > 0)
                                 {
                                     <div class="vdd-search-results">
-                                        @foreach (var result in _searchResults)
+                                        @foreach (var result in _retailSearchResults)
                                         {
-                                            <div class="vdd-search-result-item" @onclick="() => SelectSearchResult(result)">
+                                            <div class="vdd-search-result-item" @onclick="() => SelectRetailResult(result)">
                                                 <div class="vdd-search-result-thumb">
                                                     @if (!string.IsNullOrEmpty(result.CoverUrl))
                                                     {
@@ -249,11 +270,12 @@
                                                 <div class="vdd-search-result-info">
                                                     <span class="vdd-search-result-title">@result.Title</span>
                                                     <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
+                                                    <span class="vdd-search-result-meta" style="opacity: 0.5;">@result.ProviderName • @((result.Confidence * 100).ToString("F0"))%</span>
                                                 </div>
-                                                @if (_pendingMatch?.EntityId == result.EntityId)
+                                                @if (_pendingRetailMatch == result)
                                                 {
                                                     <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                            @onclick="() => ConfirmMatch(result.EntityId)">
+                                                            @onclick="() => ConfirmRetailMatch(result)">
                                                         Confirm
                                                     </button>
                                                 }
@@ -261,7 +283,7 @@
                                         }
                                     </div>
                                 }
-                                else if (_manualSearchQuery is { Length: > 0 })
+                                else if (_manualSearchQuery is { Length: > 0 } && !_searching)
                                 {
                                     <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
                                 }
@@ -271,13 +293,34 @@
                         {
                             <p class="vdd-stage-hint">@L["VaultDetail_HintAwaitingRetail"]</p>
                             <div class="vdd-search-block">
-                                <input type="text" class="vdd-search-input" placeholder="Search for a match..."
-                                       @bind="_manualSearchQuery" @bind:event="oninput" />
-                                <button class="vdd-search-btn" @onclick="RunManualSearch"
-                                        disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
-                                    Search
-                                </button>
+                                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                    <select class="vdd-type-dropdown" style="flex: 1;" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
+                                        <option value="">Select type@("\u2026")</option>
+                                        <option value="Books">Books</option>
+                                        <option value="Audiobooks">Audiobooks</option>
+                                        <option value="Movies">Movies</option>
+                                        <option value="TV">TV</option>
+                                        <option value="Music">Music</option>
+                                        <option value="Comics">Comics</option>
+                                        <option value="Podcasts">Podcasts</option>
+                                    </select>
+                                    <select class="vdd-type-dropdown" style="flex: 1;" value="@_searchProvider" @onchange="OnSearchProviderChanged">
+                                        <option value="">Select provider@("\u2026")</option>
+                                        @foreach (var p in GetProvidersForType(_searchMediaType))
+                                        {
+                                            <option value="@p">@p</option>
+                                        }
+                                    </select>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" class="vdd-search-input" placeholder="Search for a match..."
+                                           @bind="_manualSearchQuery" @bind:event="oninput" />
+                                    <button class="vdd-search-btn" @onclick="RunManualSearch"
+                                            disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                                        Search
+                                    </button>
+                                </div>
                             </div>
                             @if (_searching)
                             {
@@ -285,12 +328,12 @@
                                     <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
                                 </div>
                             }
-                            else if (_searchResults.Count > 0)
+                            else if (_retailSearchResults.Count > 0)
                             {
                                 <div class="vdd-search-results">
-                                    @foreach (var result in _searchResults)
+                                    @foreach (var result in _retailSearchResults)
                                     {
-                                        <div class="vdd-search-result-item" @onclick="() => SelectSearchResult(result)">
+                                        <div class="vdd-search-result-item" @onclick="() => SelectRetailResult(result)">
                                             <div class="vdd-search-result-thumb">
                                                 @if (!string.IsNullOrEmpty(result.CoverUrl))
                                                 {
@@ -304,11 +347,12 @@
                                             <div class="vdd-search-result-info">
                                                 <span class="vdd-search-result-title">@result.Title</span>
                                                 <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
+                                                <span class="vdd-search-result-meta" style="opacity: 0.5;">@result.ProviderName • @((result.Confidence * 100).ToString("F0"))%</span>
                                             </div>
-                                            @if (_pendingMatch?.EntityId == result.EntityId)
+                                            @if (_pendingRetailMatch == result)
                                             {
                                                 <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                        @onclick="() => ConfirmMatch(result.EntityId)">
+                                                        @onclick="() => ConfirmRetailMatch(result)">
                                                     Confirm
                                                 </button>
                                             }
@@ -316,16 +360,10 @@
                                     }
                                 </div>
                             }
-                            else if (_manualSearchQuery is { Length: > 0 })
+                            else if (_manualSearchQuery is { Length: > 0 } && !_searching)
                             {
                                 <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
                             }
-                            <div class="vdd-provider-chips">
-                                @foreach (var provider in VaultHelpers.GetProviderButtons(MediaItem.MediaType))
-                                {
-                                    <button class="vdd-provider-chip">@provider</button>
-                                }
-                            </div>
                         }
                     </div>
 
@@ -764,6 +802,37 @@
     private PersonAliasesResponseDto? _aliases;
     private RegistryItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
+    private string _searchMediaType = "";
+    private string _searchProvider = "";
+    private List<RetailCandidateDto> _retailSearchResults = [];
+    private RetailCandidateDto? _pendingRetailMatch;
+
+    private static readonly Dictionary<string, string[]> _providersByType = new()
+    {
+        ["Books"] = ["Apple API", "Google Books", "Open Library"],
+        ["Audiobooks"] = ["Apple API", "Google Books"],
+        ["Movies"] = ["TMDB"],
+        ["TV"] = ["TMDB"],
+        ["Music"] = ["MusicBrainz"],
+        ["Comics"] = ["Metron"],
+        ["Podcasts"] = ["Apple Podcasts", "Podcast Index"],
+    };
+
+    private string[] GetProvidersForType(string mediaType)
+        => _providersByType.TryGetValue(mediaType, out var providers) ? providers : [];
+
+    private void OnSearchTypeChanged(ChangeEventArgs e)
+    {
+        _searchMediaType = e.Value?.ToString() ?? "";
+        _searchProvider = "";
+        _retailSearchResults = [];
+        _pendingRetailMatch = null;
+    }
+
+    private void OnSearchProviderChanged(ChangeEventArgs e)
+    {
+        _searchProvider = e.Value?.ToString() ?? "";
+    }
 
     // Universe data
     private UniverseHealthDto? _universeHealth;
@@ -812,8 +881,12 @@
         _searchResults = [];
         _aliases = null;
         _pendingMatch = null;
+        _pendingRetailMatch = null;
         _searching = false;
         _selectedMediaType = MediaItem?.MediaType ?? "";
+        _searchMediaType = MediaItem?.MediaType ?? "";
+        _searchProvider = "";
+        _retailSearchResults = [];
         _universeHealth = null;
         _universeCharacters = [];
         _personCharacterRoles = [];
@@ -853,15 +926,55 @@
 
     private async Task RunManualSearch()
     {
-        if (string.IsNullOrWhiteSpace(_manualSearchQuery)) return;
+        if (string.IsNullOrWhiteSpace(_manualSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType)) return;
         _searching = true;
+        _retailSearchResults = [];
+        _searchResults = [];
+        _pendingRetailMatch = null;
         StateHasChanged();
 
-        var response = await ApiClient.GetRegistryItemsAsync(
-            offset: 0, limit: 10,
-            search: _manualSearchQuery);
-        _searchResults = response?.Items?.ToList() ?? [];
+        var response = await ApiClient.SearchRetailAsync(
+            _manualSearchQuery, _searchMediaType, 10);
+
+        if (response?.Candidates is not null)
+        {
+            _retailSearchResults = response.Candidates
+                .Where(c => string.IsNullOrWhiteSpace(_searchProvider)
+                    || c.ProviderName.Equals(_searchProvider, StringComparison.OrdinalIgnoreCase)
+                    || c.ProviderName.Replace(" ", "_").Equals(_searchProvider.Replace(" ", "_"), StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
         _searching = false;
+    }
+
+    private void SelectRetailResult(RetailCandidateDto result)
+    {
+        _pendingRetailMatch = _pendingRetailMatch == result ? null : result;
+    }
+
+    private async Task ConfirmRetailMatch(RetailCandidateDto candidate)
+    {
+        if (MediaItem is null) return;
+
+        var request = new ApplyMatchRequestDto
+        {
+            Title = candidate.Title,
+            Year = candidate.Year,
+            Author = candidate.Author,
+            Director = candidate.Director,
+            Description = candidate.Description,
+            CoverUrl = candidate.CoverUrl,
+            RetailProviderName = candidate.ProviderName,
+            RetailProviderItemId = candidate.ProviderItemId,
+        };
+
+        await ApiClient.ApplyRegistryMatchAsync(MediaItem.EntityId, request);
+
+        _pendingRetailMatch = null;
+        _retailSearchResults = [];
+        _manualSearchQuery = "";
+        _showRematch = false;
+        await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
     }
 
     private void SelectSearchResult(RegistryItemViewModel result)

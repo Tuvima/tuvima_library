@@ -1,3 +1,4 @@
+using System.Linq;
 using Dapper;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Domain.Contracts;
@@ -224,7 +225,16 @@ public sealed class RegistryRepository : IRegistryRepository
             conditions.Add(@"(wd.entity_id IN (SELECT si.entity_id FROM search_index si
                 WHERE search_index MATCH @ftsQuery) OR fd.file_name LIKE @search)");
         if (!string.IsNullOrWhiteSpace(query.MediaType))
-            conditions.Add("fd.media_type = @mediaType");
+        {
+            var types = query.MediaType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (types.Length == 1)
+                conditions.Add("fd.media_type = @mediaType");
+            else if (types.Length > 1)
+            {
+                var placeholders = string.Join(", ", types.Select((_, i) => $"@mt{i}"));
+                conditions.Add($"fd.media_type IN ({placeholders})");
+            }
+        }
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
             if (query.Status == "Approved")
@@ -751,7 +761,16 @@ public sealed class RegistryRepository : IRegistryRepository
             cmd.Parameters.AddWithValue("@ftsQuery", $"\"{escaped}\"*");
         }
         if (!string.IsNullOrWhiteSpace(query.MediaType))
-            cmd.Parameters.AddWithValue("@mediaType", NormalizeMediaType(query.MediaType));
+        {
+            var types = query.MediaType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (types.Length == 1)
+                cmd.Parameters.AddWithValue("@mediaType", NormalizeMediaType(types[0]));
+            else
+            {
+                for (int i = 0; i < types.Length; i++)
+                    cmd.Parameters.AddWithValue($"@mt{i}", NormalizeMediaType(types[i]));
+            }
+        }
         if (!string.IsNullOrWhiteSpace(query.Status) && query.Status != "Approved")
             cmd.Parameters.AddWithValue("@status", query.Status);
         if (query.MinConfidence.HasValue)

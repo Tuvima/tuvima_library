@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tuvima Integration Test — 2026-03-28 20:08</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+           background: #0f0f1a; color: #e0e0e0; padding: 24px; line-height: 1.5; }
+    h1 { color: #C9922E; font-size: 24px; margin-bottom: 4px; }
+    h2 { color: #C9922E; font-size: 18px; margin: 32px 0 12px; border-bottom: 1px solid rgba(201,146,46,0.3); padding-bottom: 8px; }
+    h3 { color: #8B9DC3; font-size: 14px; margin: 16px 0 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .subtitle { color: rgba(255,255,255,0.5); font-size: 13px; margin-bottom: 24px; }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge-pass { background: rgba(93,202,165,0.15); color: #5DCAA5; border: 1px solid rgba(93,202,165,0.3); }
+    .badge-fail { background: rgba(226,75,74,0.15); color: #E24B4A; border: 1px solid rgba(226,75,74,0.3); }
+    .badge-warn { background: rgba(239,159,39,0.15); color: #EF9F27; border: 1px solid rgba(239,159,39,0.3); }
+    .badge-info { background: rgba(96,165,250,0.15); color: #60A5FA; border: 1px solid rgba(96,165,250,0.3); }
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+    .summary-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center; }
+    .summary-card .num { font-size: 28px; font-weight: 700; }
+    .summary-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.5); margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 16px; }
+    th { text-align: left; padding: 8px 12px; border-bottom: 2px solid rgba(255,255,255,0.1);
+         color: rgba(255,255,255,0.6); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    tr:hover { background: rgba(255,255,255,0.02); }
+    .status-identified { color: #5DCAA5; }
+    .status-review { color: #EF9F27; }
+    .status-failed { color: #E24B4A; }
+    .status-unknown { color: rgba(255,255,255,0.4); }
+    .issues-list { list-style: none; margin: 8px 0; }
+    .issues-list li { padding: 6px 12px; margin: 4px 0; background: rgba(226,75,74,0.08);
+                      border-left: 3px solid #E24B4A; border-radius: 4px; font-size: 13px; }
+    .section { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06);
+               border-radius: 8px; padding: 16px; margin: 12px 0; }
+    .media-type-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .mt-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .mono { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 12px; }
+    footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.06);
+             color: rgba(255,255,255,0.3); font-size: 11px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>Tuvima Library — Integration Test Report <span class="badge badge-warn">1 ISSUES</span></h1>
+<p class="subtitle">2026-03-28 20:08:29 UTC · Duration: 223.3s · Ingestion: 217.4s · <span class="badge badge-info">Stage 1+2</span></p>
+<div class="summary-grid">
+<div class="summary-card"><div class="num" style="color:#60A5FA">31</div><div class="label">Files Seeded</div></div>
+<div class="summary-card"><div class="num" style="color:#8B9DC3">30</div><div class="label">Items Detected</div></div>
+<div class="summary-card"><div class="num" style="color:#5DCAA5">29</div><div class="label">Identified</div></div>
+<div class="summary-card"><div class="num" style="color:#EF9F27">1</div><div class="label">Needs Review</div></div>
+<div class="summary-card"><div class="num" style="color:#E24B4A">0</div><div class="label">Failed</div></div>
+<div class="summary-card"><div class="num" style="color:#A78BFA">4/4</div><div class="label">Search Tests</div></div>
+<div class="summary-card"><div class="num" style="color:#22D3EE">27/30</div><div class="label">Vault Checks</div></div>
+<div class="summary-card"><div class="num" style="color:#FB923C">30/30</div><div class="label">Stage Gating</div></div>
+</div>
+<h2>Issues Found</h2>
+<ul class="issues-list">
+  <li>Vault: &#39;shogun&#39; has no creator (author/director/artist)</li>
+</ul>
+<h2>Results by Media Type</h2>
+<div class="section">
+<div class="media-type-header"><span class="mt-dot" style="background:#5DCAA5"></span><strong>Books</strong> — 11 items (11 identified, 0 review, 0 failed) <span class="badge badge-pass">OK</span></div>
+<table>
+<tr><th>Title</th><th>Author</th><th>Year</th><th>Status</th><th>Confidence</th><th>Retail Match</th><th>QID</th><th>File</th></tr>
+<tr><td>Dune</td><td>Frank Herbert</td><td>1975</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q190192</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Good Omens</td><td>Terry Pratchett &amp; Neil Gaiman</td><td>2011</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q1052459</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Harry Potter and the Chamber of Secrets</td><td>J. K. Rowling</td><td>2015</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q47209</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Harry Potter and the Philosopher&#39;s Stone</td><td>J. K. Rowling</td><td>2015</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q43361</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Leviathan Wakes</td><td>James S. A. Corey</td><td>2011-01-01</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q6535598</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Neuromancer</td><td>William Gibson</td><td>1984-01-01</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q662029</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Project Hail Mary</td><td>Andy Weir</td><td>2021-01-01</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q106852836</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Fellowship of the Ring</td><td>J. R. R. Tolkien</td><td>2012</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q208002</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Hobbit</td><td>J. R. R. Tolkien</td><td>2012</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q74287</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Road</td><td>Cormac McCarthy</td><td>2006-01-01</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q1140295</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Shining</td><td>Stephen King</td><td>2008</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q470937</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+</table>
+</div>
+<div class="section">
+<div class="media-type-header"><span class="mt-dot" style="background:#A78BFA"></span><strong>Audiobooks</strong> — 6 items (6 identified, 0 review, 0 failed) <span class="badge badge-pass">OK</span></div>
+<table>
+<tr><th>Title</th><th>Author</th><th>Year</th><th>Status</th><th>Confidence</th><th>Retail Match</th><th>QID</th><th>File</th></tr>
+<tr><td>Dune</td><td>Frank Herbert</td><td>2007</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q190192</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Harry Potter and the Philosopher&#39;s Stone</td><td>J. K. Rowling</td><td>2024</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q43361</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Neuromancer</td><td>William Gibson</td><td>2011</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q662029</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Project Hail Mary</td><td>Andy Weir</td><td>2021</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q106852836</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Fellowship of the Ring</td><td>J. R. R. Tolkien</td><td>2021</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q208002</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Hobbit</td><td>J. R. R. Tolkien</td><td>2007</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q74287</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+</table>
+</div>
+<div class="section">
+<div class="media-type-header"><span class="mt-dot" style="background:#60A5FA"></span><strong>Movies</strong> — 5 items (5 identified, 0 review, 0 failed) <span class="badge badge-pass">OK</span></div>
+<table>
+<tr><th>Title</th><th>Author</th><th>Year</th><th>Status</th><th>Confidence</th><th>Retail Match</th><th>QID</th><th>File</th></tr>
+<tr><td>Blade Runner 2049</td><td>—</td><td>2017</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q21500755</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Interstellar</td><td>—</td><td>2025</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q13417189</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Matrix</td><td>—</td><td>1999</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q83495</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Shawshank Redemption</td><td>—</td><td>1995</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q172241</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>千と千尋の神隠し</td><td>—</td><td>2024</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q155653</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+</table>
+</div>
+<div class="section">
+<div class="media-type-header"><span class="mt-dot" style="background:#22D3EE"></span><strong>Music</strong> — 5 items (4 identified, 1 review, 0 failed) <span class="badge badge-warn">REVIEW</span></div>
+<table>
+<tr><th>Title</th><th>Author</th><th>Year</th><th>Status</th><th>Confidence</th><th>Retail Match</th><th>QID</th><th>File</th></tr>
+<tr><td>Across the Stars</td><td>Anne‐Sophie Mutter, John Williams</td><td>2019</td><td class="status-review">InReview <span class="mono">(WikidataBridgeFailed)</span></td><td>50%</td><td>none</td><td class="mono">—</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Bohemian Rhapsody: The Original Soundtrack</td><td>Queen</td><td>2018</td><td class="status-identified">Identified</td><td>100%</td><td>none</td><td class="mono">Q57655507</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Clair de lune</td><td>Claude Debussy</td><td>1990</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q730599</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Lose Yourself</td><td>Eminem</td><td>2002</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q957616</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>Nuvole bianche</td><td>Ludovico Einaudi</td><td>2020</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q106687025</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+</table>
+</div>
+<div class="section">
+<div class="media-type-header"><span class="mt-dot" style="background:#FBBF24"></span><strong>TV</strong> — 3 items (3 identified, 0 review, 0 failed) <span class="badge badge-pass">OK</span></div>
+<table>
+<tr><th>Title</th><th>Author</th><th>Year</th><th>Status</th><th>Confidence</th><th>Retail Match</th><th>QID</th><th>File</th></tr>
+<tr><td>Breaking Bad</td><td>—</td><td>2008</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q1079</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>shogun</td><td>—</td><td>—</td><td class="status-identified">Identified</td><td>100%</td><td>none</td><td class="mono">Q131767</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+<tr><td>The Expanse</td><td>—</td><td>2015</td><td class="status-identified">Identified</td><td>100%</td><td>matched</td><td class="mono">Q18389644</td><td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></td></tr>
+</table>
+</div>
+<h2>Manual Search Tests</h2>
+<table>
+<tr><th>Query</th><th>Provider</th><th>Media Type</th><th>Results</th><th>Top Result</th><th>Confidence</th><th>Status</th></tr>
+<tr><td>Dune Frank Herbert</td><td>apple_api</td><td>Books</td><td>5</td><td>Dune</td><td>47%</td><td><span class="badge badge-pass">PASS</span></td></tr>
+<tr><td>Blade Runner 2049</td><td>tmdb</td><td>Movies</td><td>3</td><td>Blade Runner 2049</td><td>97%</td><td><span class="badge badge-pass">PASS</span></td></tr>
+<tr><td>Breaking Bad</td><td>tmdb</td><td>TV</td><td>5</td><td>Breaking Bad</td><td>97%</td><td><span class="badge badge-pass">PASS</span></td></tr>
+<tr><td>Bohemian Rhapsody Queen</td><td>musicbrainz</td><td>Music</td><td>5</td><td>Bohemian Rhapsody</td><td>68%</td><td><span class="badge badge-pass">PASS</span></td></tr>
+</table>
+<h2>Universe Enrichment</h2>
+<table>
+<tr><th>Universe</th><th>Works Found</th><th>QID Present</th><th>Sample QID</th><th>Status</th></tr>
+<tr><td>Tolkien (Middle-earth)</td><td>4</td><td>True</td><td class="mono">Q208002</td><td><span class="badge badge-pass">QID RESOLVED</span></td></tr>
+<tr><td>Dune / Denis Villeneuve</td><td>3</td><td>True</td><td class="mono">Q21500755</td><td><span class="badge badge-pass">QID RESOLVED</span></td></tr>
+</table>
+<h2>Vault Display Validation <span class="badge badge-warn">3 ISSUES</span></h2>
+<table>
+<tr><th>Title</th><th>Media Type</th><th>Cover Art</th><th>Title</th><th>Creator</th><th>Status</th><th>Retail Match</th><th>QID</th></tr>
+<tr><td>Dune</td><td>Audiobooks</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q190192</span></td></tr>
+<tr><td>Harry Potter and the Philosopher&#39;s Stone</td><td>Audiobooks</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q43361</span></td></tr>
+<tr><td>Neuromancer</td><td>Audiobooks</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q662029</span></td></tr>
+<tr><td>Project Hail Mary</td><td>Audiobooks</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q106852836</span></td></tr>
+<tr><td>The Fellowship of the Ring</td><td>Audiobooks</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q208002</span></td></tr>
+<tr><td>The Hobbit</td><td>Audiobooks</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q74287</span></td></tr>
+<tr><td>Dune</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q190192</span></td></tr>
+<tr><td>Good Omens</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q1052459</span></td></tr>
+<tr><td>Harry Potter and the Chamber of Secrets</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q47209</span></td></tr>
+<tr><td>Harry Potter and the Philosopher&#39;s Stone</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q43361</span></td></tr>
+<tr><td>Leviathan Wakes</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q6535598</span></td></tr>
+<tr><td>Neuromancer</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q662029</span></td></tr>
+<tr><td>Project Hail Mary</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q106852836</span></td></tr>
+<tr><td>The Fellowship of the Ring</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q208002</span></td></tr>
+<tr><td>The Hobbit</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q74287</span></td></tr>
+<tr><td>The Road</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q1140295</span></td></tr>
+<tr><td>The Shining</td><td>Books</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q470937</span></td></tr>
+<tr><td>Blade Runner 2049</td><td>Movies</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q21500755</span></td></tr>
+<tr><td>Interstellar</td><td>Movies</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q13417189</span></td></tr>
+<tr><td>The Matrix</td><td>Movies</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q83495</span></td></tr>
+<tr><td>The Shawshank Redemption</td><td>Movies</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q172241</span></td></tr>
+<tr><td>千と千尋の神隠し</td><td>Movies</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q155653</span></td></tr>
+<tr><td>Across the Stars</td><td>Music</td><td><span style="color:#E24B4A">&#x2717;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">InReview</span></td><td><span style="color:#E24B4A">&#x2717;</span> <span class="mono">none</span></td><td><span style="color:#E24B4A">&#x2717;</span> <span class="mono"></span></td></tr>
+<tr><td>Bohemian Rhapsody: The Original Soundtrack</td><td>Music</td><td><span style="color:#E24B4A">&#x2717;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#E24B4A">&#x2717;</span> <span class="mono">none</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q57655507</span></td></tr>
+<tr><td>Clair de lune</td><td>Music</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q730599</span></td></tr>
+<tr><td>Lose Yourself</td><td>Music</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q957616</span></td></tr>
+<tr><td>Nuvole bianche</td><td>Music</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q106687025</span></td></tr>
+<tr><td>Breaking Bad</td><td>TV</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q1079</span></td></tr>
+<tr><td>shogun</td><td>TV</td><td><span style="color:#E24B4A">&#x2717;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#E24B4A">&#x2717;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#E24B4A">&#x2717;</span> <span class="mono">none</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q131767</span></td></tr>
+<tr><td>The Expanse</td><td>TV</td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Identified</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">matched</span></td><td><span style="color:#5DCAA5">&#x2713;</span> <span class="mono">Q18389644</span></td></tr>
+</table>
+<h2>Stage Gating Validation <span class="badge badge-pass">ALL PASS</span></h2>
+<table>
+<tr><th>Title</th><th>Check</th><th>Result</th><th>Detail</th></tr>
+<tr><td>Across the Stars</td><td>Stage 2: no retail match → QID not expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">No retail, no QID — expected</td></tr>
+<tr><td>Blade Runner 2049</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q21500755</td></tr>
+<tr><td>Bohemian Rhapsody: The Original Soundtrack</td><td>Stage 2: no retail match → QID not expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">Bonus QID: Q57655507</td></tr>
+<tr><td>Breaking Bad</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q1079</td></tr>
+<tr><td>Clair de lune</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q730599</td></tr>
+<tr><td>Dune</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q190192</td></tr>
+<tr><td>Dune</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q190192</td></tr>
+<tr><td>Good Omens</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q1052459</td></tr>
+<tr><td>Harry Potter and the Chamber of Secrets</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q47209</td></tr>
+<tr><td>Harry Potter and the Philosopher&#39;s Stone</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q43361</td></tr>
+<tr><td>Harry Potter and the Philosopher&#39;s Stone</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q43361</td></tr>
+<tr><td>Interstellar</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q13417189</td></tr>
+<tr><td>Leviathan Wakes</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q6535598</td></tr>
+<tr><td>Lose Yourself</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q957616</td></tr>
+<tr><td>Neuromancer</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q662029</td></tr>
+<tr><td>Neuromancer</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q662029</td></tr>
+<tr><td>Nuvole bianche</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q106687025</td></tr>
+<tr><td>Project Hail Mary</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q106852836</td></tr>
+<tr><td>Project Hail Mary</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q106852836</td></tr>
+<tr><td>shogun</td><td>Stage 2: no retail match → QID not expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">Bonus QID: Q131767</td></tr>
+<tr><td>The Expanse</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q18389644</td></tr>
+<tr><td>The Fellowship of the Ring</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q208002</td></tr>
+<tr><td>The Fellowship of the Ring</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q208002</td></tr>
+<tr><td>The Hobbit</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q74287</td></tr>
+<tr><td>The Hobbit</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q74287</td></tr>
+<tr><td>The Matrix</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q83495</td></tr>
+<tr><td>The Road</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q1140295</td></tr>
+<tr><td>The Shawshank Redemption</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q172241</td></tr>
+<tr><td>The Shining</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q470937</td></tr>
+<tr><td>千と千尋の神隠し</td><td>Stage 2: retail match → QID expected</td><td><span class="badge badge-pass">PASS</span></td><td class="mono">QID: Q155653</td></tr>
+</table>
+<footer>Generated by Tuvima Library Integration Test Harness · 2026-03-28 20:08:29</footer>
+</body></html>

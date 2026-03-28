@@ -484,15 +484,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             "Pipeline: effectivePass={EffectivePass} (TwoPassEnabled={TwoPass}) for entity {Id}",
             effectivePass, hydration.TwoPassEnabled, request.EntityId);
 
-        // Build composite endpoint map.
-        var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Build per-provider endpoint maps (each provider keeps its own endpoints).
+        var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
-            foreach (var (key, url) in pc.Endpoints)
-                endpointMap.TryAdd(key, url);
+            providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
 
         _logger.LogDebug(
-            "Pipeline endpoint map: {Endpoints}",
-            string.Join(", ", endpointMap.Select(kv => $"{kv.Key}={kv.Value}")));
+            "Pipeline per-provider endpoints: {Endpoints}",
+            string.Join(", ", providerEndpoints.Select(kv => $"{kv.Key}=[{string.Join(", ", kv.Value.Select(e => $"{e.Key}={e.Value}"))}]")));
 
         var pipelineSw = System.Diagnostics.Stopwatch.StartNew();
         long s1Ms = 0, s2Ms = 0;
@@ -647,7 +646,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         foreach (var provider in stage1Providers)
         {
             var (claims, downProvider) = await FetchFromProviderAsync(
-                provider, request, endpointMap, lang, country, ct, effectivePass).ConfigureAwait(false);
+                provider, request, providerEndpoints, lang, country, ct, effectivePass).ConfigureAwait(false);
 
             if (downProvider is not null)
                 downProviderName = downProvider;
@@ -1099,6 +1098,93 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
+            // ── Direct Wikidata reconciliation fallback ──────────────────────
+            // When Stage 1 fails entirely (no retail match), try title-based
+            // Wikidata reconciliation directly. This is the last resort before
+            // sending the item to review. Movies, TV, and other media types
+            // without a matching retail provider can still be identified via
+            // Wikidata's entity search.
+            var stage2ReconForFallback = _providers
+                .OfType<MediaEngine.Providers.Adapters.ReconciliationAdapter>()
+                .FirstOrDefault();
+
+            if (stage2ReconForFallback is not null && !string.IsNullOrWhiteSpace(titleHint))
+            {
+                _logger.LogInformation(
+                    "Stage 1 failed for entity {Id} — attempting direct Wikidata reconciliation: '{Title}'",
+                    request.EntityId, titleHint);
+
+                try
+                {
+                    var directFallbackClaims = await stage2ReconForFallback.FetchAsync(
+                        new ProviderLookupRequest
+                        {
+                            EntityId   = request.EntityId,
+                            EntityType = request.EntityType,
+                            MediaType  = request.MediaType,
+                            Title      = titleHint,
+                            Author     = request.Hints.GetValueOrDefault("author"),
+                            Hints      = request.Hints,
+                            FileLanguage = detectedFileLanguage,
+                        }, ct).ConfigureAwait(false);
+
+                    var directQidClaim = directFallbackClaims
+                        .FirstOrDefault(c => string.Equals(c.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+
+                    if (directQidClaim is not null && !string.IsNullOrWhiteSpace(directQidClaim.Value))
+                    {
+                        _logger.LogInformation(
+                            "Direct Wikidata reconciliation resolved entity {Id} to QID {Qid} with {Claims} claims (Stage 1 bypass)",
+                            request.EntityId, directQidClaim.Value, directFallbackClaims.Count);
+
+                        await ScoringHelper.PersistClaimsAndScoreAsync(
+                            request.EntityId, directFallbackClaims, stage2ReconForFallback.ProviderId,
+                            _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                            _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
+
+                        result.Stage2ClaimsAdded = directFallbackClaims.Count;
+                        result.WikidataQid = directQidClaim.Value;
+
+                        await _eventPublisher.PublishAsync(
+                            "HydrationStageCompleted",
+                            new HydrationStageCompletedEvent(request.EntityId, 2, directFallbackClaims.Count,
+                                "wikidata_direct_reconciliation"),
+                            ct).ConfigureAwait(false);
+
+                        // Person enrichment from direct reconciliation claims.
+                        var directPersonRefs = ExtractPersonReferencesFromRawClaims(directFallbackClaims);
+                        if (directPersonRefs.Count > 0)
+                        {
+                            try
+                            {
+                                var dpRequests = await _identity.EnrichAsync(
+                                    request.EntityId, directPersonRefs, ct).ConfigureAwait(false);
+                                foreach (var dpReq in dpRequests)
+                                {
+                                    try { await _harvesting.ProcessSynchronousAsync(dpReq, ct).ConfigureAwait(false); }
+                                    catch (Exception ex) when (ex is not OperationCanceledException)
+                                    { _logger.LogWarning(ex, "Person enrichment (direct reconciliation) failed for person {Id}", dpReq.EntityId); }
+                                }
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            { _logger.LogWarning(ex, "Person enrichment (direct reconciliation) failed for entity {Id}", request.EntityId); }
+                        }
+
+                        // Download cover art if Wikidata returned one.
+                        if (request.EntityType == EntityType.MediaAsset)
+                            await PersistCoverFromUrlAsync(request.EntityId, ct).ConfigureAwait(false);
+
+                        goto PostPipeline;
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Direct Wikidata reconciliation failed for entity {Id} — falling through to review",
+                        request.EntityId);
+                }
+            }
+
             // Authority match failed — create review item.
             await CreateReviewItemAsync(
                 request, ReviewTrigger.AuthorityMatchFailed, 0.0,
@@ -1242,7 +1328,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 {
                     bridgeDict.TryAdd(bridge.IdType, bridge.IdValue);
                     if (!string.IsNullOrWhiteSpace(bridge.WikidataProperty))
-                        wikidataProps.TryAdd(bridge.IdType, bridge.WikidataProperty);
+                    {
+                        // Media-type-aware P-code override: tmdb_id uses P4947 (movies) or
+                        // P4983 (TV series). The static alias in EnsureClaimKeyToPCodeMap
+                        // defaults to P4947, but TV items need P4983 for bridge resolution.
+                        var effectivePCode = bridge.WikidataProperty;
+                        if (string.Equals(bridge.IdType, "tmdb_id", StringComparison.OrdinalIgnoreCase)
+                            && request.MediaType == MediaType.TV)
+                        {
+                            effectivePCode = "P4983";
+                        }
+                        wikidataProps.TryAdd(bridge.IdType, effectivePCode);
+                    }
                 }
 
                 // Also add any bridge IDs from canonical values that weren't in bridge_ids table.
@@ -1254,6 +1351,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     if (!wikidataProps.ContainsKey(kvp.Key))
                     {
                         var pCode = GetPCodeForClaimKey(kvp.Key);
+                        // Media-type-aware override for TV TMDB IDs.
+                        if (string.Equals(kvp.Key, "tmdb_id", StringComparison.OrdinalIgnoreCase)
+                            && request.MediaType == MediaType.TV
+                            && !string.IsNullOrWhiteSpace(pCode))
+                        {
+                            pCode = "P4983";
+                        }
                         if (!string.IsNullOrWhiteSpace(pCode))
                             wikidataProps.TryAdd(kvp.Key, pCode);
                     }
@@ -1478,11 +1582,104 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         }
                     }
 
+                    // ── Title-based reconciliation fallback ────────────────────
+                    // Bridge IDs (Apple Books ID, ISBN) are often on edition entities
+                    // or absent from Wikidata entirely. Fall back to title+author
+                    // reconciliation which uses wbsearchentities text search.
+                    var fallbackTitle  = request.Hints?.GetValueOrDefault("title");
+                    var fallbackAuthor = request.Hints?.GetValueOrDefault("author");
+
+                    if (!string.IsNullOrWhiteSpace(fallbackTitle))
+                    {
+                        _logger.LogInformation(
+                            "Stage 2: Bridge resolution failed for entity {Id} — falling back to title-based reconciliation: '{Title}' by '{Author}'",
+                            request.EntityId, fallbackTitle, fallbackAuthor ?? "(unknown)");
+
+                        try
+                        {
+                            var titleFallbackClaims = await stage2ReconAdapter.FetchAsync(
+                                new ProviderLookupRequest
+                                {
+                                    EntityId   = request.EntityId,
+                                    EntityType = request.EntityType,
+                                    MediaType  = request.MediaType,
+                                    Title      = fallbackTitle,
+                                    Author     = fallbackAuthor,
+                                    Hints      = request.Hints,
+                                    FileLanguage = detectedFileLanguage,
+                                }, ct).ConfigureAwait(false);
+
+                            if (titleFallbackClaims.Count > 0)
+                            {
+                                var fallbackQidClaim = titleFallbackClaims
+                                    .FirstOrDefault(c => string.Equals(c.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+
+                                if (fallbackQidClaim is not null && !string.IsNullOrWhiteSpace(fallbackQidClaim.Value))
+                                {
+                                    _logger.LogInformation(
+                                        "Stage 2: Title-based fallback resolved entity {Id} to QID {Qid} with {Claims} claims",
+                                        request.EntityId, fallbackQidClaim.Value, titleFallbackClaims.Count);
+
+                                    await ScoringHelper.PersistClaimsAndScoreAsync(
+                                        request.EntityId, titleFallbackClaims, stage2ReconAdapter.ProviderId,
+                                        _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                                        _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
+
+                                    stage2Claims = titleFallbackClaims.Count;
+                                    result.WikidataQid = fallbackQidClaim.Value;
+                                    lastSuccessfulProvider = stage2ReconAdapter;
+
+                                    await _eventPublisher.PublishAsync(
+                                        "HydrationStageCompleted",
+                                        new HydrationStageCompletedEvent(request.EntityId, 2, stage2Claims,
+                                            "wikidata_title_fallback"),
+                                        ct).ConfigureAwait(false);
+
+                                    // Person enrichment from title-fallback claims.
+                                    var fallbackPersonRefs = ExtractPersonReferencesFromRawClaims(
+                                        titleFallbackClaims);
+                                    if (fallbackPersonRefs.Count > 0)
+                                    {
+                                        try
+                                        {
+                                            var fbPersonRequests = await _identity.EnrichAsync(
+                                                request.EntityId, fallbackPersonRefs, ct).ConfigureAwait(false);
+                                            foreach (var fbPReq in fbPersonRequests)
+                                            {
+                                                try
+                                                {
+                                                    await _harvesting.ProcessSynchronousAsync(fbPReq, ct).ConfigureAwait(false);
+                                                }
+                                                catch (Exception ex) when (ex is not OperationCanceledException)
+                                                {
+                                                    _logger.LogWarning(ex, "Person enrichment (title fallback) failed for person {Id}", fbPReq.EntityId);
+                                                }
+                                            }
+                                        }
+                                        catch (Exception ex) when (ex is not OperationCanceledException)
+                                        {
+                                            _logger.LogWarning(ex, "Stage 2 person enrichment (title fallback) failed for entity {Id}", request.EntityId);
+                                        }
+                                    }
+
+                                    // Skip the review item — title fallback resolved it.
+                                    goto PostPipeline;
+                                }
+                            }
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex,
+                                "Stage 2: Title-based reconciliation fallback failed for entity {Id}",
+                                request.EntityId);
+                        }
+                    }
+
                     // No Wikidata match — file stays at "retail_only" match level.
                     // Create a review item so the user knows, but don't block.
                     await CreateReviewItemAsync(
                         request, ReviewTrigger.WikidataBridgeFailed, 0.0,
-                        "Retail match confirmed but no Wikidata entity found for the bridge identifiers. " +
+                        "Retail match confirmed but no Wikidata entity found for the bridge identifiers or title search. " +
                         "The item will be rechecked periodically.",
                         result, ct, deferredReviewNotifications).ConfigureAwait(false);
                 }
@@ -1598,7 +1795,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // ArtworkUnconfirmed: if cover art was deposited but no precise bridge ID
             // lookup was available (ISBN, apple_books_id), the cover came from a fuzzy
             // text search and needs user confirmation.
-            if (request.EntityType == EntityType.MediaAsset)
+            // HOWEVER: if Stage 2 resolved a valid QID, the Wikidata identity match
+            // confirms the retail match is correct — artwork is trustworthy, skip the review.
+            if (request.EntityType == EntityType.MediaAsset && result.WikidataQid is null)
             {
                 var postS2Canonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                     .ConfigureAwait(false);
@@ -1614,6 +1813,38 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         request, ReviewTrigger.ArtworkUnconfirmed, 0.0,
                         "Cover art was sourced via text search (no ISBN or Apple Books ID available). Please confirm the artwork is correct.",
                         result, ct, deferredReviewNotifications).ConfigureAwait(false);
+                }
+            }
+
+            // Auto-resolve existing ArtworkUnconfirmed reviews when Stage 2 found a QID.
+            // The Wikidata identity match validates the retail match, confirming artwork.
+            if (result.WikidataQid is not null && request.EntityType == EntityType.MediaAsset)
+            {
+                try
+                {
+                    var reviews = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
+                        .ConfigureAwait(false);
+                    foreach (var review in reviews.Where(r =>
+                        r.Status == ReviewStatus.Pending &&
+                        (r.Trigger == ReviewTrigger.ArtworkUnconfirmed
+                         || r.Trigger == ReviewTrigger.WikidataBridgeFailed)))
+                    {
+                        await _reviewRepo.UpdateStatusAsync(
+                            review.Id, ReviewStatus.Resolved, "auto_stage2_qid", ct)
+                            .ConfigureAwait(false);
+
+                        await AdjustBatchForResolveAsync(request.IngestionRunId, ct).ConfigureAwait(false);
+
+                        _logger.LogInformation(
+                            "{Trigger} review auto-resolved for entity {Id} — QID {Qid} confirms identity",
+                            review.Trigger, request.EntityId, result.WikidataQid);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Failed to auto-resolve reviews after QID match for entity {Id}",
+                        request.EntityId);
                 }
             }
         }
@@ -2133,6 +2364,26 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     // may not have its own entry (isbn_13 is the canonical Wikidata form).
                     if (!map.ContainsKey("isbn") && map.TryGetValue("isbn_13", out var isbn13PCode))
                         map["isbn"] = isbn13PCode;
+
+                    // Bridge ID aliases: retail providers emit generic claim keys (e.g. "tmdb_id")
+                    // but the config maps media-specific keys (e.g. "tmdb_movie_id" → P4947).
+                    // Add aliases so GetPCodeForClaimKey finds a match for IsBridgeIdClaim keys.
+                    if (!map.ContainsKey("tmdb_id"))
+                    {
+                        // Prefer movie ID property; most TMDB lookups resolve movies.
+                        if (map.TryGetValue("tmdb_movie_id", out var tmdbMoviePCode))
+                            map["tmdb_id"] = tmdbMoviePCode;
+                        else if (map.TryGetValue("tmdb_tv_id", out var tmdbTvPCode))
+                            map["tmdb_id"] = tmdbTvPCode;
+                    }
+
+                    if (!map.ContainsKey("musicbrainz_id"))
+                    {
+                        if (map.TryGetValue("musicbrainz_release_id", out var mbReleasePCode))
+                            map["musicbrainz_id"] = mbReleasePCode;
+                        else if (map.TryGetValue("musicbrainz_artist_id", out var mbArtistPCode))
+                            map["musicbrainz_id"] = mbArtistPCode;
+                    }
 
                     _claimKeyToPCode = map;
                 }
@@ -2735,14 +2986,14 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private async Task<(IReadOnlyList<ProviderClaim> Claims, string? DownProvider)> FetchFromProviderAsync(
         IExternalMetadataProvider provider,
         HarvestRequest request,
-        Dictionary<string, string> endpointMap,
+        Dictionary<string, Dictionary<string, string>> providerEndpoints,
         string language,
         string country,
         CancellationToken ct,
         HydrationPass effectivePass = HydrationPass.Quick,
         string? fileLanguage = null)
     {
-        var baseUrl = ResolveBaseUrl(provider, endpointMap);
+        var baseUrl = ResolveBaseUrl(provider, providerEndpoints);
         var lookupRequest = BuildLookupRequest(request, provider, baseUrl, language, country, effectivePass, fileLanguage);
 
         try
@@ -3566,14 +3817,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
     private static string ResolveBaseUrl(
         IExternalMetadataProvider provider,
-        Dictionary<string, string> endpointMap)
+        Dictionary<string, Dictionary<string, string>> providerEndpoints)
     {
-        var key = provider.Name;
-
-        if (endpointMap.TryGetValue(key, out var url))
-            return url;
-        if (endpointMap.TryGetValue("api", out var apiUrl))
-            return apiUrl;
+        if (providerEndpoints.TryGetValue(provider.Name, out var endpoints))
+        {
+            // Prefer provider-specific key first, then fall back to "api" in THIS provider's config.
+            if (endpoints.TryGetValue(provider.Name, out var url))
+                return url.TrimEnd('/');
+            if (endpoints.TryGetValue("api", out var apiUrl))
+                return apiUrl.TrimEnd('/');
+            if (endpoints.Count > 0)
+                return endpoints.Values.First().TrimEnd('/');
+        }
 
         return string.Empty;
     }

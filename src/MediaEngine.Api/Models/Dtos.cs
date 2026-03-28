@@ -200,6 +200,50 @@ public sealed class HubDto
     };
 }
 
+/// <summary>
+/// DTO for the GET /hubs/parents endpoint — franchise-level parent hubs (Universes).
+/// Uses snake_case JSON names compatible with the Dashboard's HubRaw deserialiser.
+/// </summary>
+public sealed class ParentHubDto
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("universe_id")]
+    public Guid? UniverseId { get; init; }
+
+    [JsonPropertyName("display_name")]
+    public string? DisplayName { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; init; }
+
+    [JsonPropertyName("parent_hub_id")]
+    public Guid? ParentHubId { get; init; }
+
+    [JsonPropertyName("universe_status")]
+    public string UniverseStatus { get; init; } = "Unknown";
+
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; init; }
+
+    [JsonPropertyName("child_hub_count")]
+    public int ChildHubCount { get; init; }
+
+    [JsonPropertyName("media_types")]
+    public string? MediaTypes { get; init; }
+
+    [JsonPropertyName("total_works")]
+    public int TotalWorks { get; init; }
+
+    /// <summary>Empty works list — parent hubs aggregate through children, not direct works.</summary>
+    [JsonPropertyName("works")]
+    public List<WorkDto> Works { get; init; } = [];
+}
+
 public sealed class WorkDto
 {
     [JsonPropertyName("id")]

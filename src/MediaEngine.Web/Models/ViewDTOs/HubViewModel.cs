@@ -5,6 +5,8 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// <summary>
 /// UI representation of a Hub (media collection).
 /// Maps from the API's HubDto; adds display-friendly helper properties.
+/// For Parent Hubs (Universes), override properties supply aggregated data
+/// since parent hubs have no direct Works.
 /// </summary>
 public sealed class HubViewModel
 {
@@ -27,6 +29,22 @@ public sealed class HubViewModel
     /// <summary>True when this Hub is a Parent Hub (has children).</summary>
     public bool IsParentHub => ChildHubCount > 0;
 
+    // ── Override properties for Parent Hubs ─────────────────────────────────
+    // Parent hubs aggregate data from children; these overrides bypass the
+    // work-derived defaults when set.
+
+    /// <summary>Override description for parent hubs (set from the hub's own description field).</summary>
+    public string? DescriptionOverride { get; init; }
+
+    /// <summary>Override work count for parent hubs (total works across child hubs).</summary>
+    public int? WorkCountOverride { get; init; }
+
+    /// <summary>Override media types string for parent hubs (aggregated from child hubs).</summary>
+    public string? MediaTypesOverride { get; init; }
+
+    /// <summary>Override fictional universe QID for parent hubs (from the hub's own wikidata_qid).</summary>
+    public string? FictionalUniverseQidOverride { get; init; }
+
     // ── Display helpers ───────────────────────────────────────────────────────
 
     /// <summary>
@@ -42,9 +60,9 @@ public sealed class HubViewModel
         ?? Works.Select(GetTitle).FirstOrDefault(t => !string.IsNullOrEmpty(t))
         ?? $"Hub {Id:N}"[..12];
 
-    public int    WorkCount  => Works.Count;
-    public string MediaTypes => string.Join(", ", Works.Select(w => w.MediaType).Distinct());
-    public bool   HasWorks   => Works.Count > 0;
+    public int    WorkCount  => WorkCountOverride ?? Works.Count;
+    public string MediaTypes => MediaTypesOverride ?? string.Join(", ", Works.Select(w => w.MediaType).Distinct());
+    public bool   HasWorks   => Works.Count > 0 || (WorkCountOverride ?? 0) > 0;
 
     /// <summary>Cover art URL from the first Work's canonical "cover" value (external provider URL).</summary>
     public string? CoverUrl => Works.Select(w => w.CoverUrl).FirstOrDefault(u => !string.IsNullOrEmpty(u));
@@ -65,8 +83,10 @@ public sealed class HubViewModel
              .Distinct()
              .FirstOrDefault();
 
-    /// <summary>Best description across all works.</summary>
-    public string? Description => Works.Select(w => w.Description).FirstOrDefault(d => !string.IsNullOrEmpty(d));
+    /// <summary>Best description across all works, or override for parent hubs.</summary>
+    public string? Description =>
+        DescriptionOverride
+        ?? Works.Select(w => w.Description).FirstOrDefault(d => !string.IsNullOrEmpty(d));
 
     /// <summary>Attribution string for the description (e.g. "Wikipedia (CC BY-SA 4.0)").</summary>
     public string? DescriptionSource => Works.Select(w => w.DescriptionSource).FirstOrDefault(s => !string.IsNullOrEmpty(s));
@@ -95,7 +115,9 @@ public sealed class HubViewModel
     public string? Rating => Works.Select(w => w.Rating).FirstOrDefault(r => !string.IsNullOrEmpty(r));
 
     /// <summary>Fictional universe QID from the first Work with a universe link (for Chronicle Explorer navigation).</summary>
-    public string? FictionalUniverseQid => Works.Select(w => w.FictionalUniverseQid).FirstOrDefault(q => !string.IsNullOrEmpty(q));
+    public string? FictionalUniverseQid =>
+        FictionalUniverseQidOverride
+        ?? Works.Select(w => w.FictionalUniverseQid).FirstOrDefault(q => !string.IsNullOrEmpty(q));
 
     /// <summary>Best human-facing identifier from the first Work with one.</summary>
     public string? DisplayIdentifier =>
@@ -130,6 +152,31 @@ public sealed class HubViewModel
             ParentHubId      = parentHubId,
             ParentHubName    = parentHubName,
             ChildHubCount    = childHubCount,
+        };
+    }
+
+    /// <summary>
+    /// Factory for Parent Hub (Universe) view models returned by GET /hubs/parents.
+    /// Parent hubs have no direct works — aggregated data is supplied via overrides.
+    /// </summary>
+    public static HubViewModel FromParentHub(
+        Guid id, Guid? universeId, DateTimeOffset createdAt,
+        string? displayName, string? description, string? wikidataQid,
+        int childHubCount, string? mediaTypes, int totalWorks)
+    {
+        return new()
+        {
+            Id                            = id,
+            UniverseId                    = universeId,
+            CreatedAt                     = createdAt,
+            Works                         = [],
+            HubDisplayName                = displayName,
+            DominantHexColor              = "#A78BFA",  // Purple accent for Universe-level hubs
+            ChildHubCount                 = childHubCount,
+            DescriptionOverride           = description,
+            WorkCountOverride             = totalWorks,
+            MediaTypesOverride            = mediaTypes,
+            FictionalUniverseQidOverride  = wikidataQid,
         };
     }
 

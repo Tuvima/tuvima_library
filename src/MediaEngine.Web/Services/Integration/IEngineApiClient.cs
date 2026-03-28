@@ -142,6 +142,9 @@ public interface IEngineApiClient
     /// <summary>PUT /settings/providers/{name} — toggle a provider's enabled state.</summary>
     Task<bool> UpdateProviderAsync(string name, bool enabled, CancellationToken ct = default);
 
+    /// <summary>GET /settings/providers/health — health status for all tracked providers.</summary>
+    Task<List<ProviderHealthDto>> GetProviderHealthAsync(CancellationToken ct = default);
+
     /// <summary>POST /settings/providers/{name}/test — test a provider's connectivity.</summary>
     Task<ProviderTestResultDto?> TestProviderAsync(string name, CancellationToken ct = default);
 

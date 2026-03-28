@@ -686,6 +686,22 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<ProviderHealthDto>> GetProviderHealthAsync(
+        CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<ProviderHealthDto>>(
+                "/settings/providers/health", ct) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/providers/health failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     // ── Provider management ─────────────────────────────────────────────────
 
     public async Task<ProviderTestResultDto?> TestProviderAsync(
@@ -1734,8 +1750,8 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<HubRaw>>("/hubs/parents", ct);
-            return raw?.Select(MapHub).ToList() ?? [];
+            var raw = await _http.GetFromJsonAsync<List<ParentHubRaw>>("/hubs/parents", ct);
+            return raw?.Select(MapParentHub).ToList() ?? [];
         }
         catch (Exception ex)
         {
@@ -2608,6 +2624,17 @@ public sealed class EngineApiClient : IEngineApiClient
         parentHubName: h.ParentHubName,
         childHubCount: h.ChildHubCount);
 
+    private HubViewModel MapParentHub(ParentHubRaw h) => HubViewModel.FromParentHub(
+        h.Id,
+        h.UniverseId,
+        h.CreatedAt,
+        displayName:   h.DisplayName,
+        description:   h.Description,
+        wikidataQid:   h.WikidataQid,
+        childHubCount: h.ChildHubCount,
+        mediaTypes:    h.MediaTypes,
+        totalWorks:    h.TotalWorks);
+
     // ── EPUB Reader (/read, /reader) ──────────────────────────────────
 
     public async Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default)
@@ -2812,6 +2839,18 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("parent_hub_id")]   Guid?          ParentHubId   = null,
         [property: JsonPropertyName("parent_hub_name")] string?        ParentHubName = null,
         [property: JsonPropertyName("child_hub_count")] int            ChildHubCount = 0);
+
+    private sealed record ParentHubRaw(
+        [property: JsonPropertyName("id")]               Guid           Id,
+        [property: JsonPropertyName("universe_id")]      Guid?          UniverseId,
+        [property: JsonPropertyName("display_name")]     string?        DisplayName,
+        [property: JsonPropertyName("description")]      string?        Description,
+        [property: JsonPropertyName("wikidata_qid")]     string?        WikidataQid,
+        [property: JsonPropertyName("universe_status")]  string?        UniverseStatus,
+        [property: JsonPropertyName("created_at")]       DateTimeOffset CreatedAt,
+        [property: JsonPropertyName("child_hub_count")]  int            ChildHubCount  = 0,
+        [property: JsonPropertyName("media_types")]      string?        MediaTypes     = null,
+        [property: JsonPropertyName("total_works")]      int            TotalWorks     = 0);
 
     private sealed record WorkRaw(
         [property: JsonPropertyName("id")]               Guid                      Id,

@@ -191,16 +191,15 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var allProviderConfigs = _configLoader.LoadAllProviders();
         var scoring            = _configLoader.LoadScoring();
 
-        // Build composite endpoint map from all provider configs.
-        var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // Build per-provider endpoint map (avoids key collisions across providers).
+        var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in allProviderConfigs)
-            foreach (var (key, url) in pc.Endpoints)
-                endpointMap.TryAdd(key, url);
+            providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
 
         // Build provider weight maps from provider configs.
         var (providerWeights, providerFieldWeights) = BuildWeightMaps(allProviderConfigs);
 
-        var sparqlBaseUrl = ResolveSparqlBaseUrl(endpointMap);
+        var sparqlBaseUrl = ResolveSparqlBaseUrl(providerEndpoints);
 
         // For Person entities: skip if already enriched by a concurrent worker.
         if (request.EntityType == EntityType.Person && request.EntityId != Guid.Empty)
@@ -220,7 +219,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             if (!provider.CanHandle(request.MediaType) || !provider.CanHandle(request.EntityType))
                 continue;
 
-            var baseUrl = ResolveBaseUrl(provider, endpointMap);
+            var baseUrl = ResolveBaseUrl(provider, providerEndpoints);
             var lookupRequest = BuildLookupRequest(request, provider, baseUrl, sparqlBaseUrl);
 
             IReadOnlyList<ProviderClaim> providerClaims;
@@ -1079,28 +1078,25 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
     private static string ResolveBaseUrl(
         IExternalMetadataProvider provider,
-        Dictionary<string, string> endpointMap)
+        Dictionary<string, Dictionary<string, string>> providerEndpoints)
     {
-        // Wikidata uses a dedicated "wikidata_api" endpoint key.
-        // Config-driven adapters self-resolve from their own endpoints map,
-        // so the default (provider.Name) is a reasonable fallback.
-        var key = provider.Name switch
+        if (providerEndpoints.TryGetValue(provider.Name, out var endpoints))
         {
-            "wikidata" => "wikidata_api",
-            _          => provider.Name,
-        };
-
-        // Try the mapped key first, then fall back to the "api" conventional key.
-        if (endpointMap.TryGetValue(key, out var url))
-            return url;
-        if (endpointMap.TryGetValue("api", out var apiUrl))
-            return apiUrl;
-
+            if (endpoints.TryGetValue(provider.Name, out var url))
+                return url.TrimEnd('/');
+            if (endpoints.TryGetValue("api", out var apiUrl))
+                return apiUrl.TrimEnd('/');
+            if (endpoints.Count > 0)
+                return endpoints.Values.First().TrimEnd('/');
+        }
         return string.Empty;
     }
 
-    private static string? ResolveSparqlBaseUrl(Dictionary<string, string> endpointMap)
-        => endpointMap.TryGetValue("wikidata_sparql", out var url) ? url : null;
+    private static string? ResolveSparqlBaseUrl(Dictionary<string, Dictionary<string, string>> providerEndpoints)
+        => providerEndpoints.Values
+            .SelectMany(e => e)
+            .FirstOrDefault(kv => kv.Key.Equals("wikidata_sparql", StringComparison.OrdinalIgnoreCase))
+            .Value;
 
     private ProviderLookupRequest BuildLookupRequest(
         HarvestRequest request,

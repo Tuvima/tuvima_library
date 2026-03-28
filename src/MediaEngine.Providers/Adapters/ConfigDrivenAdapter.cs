@@ -2,6 +2,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -826,24 +827,32 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var baseUrl = ResolveBaseUrl(request);
         var template = strategy.UrlTemplate;
 
+        // Clean the title for search: strip trailing (YYYY) and SxxExx patterns.
+        var searchTitle = CleanTitleForSearch(request.Title) ?? request.Title;
+        var yearFromTitle = ExtractYearFromTitle(request.Title);
+
         // Build {query} placeholder from query_template if specified.
         var query = string.Empty;
         if (!string.IsNullOrEmpty(strategy.QueryTemplate))
         {
             query = strategy.QueryTemplate;
-            query = ReplacePlaceholder(query, "{title}", request.Title, encode: false);
+            query = ReplacePlaceholder(query, "{title}", searchTitle, encode: false);
             query = ReplacePlaceholder(query, "{author}", request.Author, encode: false);
             query = ReplacePlaceholder(query, "{narrator}", request.Narrator, encode: false);
+            // Remove dangling Lucene operators when optional fields are empty.
+            // e.g. "{title} AND artist:{author}" → "Bohemian Rhapsody AND artist:" when author is null
+            // → becomes "Bohemian Rhapsody" after cleanup.
+            query = Regex.Replace(query, @"\s+AND\s+\w+:\s*$", string.Empty, RegexOptions.IgnoreCase);
+            query = Regex.Replace(query, @"^\s*AND\s+\w+:\s*", string.Empty, RegexOptions.IgnoreCase);
             // Trim and collapse whitespace from unfilled placeholders.
-            query = System.Text.RegularExpressions.Regex
-                .Replace(query.Trim(), @"\s+", " ");
+            query = Regex.Replace(query.Trim(), @"\s+", " ");
         }
 
         // Replace all placeholders in the URL template.
         var url = template;
         url = ReplacePlaceholder(url, "{base_url}", baseUrl, encode: false);
         url = ReplacePlaceholder(url, "{query}", query, encode: true);
-        url = ReplacePlaceholder(url, "{title}", request.Title, encode: true);
+        url = ReplacePlaceholder(url, "{title}", searchTitle, encode: true);
         url = ReplacePlaceholder(url, "{author}", request.Author, encode: true);
         url = ReplacePlaceholder(url, "{isbn}", request.Isbn, encode: true);
         url = ReplacePlaceholder(url, "{asin}", request.Asin, encode: true);
@@ -855,6 +864,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
         url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
         url = ReplacePlaceholder(url, "{country}", request.Country.ToLowerInvariant(),  encode: true);
+        url = ReplacePlaceholder(url, "{year}",    yearFromTitle ?? string.Empty, encode: true);
 
         // {limit} — replaced with the caller-supplied override (fetch path uses fetch_limit,
         // search path uses the manual search limit). Falls back to max_results or 25.
@@ -893,6 +903,37 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return template.Replace(placeholder, replacement, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// Strips trailing year suffixes like "(2017)" and TV episode designations like "S01E01"
+    /// from titles so that search APIs receive clean query strings.
+    /// </summary>
+    internal static string? CleanTitleForSearch(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return title;
+
+        // Strip trailing (YYYY) — e.g. "Blade Runner 2049 (2017)" → "Blade Runner 2049"
+        var cleaned = Regex.Replace(title, @"\s*\(\d{4}\)\s*$", string.Empty);
+
+        // Strip trailing SxxExx — e.g. "Breaking Bad S01E01" → "Breaking Bad"
+        cleaned = Regex.Replace(cleaned, @"\s*S\d{1,2}E\d{1,2}\s*$", string.Empty, RegexOptions.IgnoreCase);
+
+        return cleaned.Trim();
+    }
+
+    /// <summary>
+    /// Extracts a four-digit year from a trailing "(YYYY)" suffix if present.
+    /// Returns null when no year suffix is found.
+    /// </summary>
+    internal static string? ExtractYearFromTitle(string? title)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            return null;
+
+        var match = Regex.Match(title, @"\((\d{4})\)\s*$");
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
     // ── Result navigation ───────────────────────────────────────────────────
 
     private static JsonNode? NavigateToResult(
@@ -916,6 +957,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         // the retailer differs from the embedded author).
         if (!string.IsNullOrWhiteSpace(queryTitle))
         {
+            // Clean the query title for matching — strip "(YYYY)" and "SxxExx" so
+            // word-overlap scoring isn't penalised by filename-derived suffixes.
+            var cleanedQueryTitle = CleanTitleForSearch(queryTitle) ?? queryTitle;
+
             var titlePaths  = new[] { "trackName", "collectionName", "title", "name" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
@@ -929,7 +974,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
                 if (string.IsNullOrWhiteSpace(nodeTitle)) continue;
 
-                var titleScore  = ComputeWordOverlap(queryTitle, nodeTitle);
+                var titleScore  = ComputeWordOverlap(cleanedQueryTitle, nodeTitle);
                 var authorScore = !string.IsNullOrWhiteSpace(queryAuthor) && !string.IsNullOrWhiteSpace(nodeAuthor)
                     ? ComputeWordOverlap(queryAuthor, nodeAuthor)
                     : 0.0;

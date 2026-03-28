@@ -408,6 +408,16 @@
         if (!append) _loading = true;
         StateHasChanged();
 
+        // If all media type filters are off, show nothing
+        if (_enabledMediaTypes.Count == 0)
+        {
+            _mediaItems = [];
+            _hasMore = false;
+            _loadedCount = 0;
+            _loading = false;
+            return;
+        }
+
         // Build the status filter from toggle state
         string? statusFilter = null;
         if (_filterReview)
@@ -473,7 +483,7 @@
         _loadingUniverses = true;
         StateHasChanged();
 
-        _universes = await ApiClient.GetHubsAsync() ?? [];
+        _universes = await ApiClient.GetParentHubsAsync() ?? [];
 
         // Load people counts per universe (non-blocking — show "—" until loaded).
         if (_universes.Count > 0)

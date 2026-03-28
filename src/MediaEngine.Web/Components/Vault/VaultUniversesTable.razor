@@ -41,7 +41,7 @@ else
                             </div>
                         </td>
                         <td class="vut-td vut-td--center vut-col-series">
-                            <span class="vut-count">@u.WorkCount</span>
+                            <span class="vut-count">@(u.IsParentHub ? u.ChildHubCount : u.WorkCount)</span>
                         </td>
                         <td class="vut-td vut-td--center">
                             @if (!string.IsNullOrWhiteSpace(u.MediaTypes))

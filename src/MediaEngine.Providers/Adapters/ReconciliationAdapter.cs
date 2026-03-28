@@ -1329,7 +1329,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (!wikidataProperties.TryGetValue(idType, out var pCode)
                 || string.IsNullOrWhiteSpace(pCode))
             {
-                _logger.LogDebug(
+                _logger.LogInformation(
                     "{Provider}: ResolveBridgeAsync — no Wikidata property mapping for bridge type '{IdType}', skipping",
                     Name, idType);
                 continue;
@@ -1337,56 +1337,31 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                // Use haswbstatement constraint to resolve the bridge ID directly to a QID.
-                var constraints = new Dictionary<string, string>(StringComparer.Ordinal)
-                {
-                    [pCode] = idValue
-                };
+                // Use LookupByExternalIdAsync which performs a CirrusSearch with
+                // haswbstatement:Pxxxx=value — this finds entities by their external ID
+                // properties directly, rather than text-matching on entity labels.
+                var lookupResults = await _reconciler.LookupByExternalIdAsync(
+                    pCode, idValue, language, ct).ConfigureAwait(false);
 
-                var candidates = await ReconcileAsync(idValue, constraints, ct).ConfigureAwait(false);
-
-                if (candidates.Count == 0)
+                if (lookupResults.Count == 0)
                 {
-                    _logger.LogDebug(
-                        "{Provider}: ResolveBridgeAsync — no candidates for {IdType}={IdValue}",
-                        Name, idType, idValue);
+                    _logger.LogInformation(
+                        "{Provider}: ResolveBridgeAsync — no candidates for {IdType}={IdValue} (haswbstatement:{PCode}={IdValue2})",
+                        Name, idType, idValue, pCode, idValue);
                     continue;
                 }
 
-                // Filter by media type when applicable.
-                IReadOnlyList<ReconciliationResult> filtered = candidates;
-                if (mediaType != MediaType.Unknown)
-                {
-                    filtered = await FilterByMediaTypeAsync(candidates, mediaType, ct)
-                        .ConfigureAwait(false);
+                _logger.LogInformation(
+                    "{Provider}: ResolveBridgeAsync — LookupByExternalId returned {Count} candidate(s) for {IdType}={IdValue}",
+                    Name, lookupResults.Count, idType, idValue);
 
-                    if (filtered.Count == 0)
-                    {
-                        _logger.LogDebug(
-                            "{Provider}: ResolveBridgeAsync — all candidates for {IdType}={IdValue} " +
-                            "were filtered out by media type {MediaType}",
-                            Name, idType, idValue, mediaType);
-                        // Fall back to unfiltered candidates — bridge IDs are strong signals.
-                        filtered = candidates;
-                    }
-                }
-
-                // Accept the top candidate if it meets the threshold.
-                var top = filtered[0];
-                if (top.Match || top.Score >= 80)
-                {
-                    resolvedQid = top.Id;
-                    _logger.LogInformation(
-                        "{Provider}: ResolveBridgeAsync — resolved {IdType}={IdValue} to QID {QID} " +
-                        "(score {Score}, match {Match})",
-                        Name, idType, idValue, resolvedQid, top.Score, top.Match);
-                    break;
-                }
-
-                _logger.LogDebug(
-                    "{Provider}: ResolveBridgeAsync — top candidate for {IdType}={IdValue} " +
-                    "score {Score} below threshold 80",
-                    Name, idType, idValue, top.Score);
+                // Accept the first result — haswbstatement is a precise match.
+                resolvedQid = lookupResults[0].Id;
+                _logger.LogInformation(
+                    "{Provider}: ResolveBridgeAsync — resolved {IdType}={IdValue} to QID {QID} " +
+                    "via haswbstatement:{PCode}={IdValue2}",
+                    Name, idType, idValue, resolvedQid, pCode, idValue);
+                break;
             }
             catch (OperationCanceledException)
             {
@@ -1559,10 +1534,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (string.IsNullOrWhiteSpace(request.Title))
                 return [];
 
-            // Clean audiobook titles before reconciliation — strip "(Unabridged)", ": A Novel", etc.
+            // Clean titles before reconciliation:
+            // - Audiobooks: strip "(Unabridged)", ": A Novel", etc.
+            // - All types: strip trailing "(YYYY)" year suffixes and "SxxExx" episode designators
             var searchTitle = request.MediaType == MediaType.Audiobooks
                 ? CleanAudiobookTitle(request.Title)
                 : request.Title;
+            searchTitle = CleanTitleForReconciliation(searchTitle);
 
             var candidates = await ReconcileAsync(searchTitle, null, ct).ConfigureAwait(false);
 
@@ -2641,6 +2619,24 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// Strips common audiobook title suffixes that interfere with Wikidata reconciliation.
     /// Examples: "(Unabridged)", ": A Novel", "- A Memoir", "(Audiobook)", etc.
     /// </summary>
+    /// <summary>
+    /// Strips trailing "(YYYY)" year suffixes and "SxxExx" episode designators from titles.
+    /// Applied to ALL media types before Wikidata reconciliation.
+    /// </summary>
+    private static string CleanTitleForReconciliation(string title)
+    {
+        // Strip trailing "(YYYY)" year pattern — e.g. "Blade Runner 2049 (2017)" → "Blade Runner 2049"
+        var cleaned = System.Text.RegularExpressions.Regex.Replace(
+            title, @"\s*\(\d{4}\)\s*$", string.Empty).Trim();
+
+        // Strip trailing "SxxExx" episode designator — e.g. "Shogun S01E01" → "Shogun"
+        cleaned = System.Text.RegularExpressions.Regex.Replace(
+            cleaned, @"\s*S\d{1,2}E\d{1,2}\s*$", string.Empty,
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
+
+        return string.IsNullOrWhiteSpace(cleaned) ? title : cleaned;
+    }
+
     private static string CleanAudiobookTitle(string title)
     {
         // Remove parenthesized/bracketed suffixes: (Unabridged), [Abridged], (Audiobook), etc.

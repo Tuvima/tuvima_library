@@ -106,6 +106,42 @@ public sealed record ProviderSlotDto
     public string? Tertiary { get; init; }
 }
 
+// ── Provider Health DTOs ──────────────────────────────────────────────────
+
+/// <summary>
+/// Health status for a single provider.
+/// Maps from <c>GET /settings/providers/health</c>.
+/// </summary>
+public sealed class ProviderHealthDto
+{
+    [JsonPropertyName("providerId")]
+    public string ProviderId { get; set; } = string.Empty;
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "Healthy";
+
+    [JsonPropertyName("consecutiveFailures")]
+    public int ConsecutiveFailures { get; set; }
+
+    [JsonPropertyName("lastCheckAt")]
+    public string? LastCheckAt { get; set; }
+
+    [JsonPropertyName("lastSuccessAt")]
+    public string? LastSuccessAt { get; set; }
+
+    [JsonPropertyName("lastFailureAt")]
+    public string? LastFailureAt { get; set; }
+
+    [JsonPropertyName("lastFailureReason")]
+    public string? LastFailureReason { get; set; }
+
+    [JsonPropertyName("nextCheckAt")]
+    public string? NextCheckAt { get; set; }
+
+    [JsonPropertyName("downSince")]
+    public string? DownSince { get; set; }
+}
+
 // ── Metadata Search DTOs ───────────────────────────────────────────────────
 
 /// <summary>

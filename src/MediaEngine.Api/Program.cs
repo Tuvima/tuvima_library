@@ -412,7 +412,11 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     {
         UserAgent = "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)",
         Language  = coreConfig.Language.Metadata,
-        // MaxLag defaults to 5 (Wikimedia bot etiquette) — no override needed.
+        // MaxLag: Wikidata's query-service lag frequently exceeds 5s, causing all
+        // action=query&list=search calls (including haswbstatement bridge resolution)
+        // to fail silently. Setting to 0 disables the maxlag check — acceptable for
+        // a single-user personal tool making infrequent requests.
+        MaxLag    = 0,
     };
 
     builder.Services.AddHttpClient("WikidataReconciliation", client =>

@@ -89,10 +89,9 @@ public sealed class SearchService : ISearchService
 
         // Build endpoint map for cover art enrichment
         var provConfigs = _configLoader.LoadAllProviders();
-        var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
-            foreach (var (key, url) in pc.Endpoints)
-                endpointMap.TryAdd(key, url);
+            providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
 
         try
         {
@@ -116,7 +115,7 @@ public sealed class SearchService : ISearchService
                 MediaType  = mediaType,
                 Title      = searchQuery,
                 Author     = request.LocalAuthor,
-                BaseUrl    = GetProviderBaseUrl(wikidataProvider.Name, endpointMap),
+                BaseUrl    = GetProviderBaseUrl(wikidataProvider.Name, providerEndpoints),
                 Language   = "en",
                 Country    = "us",
             };
@@ -148,7 +147,7 @@ public sealed class SearchService : ISearchService
 
                 // Enrich with cover art from retail providers
                 var enriched = await EnrichCandidateAsync(
-                    qidCandidate, request.Query, mediaType, retailProviders, endpointMap, ct)
+                    qidCandidate, request.Query, mediaType, retailProviders, providerEndpoints, ct)
                     .ConfigureAwait(false);
 
                 candidates.Add(enriched);
@@ -190,16 +189,15 @@ public sealed class SearchService : ISearchService
 
         // Build endpoint map for URLs/country/language
         var provConfigs = _configLoader.LoadAllProviders();
-        var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
-            foreach (var (key, url) in pc.Endpoints)
-                endpointMap.TryAdd(key, url);
+            providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
 
         var candidates = new List<RetailCandidate>();
 
         // Call each retail provider in parallel
         var tasks = retailProviders.Select(p =>
-            SearchProviderAsync(p, request.Query, mediaType, endpointMap, request.MaxCandidates, ct));
+            SearchProviderAsync(p, request.Query, mediaType, providerEndpoints, request.MaxCandidates, ct));
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         foreach (var providerResults in results)
@@ -241,7 +239,7 @@ public sealed class SearchService : ISearchService
         string originalQuery,
         MediaType mediaType,
         IReadOnlyList<IExternalMetadataProvider> retailProviders,
-        Dictionary<string, string> endpointMap,
+        Dictionary<string, Dictionary<string, string>> providerEndpoints,
         CancellationToken ct)
     {
         string? coverUrl     = null;
@@ -262,7 +260,7 @@ public sealed class SearchService : ISearchService
                         EntityType = EntityType.Work,
                         MediaType  = mediaType,
                         Title      = candidate.Label,
-                        BaseUrl    = GetProviderBaseUrl(provider.Name, endpointMap),
+                        BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
                         Language   = "en",
                         Country    = "us",
                     };
@@ -298,7 +296,7 @@ public sealed class SearchService : ISearchService
                             EntityType = EntityType.Work,
                             MediaType  = mediaType,
                             Title      = originalQuery,
-                            BaseUrl    = GetProviderBaseUrl(provider.Name, endpointMap),
+                            BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
                             Language   = "en",
                             Country    = "us",
                         };
@@ -357,7 +355,7 @@ public sealed class SearchService : ISearchService
         IExternalMetadataProvider provider,
         string query,
         MediaType mediaType,
-        Dictionary<string, string> endpointMap,
+        Dictionary<string, Dictionary<string, string>> providerEndpoints,
         int maxCandidates,
         CancellationToken ct)
     {
@@ -369,7 +367,7 @@ public sealed class SearchService : ISearchService
                 EntityType = EntityType.Work,
                 MediaType  = mediaType,
                 Title      = query,
-                BaseUrl    = GetProviderBaseUrl(provider.Name, endpointMap),
+                BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
                 Language   = "en",
                 Country    = "us",
             };
@@ -408,14 +406,17 @@ public sealed class SearchService : ISearchService
 
     private static string GetProviderBaseUrl(
         string providerName,
-        Dictionary<string, string> endpointMap)
+        Dictionary<string, Dictionary<string, string>> providerEndpoints)
     {
-        // Try provider-specific URL key first, then fall back to empty
-        if (endpointMap.TryGetValue(providerName, out var url)) return url;
-        if (endpointMap.TryGetValue($"{providerName}_api", out var apiUrl)) return apiUrl;
-        // Apple Books uses the iTunes Search API
-        if (providerName.Contains("apple", StringComparison.OrdinalIgnoreCase))
-            return endpointMap.TryGetValue("apple_api", out var ab) ? ab : "https://itunes.apple.com";
+        if (providerEndpoints.TryGetValue(providerName, out var endpoints))
+        {
+            if (endpoints.TryGetValue(providerName, out var url))
+                return url.TrimEnd('/');
+            if (endpoints.TryGetValue("api", out var apiUrl))
+                return apiUrl.TrimEnd('/');
+            if (endpoints.Count > 0)
+                return endpoints.Values.First().TrimEnd('/');
+        }
         return string.Empty;
     }
 
