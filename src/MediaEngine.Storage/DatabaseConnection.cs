@@ -1879,10 +1879,6 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 next_check_at        TEXT,
                 down_since           TEXT
             );
-
-            CREATE INDEX IF NOT EXISTS idx_deferred_queue_failure_type
-                ON deferred_enrichment_queue(failure_type)
-                WHERE failure_type IS NOT NULL;
             """;
         cmd.ExecuteNonQuery();
 
@@ -1904,6 +1900,15 @@ public sealed class DatabaseConnection : IDatabaseConnection
             alt2.ExecuteNonQuery();
         }
         catch { /* Column already exists — safe to ignore. */ }
+
+        // Index on failure_type — created AFTER the ALTER TABLEs that add the column.
+        using var idx = conn.CreateCommand();
+        idx.CommandText = """
+            CREATE INDEX IF NOT EXISTS idx_deferred_queue_failure_type
+                ON deferred_enrichment_queue(failure_type)
+                WHERE failure_type IS NOT NULL;
+            """;
+        idx.ExecuteNonQuery();
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Storage;
@@ -11,10 +12,10 @@ namespace MediaEngine.Storage;
 /// </summary>
 public sealed class ProviderHealthRepository : IProviderHealthRepository
 {
-    private readonly DatabaseConnection _db;
+    private readonly IDatabaseConnection _db;
     private readonly ILogger<ProviderHealthRepository> _logger;
 
-    public ProviderHealthRepository(DatabaseConnection db, ILogger<ProviderHealthRepository> logger)
+    public ProviderHealthRepository(IDatabaseConnection db, ILogger<ProviderHealthRepository> logger)
     {
         _db = db;
         _logger = logger;
@@ -22,7 +23,7 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
 
     public async Task<ProviderHealthRecord?> GetAsync(string providerId, CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<ProviderHealthRow>(
             "SELECT * FROM provider_health WHERE provider_id = @ProviderId",
             new { ProviderId = providerId });
@@ -31,14 +32,14 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
 
     public async Task<IReadOnlyList<ProviderHealthRecord>> GetAllAsync(CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<ProviderHealthRow>("SELECT * FROM provider_health");
         return rows.Select(r => r.ToRecord()).ToList();
     }
 
     public async Task<IReadOnlyList<ProviderHealthRecord>> GetDownProvidersAsync(CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<ProviderHealthRow>(
             "SELECT * FROM provider_health WHERE status = 'Down'");
         return rows.Select(r => r.ToRecord()).ToList();
@@ -46,7 +47,7 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
 
     public async Task UpsertAsync(ProviderHealthRecord record, CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         await conn.ExecuteAsync(@"
             INSERT INTO provider_health (provider_id, status, consecutive_failures,
                 last_check_at, last_success_at, last_failure_at, last_failure_reason,
@@ -80,7 +81,7 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
     public async Task<bool> RecordSuccessAsync(string providerId, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow.ToString("o");
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // Check if provider was Down before this success.
         var previousStatus = await conn.QueryFirstOrDefaultAsync<string>(
@@ -111,7 +112,7 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
     public async Task<ProviderHealthStatus> RecordFailureAsync(string providerId, string reason, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // Get current state.
         var current = await conn.QueryFirstOrDefaultAsync<ProviderHealthRow>(
