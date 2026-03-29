@@ -70,6 +70,18 @@ public sealed class RegistryRepository : IRegistryRepository
                     ) AS author,
                     MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS director,
                     MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
+                    (SELECT pr.display_name || ': ' || mc_rt.value
+                     FROM metadata_claims mc_rt
+                     INNER JOIN media_assets ma_rt ON ma_rt.id = mc_rt.entity_id
+                     INNER JOIN editions e_rt ON e_rt.id = ma_rt.edition_id
+                     INNER JOIN provider_registry pr ON pr.id = mc_rt.provider_id
+                     WHERE e_rt.work_id = w.id
+                       AND mc_rt.key = 'title'
+                       AND mc_rt.provider_id != 'b3000003-d000-4000-8000-000000000004'
+                       AND mc_rt.provider_id != 'local_filesystem'
+                     ORDER BY mc_rt.confidence DESC
+                     LIMIT 1
+                    ) AS retail_match_detail,
                     MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
                     MAX(CASE WHEN cv.key = 'wikidata_qid' THEN cv.value END) AS wikidata_qid,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
@@ -159,6 +171,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.author,
                     wd.director,
                     wd.artist,
+                    wd.retail_match_detail,
                     wd.file_name,
                     wd.title_provider_id AS match_source,
                     rd.review_id,
@@ -199,7 +212,14 @@ public sealed class RegistryRepository : IRegistryRepository
                         ELSE 'none'
                     END AS wikidata_match,
                     CASE
-                        WHEN wd.cover_url IS NOT NULL AND wd.cover_url != '' THEN 'matched'
+                        WHEN EXISTS (
+                            SELECT 1 FROM metadata_claims mc_retail
+                            INNER JOIN media_assets ma_r ON ma_r.id = mc_retail.entity_id
+                            INNER JOIN editions e_r ON e_r.id = ma_r.edition_id
+                            WHERE e_r.work_id = wd.entity_id
+                              AND mc_retail.provider_id != 'b3000003-d000-4000-8000-000000000004'
+                              AND mc_retail.provider_id != 'local_filesystem'
+                        ) THEN 'matched'
                         WHEN rd.review_id IS NOT NULL AND rd.trigger = 'ArtworkUnconfirmed' THEN 'failed'
                         ELSE 'none'
                     END AS retail_match,
@@ -284,7 +304,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
                 fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status,
                 fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url,
-                fd.created_at, fd.director, fd.artist
+                fd.created_at, fd.director, fd.artist, fd.retail_match_detail
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -323,8 +343,9 @@ public sealed class RegistryRepository : IRegistryRepository
                                      : (DateTimeOffset.TryParse(reader.GetString(20), out var createdDt)
                                          ? createdDt
                                          : DateTimeOffset.MinValue),
-                Director       = reader.IsDBNull(21) ? null : reader.GetString(21),
-                Artist         = reader.IsDBNull(22) ? null : reader.GetString(22),
+                Director          = reader.IsDBNull(21) ? null : reader.GetString(21),
+                Artist            = reader.IsDBNull(22) ? null : reader.GetString(22),
+                RetailMatchDetail = reader.IsDBNull(23) ? null : reader.GetString(23),
             });
         }
 

@@ -81,6 +81,9 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("retail_match")]
     public string RetailMatch { get; set; } = "none";
 
+    [JsonPropertyName("retail_match_detail")]
+    public string? RetailMatchDetail { get; set; }
+
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }
 

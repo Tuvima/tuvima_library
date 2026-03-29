@@ -33,6 +33,9 @@
                 </div>
                 <div class="vdd-header-info">
                     <div class="vdd-badges">
+                        <span class="vdd-location-chip @(IsInLibrary ? "vdd-location-chip--library" : "vdd-location-chip--staging")">
+                            @(IsInLibrary ? "Library" : "Staging")
+                        </span>
                         <StatusPill Status="@MediaItem.VaultDisplayStatus" QuarantineDays="@MediaItem.QuarantineDays" />
                         @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
                         {
@@ -150,7 +153,7 @@
                             <div class="vdd-pipeline-line">
                                 <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                 <span class="vdd-field-label">RETAIL</span>
-                                <span class="vdd-field-value">@MediaItem.RetailMatch</span>
+                                <span class="vdd-field-value">@(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
                             </div>
                             <div class="vdd-pipeline-line">
                                 <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
@@ -180,7 +183,7 @@
                             <div class="vdd-pipeline-line">
                                 <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                 <span class="vdd-field-label">RETAIL</span>
-                                <span class="vdd-field-value">@MediaItem.RetailMatch</span>
+                                <span class="vdd-field-value">@(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
                             </div>
                         }
                         @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
@@ -430,18 +433,6 @@
 
             <DrawerSection Title="Status" Icon="@Icons.Material.Outlined.Info">
                 <div class="vdd-status">
-                    <div class="vdd-status-row">
-                        <span class="vdd-location-badge @(IsInLibrary ? "vdd-location--library" : "vdd-location--staging")">
-                            @(IsInLibrary ? L["VaultDetail_LocationLibrary"] : L["VaultDetail_LocationStaging"])
-                        </span>
-                        <div class="vdd-lifecycle-card">
-                            <span class="vdd-field-label">@L["VaultDetail_FieldState"]</span>
-                            <div class="vdd-lifecycle-value" style="color: #5DCAA5;">
-                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="font-size: 14px;" />
-                                @L["VaultDetail_StateSynced"]
-                            </div>
-                        </div>
-                    </div>
                     <div class="vdd-status-row">
                         <div class="vdd-lifecycle-card">
                             <span class="vdd-field-label">@L["VaultDetail_FieldAdded"]</span>
@@ -1286,6 +1277,27 @@
     }
 
     .vdd-location--staging {
+        background: rgba(239, 159, 39, 0.1);
+        border: 1px solid rgba(239, 159, 39, 0.2);
+        color: #EF9F27;
+    }
+
+    .vdd-location-chip {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+
+    .vdd-location-chip--library {
+        background: rgba(93, 202, 165, 0.1);
+        border: 1px solid rgba(93, 202, 165, 0.2);
+        color: #5DCAA5;
+    }
+
+    .vdd-location-chip--staging {
         background: rgba(239, 159, 39, 0.1);
         border: 1px solid rgba(239, 159, 39, 0.2);
         color: #EF9F27;

@@ -31,6 +31,7 @@ public sealed class VaultItemViewModel
     public string? WikidataQid { get; init; }
     public string? WikidataStatus { get; init; }
     public string RetailMatch { get; init; } = "none";
+    public string? RetailMatchDetail { get; init; }
     public string WikidataMatch { get; init; } = "none";
     public DateTimeOffset CreatedAt { get; init; }
     public string? FileName { get; init; }
@@ -78,6 +79,7 @@ public sealed class VaultItemViewModel
         WikidataQid = r.WikidataQid,
         WikidataStatus = r.WikidataStatus,
         RetailMatch = r.RetailMatch,
+        RetailMatchDetail = r.RetailMatchDetail,
         WikidataMatch = r.WikidataMatch,
         CreatedAt = r.CreatedAt,
         FileName = r.FileName,
@@ -133,7 +135,12 @@ public sealed class VaultItemViewModel
         if (string.Equals(RetailMatch, "failed", StringComparison.OrdinalIgnoreCase))
             return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Retail: No Match" };
         if (RetailMatch is not "none" and not "" and not null)
-            return new VaultPipelineStage { State = VaultStageState.Completed, Label = $"Retail: {RetailMatch}" };
+        {
+            var label = !string.IsNullOrWhiteSpace(RetailMatchDetail)
+                ? $"Retail: {RetailMatchDetail}"
+                : $"Retail: {RetailMatch}";
+            return new VaultPipelineStage { State = VaultStageState.Completed, Label = label };
+        }
         return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Retail: Pending" };
     }
 

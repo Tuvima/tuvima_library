@@ -55,6 +55,10 @@ public sealed record RegistryItem
     [JsonPropertyName("retail_match")]
     public string RetailMatch { get; init; } = "none";
 
+    /// <summary>Display string showing which retail provider matched and its title, e.g. "Apple API: Dune".</summary>
+    [JsonPropertyName("retail_match_detail")]
+    public string? RetailMatchDetail { get; init; }
+
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
 

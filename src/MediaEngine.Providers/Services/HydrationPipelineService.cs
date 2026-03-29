@@ -1098,106 +1098,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
-            // ── Direct Wikidata reconciliation fallback ──────────────────────
-            // When Stage 1 fails entirely (no retail match), try title-based
-            // Wikidata reconciliation directly. This is the last resort before
-            // sending the item to review. Movies, TV, and other media types
-            // without a matching retail provider can still be identified via
-            // Wikidata's entity search.
-            var stage2ReconForFallback = _providers
-                .OfType<MediaEngine.Providers.Adapters.ReconciliationAdapter>()
-                .FirstOrDefault();
-
-            if (stage2ReconForFallback is not null && !string.IsNullOrWhiteSpace(titleHint))
-            {
-                _logger.LogInformation(
-                    "Stage 1 failed for entity {Id} — attempting direct Wikidata reconciliation: '{Title}'",
-                    request.EntityId, titleHint);
-
-                try
-                {
-                    var directFallbackClaims = await stage2ReconForFallback.FetchAsync(
-                        new ProviderLookupRequest
-                        {
-                            EntityId   = request.EntityId,
-                            EntityType = request.EntityType,
-                            MediaType  = request.MediaType,
-                            Title      = titleHint,
-                            Author     = request.Hints.GetValueOrDefault("author"),
-                            Hints      = request.Hints,
-                            FileLanguage = detectedFileLanguage,
-                        }, ct).ConfigureAwait(false);
-
-                    var directQidClaim = directFallbackClaims
-                        .FirstOrDefault(c => string.Equals(c.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
-
-                    if (directQidClaim is not null && !string.IsNullOrWhiteSpace(directQidClaim.Value))
-                    {
-                        _logger.LogInformation(
-                            "Direct Wikidata reconciliation resolved entity {Id} to QID {Qid} with {Claims} claims (Stage 1 bypass)",
-                            request.EntityId, directQidClaim.Value, directFallbackClaims.Count);
-
-                        await ScoringHelper.PersistClaimsAndScoreAsync(
-                            request.EntityId, directFallbackClaims, stage2ReconForFallback.ProviderId,
-                            _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                            _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
-
-                        // Direct Wikidata reconciliation serves as both the identification step
-                        // (Stage 1) and the enrichment step (Stage 2) for items where no retail
-                        // provider found a match. Count claims in both stages so the Vault UI
-                        // correctly shows both pipeline dots as completed rather than showing
-                        // "Stage 1 Pending / Stage 2 Confirmed", which is confusing for the user.
-                        result.Stage1ClaimsAdded = directFallbackClaims.Count;
-                        result.Stage2ClaimsAdded = directFallbackClaims.Count;
-                        result.WikidataQid = directQidClaim.Value;
-
-                        await _eventPublisher.PublishAsync(
-                            "HydrationStageCompleted",
-                            new HydrationStageCompletedEvent(request.EntityId, 1, directFallbackClaims.Count,
-                                "wikidata_direct_reconciliation"),
-                            ct).ConfigureAwait(false);
-
-                        await _eventPublisher.PublishAsync(
-                            "HydrationStageCompleted",
-                            new HydrationStageCompletedEvent(request.EntityId, 2, directFallbackClaims.Count,
-                                "wikidata_direct_reconciliation"),
-                            ct).ConfigureAwait(false);
-
-                        // Person enrichment from direct reconciliation claims.
-                        var directPersonRefs = ExtractPersonReferencesFromRawClaims(directFallbackClaims);
-                        if (directPersonRefs.Count > 0)
-                        {
-                            try
-                            {
-                                var dpRequests = await _identity.EnrichAsync(
-                                    request.EntityId, directPersonRefs, ct).ConfigureAwait(false);
-                                foreach (var dpReq in dpRequests)
-                                {
-                                    try { await _harvesting.ProcessSynchronousAsync(dpReq, ct).ConfigureAwait(false); }
-                                    catch (Exception ex) when (ex is not OperationCanceledException)
-                                    { _logger.LogWarning(ex, "Person enrichment (direct reconciliation) failed for person {Id}", dpReq.EntityId); }
-                                }
-                            }
-                            catch (Exception ex) when (ex is not OperationCanceledException)
-                            { _logger.LogWarning(ex, "Person enrichment (direct reconciliation) failed for entity {Id}", request.EntityId); }
-                        }
-
-                        // Download cover art if Wikidata returned one.
-                        if (request.EntityType == EntityType.MediaAsset)
-                            await PersistCoverFromUrlAsync(request.EntityId, ct).ConfigureAwait(false);
-
-                        goto PostPipeline;
-                    }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex,
-                        "Direct Wikidata reconciliation failed for entity {Id} — falling through to review",
-                        request.EntityId);
-                }
-            }
-
             // Authority match failed — create review item.
+            // Wikidata is NOT used as a Stage 1 fallback. Stage 2 (Wikidata) only
+            // runs after retail providers succeed. When retail fails, the item goes
+            // to review and the user resolves it manually (or AI disambiguation
+            // handles it above).
             await CreateReviewItemAsync(
                 request, ReviewTrigger.AuthorityMatchFailed, 0.0,
                 $"Wikidata authority match failed for this {request.MediaType}",
