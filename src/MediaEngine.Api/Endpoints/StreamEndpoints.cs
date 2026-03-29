@@ -127,6 +127,59 @@ public static class StreamEndpoints
         .RequireAnyRole()
         .RequireRateLimiting("streaming");
 
+        group.MapGet("/{assetId:guid}/cover-thumb", async (
+            Guid assetId,
+            IMediaAssetRepository assetRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ImagePathService imagePathService,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            // Resolve Wikidata QID from canonicals (same pattern as /cover endpoint).
+            var canonicals = await canonicalRepo.GetByEntityAsync(assetId, ct);
+            var wikidataQid = canonicals
+                .FirstOrDefault(c => c.Key is "wikidata_qid"
+                    && !string.IsNullOrEmpty(c.Value)
+                    && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            var thumbPath = imagePathService.GetWorkCoverThumbPath(wikidataQid, assetId);
+
+            // Fall back to full cover if no thumbnail exists yet.
+            if (!File.Exists(thumbPath))
+            {
+                var coverPath = imagePathService.GetWorkCoverPath(wikidataQid, assetId);
+                if (File.Exists(coverPath))
+                {
+                    thumbPath = coverPath;
+                }
+                else
+                {
+                    // Legacy fallback: cover.jpg alongside the media file.
+                    var legacyPath = string.IsNullOrEmpty(asset.FilePathRoot)
+                        ? null
+                        : Path.Combine(
+                            Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty,
+                            "cover.jpg");
+                    if (string.IsNullOrEmpty(legacyPath) || !File.Exists(legacyPath))
+                        return Results.NotFound("No cover art found for this asset.");
+                    thumbPath = legacyPath;
+                }
+            }
+
+            var bytes = await File.ReadAllBytesAsync(thumbPath, ct);
+            return Results.File(bytes, "image/jpeg", "cover_thumb.jpg");
+        })
+        .WithName("GetAssetCoverThumb")
+        .WithSummary("Serve cover_thumb.jpg (200px wide) — falls back to full cover when thumbnail is not yet generated.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole()
+        .RequireRateLimiting("streaming");
+
         group.MapGet("/{assetId:guid}/hero", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,

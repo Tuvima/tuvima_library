@@ -306,9 +306,9 @@ public sealed class FileOrganizer : IFileOrganizer
             // ── Per-media-type tokens ────────────────────────────────────────────
             ["Artist"]      = meta.GetValueOrDefault("artist",       meta.GetValueOrDefault("author", "Unknown")),
             ["Album"]       = meta.GetValueOrDefault("album",        "Unknown"),
-            ["TrackNumber"] = meta.GetValueOrDefault("track_number", string.Empty),
-            ["Season"]      = meta.GetValueOrDefault("season",       string.Empty),
-            ["Episode"]     = meta.GetValueOrDefault("episode",      string.Empty),
+            ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault("track_number", string.Empty)),
+            ["Season"]      = PadNumeric(meta.GetValueOrDefault("season",       string.Empty)),
+            ["Episode"]     = PadNumeric(meta.GetValueOrDefault("episode",      string.Empty)),
             // ── Content hash token for collision avoidance ──────────────────────
             ["Hash6"]       = meta.TryGetValue("content_hash", out var hash) && hash.Length >= 6
                                   ? hash[..6]
@@ -361,11 +361,21 @@ public sealed class FileOrganizer : IFileOrganizer
         MediaType.Comics     => "Comics",
         MediaType.Movies     => "Movies",
         MediaType.TV         => "TV",
-        MediaType.Audiobooks => "Books",
+        MediaType.Audiobooks => "Audiobooks",
         MediaType.Music      => "Music",
         MediaType.Podcasts   => "Podcasts",
         _                   => "Other",  // Unknown, null — caught by upstream guard
     };
+
+    /// <summary>
+    /// Pads a numeric string to at least 2 digits (e.g. "3" → "03", "12" → "12").
+    /// Returns the original value unchanged if it is empty or non-numeric.
+    /// </summary>
+    private static string PadNumeric(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return value;
+        return int.TryParse(value.Trim(), out int n) ? n.ToString("D2") : value.Trim();
+    }
 
     /// <summary>
     /// If <paramref name="path"/> does not exist, returns it unchanged.

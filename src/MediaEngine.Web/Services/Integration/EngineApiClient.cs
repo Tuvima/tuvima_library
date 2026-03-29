@@ -3070,6 +3070,24 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Hub Group Detail (Vault drill-down sub-pages) ─────────────────────────
+
+    public async Task<HubGroupDetailViewModel?> GetHubGroupDetailAsync(Guid hubId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
+                $"/hubs/{hubId}/group-detail", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/{HubId}/group-detail failed", hubId);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
 
     public async Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default)
@@ -3099,6 +3117,21 @@ public sealed class EngineApiClient : IEngineApiClient
             _logger.LogWarning(ex, "GET /hubs/managed/counts failed");
             LastError = ex.Message;
             return new();
+        }
+    }
+
+    public async Task<List<ContentGroupViewModel>> GetContentGroupsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<ContentGroupViewModel>>("/hubs/content-groups", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/content-groups failed");
+            LastError = ex.Message;
+            return [];
         }
     }
 

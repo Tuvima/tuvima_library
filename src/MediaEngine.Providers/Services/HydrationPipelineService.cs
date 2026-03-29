@@ -4492,6 +4492,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 : fileDir;
             await GenerateHeroBannerAsync(assetId, coverPath, heroOutputDir, ct)
                 .ConfigureAwait(false);
+
+            // Generate thumbnail (200px wide, quality 75) for use in list views.
+            if (_imagePathService is not null)
+            {
+                var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid, assetId);
+                GenerateThumbnail(coverPath, thumbPath);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -4511,6 +4518,39 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 _logger.LogWarning(retractEx,
                     "Failed to retract cover canonical value for asset {Id}", assetId);
             }
+        }
+    }
+
+    /// <summary>
+    /// Generates a 200px-wide JPEG thumbnail from an existing cover.jpg.
+    /// Best-effort — never throws; pipeline continues if thumbnail generation fails.
+    /// </summary>
+    private static void GenerateThumbnail(string coverPath, string thumbPath)
+    {
+        try
+        {
+            using var inputStream = File.OpenRead(coverPath);
+            using var bitmap = SkiaSharp.SKBitmap.Decode(inputStream);
+            if (bitmap is null) return;
+
+            // Scale to 200px width, maintain aspect ratio.
+            var targetWidth  = 200;
+            var targetHeight = (int)(bitmap.Height * (200.0 / bitmap.Width));
+            using var resized = bitmap.Resize(
+                new SkiaSharp.SKImageInfo(targetWidth, targetHeight),
+                new SkiaSharp.SKSamplingOptions(SkiaSharp.SKFilterMode.Linear));
+            if (resized is null) return;
+
+            using var image = SkiaSharp.SKImage.FromBitmap(resized);
+            using var data  = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 75);
+
+            ImagePathService.EnsureDirectory(thumbPath);
+            using var output = File.OpenWrite(thumbPath);
+            data.SaveTo(output);
+        }
+        catch
+        {
+            // Thumbnail generation is best-effort — don't fail the pipeline.
         }
     }
 

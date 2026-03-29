@@ -19,7 +19,7 @@ else
             @foreach (var group in GetGroups())
             {
                 <div class="vmt-group">
-                    <div class="vmt-group-header" @onclick="() => ToggleGroup(group.Key)">
+                    <div class="vmt-group-header @(group.Key == "__needs_review__" ? "vmt-group-header--review" : "")" @onclick="() => ToggleGroup(group.Key)">
                         <MudIcon Icon="@(IsGroupExpanded(group.Key) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
                                  Style="font-size: 14px; opacity: 0.4;" />
                         @{
@@ -80,6 +80,15 @@ else
     // Batch selection
     [Parameter] public HashSet<Guid> SelectedItems { get; set; } = [];
     [Parameter] public EventCallback<HashSet<Guid>> SelectedItemsChanged { get; set; }
+
+    // Sort callback
+    [Parameter] public string? ActiveSortKey { get; set; }
+    [Parameter] public bool SortAscending { get; set; } = true;
+    [Parameter] public EventCallback<(string sortKey, bool ascending)> OnSortRequested { get; set; }
+
+    // Needs Review pinning
+    [Parameter] public bool PinNeedsReview { get; set; } = true;
+    [Parameter] public bool ExpandNeedsReview { get; set; } = true;
 
     private readonly Dictionary<string, bool> _expandedGroups = new();
 
@@ -175,6 +184,12 @@ else
         await SelectedItemsChanged.InvokeAsync(SelectedItems);
     }
 
+    private async Task RequestSort(string sortKey)
+    {
+        var ascending = ActiveSortKey == sortKey ? !SortAscending : true;
+        await OnSortRequested.InvokeAsync((sortKey, ascending));
+    }
+
     private RenderFragment RenderTable(List<VaultItemViewModel> items) => __builder =>
     {
         var cols = ActiveColumns;
@@ -198,6 +213,18 @@ else
                                        class="vct-checkbox"
                                        checked="@IsAllSelected(items)"
                                        @onchange="() => ToggleSelectAll(items)" />
+                            }
+                            else if (col.Sortable && col.SortKey is not null)
+                            {
+                                <button class="vmt-sort-header" @onclick:stopPropagation="true"
+                                        @onclick="() => RequestSort(col.SortKey!)">
+                                    @col.Label
+                                    @if (ActiveSortKey == col.SortKey)
+                                    {
+                                        <MudIcon Icon="@(SortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
+                                                 Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
+                                    }
+                                </button>
                             }
                             else
                             {
@@ -245,7 +272,7 @@ else
                                                      @onmouseleave="HideHover">
                                                     @if (!string.IsNullOrEmpty(item.CoverUrl))
                                                     {
-                                                        <img src="@item.CoverUrl" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
+                                                        <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
                                                     }
                                                     else
                                                     {
@@ -359,6 +386,8 @@ else
     private bool IsGroupExpanded(string key)
     {
         if (_expandedGroups.TryGetValue(key, out var val)) return val;
+        // Default: Needs Review pinned group follows the ExpandNeedsReview parameter; all others expanded
+        if (key == "__needs_review__") return ExpandNeedsReview;
         return true;
     }
 
@@ -366,6 +395,30 @@ else
         _expandedGroups[key] = !IsGroupExpanded(key);
 
     private List<TableGroup> GetGroups()
+    {
+        var raw = GetGroupsCore();
+        if (!PinNeedsReview) return raw;
+
+        // Extract needs-review items from all groups and pin as a separate group at top
+        var reviewItems = new List<VaultItemViewModel>();
+        var filtered = new List<TableGroup>();
+        foreach (var group in raw)
+        {
+            var review = group.Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
+            var rest = group.Items.Where(i => i.VaultDisplayStatus != VaultStatus.NeedsReview).ToList();
+            reviewItems.AddRange(review);
+            if (rest.Count > 0)
+                filtered.Add(group with { Items = rest });
+        }
+
+        var result = new List<TableGroup>();
+        if (reviewItems.Count > 0)
+            result.Add(new TableGroup("__needs_review__", "Needs Review", reviewItems));
+        result.AddRange(filtered);
+        return result;
+    }
+
+    private List<TableGroup> GetGroupsCore()
     {
         if (GroupBy == "type")
         {
@@ -816,6 +869,38 @@ else
         display: flex;
         justify-content: center;
         padding: 24px;
+    }
+
+    /* ── Sort header button ── */
+    .vmt-sort-header {
+        display: inline-flex;
+        align-items: center;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.25);
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        padding: 0;
+        transition: color 0.15s;
+    }
+
+    .vmt-sort-header:hover {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* ── Needs Review pinned group ── */
+    .vmt-group-header--review {
+        background: rgba(239, 159, 39, 0.08);
+        border-left: 3px solid #EF9F27;
+        padding-left: 12px;
+        border-radius: 6px 6px 0 0;
+    }
+
+    .vmt-group-header--review .vmt-group-label {
+        color: #EF9F27;
     }
 
     @@media (max-width: 768px) {

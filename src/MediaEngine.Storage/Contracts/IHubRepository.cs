@@ -162,4 +162,24 @@ public interface IHubRepository
 
     /// <summary>Removes a curated item from a hub.</summary>
     Task RemoveHubItemAsync(Guid itemId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns Universe-type hubs that have at least one child Work assigned.
+    /// These are Content Groups: albums, TV series, book series, movie series.
+    /// Each hub is returned with its Works and each Work's CanonicalValues loaded.
+    /// </summary>
+    Task<IReadOnlyList<Hub>> GetContentGroupsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns a single hub by ID with all child Works and their CanonicalValues loaded.
+    /// Returns null when no hub with this ID exists.
+    /// </summary>
+    Task<Hub?> GetHubWithWorksAsync(Guid hubId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the hub_id for a given work ID.
+    /// Returns null when the work has no hub assignment or does not exist.
+    /// Used by the Universe Enrichment service for hub-level group refresh.
+    /// </summary>
+    Task<Guid?> GetHubIdByWorkIdAsync(Guid workId, CancellationToken ct = default);
 }

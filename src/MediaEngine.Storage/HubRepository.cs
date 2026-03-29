@@ -885,4 +885,265 @@ public sealed class HubRepository : IHubRepository
             "DELETE FROM hub_items WHERE id = @Id",
             new { Id = itemId.ToString() });
     }
+
+    // -------------------------------------------------------------------------
+    // Content Groups — Universe hubs that contain works (albums, series, etc.)
+    // -------------------------------------------------------------------------
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Hub>> GetContentGroupsAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn  = _db.CreateConnection();
+        var hubs  = new Dictionary<Guid, Hub>();
+        var works = new Dictionary<Guid, Work>();
+
+        // Universe hubs that have at least one work assigned.
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                SELECT h.id, h.universe_id, h.display_name, h.created_at,
+                       h.universe_status, h.parent_hub_id, h.wikidata_qid,
+                       h.hub_type, h.description, h.icon_name, h.scope,
+                       h.profile_id, h.is_enabled, h.is_featured, h.min_items,
+                       h.rule_json, h.refresh_schedule, h.last_refreshed_at, h.modified_at,
+                       w.id, w.media_type, w.sequence_index,
+                       w.universe_mismatch, w.universe_mismatch_at,
+                       w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
+                FROM   hubs h
+                INNER JOIN works w ON w.hub_id = h.id
+                WHERE  h.hub_type = 'Universe'
+                ORDER  BY h.display_name, h.created_at, w.sequence_index, w.id;
+                """;
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var hubId = Guid.Parse(reader.GetString(0));
+                if (!hubs.TryGetValue(hubId, out var hub))
+                {
+                    hub = new Hub
+                    {
+                        Id              = hubId,
+                        UniverseId      = reader.IsDBNull(1)  ? null : Guid.Parse(reader.GetString(1)),
+                        DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
+                        CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
+                        UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
+                        ParentHubId     = reader.IsDBNull(5)  ? null : Guid.Parse(reader.GetString(5)),
+                        WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
+                        HubType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
+                        Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
+                        IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
+                        Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
+                        ProfileId       = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                        IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
+                        IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
+                        MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
+                        RuleJson        = reader.IsDBNull(15) ? null : reader.GetString(15),
+                        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
+                        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
+                        ModifiedAt      = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
+                    };
+                    hubs[hubId] = hub;
+                }
+
+                var workId = Guid.Parse(reader.GetString(19));
+                if (!works.ContainsKey(workId))
+                {
+                    var work = new Work
+                    {
+                        Id                 = workId,
+                        HubId              = hubId,
+                        MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
+                        SequenceIndex      = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                        UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
+                        UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
+                        WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
+                        WikidataCheckedAt  = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
+                        WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
+                    };
+                    works[workId] = work;
+                    hub.Works.Add(work);
+                }
+            }
+        }
+
+        // Canonical values for all loaded works.
+        if (works.Count > 0)
+        {
+            var workIds    = works.Keys.ToList();
+            var paramNames = workIds.Select((_, i) => $"@p{i}").ToList();
+
+            using var cmd2 = conn.CreateCommand();
+            cmd2.CommandText = $"""
+                SELECT e.work_id, cv.entity_id, cv.key, cv.value, cv.last_scored_at
+                FROM   canonical_values cv
+                JOIN   media_assets ma ON ma.id = cv.entity_id
+                JOIN   editions e      ON e.id  = ma.edition_id
+                WHERE  e.work_id IN ({string.Join(", ", paramNames)});
+                """;
+
+            for (int i = 0; i < workIds.Count; i++)
+                cmd2.Parameters.AddWithValue($"@p{i}", workIds[i].ToString());
+
+            using var reader2 = cmd2.ExecuteReader();
+            while (reader2.Read())
+            {
+                var workId   = Guid.Parse(reader2.GetString(0));
+                if (works.TryGetValue(workId, out var work))
+                {
+                    work.CanonicalValues.Add(new CanonicalValue
+                    {
+                        EntityId     = Guid.Parse(reader2.GetString(1)),
+                        Key          = reader2.GetString(2),
+                        Value        = reader2.GetString(3),
+                        LastScoredAt = DateTimeOffset.Parse(reader2.GetString(4)),
+                    });
+                }
+            }
+        }
+
+        IReadOnlyList<Hub> result = hubs.Values.ToList();
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<Hub?> GetHubWithWorksAsync(Guid hubId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        Hub? hub       = null;
+        var  works     = new Dictionary<Guid, Work>();
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                SELECT h.id, h.universe_id, h.display_name, h.created_at,
+                       h.universe_status, h.parent_hub_id, h.wikidata_qid,
+                       h.hub_type, h.description, h.icon_name, h.scope,
+                       h.profile_id, h.is_enabled, h.is_featured, h.min_items,
+                       h.rule_json, h.refresh_schedule, h.last_refreshed_at, h.modified_at,
+                       w.id, w.media_type, w.sequence_index,
+                       w.universe_mismatch, w.universe_mismatch_at,
+                       w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
+                FROM   hubs h
+                LEFT JOIN works w ON w.hub_id = h.id
+                WHERE  h.id = @HubId
+                ORDER  BY w.sequence_index, w.id;
+                """;
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@HubId";
+            p.Value = hubId.ToString();
+            cmd.Parameters.Add(p);
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (hub is null)
+                {
+                    hub = new Hub
+                    {
+                        Id              = Guid.Parse(reader.GetString(0)),
+                        UniverseId      = reader.IsDBNull(1)  ? null : Guid.Parse(reader.GetString(1)),
+                        DisplayName     = reader.IsDBNull(2)  ? null : reader.GetString(2),
+                        CreatedAt       = DateTimeOffset.Parse(reader.GetString(3)),
+                        UniverseStatus  = reader.IsDBNull(4)  ? "Unknown" : reader.GetString(4),
+                        ParentHubId     = reader.IsDBNull(5)  ? null : Guid.Parse(reader.GetString(5)),
+                        WikidataQid     = reader.IsDBNull(6)  ? null : reader.GetString(6),
+                        HubType         = reader.IsDBNull(7)  ? "Universe" : reader.GetString(7),
+                        Description     = reader.IsDBNull(8)  ? null : reader.GetString(8),
+                        IconName        = reader.IsDBNull(9)  ? null : reader.GetString(9),
+                        Scope           = reader.IsDBNull(10) ? "library" : reader.GetString(10),
+                        ProfileId       = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                        IsEnabled       = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
+                        IsFeatured      = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
+                        MinItems        = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
+                        RuleJson        = reader.IsDBNull(15) ? null : reader.GetString(15),
+                        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
+                        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
+                        ModifiedAt      = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
+                    };
+                }
+
+                // LEFT JOIN: work columns are NULL when hub has no works.
+                if (!reader.IsDBNull(19))
+                {
+                    var workId = Guid.Parse(reader.GetString(19));
+                    if (!works.ContainsKey(workId))
+                    {
+                        var work = new Work
+                        {
+                            Id                 = workId,
+                            HubId              = hub.Id,
+                            MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
+                            SequenceIndex      = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                            UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
+                            UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
+                            WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
+                            WikidataCheckedAt  = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
+                            WikidataQid        = reader.IsDBNull(26) ? null : reader.GetString(26),
+                        };
+                        works[workId] = work;
+                        hub.Works.Add(work);
+                    }
+                }
+            }
+        }
+
+        if (hub is null)
+            return Task.FromResult<Hub?>(null);
+
+        // Canonical values for all loaded works.
+        if (works.Count > 0)
+        {
+            var workIds    = works.Keys.ToList();
+            var paramNames = workIds.Select((_, i) => $"@p{i}").ToList();
+
+            using var cmd2 = conn.CreateCommand();
+            cmd2.CommandText = $"""
+                SELECT e.work_id, cv.entity_id, cv.key, cv.value, cv.last_scored_at
+                FROM   canonical_values cv
+                JOIN   media_assets ma ON ma.id = cv.entity_id
+                JOIN   editions e      ON e.id  = ma.edition_id
+                WHERE  e.work_id IN ({string.Join(", ", paramNames)});
+                """;
+
+            for (int i = 0; i < workIds.Count; i++)
+                cmd2.Parameters.AddWithValue($"@p{i}", workIds[i].ToString());
+
+            using var reader2 = cmd2.ExecuteReader();
+            while (reader2.Read())
+            {
+                var wid = Guid.Parse(reader2.GetString(0));
+                if (works.TryGetValue(wid, out var work))
+                {
+                    work.CanonicalValues.Add(new CanonicalValue
+                    {
+                        EntityId     = Guid.Parse(reader2.GetString(1)),
+                        Key          = reader2.GetString(2),
+                        Value        = reader2.GetString(3),
+                        LastScoredAt = DateTimeOffset.Parse(reader2.GetString(4)),
+                    });
+                }
+            }
+        }
+
+        return Task.FromResult<Hub?>(hub);
+    }
+
+    /// <inheritdoc/>
+    public Task<Guid?> GetHubIdByWorkIdAsync(Guid workId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var raw = conn.QueryFirstOrDefault<string>(
+            "SELECT hub_id FROM works WHERE id = @workId AND hub_id IS NOT NULL;",
+            new { workId = workId.ToString() });
+
+        if (raw is null) return Task.FromResult<Guid?>(null);
+        return Task.FromResult<Guid?>(Guid.Parse(raw));
+    }
 }

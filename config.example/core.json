@@ -4,16 +4,16 @@
   "data_root": "",
   "watch_directory": "",
   "library_root": "",
-  "organization_template": "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
+  "organization_template": "{Category}/{Title} ({Qid})/{Title}{Ext}",
   "organization_templates": {
-    "default":    "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
-    "Books":      "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
-    "Audiobooks": "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
-    "Movies":     "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
-    "TV":         "{Category}/{Title} ({Qid})/{Format}/S({Season})E({Episode}) - {Title}{Ext}",
-    "Comics":     "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}",
-    "Music":      "{Category}/{Artist}/{Album} ({Qid})/{Format}/({TrackNumber}) - {Title}{Ext}",
-    "Podcasts":   "{Category}/{Title} ({Qid})/{Format}/{Title}{Ext}"
+    "default":    "{Category}/{Title} ({Qid})/{Title}{Ext}",
+    "Books":      "Books/{Title} ({Qid})/{Title}{Ext}",
+    "Audiobooks": "Audiobooks/{Title} ({Qid})/{Title}{Ext}",
+    "Movies":     "Movies/{Title} ({Qid})/{Title}{Ext}",
+    "TV":         "TV/{Series} ({Qid})/Season {Season}/S{Season}E{Episode} - {Title}{Ext}",
+    "Comics":     "Comics/{Title} ({Qid})/{Title}{Ext}",
+    "Music":      "Music/{Artist}/{Album} ({Qid})/{TrackNumber} - {Title}{Ext}",
+    "Podcasts":   "Podcasts/{Title} ({Qid})/{Title}{Ext}"
   },
   "server_name": "Tuvima Library",
   "language": {

@@ -4,8 +4,8 @@
             <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 32px;" />
         </div>
         <div class="vdc-text">
-            <h2 class="vdc-title">Delete Item?</h2>
-            <p class="vdc-desc">This will permanently remove the media and its linked signals. This action is irreversible.</p>
+            <h2 class="vdc-title">@(Count > 1 ? $"Delete {Count} Items?" : "Delete Item?")</h2>
+            <p class="vdc-desc">@(Count > 1 ? $"This will permanently remove {Count} items and their linked signals. This action is irreversible." : "This will permanently remove the media and its linked signals. This action is irreversible.")</p>
         </div>
         <div class="vdc-actions">
             <button class="vdc-delete-btn" @onclick="OnConfirm">Delete Permanently</button>
@@ -16,6 +16,7 @@
 
 @code {
     [Parameter] public string ItemTitle { get; set; } = "";
+    [Parameter] public int Count { get; set; } = 1;
     [Parameter] public EventCallback OnConfirm { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
 }

@@ -67,7 +67,7 @@ public sealed class EndToEndIngestionTests : IDisposable
         _reviewRepo = new ReviewQueueRepository(db);
         _activityRepo = new SystemActivityRepository(db);
         _ingestionLog = new IngestionLogRepository(db);
-        _chainFactory = new MediaEntityChainFactory(db);
+        _chainFactory = new MediaEntityChainFactory(db, new WorkRepository(db));
 
         // Priority cascade engine — Wikidata wins, then highest-confidence retail.
         _scorer = new PriorityCascadeEngine(new StubConfigurationLoader());

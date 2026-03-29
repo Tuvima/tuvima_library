@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -489,21 +490,24 @@ public static class RegistryEndpoints
         group.MapDelete("/items/{entityId}", async (
             Guid entityId,
             IDatabaseConnection db,
+            ImagePathService imagePaths,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
-            // 1. Resolve all media asset file paths for this work
+            // 1. Resolve all media asset file paths + QID for this work
             var filePaths = new List<string>();
             string? hubId = null;
             string? workTitle = null;
+            string? wikidataQid = null;
+            Guid firstAssetId = Guid.Empty;
 
             using (var conn = db.CreateConnection())
             {
-                // Get file paths and hub ID
+                // Get file paths and first asset ID
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = """
-                        SELECT ma.file_path_root
+                        SELECT ma.file_path_root, ma.id
                         FROM editions e
                         INNER JOIN media_assets ma ON ma.edition_id = e.id
                         WHERE e.work_id = @workId
@@ -515,18 +519,21 @@ public static class RegistryEndpoints
                         var path = reader.GetString(0);
                         if (!string.IsNullOrWhiteSpace(path))
                             filePaths.Add(path);
+                        if (firstAssetId == Guid.Empty && Guid.TryParse(reader.GetString(1), out var aid))
+                            firstAssetId = aid;
                     }
                 }
 
-                // Get hub ID for cleanup check
+                // Get hub ID and QID for cleanup
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT hub_id FROM works WHERE id = @workId";
+                    cmd2.CommandText = "SELECT hub_id, wikidata_qid FROM works WHERE id = @workId";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
-                        hubId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        hubId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
                     }
                 }
 
@@ -546,7 +553,7 @@ public static class RegistryEndpoints
             if (filePaths.Count == 0)
                 return Results.NotFound($"No media assets found for work {entityId}.");
 
-            // 2. Delete physical files from disk + cover.jpg in same directory
+            // 2. Delete physical files from disk + best-effort legacy cover/hero cleanup
             foreach (var filePath in filePaths)
             {
                 try
@@ -554,21 +561,25 @@ public static class RegistryEndpoints
                     if (File.Exists(filePath))
                         File.Delete(filePath);
 
-                    // Delete cover.jpg in the same directory
+                    // Best-effort: also remove any cover.jpg/hero.jpg alongside the media file
+                    // (legacy location — new files use .images/ instead)
                     var dir = Path.GetDirectoryName(filePath);
                     if (dir is not null)
                     {
-                        var coverPath = Path.Combine(dir, "cover.jpg");
-                        if (File.Exists(coverPath))
-                            File.Delete(coverPath);
-
-                        var heroPath = Path.Combine(dir, "hero.jpg");
-                        if (File.Exists(heroPath))
-                            File.Delete(heroPath);
+                        try
+                        {
+                            var coverPath = Path.Combine(dir, "cover.jpg");
+                            if (File.Exists(coverPath)) File.Delete(coverPath);
+                            var heroPath = Path.Combine(dir, "hero.jpg");
+                            if (File.Exists(heroPath)) File.Delete(heroPath);
+                        }
+                        catch { /* best-effort legacy cleanup */ }
 
                         // Remove empty directory
                         if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
-                            Directory.Delete(dir);
+                        {
+                            try { Directory.Delete(dir); } catch { /* best-effort */ }
+                        }
                     }
                 }
                 catch (IOException)
@@ -602,7 +613,11 @@ public static class RegistryEndpoints
                 cmd.ExecuteNonQuery();
             }
 
-            // 5. Clean up hub if no remaining works
+            // 5. Clean up .images/ directory — only after DB delete so QID sibling check is valid
+            if (firstAssetId != Guid.Empty)
+                CleanupWorkImages(imagePaths, wikidataQid, firstAssetId, db);
+
+            // 6. Clean up hub if no remaining works
             if (hubId is not null)
             {
                 using var conn = db.CreateConnection();
@@ -615,7 +630,7 @@ public static class RegistryEndpoints
                 cmd.ExecuteNonQuery();
             }
 
-            // 6. Log activity
+            // 7. Log activity
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 OccurredAt  = DateTimeOffset.UtcNow,
@@ -850,6 +865,7 @@ public static class RegistryEndpoints
         group.MapPost("/batch/delete", async (
             BatchRegistryRequest request,
             IDatabaseConnection db,
+            ImagePathService imagePaths,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
@@ -863,16 +879,18 @@ public static class RegistryEndpoints
             {
                 try
                 {
-                    var filePaths  = new List<string>();
+                    var filePaths    = new List<string>();
                     string? hubId      = null;
                     string? workTitle  = null;
+                    string? wikidataQid = null;
+                    Guid firstAssetId = Guid.Empty;
 
                     using (var conn = db.CreateConnection())
                     {
                         using (var cmd = conn.CreateCommand())
                         {
                             cmd.CommandText = """
-                                SELECT ma.file_path_root
+                                SELECT ma.file_path_root, ma.id
                                 FROM editions e
                                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                                 WHERE e.work_id = @workId
@@ -884,17 +902,20 @@ public static class RegistryEndpoints
                                 var path = reader.GetString(0);
                                 if (!string.IsNullOrWhiteSpace(path))
                                     filePaths.Add(path);
+                                if (firstAssetId == Guid.Empty && Guid.TryParse(reader.GetString(1), out var aid))
+                                    firstAssetId = aid;
                             }
                         }
 
                         using (var cmd2 = conn.CreateCommand())
                         {
-                            cmd2.CommandText = "SELECT hub_id FROM works WHERE id = @workId";
+                            cmd2.CommandText = "SELECT hub_id, wikidata_qid FROM works WHERE id = @workId";
                             cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                             using var reader2 = cmd2.ExecuteReader();
                             if (reader2.Read())
                             {
-                                hubId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                                hubId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                                wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
                             }
                         }
 
@@ -921,12 +942,20 @@ public static class RegistryEndpoints
                             var dir = Path.GetDirectoryName(filePath);
                             if (dir is not null)
                             {
-                                var coverPath = Path.Combine(dir, "cover.jpg");
-                                if (File.Exists(coverPath)) File.Delete(coverPath);
-                                var heroPath = Path.Combine(dir, "hero.jpg");
-                                if (File.Exists(heroPath)) File.Delete(heroPath);
+                                // Best-effort legacy cover/hero cleanup
+                                try
+                                {
+                                    var coverPath = Path.Combine(dir, "cover.jpg");
+                                    if (File.Exists(coverPath)) File.Delete(coverPath);
+                                    var heroPath = Path.Combine(dir, "hero.jpg");
+                                    if (File.Exists(heroPath)) File.Delete(heroPath);
+                                }
+                                catch { /* best-effort */ }
+
                                 if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
-                                    Directory.Delete(dir);
+                                {
+                                    try { Directory.Delete(dir); } catch { /* best-effort */ }
+                                }
                             }
                             filesRemoved++;
                         }
@@ -955,6 +984,10 @@ public static class RegistryEndpoints
                         cmd.Parameters.AddWithValue("@workId", entityId.ToString());
                         cmd.ExecuteNonQuery();
                     }
+
+                    // Clean up .images/ after DB delete so QID sibling check is valid
+                    if (firstAssetId != Guid.Empty)
+                        CleanupWorkImages(imagePaths, wikidataQid, firstAssetId, db);
 
                     if (hubId is not null)
                     {
@@ -1432,6 +1465,57 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         return app;
+    }
+
+    /// <summary>
+    /// Removes the .images/ directory for a work after it has been deleted from the database.
+    /// For QID-keyed works, only deletes the directory if no other work in the DB shares the same QID
+    /// (i.e., the QID is no longer referenced at all — the delete already happened).
+    /// For provisional works (no QID), always deletes the provisional slot.
+    /// </summary>
+    private static void CleanupWorkImages(
+        ImagePathService imagePaths,
+        string? wikidataQid,
+        Guid assetId,
+        IDatabaseConnection db)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(wikidataQid) &&
+                !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            {
+                // QID-keyed: only delete if no other work still holds this QID
+                // (the work has already been deleted, so if the QID directory is still needed
+                //  it would be referenced by another work — but in practice each QID maps to
+                //  one canonical entity, so this check is a safety guard for edge cases)
+                bool qidStillReferenced;
+                using (var conn = db.CreateConnection())
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid";
+                    cmd.Parameters.AddWithValue("@qid", wikidataQid);
+                    qidStillReferenced = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+                }
+
+                if (!qidStillReferenced)
+                {
+                    var qidDir = imagePaths.GetWorkImageDir(wikidataQid, assetId);
+                    if (Directory.Exists(qidDir))
+                        Directory.Delete(qidDir, recursive: true);
+                }
+            }
+            else
+            {
+                // Provisional: always delete the provisional slot
+                var provDir = imagePaths.GetWorkImageDir(null, assetId);
+                if (Directory.Exists(provDir))
+                    Directory.Delete(provDir, recursive: true);
+            }
+        }
+        catch
+        {
+            // Image cleanup is best-effort — never fail the deletion because of it
+        }
     }
 
     /// <summary>Converts a system_activity action_type into a human-readable label for the History tab.</summary>

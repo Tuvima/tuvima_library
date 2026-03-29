@@ -110,7 +110,17 @@
                       OnColumnPickerRequested="() => _showColumnPicker = true" />
 
         <div class="vault-content">
-            @if (_activeTab == "media" && _activeView == "albums")
+            @if (_activeGroupId.HasValue && !string.IsNullOrEmpty(_activeGroupType))
+            {
+                @* ── Group drill-down sub-page ── *@
+                <MediaGroupPage GroupType="@_activeGroupType"
+                                GroupId="@_activeGroupId.Value"
+                                OnBack="NavigateBackFromGroup"
+                                OnItemClicked="OpenDetailDrawerFromGroup"
+                                OnBatchDelete="OnBatchDelete"
+                                OnBatchSync="OnBatchSync" />
+            }
+            else if (_activeTab == "media" && _activeView == "albums")
             {
                 <VaultMusicGrid Items="@_mediaItems"
                                 CardSize="@_posterSize"
@@ -129,7 +139,11 @@
                                          OnRowClicked="OnMediaRowClicked"
                                          OnAuthorClicked="OnAuthorLinkClicked"
                                          SelectedItems="@_selectedItems"
-                                         SelectedItemsChanged="OnSelectionChanged" />
+                                         SelectedItemsChanged="OnSelectionChanged"
+                                         ActiveSortKey="@_activeSortKey"
+                                         SortAscending="@_sortAscending"
+                                         OnSortRequested="OnColumnSortRequested"
+                                         ExpandNeedsReview="@(_filterMediaType == null || _filterMediaType == "")" />
                 @if (_hasMore)
                 {
                     <div class="vault-load-more">
@@ -156,9 +170,11 @@
             else if (_activeTab == "hubs")
             {
                 <VaultHubsTable Hubs="@_managedHubs"
+                                ContentGroups="@_contentGroups"
                                 Loading="@_loadingHubs"
                                 EnabledTypes="@_enabledHubTypes"
-                                OnHubClicked="OnHubClicked" />
+                                OnHubClicked="OnHubClicked"
+                                OnContentGroupClicked="OnContentGroupClicked" />
             }
         </div>
     </div>
@@ -192,11 +208,12 @@
     }
 
     @* ── 7. DELETE CONFIRM ── *@
-    @if (_deleteItemId.HasValue)
+    @if (_deleteItemId.HasValue || _showBatchDeleteConfirm)
     {
         <VaultDeleteConfirm ItemTitle="@_deleteItemTitle"
+                            Count="@(_showBatchDeleteConfirm ? _selectedItems.Count : 1)"
                             OnConfirm="OnDeleteConfirmed"
-                            OnCancel="() => _deleteItemId = null" />
+                            OnCancel="CancelDelete" />
     }
 
     @* ── 8. BATCH ACTION BAR ── *@
@@ -232,6 +249,8 @@
     private string _activeTab = "media";
     private string _groupBy = "none";
     private string _sortBy = "newest";
+    private string? _activeSortKey;
+    private bool _sortAscending = true;
     private string _searchText = "";
     private bool _loading;
     private bool _loadingPeople;
@@ -255,6 +274,7 @@
     private List<PersonListItemDto> _people = [];
     private List<HubViewModel> _universes = [];
     private List<ManagedHubViewModel> _managedHubs = [];
+    private List<ContentGroupViewModel> _contentGroups = [];
     private RegistryFourStateCountsDto _counts = new();
     private Dictionary<string, int> _mediaTypeCounts = new();
     private bool _hasMore;
@@ -280,7 +300,7 @@
 
     // ── Stats bar state ──
     private HashSet<string> _enabledMediaTypes = new(["Movies", "Books", "Audiobooks", "TV", "Music", "Podcasts"]);
-    private HashSet<string> _enabledHubTypes = new(["Smart", "System", "Mix", "Playlist"]);
+    private HashSet<string> _enabledHubTypes = new(["Smart", "System", "Mix", "Playlist", "ContentGroups"]);
 
     // ── People state ──
     private Dictionary<string, int> _allRoleCounts = new();
@@ -312,6 +332,10 @@
     // ── Table ref for expand/collapse all ──
     private VaultConfigurableTable? _configurableTableRef;
 
+    // ── Group drill-down sub-page state ──
+    private string? _activeGroupType;
+    private Guid? _activeGroupId;
+
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
     private PersonListItemDto? _selectedPerson;
@@ -320,6 +344,7 @@
     // ── Delete confirm state ──
     private Guid? _deleteItemId;
     private string _deleteItemTitle = "";
+    private bool _showBatchDeleteConfirm;
 
     // ── Tab definitions ──
     private static readonly (string Id, string Label, string Icon)[] _tabs =
@@ -355,6 +380,7 @@
             new() { Id = "System", Icon = Icons.Material.Outlined.Bookmarks, Count = _hubCounts.GetValueOrDefault("System", 0), Label = "SYSTEM LISTS", Color = "#5DCAA5", IsActive = _enabledHubTypes.Contains("System") },
             new() { Id = "Mix", Icon = Icons.Material.Outlined.AutoAwesome, Count = _hubCounts.GetValueOrDefault("Mix", 0), Label = "PERSONALIZED MIXES", Color = "#A78BFA", IsActive = _enabledHubTypes.Contains("Mix") },
             new() { Id = "Playlist", Icon = Icons.Material.Outlined.QueueMusic, Count = _hubCounts.GetValueOrDefault("Playlist", 0), Label = "PLAYLISTS", Color = "#C9922E", IsActive = _enabledHubTypes.Contains("Playlist") },
+            new() { Id = "ContentGroups", Icon = Icons.Material.Outlined.FolderSpecial, Count = _contentGroups.Count, Label = "CONTENT GROUPS", Color = "#F472B6", IsActive = _enabledHubTypes.Contains("ContentGroups") },
         },
         _ => []
     };
@@ -570,9 +596,16 @@
         _loadingHubs = true;
         StateHasChanged();
 
-        _managedHubs = await ApiClient.GetManagedHubsAsync();
-        _hubCounts = await ApiClient.GetManagedHubCountsAsync();
-        _loadingHubs = false;
+        var hubsTask   = ApiClient.GetManagedHubsAsync();
+        var countsTask = ApiClient.GetManagedHubCountsAsync();
+        var groupsTask = ApiClient.GetContentGroupsAsync();
+
+        await Task.WhenAll(hubsTask, countsTask, groupsTask);
+
+        _managedHubs   = hubsTask.Result;
+        _hubCounts     = countsTask.Result;
+        _contentGroups = groupsTask.Result;
+        _loadingHubs   = false;
     }
 
     // ── Tab switching ──
@@ -601,11 +634,21 @@
     private async Task OnSortChanged(string sort)
     {
         _sortBy = sort;
+        _activeSortKey = null; // reset column sort when toolbar sort changes
+        _sortAscending = true;
         if (_activeTab == "people")
             StateHasChanged(); // People sorting is client-side
         else
             await LoadMediaItems();
         UpdateUrl();
+    }
+
+    private async Task OnColumnSortRequested((string sortKey, bool ascending) sort)
+    {
+        _activeSortKey = sort.sortKey;
+        _sortAscending = sort.ascending;
+        _sortBy = sort.ascending ? sort.sortKey : $"{sort.sortKey}-desc";
+        await LoadMediaItems();
     }
 
     private Task OnGroupChanged(string group)
@@ -798,6 +841,64 @@
         UpdateUrl();
     }
 
+    private void OnContentGroupClicked(Guid hubId)
+    {
+        // Navigate into the content group drill-down view.
+        NavigateToGroup("ContentGroup", hubId);
+    }
+
+    // ── Group drill-down navigation ──
+
+    /// <summary>Navigate into a content group sub-page (album, TV show, book series, movie series).</summary>
+    public void NavigateToGroup(string groupType, Guid groupId)
+    {
+        _activeGroupType = groupType;
+        _activeGroupId = groupId;
+        StateHasChanged();
+    }
+
+    private void NavigateBackFromGroup()
+    {
+        _activeGroupType = null;
+        _activeGroupId = null;
+        StateHasChanged();
+    }
+
+    private async Task OpenDetailDrawerFromGroup(Guid workId)
+    {
+        // Ensure the media items list has the clicked item; if not, fetch it individually.
+        var item = _mediaItems.FirstOrDefault(i => i.EntityId == workId);
+        if (item is null)
+        {
+            var detail = await ApiClient.GetRegistryItemDetailAsync(workId);
+            if (detail is not null)
+            {
+                // Build a minimal VaultItemViewModel from RegistryItemDetailViewModel
+                _selectedMedia = new VaultItemViewModel
+                {
+                    EntityId    = detail.EntityId,
+                    Title       = detail.Title,
+                    Author      = detail.Author,
+                    Director    = detail.Director,
+                    Year        = detail.Year,
+                    MediaType   = detail.MediaType,
+                    CoverUrl    = detail.CoverUrl,
+                    Status      = detail.Status,
+                    WikidataQid = detail.WikidataQid,
+                    Confidence  = detail.Confidence,
+                    FileName    = detail.FileName,
+                };
+            }
+        }
+        else
+        {
+            _selectedMedia = item;
+        }
+        _selectedPerson = null;
+        _selectedUniverse = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
     private async Task OnHubEnabledToggled((Guid Id, bool Enabled) args)
     {
         await ApiClient.UpdateHubEnabledAsync(args.Id, args.Enabled);
@@ -910,7 +1011,17 @@
 
     private async Task OnDeleteConfirmed()
     {
-        if (_deleteItemId.HasValue)
+        if (_showBatchDeleteConfirm)
+        {
+            var count = _selectedItems.Count;
+            await ApiClient.BatchDeleteRegistryItemsAsync(_selectedItems.ToArray());
+            Snackbar.Add($"{count} items deleted", Severity.Info);
+            _selectedItems.Clear();
+            _showBatchDeleteConfirm = false;
+            await LoadMediaItems();
+            await LoadCounts();
+        }
+        else if (_deleteItemId.HasValue)
         {
             await ApiClient.BatchDeleteRegistryItemsAsync([_deleteItemId.Value]);
             Snackbar.Add(L["Vault_ItemDeleted"], Severity.Info);
@@ -918,6 +1029,12 @@
             await LoadMediaItems();
             await LoadCounts();
         }
+    }
+
+    private void CancelDelete()
+    {
+        _deleteItemId = null;
+        _showBatchDeleteConfirm = false;
     }
 
     // ── Batch selection ──
@@ -929,15 +1046,11 @@
         return Task.CompletedTask;
     }
 
-    private async Task OnBatchDelete()
+    private void OnBatchDelete()
     {
         if (_selectedItems.Count == 0) return;
-        await ApiClient.BatchDeleteRegistryItemsAsync(_selectedItems.ToArray());
-        Snackbar.Add($"{_selectedItems.Count} items deleted", Severity.Info);
-        _selectedItems.Clear();
-        await LoadMediaItems();
-        await LoadCounts();
-        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        _showBatchDeleteConfirm = true;
+        StateHasChanged();
     }
 
     private async Task OnBatchSync()

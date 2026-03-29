@@ -516,21 +516,32 @@
         {
             @* ── Person Sections ── *@
             <DrawerSection Title="@L["VaultDetail_SectionLibraryPresence"]" Icon="@Icons.Material.Outlined.LibraryBooks">
-                <p class="vdd-empty-hint">@L["VaultDetail_HintPersonPresence"]</p>
+                @if (_personWorks is { Count: > 0 })
+                {
+                    <div class="vdd-presence-list">
+                        @foreach (var work in _personWorks)
+                        {
+                            <div class="vdd-presence-item">
+                                <span class="vdd-presence-title">@work.DisplayName</span>
+                                @if (!string.IsNullOrEmpty(work.PrimaryMediaType))
+                                {
+                                    <span class="vdd-presence-type" style="color: @VaultHelpers.GetMediaTypeColor(work.PrimaryMediaType);">
+                                        @VaultHelpers.FormatMediaType(work.PrimaryMediaType)
+                                    </span>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="vdd-empty-hint">@L["VaultDetail_HintPersonPresence"]</p>
+                }
             </DrawerSection>
 
             <DrawerSection Title="@L["VaultDetail_SectionLinkedIdentities"]" Icon="@Icons.Material.Outlined.Fingerprint">
                 <div class="vdd-identities">
                     <div class="vdd-identity-group">
-                        <span class="vdd-field-label">@L["VaultDetail_FieldKnownAs"]</span>
-                        <div class="vdd-identity-items">
-                            <div class="vdd-identity-item">
-                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.3);" />
-                                <span>@Person.Name</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="vdd-identity-group" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
                         <span class="vdd-field-label">@(Person.IsPseudonym ? L["VaultDetail_FieldRealPeople"] : L["VaultDetail_FieldPenNames"])</span>
                         @if (_aliases is not null && _aliases.Aliases.Count > 0)
                         {
@@ -552,10 +563,6 @@
                                             <span class="vdd-alias-name">@alias.Name</span>
                                             <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
                                         </div>
-                                        @if (!string.IsNullOrEmpty(alias.WikidataQid))
-                                        {
-                                            <span class="vdd-alias-qid">@alias.WikidataQid</span>
-                                        }
                                     </button>
                                 }
                             </div>
@@ -847,6 +854,7 @@
     private bool _hasSearched;
     private List<RegistryItemViewModel> _searchResults = [];
     private PersonAliasesResponseDto? _aliases;
+    private List<HubViewModel>? _personWorks;
     private RegistryItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
     private string _searchMediaType = "";
@@ -898,6 +906,7 @@
         _manualSearchQuery = "";
         _searchResults = [];
         _aliases = null;
+        _personWorks = null;
         _pendingMatch = null;
         _pendingRetailMatch = null;
         _searching = false;
@@ -928,9 +937,11 @@
         {
             var aliasTask = ApiClient.GetPersonAliasesAsync(Person.Id);
             var rolesTask = ApiClient.GetPersonCharacterRolesAsync(Person.Id);
-            await Task.WhenAll(aliasTask, rolesTask);
+            var worksTask = ApiClient.GetWorksByPersonAsync(Person.Id);
+            await Task.WhenAll(aliasTask, rolesTask, worksTask);
             _aliases = await aliasTask;
             _personCharacterRoles = await rolesTask;
+            _personWorks = await worksTask;
         }
         else if (Universe is not null && !string.IsNullOrWhiteSpace(Universe.FictionalUniverseQid))
         {
@@ -1809,6 +1820,36 @@
         color: rgba(255, 255, 255, 0.25);
         font-style: italic;
         margin: 0;
+    }
+
+    /* ── Person Library Presence list ── */
+    .vdd-presence-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-presence-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-presence-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vdd-presence-type {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
     }
 
     /* ── Review banner ── */

@@ -35,6 +35,7 @@ public sealed class VaultItemViewModel
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }
+    public string? CoverThumbUrl { get; init; }
     public double Confidence { get; init; }
     public string Status { get; init; } = "";
     public string? ReviewTrigger { get; init; }
@@ -93,6 +94,9 @@ public sealed class VaultItemViewModel
         Year = r.Year,
         MediaType = r.MediaType,
         CoverUrl = r.CoverUrl,
+        CoverThumbUrl = !string.IsNullOrEmpty(r.CoverUrl)
+            ? r.CoverUrl.Replace("/cover", "/cover-thumb")
+            : null,
         Confidence = r.Confidence,
         Status = r.Status,
         ReviewTrigger = r.ReviewTrigger,

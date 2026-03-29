@@ -3,6 +3,67 @@ using System.Text.Json.Serialization;
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
+/// Dashboard view model for a Content Group returned by GET /hubs/content-groups.
+/// Represents a Universe-type hub (album, TV series, book series, movie series)
+/// shown in the Content Groups section of the Vault Hubs tab.
+/// </summary>
+public sealed class ContentGroupViewModel
+{
+    [JsonPropertyName("hub_id")]
+    public Guid HubId { get; set; }
+
+    [JsonPropertyName("display_name")]
+    public string DisplayName { get; set; } = string.Empty;
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("primary_media_type")]
+    public string PrimaryMediaType { get; set; } = string.Empty;
+
+    [JsonPropertyName("work_count")]
+    public int WorkCount { get; set; }
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("creator")]
+    public string? Creator { get; set; }
+
+    [JsonPropertyName("universe_status")]
+    public string UniverseStatus { get; set; } = "Unknown";
+
+    [JsonPropertyName("created_at")]
+    public DateTimeOffset CreatedAt { get; set; }
+
+    // ── Computed display helpers ──
+
+    public string MediaTypeIcon => PrimaryMediaType switch
+    {
+        "TV"         => "LiveTv",
+        "Music"      => "MusicNote",
+        "Books"      => "MenuBook",
+        "Audiobooks" => "Headphones",
+        "Movies"     => "VideoLibrary",
+        "Comics"     => "AutoStories",
+        "Podcasts"   => "Mic",
+        _            => "Folder",
+    };
+
+    public string MediaTypeColor => PrimaryMediaType switch
+    {
+        "TV"         => "#FBBF24",
+        "Music"      => "#22D3EE",
+        "Books"      => "#5DCAA5",
+        "Audiobooks" => "#A78BFA",
+        "Movies"     => "#60A5FA",
+        "Comics"     => "#FB923C",
+        "Podcasts"   => "#FB923C",
+        _            => "#60A5FA",
+    };
+}
+
+/// <summary>
 /// Dashboard view model for a managed hub (Smart, System, Mix, Playlist)
 /// displayed in the Vault Hubs tab.
 /// </summary>

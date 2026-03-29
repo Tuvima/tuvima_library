@@ -354,6 +354,206 @@ public static class HubEndpoints
         .Produces<RelatedHubsResponse>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
+        // ── Group Detail ─────────────────────────────────────────────────────────
+
+        // GET /hubs/{hubId}/group-detail — hub header + child works for sub-page rendering.
+        group.MapGet("/{hubId:guid}/group-detail", async (
+            Guid hubId,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            var hub = await hubRepo.GetHubWithWorksAsync(hubId, ct);
+            if (hub is null)
+                return Results.NotFound();
+
+            // Determine primary media type from the works.
+            var primaryMediaType = hub.Works
+                .GroupBy(w => w.MediaType.ToString())
+                .OrderByDescending(g => g.Count())
+                .FirstOrDefault()?.Key;
+
+            bool isTv = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase);
+
+            // Build per-work DTOs.
+            var workDtos = hub.Works
+                .OrderBy(w => w.SequenceIndex ?? int.MaxValue)
+                .ThenBy(w => w.Id)
+                .Select(w =>
+                {
+                    string? title       = GetCanonical(WorkDto.FromDomain(w), "title") ?? $"Work {w.Id.ToString("N")[..8]}";
+                    string? year        = GetCanonical(WorkDto.FromDomain(w), "release_year")
+                                         ?? GetCanonical(WorkDto.FromDomain(w), "year");
+                    string? duration    = GetCanonical(WorkDto.FromDomain(w), "duration")
+                                         ?? GetCanonical(WorkDto.FromDomain(w), "runtime");
+                    string? coverUrl    = GetCanonical(WorkDto.FromDomain(w), "cover");
+                    string? season      = GetCanonical(WorkDto.FromDomain(w), "season_number");
+                    string? episode     = GetCanonical(WorkDto.FromDomain(w), "episode_number");
+                    string? trackNumber = GetCanonical(WorkDto.FromDomain(w), "track_number");
+
+                    // Derive a display status from wikidata_status / match_level.
+                    string status = w.WikidataStatus switch
+                    {
+                        "confirmed" => "Verified",
+                        "skipped"   => "Unlinked",
+                        _           => "Provisional",
+                    };
+
+                    // Pipeline stage stubs — state is derived from match/wikidata status.
+                    var stage1 = new VaultPipelineStageDto
+                    {
+                        State = w.MatchLevel is "retail_only" or "work" or "edition" ? "done" : "pending",
+                        Label = "Retail",
+                    };
+                    var stage2 = new VaultPipelineStageDto
+                    {
+                        State = w.WikidataStatus == "confirmed" ? "done" : "pending",
+                        Label = "Wikidata",
+                    };
+                    var stage3 = new VaultPipelineStageDto
+                    {
+                        State = "pending",
+                        Label = "Universe",
+                    };
+
+                    return new HubGroupWorkDto
+                    {
+                        WorkId        = w.Id,
+                        Title         = title,
+                        SequenceIndex = w.SequenceIndex,
+                        Year          = year,
+                        Duration      = duration,
+                        CoverUrl      = coverUrl,
+                        WikidataQid   = w.WikidataQid,
+                        Season        = season,
+                        Episode       = episode,
+                        TrackNumber   = trackNumber,
+                        Status        = status,
+                        Stage1        = stage1,
+                        Stage2        = stage2,
+                        Stage3        = stage3,
+                    };
+                })
+                .ToList();
+
+            // Hub-level header canonical values (use first work as proxy).
+            var firstWorkDto = hub.Works.Count > 0 ? WorkDto.FromDomain(hub.Works[0]) : null;
+            string? hubCreator = GetCanonical(firstWorkDto, "author")
+                                 ?? GetCanonical(firstWorkDto, "director")
+                                 ?? GetCanonical(firstWorkDto, "artist");
+            string? hubGenre   = GetCanonical(firstWorkDto, "genre");
+            string? hubCover   = GetCanonical(firstWorkDto, "cover");
+
+            // Year range from all works.
+            var years = workDtos
+                .Where(w => !string.IsNullOrWhiteSpace(w.Year))
+                .Select(w => w.Year!)
+                .Distinct()
+                .OrderBy(y => y)
+                .ToList();
+            string? yearRange = years.Count switch
+            {
+                0 => null,
+                1 => years[0],
+                _ => $"{years[0]}–{years[^1]}",
+            };
+
+            // Build the response — TV uses seasons grouping, others use flat works list.
+            List<HubGroupSeasonDto> seasons = [];
+            List<HubGroupWorkDto>   flatWorks = [];
+
+            if (isTv)
+            {
+                seasons = workDtos
+                    .GroupBy(w => int.TryParse(w.Season, out var sn) ? sn : 0)
+                    .OrderBy(g => g.Key)
+                    .Select(g => new HubGroupSeasonDto
+                    {
+                        SeasonNumber = g.Key,
+                        Episodes     = g.OrderBy(e => int.TryParse(e.Episode, out var en) ? en : e.SequenceIndex ?? int.MaxValue).ToList(),
+                    })
+                    .ToList();
+            }
+            else
+            {
+                flatWorks = workDtos;
+            }
+
+            var response = new HubGroupDetailDto
+            {
+                HubId            = hub.Id,
+                DisplayName      = hub.DisplayName ?? $"Hub {hub.Id.ToString("N")[..8]}",
+                WikidataQid      = hub.WikidataQid,
+                PrimaryMediaType = primaryMediaType,
+                CoverUrl         = hubCover,
+                Creator          = hubCreator,
+                YearRange        = yearRange,
+                Genre            = hubGenre,
+                TotalItems       = hub.Works.Count,
+                Seasons          = seasons,
+                Works            = flatWorks,
+            };
+
+            return Results.Ok(response);
+        })
+        .WithName("GetHubGroupDetail")
+        .WithSummary("Returns hub header metadata and child works sorted by sequence for sub-page rendering. TV works are grouped by season.")
+        .Produces<HubGroupDetailDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        // ── Content Groups ───────────────────────────────────────────────────────
+
+        // GET /hubs/content-groups — Universe hubs that have child works (albums, TV series, book series, movie series).
+        group.MapGet("/content-groups", async (IHubRepository hubRepo, CancellationToken ct) =>
+        {
+            var hubs = await hubRepo.GetContentGroupsAsync(ct);
+
+            var dtos = hubs.Select(h =>
+            {
+                // Primary media type is whichever appears most among this hub's works.
+                var primaryMediaType = h.Works
+                    .GroupBy(w => w.MediaType.ToString())
+                    .OrderByDescending(g => g.Count())
+                    .FirstOrDefault()?.Key ?? "Unknown";
+
+                // Cover from the first work that has one.
+                string? cover = null;
+                foreach (var w in h.Works)
+                {
+                    var dto = WorkDto.FromDomain(w);
+                    cover = GetCanonical(dto, "cover");
+                    if (cover is not null) break;
+                }
+
+                // Creator from first work.
+                var firstDto = h.Works.Count > 0 ? WorkDto.FromDomain(h.Works[0]) : null;
+                string? creator = GetCanonical(firstDto, "author")
+                                  ?? GetCanonical(firstDto, "director")
+                                  ?? GetCanonical(firstDto, "artist");
+
+                return new ContentGroupDto
+                {
+                    HubId            = h.Id,
+                    DisplayName      = h.DisplayName ?? $"Hub {h.Id.ToString("N")[..8]}",
+                    WikidataQid      = h.WikidataQid,
+                    PrimaryMediaType = primaryMediaType,
+                    WorkCount        = h.Works.Count,
+                    CoverUrl         = cover,
+                    Creator          = creator,
+                    UniverseStatus   = h.UniverseStatus,
+                    CreatedAt        = h.CreatedAt,
+                };
+            })
+            .OrderBy(d => d.DisplayName)
+            .ToList();
+
+            return Results.Ok(dtos);
+        })
+        .WithName("GetContentGroups")
+        .WithSummary("Returns Universe-type hubs that contain works (albums, TV series, book series, movie series), grouped by primary media type.")
+        .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
         // ── Managed Hub endpoints (Vault Hubs tab) ──────────────────────────────
 
         // GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.

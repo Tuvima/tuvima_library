@@ -1,0 +1,584 @@
+@namespace MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+
+@inject IEngineApiClient ApiClient
+@inject IStringLocalizer<SharedStrings> L
+
+@if (_loading)
+{
+    <div class="mgp-loading">
+        <MudProgressCircular Indeterminate="true" Size="Size.Medium" Style="color: rgba(255,255,255,0.15);" />
+    </div>
+}
+else if (_detail is null)
+{
+    <div class="mgp-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 3rem; opacity: 0.15;" />
+        <p style="color: rgba(255,255,255,0.3);">Group not found.</p>
+    </div>
+}
+else
+{
+    @* ── BACK BUTTON + BREADCRUMB ── *@
+    <div class="mgp-breadcrumb">
+        <button class="mgp-back-btn" @onclick="() => OnBack.InvokeAsync()">
+            <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
+            <span>Back to Vault</span>
+        </button>
+        <span class="mgp-breadcrumb-sep">·</span>
+        <span class="mgp-breadcrumb-label">@GetGroupTypeLabel()</span>
+    </div>
+
+    @* ── HEADER ── *@
+    <div class="mgp-header">
+        <div class="mgp-cover">
+            @if (!string.IsNullOrEmpty(_detail.CoverUrl))
+            {
+                <img src="@_detail.CoverUrl" alt="@_detail.DisplayName" class="mgp-cover-img" />
+            }
+            else
+            {
+                <div class="mgp-cover-placeholder">
+                    <MudIcon Icon="@GetMediaTypeIcon()" Style="font-size: 48px; opacity: 0.2;" />
+                </div>
+            }
+        </div>
+        <div class="mgp-meta">
+            <h1 class="mgp-title">@_detail.DisplayName</h1>
+            @if (!string.IsNullOrEmpty(_detail.Creator))
+            {
+                <p class="mgp-creator">@_detail.Creator</p>
+            }
+            <div class="mgp-meta-line">
+                @if (!string.IsNullOrEmpty(_detail.YearRange))
+                {
+                    <span>@_detail.YearRange</span>
+                }
+                @if (!string.IsNullOrEmpty(_detail.Genre))
+                {
+                    <span>· @_detail.Genre</span>
+                }
+                @if (_detail.TotalItems > 0)
+                {
+                    <span>· @_detail.TotalItems @GetItemLabel()</span>
+                }
+                @if (!string.IsNullOrEmpty(_detail.TotalDuration))
+                {
+                    <span>· @_detail.TotalDuration</span>
+                }
+            </div>
+            <div class="mgp-actions">
+                <button class="mgp-action-btn mgp-action-btn--sync" @onclick="SyncAll">
+                    <MudIcon Icon="@Icons.Material.Outlined.Sync" Style="font-size: 16px;" />
+                    Sync All
+                </button>
+            </div>
+        </div>
+    </div>
+
+    @* ── ITEM LIST ── *@
+    <div class="mgp-content">
+        @if (GroupType == "tv-show" && _detail.Seasons.Count > 0)
+        {
+            @* TV: season accordion sections *@
+            @foreach (var season in _detail.Seasons)
+            {
+                var seasonNum = season.SeasonNumber;
+                <div class="mgp-season">
+                    <button class="mgp-season-header" @onclick="() => ToggleSeason(seasonNum)">
+                        <MudIcon Icon="@(IsSeasonExpanded(seasonNum) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                 Style="font-size: 16px; opacity: 0.4;" />
+                        <span class="mgp-season-label">Season @seasonNum</span>
+                        <span class="mgp-season-count">@season.Episodes.Count @(season.Episodes.Count == 1 ? "episode" : "episodes")</span>
+                    </button>
+                    @if (IsSeasonExpanded(seasonNum))
+                    {
+                        @RenderWorkList(season.Episodes, showEpisodeNumber: true)
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            @* Music / Books / Movies: flat sorted list *@
+            @RenderWorkList(_detail.Works,
+                showTrackNumber: GroupType == "album",
+                showSequence: GroupType is "book-series" or "movie-series")
+        }
+    </div>
+
+    @* ── BATCH BAR ── *@
+    <VaultBatchBar SelectedCount="@_selectedItems.Count"
+                   OnDelete="OnBatchDelete"
+                   OnSyncNow="OnBatchSync"
+                   OnClearSelection="ClearSelection" />
+}
+
+@code {
+    // ── Parameters ──────────────────────────────────────────────────────────────
+
+    /// <summary>Discriminator: "tv-show" | "album" | "book-series" | "movie-series"</summary>
+    [Parameter] public string GroupType { get; set; } = "";
+
+    [Parameter] public Guid GroupId { get; set; }
+
+    /// <summary>Fired when the user clicks the back button.</summary>
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    /// <summary>Fired when the user clicks a work row. Passes the Work ID.</summary>
+    [Parameter] public EventCallback<Guid> OnItemClicked { get; set; }
+
+    /// <summary>Fired when batch Delete is requested from the floating bar.</summary>
+    [Parameter] public EventCallback OnBatchDelete { get; set; }
+
+    /// <summary>Fired when batch Sync Now is requested from the floating bar.</summary>
+    [Parameter] public EventCallback OnBatchSync { get; set; }
+
+    // ── Private state ────────────────────────────────────────────────────────────
+
+    private HubGroupDetailViewModel? _detail;
+    private bool _loading = true;
+    private HashSet<Guid> _selectedItems = [];
+    private HashSet<int> _collapsedSeasons = [];
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────────
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (GroupId == Guid.Empty) return;
+
+        _loading = true;
+        StateHasChanged();
+
+        _detail = await ApiClient.GetHubGroupDetailAsync(GroupId);
+
+        _loading = false;
+        StateHasChanged();
+    }
+
+    // ── Season helpers ───────────────────────────────────────────────────────────
+
+    private bool IsSeasonExpanded(int season) => !_collapsedSeasons.Contains(season);
+
+    private void ToggleSeason(int season)
+    {
+        if (_collapsedSeasons.Contains(season))
+            _collapsedSeasons.Remove(season);
+        else
+            _collapsedSeasons.Add(season);
+    }
+
+    // ── Batch / selection helpers ────────────────────────────────────────────────
+
+    private void ToggleSelect(Guid workId)
+    {
+        if (_selectedItems.Contains(workId))
+            _selectedItems.Remove(workId);
+        else
+            _selectedItems.Add(workId);
+    }
+
+    private void ClearSelection()
+    {
+        _selectedItems.Clear();
+        StateHasChanged();
+    }
+
+    // ── Sync all ────────────────────────────────────────────────────────────────
+
+    private Task SyncAll()
+    {
+        // Select every work and delegate to the parent's sync handler.
+        if (_detail is null) return Task.CompletedTask;
+        var allIds = _detail.Works.Select(w => w.WorkId)
+            .Concat(_detail.Seasons.SelectMany(s => s.Episodes.Select(e => e.WorkId)));
+        _selectedItems = [.. allIds];
+        return OnBatchSync.InvokeAsync();
+    }
+
+    // ── Label helpers ────────────────────────────────────────────────────────────
+
+    private string GetGroupTypeLabel() => GroupType switch
+    {
+        "tv-show"      => "TV Show",
+        "album"        => "Album",
+        "book-series"  => "Book Series",
+        "movie-series" => "Movie Series",
+        _              => "Group"
+    };
+
+    private string GetItemLabel() => GroupType switch
+    {
+        "tv-show"      => "episodes",
+        "album"        => "tracks",
+        "book-series"  => "books",
+        "movie-series" => "films",
+        _              => "items"
+    };
+
+    private string GetMediaTypeIcon() => GroupType switch
+    {
+        "tv-show"      => Icons.Material.Outlined.LiveTv,
+        "album"        => Icons.Material.Outlined.Album,
+        "book-series"  => Icons.Material.Outlined.MenuBook,
+        "movie-series" => Icons.Material.Outlined.VideoLibrary,
+        _              => Icons.Material.Outlined.Folder
+    };
+
+    // ── Render helpers ───────────────────────────────────────────────────────────
+
+    private RenderFragment RenderWorkList(
+        List<HubGroupWorkViewModel> items,
+        bool showTrackNumber   = false,
+        bool showEpisodeNumber = false,
+        bool showSequence      = false) => builder =>
+    {
+        builder.OpenElement(0, "table");
+        builder.AddAttribute(1, "class", "mgp-track-table");
+        builder.OpenElement(2, "tbody");
+
+        var seq = 3;
+        foreach (var item in items)
+        {
+            var workId = item.WorkId;
+            var isSelected = _selectedItems.Contains(workId);
+
+            builder.OpenElement(seq++, "tr");
+            builder.AddAttribute(seq++, "class", $"mgp-track-row{(isSelected ? " mgp-track-row--selected" : "")}");
+            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnItemClicked.InvokeAsync(workId)));
+
+            // Checkbox cell
+            builder.OpenElement(seq++, "td");
+            builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--check");
+            builder.OpenElement(seq++, "input");
+            builder.AddAttribute(seq++, "type", "checkbox");
+            builder.AddAttribute(seq++, "class", "vct-checkbox");
+            builder.AddAttribute(seq++, "checked", isSelected);
+            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create<Microsoft.AspNetCore.Components.Web.MouseEventArgs>(this, _ => ToggleSelect(workId)));
+            builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+            builder.CloseElement(); // input
+            builder.CloseElement(); // td
+
+            // Number cell
+            var numDisplay = showTrackNumber   ? item.TrackNumber
+                           : showEpisodeNumber ? item.Episode
+                           : showSequence      ? item.SequenceIndex?.ToString()
+                           : null;
+            builder.OpenElement(seq++, "td");
+            builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--num");
+            if (numDisplay is not null)
+                builder.AddContent(seq++, numDisplay);
+            builder.CloseElement(); // td
+
+            // Title cell
+            builder.OpenElement(seq++, "td");
+            builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--title");
+            builder.OpenElement(seq++, "span");
+            builder.AddAttribute(seq++, "class", "mgp-track-title");
+            builder.AddContent(seq++, item.Title);
+            builder.CloseElement(); // span (title)
+            if (!string.IsNullOrEmpty(item.Year))
+            {
+                builder.OpenElement(seq++, "span");
+                builder.AddAttribute(seq++, "class", "mgp-track-year");
+                builder.AddContent(seq++, item.Year);
+                builder.CloseElement(); // span (year)
+            }
+            builder.CloseElement(); // td
+
+            // Duration cell
+            builder.OpenElement(seq++, "td");
+            builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--duration");
+            builder.AddContent(seq++, item.Duration ?? "—");
+            builder.CloseElement(); // td
+
+            builder.CloseElement(); // tr
+        }
+
+        builder.CloseElement(); // tbody
+        builder.CloseElement(); // table
+    };
+}
+
+<style>
+    /* ── Loading / Empty ──────────────────────────────────────────────────────── */
+    .mgp-loading,
+    .mgp-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 0;
+        gap: 16px;
+    }
+
+    /* ── Breadcrumb ───────────────────────────────────────────────────────────── */
+    .mgp-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 16px 32px;
+    }
+
+    .mgp-back-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 6px 10px;
+        border-radius: 8px;
+        transition: all 0.15s;
+    }
+
+    .mgp-back-btn:hover {
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .mgp-breadcrumb-sep {
+        color: rgba(255, 255, 255, 0.15);
+    }
+
+    .mgp-breadcrumb-label {
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────────────── */
+    .mgp-header {
+        display: flex;
+        gap: 32px;
+        padding: 8px 32px 32px;
+        align-items: flex-start;
+    }
+
+    .mgp-cover {
+        width: 200px;
+        min-width: 200px;
+        aspect-ratio: 1;
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        flex-shrink: 0;
+    }
+
+    .mgp-cover-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .mgp-cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mgp-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding-top: 8px;
+    }
+
+    .mgp-title {
+        font-size: 28px;
+        font-weight: 900;
+        color: white;
+        margin: 0;
+        line-height: 1.2;
+    }
+
+    .mgp-creator {
+        font-size: 15px;
+        font-weight: 600;
+        color: #60A5FA;
+        margin: 0;
+    }
+
+    .mgp-meta-line {
+        display: flex;
+        gap: 6px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.4);
+        margin-top: 4px;
+        flex-wrap: wrap;
+    }
+
+    .mgp-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 16px;
+    }
+
+    .mgp-action-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: none;
+    }
+
+    .mgp-action-btn--sync {
+        background: rgba(96, 165, 250, 0.12);
+        color: #60A5FA;
+        border: 1px solid rgba(96, 165, 250, 0.2);
+    }
+
+    .mgp-action-btn--sync:hover {
+        background: rgba(96, 165, 250, 0.2);
+    }
+
+    /* ── Content ──────────────────────────────────────────────────────────────── */
+    .mgp-content {
+        padding: 0 32px 32px;
+    }
+
+    /* ── Season sections (TV) ─────────────────────────────────────────────────── */
+    .mgp-season {
+        margin-bottom: 8px;
+    }
+
+    .mgp-season-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.15s;
+        margin-bottom: 4px;
+        color: inherit;
+    }
+
+    .mgp-season-header:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .mgp-season-label {
+        font-size: 14px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .mgp-season-count {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.3);
+        margin-left: auto;
+    }
+
+    /* ── Track table ──────────────────────────────────────────────────────────── */
+    .mgp-track-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .mgp-track-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: background 0.1s;
+        cursor: pointer;
+    }
+
+    .mgp-track-row:hover {
+        background: rgba(59, 130, 246, 0.04);
+    }
+
+    .mgp-track-row--selected {
+        background: rgba(96, 165, 250, 0.06);
+    }
+
+    .mgp-track-td {
+        padding: 10px 12px;
+        vertical-align: middle;
+    }
+
+    .mgp-track-td--check {
+        width: 40px;
+        text-align: center;
+    }
+
+    .mgp-track-td--num {
+        width: 40px;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.3);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .mgp-track-td--title {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
+
+    .mgp-track-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
+        transition: color 0.1s;
+    }
+
+    .mgp-track-row:hover .mgp-track-title {
+        color: #60A5FA;
+    }
+
+    .mgp-track-year {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .mgp-track-td--duration {
+        width: 80px;
+        text-align: right;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.3);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* ── Responsive ───────────────────────────────────────────────────────────── */
+    @@media (max-width: 768px) {
+        .mgp-header {
+            flex-direction: column;
+            padding: 8px 16px 24px;
+            gap: 20px;
+        }
+
+        .mgp-cover {
+            width: 140px;
+            min-width: 140px;
+        }
+
+        .mgp-title {
+            font-size: 22px;
+        }
+
+        .mgp-breadcrumb,
+        .mgp-content {
+            padding-left: 16px;
+            padding-right: 16px;
+        }
+    }
+</style>

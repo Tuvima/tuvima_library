@@ -50,6 +50,10 @@ public sealed class ImagePathService
     public string GetWorkCoverPath(string? wikidataQid, Guid assetId) =>
         Path.Combine(GetWorkImageDir(wikidataQid, assetId), "cover.jpg");
 
+    /// <summary>Gets cover_thumb.jpg path for a work.</summary>
+    public string GetWorkCoverThumbPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "cover_thumb.jpg");
+
     /// <summary>Gets hero.jpg path for a work.</summary>
     public string GetWorkHeroPath(string? wikidataQid, Guid assetId) =>
         Path.Combine(GetWorkImageDir(wikidataQid, assetId), "hero.jpg");

@@ -609,11 +609,17 @@ public interface IEngineApiClient
 
     // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
 
+    /// <summary>GET /hubs/{hubId}/group-detail — full drill-down view of a content group (album, TV show, book series, movie series).</summary>
+    Task<HubGroupDetailViewModel?> GetHubGroupDetailAsync(Guid hubId, CancellationToken ct = default);
+
     /// <summary>GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.</summary>
     Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default);
 
     /// <summary>GET /hubs/managed/counts — hub count grouped by type for stats bar.</summary>
     Task<Dictionary<string, int>> GetManagedHubCountsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /hubs/content-groups — Universe-type hubs (albums, TV series, book series, movie series) for the Content Groups section.</summary>
+    Task<List<ContentGroupViewModel>> GetContentGroupsAsync(CancellationToken ct = default);
 
     /// <summary>GET /hubs/{id}/items?limit= — curated items for a hub.</summary>
     Task<List<HubItemViewModel>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);

@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
@@ -123,6 +124,7 @@ public sealed class UniverseEnrichmentService : BackgroundService
         var narrativeRoot  = scope.ServiceProvider.GetRequiredService<INarrativeRootResolver>();
         var imageService   = scope.ServiceProvider.GetRequiredService<IImageEnrichmentService>();
         var reconAdapter   = scope.ServiceProvider.GetService<ReconciliationAdapter>();
+        var hubRepo        = scope.ServiceProvider.GetService<IHubRepository>();
 
         var maxItems    = config.Stage3MaxItemsPerSweep > 0 ? config.Stage3MaxItemsPerSweep : 50;
         var refreshDays = config.Stage3RefreshDays > 0 ? config.Stage3RefreshDays : 30;
@@ -152,11 +154,89 @@ public sealed class UniverseEnrichmentService : BackgroundService
         int skipped = 0;
         var staleThreshold = DateTimeOffset.UtcNow.AddDays(-refreshDays);
 
-        for (int i = 0; i < entitiesWithQid.Count && processed < maxItems; i++)
+        // ── Hub-level expansion for TV and Music ──────────────────────────────────
+        // For TV episodes and music tracks, group refresh at the hub (show/album) level.
+        // When any work in a hub is stale, all siblings in that hub are included in
+        // the batch so the entire show or album refreshes together.
+        var expandedEntityList = new List<Guid>(entitiesWithQid);
+        if (hubRepo is not null)
+        {
+            var hubsAlreadyExpanded = new HashSet<Guid>();
+
+            foreach (var entityId in entitiesWithQid)
+            {
+                if (ct.IsCancellationRequested) break;
+
+                try
+                {
+                    var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct)
+                        .ConfigureAwait(false);
+
+                    var mediaTypeRaw = canonicals
+                        .FirstOrDefault(c => string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase))
+                        ?.Value;
+
+                    if (!Enum.TryParse<MediaType>(mediaTypeRaw, ignoreCase: true, out var mediaType))
+                        continue;
+
+                    if (mediaType != MediaType.TV && mediaType != MediaType.Music)
+                        continue;
+
+                    // Check if this work is actually stale before expanding its hub.
+                    var lastEnriched = canonicals
+                        .FirstOrDefault(c => string.Equals(c.Key, "stage3_enriched_at", StringComparison.OrdinalIgnoreCase))
+                        ?.Value;
+
+                    bool isStale = string.IsNullOrWhiteSpace(lastEnriched)
+                        || !DateTimeOffset.TryParse(lastEnriched, out var lastDate)
+                        || lastDate <= staleThreshold;
+
+                    if (!isStale) continue;
+
+                    // Find hub siblings and add them to the batch.
+                    var hubId = await hubRepo.GetHubIdByWorkIdAsync(entityId, ct)
+                        .ConfigureAwait(false);
+
+                    if (hubId is null || hubsAlreadyExpanded.Contains(hubId.Value))
+                        continue;
+
+                    hubsAlreadyExpanded.Add(hubId.Value);
+
+                    var hub = await hubRepo.GetHubWithWorksAsync(hubId.Value, ct)
+                        .ConfigureAwait(false);
+
+                    if (hub is null) continue;
+
+                    // Add all sibling work IDs that are not already in the list.
+                    var existingSet = new HashSet<Guid>(expandedEntityList);
+                    int added = 0;
+                    foreach (var siblingWork in hub.Works)
+                    {
+                        if (existingSet.Add(siblingWork.Id))
+                        {
+                            expandedEntityList.Add(siblingWork.Id);
+                            added++;
+                        }
+                    }
+
+                    if (added > 0)
+                        _logger.LogDebug(
+                            "[UNIVERSE-ENRICH] Hub-level expand: added {Count} sibling works from hub {HubId} ({MediaType})",
+                            added, hubId.Value, mediaType);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex, "[UNIVERSE-ENRICH] Hub expansion check failed for entity {Id} — skipping", entityId);
+                }
+            }
+        }
+
+        for (int i = 0; i < expandedEntityList.Count && processed < maxItems; i++)
         {
             if (ct.IsCancellationRequested) break;
 
-            var entityId = entitiesWithQid[i];
+            var entityId = expandedEntityList[i];
 
             try
             {
@@ -263,7 +343,7 @@ public sealed class UniverseEnrichmentService : BackgroundService
                     workTitle ?? "(untitled)", qidValue);
 
                 // Rate limit between works.
-                if (i < entitiesWithQid.Count - 1 && processed < maxItems)
+                if (i < expandedEntityList.Count - 1 && processed < maxItems)
                     await Task.Delay(rateLimitMs, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }

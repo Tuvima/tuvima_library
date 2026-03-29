@@ -51,7 +51,7 @@ public sealed class IngestionOptions
     /// the entire group (parentheses + leading space) is collapsed.
     /// </summary>
     public string OrganizationTemplate { get; set; } =
-        "{Category}/{Title} - {Qid}/{Title}{Ext}";
+        "{Category}/{Title} ({Qid})/{Title}{Ext}";
 
     /// <summary>
     /// Per-media-type organisation templates.  Keys are media type names
@@ -62,13 +62,20 @@ public sealed class IngestionOptions
     /// </summary>
     public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Books & Audiobooks: format subfolder distinguishes reading vs listening formats
-        ["Books"]      = "{Category}/{Title} - {Qid}/{Format}/{Title}{Ext}",
-        ["Audiobooks"] = "{Category}/{Title} - {Qid}/{Format}/{Title}{Ext}",
-        // TV: season/episode in the filename
-        ["TV"]         = "{Category}/{Title} - {Qid}/S{Season}E{Episode} - {Title}{Ext}",
-        // Music: artist → album directory structure
-        ["Music"]      = "{Category}/{Artist}/{Album} - {Qid}/{TrackNumber} - {Title}{Ext}",
+        ["default"]    = "{Category}/{Title} ({Qid})/{Title}{Ext}",
+        // Books & Audiobooks: separate top-level folders
+        ["Books"]      = "Books/{Title} ({Qid})/{Title}{Ext}",
+        ["Audiobooks"] = "Audiobooks/{Title} ({Qid})/{Title}{Ext}",
+        // Movies: flat title folder
+        ["Movies"]     = "Movies/{Title} ({Qid})/{Title}{Ext}",
+        // TV: Plex convention — Show/Season XX/SxxExx - Episode
+        ["TV"]         = "TV/{Series} ({Qid})/Season {Season}/S{Season}E{Episode} - {Title}{Ext}",
+        // Comics: flat title folder
+        ["Comic"]      = "Comics/{Title} ({Qid})/{Title}{Ext}",
+        // Music: Plex convention — Artist/Album/TrackNum - Title
+        ["Music"]      = "Music/{Artist}/{Album} ({Qid})/{TrackNumber} - {Title}{Ext}",
+        // Podcasts: flat show folder
+        ["Podcasts"]   = "Podcasts/{Title} ({Qid})/{Title}{Ext}",
     };
 
     /// <summary>

@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -40,6 +41,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly IHubRepository              _hubRepo;
     private readonly IEventPublisher              _publisher;
     private readonly IConfigurationLoader         _configLoader;
+    private readonly ImagePathService             _imagePaths;
+    private readonly IDatabaseConnection          _db;
     private readonly ILogger<LibraryReconciliationService> _logger;
 
     /// <summary>GUID folder pattern: 8-4-4-4-12 hex chars.</summary>
@@ -62,6 +65,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         IHubRepository              hubRepo,
         IEventPublisher             publisher,
         IConfigurationLoader        configLoader,
+        ImagePathService            imagePaths,
+        IDatabaseConnection         db,
         ILogger<LibraryReconciliationService> logger)
     {
         _assetRepo     = assetRepo;
@@ -73,6 +78,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _hubRepo       = hubRepo;
         _publisher     = publisher;
         _configLoader  = configLoader;
+        _imagePaths    = imagePaths;
+        _db            = db;
         _logger        = logger;
     }
 
@@ -154,7 +161,28 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 "Reconciliation: file missing for asset {Id} at {Path}",
                 asset.Id, asset.FilePathRoot);
 
-            // Clean filesystem artifacts.
+            // Capture the parent Work's QID before deleting DB records (needed for .images/ cleanup).
+            string? wikidataQid = null;
+            try
+            {
+                using var conn = _db.CreateConnection();
+                using var qidCmd = conn.CreateCommand();
+                qidCmd.CommandText = """
+                    SELECT w.wikidata_qid
+                    FROM works w
+                    INNER JOIN editions e ON e.work_id = w.id
+                    WHERE e.id = @editionId
+                    LIMIT 1
+                    """;
+                qidCmd.Parameters.AddWithValue("@editionId", asset.EditionId.ToString());
+                wikidataQid = qidCmd.ExecuteScalar() as string;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Reconciliation: could not resolve QID for asset {Id}", asset.Id);
+            }
+
+            // Clean filesystem artifacts (legacy: cover/hero alongside media file).
             var editionFolder = Path.GetDirectoryName(asset.FilePathRoot);
             if (!string.IsNullOrEmpty(editionFolder) && Directory.Exists(editionFolder))
             {
@@ -175,6 +203,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             await _claimRepo.DeleteByEntityAsync(asset.Id, ct);
             await _canonicalRepo.DeleteByEntityAsync(asset.Id, ct);
             await _assetRepo.DeleteAsync(asset.Id, ct);
+
+            // Clean .images/ directory for this work — after DB delete so sibling check is valid.
+            CleanOrphanWorkImages(wikidataQid, asset.Id);
 
             // Dismiss any pending review queue items for this entity so they
             // no longer appear in the Needs Review tab after the file is gone.
@@ -697,6 +728,54 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             sanitized[i] = Array.IndexOf(invalid, name[i]) >= 0 ? '_' : name[i];
 
         return new string(sanitized).TrimEnd('.', ' ');
+    }
+
+    /// <summary>
+    /// Removes the .images/ directory for an orphaned work asset.
+    /// For QID-keyed works, only deletes the directory if no other work in the DB shares the QID.
+    /// For provisional works, always deletes the provisional slot.
+    /// Best-effort — never throws.
+    /// </summary>
+    private void CleanOrphanWorkImages(string? wikidataQid, Guid assetId)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(wikidataQid) &&
+                !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            {
+                bool qidStillReferenced;
+                try
+                {
+                    using var conn = _db.CreateConnection();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid";
+                    cmd.Parameters.AddWithValue("@qid", wikidataQid);
+                    qidStillReferenced = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
+                }
+                catch
+                {
+                    // If we can't check, err on the side of keeping the directory
+                    return;
+                }
+
+                if (!qidStillReferenced)
+                {
+                    var qidDir = _imagePaths.GetWorkImageDir(wikidataQid, assetId);
+                    if (Directory.Exists(qidDir))
+                        Directory.Delete(qidDir, recursive: true);
+                }
+            }
+            else
+            {
+                var provDir = _imagePaths.GetWorkImageDir(null, assetId);
+                if (Directory.Exists(provDir))
+                    Directory.Delete(provDir, recursive: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to clean .images/ for orphaned asset {AssetId}", assetId);
+        }
     }
 }
 

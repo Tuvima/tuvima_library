@@ -52,12 +52,13 @@
 
     .vault-stat-card--active {
         background: rgba(17, 20, 25, 1);
-        border-color: rgba(255, 255, 255, 0.1);
+        border-color: var(--stat-color);
+        box-shadow: 0 0 16px color-mix(in srgb, var(--stat-color) 20%, transparent);
     }
 
     .vault-stat-card--dimmed {
-        opacity: 0.4;
-        filter: grayscale(1);
+        background: transparent;
+        border-color: rgba(255, 255, 255, 0.06);
     }
 
     .vault-stat-icon {

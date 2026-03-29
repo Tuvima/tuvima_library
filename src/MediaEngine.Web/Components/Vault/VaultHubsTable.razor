@@ -6,6 +6,9 @@
     var filteredHubs = Hubs
         .Where(h => EnabledTypes.Contains(h.HubType))
         .ToList();
+
+    var showContentGroups = EnabledTypes.Contains("ContentGroups") && ContentGroups.Count > 0;
+    var hasAnyContent = filteredHubs.Count > 0 || showContentGroups;
 }
 
 @if (Loading)
@@ -15,7 +18,7 @@
                              Style="color: rgba(255,255,255,0.15);" />
     </div>
 }
-else if (filteredHubs.Count == 0)
+else if (!hasAnyContent)
 {
     <div class="vht-empty">
         <MudIcon Icon="@Icons.Material.Outlined.Hub" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
@@ -94,6 +97,70 @@ else
                         </tr>
                     }
                 }
+
+                @* ── Content Groups ── *@
+                @if (showContentGroups)
+                {
+                    <tr class="vht-group-header-row">
+                        <td colspan="6">
+                            <span class="vht-group-label">CONTENT GROUPS</span>
+                            <span class="vht-group-count">@ContentGroups.Count</span>
+                        </td>
+                    </tr>
+
+                    @foreach (var group in ContentGroups)
+                    {
+                        var mediaIcon = GetContentGroupIcon(group);
+                        <tr class="vht-row" @onclick="() => OnContentGroupClicked.InvokeAsync(group.HubId)">
+                            <td class="vht-td vht-td--icon">
+                                @if (!string.IsNullOrWhiteSpace(group.CoverUrl))
+                                {
+                                    <div class="vht-cover-wrap">
+                                        <img src="@group.CoverUrl" alt="@group.DisplayName"
+                                             class="vht-cover-img"
+                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                        <div class="vht-icon-wrap" style="display: none;">
+                                            <MudIcon Icon="@mediaIcon" Style="@($"font-size: 18px; color: {group.MediaTypeColor}; opacity: 0.75;")" />
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="vht-icon-wrap">
+                                        <MudIcon Icon="@mediaIcon" Style="@($"font-size: 18px; color: {group.MediaTypeColor}; opacity: 0.75;")" />
+                                    </div>
+                                }
+                            </td>
+                            <td class="vht-td" style="padding-left: 0;">
+                                <div class="vht-name-cell">
+                                    <span class="vht-name">@group.DisplayName</span>
+                                    @if (!string.IsNullOrWhiteSpace(group.Creator))
+                                    {
+                                        <span class="vht-description">@group.Creator</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="vht-td vht-col-type">
+                                <span class="vht-type-chip"
+                                      style="@($"color: {group.MediaTypeColor}; border-color: {group.MediaTypeColor}33; background: {group.MediaTypeColor}0D;")">
+                                    @group.PrimaryMediaType
+                                </span>
+                            </td>
+                            <td class="vht-td vht-col-scope">
+                                <span class="vht-scope">Library</span>
+                            </td>
+                            <td class="vht-td vht-td--center">
+                                <span class="vht-items">@group.WorkCount</span>
+                            </td>
+                            <td class="vht-td vht-td--center" style="padding-right: 24px;">
+                                <span class="vht-status-pill"
+                                      style="color: #5DCAA5; border-color: #5DCAA533; background: #5DCAA50D;">
+                                    Active
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                }
             </tbody>
         </table>
     </div>
@@ -101,9 +168,11 @@ else
 
 @code {
     [Parameter] public List<ManagedHubViewModel> Hubs { get; set; } = [];
+    [Parameter] public List<ContentGroupViewModel> ContentGroups { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
-    [Parameter] public HashSet<string> EnabledTypes { get; set; } = new(["Smart", "System", "Mix", "Playlist"]);
+    [Parameter] public HashSet<string> EnabledTypes { get; set; } = new(["Smart", "System", "Mix", "Playlist", "ContentGroups"]);
     [Parameter] public EventCallback<Guid> OnHubClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnContentGroupClicked { get; set; }
 
     private static string GetGroupLabel(string hubType) => hubType switch
     {
@@ -140,6 +209,21 @@ else
             "History"                              => Icons.Material.Outlined.History,
             "MusicList" or "QueueMusic"            => Icons.Material.Outlined.QueueMusic,
             _                                      => Icons.Material.Outlined.Hub,
+        };
+    }
+
+    private static string GetContentGroupIcon(ContentGroupViewModel group)
+    {
+        return group.MediaTypeIcon switch
+        {
+            "LiveTv"       => Icons.Material.Outlined.LiveTv,
+            "MusicNote"    => Icons.Material.Outlined.MusicNote,
+            "MenuBook"     => Icons.Material.Outlined.MenuBook,
+            "Headphones"   => Icons.Material.Outlined.Headphones,
+            "VideoLibrary" => Icons.Material.Outlined.VideoLibrary,
+            "AutoStories"  => Icons.Material.Outlined.AutoStories,
+            "Mic"          => Icons.Material.Outlined.Mic,
+            _              => Icons.Material.Outlined.Folder,
         };
     }
 }
@@ -240,6 +324,23 @@ else
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.05);
         flex-shrink: 0;
+    }
+
+    /* ── Cover art thumbnail ── */
+    .vht-cover-wrap {
+        width: 32px;
+        height: 32px;
+        flex-shrink: 0;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .vht-cover-img {
+        width: 32px;
+        height: 32px;
+        object-fit: cover;
+        border-radius: 6px;
+        display: block;
     }
 
     /* ── Name + description ── */

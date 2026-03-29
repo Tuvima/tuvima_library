@@ -1342,6 +1342,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                 await File.WriteAllBytesAsync(coverPath, result.CoverImage, ct).ConfigureAwait(false);
 
+                // Generate thumbnail (200px wide, quality 75) for list view performance.
+                if (_imagePathService is not null)
+                {
+                    var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid: null, assetId);
+                    GenerateThumbnail(coverPath, thumbPath);
+                }
+
                 await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                 {
                     ActionType     = Domain.Enums.SystemActionType.CoverArtSaved,
@@ -2675,6 +2682,38 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             _logger.LogDebug(ex, "Activity log write failed for action '{Action}' — pipeline continues",
                 entry.ActionType);
+        }
+    }
+
+    /// <summary>
+    /// Generates a 200px-wide JPEG thumbnail from an existing cover.jpg.
+    /// Best-effort — never throws; ingestion continues if thumbnail generation fails.
+    /// </summary>
+    private static void GenerateThumbnail(string coverPath, string thumbPath)
+    {
+        try
+        {
+            using var inputStream = File.OpenRead(coverPath);
+            using var bitmap = SkiaSharp.SKBitmap.Decode(inputStream);
+            if (bitmap is null) return;
+
+            var targetWidth  = 200;
+            var targetHeight = (int)(bitmap.Height * (200.0 / bitmap.Width));
+            using var resized = bitmap.Resize(
+                new SkiaSharp.SKImageInfo(targetWidth, targetHeight),
+                new SkiaSharp.SKSamplingOptions(SkiaSharp.SKFilterMode.Linear));
+            if (resized is null) return;
+
+            using var image = SkiaSharp.SKImage.FromBitmap(resized);
+            using var data  = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 75);
+
+            Domain.Services.ImagePathService.EnsureDirectory(thumbPath);
+            using var output = File.OpenWrite(thumbPath);
+            data.SaveTo(output);
+        }
+        catch
+        {
+            // Thumbnail generation is best-effort — don't fail ingestion.
         }
     }
 }
