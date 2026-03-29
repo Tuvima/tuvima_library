@@ -13,7 +13,6 @@ public static class VaultHelpers
         VaultStatus.Verified => "#5DCAA5",
         VaultStatus.Provisional => "#3B82F6",
         VaultStatus.NeedsReview => "#EF9F27",
-        VaultStatus.Failed => "#A05050",
         VaultStatus.Quarantined => "#E24B4A",
         _ => "rgba(255,255,255,0.3)",
     };
@@ -24,7 +23,6 @@ public static class VaultHelpers
         VaultStatus.Verified => "Verified",
         VaultStatus.Provisional => "Provisional",
         VaultStatus.NeedsReview => "Needs Review",
-        VaultStatus.Failed => "Failed",
         VaultStatus.Quarantined => "Quarantined",
         _ => "Unknown",
     };
@@ -35,7 +33,6 @@ public static class VaultHelpers
         VaultStatus.Verified => Icons.Material.Filled.CheckCircle,
         VaultStatus.Provisional => Icons.Material.Filled.Info,
         VaultStatus.NeedsReview => Icons.Material.Filled.Warning,
-        VaultStatus.Failed => Icons.Material.Filled.Cancel,
         VaultStatus.Quarantined => Icons.Material.Filled.Block,
         _ => Icons.Material.Filled.HelpOutline,
     };
@@ -135,6 +132,31 @@ public static class VaultHelpers
         "name" => "name",
         "name_desc" => "-name",
         _ => "newest",
+    };
+
+    /// <summary>
+    /// Returns a plain-language explanation of a review trigger for new users.
+    /// Written from the perspective of someone who has never seen Tuvima before.
+    /// </summary>
+    public static string HumanizeReviewTrigger(string? trigger) => trigger switch
+    {
+        "RetailMatchFailed"      => "No provider could find a match for this file. You can try searching manually.",
+        "WikidataBridgeFailed"   => "This item couldn't be linked to a known entry on Wikidata.",
+        "LowConfidence"          => "The match confidence is too low to confirm automatically. Please review the suggested matches.",
+        "MultipleQidMatches"     => "Multiple possible matches were found. Please pick the correct one.",
+        "AuthorityMatchFailed"   => "The metadata authority couldn't verify this item's identity.",
+        "ContentMatchFailed"     => "No content provider recognized this file.",
+        "RetailMatchAmbiguous"   => "A possible match was found but it's not certain. Please verify.",
+        "AmbiguousMediaType"     => "The file type is ambiguous — it could be music, an audiobook, or a podcast.",
+        "MissingQid"             => "A retail match was found but it hasn't been linked to Wikidata yet.",
+        "StagedUnidentifiable"   => "This file couldn't be identified. Check the filename and embedded metadata.",
+        "PlaceholderTitle"       => "The title appears to be a placeholder (e.g. 'Unknown'). Please provide the real title.",
+        "ArtworkUnconfirmed"     => "Cover art was found via text search and may not be accurate.",
+        "LanguageMismatch"       => "This file's language doesn't match your library's configured language.",
+        "UserReport"             => "You flagged this item for review.",
+        "RootWatchFolder"        => "This file was placed in the root watch folder — its media type couldn't be determined.",
+        "UserFixMatch"           => "You requested to fix the match for this item.",
+        _ => "This item needs your attention.",
     };
 
     /// <summary>Returns a human-readable label for a review trigger code.</summary>

@@ -43,6 +43,11 @@ else
                 </div>
             }
         }
+        else if (PinNeedsReview)
+        {
+            @* When no grouping but NeedsReview pinning is active, split items manually *@
+            @RenderUngroupedWithNeedsReviewPin()
+        }
         else
         {
             <div class="vmt-table-wrap">
@@ -190,6 +195,49 @@ else
         await OnSortRequested.InvokeAsync((sortKey, ascending));
     }
 
+    private RenderFragment RenderUngroupedWithNeedsReviewPin() => __builder =>
+    {
+        var reviewItems = Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
+        var restItems   = Items.Where(i => i.VaultDisplayStatus != VaultStatus.NeedsReview).ToList();
+        const string nrKey = "__needs_review__";
+
+        if (reviewItems.Count > 0)
+        {
+            var nrAllSelected = reviewItems.All(i => SelectedItems.Contains(i.EntityId));
+            var nrExpanded = IsGroupExpanded(nrKey);
+            <div class="vmt-group">
+                <div class="vmt-group-header vmt-group-header--review" @onclick="() => ToggleGroup(nrKey)">
+                    <MudIcon Icon="@(nrExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                             Style="font-size: 14px; opacity: 0.4;" />
+                    @{
+                        var nrGroupAllSelected = reviewItems.Count > 0 && reviewItems.All(i => SelectedItems.Contains(i.EntityId));
+                    }
+                    <input type="checkbox"
+                           class="vct-checkbox"
+                           checked="@nrGroupAllSelected"
+                           @onclick:stopPropagation="true"
+                           @onchange="() => ToggleGroupSelection(reviewItems)" />
+                    <span class="vmt-group-label">Needs Review</span>
+                    <div class="vmt-group-line"></div>
+                    <span class="vmt-group-count">@reviewItems.Count items</span>
+                </div>
+                @if (nrExpanded)
+                {
+                    <div class="vmt-table-wrap">
+                        @RenderTable(reviewItems)
+                    </div>
+                }
+            </div>
+        }
+
+        if (restItems.Count > 0)
+        {
+            <div class="vmt-table-wrap">
+                @RenderTable(restItems)
+            </div>
+        }
+    };
+
     private RenderFragment RenderTable(List<VaultItemViewModel> items) => __builder =>
     {
         var cols = ActiveColumns;
@@ -285,7 +333,7 @@ else
                                                 </div>
                                             </div>
                                             <div class="vmt-media-info">
-                                                <p class="vmt-title @(isQuarantined || item.VaultDisplayStatus == VaultStatus.Failed ? "vmt-title--muted" : "")">@item.Title</p>
+                                                <p class="vmt-title @(isQuarantined ? "vmt-title--muted" : "")">@item.Title</p>
                                                 @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != item.Title)
                                                 {
                                                     <p class="vmt-original-title">@item.OriginalTitle</p>
@@ -301,7 +349,7 @@ else
                                                         @creatorName.ToUpperInvariant()
                                                     </button>
                                                 }
-                                                @if (item.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed && !string.IsNullOrEmpty(item.ReviewTrigger))
+                                                @if (item.VaultDisplayStatus == VaultStatus.NeedsReview && !string.IsNullOrEmpty(item.ReviewTrigger))
                                                 {
                                                     <p class="vmt-review-reason">@VaultHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</p>
                                                 }
@@ -440,7 +488,7 @@ else
             var verified   = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Verified).ToList();
             var provisional = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Provisional).ToList();
             var review      = Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
-            var failed      = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Failed).ToList();
+            var failed      = new List<VaultItemViewModel>(); // Failed status removed — maps to NeedsReview
             var quarantined = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Quarantined).ToList();
             var waiting     = Items.Where(i => i.VaultDisplayStatus == VaultStatus.WaitingForProvider).ToList();
             if (verified.Count > 0)    groups.Add(new TableGroup("verified",    "Verified",              verified));
@@ -888,7 +936,9 @@ else
     }
 
     .vmt-sort-header:hover {
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: underline;
+        text-decoration-color: rgba(255, 255, 255, 0.3);
     }
 
     /* ── Needs Review pinned group ── */

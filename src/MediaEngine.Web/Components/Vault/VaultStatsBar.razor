@@ -4,9 +4,8 @@
     @foreach (var card in Cards)
     {
         <button class="vault-stat-card @(card.IsActive ? "vault-stat-card--active" : "") @(card.IsActive ? "" : "vault-stat-card--dimmed")"
-                style="--stat-color: @card.Color;"
                 @onclick="() => OnCardToggled.InvokeAsync(card.Id)">
-            <div class="vault-stat-icon" style="color: @card.Color;">
+            <div class="vault-stat-icon @(card.IsActive ? "vault-stat-icon--active" : "")">
                 <MudIcon Icon="@card.Icon" Style="font-size: 18px;" />
             </div>
             <div class="vault-stat-info">
@@ -38,7 +37,7 @@
         gap: 12px;
         padding: 10px 14px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
         background: rgba(17, 20, 25, 0.5);
         cursor: pointer;
         transition: all 0.15s ease;
@@ -52,13 +51,13 @@
 
     .vault-stat-card--active {
         background: rgba(17, 20, 25, 1);
-        border-color: var(--stat-color);
-        box-shadow: 0 0 16px color-mix(in srgb, var(--stat-color) 20%, transparent);
+        border-color: #C9922E;
+        box-shadow: 0 0 16px rgba(201, 146, 46, 0.2);
     }
 
     .vault-stat-card--dimmed {
         background: transparent;
-        border-color: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.08);
     }
 
     .vault-stat-icon {
@@ -69,6 +68,11 @@
         border-radius: 8px;
         background: rgba(15, 23, 42, 0.8);
         border: 1px solid rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vault-stat-icon--active {
+        color: #C9922E;
     }
 
     .vault-stat-info {

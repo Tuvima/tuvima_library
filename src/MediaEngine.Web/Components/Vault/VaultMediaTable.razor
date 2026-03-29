@@ -124,7 +124,7 @@ else
                                     </div>
                                 </div>
                                 <div class="vmt-media-info">
-                                    <p class="vmt-title @(isQuarantined || item.VaultDisplayStatus == VaultStatus.Failed ? "vmt-title--muted" : "")">@item.Title</p>
+                                    <p class="vmt-title @(isQuarantined ? "vmt-title--muted" : "")">@item.Title</p>
                                     @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != item.Title)
                                     {
                                         <p class="vmt-original-title">@item.OriginalTitle</p>
@@ -140,7 +140,7 @@ else
                                             @creatorName.ToUpperInvariant()
                                         </button>
                                     }
-                                    @if (item.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed && !string.IsNullOrEmpty(item.ReviewTrigger))
+                                    @if (item.VaultDisplayStatus == VaultStatus.NeedsReview && !string.IsNullOrEmpty(item.ReviewTrigger))
                                     {
                                         <p class="vmt-review-reason">@VaultHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</p>
                                     }
@@ -229,7 +229,7 @@ else
             var verified = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Verified).ToList();
             var provisional = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Provisional).ToList();
             var review = Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
-            var failed = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Failed).ToList();
+            var failed = new List<VaultItemViewModel>(); // Failed status removed — maps to NeedsReview
             var quarantined = Items.Where(i => i.VaultDisplayStatus == VaultStatus.Quarantined).ToList();
             var waiting = Items.Where(i => i.VaultDisplayStatus == VaultStatus.WaitingForProvider).ToList();
             if (verified.Count > 0) groups.Add(new TableGroup("verified", L["VaultMedia_GroupVerified"].Value, verified));

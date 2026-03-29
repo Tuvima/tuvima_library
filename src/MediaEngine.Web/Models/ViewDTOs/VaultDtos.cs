@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public enum VaultStageState { Completed, Warning, Failed, Pending }
 
 /// <summary>Vault item display statuses.</summary>
-public enum VaultStatus { Verified, Provisional, NeedsReview, Failed, Quarantined, WaitingForProvider }
+public enum VaultStatus { Verified, Provisional, NeedsReview, Quarantined, WaitingForProvider }
 
 /// <summary>A single pipeline stage indicator.</summary>
 public sealed class VaultPipelineStage
@@ -125,11 +125,11 @@ public sealed class VaultItemViewModel
         if (string.Equals(Status, "Rejected", StringComparison.OrdinalIgnoreCase))
             return VaultStatus.Quarantined;
 
-        // Has a failed-type review trigger → Failed
+        // Has a failed-type review trigger → NeedsReview
         if (!string.IsNullOrEmpty(ReviewTrigger) && ReviewTrigger is
             "AuthorityMatchFailed" or "ContentMatchFailed" or "StagedUnidentifiable"
             or "PlaceholderTitle" or "WikidataBridgeFailed" or "RetailMatchFailed")
-            return VaultStatus.Failed;
+            return VaultStatus.NeedsReview;
 
         // Provisional or AwaitingStage2 without failed triggers → Provisional
         if (string.Equals(Status, "Provisional", StringComparison.OrdinalIgnoreCase)
@@ -160,6 +160,11 @@ public sealed class VaultItemViewModel
             return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Retail: No Match" };
         if (RetailMatch is not "none" and not "" and not null)
         {
+            // File scanner / local processor is NOT a retail match — show as Pending/Unmatched
+            if (RetailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
+                || RetailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase))
+                return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Unmatched" };
+
             var label = !string.IsNullOrWhiteSpace(RetailMatchDetail)
                 ? $"Retail: {RetailMatchDetail}"
                 : $"Retail: {RetailMatch}";

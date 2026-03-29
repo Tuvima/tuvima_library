@@ -15,16 +15,34 @@ else
         <table class="vpt-table">
             <thead>
                 <tr class="vpt-thead-row">
-                    <th class="vpt-th" style="width: 60px;"></th>
-                    <th class="vpt-th" style="width: 55%;">@L["VaultPeople_ColIndividual"]</th>
-                    <th class="vpt-th vpt-th--right" style="width: 30%;">@L["VaultPeople_ColPresence"]</th>
+                    <th class="vpt-th" style="width: 48px;"></th>
+                    <th class="vpt-th" style="width: 55%;">
+                        <button class="vpt-sort-header" @onclick="SortByName">
+                            @L["VaultPeople_ColName"]
+                            @if (_activeSortKey == "name")
+                            {
+                                <MudIcon Icon="@(_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
+                                         Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
+                            }
+                        </button>
+                    </th>
+                    <th class="vpt-th vpt-th--right" style="width: 30%;">
+                        <button class="vpt-sort-header vpt-sort-header--right" @onclick="SortByPresence">
+                            @L["VaultPeople_ColPresence"]
+                            @if (_activeSortKey == "presence")
+                            {
+                                <MudIcon Icon="@(_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
+                                         Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
+                            }
+                        </button>
+                    </th>
                 </tr>
             </thead>
             <tbody>
-                @foreach (var person in People)
+                @foreach (var person in SortedPeople)
                 {
                     <tr class="vpt-row" @onclick="() => OnRowClicked.InvokeAsync(person.Id)">
-                        <td class="vpt-td" style="width: 60px;">
+                        <td class="vpt-td" style="width: 48px;">
                             <div class="vpt-avatar">
                                 @if (!string.IsNullOrEmpty(person.HeadshotUrl))
                                 {
@@ -101,6 +119,40 @@ else
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
 
+    private string _activeSortKey = "name";
+    private bool _sortAscending = true;
+
+    private IEnumerable<PersonListItemDto> SortedPeople => (_activeSortKey, _sortAscending) switch
+    {
+        ("name", true)     => People.OrderBy(p => p.Name),
+        ("name", false)    => People.OrderByDescending(p => p.Name),
+        ("presence", true) => People.OrderBy(p =>
+        {
+            Presence.TryGetValue(p.Id.ToString(), out var c);
+            return c?.Values.Sum() ?? 0;
+        }),
+        ("presence", false) => People.OrderByDescending(p =>
+        {
+            Presence.TryGetValue(p.Id.ToString(), out var c);
+            return c?.Values.Sum() ?? 0;
+        }),
+        _ => People.OrderBy(p => p.Name),
+    };
+
+    private void RequestSort(string key)
+    {
+        if (_activeSortKey == key)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _activeSortKey = key;
+            _sortAscending = true;
+        }
+    }
+
+    private void SortByName() => RequestSort("name");
+    private void SortByPresence() => RequestSort("presence");
+
     private static string GetMediaTypeIcon(string mediaType) => mediaType switch
     {
         "Movies" => Icons.Material.Outlined.VideoLibrary,
@@ -134,7 +186,7 @@ else
     }
 
     .vpt-th {
-        padding: 12px 16px;
+        padding: 10px 14px;
         font-size: 9px;
         font-weight: 800;
         text-transform: uppercase;
@@ -143,6 +195,33 @@ else
     }
 
     .vpt-th--right { text-align: right; }
+
+    .vpt-sort-header {
+        display: inline-flex;
+        align-items: center;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.25);
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        padding: 0;
+        transition: color 0.15s;
+    }
+
+    .vpt-sort-header:hover {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: underline;
+        text-decoration-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vpt-sort-header--right {
+        margin-left: auto;
+        display: flex;
+        justify-content: flex-end;
+    }
 
     .vpt-row {
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -155,7 +234,7 @@ else
     .vpt-row:hover { background: rgba(59, 130, 246, 0.04); }
 
     .vpt-td {
-        padding: 12px 16px;
+        padding: 8px 12px;
         vertical-align: middle;
         overflow: visible;
     }
@@ -169,8 +248,8 @@ else
     }
 
     .vpt-avatar {
-        width: 40px;
-        height: 40px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.08);

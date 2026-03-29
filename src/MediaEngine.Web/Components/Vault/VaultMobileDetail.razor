@@ -43,7 +43,7 @@
 
             @* ── Actions ── *@
             <div class="vmd-actions">
-                @if (Item.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed)
+                @if (Item.VaultDisplayStatus == VaultStatus.NeedsReview)
                 {
                     <button class="vmd-action-btn vmd-action-btn--primary"
                             @onclick="() => OnResolve.InvokeAsync(Item.EntityId)">

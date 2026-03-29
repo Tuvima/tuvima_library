@@ -127,6 +127,7 @@
   <!-- ── Vault People Table ─────────────────────────────────────────────── -->
   <data name="VaultPeople_NoPeopleFound" xml:space="preserve"><value>Keine Personen gefunden.</value></data>
   <data name="VaultPeople_ColIndividual" xml:space="preserve"><value>Person</value></data>
+  <data name="VaultPeople_ColName" xml:space="preserve"><value>Name</value></data>
   <data name="VaultPeople_ColPresence" xml:space="preserve"><value>Präsenz</value></data>
 
   <!-- ── Vault Universes Table ──────────────────────────────────────────── -->

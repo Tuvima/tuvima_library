@@ -30,7 +30,7 @@
     </div>
 
     @* ── Title ── *@
-    <h3 class="vmc-title @(Item.VaultDisplayStatus == VaultStatus.Failed ? "vmc-title--muted" : "")">@Item.Title</h3>
+    <h3 class="vmc-title @(Item.VaultDisplayStatus == VaultStatus.Quarantined ? "vmc-title--muted" : "")">@Item.Title</h3>
 
     @* ── Footer: pipeline + confidence ── *@
     <div class="vmc-footer">
@@ -49,7 +49,7 @@
     [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
 
     private bool IsQuarantined => Item.VaultDisplayStatus == VaultStatus.Quarantined;
-    private bool NeedsAction => Item.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed;
+    private bool NeedsAction => Item.VaultDisplayStatus == VaultStatus.NeedsReview;
 }
 
 <style>
