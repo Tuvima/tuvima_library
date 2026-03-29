@@ -161,253 +161,258 @@
             }
 
             @* ── Media Sections ── *@
-            @if (MediaItem.RetailMatch is not "none" and not "" and not null && !string.IsNullOrEmpty(MediaItem.WikidataQid))
-            {
-                <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree" DefaultOpen="false">
-                    <div class="vdd-pipeline">
-                        <div class="vdd-pipeline-matched">
-                            <div class="vdd-pipeline-line">
-                                <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                <span class="vdd-field-label">RETAIL</span>
-                                <span class="vdd-field-value">@VaultHelpers.FormatSourceName(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
-                            </div>
-                            @if (GetRetailProviderUrl() is { } matchedRetailUrl)
+            <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
+                           HasProblem="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))"
+                           DefaultOpen="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))">
+                <div class="vdd-pipeline">
+                    @{
+                        var _hasRetailMatch = IsRealRetailMatch(MediaItem.RetailMatch);
+                        var _hasWikidataMatch = IsWikidataMatched(MediaItem.WikidataQid);
+                    }
+
+                    @* Stage status lines *@
+                    @if (_hasRetailMatch)
+                    {
+                        <div class="vdd-pipeline-line">
+                            <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                            <span class="vdd-field-label">RETAIL</span>
+                            <span class="vdd-field-value">@VaultHelpers.FormatSourceName(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
+                        </div>
+                        @if (GetRetailProviderUrl() is { } retailUrl)
+                        {
+                            <a href="@retailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
+                                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                @retailUrl.Label
+                            </a>
+                        }
+                    }
+                    else
+                    {
+                        <div class="vdd-pipeline-line">
+                            <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
+                            <span class="vdd-field-label">RETAIL</span>
+                            <span class="vdd-field-value" style="color: rgba(255,255,255,0.3); font-style: italic;">No retail match yet</span>
+                        </div>
+                    }
+
+                    @if (_hasWikidataMatch)
+                    {
+                        <div class="vdd-pipeline-line">
+                            <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                            <span class="vdd-field-label">WIKIDATA</span>
+                            <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem.WikidataQid</a>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="vdd-pipeline-line">
+                            <span class="vdd-pipeline-dot @(_hasRetailMatch ? "vdd-pipeline-dot--warn" : "vdd-pipeline-dot--fail")"></span>
+                            <span class="vdd-field-label">WIKIDATA</span>
+                            <span class="vdd-field-value" style="color: rgba(255,255,255,0.3); font-style: italic;">@(_hasRetailMatch ? "Awaiting" : "No match yet")</span>
+                        </div>
+                    }
+
+                    @* Unmatch actions — always shown when a match exists *@
+                    @if (_hasRetailMatch || _hasWikidataMatch)
+                    {
+                        <div class="vdd-unmatch-row">
+                            @if (_hasRetailMatch)
                             {
-                                <a href="@matchedRetailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
-                                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
-                                    @matchedRetailUrl.Label
-                                </a>
+                                <button class="vdd-unmatch-btn" @onclick="HandleUnmatchRetail">
+                                    <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="font-size: 12px;" />
+                                    Unmatch Retail
+                                </button>
                             }
-                            <div class="vdd-pipeline-line">
-                                <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                <span class="vdd-field-label">WIKIDATA</span>
-                                <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem.WikidataQid</a>
-                            </div>
+                            @if (_hasWikidataMatch)
+                            {
+                                <button class="vdd-unmatch-btn" @onclick="HandleUnmatchWikidata">
+                                    <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="font-size: 12px;" />
+                                    Unmatch Wikidata
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @* Search — always visible for all items *@
+                    <div class="vdd-unified-search">
+                        <div class="vdd-search-row">
+                            <input type="text" class="vdd-search-input" placeholder="Search by title, QID, or ID..."
+                                   @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnSearchKeyDown" />
+                            <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
+                                <option value="Books">Books</option>
+                                <option value="Audiobooks">Audiobooks</option>
+                                <option value="Movies">Movies</option>
+                                <option value="TV">TV</option>
+                                <option value="Music">Music</option>
+                                <option value="Comics">Comics</option>
+                                <option value="Podcasts">Podcasts</option>
+                            </select>
+                            <button class="vdd-search-btn" @onclick="RunUnifiedSearch"
+                                    disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
+                                <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                            </button>
                         </div>
                     </div>
-                </DrawerSection>
-            }
-            else
-            {
-                <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
-                               HasProblem="true" DefaultOpen="true">
-                    <div class="vdd-pipeline">
-                        @if (MediaItem.VaultDisplayStatus is VaultStatus.NeedsReview && !string.IsNullOrEmpty(MediaItem.ReviewTrigger))
-                        {
-                            <div class="vdd-review-banner">
-                                <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 16px;" />
-                                <span>@VaultHelpers.GetReviewTriggerLabel(MediaItem.ReviewTrigger)</span>
-                            </div>
-                        }
 
-                        @* Show matched stages as one-liners *@
-                        @if (MediaItem.RetailMatch is not "none" and not "" and not null)
-                        {
-                            <div class="vdd-pipeline-line">
-                                <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                <span class="vdd-field-label">RETAIL</span>
-                                <span class="vdd-field-value">@VaultHelpers.FormatSourceName(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
-                            </div>
-                            @if (GetRetailProviderUrl() is { } partialUrl)
-                            {
-                                <a href="@partialUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
-                                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
-                                    @partialUrl.Label
-                                </a>
-                            }
-                        }
-                        @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
-                        {
-                            <div class="vdd-pipeline-line">
-                                <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                <span class="vdd-field-label">WIKIDATA</span>
-                                <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem.WikidataQid</a>
-                            </div>
-                        }
-
-                        @* Show failed stages *@
-                        @if (MediaItem.RetailMatch is "none" or "" or null)
-                        {
-                            <div class="vdd-pipeline-line">
-                                <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
-                                <span class="vdd-field-label">RETAIL</span>
-                                <span class="vdd-field-value" style="color: rgba(255,255,255,0.3); font-style: italic;">No match</span>
-                            </div>
-                        }
-                        @if (string.IsNullOrEmpty(MediaItem.WikidataQid) && MediaItem.RetailMatch is not "none" and not "" and not null)
-                        {
-                            <div class="vdd-pipeline-line">
-                                <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
-                                <span class="vdd-field-label">WIKIDATA</span>
-                                <span class="vdd-field-value" style="color: rgba(255,255,255,0.3); font-style: italic;">No match</span>
-                            </div>
-                        }
-
-                        @* Unified search — shown when either stage is unmatched *@
-                        <div class="vdd-unified-search">
-                            <div class="vdd-search-row">
-                                <input type="text" class="vdd-search-input" placeholder="Search by title, QID, or ID..."
-                                       @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnSearchKeyDown" />
-                                <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
-                                    <option value="Books">Books</option>
-                                    <option value="Audiobooks">Audiobooks</option>
-                                    <option value="Movies">Movies</option>
-                                    <option value="TV">TV</option>
-                                    <option value="Music">Music</option>
-                                    <option value="Comics">Comics</option>
-                                    <option value="Podcasts">Podcasts</option>
-                                </select>
-                                <button class="vdd-search-btn" @onclick="RunUnifiedSearch"
-                                        disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
-                                </button>
-                            </div>
+                    @if (_searching || _searchingWikidata)
+                    {
+                        <div style="padding: 8px 0; text-align: center;">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
                         </div>
-
-                        @if (_searching || _searchingWikidata)
+                    }
+                    else if (_hasSearched && _retailSearchResults.Count == 0 && _wikidataSearchResults.Count == 0)
+                    {
+                        <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
+                    }
+                    else
+                    {
+                        @* Retail results *@
+                        @if (_retailSearchResults.Count > 0)
                         {
-                            <div style="padding: 8px 0; text-align: center;">
-                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                            <div class="vdd-search-results-header">Retail results</div>
+                            <div class="vdd-search-results">
+                                @foreach (var result in _retailSearchResults)
+                                {
+                                    var isExpanded = _pendingRetailMatch == result;
+                                    <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                         @onclick="() => SelectRetailResult(result)">
+                                        <div class="vdd-search-result-row">
+                                            <div class="vdd-search-result-thumb">
+                                                @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                {
+                                                    <img src="@result.CoverUrl" alt="" loading="lazy" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                                }
+                                            </div>
+                                            <div class="vdd-search-result-info">
+                                                <span class="vdd-search-result-title">@result.Title</span>
+                                                <span class="vdd-search-result-meta">
+                                                    @(result.Author ?? result.Director)
+                                                    @(!string.IsNullOrEmpty(result.Year) ? $"• {result.Year}" : "")
+                                                </span>
+                                                @if (!string.IsNullOrEmpty(result.Description))
+                                                {
+                                                    <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
+                                                }
+                                            </div>
+                                            <span class="vdd-result-source-tag">@result.ProviderName</span>
+                                        </div>
+                                        @if (isExpanded)
+                                        {
+                                            <div class="vdd-search-result-detail-below">
+                                                @if (!string.IsNullOrEmpty(result.Description))
+                                                {
+                                                    <p class="vdd-detail-description">@(result.Description.Length > 300 ? result.Description[..300] + "\u2026" : result.Description)</p>
+                                                }
+                                                @{
+                                                    var detailFields = GetDetailFieldsForResult(result);
+                                                }
+                                                @if (detailFields.Count > 0)
+                                                {
+                                                    <div class="vdd-detail-fields-compact">
+                                                        @foreach (var (label, value) in detailFields)
+                                                        {
+                                                            <div class="vdd-detail-field-inline">
+                                                                <span class="vdd-field-label">@label</span>
+                                                                <span class="vdd-field-value">@value</span>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                                @if (!_confirmingRetailMatch)
+                                                {
+                                                    <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                            @onclick="() => _confirmingRetailMatch = true">
+                                                        Confirm Match
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                        <span class="vdd-confirm-prompt">Are you sure?</span>
+                                                        <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
+                                                            Yes
+                                                        </button>
+                                                        <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
                             </div>
                         }
-                        else if (_hasSearched && _retailSearchResults.Count == 0 && _wikidataSearchResults.Count == 0)
+
+                        @* Wikidata results *@
+                        @if (_wikidataSearchResults.Count > 0)
                         {
-                            <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
-                        }
-                        else
-                        {
-                            @* Retail results *@
                             @if (_retailSearchResults.Count > 0)
                             {
-                                <div class="vdd-search-results">
-                                    @foreach (var result in _retailSearchResults)
-                                    {
-                                        var isExpanded = _pendingRetailMatch == result;
-                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
-                                             @onclick="() => SelectRetailResult(result)">
-                                            <div class="vdd-search-result-row">
-                                                <div class="vdd-search-result-thumb">
-                                                    @if (!string.IsNullOrEmpty(result.CoverUrl))
-                                                    {
-                                                        <img src="@result.CoverUrl" alt="" loading="lazy" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
-                                                    }
-                                                </div>
-                                                <div class="vdd-search-result-info">
-                                                    <span class="vdd-search-result-title">@result.Title</span>
-                                                    <span class="vdd-search-result-meta">@(result.Author ?? result.Director) @(!string.IsNullOrEmpty(result.Year) ? $"• {result.Year}" : "")</span>
-                                                </div>
-                                                <span class="vdd-result-source-tag">@result.ProviderName</span>
-                                            </div>
-                                            @if (isExpanded)
-                                            {
-                                                <div class="vdd-search-result-detail-below">
-                                                    @if (!string.IsNullOrEmpty(result.Description))
-                                                    {
-                                                        <p class="vdd-detail-description">@(result.Description.Length > 200 ? result.Description[..200] + "\u2026" : result.Description)</p>
-                                                    }
-                                                    @{
-                                                        var detailFields = GetDetailFieldsForResult(result);
-                                                    }
-                                                    @if (detailFields.Count > 0)
-                                                    {
-                                                        <div class="vdd-detail-fields-compact">
-                                                            @foreach (var (label, value) in detailFields)
-                                                            {
-                                                                <div class="vdd-detail-field-inline">
-                                                                    <span class="vdd-field-label">@label</span>
-                                                                    <span class="vdd-field-value">@value</span>
-                                                                </div>
-                                                            }
-                                                        </div>
-                                                    }
-                                                    @if (!_confirmingRetailMatch)
-                                                    {
-                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                                @onclick="() => _confirmingRetailMatch = true">
-                                                            Confirm Match
-                                                        </button>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
-                                                            <span class="vdd-confirm-prompt">Are you sure?</span>
-                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
-                                                                Yes
-                                                            </button>
-                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    }
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
+                                <div class="vdd-or-divider"><span>Wikidata results</span></div>
                             }
-
-                            @* Wikidata results *@
-                            @if (_wikidataSearchResults.Count > 0)
+                            else
                             {
-                                @if (_retailSearchResults.Count > 0)
-                                {
-                                    <div class="vdd-or-divider"><span>Wikidata results</span></div>
-                                }
-                                <div class="vdd-search-results">
-                                    @foreach (var result in _wikidataSearchResults)
-                                    {
-                                        var isExpanded = _pendingWikidataMatch == result;
-                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
-                                             @onclick="() => SelectWikidataResult(result)">
-                                            <div class="vdd-search-result-row">
-                                                <div class="vdd-search-result-thumb" style="background: rgba(167,139,250,0.1);">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 16px; color: #A78BFA;" />
-                                                </div>
-                                                <div class="vdd-search-result-info">
-                                                    <span class="vdd-search-result-title">@result.Label</span>
-                                                    <span class="vdd-search-result-meta">@result.Qid @(!string.IsNullOrEmpty(result.Description) ? $"• {result.Description}" : "")</span>
-                                                </div>
-                                            </div>
-                                            @if (isExpanded)
-                                            {
-                                                <div class="vdd-search-result-detail-below">
-                                                    @if (!string.IsNullOrEmpty(result.Description))
-                                                    {
-                                                        <p class="vdd-detail-description">@result.Description</p>
-                                                    }
-                                                    @if (!_confirmingWikidataMatch)
-                                                    {
-                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                                @onclick="() => _confirmingWikidataMatch = true">
-                                                            Link to @result.Qid
-                                                        </button>
-                                                    }
-                                                    else
-                                                    {
-                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
-                                                            <span class="vdd-confirm-prompt">Are you sure?</span>
-                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmWikidataMatch(result.Qid)">
-                                                                Yes
-                                                            </button>
-                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
-                                                                Cancel
-                                                            </button>
-                                                        </div>
-                                                    }
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
+                                <div class="vdd-search-results-header">Wikidata results</div>
                             }
+                            <div class="vdd-search-results">
+                                @foreach (var result in _wikidataSearchResults)
+                                {
+                                    var isExpanded = _pendingWikidataMatch == result;
+                                    <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                         @onclick="() => SelectWikidataResult(result)">
+                                        <div class="vdd-search-result-row">
+                                            <div class="vdd-search-result-thumb" style="background: rgba(167,139,250,0.1);">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 16px; color: #A78BFA;" />
+                                            </div>
+                                            <div class="vdd-search-result-info">
+                                                <span class="vdd-search-result-title">@result.Label</span>
+                                                <span class="vdd-search-result-meta">@result.Qid</span>
+                                                @if (!string.IsNullOrEmpty(result.Description))
+                                                {
+                                                    <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        @if (isExpanded)
+                                        {
+                                            <div class="vdd-search-result-detail-below">
+                                                @if (!string.IsNullOrEmpty(result.Description))
+                                                {
+                                                    <p class="vdd-detail-description">@result.Description</p>
+                                                }
+                                                @if (!_confirmingWikidataMatch)
+                                                {
+                                                    <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                            @onclick="() => _confirmingWikidataMatch = true">
+                                                        Link to @result.Qid
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                        <span class="vdd-confirm-prompt">Are you sure?</span>
+                                                        <button class="vdd-confirm-match-btn" @onclick="() => ConfirmWikidataMatch(result.Qid)">
+                                                            Yes
+                                                        </button>
+                                                        <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
+                                                            Cancel
+                                                        </button>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
                         }
-                    </div>
-                </DrawerSection>
-            }
+                    }
+                </div>
+            </DrawerSection>
 
             <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
                 <div class="vdd-assets">
@@ -774,6 +779,16 @@
 
     private bool IsInLibrary => MediaItem?.Status?.Equals("Confirmed", StringComparison.OrdinalIgnoreCase) == true
                              || MediaItem?.VaultDisplayStatus == VaultStatus.Verified;
+
+    /// <summary>Returns true if the retail match is from an actual retail provider (not local_processor or library_scanner).</summary>
+    private static bool IsRealRetailMatch(string? retailMatch) =>
+        retailMatch is not "none" and not "" and not null
+        && !retailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
+        && !retailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Returns true if a valid Wikidata QID is present (not null, empty, or NF-prefixed).</summary>
+    private static bool IsWikidataMatched(string? qid) =>
+        !string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
 
     private async Task HandleUnmatchRetail()
     {
@@ -2004,6 +2019,27 @@
         text-overflow: ellipsis;
     }
 
+    .vdd-search-result-desc {
+        display: block;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.25);
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .vdd-search-results-header {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.25);
+        padding: 6px 0 2px;
+    }
+
     .vdd-confirm-match-btn {
         padding: 4px 12px;
         border-radius: 6px;
@@ -2414,6 +2450,11 @@
     .vdd-pipeline-dot--fail {
         background: #A05050;
         box-shadow: 0 0 6px rgba(160,80,80,0.3);
+    }
+
+    .vdd-pipeline-dot--warn {
+        background: #C9922E;
+        box-shadow: 0 0 6px rgba(201,146,46,0.4);
     }
 
     .vdd-pipeline-qid-link {
