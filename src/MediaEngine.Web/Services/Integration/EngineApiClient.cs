@@ -1324,6 +1324,30 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Media File Upload ─────────────────────────────────────────────────
+
+    public async Task<bool> UploadMediaAsync(MultipartFormDataContent content, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsync("/ingestion/upload", content, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /ingestion/upload returned {Status}: {Detail}",
+                    (int)response.StatusCode, detail);
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+            }
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /ingestion/upload failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Cover Art Upload ──────────────────────────────────────────────────
 
     public async Task<bool> UploadCoverAsync(
@@ -2144,6 +2168,8 @@ public sealed class EngineApiClient : IEngineApiClient
                 {
                     if (item.CoverUrl is not null)
                         item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+                    if (item.HeroUrl is not null)
+                        item.HeroUrl = AbsoluteUrl(item.HeroUrl);
                 }
             }
             return response;
@@ -2229,6 +2255,8 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/registry/items/{entityId}/detail", ct);
             if (detail?.CoverUrl is not null)
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
+            if (detail?.HeroUrl is not null)
+                detail.HeroUrl = AbsoluteUrl(detail.HeroUrl);
             return detail;
         }
         catch (OperationCanceledException) { return null; }

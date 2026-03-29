@@ -268,6 +268,11 @@ public interface IEngineApiClient
     /// <summary>PUT /settings/hydration — save hydration pipeline configuration.</summary>
     Task<bool> UpdateHydrationSettingsAsync(HydrationSettingsDto settings, CancellationToken ct = default);
 
+    // ── Media File Upload ──────────────────────────────────────────────────
+
+    /// <summary>POST /ingestion/upload — upload a media file and route it to the correct watch subfolder.</summary>
+    Task<bool> UploadMediaAsync(MultipartFormDataContent content, CancellationToken ct = default);
+
     // ── Cover Art Upload ───────────────────────────────────────────────────
 
     /// <summary>POST /metadata/{entityId}/cover — upload cover art for a media asset.</summary>

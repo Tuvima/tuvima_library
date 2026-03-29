@@ -842,6 +842,55 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             }
         }
 
+        // Step 6a-Root: When a file arrives in the root of a watch directory (not a
+        // typed subfolder), ambiguous extensions cannot be reliably classified.
+        // Cap all candidate confidences at 0.40 so the file is always sent to review,
+        // giving the user the chance to confirm the media type.
+        // Unambiguous extensions (.epub, .cbz, .cbr, .m4b, .pdf) are excluded — they
+        // can only ever be one media type and do not need the cap.
+        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory))
+        {
+            var fileDir  = Path.GetDirectoryName(candidate.Path);
+            var watchDir = _options.WatchDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            bool isRootDrop = string.Equals(fileDir?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                                            watchDir,
+                                            StringComparison.OrdinalIgnoreCase);
+
+            if (isRootDrop)
+            {
+                var ext = Path.GetExtension(candidate.Path)?.ToLowerInvariant();
+                var unambiguousExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                    { ".epub", ".cbz", ".cbr", ".m4b", ".pdf" };
+
+                if (!unambiguousExtensions.Contains(ext ?? ""))
+                {
+                    // Cap every candidate confidence at 0.40 to force the review queue.
+                    const double RootWatchFolderMaxConfidence = 0.40;
+                    for (int i = 0; i < candidateList.Count; i++)
+                    {
+                        if (candidateList[i].Confidence > RootWatchFolderMaxConfidence)
+                        {
+                            candidateList[i] = new Domain.Models.MediaTypeCandidate
+                            {
+                                Type       = candidateList[i].Type,
+                                Confidence = RootWatchFolderMaxConfidence,
+                                Reason     = $"Confidence capped at {RootWatchFolderMaxConfidence} — root watch folder drop (ambiguous extension {ext})",
+                            };
+                        }
+                    }
+
+                    // Also cap the candidate's additive confidence prior so the scoring engine
+                    // cannot boost the file past review threshold.
+                    candidate.CategoryConfidencePrior = 0.0;
+
+                    _logger.LogInformation(
+                        "Root watch folder drop detected for {Path} (ext: {Ext}) — confidence capped at {Cap:P0}, routed to review",
+                        candidate.Path, ext, RootWatchFolderMaxConfidence);
+                }
+            }
+        }
+
         // Step 6a-AI: Call the AI MediaTypeAdvisor when the processor could not determine
         // the media type. This covers two cases:
         //   1. Processor returned Unknown + empty candidates (ambiguous format like MP3, MP4,
@@ -1003,6 +1052,33 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 candidatesJson,
                 candidateList[0].Reason,
                 ct, ingestionRunId).ConfigureAwait(false);
+        }
+
+        // Create RootWatchFolder review item when a file was dropped directly into the
+        // root of a watch directory with an ambiguous extension (confidence was capped
+        // to 0.40 in the root-folder detection step above).
+        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory))
+        {
+            var fileDir  = Path.GetDirectoryName(candidate.Path);
+            var watchDir = _options.WatchDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            bool isRootDrop = string.Equals(
+                fileDir?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                watchDir,
+                StringComparison.OrdinalIgnoreCase);
+
+            var ext = Path.GetExtension(candidate.Path)?.ToLowerInvariant();
+            var unambiguousExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                { ".epub", ".cbz", ".cbr", ".m4b", ".pdf" };
+
+            if (isRootDrop && !unambiguousExts.Contains(ext ?? ""))
+            {
+                await CreateIngestionReviewItemAsync(
+                    assetId,
+                    ReviewTrigger.RootWatchFolder,
+                    candidateList.Count > 0 ? candidateList[0].Confidence : 0.0,
+                    $"File dropped into root watch folder — please confirm the media type (extension: {ext})",
+                    ct, ingestionRunId).ConfigureAwait(false);
+            }
         }
 
         // Enrich the candidate with resolved metadata.

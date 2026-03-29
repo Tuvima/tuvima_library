@@ -59,6 +59,15 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("author")]
     public string? Author { get; set; }
 
+    [JsonPropertyName("original_title")]
+    public string? OriginalTitle { get; set; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; set; }
+
+    [JsonPropertyName("artist")]
+    public string? Artist { get; set; }
+
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; set; }
 

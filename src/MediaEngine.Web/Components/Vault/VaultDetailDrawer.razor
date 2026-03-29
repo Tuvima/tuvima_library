@@ -43,7 +43,19 @@
                         }
                     </div>
                     <h2 class="vdd-title">@MediaItem.Title</h2>
-                    <p class="vdd-subtitle">@(MediaItem.Author?.ToUpperInvariant() ?? L["VaultDetail_Unknown"].ToString().ToUpperInvariant())</p>
+                    @{
+                        var drawerCreator = MediaItem.MediaType switch
+                        {
+                            "Movies" => MediaItem.Director ?? MediaItem.Author,
+                            "TV" => MediaItem.Director,
+                            "Music" => MediaItem.Artist ?? MediaItem.Author,
+                            _ => MediaItem.Author,
+                        };
+                    }
+                    @if (!string.IsNullOrEmpty(drawerCreator))
+                    {
+                        <p class="vdd-subtitle">@drawerCreator.ToUpperInvariant()</p>
+                    }
                     <div class="vdd-meta">
                         @if (MediaItem.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed or VaultStatus.Quarantined)
                         {
@@ -216,7 +228,7 @@
                             @if (_showRematch)
                             {
                                 <div class="vdd-search-block">
-                                    <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                    <div style="display: flex; gap: 8px;">
                                         <select class="vdd-type-dropdown" style="flex: 1;" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
                                             <option value="">Select type@("\u2026")</option>
                                             <option value="Books">Books</option>
@@ -237,7 +249,7 @@
                                     </div>
                                     <div style="display: flex; gap: 8px;">
                                         <input type="text" class="vdd-search-input" placeholder="Search for a match..."
-                                               @bind="_manualSearchQuery" @bind:event="oninput" />
+                                               @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnSearchKeyDown" />
                                         <button class="vdd-search-btn" @onclick="RunManualSearch"
                                                 disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType))">
                                             <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
@@ -256,34 +268,88 @@
                                     <div class="vdd-search-results">
                                         @foreach (var result in _retailSearchResults)
                                         {
-                                            <div class="vdd-search-result-item" @onclick="() => SelectRetailResult(result)">
-                                                <div class="vdd-search-result-thumb">
-                                                    @if (!string.IsNullOrEmpty(result.CoverUrl))
-                                                    {
-                                                        <img src="@result.CoverUrl" alt="" loading="lazy" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
-                                                    }
+                                            var isExpanded = _pendingRetailMatch == result;
+                                            <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                                 @onclick="() => SelectRetailResult(result)">
+                                                <div class="vdd-search-result-row">
+                                                    <div class="vdd-search-result-thumb">
+                                                        @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                        {
+                                                            <img src="@result.CoverUrl" alt="" loading="lazy" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                                        }
+                                                    </div>
+                                                    <div class="vdd-search-result-info">
+                                                        <span class="vdd-search-result-title">@result.Title</span>
+                                                        <span class="vdd-search-result-meta">@(result.Author ?? result.Director) @(!string.IsNullOrEmpty(result.Year) ? $"• {result.Year}" : "")</span>
+                                                    </div>
                                                 </div>
-                                                <div class="vdd-search-result-info">
-                                                    <span class="vdd-search-result-title">@result.Title</span>
-                                                    <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
-                                                    <span class="vdd-search-result-meta" style="opacity: 0.5;">@result.ProviderName • @((result.Confidence * 100).ToString("F0"))%</span>
-                                                </div>
-                                                @if (_pendingRetailMatch == result)
+                                                @if (isExpanded)
                                                 {
-                                                    <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                            @onclick="() => ConfirmRetailMatch(result)">
-                                                        Confirm
-                                                    </button>
+                                                    <div class="vdd-search-result-detail">
+                                                        @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                        {
+                                                            <img src="@result.CoverUrl" alt="" class="vdd-detail-cover" loading="lazy" />
+                                                        }
+                                                        <div class="vdd-detail-fields">
+                                                            @if (!string.IsNullOrEmpty(result.Author))
+                                                            {
+                                                                <div class="vdd-detail-field">
+                                                                    <span class="vdd-field-label">Author</span>
+                                                                    <span class="vdd-field-value">@result.Author</span>
+                                                                </div>
+                                                            }
+                                                            @if (!string.IsNullOrEmpty(result.Director))
+                                                            {
+                                                                <div class="vdd-detail-field">
+                                                                    <span class="vdd-field-label">Director</span>
+                                                                    <span class="vdd-field-value">@result.Director</span>
+                                                                </div>
+                                                            }
+                                                            @if (!string.IsNullOrEmpty(result.Year))
+                                                            {
+                                                                <div class="vdd-detail-field">
+                                                                    <span class="vdd-field-label">Year</span>
+                                                                    <span class="vdd-field-value">@result.Year</span>
+                                                                </div>
+                                                            }
+                                                            @if (!string.IsNullOrEmpty(result.Description))
+                                                            {
+                                                                <div class="vdd-detail-field">
+                                                                    <span class="vdd-field-label">Description</span>
+                                                                    <span class="vdd-detail-description">@(result.Description.Length > 200 ? result.Description[..200] + "…" : result.Description)</span>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                        @if (!_confirmingRetailMatch)
+                                                        {
+                                                            <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                                    @onclick="() => _confirmingRetailMatch = true">
+                                                                Confirm Match
+                                                            </button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                                <span class="vdd-confirm-prompt">Are you sure?</span>
+                                                                <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
+                                                                    Yes
+                                                                </button>
+                                                                <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">
+                                                                    Cancel
+                                                                </button>
+                                                            </div>
+                                                        }
+                                                    </div>
                                                 }
                                             </div>
                                         }
                                     </div>
                                 }
-                                else if (_manualSearchQuery is { Length: > 0 } && !_searching)
+                                else if (_hasSearched && _retailSearchResults.Count == 0 && !_searching)
                                 {
                                     <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
                                 }
@@ -293,7 +359,7 @@
                         {
                             <p class="vdd-stage-hint">@L["VaultDetail_HintAwaitingRetail"]</p>
                             <div class="vdd-search-block">
-                                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                                <div style="display: flex; gap: 8px;">
                                     <select class="vdd-type-dropdown" style="flex: 1;" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
                                         <option value="">Select type@("\u2026")</option>
                                         <option value="Books">Books</option>
@@ -314,7 +380,7 @@
                                 </div>
                                 <div style="display: flex; gap: 8px;">
                                     <input type="text" class="vdd-search-input" placeholder="Search for a match..."
-                                           @bind="_manualSearchQuery" @bind:event="oninput" />
+                                           @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnSearchKeyDown" />
                                     <button class="vdd-search-btn" @onclick="RunManualSearch"
                                             disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType))">
                                         <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
@@ -333,34 +399,88 @@
                                 <div class="vdd-search-results">
                                     @foreach (var result in _retailSearchResults)
                                     {
-                                        <div class="vdd-search-result-item" @onclick="() => SelectRetailResult(result)">
-                                            <div class="vdd-search-result-thumb">
-                                                @if (!string.IsNullOrEmpty(result.CoverUrl))
-                                                {
-                                                    <img src="@result.CoverUrl" alt="" loading="lazy" />
-                                                }
-                                                else
-                                                {
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
-                                                }
+                                        var isExpanded = _pendingRetailMatch == result;
+                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                             @onclick="() => SelectRetailResult(result)">
+                                            <div class="vdd-search-result-row">
+                                                <div class="vdd-search-result-thumb">
+                                                    @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                    {
+                                                        <img src="@result.CoverUrl" alt="" loading="lazy" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                                    }
+                                                </div>
+                                                <div class="vdd-search-result-info">
+                                                    <span class="vdd-search-result-title">@result.Title</span>
+                                                    <span class="vdd-search-result-meta">@(result.Author ?? result.Director) @(!string.IsNullOrEmpty(result.Year) ? $"• {result.Year}" : "")</span>
+                                                </div>
                                             </div>
-                                            <div class="vdd-search-result-info">
-                                                <span class="vdd-search-result-title">@result.Title</span>
-                                                <span class="vdd-search-result-meta">@result.Author • @result.Year</span>
-                                                <span class="vdd-search-result-meta" style="opacity: 0.5;">@result.ProviderName • @((result.Confidence * 100).ToString("F0"))%</span>
-                                            </div>
-                                            @if (_pendingRetailMatch == result)
+                                            @if (isExpanded)
                                             {
-                                                <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                        @onclick="() => ConfirmRetailMatch(result)">
-                                                    Confirm
-                                                </button>
+                                                <div class="vdd-search-result-detail">
+                                                    @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                    {
+                                                        <img src="@result.CoverUrl" alt="" class="vdd-detail-cover" loading="lazy" />
+                                                    }
+                                                    <div class="vdd-detail-fields">
+                                                        @if (!string.IsNullOrEmpty(result.Author))
+                                                        {
+                                                            <div class="vdd-detail-field">
+                                                                <span class="vdd-field-label">Author</span>
+                                                                <span class="vdd-field-value">@result.Author</span>
+                                                            </div>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(result.Director))
+                                                        {
+                                                            <div class="vdd-detail-field">
+                                                                <span class="vdd-field-label">Director</span>
+                                                                <span class="vdd-field-value">@result.Director</span>
+                                                            </div>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(result.Year))
+                                                        {
+                                                            <div class="vdd-detail-field">
+                                                                <span class="vdd-field-label">Year</span>
+                                                                <span class="vdd-field-value">@result.Year</span>
+                                                            </div>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(result.Description))
+                                                        {
+                                                            <div class="vdd-detail-field">
+                                                                <span class="vdd-field-label">Description</span>
+                                                                <span class="vdd-detail-description">@(result.Description.Length > 200 ? result.Description[..200] + "…" : result.Description)</span>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                    @if (!_confirmingRetailMatch)
+                                                    {
+                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                                @onclick="() => _confirmingRetailMatch = true">
+                                                            Confirm Match
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                            <span class="vdd-confirm-prompt">Are you sure?</span>
+                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
+                                                                Yes
+                                                            </button>
+                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </div>
                                             }
                                         </div>
                                     }
                                 </div>
                             }
-                            else if (_manualSearchQuery is { Length: > 0 } && !_searching)
+                            else if (_hasSearched && _retailSearchResults.Count == 0 && !_searching)
                             {
                                 <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
                             }
@@ -401,6 +521,104 @@
                         else
                         {
                             <p class="vdd-stage-hint">@L["VaultDetail_HintCompleteStage1First"]</p>
+                        }
+                        <div class="vdd-rematch-block">
+                            <button class="vdd-rematch-btn" @onclick="() => _showWikidataSearch = !_showWikidataSearch">
+                                <MudIcon Icon="@Icons.Material.Outlined.FindReplace" Style="font-size: 12px;" />
+                                @(_showWikidataSearch ? "Cancel" : (!string.IsNullOrEmpty(MediaItem.WikidataQid) ? "Change Wikidata match" : "Search Wikidata"))
+                            </button>
+                        </div>
+                        @if (_showWikidataSearch)
+                        {
+                            <div class="vdd-search-block">
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" class="vdd-search-input" placeholder="Paste QID (e.g. Q12345)..."
+                                           @bind="_wikidataQidInput" @bind:event="oninput"
+                                           @onkeydown="OnQidInputKeyDown" />
+                                    <button class="vdd-search-btn" @onclick="LinkWikidataQid"
+                                            disabled="@(string.IsNullOrWhiteSpace(_wikidataQidInput))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Link" Style="font-size: 14px;" />
+                                        Link
+                                    </button>
+                                </div>
+                                <div class="vdd-or-divider">
+                                    <span>or search by name</span>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <input type="text" class="vdd-search-input" placeholder="Search Wikidata..."
+                                           @bind="_wikidataSearchQuery" @bind:event="oninput"
+                                           @onkeydown="OnWikidataSearchKeyDown" />
+                                    <button class="vdd-search-btn" @onclick="RunWikidataSearch"
+                                            disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                                        Search
+                                    </button>
+                                </div>
+                            </div>
+                            @if (_searchingWikidata)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else if (_wikidataSearchResults.Count > 0)
+                            {
+                                <div class="vdd-search-results">
+                                    @foreach (var result in _wikidataSearchResults)
+                                    {
+                                        var isExpanded = _pendingWikidataMatch == result;
+                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                             @onclick="() => SelectWikidataResult(result)">
+                                            <div class="vdd-search-result-row">
+                                                <div class="vdd-search-result-thumb" style="background: rgba(167,139,250,0.1);">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 16px; color: #A78BFA;" />
+                                                </div>
+                                                <div class="vdd-search-result-info">
+                                                    <span class="vdd-search-result-title">@result.Label</span>
+                                                    <span class="vdd-search-result-meta">@result.Qid @(!string.IsNullOrEmpty(result.Description) ? $"• {result.Description}" : "")</span>
+                                                </div>
+                                            </div>
+                                            @if (isExpanded)
+                                            {
+                                                <div class="vdd-search-result-detail">
+                                                    <div class="vdd-detail-fields">
+                                                        <div class="vdd-detail-field">
+                                                            <span class="vdd-field-label">QID</span>
+                                                            <span class="vdd-field-value" style="color: #A78BFA;">@result.Qid</span>
+                                                        </div>
+                                                        @if (!string.IsNullOrEmpty(result.Description))
+                                                        {
+                                                            <div class="vdd-detail-field">
+                                                                <span class="vdd-field-label">Description</span>
+                                                                <span class="vdd-detail-description">@result.Description</span>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                    @if (!_confirmingWikidataMatch)
+                                                    {
+                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                                @onclick="() => _confirmingWikidataMatch = true">
+                                                            Link to @result.Qid
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                            <span class="vdd-confirm-prompt">Are you sure?</span>
+                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmWikidataMatch(result.Qid)">
+                                                                Yes
+                                                            </button>
+                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
                         }
                     </div>
 
@@ -501,22 +719,13 @@
                             <div class="vdd-identity-items">
                                 @foreach (var alias in _aliases.Aliases.OrderByDescending(a => !string.IsNullOrEmpty(a.WikidataQid)))
                                 {
-                                    @if (!string.IsNullOrEmpty(alias.WikidataQid))
-                                    {
-                                        <button class="vdd-identity-link" @onclick="() => OnPersonAliasClicked.InvokeAsync(alias.Id)">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Link" Style="font-size: 14px; color: #60A5FA;" />
-                                            <span>@alias.Name</span>
-                                            <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
-                                        </button>
-                                    }
-                                    else
-                                    {
-                                        <div class="vdd-identity-item">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.3);" />
-                                            <span>@alias.Name</span>
-                                            <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
-                                        </div>
-                                    }
+                                    var aliasIcon = string.IsNullOrEmpty(alias.WikidataQid) ? Icons.Material.Outlined.Person : Icons.Material.Outlined.Link;
+                                    var aliasColor = string.IsNullOrEmpty(alias.WikidataQid) ? "rgba(255,255,255,0.3)" : "#60A5FA";
+                                    <button class="vdd-identity-link" @onclick="() => OnPersonAliasClicked.InvokeAsync(alias.Id)">
+                                        <MudIcon Icon="@aliasIcon" Style="@("font-size: 14px; color: " + aliasColor + ";" )" />
+                                        <span>@alias.Name</span>
+                                        <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
+                                    </button>
                                 }
                             </div>
                         }
@@ -766,18 +975,25 @@
     @if (MediaItem is not null)
     {
         <div class="vdd-footer">
-            <button class="vdd-purge-btn @(_confirmPurge ? "vdd-purge-btn--confirm" : "")"
-                    @onclick="HandlePurge">
-                @if (_confirmPurge)
-                {
-                    <span>@L["VaultDetail_ConfirmPurge"]</span>
-                }
-                else
-                {
+            @if (_confirmPurge)
+            {
+                <div class="vdd-purge-confirm-row">
+                    <span class="vdd-purge-confirm-text">@L["VaultDetail_ConfirmPurge"]</span>
+                    <button class="vdd-purge-btn vdd-purge-btn--confirm" @onclick="HandlePurge">
+                        <span>Yes, Purge</span>
+                    </button>
+                    <button class="vdd-purge-cancel-btn" @onclick="() => _confirmPurge = false">
+                        <span>Cancel</span>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <button class="vdd-purge-btn" @onclick="HandlePurge">
                     <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Style="font-size: 16px;" />
                     <span>@L["VaultDetail_ActionPurgeRecord"]</span>
-                }
-            </button>
+                </button>
+            }
         </div>
     }
 </div>
@@ -798,6 +1014,7 @@
     private string _manualSearchQuery = "";
     private bool _showRematch;
     private bool _searching;
+    private bool _hasSearched;
     private List<RegistryItemViewModel> _searchResults = [];
     private PersonAliasesResponseDto? _aliases;
     private RegistryItemViewModel? _pendingMatch;
@@ -806,6 +1023,14 @@
     private string _searchProvider = "";
     private List<RetailCandidateDto> _retailSearchResults = [];
     private RetailCandidateDto? _pendingRetailMatch;
+    private bool _confirmingRetailMatch;
+    private bool _showWikidataSearch;
+    private string _wikidataSearchQuery = "";
+    private string _wikidataQidInput = "";
+    private bool _searchingWikidata;
+    private List<UniverseCandidateDto> _wikidataSearchResults = [];
+    private UniverseCandidateDto? _pendingWikidataMatch;
+    private bool _confirmingWikidataMatch;
 
     private static readonly Dictionary<string, string[]> _providersByType = new()
     {
@@ -883,10 +1108,19 @@
         _pendingMatch = null;
         _pendingRetailMatch = null;
         _searching = false;
+        _hasSearched = false;
+        _confirmingRetailMatch = false;
         _selectedMediaType = MediaItem?.MediaType ?? "";
         _searchMediaType = MediaItem?.MediaType ?? "";
         _searchProvider = "";
         _retailSearchResults = [];
+        _showWikidataSearch = false;
+        _wikidataSearchQuery = "";
+        _wikidataQidInput = "";
+        _searchingWikidata = false;
+        _wikidataSearchResults = [];
+        _pendingWikidataMatch = null;
+        _confirmingWikidataMatch = false;
         _universeHealth = null;
         _universeCharacters = [];
         _personCharacterRoles = [];
@@ -945,11 +1179,13 @@
                 .ToList();
         }
         _searching = false;
+        _hasSearched = true;
     }
 
     private void SelectRetailResult(RetailCandidateDto result)
     {
         _pendingRetailMatch = _pendingRetailMatch == result ? null : result;
+        _confirmingRetailMatch = false;
     }
 
     private async Task ConfirmRetailMatch(RetailCandidateDto candidate)
@@ -975,6 +1211,68 @@
         _manualSearchQuery = "";
         _showRematch = false;
         await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
+    }
+
+    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await RunManualSearch();
+    }
+
+    private async Task RunWikidataSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_wikidataSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType)) return;
+        _searchingWikidata = true;
+        _wikidataSearchResults = [];
+        _pendingWikidataMatch = null;
+        _confirmingWikidataMatch = false;
+        StateHasChanged();
+
+        var results = await ApiClient.SearchUniverseAsync(_wikidataSearchQuery, _searchMediaType, 10);
+        _wikidataSearchResults = results?.Candidates ?? [];
+        _searchingWikidata = false;
+    }
+
+    private async Task OnWikidataSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await RunWikidataSearch();
+    }
+
+    private async Task OnQidInputKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await LinkWikidataQid();
+    }
+
+    private void SelectWikidataResult(UniverseCandidateDto result)
+    {
+        _pendingWikidataMatch = _pendingWikidataMatch == result ? null : result;
+        _confirmingWikidataMatch = false;
+    }
+
+    private async Task ConfirmWikidataMatch(string qid)
+    {
+        if (MediaItem is null || string.IsNullOrWhiteSpace(qid)) return;
+
+        var request = new ApplyMatchRequestDto { Qid = qid };
+        await ApiClient.ApplyRegistryMatchAsync(MediaItem.EntityId, request);
+
+        _pendingWikidataMatch = null;
+        _wikidataSearchResults = [];
+        _wikidataSearchQuery = "";
+        _wikidataQidInput = "";
+        _showWikidataSearch = false;
+        _confirmingWikidataMatch = false;
+        await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
+    }
+
+    private async Task LinkWikidataQid()
+    {
+        var qid = _wikidataQidInput.Trim();
+        if (!qid.StartsWith("Q", StringComparison.OrdinalIgnoreCase))
+            qid = "Q" + qid;
+        await ConfirmWikidataMatch(qid);
     }
 
     private void SelectSearchResult(RegistryItemViewModel result)
@@ -1641,6 +1939,7 @@
     /* ── Manual search ── */
     .vdd-search-block {
         display: flex;
+        flex-direction: column;
         gap: 8px;
         margin-top: 8px;
     }
@@ -1713,6 +2012,134 @@
 
     .vdd-search-result-item:hover {
         background: rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-search-result-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .vdd-search-result-item--expanded {
+        background: rgba(96, 165, 250, 0.06);
+        border-color: rgba(96, 165, 250, 0.15);
+    }
+
+    .vdd-search-result-detail {
+        padding: 10px 0 4px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .vdd-detail-cover {
+        width: 80px;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .vdd-detail-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-detail-field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .vdd-detail-description {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.5);
+        line-height: 1.4;
+    }
+
+    .vdd-confirm-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .vdd-confirm-prompt {
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .vdd-cancel-match-btn {
+        padding: 4px 12px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-cancel-match-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vdd-or-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 0;
+    }
+
+    .vdd-or-divider::before,
+    .vdd-or-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .vdd-or-divider span {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .vdd-purge-confirm-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .vdd-purge-confirm-text {
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(255, 80, 80, 0.8);
+    }
+
+    .vdd-purge-cancel-btn {
+        padding: 6px 14px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-purge-cancel-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.8);
     }
 
     .vdd-search-result-thumb {

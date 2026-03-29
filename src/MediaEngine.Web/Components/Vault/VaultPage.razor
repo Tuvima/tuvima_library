@@ -527,14 +527,20 @@
     private async Task OnSearchChanged(string text)
     {
         _searchText = text;
-        await LoadMediaItems();
+        if (_activeTab == "media")
+            await LoadMediaItems();
+        // People and universes are filtered client-side via FilteredPeople/FilteredUniverses
+        StateHasChanged();
         UpdateUrl();
     }
 
     private async Task OnSortChanged(string sort)
     {
         _sortBy = sort;
-        await LoadMediaItems();
+        if (_activeTab == "people")
+            StateHasChanged(); // People sorting is client-side
+        else
+            await LoadMediaItems();
         UpdateUrl();
     }
 
@@ -655,19 +661,43 @@
         await ApiClient.BatchDeleteRegistryItemsAsync([entityId]);
         Snackbar.Add(L["Vault_ItemPurged"], Severity.Info);
         CloseDetailDrawer();
-        await LoadMediaItems();
         await LoadCounts();
+
+        if (_filterReview && _counts.InReview == 0)
+            _filterReview = false;
+        else if (_filterProvisional && _counts.Provisional == 0)
+            _filterProvisional = false;
+        else if (_filterQuarantine && _counts.Rejected == 0)
+            _filterQuarantine = false;
+        else if (_filterWaitingForProvider && _counts.WaitingForProvider == 0)
+            _filterWaitingForProvider = false;
+
+        await LoadMediaItems();
+        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        UpdateUrl();
     }
 
     // ── Match / alias handlers ──
 
     private async Task OnApplyMatchClicked(Guid matchEntityId)
     {
-        // TODO: Wire to Engine re-identify endpoint once available
         Snackbar.Add("Match applied — re-identifying item...", Severity.Info);
         CloseDetailDrawer();
-        await LoadMediaItems();
         await LoadCounts();
+
+        // If the active status filter now has 0 items, auto-clear it
+        if (_filterReview && _counts.InReview == 0)
+            _filterReview = false;
+        else if (_filterProvisional && _counts.Provisional == 0)
+            _filterProvisional = false;
+        else if (_filterQuarantine && _counts.Rejected == 0)
+            _filterQuarantine = false;
+        else if (_filterWaitingForProvider && _counts.WaitingForProvider == 0)
+            _filterWaitingForProvider = false;
+
+        await LoadMediaItems();
+        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        UpdateUrl();
     }
 
     private async Task OnPersonAliasClicked(Guid aliasPersonId)
@@ -924,10 +954,40 @@
         return cards;
     }
 
-    private List<PersonListItemDto> FilteredPeople =>
-        _enabledRoles.Count == 0 || _enabledRoles.Count == _allRoleCounts.Count
-            ? _people
-            : _people.Where(p => p.Roles.Any(r => _enabledRoles.Contains(r))).ToList();
+    private List<PersonListItemDto> FilteredPeople
+    {
+        get
+        {
+            IEnumerable<PersonListItemDto> result = _people;
+
+            // Role filter
+            if (_enabledRoles.Count > 0 && _enabledRoles.Count < _allRoleCounts.Count)
+                result = result.Where(p => p.Roles.Any(r => _enabledRoles.Contains(r)));
+
+            // Search filter
+            if (!string.IsNullOrWhiteSpace(_searchText))
+                result = result.Where(p => p.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+            // Sort
+            result = _sortBy switch
+            {
+                "name" => result.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase),
+                "name_desc" => result.OrderByDescending(p => p.Name, StringComparer.OrdinalIgnoreCase),
+                "newest" => result.OrderByDescending(p => p.Id), // Guid-based, approximation
+                "oldest" => result.OrderBy(p => p.Id),
+                "presence_asc" => result.OrderBy(p => GetPersonPresenceTotal(p)),
+                _ => result.OrderByDescending(p => GetPersonPresenceTotal(p)), // "presence" default
+            };
+
+            return result.ToList();
+        }
+    }
+
+    private int GetPersonPresenceTotal(PersonListItemDto p)
+    {
+        var pid = p.Id.ToString();
+        return _personPresence.TryGetValue(pid, out var counts) ? counts.Values.Sum() : 0;
+    }
 }
 
 <style>
@@ -1102,6 +1162,7 @@
     .vault-content {
         flex: 1;
         overflow-y: auto;
+        overflow-x: visible;
         padding: 16px 24px 48px;
     }
 

@@ -18,22 +18,20 @@
     <div class="vault-controls">
         @* Sort *@
         <div class="vault-control-group">
-            <select class="vault-select" value="@SortBy" @onchange="OnSortChanged">
-                @if (ActiveTab == "people")
-                {
-                    <option value="presence">Presence</option>
-                    <option value="name">Name</option>
-                    <option value="newest">Newest</option>
-                }
-                else
-                {
-                    <option value="newest">@L["VaultToolbar_SortNewest"]</option>
-                    <option value="oldest">@L["VaultToolbar_SortOldest"]</option>
-                    <option value="title">Title</option>
-                    <option value="universe">Universe</option>
-                    <option value="confidence">@L["VaultToolbar_SortConfidence"]</option>
-                }
-            </select>
+            @foreach (var opt in GetSortOptions())
+            {
+                var isActive = SortBy == opt.Value || SortBy == opt.ReverseValue;
+                var isReversed = SortBy == opt.ReverseValue;
+                <button class="vault-sort-btn @(isActive ? "vault-sort-btn--active" : "")"
+                        @onclick="() => ToggleSort(opt.Value, opt.ReverseValue)">
+                    <span>@opt.Label</span>
+                    @if (isActive)
+                    {
+                        <MudIcon Icon="@(isReversed ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
+                                 Style="font-size: 12px;" />
+                    }
+                </button>
+            }
         </div>
 
         @if (ActiveTab == "media")
@@ -95,8 +93,30 @@
         _debounceTimer.Start();
     }
 
-    private async Task OnSortChanged(ChangeEventArgs e) =>
-        await SortByChanged.InvokeAsync(e.Value?.ToString() ?? "newest");
+    private record SortOption(string Label, string Value, string ReverseValue);
+
+    private List<SortOption> GetSortOptions() => ActiveTab switch
+    {
+        "people" =>
+        [
+            new("Presence", "presence", "presence_asc"),
+            new("Name", "name", "name_desc"),
+            new("Newest", "newest", "oldest"),
+        ],
+        _ =>
+        [
+            new("Newest", "newest", "oldest"),
+            new("Title", "title", "title_desc"),
+            new("Confidence", "confidence", "confidence_asc"),
+        ],
+    };
+
+    private async Task ToggleSort(string value, string reverseValue)
+    {
+        // If already on this sort, toggle direction; otherwise set to default direction
+        var newSort = SortBy == value ? reverseValue : (SortBy == reverseValue ? value : value);
+        await SortByChanged.InvokeAsync(newSort);
+    }
 
     private async Task OnGroupChanged(ChangeEventArgs e) =>
         await GroupByChanged.InvokeAsync(e.Value?.ToString() ?? "none");
@@ -242,6 +262,35 @@
         background: rgba(255, 255, 255, 0.5);
         border: none;
         cursor: pointer;
+    }
+
+    /* ── Sort toggle buttons ── */
+    .vault-sort-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.35);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 6px 8px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+
+    .vault-sort-btn:hover {
+        color: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .vault-sort-btn--active {
+        color: rgba(96, 165, 250, 0.9);
+        background: rgba(96, 165, 250, 0.08);
     }
 
     /* ── Mobile ── */

@@ -296,6 +296,27 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     }
 });
 
+// Auto-create media type subfolders in each configured watch directory.
+// Called after DI is configured but before the host starts so the directories
+// exist before the FileSystemWatcher attaches.
+try
+{
+    var libsForSubfolders = configLoader.LoadLibraries();
+    var mediaTypeSubfolders = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" };
+    foreach (var lib in libsForSubfolders.Libraries.Where(l => !string.IsNullOrWhiteSpace(l.SourcePath)))
+    {
+        if (Directory.Exists(lib.SourcePath))
+        {
+            foreach (var sub in mediaTypeSubfolders)
+                Directory.CreateDirectory(Path.Combine(lib.SourcePath, sub));
+        }
+    }
+}
+catch
+{
+    // No libraries.json or directory creation failed — non-fatal; directories will be created on demand.
+}
+
 builder.Services.AddSingleton<IAssetHasher, AssetHasher>();
 builder.Services.AddSingleton<IFileWatcher, FileWatcher>();
 builder.Services.AddSingleton<DebounceQueue>();

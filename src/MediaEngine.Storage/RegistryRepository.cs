@@ -68,6 +68,8 @@ public sealed class RegistryRepository : IRegistryRepository
                          WHERE cnt.total >= 1),
                         MAX(CASE WHEN cv.key = 'author' THEN cv.value END)
                     ) AS author,
+                    MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS director,
+                    MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
                     MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
                     MAX(CASE WHEN cv.key = 'wikidata_qid' THEN cv.value END) AS wikidata_qid,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
@@ -155,6 +157,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.cover_url,
                     wd.hero_url,
                     wd.author,
+                    wd.director,
+                    wd.artist,
                     wd.file_name,
                     wd.title_provider_id AS match_source,
                     rd.review_id,
@@ -277,7 +281,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
                 fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status,
                 fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url,
-                fd.created_at
+                fd.created_at, fd.director, fd.artist
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -316,6 +320,8 @@ public sealed class RegistryRepository : IRegistryRepository
                                      : (DateTimeOffset.TryParse(reader.GetString(20), out var createdDt)
                                          ? createdDt
                                          : DateTimeOffset.MinValue),
+                Director       = reader.IsDBNull(21) ? null : reader.GetString(21),
+                Artist         = reader.IsDBNull(22) ? null : reader.GetString(22),
             });
         }
 

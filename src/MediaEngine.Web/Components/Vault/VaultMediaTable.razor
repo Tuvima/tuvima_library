@@ -104,16 +104,15 @@ else
                                         <p class="vmt-original-title">@item.OriginalTitle</p>
                                     }
                                     <p class="vmt-subtitle">@VaultHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"• {item.Year}" : "")</p>
-                                    @if (!string.IsNullOrEmpty(item.Author))
+                                    @{
+                                        var creatorName = GetCreatorForMediaType(item);
+                                    }
+                                    @if (!string.IsNullOrEmpty(creatorName))
                                     {
                                         <button class="vmt-creator-link" @onclick:stopPropagation="true"
-                                                @onclick="() => OnAuthorClicked.InvokeAsync(item.Author)">
-                                            @item.Author.ToUpperInvariant()
+                                                @onclick="() => OnAuthorClicked.InvokeAsync(creatorName)">
+                                            @creatorName.ToUpperInvariant()
                                         </button>
-                                    }
-                                    else
-                                    {
-                                        <p class="vmt-creator">@L["VaultMedia_UnknownCreator"].Value</p>
                                     }
                                     @if (item.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed && !string.IsNullOrEmpty(item.ReviewTrigger))
                                     {
@@ -228,6 +227,14 @@ else
 
         return [new TableGroup("all", L["VaultMedia_GroupAll"].Value, Items)];
     }
+
+    private static string? GetCreatorForMediaType(VaultItemViewModel item) => item.MediaType switch
+    {
+        "Movies" => item.Director ?? item.Author,
+        "TV" => null, // Too many directors per season to be meaningful
+        "Music" => item.Artist ?? item.Author,
+        _ => item.Author,
+    };
 }
 
 <style>
@@ -279,6 +286,8 @@ else
 
     .vmt-row:hover {
         background: rgba(96, 165, 250, 0.02);
+        position: relative;
+        z-index: 10;
     }
 
     .vmt-row--quarantined {
@@ -322,9 +331,9 @@ else
     }
 
     .vmt-thumb:hover {
-        transform: scale(2.8);
-        z-index: 50;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+        transform: scale(4);
+        z-index: 100;
+        box-shadow: 0 12px 48px rgba(0,0,0,0.9);
         border-radius: 8px;
     }
 

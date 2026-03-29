@@ -20,6 +20,8 @@ public sealed class VaultItemViewModel
     public string Title { get; init; } = "";
     public string? OriginalTitle { get; init; }
     public string? Author { get; init; }
+    public string? Director { get; init; }
+    public string? Artist { get; init; }
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }
@@ -63,7 +65,10 @@ public sealed class VaultItemViewModel
     {
         EntityId = r.EntityId,
         Title = r.Title,
+        OriginalTitle = r.OriginalTitle,
         Author = r.Author,
+        Director = r.Director,
+        Artist = r.Artist,
         Year = r.Year,
         MediaType = r.MediaType,
         CoverUrl = r.CoverUrl,

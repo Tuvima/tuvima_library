@@ -122,4 +122,13 @@ public static class ReviewTrigger
     /// the item lacks universe linkage. A periodic re-check will retry.
     /// </summary>
     public const string WikidataBridgeFailed = "WikidataBridgeFailed";
+
+    /// <summary>
+    /// The file was dropped directly into the root of a watch folder rather than
+    /// a typed media subfolder (e.g. Books/, Movies/).  An ambiguous file extension
+    /// (MP3, MP4, MKV, AVI, FLAC, WAV, M4A, OGG, WEBM) cannot be reliably classified
+    /// without the folder context; confidence is capped at 0.40 so the user must
+    /// confirm the media type.
+    /// </summary>
+    public const string RootWatchFolder = "RootWatchFolder";
 }

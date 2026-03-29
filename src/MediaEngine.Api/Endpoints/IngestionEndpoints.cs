@@ -6,6 +6,7 @@ using MediaEngine.Api.Services;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -252,6 +253,59 @@ public static class IngestionEndpoints
         .Produces<IngestionBatchResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
+
+        // ── POST /ingestion/upload ────────────────────────────────────────────────
+
+        group.MapPost("/upload", async (
+            HttpRequest request,
+            IConfigurationLoader configLoader,
+            CancellationToken ct) =>
+        {
+            var form = await request.ReadFormAsync(ct);
+            var file = form.Files.GetFile("file");
+            var mediaType = form["mediaType"].ToString();
+
+            if (file is null || string.IsNullOrWhiteSpace(mediaType))
+                return Results.BadRequest("File and mediaType are required.");
+
+            var libraries = configLoader.LoadLibraries();
+            var watchFolder = libraries.Libraries
+                .FirstOrDefault(l => !string.IsNullOrWhiteSpace(l.SourcePath)
+                                     && Directory.Exists(l.SourcePath));
+
+            if (watchFolder is null)
+                return Results.BadRequest("No watch folder configured.");
+
+            var targetDir = Path.Combine(watchFolder.SourcePath, mediaType);
+            Directory.CreateDirectory(targetDir);
+
+            // Prevent path traversal: reject filenames that contain directory separators
+            // or attempt to navigate outside the target directory.
+            var safeFileName = Path.GetFileName(file.FileName);
+            if (string.IsNullOrWhiteSpace(safeFileName))
+                return Results.BadRequest("Invalid filename.");
+
+            var targetPath = Path.Combine(targetDir, safeFileName);
+
+            // Handle filename collision with a counter suffix.
+            var counter  = 1;
+            var baseName = Path.GetFileNameWithoutExtension(safeFileName);
+            var ext      = Path.GetExtension(safeFileName);
+            while (File.Exists(targetPath))
+            {
+                targetPath = Path.Combine(targetDir, $"{baseName} ({counter}){ext}");
+                counter++;
+            }
+
+            await using var stream = File.Create(targetPath);
+            await file.CopyToAsync(stream, ct);
+
+            return Results.Ok(new { path = targetPath, mediaType });
+        })
+        .WithName("UploadMedia")
+        .WithSummary("Upload a media file and route it to the correct watch subfolder.")
+        .DisableAntiforgery()
+        .RequireAnyRole();
 
         return app;
     }

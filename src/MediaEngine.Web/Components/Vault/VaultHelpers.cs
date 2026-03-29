@@ -126,7 +126,14 @@ public static class VaultHelpers
     public static string GetSortParam(string sortBy) => sortBy switch
     {
         "oldest" => "oldest",
-        "confidence" => "confidence",
+        "title" => "title",
+        "title_desc" => "-title",
+        "confidence" => "-confidence",
+        "confidence_asc" => "confidence",
+        "presence" => "-presence",
+        "presence_asc" => "presence",
+        "name" => "name",
+        "name_desc" => "-name",
         _ => "newest",
     };
 
@@ -146,6 +153,7 @@ public static class VaultHelpers
         "MediaTypeAmbiguous" => "Could not determine the media type",
         "MissingQid" => "No Wikidata identity found for this item",
         "MultipleQidMatches" => "Multiple possible Wikidata matches found",
+        "RootWatchFolder" => "Dropped into root watch folder — please confirm the media type",
         _ => trigger ?? "This item needs review",
     };
 

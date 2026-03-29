@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Vault
 @inject IStringLocalizer<SharedStrings> L
+@inject IEngineApiClient ApiClient
 
 @* ── Backdrop ── *@
 <div class="vamd-backdrop" @onclick="OnClose"></div>
@@ -19,57 +20,208 @@
     </div>
 
     <div class="vamd-body">
-        <div class="vamd-drop-zone @(_isDragging ? "vamd-drop-zone--active" : "")"
-             @ondragenter="OnDragEnter"
-             @ondragover="OnDragOver"
-             @ondragover:preventDefault="true"
-             @ondragleave="OnDragLeave"
-             @ondrop="OnDrop"
-             @ondrop:preventDefault="true">
-            <MudIcon Icon="@(_isDragging ? Icons.Material.Outlined.CloudUpload : Icons.Material.Outlined.UploadFile)"
-                     Style="@($"font-size: 48px; color: {(_isDragging ? "#60A5FA" : "rgba(255,255,255,0.1)")}; transition: color 0.2s;")" />
-            <p class="vamd-drop-text">
-                @if (_isDragging)
-                {
-                    <span style="color: #60A5FA; font-weight: 800;">@L["VaultAddMedia_DropToImport"]</span>
-                }
-                else
-                {
-                    <span>@L["VaultAddMedia_DragFilesHere"]</span>
-                }
-            </p>
-            <span class="vamd-drop-or">@L["VaultAddMedia_Or"]</span>
-            <button class="vamd-browse-btn">
-                <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Style="font-size: 16px;" />
-                @L["VaultAddMedia_BrowseFiles"]
-            </button>
-        </div>
-
-        <div class="vamd-supported">
-            <span class="vamd-supported-label">@L["VaultAddMedia_Supported"]</span>
-            <div class="vamd-supported-types">
-                <span>EPUB</span><span>M4B</span><span>MKV</span><span>MP4</span>
-                <span>CBZ</span><span>CBR</span><span>MP3</span><span>FLAC</span>
-                <span>PDF</span>
+        @if (_selectedFile is null)
+        {
+            @* ── Drop Zone ── *@
+            <div class="vamd-drop-zone @(_isDragging ? "vamd-drop-zone--active" : "")"
+                 @ondragenter="OnDragEnter"
+                 @ondragover="OnDragOver"
+                 @ondragover:preventDefault="true"
+                 @ondragleave="OnDragLeave"
+                 @ondrop="OnDrop"
+                 @ondrop:preventDefault="true">
+                <MudIcon Icon="@(_isDragging ? Icons.Material.Outlined.CloudUpload : Icons.Material.Outlined.UploadFile)"
+                         Style="@($"font-size: 48px; color: {(_isDragging ? "#60A5FA" : "rgba(255,255,255,0.1)")}; transition: color 0.2s;")" />
+                <p class="vamd-drop-text">
+                    @if (_isDragging)
+                    {
+                        <span style="color: #60A5FA; font-weight: 800;">@L["VaultAddMedia_DropToImport"]</span>
+                    }
+                    else
+                    {
+                        <span>@L["VaultAddMedia_DragFilesHere"]</span>
+                    }
+                </p>
+                <span class="vamd-drop-or">@L["VaultAddMedia_Or"]</span>
+                <label class="vamd-browse-btn">
+                    <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Style="font-size: 16px;" />
+                    @L["VaultAddMedia_BrowseFiles"]
+                    <InputFile OnChange="OnFileSelected" style="display:none;" />
+                </label>
             </div>
-        </div>
+
+            <div class="vamd-supported">
+                <span class="vamd-supported-label">@L["VaultAddMedia_Supported"]</span>
+                <div class="vamd-supported-types">
+                    <span>EPUB</span><span>M4B</span><span>MKV</span><span>MP4</span>
+                    <span>CBZ</span><span>CBR</span><span>MP3</span><span>FLAC</span>
+                    <span>PDF</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            @* ── Type Confirmation ── *@
+            <div class="vamd-confirm-section">
+                <div class="vamd-file-info">
+                    <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 24px; color: rgba(255,255,255,0.4);" />
+                    <div>
+                        <p class="vamd-file-name">@_selectedFile.Name</p>
+                        <p class="vamd-file-size">@FormatSize(_selectedFile.Size)</p>
+                    </div>
+                </div>
+
+                <div class="vamd-type-picker">
+                    <p class="vamd-type-label">Confirm media type:</p>
+                    <div class="vamd-type-grid">
+                        @foreach (var mt in _mediaTypes)
+                        {
+                            <button class="vamd-type-btn @(_selectedMediaType == mt ? "vamd-type-btn--active" : "")"
+                                    @onclick="() => _selectedMediaType = mt">
+                                <MudIcon Icon="@GetIcon(mt)" Style="font-size: 18px;" />
+                                <span>@mt</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <div class="vamd-error">
+                        <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 16px;" />
+                        <span>@_errorMessage</span>
+                    </div>
+                }
+
+                <div class="vamd-actions">
+                    <button class="vamd-upload-btn"
+                            @onclick="UploadFile"
+                            disabled="@(string.IsNullOrEmpty(_selectedMediaType) || _uploading)">
+                        @if (_uploading)
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: white;" />
+                            <span>Uploading…</span>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.Upload" Style="font-size: 16px;" />
+                            <span>Add to Library</span>
+                        }
+                    </button>
+                    <button class="vamd-cancel-btn" @onclick="ClearSelection">Cancel</button>
+                </div>
+            </div>
+        }
     </div>
 </div>
 
 @code {
     [Parameter] public EventCallback OnClose { get; set; }
 
-    private bool _isDragging;
+    private bool   _isDragging;
+    private bool   _uploading;
+    private string _selectedMediaType = "";
+    private string _errorMessage      = "";
+    private IBrowserFile? _selectedFile;
+
+    private static readonly string[] _mediaTypes =
+        ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts"];
+
+    // Extensions that are unambiguous — auto-select media type.
+    private static readonly Dictionary<string, string> _autoDetect =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            [".epub"] = "Books",
+            [".cbz"]  = "Comics",
+            [".cbr"]  = "Comics",
+            [".m4b"]  = "Audiobooks",
+            [".pdf"]  = "Books",
+        };
 
     private void OnDragEnter() => _isDragging = true;
-    private void OnDragOver() => _isDragging = true;
+    private void OnDragOver()  => _isDragging = true;
     private void OnDragLeave() => _isDragging = false;
 
     private void OnDrop()
     {
+        // Blazor server cannot access drag-drop file data from here — the InputFile
+        // component inside the zone handles browser file selection via the label.
         _isDragging = false;
-        // Placeholder: actual file ingestion would be wired here
     }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile    = e.File;
+        _errorMessage    = "";
+        _isDragging      = false;
+
+        var ext = Path.GetExtension(_selectedFile.Name);
+        _selectedMediaType = _autoDetect.TryGetValue(ext, out var detected) ? detected : "";
+    }
+
+    private async Task UploadFile()
+    {
+        if (_selectedFile is null || string.IsNullOrEmpty(_selectedMediaType)) return;
+
+        _uploading     = true;
+        _errorMessage  = "";
+        StateHasChanged();
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            // 10 GB max — media files can be large video files.
+            using var stream  = _selectedFile.OpenReadStream(maxAllowedSize: 10L * 1024 * 1024 * 1024);
+            content.Add(new StreamContent(stream), "file", _selectedFile.Name);
+            content.Add(new StringContent(_selectedMediaType), "mediaType");
+
+            var success = await ApiClient.UploadMediaAsync(content);
+            if (success)
+            {
+                ClearSelection();
+                await OnClose.InvokeAsync();
+            }
+            else
+            {
+                _errorMessage = "Upload failed. Check that the watch folder is configured and accessible.";
+            }
+        }
+        catch (Exception)
+        {
+            _errorMessage = "An unexpected error occurred during upload.";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private void ClearSelection()
+    {
+        _selectedFile      = null;
+        _selectedMediaType = "";
+        _errorMessage      = "";
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1_024              => $"{bytes} B",
+        < 1_048_576          => $"{bytes / 1_024.0:F1} KB",
+        < 1_073_741_824      => $"{bytes / 1_048_576.0:F1} MB",
+        _                    => $"{bytes / 1_073_741_824.0:F2} GB",
+    };
+
+    private static string GetIcon(string mediaType) => mediaType switch
+    {
+        "Books"      => Icons.Material.Outlined.MenuBook,
+        "Audiobooks" => Icons.Material.Outlined.Headphones,
+        "Movies"     => Icons.Material.Outlined.VideoLibrary,
+        "TV"         => Icons.Material.Outlined.LiveTv,
+        "Music"      => Icons.Material.Outlined.MusicNote,
+        "Comics"     => Icons.Material.Outlined.AutoStories,
+        "Podcasts"   => Icons.Material.Outlined.Mic,
+        _            => Icons.Material.Outlined.InsertDriveFile,
+    };
 }
 
 <style>
@@ -134,6 +286,7 @@
         display: flex;
         flex-direction: column;
         gap: 24px;
+        overflow-y: auto;
     }
 
     .vamd-drop-zone {
@@ -149,6 +302,7 @@
         gap: 12px;
         transition: all 0.2s ease;
         cursor: pointer;
+        position: relative;
     }
 
     .vamd-drop-zone:hover {
@@ -226,9 +380,155 @@
         color: rgba(255, 255, 255, 0.35);
     }
 
+    /* ── Confirm section ── */
+    .vamd-confirm-section {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .vamd-file-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+    }
+
+    .vamd-file-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+        margin: 0;
+        word-break: break-all;
+    }
+
+    .vamd-file-size {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.3);
+        margin: 2px 0 0;
+    }
+
+    .vamd-type-picker {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .vamd-type-label {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.3);
+        margin: 0;
+    }
+
+    .vamd-type-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+
+    .vamd-type-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 5px;
+        padding: 10px 6px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 10px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vamd-type-btn:hover {
+        border-color: rgba(96, 165, 250, 0.3);
+        background: rgba(96, 165, 250, 0.06);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .vamd-type-btn--active {
+        border-color: #60A5FA;
+        background: rgba(96, 165, 250, 0.15);
+        color: #60A5FA;
+    }
+
+    .vamd-error {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        border-radius: 8px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        color: #FCA5A5;
+        font-size: 11px;
+    }
+
+    .vamd-actions {
+        display: flex;
+        gap: 10px;
+    }
+
+    .vamd-upload-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 20px;
+        border-radius: 12px;
+        border: none;
+        background: #60A5FA;
+        color: white;
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vamd-upload-btn:hover:not(:disabled) {
+        background: #3B82F6;
+    }
+
+    .vamd-upload-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .vamd-cancel-btn {
+        padding: 12px 20px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: transparent;
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vamd-cancel-btn:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
     @@media (max-width: 768px) {
         .vamd-drawer {
             width: 100%;
+        }
+
+        .vamd-type-grid {
+            grid-template-columns: repeat(3, 1fr);
         }
     }
 </style>

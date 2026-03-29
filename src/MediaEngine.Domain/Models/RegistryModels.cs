@@ -39,6 +39,8 @@ public sealed record RegistryItem
     [JsonPropertyName("file_name")]      public string? FileName { get; init; }
     [JsonPropertyName("file_size_bytes")]public long? FileSizeBytes { get; init; }
     [JsonPropertyName("author")]         public string? Author { get; init; }
+    [JsonPropertyName("director")]       public string? Director { get; init; }
+    [JsonPropertyName("artist")]         public string? Artist { get; init; }
 
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; init; }
