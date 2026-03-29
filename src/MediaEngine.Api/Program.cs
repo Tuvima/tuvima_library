@@ -144,12 +144,42 @@ DapperConfiguration.Configure();
 
 // TUVIMA_DB_PATH overrides the config value — used by Docker and the installer
 // to pin the database to a persistent volume outside the container image.
-// Default: .data/database/library.db (relative to the working directory).
-string dbPath = Environment.GetEnvironmentVariable("TUVIMA_DB_PATH")
-             ?? config["MediaEngine:DatabasePath"]
-             ?? Path.Combine(".data", "database", "library.db");
-// Ensure the database directory exists before opening the connection.
+// When a library_root is configured, the default resolves to {LibraryRoot}/.data/database/library.db.
+string dbPath;
 {
+    var envDb = Environment.GetEnvironmentVariable("TUVIMA_DB_PATH");
+    if (!string.IsNullOrWhiteSpace(envDb))
+    {
+        dbPath = envDb;
+    }
+    else
+    {
+        // Peek at core.json to get library_root early (before config loader is created).
+        var earlyConfigDir = config["MediaEngine:ConfigDirectory"] ?? "config";
+        var coreJsonPath = Path.Combine(earlyConfigDir, "core.json");
+        string? earlyLibraryRoot = null;
+        if (File.Exists(coreJsonPath))
+        {
+            try
+            {
+                using var fs = File.OpenRead(coreJsonPath);
+                using var doc = System.Text.Json.JsonDocument.Parse(fs);
+                if (doc.RootElement.TryGetProperty("library_root", out var lr))
+                    earlyLibraryRoot = lr.GetString();
+            }
+            catch { /* non-fatal — fall back to default */ }
+        }
+        // Also check environment variable override.
+        var envLibRoot = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
+        if (!string.IsNullOrWhiteSpace(envLibRoot))
+            earlyLibraryRoot = envLibRoot;
+
+        if (!string.IsNullOrWhiteSpace(earlyLibraryRoot))
+            dbPath = Path.Combine(earlyLibraryRoot, ".data", "database", "library.db");
+        else
+            dbPath = Path.Combine(".data", "database", "library.db");
+    }
+    // Ensure the database directory exists before opening the connection.
     var dbDir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
     if (!string.IsNullOrEmpty(dbDir))
         Directory.CreateDirectory(dbDir);
