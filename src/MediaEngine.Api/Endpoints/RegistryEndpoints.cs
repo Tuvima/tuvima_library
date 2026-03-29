@@ -715,13 +715,13 @@ public static class RegistryEndpoints
             if (!Guid.TryParse(assetIdStr, out var assetId))
                 return Results.Problem("Invalid asset ID in database.");
 
-            // Resolve the library root to build the .staging/rejected/ path.
+            // Resolve the library root to build the .data/staging/rejected/ path.
             var core = manifest.Load();
             var libraryRoot = core.LibraryRoot;
             if (string.IsNullOrWhiteSpace(libraryRoot))
                 return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
 
-            var rejectedDir = Path.Combine(libraryRoot, ".staging", "rejected");
+            var rejectedDir = Path.Combine(libraryRoot, ".data", "staging", "rejected");
             Directory.CreateDirectory(rejectedDir);
 
             var fileName    = Path.GetFileName(currentFilePath);
@@ -1044,7 +1044,7 @@ public static class RegistryEndpoints
             if (string.IsNullOrWhiteSpace(libraryRoot))
                 return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
 
-            var rejectedDir = Path.Combine(libraryRoot, ".staging", "rejected");
+            var rejectedDir = Path.Combine(libraryRoot, ".data", "staging", "rejected");
             Directory.CreateDirectory(rejectedDir);
 
             int processed = 0;

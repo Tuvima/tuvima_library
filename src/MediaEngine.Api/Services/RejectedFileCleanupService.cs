@@ -111,7 +111,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
             return;
         }
 
-        var rejectedDir = Path.Combine(libraryRoot, ".staging", "rejected");
+        var rejectedDir = Path.Combine(libraryRoot, ".data", "staging", "rejected");
         if (!Directory.Exists(rejectedDir))
         {
             _logger.LogDebug("RejectedFileCleanupService: rejected folder does not exist — nothing to clean");

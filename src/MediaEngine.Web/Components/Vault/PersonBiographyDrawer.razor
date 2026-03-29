@@ -1,0 +1,396 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Vault
+@inject IStringLocalizer<SharedStrings> L
+
+@* ── Person Biography Drawer ─────────────────────────────────────────────────
+   Renders the full biography layout for a person inside a detail drawer.
+   Can be used from VaultDetailDrawer, future Work detail pages, or any
+   context where a person is clicked.
+   ──────────────────────────────────────────────────────────────────────────── *@
+
+@* ── Biography section ── *@
+<DrawerSection Title="Biography" Icon="@Icons.Material.Outlined.AutoStories" DefaultOpen="true">
+    @if (!string.IsNullOrEmpty(Person.Biography))
+    {
+        <p class="pbd-biography">@Person.Biography</p>
+    }
+    else
+    {
+        <p class="pbd-empty-hint">No biography available yet. This person will be enriched during the next refresh cycle.</p>
+    }
+</DrawerSection>
+
+@* ── Social Links ── *@
+@{
+    bool hasSocialLinks = !string.IsNullOrEmpty(Person.Biography); // fallback check via Occupation
+    // Compute social link presence from the PersonListItemDto fields
+    // PersonListItemDto doesn't have social fields — those live in PersonDetailViewModel
+    // So we just render nothing if Person doesn't have them (will be enhanced in future)
+}
+
+@* ── In Your Library ── *@
+<DrawerSection Title="In Your Library" Icon="@Icons.Material.Outlined.LibraryBooks" DefaultOpen="true">
+    @if (_roleGroups.Count > 0)
+    {
+        @foreach (var (roleLabel, works) in _roleGroups)
+        {
+            <div class="pbd-role-group">
+                <span class="pbd-role-label">@roleLabel</span>
+                <div class="pbd-works-list">
+                    @foreach (var work in works)
+                    {
+                        <button class="pbd-work-row" @onclick="() => OnWorkClicked.InvokeAsync(work.Id)">
+                            <div class="pbd-work-thumb">
+                                @if (!string.IsNullOrEmpty(work.CoverUrl))
+                                {
+                                    <img src="@work.CoverUrl" alt="" loading="lazy" class="pbd-work-thumb-img" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(work.PrimaryMediaType ?? "")" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                                }
+                            </div>
+                            <div class="pbd-work-info">
+                                <span class="pbd-work-title">@work.DisplayName</span>
+                                @if (!string.IsNullOrEmpty(work.PrimaryMediaType))
+                                {
+                                    <span class="pbd-work-type" style="color: @VaultHelpers.GetMediaTypeColor(work.PrimaryMediaType);">
+                                        @VaultHelpers.FormatMediaType(work.PrimaryMediaType)
+                                    </span>
+                                }
+                            </div>
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <p class="pbd-empty-hint">No works found in your library for this person.</p>
+    }
+</DrawerSection>
+
+@* ── Linked Identities ── *@
+<DrawerSection Title="@L["VaultDetail_SectionLinkedIdentities"]" Icon="@Icons.Material.Outlined.Fingerprint" DefaultOpen="false">
+    <div class="pbd-identities">
+        <span class="vdd-field-label">@(Person.IsPseudonym ? L["VaultDetail_FieldRealPeople"] : L["VaultDetail_FieldPenNames"])</span>
+        @if (Aliases is not null && Aliases.Aliases.Count > 0)
+        {
+            <div class="pbd-identity-items">
+                @foreach (var alias in Aliases.Aliases.OrderByDescending(a => !string.IsNullOrEmpty(a.WikidataQid)))
+                {
+                    <button class="vdd-identity-link" @onclick="() => OnPersonAliasClicked.InvokeAsync(alias.Id)">
+                        <div class="vdd-alias-avatar">
+                            @if (!string.IsNullOrEmpty(alias.HeadshotUrl))
+                            {
+                                <img src="@alias.HeadshotUrl" alt="@alias.Name" class="vdd-alias-avatar-img" loading="lazy" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
+                            }
+                        </div>
+                        <div class="vdd-alias-info">
+                            <span class="vdd-alias-name">@alias.Name</span>
+                            <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
+                        </div>
+                    </button>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="pbd-empty-hint">@L["VaultDetail_HintPenNames"]</p>
+        }
+    </div>
+</DrawerSection>
+
+@* ── Character Roles ── *@
+@if (PersonCharacterRoles.Count > 0)
+{
+    <DrawerSection Title="@L["VaultDetail_SectionCharacterRoles"]" Icon="@Icons.Material.Outlined.TheaterComedy" DefaultOpen="false">
+        @{
+            var rolesByUniverse = PersonCharacterRoles
+                .GroupBy(r => r.UniverseLabel ?? "Unknown Universe")
+                .OrderBy(g => g.Key)
+                .ToList();
+        }
+        @foreach (var univGroup in rolesByUniverse)
+        {
+            <div class="vdd-role-universe-group">
+                <span class="vdd-role-universe-label">@univGroup.Key</span>
+                <div class="vdd-roles-row">
+                    @foreach (var role in univGroup)
+                    {
+                        <div class="vdd-role-item">
+                            <div class="vdd-character-avatar vdd-character-avatar--sm">
+                                @if (!string.IsNullOrEmpty(role.PortraitUrl))
+                                {
+                                    <img src="@role.PortraitUrl" alt="@role.CharacterName" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                }
+                            </div>
+                            <span class="vdd-character-name" style="font-size: 11px;">@role.CharacterName</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </DrawerSection>
+}
+
+@* ── Assets ── *@
+<DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+    <div class="vdd-assets">
+        @* Headshot *@
+        <div class="vdd-asset-row">
+            <span class="vdd-asset-label">@L["VaultDetail_AssetHeadshot"]</span>
+            <div class="vdd-asset-items">
+                @if (!string.IsNullOrEmpty(Person.HeadshotUrl))
+                {
+                    <div class="vdd-asset-filled">
+                        <img src="@Person.HeadshotUrl" alt="Headshot" class="vdd-asset-img" />
+                        <span class="vdd-asset-source">@L["VaultDetail_AssetSourceProvider"]</span>
+                    </div>
+                }
+                <div class="vdd-asset-slot">
+                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                    <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
+                </div>
+            </div>
+        </div>
+        @* Remaining types as upload-only *@
+        @foreach (var assetType in new[] { "Banner", "Logo", "Backdrop" })
+        {
+            <div class="vdd-asset-row">
+                <span class="vdd-asset-label">@assetType</span>
+                <div class="vdd-asset-items">
+                    <div class="vdd-asset-slot">
+                        <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                        <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</DrawerSection>
+
+@code {
+    [Parameter, EditorRequired] public PersonListItemDto Person { get; set; } = null!;
+    [Parameter] public PersonAliasesResponseDto? Aliases { get; set; }
+    [Parameter] public List<HubViewModel>? PersonWorks { get; set; }
+    [Parameter] public IReadOnlyList<CharacterRoleDto> PersonCharacterRoles { get; set; } = [];
+    [Parameter] public EventCallback<Guid> OnPersonAliasClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnWorkClicked { get; set; }
+
+    // Works grouped by the person's role for the "In Your Library" section.
+    // PersonWorks from GetWorksByPersonAsync returns HubViewModel items which carry
+    // the person's role via the HubType or DisplayName context.
+    // For now we show all works under a single "Works" group; role-specific grouping
+    // requires an API extension to return role per work.
+    private List<(string RoleLabel, List<HubViewModel> Works)> _roleGroups = [];
+
+    protected override void OnParametersSet()
+    {
+        _roleGroups = BuildRoleGroups();
+    }
+
+    private List<(string RoleLabel, List<HubViewModel> Works)> BuildRoleGroups()
+    {
+        if (PersonWorks is null || PersonWorks.Count == 0)
+            return [];
+
+        // Group by media type to provide role-aware labelling where possible.
+        // When the API is extended to return role-per-work, replace this with proper grouping.
+        var groups = new List<(string, List<HubViewModel>)>();
+
+        // Use the person's known roles to create meaningful headings
+        var knownRoles = Person.Roles.Count > 0 ? Person.Roles : ["works"];
+        var primaryRole = knownRoles[0].ToLowerInvariant();
+
+        // Map role to a readable heading
+        var roleHeading = primaryRole switch
+        {
+            "author"      => "Author of:",
+            "narrator"    => "Narrator of:",
+            "director"    => "Director of:",
+            "illustrator" => "Illustrator of:",
+            "composer"    => "Composer of:",
+            _             => "In your library:",
+        };
+
+        groups.Add((roleHeading, PersonWorks));
+        return groups;
+    }
+}
+
+<style>
+    /* ── Biography text ── */
+    .pbd-biography {
+        font-size: 13px;
+        line-height: 1.7;
+        color: rgba(255, 255, 255, 0.65);
+        margin: 0;
+    }
+
+    /* ── Occupation subtitle in header ── */
+    .pbd-occupation {
+        font-size: 11px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.4);
+        margin-top: 2px;
+    }
+
+    /* ── Last enriched tiny date ── */
+    .pbd-last-enriched {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.2);
+        margin-top: 4px;
+    }
+
+    /* ── Social link buttons ── */
+    .pbd-social-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 4px 0;
+    }
+
+    .pbd-social-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.15s;
+        text-decoration: none;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .pbd-social-btn:hover {
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* ── Role groups ── */
+    .pbd-role-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .pbd-role-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .pbd-role-label {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .pbd-works-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    /* ── Work row ── */
+    .pbd-work-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        width: 100%;
+        text-align: left;
+        transition: background 0.15s;
+        color: inherit;
+    }
+
+    .pbd-work-row:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .pbd-work-thumb {
+        width: 36px;
+        height: 36px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .pbd-work-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .pbd-work-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .pbd-work-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.8);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .pbd-work-type {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    /* ── Identity items ── */
+    .pbd-identity-items {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 6px;
+    }
+
+    /* ── Identities container ── */
+    .pbd-identities {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    /* ── Empty hint ── */
+    .pbd-empty-hint {
+        font-size: 12px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.25);
+        margin: 0;
+        padding: 4px 0;
+    }
+</style>

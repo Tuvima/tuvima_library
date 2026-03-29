@@ -1,27 +1,28 @@
 namespace MediaEngine.Domain.Services;
 
 /// <summary>
-/// Centralizes image path resolution. All images live under {libraryRoot}/.images/
+/// Centralizes image path resolution. All images live under {libraryRoot}/.data/images/
 /// organized by entity type and QID (or provisional GUID).
 ///
 /// Directory layout:
 /// <code>
 /// {libraryRoot}/
-/// └── .images/
-///     ├── works/
-///     │   ├── {QID}/           ← e.g., Q190306/
-///     │   │   ├── cover.jpg
-///     │   │   └── hero.jpg
-///     │   └── _provisional/
-///     │       └── {assetId12}/  ← No QID yet (first 12 hex chars of asset GUID)
-///     │           ├── cover.jpg
-///     │           └── hero.jpg
-///     ├── people/
-///     │   └── {QID}/
-///     │       └── headshot.jpg
-///     └── universes/
-///         └── {QID}/
-///             └── backdrop.jpg
+/// └── .data/
+///     └── images/
+///         ├── works/
+///         │   ├── {QID}/           ← e.g., Q190306/
+///         │   │   ├── cover.jpg
+///         │   │   └── hero.jpg
+///         │   └── _provisional/
+///         │       └── {assetId12}/  ← No QID yet (first 12 hex chars of asset GUID)
+///         │           ├── cover.jpg
+///         │           └── hero.jpg
+///         ├── people/
+///         │   └── {QID}/
+///         │       └── headshot.jpg
+///         └── universes/
+///             └── {QID}/
+///                 └── backdrop.jpg
 /// </code>
 /// </summary>
 public sealed class ImagePathService
@@ -30,7 +31,7 @@ public sealed class ImagePathService
 
     public ImagePathService(string libraryRoot)
     {
-        _imagesRoot = Path.Combine(libraryRoot, ".images");
+        _imagesRoot = Path.Combine(libraryRoot, ".data", "images");
     }
 
     public string ImagesRoot => _imagesRoot;

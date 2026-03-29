@@ -612,8 +612,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM media_assets ma
                  INNER JOIN editions e ON e.id = ma.edition_id
-                 WHERE (ma.file_path_root LIKE '%/.staging/%'
-                    OR ma.file_path_root LIKE '%\.staging\%')
+                 WHERE (ma.file_path_root LIKE '%/.data/staging/%'
+                    OR ma.file_path_root LIKE '%\.data\staging\%')
                    AND NOT EXISTS (
                      SELECT 1 FROM review_queue rq
                      WHERE rq.entity_id = ma.id AND rq.status = 'Pending'

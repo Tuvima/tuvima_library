@@ -52,7 +52,12 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     /// <summary>Category root folder names that should never be deleted.</summary>
     private static readonly HashSet<string> ProtectedFolders = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".people", "Books", "Comics", "Videos", "Audio", "Other",
+        // .data/ contains staging, images, and database — never touch it.
+        ".data",
+        // Legacy hidden directories.
+        ".people",
+        // Library category folders.
+        "Books", "Comics", "Videos", "Audio", "Other",
     };
 
     public LibraryReconciliationService(
@@ -417,74 +422,93 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     /// </summary>
     private async Task<int> CleanOrphanedPeopleAsync(string libraryRoot, CancellationToken ct)
     {
-        var peopleRoot = Path.Combine(libraryRoot, ".people");
-        if (!Directory.Exists(peopleRoot))
-            return 0;
-
         int cleaned = 0;
 
-        foreach (var subDir in Directory.GetDirectories(peopleRoot))
+        // Scan both the new .data/images/people/ path and the legacy .people/ path.
+        // New path: folder name = QID (e.g. "Q12345").
+        // Legacy path: folder name = "Name (QID)" format.
+        var peopleDirsToScan = new List<(string root, bool isNewFormat)>();
+
+        var newPeopleRoot = Path.Combine(_imagePaths.ImagesRoot, "people");
+        if (Directory.Exists(newPeopleRoot))
+            peopleDirsToScan.Add((newPeopleRoot, isNewFormat: true));
+
+        var legacyPeopleRoot = Path.Combine(libraryRoot, ".people");
+        if (Directory.Exists(legacyPeopleRoot))
+            peopleDirsToScan.Add((legacyPeopleRoot, isNewFormat: false));
+
+        foreach (var (peopleRoot, isNewFormat) in peopleDirsToScan)
         {
-            ct.ThrowIfCancellationRequested();
-
-            var folderName = Path.GetFileName(subDir);
-
-            // Parse QID from "Name (Qxxxxx)" folder naming convention.
-            var qid = ExtractQidFromFolderName(folderName);
-
-            Person? person = null;
-
-            if (!string.IsNullOrEmpty(qid))
+            foreach (var subDir in Directory.GetDirectories(peopleRoot))
             {
-                person = await _personRepo.FindByQidAsync(qid, ct);
-            }
+                ct.ThrowIfCancellationRequested();
 
-            // Fallback: try legacy person.xml if it exists (migration path).
-            if (person is null)
-            {
-                var personXml = Path.Combine(subDir, "person.xml");
-                if (File.Exists(personXml))
+                var folderName = Path.GetFileName(subDir);
+                Person? person = null;
+
+                if (isNewFormat)
                 {
-                    var personId = ReadPersonIdFromXml(personXml);
-                    if (personId is not null)
-                        person = await _personRepo.FindByIdAsync(personId.Value, ct);
-
-                    if (person is null)
+                    // New format: folder name IS the QID.
+                    if (folderName.Length >= 2
+                        && (folderName[0] == 'Q' || folderName[0] == 'q')
+                        && folderName[1..].All(char.IsDigit))
                     {
-                        var xmlName = ReadPersonNameFromXml(personXml);
-                        if (!string.IsNullOrWhiteSpace(xmlName))
-                        {
-                            person = await _personRepo.FindByNameAsync(xmlName, ct);
-                        }
+                        person = await _personRepo.FindByQidAsync(folderName.ToUpperInvariant(), ct);
                     }
                 }
-            }
+                else
+                {
+                    // Legacy format: parse QID from "Name (Qxxxxx)" folder naming convention.
+                    var qid = ExtractQidFromFolderName(folderName);
+                    if (!string.IsNullOrEmpty(qid))
+                        person = await _personRepo.FindByQidAsync(qid, ct);
 
-            // Fallback: temporary folders use "tmp-{guid}" pattern.
-            if (person is null && folderName.StartsWith("tmp-", StringComparison.OrdinalIgnoreCase))
-            {
-                var guidPart = folderName[4..];
-                if (Guid.TryParse(guidPart, out var tmpId))
-                    person = await _personRepo.FindByIdAsync(tmpId, ct);
-            }
+                    // Fallback: try legacy person.xml if it exists (migration path).
+                    if (person is null)
+                    {
+                        var personXml = Path.Combine(subDir, "person.xml");
+                        if (File.Exists(personXml))
+                        {
+                            var personId = ReadPersonIdFromXml(personXml);
+                            if (personId is not null)
+                                person = await _personRepo.FindByIdAsync(personId.Value, ct);
 
-            if (person is null)
-            {
-                SafeDeleteDirectory(subDir);
-                cleaned++;
-                _logger.LogDebug("Removed orphan people folder (no DB record): {Path}", subDir);
-                continue;
-            }
+                            if (person is null)
+                            {
+                                var xmlName = ReadPersonNameFromXml(personXml);
+                                if (!string.IsNullOrWhiteSpace(xmlName))
+                                    person = await _personRepo.FindByNameAsync(xmlName, ct);
+                            }
+                        }
+                    }
 
-            // Check if person has any media asset links.
-            var linkCount = await _personRepo.CountMediaLinksAsync(person.Id, ct);
-            if (linkCount == 0)
-            {
-                // Person exists but has zero media links → orphan.
-                await _personRepo.DeleteAsync(person.Id, ct);
-                SafeDeleteDirectory(subDir);
-                cleaned++;
-                _logger.LogDebug("Removed orphan person (zero media links): {Name}", person.Name);
+                    // Fallback: temporary folders use "tmp-{guid}" pattern.
+                    if (person is null && folderName.StartsWith("tmp-", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var guidPart = folderName[4..];
+                        if (Guid.TryParse(guidPart, out var tmpId))
+                            person = await _personRepo.FindByIdAsync(tmpId, ct);
+                    }
+                }
+
+                if (person is null)
+                {
+                    SafeDeleteDirectory(subDir);
+                    cleaned++;
+                    _logger.LogDebug("Removed orphan people folder (no DB record): {Path}", subDir);
+                    continue;
+                }
+
+                // Check if person has any media asset links.
+                var linkCount = await _personRepo.CountMediaLinksAsync(person.Id, ct);
+                if (linkCount == 0)
+                {
+                    // Person exists but has zero media links → orphan.
+                    await _personRepo.DeleteAsync(person.Id, ct);
+                    SafeDeleteDirectory(subDir);
+                    cleaned++;
+                    _logger.LogDebug("Removed orphan person (zero media links): {Name}", person.Name);
+                }
             }
         }
 
@@ -520,12 +544,14 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     // ── Pass 3: Stale GUID Folder Cleanup ───────────────────────────────────
 
     /// <summary>
-    /// Scans .people/ for subfolders that look like GUIDs (old-format naming).
+    /// Scans the legacy .people/ directory for subfolders that look like GUIDs (old-format naming).
     /// If the person exists in the DB with a name-based folder elsewhere,
-    /// the GUID folder is deleted.
+    /// the GUID folder is deleted. Only applies to the legacy .people/ path — the new
+    /// .data/images/people/{QID}/ format does not use GUID-named folders.
     /// </summary>
     private async Task<int> CleanStaleGuidFoldersAsync(string libraryRoot, CancellationToken ct)
     {
+        // Only applies to the legacy .people/ directory.
         var peopleRoot = Path.Combine(libraryRoot, ".people");
         if (!Directory.Exists(peopleRoot))
             return 0;

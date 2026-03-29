@@ -57,6 +57,9 @@ public sealed class LibraryScanner : ILibraryScanner
     private static readonly HashSet<string> SkipDirectories =
         new(StringComparer.OrdinalIgnoreCase)
         {
+            // .data/ consolidates staging, images, and database — never scan it.
+            ".data",
+            // Legacy directories kept for migration detection.
             ".staging", ".people", ".universe", ".tuvima-shadow", ".orphans",
         };
 

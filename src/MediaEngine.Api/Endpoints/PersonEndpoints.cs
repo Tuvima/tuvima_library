@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -122,13 +123,15 @@ public static class PersonEndpoints
         .WithName("GetPersonAliases")
         .WithSummary("Linked pseudonym and real-person entries for a given person.");
 
-        // GET /persons/{id}/headshot — serves headshot.jpg from .people/ folder.
-        // If no local file exists but a Wikimedia URL is known, downloads and caches it.
+        // GET /persons/{id}/headshot — serves headshot.jpg from the person image directory.
+        // Checks .data/images/people/{QID}/ (via ImagePathService) first, then falls back
+        // to legacy .people/ conventions. Downloads and caches if no local file exists.
         group.MapGet("/{id:guid}/headshot", async (
             Guid id,
             IPersonRepository personRepo,
             IConfigurationLoader configLoader,
             IHttpClientFactory httpFactory,
+            ImagePathService? imagePaths,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
@@ -142,11 +145,22 @@ public static class PersonEndpoints
                 return Results.File(person.LocalHeadshotPath, "image/jpeg");
             }
 
-            // Fallback: check the .people/ directory convention.
+            // Check the centralized .data/images/people/{QID}/ path first.
+            if (imagePaths is not null && !string.IsNullOrWhiteSpace(person.WikidataQid))
+            {
+                var newStylePath = Path.Combine(imagePaths.GetPersonImageDir(person.WikidataQid), "headshot.jpg");
+                if (File.Exists(newStylePath))
+                {
+                    await personRepo.UpdateLocalHeadshotPathAsync(id, newStylePath, ct);
+                    return Results.File(newStylePath, "image/jpeg");
+                }
+            }
+
+            // Legacy fallback: check the .people/ directory convention.
             var core = configLoader.LoadCore();
             if (!string.IsNullOrWhiteSpace(core.LibraryRoot))
             {
-                // Try Name (QID) folder naming
+                // Try Name (QID) folder naming (legacy)
                 if (!string.IsNullOrWhiteSpace(person.WikidataQid) && !string.IsNullOrWhiteSpace(person.Name))
                 {
                     var sanitizedName = string.Join("_", person.Name.Split(Path.GetInvalidFileNameChars()));
@@ -160,7 +174,7 @@ public static class PersonEndpoints
                     }
                 }
 
-                // Try bare GUID folder
+                // Try bare GUID folder (legacy)
                 var guidPath = Path.Combine(core.LibraryRoot, ".people", id.ToString(), "headshot.jpg");
                 if (File.Exists(guidPath))
                 {
@@ -169,8 +183,8 @@ public static class PersonEndpoints
                 }
             }
 
-            // No local file — download from Wikimedia and cache locally.
-            if (!string.IsNullOrEmpty(person.HeadshotUrl) && !string.IsNullOrWhiteSpace(core?.LibraryRoot))
+            // No local file — download from Wikimedia and cache locally using ImagePathService.
+            if (!string.IsNullOrEmpty(person.HeadshotUrl))
             {
                 try
                 {
@@ -178,10 +192,22 @@ public static class PersonEndpoints
                     var bytes = await client.GetByteArrayAsync(person.HeadshotUrl, ct);
                     if (bytes.Length > 0)
                     {
-                        var folderName = !string.IsNullOrWhiteSpace(person.WikidataQid) && !string.IsNullOrWhiteSpace(person.Name)
-                            ? $"{string.Join("_", person.Name.Split(Path.GetInvalidFileNameChars()))} ({person.WikidataQid})"
-                            : id.ToString();
-                        var personFolder = Path.Combine(core.LibraryRoot, ".people", folderName);
+                        string personFolder;
+                        if (imagePaths is not null && !string.IsNullOrWhiteSpace(person.WikidataQid))
+                        {
+                            personFolder = imagePaths.GetPersonImageDir(person.WikidataQid);
+                        }
+                        else if (!string.IsNullOrWhiteSpace(core?.LibraryRoot))
+                        {
+                            var folderName = !string.IsNullOrWhiteSpace(person.WikidataQid) && !string.IsNullOrWhiteSpace(person.Name)
+                                ? $"{string.Join("_", person.Name.Split(Path.GetInvalidFileNameChars()))} ({person.WikidataQid})"
+                                : id.ToString();
+                            personFolder = Path.Combine(core.LibraryRoot, ".people", folderName);
+                        }
+                        else
+                        {
+                            return Results.NotFound("Headshot not available (no library root configured).");
+                        }
                         Directory.CreateDirectory(personFolder);
                         var localPath = Path.Combine(personFolder, "headshot.jpg");
                         await File.WriteAllBytesAsync(localPath, bytes, ct);

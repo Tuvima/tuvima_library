@@ -69,6 +69,7 @@
                             <span class="vdd-meta-item">@MediaItem.Year</span>
                         }
                     </div>
+                    <p class="vdd-added-date">Added @MediaItem.CreatedAt.ToString("MMM dd, yyyy")</p>
                 </div>
             </div>
         }
@@ -101,7 +102,10 @@
                         }
                     </div>
                     <h2 class="vdd-title">@Person.Name</h2>
-                    <p class="vdd-subtitle-italic">@Person.Biography</p>
+                    @if (!string.IsNullOrEmpty(Person.Occupation))
+                    {
+                        <p class="vdd-subtitle-italic">@Person.Occupation</p>
+                    }
                 </div>
             </div>
         }
@@ -127,6 +131,18 @@
     <div class="vdd-body">
         @if (MediaItem is not null)
         {
+            @* ── NeedsReview problem banner ── *@
+            @if (MediaItem.VaultDisplayStatus == VaultStatus.NeedsReview && !string.IsNullOrEmpty(MediaItem.ReviewTrigger))
+            {
+                <div class="vdd-problem-banner">
+                    <div class="vdd-problem-banner-top">
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; color: #EF9F27; flex-shrink: 0;" />
+                        <span class="vdd-problem-banner-msg">@VaultHelpers.GetReviewTriggerLabel(MediaItem.ReviewTrigger)</span>
+                    </div>
+                    <p class="vdd-problem-banner-hint">You can search for a match in the Pipeline section below, or check the File Info for clues.</p>
+                </div>
+            }
+
             @if (MediaItem.VaultDisplayStatus == VaultStatus.WaitingForProvider)
             {
                 <div class="vdd-waiting-banner">
@@ -176,7 +192,7 @@
                 <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
                                HasProblem="true" DefaultOpen="true">
                     <div class="vdd-pipeline">
-                        @if (MediaItem.VaultDisplayStatus is VaultStatus.NeedsReview or VaultStatus.Failed && !string.IsNullOrEmpty(MediaItem.ReviewTrigger))
+                        @if (MediaItem.VaultDisplayStatus is VaultStatus.NeedsReview && !string.IsNullOrEmpty(MediaItem.ReviewTrigger))
                         {
                             <div class="vdd-review-banner">
                                 <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 16px;" />
@@ -445,216 +461,88 @@
                 </div>
             </DrawerSection>
 
-            <DrawerSection Title="Status" Icon="@Icons.Material.Outlined.Info">
-                <div class="vdd-status">
-                    <div class="vdd-status-row">
-                        <div class="vdd-lifecycle-card">
-                            <span class="vdd-field-label">@L["VaultDetail_FieldAdded"]</span>
-                            <span class="vdd-lifecycle-value vdd-mono">@MediaItem.CreatedAt.ToString("MMM dd, HH:mm")</span>
+            @* ── File Info section ── *@
+            <DrawerSection Title="File Info" Icon="@Icons.Material.Outlined.InsertDriveFile" DefaultOpen="false">
+                <div class="vdd-metadata-list">
+                    @if (MediaItem.FileSizeBytes.HasValue)
+                    {
+                        <div class="vdd-claim-row">
+                            <span class="vdd-field-label">Size</span>
+                            <span class="vdd-field-value">@VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)</span>
+                            <span class="vdd-claim-confidence" style="color: transparent;">—</span>
                         </div>
-                        @if (MediaItem.FileSizeBytes.HasValue)
+                    }
+                    @if (_claimsLoading)
+                    {
+                        <div style="padding: 8px 0; text-align: center;">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                        </div>
+                    }
+                    else
+                    {
+                        var fileClaims = _claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)).ToList();
+                        if (fileClaims.Count == 0 && !MediaItem.FileSizeBytes.HasValue)
                         {
-                            <div class="vdd-lifecycle-card">
-                                <span class="vdd-field-label">Size</span>
-                                <span class="vdd-lifecycle-value vdd-mono">@VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)</span>
-                            </div>
-                        }
-                    </div>
-                </div>
-            </DrawerSection>
-
-            <DrawerSection Title="Metadata" Icon="@Icons.Material.Outlined.Description" DefaultOpen="false">
-                <div class="vdd-metadata">
-                    <div class="vdd-metadata-tabs">
-                        <button class="vdd-meta-tab @(_metadataTab == "file" ? "vdd-meta-tab--active" : "")"
-                                @onclick='() => _metadataTab = "file"'>
-                            File
-                        </button>
-                        <button class="vdd-meta-tab @(_metadataTab == "provider" ? "vdd-meta-tab--active" : "")"
-                                @onclick='() => _metadataTab = "provider"'>
-                            Provider
-                        </button>
-                    </div>
-                    <div class="vdd-metadata-list">
-                        @if (_claimsLoading)
-                        {
-                            <div style="padding: 8px 0; text-align: center;">
-                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
-                            </div>
-                        }
-                        else if (_claims.Count == 0)
-                        {
-                            <p class="vdd-stage-hint">No metadata claims recorded yet.</p>
+                            <p class="vdd-stage-hint">No file metadata extracted yet.</p>
                         }
                         else
                         {
-                            var filteredClaims = _metadataTab == "file"
-                                ? _claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)).ToList()
-                                : _claims.Where(c => !VaultHelpers.IsFileSource(c.ProviderId) && !VaultHelpers.IsUserSource(c.ProviderId)).ToList();
-                            if (filteredClaims.Count == 0)
+                            foreach (var group in fileClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
                             {
-                                <p class="vdd-stage-hint">No @(_metadataTab == "file" ? "file" : "provider") claims for this item.</p>
-                            }
-                            else
-                            {
-                                foreach (var group in filteredClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
-                                {
-                                    var bestClaim = group.OrderByDescending(c => c.Confidence).First();
-                                    <div class="vdd-claim-row">
-                                        <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                        <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
-                                        <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
-                                    </div>
-                                }
+                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                <div class="vdd-claim-row">
+                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                    <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
+                                    <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
+                                </div>
                             }
                         }
-                    </div>
+                    }
+                </div>
+            </DrawerSection>
+
+            @* ── Provider Claims section ── *@
+            <DrawerSection Title="Provider Claims" Icon="@Icons.Material.Outlined.Cloud" DefaultOpen="false">
+                <div class="vdd-metadata-list">
+                    @if (_claimsLoading)
+                    {
+                        <div style="padding: 8px 0; text-align: center;">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                        </div>
+                    }
+                    else
+                    {
+                        var providerClaims = _claims.Where(c => !VaultHelpers.IsFileSource(c.ProviderId) && !VaultHelpers.IsUserSource(c.ProviderId)).ToList();
+                        if (providerClaims.Count == 0)
+                        {
+                            <p class="vdd-stage-hint">No provider claims recorded yet.</p>
+                        }
+                        else
+                        {
+                            foreach (var group in providerClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                            {
+                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                <div class="vdd-claim-row">
+                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                    <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
+                                    <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
+                                </div>
+                            }
+                        }
+                    }
                 </div>
             </DrawerSection>
         }
         else if (Person is not null)
         {
-            @* ── Person Sections ── *@
-            <DrawerSection Title="@L["VaultDetail_SectionLibraryPresence"]" Icon="@Icons.Material.Outlined.LibraryBooks">
-                @if (_personWorks is { Count: > 0 })
-                {
-                    <div class="vdd-presence-list">
-                        @foreach (var work in _personWorks)
-                        {
-                            <div class="vdd-presence-item">
-                                <span class="vdd-presence-title">@work.DisplayName</span>
-                                @if (!string.IsNullOrEmpty(work.PrimaryMediaType))
-                                {
-                                    <span class="vdd-presence-type" style="color: @VaultHelpers.GetMediaTypeColor(work.PrimaryMediaType);">
-                                        @VaultHelpers.FormatMediaType(work.PrimaryMediaType)
-                                    </span>
-                                }
-                            </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <p class="vdd-empty-hint">@L["VaultDetail_HintPersonPresence"]</p>
-                }
-            </DrawerSection>
+            @* ── Person: delegate to PersonBiographyDrawer ── *@
+            <PersonBiographyDrawer Person="@Person"
+                                   Aliases="@_aliases"
+                                   PersonWorks="@_personWorks"
+                                   PersonCharacterRoles="@_personCharacterRoles"
+                                   OnPersonAliasClicked="@OnPersonAliasClicked" />
 
-            <DrawerSection Title="@L["VaultDetail_SectionLinkedIdentities"]" Icon="@Icons.Material.Outlined.Fingerprint">
-                <div class="vdd-identities">
-                    <div class="vdd-identity-group">
-                        <span class="vdd-field-label">@(Person.IsPseudonym ? L["VaultDetail_FieldRealPeople"] : L["VaultDetail_FieldPenNames"])</span>
-                        @if (_aliases is not null && _aliases.Aliases.Count > 0)
-                        {
-                            <div class="vdd-identity-items">
-                                @foreach (var alias in _aliases.Aliases.OrderByDescending(a => !string.IsNullOrEmpty(a.WikidataQid)))
-                                {
-                                    <button class="vdd-identity-link" @onclick="() => OnPersonAliasClicked.InvokeAsync(alias.Id)">
-                                        <div class="vdd-alias-avatar">
-                                            @if (!string.IsNullOrEmpty(alias.HeadshotUrl))
-                                            {
-                                                <img src="@alias.HeadshotUrl" alt="@alias.Name" class="vdd-alias-avatar-img" loading="lazy" />
-                                            }
-                                            else
-                                            {
-                                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
-                                            }
-                                        </div>
-                                        <div class="vdd-alias-info">
-                                            <span class="vdd-alias-name">@alias.Name</span>
-                                            <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
-                                        </div>
-                                    </button>
-                                }
-                            </div>
-                        }
-                        else
-                        {
-                            <p class="vdd-empty-hint">@L["VaultDetail_HintPenNames"]</p>
-                        }
-                    </div>
-                </div>
-            </DrawerSection>
-
-            @* Character Roles *@
-            @if (_personCharacterRoles.Count > 0)
-            {
-                <DrawerSection Title="@L["VaultDetail_SectionCharacterRoles"]" Icon="@Icons.Material.Outlined.TheaterComedy">
-                    @{
-                        var rolesByUniverse = _personCharacterRoles
-                            .GroupBy(r => r.UniverseLabel ?? "Unknown Universe")
-                            .OrderBy(g => g.Key)
-                            .ToList();
-                    }
-                    @foreach (var univGroup in rolesByUniverse)
-                    {
-                        <div class="vdd-role-universe-group">
-                            <span class="vdd-role-universe-label">@univGroup.Key</span>
-                            <div class="vdd-roles-row">
-                                @foreach (var role in univGroup)
-                                {
-                                    <div class="vdd-role-item">
-                                        <div class="vdd-character-avatar vdd-character-avatar--sm">
-                                            @if (!string.IsNullOrEmpty(role.PortraitUrl))
-                                            {
-                                                <img src="@role.PortraitUrl" alt="@role.CharacterName" loading="lazy" />
-                                            }
-                                            else
-                                            {
-                                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
-                                            }
-                                        </div>
-                                        <span class="vdd-character-name" style="font-size: 11px;">@role.CharacterName</span>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    }
-                </DrawerSection>
-            }
-
-            <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
-                <div class="vdd-assets">
-                    @* Headshot *@
-                    <div class="vdd-asset-row">
-                        <span class="vdd-asset-label">@L["VaultDetail_AssetHeadshot"]</span>
-                        <div class="vdd-asset-items">
-                            @if (!string.IsNullOrEmpty(Person.HeadshotUrl))
-                            {
-                                <div class="vdd-asset-filled">
-                                    <img src="@Person.HeadshotUrl" alt="Headshot" class="vdd-asset-img" />
-                                    <span class="vdd-asset-source">@L["VaultDetail_AssetSourceProvider"]</span>
-                                </div>
-                            }
-                            <div class="vdd-asset-slot">
-                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
-                                <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
-                            </div>
-                        </div>
-                    </div>
-                    @* Remaining types as upload-only *@
-                    @foreach (var assetType in new[] { "Banner", "Logo", "Backdrop" })
-                    {
-                        <div class="vdd-asset-row">
-                            <span class="vdd-asset-label">@assetType</span>
-                            <div class="vdd-asset-items">
-                                <div class="vdd-asset-slot">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
-                                    <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
-                                </div>
-                            </div>
-                        </div>
-                    }
-                </div>
-            </DrawerSection>
-
-            <DrawerSection Title="@L["VaultDetail_SectionLifecycle"]" Icon="@Icons.Material.Outlined.CalendarToday">
-                <div class="vdd-lifecycle">
-                    <div class="vdd-lifecycle-card" style="flex: 1;">
-                        <span class="vdd-field-label">@L["VaultDetail_FieldLastSync"]</span>
-                        <span class="vdd-lifecycle-value vdd-mono">@L["VaultDetail_ValueAutoManaged"]</span>
-                    </div>
-                </div>
-            </DrawerSection>
+            @* Old person sections removed — all person content is now in PersonBiographyDrawer *@
         }
         else if (Universe is not null)
         {
@@ -865,7 +753,7 @@
     private List<UniverseCandidateDto> _wikidataSearchResults = [];
     private UniverseCandidateDto? _pendingWikidataMatch;
     private bool _confirmingWikidataMatch;
-    private string _metadataTab = "file";
+    // _metadataTab removed — Metadata section split into File Info + Provider Claims
     private List<ClaimHistoryDto> _claims = [];
     private bool _claimsLoading;
 
@@ -919,7 +807,6 @@
         _wikidataSearchResults = [];
         _pendingWikidataMatch = null;
         _confirmingWikidataMatch = false;
-        _metadataTab = "file";
         _claims = [];
         _claimsLoading = false;
         _universeHealth = null;
@@ -2743,5 +2630,46 @@
         font-family: 'JetBrains Mono', monospace;
         color: rgba(255,255,255,0.2);
         flex-shrink: 0;
+    }
+
+    /* ── Added date subtitle ── */
+    .vdd-added-date {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(255,255,255,0.25);
+        margin-top: 6px;
+        margin-bottom: 0;
+    }
+
+    /* ── NeedsReview problem banner ── */
+    .vdd-problem-banner {
+        background: rgba(239, 159, 39, 0.08);
+        border-left: 3px solid #EF9F27;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-problem-banner-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .vdd-problem-banner-msg {
+        font-size: 13px;
+        font-weight: 700;
+        color: #EF9F27;
+        line-height: 1.4;
+    }
+
+    .vdd-problem-banner-hint {
+        font-size: 11px;
+        color: rgba(255,255,255,0.4);
+        margin: 0;
+        padding-left: 26px;
     }
 </style>

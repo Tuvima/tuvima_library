@@ -38,7 +38,6 @@ namespace MediaEngine.Providers.Services;
 public sealed class RecursiveIdentityService : IRecursiveIdentityService
 {
     private readonly IPersonRepository _personRepo;
-    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<RecursiveIdentityService> _logger;
 
     // Prevents concurrent threads from creating duplicate Person rows for the
@@ -49,15 +48,12 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
     public RecursiveIdentityService(
         IPersonRepository personRepo,
-        IConfigurationLoader configLoader,
         ILogger<RecursiveIdentityService> logger)
     {
         ArgumentNullException.ThrowIfNull(personRepo);
-        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
-        _personRepo   = personRepo;
-        _configLoader = configLoader;
-        _logger       = logger;
+        _personRepo = personRepo;
+        _logger     = logger;
     }
 
     // ── IRecursiveIdentityService ─────────────────────────────────────────────
@@ -202,41 +198,18 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
     /// <summary>
     /// Creates the <c>.people/{Name} ({QID})/</c> directory under the configured
-    /// library root, where downstream services write headshots and character images.
+    /// library root. Directory creation is deferred to the enrichment service
+    /// (MetadataHarvestingService.PersistPersonStorageAsync), which creates the
+    /// person image directory only when a headshot image is actually saved.
+    /// This prevents empty directories from accumulating for unenriched persons.
     ///
-    /// Only creates the folder when the Wikidata QID is known — this gives a
-    /// stable, collision-free name.  When the QID is not yet resolved (enrichment
-    /// pending), folder creation is deferred: the enrichment service will create
-    /// the folder once the QID is available.
-    ///
-    /// This method is intentionally non-throwing: folder creation failures are logged
-    /// at Debug level and do not abort the ingestion pipeline.
+    /// This method is intentionally a no-op: it exists as a hook for callers
+    /// that previously triggered folder creation at entity-creation time.
     /// </summary>
     private void EnsurePersonFolder(Domain.Entities.Person person)
     {
-        try
-        {
-            var libraryRoot = _configLoader.LoadCore().LibraryRoot;
-            if (string.IsNullOrWhiteSpace(libraryRoot)) return;
-
-            // Only create folder when QID is known — stable, collision-free name.
-            // Enrichment will create the folder later when QID is resolved.
-            if (string.IsNullOrWhiteSpace(person.WikidataQid))
-            {
-                _logger.LogDebug(
-                    "Skipping .people/ folder for '{Name}' — QID not yet known", person.Name);
-                return;
-            }
-
-            var folderName = $"{person.Name} ({person.WikidataQid})";
-            var personFolder = Path.Combine(libraryRoot, ".people", folderName);
-            Directory.CreateDirectory(personFolder);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex,
-                "Failed to create .people/ folder for '{Name}'", person.Name);
-        }
+        // No-op: person image directory is created lazily when a headshot is downloaded,
+        // not at entity-creation time. See MetadataHarvestingService.PersistPersonStorageAsync.
     }
 
     /// <summary>

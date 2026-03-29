@@ -79,7 +79,7 @@ public sealed class IngestionOptions
     };
 
     /// <summary>
-    /// Path to the staging directory: {LibraryRoot}/.staging/.
+    /// Path to the staging directory: {LibraryRoot}/.data/staging/.
     /// All ingested files land here first, awaiting hydration and promotion
     /// to the organised library. Files that cannot be identified remain here
     /// for manual review.
@@ -87,7 +87,7 @@ public sealed class IngestionOptions
     /// </summary>
     public string StagingPath => string.IsNullOrWhiteSpace(LibraryRoot)
         ? string.Empty
-        : Path.Combine(LibraryRoot, ".staging");
+        : Path.Combine(LibraryRoot, ".data", "staging");
 
     /// <summary>
     /// Backward-compatible alias for <see cref="StagingPath"/>.

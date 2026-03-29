@@ -216,8 +216,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogWarning(ex, "Startup reconciliation failed — continuing with scan");
         }
 
-        // ── Step 2b: Migrate .orphans → .staging ──────────────────────────
-        // One-time migration: if the legacy .orphans directory exists and .staging
+        // ── Step 2b: Migrate .orphans → .data/staging ──────────────────────────
+        // One-time migration: if the legacy .orphans directory exists and .data/staging
         // does not, rename it. Also update DB records that reference the old path.
         await MigrateOrphansToStagingAsync(stoppingToken).ConfigureAwait(false);
 
@@ -1197,13 +1197,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // in HydrationPipelineService (runs after Stage 1 with more context).
 
         // Step 11: staging-first flow.
-        // ALL files go to .staging/ first — the Library only receives files that
+        // ALL files go to .data/staging/ first — the Library only receives files that
         // have been hydrated and promoted by AutoOrganizeService.
-        // Subcategory is chosen based on confidence and metadata quality:
-        //   pending          — high-confidence, awaiting hydration before library promotion
-        //   low-confidence   — below threshold, needs more metadata
-        //   unidentifiable   — deeply broken (< 0.40), needs manual review
-        //   other            — resolved to "Other" category (unknown media type)
+        // Files land in a flat per-item folder ({assetId12}/); status is tracked in the
+        // database. The "rejected/" subfolder is the only named subdirectory.
         bool hasUserLock = claims.Any(c => c.IsUserLocked);
 
         // Calculate the relative path once for the gate (needed for the "Other" check).
@@ -1718,18 +1715,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             foreach (var filePath in Directory.EnumerateFiles(directory, "*.*", searchOption))
             {
-                // Skip files inside the staging directory — they are awaiting
-                // hydration/review and must not be re-ingested automatically.
-                if (filePath.Contains(Path.DirectorySeparatorChar + ".staging" + Path.DirectorySeparatorChar,
+                // Skip files inside the .data directory — staging, images, and database
+                // live here and must not be re-ingested automatically.
+                if (filePath.Contains(Path.DirectorySeparatorChar + ".data" + Path.DirectorySeparatorChar,
                         StringComparison.OrdinalIgnoreCase)
-                    || filePath.Contains('/' + ".staging" + '/', StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                // Skip files inside the .images directory — these are artwork managed by
-                // ImagePathService and are never media files.
-                if (filePath.Contains(Path.DirectorySeparatorChar + ".images" + Path.DirectorySeparatorChar,
-                        StringComparison.OrdinalIgnoreCase)
-                    || filePath.Contains('/' + ".images" + '/', StringComparison.OrdinalIgnoreCase))
+                    || filePath.Contains('/' + ".data" + '/', StringComparison.OrdinalIgnoreCase))
                     continue;
 
                 // Skip non-media files (sidecar data, cover art, manifests, etc.)
@@ -1823,16 +1813,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 {
                     if (ct.IsCancellationRequested) break;
 
-                    // Skip files inside the staging directory.
-                    if (filePath.Contains(Path.DirectorySeparatorChar + ".staging" + Path.DirectorySeparatorChar,
+                    // Skip files inside the .data directory (staging, images, database).
+                    if (filePath.Contains(Path.DirectorySeparatorChar + ".data" + Path.DirectorySeparatorChar,
                             StringComparison.OrdinalIgnoreCase)
-                        || filePath.Contains('/' + ".staging" + '/', StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    // Skip files inside the .images directory.
-                    if (filePath.Contains(Path.DirectorySeparatorChar + ".images" + Path.DirectorySeparatorChar,
-                            StringComparison.OrdinalIgnoreCase)
-                        || filePath.Contains('/' + ".images" + '/', StringComparison.OrdinalIgnoreCase))
+                        || filePath.Contains('/' + ".data" + '/', StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     // Skip non-media files (sidecar data, cover art, manifests).
@@ -2042,12 +2026,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     }
 
     // =========================================================================
-    // .orphans → .staging migration
+    // .orphans → .data/staging migration
     // =========================================================================
 
     /// <summary>
     /// One-time migration: renames the legacy <c>.orphans/</c> directory to
-    /// <c>.staging/</c> and updates all <c>MediaAsset.FilePathRoot</c> records
+    /// <c>.data/staging/</c> and updates all <c>MediaAsset.FilePathRoot</c> records
     /// that reference the old path.
     /// </summary>
     private async Task MigrateOrphansToStagingAsync(CancellationToken ct)
@@ -2065,7 +2049,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             Directory.Move(legacyPath, stagingPath);
             _logger.LogInformation(
-                "Migrated .orphans → .staging: {Legacy} → {Staging}",
+                "Migrated .orphans → .data/staging: {Legacy} → {Staging}",
                 legacyPath, stagingPath);
 
             // Update DB records that reference the old .orphans path.
@@ -2078,8 +2062,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 {
                     if (asset.FilePathRoot.Contains(".orphans", StringComparison.OrdinalIgnoreCase))
                     {
+                        // Replace .orphans prefix with the current StagingPath.
+                        var oldPrefix = Path.Combine(_options.LibraryRoot, ".orphans");
                         var newPath = asset.FilePathRoot.Replace(
-                            ".orphans", ".staging", StringComparison.OrdinalIgnoreCase);
+                            oldPrefix, stagingPath, StringComparison.OrdinalIgnoreCase);
                         await _assetRepo.UpdateFilePathAsync(asset.Id, newPath, ct)
                             .ConfigureAwait(false);
                         updated++;
@@ -2089,18 +2075,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
             if (updated > 0)
                 _logger.LogInformation(
-                    "Updated {Count} asset path(s) from .orphans to .staging", updated);
+                    "Updated {Count} asset path(s) from .orphans to .data/staging", updated);
 
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
                 ActionType = Domain.Enums.SystemActionType.PathUpdated,
                 EntityType = "Migration",
-                Detail     = $"Migrated .orphans → .staging ({updated} asset path(s) updated)",
+                Detail     = $"Migrated .orphans → .data/staging ({updated} asset path(s) updated)",
             }, ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to migrate .orphans → .staging");
+            _logger.LogWarning(ex, "Failed to migrate .orphans → .data/staging");
         }
     }
 
@@ -2109,7 +2095,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // =========================================================================
 
     /// <summary>
-    /// Moves a file from the Watch Folder to the staging directory ({LibraryRoot}/.staging/).
+    /// Moves a file from the Watch Folder to the staging directory ({LibraryRoot}/.data/staging/).
+    /// All files land in a flat per-item subdirectory using the first 12 chars of the asset GUID.
+    /// Status is tracked in the database — no subcategory subfolders on disk (except "rejected/").
     /// Returns the new path on success, or <see langword="null"/> when LibraryRoot
     /// is not configured or the move fails.
     /// </summary>
@@ -2126,17 +2114,23 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     _options.WatchDirectory, StringComparison.OrdinalIgnoreCase))
             return null;
 
-        // Create a per-item subdirectory using the first 12 chars of the asset GUID
-        // so that companion files (cover.jpg, hero.jpg) don't collide across items.
+        // "rejected" is the only named subcategory on disk — all other statuses are
+        // tracked in the database. All non-rejected files go into a flat per-item
+        // subdirectory using the first 12 chars of the asset GUID.
         string stagingSubDir;
-        if (assetId.HasValue)
+        bool isRejected = string.Equals(subcategory, "rejected", StringComparison.OrdinalIgnoreCase);
+        if (isRejected)
+        {
+            stagingSubDir = Path.Combine(_options.StagingPath, "rejected");
+        }
+        else if (assetId.HasValue)
         {
             var itemDir = assetId.Value.ToString("N")[..12];
-            stagingSubDir = Path.Combine(_options.StagingPath, subcategory, itemDir);
+            stagingSubDir = Path.Combine(_options.StagingPath, itemDir);
         }
         else
         {
-            stagingSubDir = Path.Combine(_options.StagingPath, subcategory);
+            stagingSubDir = _options.StagingPath;
         }
         Directory.CreateDirectory(stagingSubDir);
 
@@ -2154,7 +2148,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             {
                 ActionType = Domain.Enums.SystemActionType.MovedToStaging,
                 EntityType = "MediaAsset",
-                Detail     = $"Staged {Path.GetFileName(currentPath)} → {subcategory}/",
+                Detail     = $"Staged {Path.GetFileName(currentPath)} ({subcategory})",
             }, ct).ConfigureAwait(false);
 
             return destPath;

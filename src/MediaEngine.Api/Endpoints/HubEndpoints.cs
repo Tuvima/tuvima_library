@@ -29,9 +29,9 @@ public static class HubEndpoints
                     SELECT DISTINCT e.work_id
                     FROM editions e
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE ma.file_path_root NOT LIKE '%/.staging/%'
-                      AND ma.file_path_root NOT LIKE '%\.staging\%'
-                      AND ma.file_path_root NOT LIKE '%/.staging\%'
+                    WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
+                      AND ma.file_path_root NOT LIKE '%\.data\staging\%'
+                      AND ma.file_path_root NOT LIKE '%/.data\staging/%'
                     """;
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
@@ -92,9 +92,9 @@ public static class HubEndpoints
                     SELECT DISTINCT e.work_id
                     FROM editions e
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE ma.file_path_root NOT LIKE '%/.staging/%'
-                      AND ma.file_path_root NOT LIKE '%\.staging\%'
-                      AND ma.file_path_root NOT LIKE '%/.staging\%'
+                    WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
+                      AND ma.file_path_root NOT LIKE '%\.data\staging\%'
+                      AND ma.file_path_root NOT LIKE '%/.data\staging/%'
                     """;
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())

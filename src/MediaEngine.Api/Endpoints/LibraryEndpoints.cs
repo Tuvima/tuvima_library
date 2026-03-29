@@ -28,9 +28,9 @@ public static class LibraryEndpoints
                 JOIN editions e ON e.work_id = w.id
                 JOIN media_assets ma ON ma.edition_id = e.id
                 LEFT JOIN canonical_values cv ON cv.entity_id = ma.id
-                WHERE ma.file_path_root NOT LIKE '%/.staging/%'
-                  AND ma.file_path_root NOT LIKE '%\.staging\%'
-                  AND ma.file_path_root NOT LIKE '%/.staging\%'
+                WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
+                  AND ma.file_path_root NOT LIKE '%\.data\staging\%'
+                  AND ma.file_path_root NOT LIKE '%/.data\staging/%'
                 ORDER BY w.id, cv.key
                 """;
 

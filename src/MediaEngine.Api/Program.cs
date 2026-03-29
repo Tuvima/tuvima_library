@@ -144,9 +144,16 @@ DapperConfiguration.Configure();
 
 // TUVIMA_DB_PATH overrides the config value — used by Docker and the installer
 // to pin the database to a persistent volume outside the container image.
+// Default: .data/database/library.db (relative to the working directory).
 string dbPath = Environment.GetEnvironmentVariable("TUVIMA_DB_PATH")
              ?? config["MediaEngine:DatabasePath"]
-             ?? "library.db";
+             ?? Path.Combine(".data", "database", "library.db");
+// Ensure the database directory exists before opening the connection.
+{
+    var dbDir = Path.GetDirectoryName(Path.GetFullPath(dbPath));
+    if (!string.IsNullOrEmpty(dbDir))
+        Directory.CreateDirectory(dbDir);
+}
 builder.Services.AddSingleton<IDatabaseConnection>(sp =>
 {
     var db = new DatabaseConnection(dbPath);
@@ -236,7 +243,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     // variables without ever editing a config file.
     //   TUVIMA_WATCH_FOLDER   → where to pick up new files
     //   TUVIMA_LIBRARY_ROOT   → where organised files are stored
-    //   Note: staging area is always {LibraryRoot}/.staging/ — not independently configurable
+    //   Note: staging area is always {LibraryRoot}/.data/staging/ — not independently configurable
     {
         string? envWatch   = Environment.GetEnvironmentVariable("TUVIMA_WATCH_FOLDER");
         string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
@@ -317,8 +324,25 @@ catch
     // No libraries.json or directory creation failed — non-fatal; directories will be created on demand.
 }
 
+// Auto-create the .data/ subdirectories under LibraryRoot at startup.
+// These consolidate staging, images, and database under a single hidden folder.
+try
+{
+    var coreForDataDir = configLoader.LoadCore();
+    if (!string.IsNullOrWhiteSpace(coreForDataDir.LibraryRoot))
+    {
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "staging"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "images"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "database"));
+    }
+}
+catch
+{
+    // LibraryRoot not yet configured or directory creation failed — non-fatal.
+}
+
 // ── Image Path Service ────────────────────────────────────────────────────────
-// Centralizes image path resolution. All artwork lives under {libraryRoot}/.images/
+// Centralizes image path resolution. All artwork lives under {libraryRoot}/.data/images/
 // organized by entity type and QID. Registered as a singleton so all services that
 // read or write cover art and hero banners use the same root path.
 builder.Services.AddSingleton(sp =>

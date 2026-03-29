@@ -5,6 +5,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
@@ -71,6 +72,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IImageCacheRepository _imageCache;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IQidLabelRepository _qidLabelRepo;
+    private readonly ImagePathService? _imagePathService;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
     // ── Constructor ───────────────────────────────────────────────────────────
@@ -90,7 +92,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IImageCacheRepository imageCache,
         ISystemActivityRepository activityRepo,
         IQidLabelRepository qidLabelRepo,
-        ILogger<MetadataHarvestingService> logger)
+        ILogger<MetadataHarvestingService> logger,
+        ImagePathService? imagePathService = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -122,6 +125,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _imageCache           = imageCache;
         _activityRepo         = activityRepo;
         _qidLabelRepo         = qidLabelRepo;
+        _imagePathService     = imagePathService;
         _logger               = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -811,16 +815,14 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     }
 
     /// <summary>
-    /// Downloads headshot from Wikimedia Commons and ensures the person folder
-    /// exists under <c>{LibraryRoot}/.people/{Name} ({QID})/</c>.
+    /// Downloads headshot from Wikimedia Commons and saves it to the person's image
+    /// directory under <c>{LibraryRoot}/.data/images/people/{QID}/headshot.jpg</c>
+    /// (via <see cref="ImagePathService"/>). The directory is created only when a
+    /// headshot URL is available — no empty directories are created during entity
+    /// creation without an image.
     ///
-    /// Folder naming uses <c>Name (QID)</c> format when a Wikidata QID is available
-    /// (post-enrichment). Falls back to sanitized name or GUID before enrichment.
-    /// QID guarantees uniqueness — no collision detection logic needed.
-    ///
-    /// Person metadata is stored exclusively in the database; the .people/ folder
-    /// holds only the headshot image. person.xml sidecars on disk are read-only
-    /// (for Great Inhale recovery) and are no longer written by the Engine.
+    /// Person metadata is stored exclusively in the database; the images directory
+    /// holds only the headshot image.
     /// </summary>
     private async Task PersistPersonStorageAsync(
         Guid personId,
@@ -828,96 +830,77 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         string? headshotUrl,
         CancellationToken ct)
     {
+        // Skip entirely if there is no headshot URL — no directory is created.
+        if (string.IsNullOrEmpty(headshotUrl))
+            return;
+
+        // Both Name and QID are required to resolve a stable image path.
+        if (person is null ||
+            string.IsNullOrWhiteSpace(person.WikidataQid) ||
+            string.IsNullOrWhiteSpace(person.Name))
+            return;
+
         try
         {
-            var core = _configLoader.LoadCore();
-            if (string.IsNullOrWhiteSpace(core.LibraryRoot))
-                return;
-
-            var peopleRoot = Path.Combine(core.LibraryRoot, ".people");
-            Directory.CreateDirectory(peopleRoot);
-
-            // Resolve the target folder name: "Name (QID)" — the canonical format.
-            // Both Name and QID are required; without QID we cannot build a stable name.
-            if (person is null ||
-                string.IsNullOrWhiteSpace(person.WikidataQid) ||
-                string.IsNullOrWhiteSpace(person.Name))
+            string personFolder;
+            if (_imagePathService is not null)
             {
-                // Skip folder creation — will be handled when QID is resolved.
-                // Still attempt headshot download below if folder already exists.
-                return;
+                // Use centralized .data/images/people/{QID}/ path.
+                personFolder = _imagePathService.GetPersonImageDir(person.WikidataQid);
             }
-
-            var folderName = $"{SanitizeForFilesystem(person.Name)} ({person.WikidataQid})";
-            var personFolder = Path.Combine(peopleRoot, folderName);
-
-            // ── Rename detection: migrate legacy folder formats to Name (QID). ──
-            if (!Directory.Exists(personFolder))
+            else
             {
-                // Check for tmp-{personId} folder from pre-QID ingestion.
-                var tmpFolder = Path.Combine(peopleRoot, $"tmp-{personId}");
-                if (Directory.Exists(tmpFolder))
-                {
-                    Directory.Move(tmpFolder, personFolder);
-                    await LogPersonFolderRenamedAsync(personId, folderName, ct)
-                        .ConfigureAwait(false);
-                }
-                // Check for bare QID folder (old format without Name prefix).
-                else
-                {
-                    var bareQidFolder = Path.Combine(peopleRoot, person.WikidataQid);
-                    if (Directory.Exists(bareQidFolder))
-                    {
-                        Directory.Move(bareQidFolder, personFolder);
-                        await LogPersonFolderRenamedAsync(personId, folderName, ct)
-                            .ConfigureAwait(false);
-                    }
-                }
+                // Legacy fallback: .people/{Name} ({QID})/ under LibraryRoot.
+                var core = _configLoader.LoadCore();
+                if (string.IsNullOrWhiteSpace(core.LibraryRoot))
+                    return;
+                var folderName = $"{SanitizeForFilesystem(person.Name)} ({person.WikidataQid})";
+                personFolder = Path.Combine(core.LibraryRoot, ".people", folderName);
             }
-
-            Directory.CreateDirectory(personFolder);
 
             // Download headshot if URL is available and file doesn't exist.
             var headshotPath = Path.Combine(personFolder, "headshot.jpg");
-            if (!string.IsNullOrEmpty(headshotUrl) && !File.Exists(headshotPath))
+            if (File.Exists(headshotPath))
+                return;
+
+            try
             {
-                try
+                using var client = _httpFactory.CreateClient("headshot_download");
+                var bytes = await client.GetByteArrayAsync(headshotUrl, ct)
+                    .ConfigureAwait(false);
+
+                if (bytes.Length > 0)
                 {
-                    using var client = _httpFactory.CreateClient("headshot_download");
-                    var bytes = await client.GetByteArrayAsync(headshotUrl, ct)
+                    var hash = Convert.ToHexStringLower(
+                        System.Security.Cryptography.SHA256.HashData(bytes));
+                    var cached = await _imageCache.FindByHashAsync(hash, ct)
                         .ConfigureAwait(false);
 
-                    if (bytes.Length > 0)
+                    // Create the directory only when we have bytes to write.
+                    Directory.CreateDirectory(personFolder);
+
+                    if (cached is not null && File.Exists(cached))
                     {
-                        var hash = Convert.ToHexStringLower(
-                            System.Security.Cryptography.SHA256.HashData(bytes));
-                        var cached = await _imageCache.FindByHashAsync(hash, ct)
+                        File.Copy(cached, headshotPath, overwrite: false);
+                    }
+                    else
+                    {
+                        await File.WriteAllBytesAsync(headshotPath, bytes, ct)
                             .ConfigureAwait(false);
-
-                        if (cached is not null && File.Exists(cached))
-                        {
-                            File.Copy(cached, headshotPath, overwrite: false);
-                        }
-                        else
-                        {
-                            await File.WriteAllBytesAsync(headshotPath, bytes, ct)
-                                .ConfigureAwait(false);
-                            await _imageCache.InsertAsync(hash, headshotPath, headshotUrl, ct)
-                                .ConfigureAwait(false);
-                        }
-
-                        await _personRepo.UpdateLocalHeadshotPathAsync(personId, headshotPath, ct)
+                        await _imageCache.InsertAsync(hash, headshotPath, headshotUrl, ct)
                             .ConfigureAwait(false);
                     }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex,
-                        "Headshot download failed for person {Id}; continuing",
-                        personId);
+
+                    await _personRepo.UpdateLocalHeadshotPathAsync(personId, headshotPath, ct)
+                        .ConfigureAwait(false);
                 }
             }
-
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Headshot download failed for person {Id}; continuing",
+                    personId);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -965,13 +948,28 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     }
 
     /// <summary>
-    /// Deletes the person folder from disk during QID-based deduplication.
-    /// Searches .people/ for any folder owned by the given person (via person.xml ID).
+    /// Deletes the person image directory from disk during QID-based deduplication.
+    /// When ImagePathService is active, deletes the .data/images/people/{QID}/ directory.
+    /// Legacy fallback: searches .people/ for any folder owned by the given person (via person.xml ID).
     /// </summary>
     private void DeletePersonFolder(Person person)
     {
         try
         {
+            // When ImagePathService is active and QID is known, delete the canonical image dir.
+            if (_imagePathService is not null
+                && !string.IsNullOrWhiteSpace(person.WikidataQid))
+            {
+                var qidDir = _imagePathService.GetPersonImageDir(person.WikidataQid);
+                if (Directory.Exists(qidDir))
+                {
+                    Directory.Delete(qidDir, recursive: true);
+                    _logger.LogInformation("Deleted duplicate person image dir: {Dir}", qidDir);
+                }
+                return;
+            }
+
+            // Legacy fallback: search .people/ for a folder identified by person.xml.
             var core = _configLoader.LoadCore();
             if (string.IsNullOrWhiteSpace(core.LibraryRoot)) return;
 
@@ -1011,82 +1009,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         return new string(sanitized).TrimEnd('.', ' ');
     }
 
-    /// <summary>
-    /// Scans .people/ for an existing folder owned by this person (matched by
-    /// person.xml &lt;id&gt;) and renames it to the target path if found.
-    /// Returns <c>true</c> if a rename was performed.
-    /// </summary>
-    private bool TryRenameExistingPersonFolder(
-        string peopleRoot, Guid personId, string targetFolder)
-    {
-        try
-        {
-            foreach (var subDir in Directory.GetDirectories(peopleRoot))
-            {
-                if (string.Equals(subDir, targetFolder, StringComparison.OrdinalIgnoreCase))
-                    continue; // Already the target folder.
-
-                var xmlPath = Path.Combine(subDir, "person.xml");
-                var existingId = ReadPersonIdFromXml(xmlPath);
-                if (existingId == personId)
-                {
-                    // Found this person's old folder — rename it.
-                    var oldName = Path.GetFileName(subDir);
-                    var newName = Path.GetFileName(targetFolder);
-
-                    // Ensure target doesn't exist (collision detection handles this later).
-                    if (!Directory.Exists(targetFolder))
-                    {
-                        Directory.Move(subDir, targetFolder);
-
-                        // Update the local_headshot_path if it pointed to the old folder.
-                        var oldHeadshot = Path.Combine(subDir, "headshot.jpg");
-                        var newHeadshot = Path.Combine(targetFolder, "headshot.jpg");
-                        if (File.Exists(newHeadshot))
-                        {
-                            _personRepo.UpdateLocalHeadshotPathAsync(
-                                personId, newHeadshot, CancellationToken.None)
-                                .GetAwaiter().GetResult();
-                        }
-
-                        _logger.LogInformation(
-                            "Renamed person folder: '{OldName}' → '{NewName}'",
-                            oldName, newName);
-                        return true;
-                    }
-                }
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "Person folder rename failed for {PersonId}; continuing", personId);
-        }
-
-        return false;
-    }
-
-    /// <summary>
-    /// Logs a <see cref="SystemActionType.PersonFolderRenamed"/> activity entry.
-    /// </summary>
-    private async Task LogPersonFolderRenamedAsync(
-        Guid personId, string newName, CancellationToken ct)
-    {
-        try
-        {
-            await _activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.PersonFolderRenamed,
-                EntityId   = personId,
-                EntityType = "Person",
-                Detail     = $"Person folder renamed to \"{newName}\"",
-            }, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex, "Failed to log person folder rename activity");
-        }
-    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
