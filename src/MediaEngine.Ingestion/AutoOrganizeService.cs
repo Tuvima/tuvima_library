@@ -356,6 +356,17 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                                                   .ConfigureAwait(false);
 
             var heroCanonicals = new List<CanonicalValue>();
+
+            // Ensure cover_url canonical is set — it may be missing if the file
+            // lacked embedded cover art during ingestion but cover.jpg was later
+            // created by a provider download during hydration in staging.
+            heroCanonicals.Add(new CanonicalValue
+            {
+                EntityId = assetId, Key = "cover_url",
+                Value = $"/stream/{assetId}/cover",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            });
+
             if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
             {
                 heroCanonicals.Add(new CanonicalValue

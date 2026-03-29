@@ -1342,6 +1342,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-066: Provider health tracking + deferred enrichment failure classification.
         MigrateProviderHealth(conn);
 
+        // Migration M-067: Backfill missing cover_url canonical values.
+        // Assets that have a hero banner but no cover_url are missing thumbnails
+        // in the Vault because GenerateHeroBannerAsync did not previously write
+        // cover_url alongside hero. This one-time repair inserts the missing rows.
+        MigrateBackfillCoverUrl(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1909,6 +1915,35 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 WHERE failure_type IS NOT NULL;
             """;
         idx.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-067: Backfill missing <c>cover_url</c> canonical values.
+    /// Any asset with a <c>hero</c> canonical but no <c>cover_url</c> gets an
+    /// inserted cover_url pointing to <c>/stream/{assetId}/cover</c>.
+    /// </summary>
+    private static void MigrateBackfillCoverUrl(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR IGNORE INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted)
+            SELECT
+                cv_hero.entity_id,
+                'cover_url',
+                REPLACE(cv_hero.value, '/hero', '/cover'),
+                cv_hero.last_scored_at,
+                0
+            FROM canonical_values cv_hero
+            WHERE cv_hero.key = 'hero'
+              AND NOT EXISTS (
+                  SELECT 1 FROM canonical_values cv_cover
+                  WHERE cv_cover.entity_id = cv_hero.entity_id
+                    AND cv_cover.key = 'cover_url'
+              );
+            """;
+        var affected = cmd.ExecuteNonQuery();
+        if (affected > 0)
+            Console.WriteLine($"[M-067] Backfilled {affected} missing cover_url canonical values.");
     }
 
     /// <summary>
