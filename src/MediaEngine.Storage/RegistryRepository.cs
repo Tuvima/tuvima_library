@@ -239,8 +239,10 @@ public sealed class RegistryRepository : IRegistryRepository
                             WHERE e_r.work_id = wd.entity_id
                               AND mc_retail.provider_id != 'b3000003-d000-4000-8000-000000000004'
                               AND mc_retail.provider_id != 'local_filesystem'
+                              AND mc_retail.provider_id != 'a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f'
+                              AND mc_retail.provider_id != 'c9d8e7f6-a5b4-4321-fedc-0102030405c9'
                         ) THEN 'matched'
-                        WHEN rd.review_id IS NOT NULL AND rd.trigger = 'ArtworkUnconfirmed' THEN 'failed'
+                        WHEN rd.review_id IS NOT NULL AND rd.trigger IN ('RetailMatchFailed', 'ArtworkUnconfirmed') THEN 'failed'
                         ELSE 'none'
                     END AS retail_match,
                     wd.wikidata_qid,
