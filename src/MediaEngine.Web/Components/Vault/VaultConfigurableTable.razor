@@ -272,6 +272,11 @@ else
                                         <MudIcon Icon="@(SortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
                                                  Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
                                     }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.UnfoldMore"
+                                                 Style="font-size: 12px; margin-left: 4px; opacity: 0.25;" />
+                                    }
                                 </button>
                             }
                             else
@@ -876,10 +881,13 @@ else
         display: flex;
         align-items: center;
         gap: 16px;
-        padding: 0 8px;
+        padding: 10px 12px;
         margin-bottom: 12px;
         cursor: pointer;
         user-select: none;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
     }
 
     .vmt-group-label {
@@ -895,13 +903,6 @@ else
         flex: 1;
         height: 1px;
         background: rgba(255, 255, 255, 0.04);
-    }
-
-    .vmt-group-count {
-        font-size: 10px;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.2);
-        white-space: nowrap;
     }
 
     .vmt-empty {
@@ -944,13 +945,16 @@ else
     /* ── Needs Review pinned group ── */
     .vmt-group-header--review {
         background: rgba(239, 159, 39, 0.08);
+        border: 1px solid rgba(239, 159, 39, 0.2);
         border-left: 3px solid #EF9F27;
-        padding-left: 12px;
-        border-radius: 6px 6px 0 0;
     }
 
     .vmt-group-header--review .vmt-group-label {
         color: #EF9F27;
+    }
+
+    .vmt-group-header--review .vmt-group-count {
+        color: rgba(239, 159, 39, 0.7);
     }
 
     @@media (max-width: 768px) {

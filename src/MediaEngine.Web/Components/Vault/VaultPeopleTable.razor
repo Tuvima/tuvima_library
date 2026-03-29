@@ -15,25 +15,18 @@ else
         <table class="vpt-table">
             <thead>
                 <tr class="vpt-thead-row">
-                    <th class="vpt-th" style="width: 48px;"></th>
-                    <th class="vpt-th" style="width: 55%;">
+                    <th class="vpt-th" style="width: 60%;">
                         <button class="vpt-sort-header" @onclick="SortByName">
                             @L["VaultPeople_ColName"]
-                            @if (_activeSortKey == "name")
-                            {
-                                <MudIcon Icon="@(_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
-                                         Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
-                            }
+                            <MudIcon Icon="@(_activeSortKey == "name" ? (_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward) : Icons.Material.Filled.UnfoldMore)"
+                                     Style="@($"font-size: 12px; margin-left: 4px; opacity: {(_activeSortKey == "name" ? "0.7" : "0.25")};")" />
                         </button>
                     </th>
                     <th class="vpt-th vpt-th--right" style="width: 30%;">
                         <button class="vpt-sort-header vpt-sort-header--right" @onclick="SortByPresence">
                             @L["VaultPeople_ColPresence"]
-                            @if (_activeSortKey == "presence")
-                            {
-                                <MudIcon Icon="@(_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
-                                         Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
-                            }
+                            <MudIcon Icon="@(_activeSortKey == "presence" ? (_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward) : Icons.Material.Filled.UnfoldMore)"
+                                     Style="@($"font-size: 12px; margin-left: 4px; opacity: {(_activeSortKey == "presence" ? "0.7" : "0.25")};")" />
                         </button>
                     </th>
                 </tr>
@@ -42,7 +35,7 @@ else
                 @foreach (var person in SortedPeople)
                 {
                     <tr class="vpt-row" @onclick="() => OnRowClicked.InvokeAsync(person.Id)">
-                        <td class="vpt-td" style="width: 48px;">
+                        <td class="vpt-td vpt-td--person" style="width: 60%;">
                             <div class="vpt-avatar">
                                 @if (!string.IsNullOrEmpty(person.HeadshotUrl))
                                 {
@@ -54,9 +47,8 @@ else
                                              Style="font-size: 18px; color: rgba(255,255,255,0.25);" />
                                 }
                             </div>
-                        </td>
-                        <td class="vpt-td" style="width: 55%;">
-                            <span class="vpt-name">@person.Name</span>
+                            <div class="vpt-person-info">
+                                <span class="vpt-name">@person.Name</span>
                             @if (!string.IsNullOrWhiteSpace(person.Biography))
                             {
                                 <span class="vpt-description">@person.Biography</span>
@@ -70,6 +62,7 @@ else
                                     }
                                 </div>
                             }
+                            </div>
                         </td>
                         <td class="vpt-td vpt-td--right">
                             @{
@@ -234,17 +227,20 @@ else
     .vpt-row:hover { background: rgba(59, 130, 246, 0.04); }
 
     .vpt-td {
-        padding: 8px 12px;
+        padding: 8px 14px;
         vertical-align: middle;
         overflow: visible;
     }
 
-    .vpt-td:first-child {
-        padding-right: 0;
+    .vpt-td--person {
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
 
-    .vpt-td:nth-child(2) {
-        padding-left: 8px;
+    .vpt-person-info {
+        flex: 1;
+        min-width: 0;
     }
 
     .vpt-avatar {
