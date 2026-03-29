@@ -1,0 +1,166 @@
+@namespace MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Models.ViewDTOs
+@using Microsoft.Extensions.Localization
+@using MediaEngine.Web.Resources
+@inject IStringLocalizer<SharedStrings> L
+
+@if (Loading)
+{
+    <div class="vmug-loading">
+        <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                             Style="color: rgba(255,255,255,0.15);" />
+    </div>
+}
+else if (_albums.Count == 0)
+{
+    <div class="vmug-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.MusicNote"
+                 Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No albums found.</p>
+    </div>
+}
+else
+{
+    <div class="vmug-grid" style="--card-size: @(CardSize)px;">
+        @foreach (var album in _albums)
+        {
+            var firstItem = album.Value[0];
+            var trackCount = album.Value.Count;
+            var artistName = firstItem.Artist ?? firstItem.Author ?? "";
+
+            <div class="vmug-card" @onclick="() => OnCardClicked.InvokeAsync(firstItem.EntityId)">
+                <div class="vmug-cover">
+                    @if (!string.IsNullOrEmpty(firstItem.CoverUrl))
+                    {
+                        <img src="@firstItem.CoverUrl" alt="@album.Key" loading="lazy" />
+                    }
+                    else
+                    {
+                        <div class="vmug-cover-placeholder">
+                            <MudIcon Icon="@Icons.Material.Outlined.Album"
+                                     Style="font-size: 2.5rem; opacity: 0.15;" />
+                        </div>
+                    }
+                </div>
+                <p class="vmug-album-name" title="@album.Key">@album.Key</p>
+                @if (!string.IsNullOrEmpty(artistName))
+                {
+                    <p class="vmug-artist" title="@artistName">@artistName</p>
+                }
+                <p class="vmug-track-count">@trackCount @(trackCount == 1 ? "track" : "tracks")</p>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public List<VaultItemViewModel> Items { get; set; } = [];
+    [Parameter] public int CardSize { get; set; } = 180;
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
+
+    private Dictionary<string, List<VaultItemViewModel>> _albums = new();
+
+    protected override void OnParametersSet()
+    {
+        _albums = Items
+            .GroupBy(i => string.IsNullOrWhiteSpace(i.Artist ?? i.Author)
+                ? "Unknown Album"
+                : (i.Artist ?? i.Author)!)
+            .OrderBy(g => g.Key == "Unknown Album" ? 1 : 0)
+            .ThenBy(g => g.Key)
+            .ToDictionary(g => g.Key, g => g.ToList());
+    }
+}
+
+<style>
+    .vmug-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(var(--card-size, 180px), 1fr));
+        gap: 24px;
+        padding: 8px 0;
+    }
+
+    .vmug-card {
+        cursor: pointer;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .vmug-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    .vmug-cover {
+        width: 100%;
+        aspect-ratio: 1;
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 10px;
+    }
+
+    .vmug-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.7;
+        transition: opacity 0.15s;
+    }
+
+    .vmug-card:hover .vmug-cover img {
+        opacity: 1;
+    }
+
+    .vmug-cover-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .vmug-album-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0 0 2px 0;
+    }
+
+    .vmug-artist {
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.35);
+        margin: 0 0 2px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vmug-track-count {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.25);
+        margin: 0;
+    }
+
+    .vmug-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .vmug-loading {
+        display: flex;
+        justify-content: center;
+        padding: 80px 20px;
+    }
+</style>

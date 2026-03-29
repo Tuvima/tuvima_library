@@ -1,0 +1,482 @@
+@namespace MediaEngine.Web.Components.Vault
+
+@inject IJSRuntime JS
+@inject IStringLocalizer<SharedStrings> L
+
+<div class="vault-sidebar @(_collapsed ? "vault-sidebar--collapsed" : "")">
+
+    @* ── TOGGLE BUTTON ── *@
+    <div class="vault-sidebar-header">
+        @if (!_collapsed)
+        {
+            <span class="vault-sidebar-header-label">Views</span>
+        }
+        <button class="vault-sidebar-toggle" @onclick="ToggleCollapse" title="@(_collapsed ? "Expand sidebar" : "Collapse sidebar")">
+            <MudIcon Icon="@(_collapsed ? Icons.Material.Outlined.ChevronRight : Icons.Material.Outlined.ChevronLeft)"
+                     Style="font-size: 16px; color: rgba(255,255,255,0.35);" />
+        </button>
+    </div>
+
+    @* ── NAV ITEMS ── *@
+    <div class="vault-sidebar-nav">
+
+        @* ── PINNED: Recently Added + Needs Review (always shown for Media tab) ── *@
+        @if (ActiveTab == "media")
+        {
+            <div class="vault-sidebar-section">
+                @if (!_collapsed)
+                {
+                    <div class="vault-sidebar-section-label">Pinned</div>
+                }
+                @RenderViewItem("recent", Icons.Material.Outlined.NewReleases, "Recently Added")
+                @RenderViewItem("needs-review", Icons.Material.Outlined.ErrorOutline, "Needs Review")
+                @RenderViewItem("quarantined", Icons.Material.Outlined.Block, "Quarantined")
+            </div>
+            <div class="vault-sidebar-divider"></div>
+        }
+
+        @* ── TAB-SPECIFIC VIEWS ── *@
+        <div class="vault-sidebar-section">
+            @if (!_collapsed)
+            {
+                <div class="vault-sidebar-section-label">
+                    @GetSectionLabel()
+                </div>
+            }
+
+            @if (ActiveTab == "media")
+            {
+                @switch (SelectedMediaType)
+                {
+                    case null:
+                    case "":
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Media")
+                        break;
+
+                    case "Books":
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Books")
+                        @RenderViewItem("series", Icons.Material.Outlined.Layers, "Series")
+                        @RenderViewItem("authors", Icons.Material.Outlined.Edit, "Authors")
+                        break;
+
+                    case "Audiobooks":
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Audiobooks")
+                        @RenderViewItem("series", Icons.Material.Outlined.Layers, "Series")
+                        @RenderViewItem("narrators", Icons.Material.Outlined.RecordVoiceOver, "Narrators")
+                        break;
+
+                    case "Movies":
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Movies")
+                        @RenderViewItem("directors", Icons.Material.Outlined.Movie, "Directors")
+                        @RenderViewItem("decades", Icons.Material.Outlined.CalendarMonth, "Decades")
+                        break;
+
+                    case "TV":
+                        @RenderViewItem("shows", Icons.Material.Outlined.LiveTv, "All Shows")
+                        @if (!_collapsed && TvShows != null && TvShows.Count > 0)
+                        {
+                            foreach (var show in TvShows)
+                            {
+                                <button class="vault-sidebar-item vault-sidebar-item--show"
+                                        @onclick="() => ToggleShow(show.ShowId)">
+                                    <MudIcon Icon="@Icons.Material.Outlined.LiveTv"
+                                             Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
+                                    <span class="vault-sidebar-item-label vault-sidebar-item-label--sub" title="@show.ShowName">@show.ShowName</span>
+                                    <MudIcon Icon="@(_expandedShows.Contains(show.ShowId) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                             Style="font-size: 12px; color: rgba(255,255,255,0.2); margin-left: auto;" />
+                                </button>
+                                @if (_expandedShows.Contains(show.ShowId))
+                                {
+                                    for (int s = 1; s <= show.SeasonCount; s++)
+                                    {
+                                        var seasonKey = $"tv-season-{show.ShowId}-{s}";
+                                        var seasonLabel = $"S{s}";
+                                        @RenderSeasonItem(seasonKey, seasonLabel)
+                                    }
+                                }
+                            }
+                        }
+                        break;
+
+                    case "Music":
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Music")
+                        @RenderViewItem("albums", Icons.Material.Outlined.Album, "Albums")
+                        @RenderViewItem("artists", Icons.Material.Outlined.Person, "Artists")
+                        @RenderViewItem("genres", Icons.Material.Outlined.Category, "Genres")
+                        break;
+
+                    case "Comics":
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Comics")
+                        @RenderViewItem("series", Icons.Material.Outlined.Layers, "Series")
+                        break;
+
+                    case "Podcasts":
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Podcasts")
+                        @RenderViewItem("episodes", Icons.Material.Outlined.List, "Episodes")
+                        break;
+
+                    default:
+                        @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Media")
+                        break;
+                }
+            }
+            else if (ActiveTab == "people")
+            {
+                @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All People")
+                @RenderViewItem("by-role", Icons.Material.Outlined.Badge, "By Role")
+                @RenderViewItem("recent", Icons.Material.Outlined.NewReleases, "Recently Added")
+            }
+            else if (ActiveTab == "universes")
+            {
+                @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Universes")
+                @RenderViewItem("by-size", Icons.Material.Outlined.Sort, "By Size")
+                @RenderViewItem("recently-updated", Icons.Material.Outlined.Update, "Recently Updated")
+            }
+            else if (ActiveTab == "hubs")
+            {
+                @RenderViewItem("all", Icons.Material.Outlined.ViewList, "All Hubs")
+                @RenderViewItem("smart", Icons.Material.Outlined.AutoAwesome, "Smart")
+                @RenderViewItem("system", Icons.Material.Outlined.Bookmarks, "System")
+                @RenderViewItem("mixes", Icons.Material.Outlined.AutoAwesome, "Mixes")
+                @RenderViewItem("playlists", Icons.Material.Outlined.QueueMusic, "Playlists")
+            }
+        </div>
+
+    </div>
+
+    @* ── GEAR ICON (bottom) ── *@
+    <div class="vault-sidebar-footer">
+        <MudTooltip Text="Column Picker" Placement="Placement.Right" Disabled="!_collapsed">
+            <button class="vault-sidebar-footer-btn" @onclick="() => OnColumnPickerRequested.InvokeAsync()"
+                    title="Column Picker">
+                <MudIcon Icon="@Icons.Material.Outlined.ViewColumn"
+                         Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
+                @if (!_collapsed)
+                {
+                    <span class="vault-sidebar-footer-label">Columns</span>
+                }
+            </button>
+        </MudTooltip>
+    </div>
+
+</div>
+
+@* ── RENDER HELPERS ── *@
+@code {
+
+    private RenderFragment RenderViewItem(string key, string icon, string label) =>
+    @<MudTooltip Text="@label" Placement="Placement.Right" Disabled="!_collapsed">
+        <button class="vault-sidebar-item @(ActiveView == key ? "vault-sidebar-item--active" : "")"
+                @onclick="() => SelectView(key)">
+            <MudIcon Icon="@icon"
+                     Style="@($"font-size: 16px; color: {(ActiveView == key ? "rgba(96,165,250,0.9)" : "rgba(255,255,255,0.35)")};")"/>
+            @if (!_collapsed)
+            {
+                <span class="vault-sidebar-item-label">@label</span>
+            }
+        </button>
+    </MudTooltip>;
+
+    private RenderFragment RenderSeasonItem(string key, string label) =>
+    @<button class="vault-sidebar-item vault-sidebar-item--season @(ActiveView == key ? "vault-sidebar-item--active" : "")"
+             @onclick="() => SelectView(key)">
+        <span class="vault-sidebar-season-dot"></span>
+        <span class="vault-sidebar-item-label vault-sidebar-item-label--season">@label</span>
+    </button>;
+
+}
+
+@code {
+
+    [Parameter] public string ActiveTab { get; set; } = "media";
+    [Parameter] public string? SelectedMediaType { get; set; }
+    [Parameter] public string ActiveView { get; set; } = "recent";
+    [Parameter] public EventCallback<string> ActiveViewChanged { get; set; }
+    [Parameter] public List<TvShowSidebarItem>? TvShows { get; set; }
+    [Parameter] public EventCallback OnColumnPickerRequested { get; set; }
+
+    private bool _collapsed = false;
+    private HashSet<string> _expandedShows = new();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", "vault-sidebar-collapsed");
+            if (stored == "true") { _collapsed = true; StateHasChanged(); }
+        }
+    }
+
+    private async Task ToggleCollapse()
+    {
+        _collapsed = !_collapsed;
+        await JS.InvokeVoidAsync("localStorage.setItem", "vault-sidebar-collapsed", _collapsed ? "true" : "false");
+    }
+
+    private async Task SelectView(string key)
+    {
+        await ActiveViewChanged.InvokeAsync(key);
+    }
+
+    private void ToggleShow(string showId)
+    {
+        if (_expandedShows.Contains(showId))
+            _expandedShows.Remove(showId);
+        else
+            _expandedShows.Add(showId);
+    }
+
+    private string GetSectionLabel() => ActiveTab switch
+    {
+        "media" => SelectedMediaType ?? "All Media",
+        "people" => "People",
+        "universes" => "Universes",
+        "hubs" => "Hubs",
+        _ => "Views"
+    };
+
+    public record TvShowSidebarItem(string ShowName, int SeasonCount, string ShowId);
+}
+
+<style>
+    /* ── SIDEBAR CONTAINER ── */
+    .vault-sidebar {
+        display: flex;
+        flex-direction: column;
+        width: 200px;
+        min-width: 200px;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.015);
+        border-right: 1px solid rgba(255, 255, 255, 0.06);
+        transition: width 0.2s ease, min-width 0.2s ease;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .vault-sidebar--collapsed {
+        width: 48px;
+        min-width: 48px;
+    }
+
+    /* ── HEADER ── */
+    .vault-sidebar-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 10px 8px;
+        flex-shrink: 0;
+    }
+
+    .vault-sidebar-header-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(255, 255, 255, 0.2);
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .vault-sidebar-toggle {
+        background: none;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        transition: background 0.15s ease;
+        flex-shrink: 0;
+        margin-left: auto;
+        color: inherit;
+    }
+
+    .vault-sidebar-toggle:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── NAV SCROLL AREA ── */
+    .vault-sidebar-nav {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: none;
+        padding: 0 0 8px;
+    }
+
+    .vault-sidebar-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* ── SECTION ── */
+    .vault-sidebar-section {
+        padding: 4px 0;
+    }
+
+    .vault-sidebar-section-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: rgba(255, 255, 255, 0.2);
+        padding: 6px 14px 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── DIVIDER ── */
+    .vault-sidebar-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.04);
+        margin: 4px 10px;
+    }
+
+    /* ── VIEW ITEMS ── */
+    .vault-sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 7px 14px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        border-radius: 0;
+        transition: background 0.15s ease;
+        color: inherit;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .vault-sidebar-item:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .vault-sidebar-item--active {
+        background: rgba(96, 165, 250, 0.08) !important;
+    }
+
+    .vault-sidebar-item--show {
+        padding-left: 14px;
+    }
+
+    .vault-sidebar-item--season {
+        padding-left: 28px;
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+
+    /* ── ITEM LABEL ── */
+    .vault-sidebar-item-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.35);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.15s ease;
+    }
+
+    .vault-sidebar-item--active .vault-sidebar-item-label {
+        color: rgba(96, 165, 250, 0.9);
+    }
+
+    .vault-sidebar-item-label--sub {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        color: rgba(255, 255, 255, 0.3);
+        flex: 1;
+        min-width: 0;
+    }
+
+    .vault-sidebar-item-label--season {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .vault-sidebar-item--active .vault-sidebar-item-label--season {
+        color: rgba(96, 165, 250, 0.9);
+    }
+
+    /* ── SEASON DOT ── */
+    .vault-sidebar-season-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        flex-shrink: 0;
+    }
+
+    .vault-sidebar-item--active .vault-sidebar-season-dot {
+        background: rgba(96, 165, 250, 0.7);
+    }
+
+    /* ── FOOTER / GEAR ── */
+    .vault-sidebar-footer {
+        flex-shrink: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        padding: 8px 0;
+    }
+
+    .vault-sidebar-footer-btn {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 8px 14px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        transition: background 0.15s ease;
+        color: inherit;
+        text-align: left;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+
+    .vault-sidebar-footer-btn:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .vault-sidebar-footer-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    /* ── COLLAPSED MODE: CENTER ICONS ── */
+    .vault-sidebar--collapsed .vault-sidebar-item {
+        padding: 8px 0;
+        justify-content: center;
+        gap: 0;
+    }
+
+    .vault-sidebar--collapsed .vault-sidebar-footer-btn {
+        padding: 8px 0;
+        justify-content: center;
+        gap: 0;
+    }
+
+    .vault-sidebar--collapsed .vault-sidebar-header {
+        justify-content: center;
+        padding: 12px 0 8px;
+    }
+
+    /* ── HIDE ON MOBILE ── */
+    @@media (max-width: 768px) {
+        .vault-sidebar {
+            display: none;
+        }
+    }
+</style>

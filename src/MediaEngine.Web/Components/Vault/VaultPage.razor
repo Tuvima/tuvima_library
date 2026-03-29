@@ -90,52 +90,66 @@
                       SortByChanged="OnSortChanged"
                       GroupByChanged="OnGroupChanged"
                       PosterSizeChanged="OnPosterSizeChanged" />
+        <button class="vault-mobile-filter-btn" @onclick="() => _mobileDrawerOpen = true">
+            <MudIcon Icon="@Icons.Material.Outlined.FilterList" Style="font-size: 18px;" />
+        </button>
         <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
             <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
             <span>@L["Vault_AddMedia"]</span>
         </button>
     </div>
 
-    @* ── 4. CONTENT AREA ── *@
-    <div class="vault-content">
-        @if (_activeTab == "media")
-        {
-            <VaultMediaTable Items="@_mediaItems"
-                             GroupBy="@_groupBy"
-                             Loading="@_loading"
-                             PosterSize="@_posterSize"
-                             OnRowClicked="OnMediaRowClicked"
-                             OnAuthorClicked="OnAuthorLinkClicked" />
-            @if (_hasMore)
+    @* ── 5. BODY (sidebar + content) ── *@
+    <div class="vault-body">
+        <VaultSidebar ActiveTab="@_activeTab"
+                      SelectedMediaType="@GetSidebarMediaType()"
+                      ActiveView="@_activeView"
+                      ActiveViewChanged="OnViewChanged"
+                      OnColumnPickerRequested="() => _showColumnPicker = true" />
+
+        <div class="vault-content">
+            @if (_activeTab == "media")
             {
-                <div class="vault-load-more">
-                    <button class="vault-load-more-btn" @onclick="LoadMore">
-                        @L["Vault_LoadMore"]
-                    </button>
-                </div>
+                <VaultConfigurableTable Columns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
+                                         Items="@_mediaItems"
+                                         GroupBy="@_groupBy"
+                                         Loading="@_loading"
+                                         PosterSize="@_posterSize"
+                                         OnRowClicked="OnMediaRowClicked"
+                                         OnAuthorClicked="OnAuthorLinkClicked"
+                                         SelectedItems="@_selectedItems"
+                                         SelectedItemsChanged="OnSelectionChanged" />
+                @if (_hasMore)
+                {
+                    <div class="vault-load-more">
+                        <button class="vault-load-more-btn" @onclick="LoadMore">
+                            @L["Vault_LoadMore"]
+                        </button>
+                    </div>
+                }
             }
-        }
-        else if (_activeTab == "people")
-        {
-            <VaultPeopleTable People="@FilteredPeople"
-                              Presence="@_personPresence"
-                              Loading="@_loadingPeople"
-                              OnRowClicked="OnPersonRowClicked" />
-        }
-        else if (_activeTab == "universes")
-        {
-            <VaultUniversesTable Universes="@_universes"
-                                 Loading="@_loadingUniverses"
-                                 PeopleCount="@_universePeopleCounts"
-                                 OnRowClicked="OnUniverseRowClicked" />
-        }
-        else if (_activeTab == "hubs")
-        {
-            <VaultHubsTable Hubs="@_managedHubs"
-                            Loading="@_loadingHubs"
-                            EnabledTypes="@_enabledHubTypes"
-                            OnHubClicked="OnHubClicked" />
-        }
+            else if (_activeTab == "people")
+            {
+                <VaultPeopleTable People="@FilteredPeople"
+                                  Presence="@_personPresence"
+                                  Loading="@_loadingPeople"
+                                  OnRowClicked="OnPersonRowClicked" />
+            }
+            else if (_activeTab == "universes")
+            {
+                <VaultUniversesTable Universes="@_universes"
+                                     Loading="@_loadingUniverses"
+                                     PeopleCount="@_universePeopleCounts"
+                                     OnRowClicked="OnUniverseRowClicked" />
+            }
+            else if (_activeTab == "hubs")
+            {
+                <VaultHubsTable Hubs="@_managedHubs"
+                                Loading="@_loadingHubs"
+                                EnabledTypes="@_enabledHubTypes"
+                                OnHubClicked="OnHubClicked" />
+            }
+        </div>
     </div>
 
     @* ── HUB DETAIL DRAWER ── *@
@@ -173,6 +187,29 @@
                             OnConfirm="OnDeleteConfirmed"
                             OnCancel="() => _deleteItemId = null" />
     }
+
+    @* ── 8. BATCH ACTION BAR ── *@
+    <VaultBatchBar SelectedCount="@_selectedItems.Count"
+                   OnDelete="OnBatchDelete"
+                   OnSyncNow="OnBatchSync"
+                   OnClearSelection="() => { _selectedItems.Clear(); StateHasChanged(); }" />
+
+    @* ── 9. COLUMN PICKER ── *@
+    @if (_showColumnPicker)
+    {
+        <VaultColumnPicker AllColumns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
+                           VisibleKeys="@_visibleColumnKeys"
+                           VisibleKeysChanged="OnColumnVisibilityChanged"
+                           OnClose="() => _showColumnPicker = false" />
+    }
+
+    @* ── 10. MOBILE SIDEBAR DRAWER ── *@
+    <VaultMobileSidebarDrawer IsOpen="@_mobileDrawerOpen"
+                               IsOpenChanged="(v) => _mobileDrawerOpen = v"
+                               ActiveTab="@_activeTab"
+                               SelectedMediaType="@GetSidebarMediaType()"
+                               ActiveView="@_activeView"
+                               ActiveViewChanged="OnViewChanged" />
 </div>
 
 @code {
@@ -246,6 +283,19 @@
 
     // ── Add media drawer ──
     private bool _addMediaOpen;
+
+    // ── Sidebar view state ──
+    private string _activeView = "recent";
+
+    // ── Batch selection state ──
+    private HashSet<Guid> _selectedItems = [];
+
+    // ── Column picker state ──
+    private bool _showColumnPicker;
+    private List<string> _visibleColumnKeys = [];
+
+    // ── Mobile sidebar drawer state ──
+    private bool _mobileDrawerOpen;
 
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
@@ -756,6 +806,23 @@
             _selectedHub.IsFeatured = args.Featured;
     }
 
+    // ── Sidebar helpers ──
+
+    private async Task OnViewChanged(string view)
+    {
+        _activeView = view;
+        StateHasChanged();
+        UpdateUrl();
+        await Task.CompletedTask;
+    }
+
+    private string? GetSidebarMediaType()
+    {
+        if (_enabledMediaTypes.Count == 1)
+            return _enabledMediaTypes.First();
+        return null;
+    }
+
     // ── Delete confirm ──
 
     private async Task OnDeleteConfirmed()
@@ -768,6 +835,47 @@
             await LoadMediaItems();
             await LoadCounts();
         }
+    }
+
+    // ── Batch selection ──
+
+    private Task OnSelectionChanged(HashSet<Guid> selected)
+    {
+        _selectedItems = selected;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task OnBatchDelete()
+    {
+        if (_selectedItems.Count == 0) return;
+        await ApiClient.BatchDeleteRegistryItemsAsync(_selectedItems.ToArray());
+        Snackbar.Add($"{_selectedItems.Count} items deleted", Severity.Info);
+        _selectedItems.Clear();
+        await LoadMediaItems();
+        await LoadCounts();
+        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+    }
+
+    private async Task OnBatchSync()
+    {
+        if (_selectedItems.Count == 0) return;
+        // Trigger re-hydration for selected items (resets 30-day sync timer)
+        foreach (var id in _selectedItems)
+        {
+            await ApiClient.TriggerHydrationAsync(id);
+        }
+        Snackbar.Add($"{_selectedItems.Count} items queued for sync", Severity.Info);
+        _selectedItems.Clear();
+    }
+
+    // ── Column picker ──
+
+    private Task OnColumnVisibilityChanged(List<string> visibleKeys)
+    {
+        _visibleColumnKeys = visibleKeys;
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     // ── URL state management ──
@@ -816,6 +924,10 @@
         if (_activeTab == "people" && _enabledRoles.Count < _allRoleCounts.Count && _enabledRoles.Count > 0)
             queryParts.Add($"role={string.Join(",", _enabledRoles)}");
 
+        // Sidebar view
+        if (_activeView != "recent")
+            queryParts.Add($"view={_activeView}");
+
         var query = queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "";
         Nav.NavigateTo(path + query, replace: replace);
     }
@@ -855,6 +967,9 @@
         {
             _enabledRoles = new HashSet<string>(roles.Split(','));
         }
+
+        if (query["view"] is string view && !string.IsNullOrEmpty(view))
+            _activeView = view;
 
         // Item ID for opening drawer — deferred to after data loads
         _pendingItemId = query["item"] is string itemStr && Guid.TryParse(itemStr, out var itemId) ? itemId : null;
@@ -1133,6 +1248,26 @@
         flex-shrink: 0;
     }
 
+    /* ── Mobile filter button (hidden on desktop) ── */
+    .vault-mobile-filter-btn {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .vault-mobile-filter-btn:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
     /* ── Add button ── */
     .vault-add-btn {
         display: flex;
@@ -1158,12 +1293,21 @@
         background: rgba(96, 165, 250, 1);
     }
 
+    /* ── Body (sidebar + content) ── */
+    .vault-body {
+        display: flex;
+        flex: 1;
+        overflow: hidden;
+        min-height: 0;
+    }
+
     /* ── Content ── */
     .vault-content {
         flex: 1;
         overflow-y: auto;
         overflow-x: visible;
         padding: 16px 24px 48px;
+        min-width: 0;
     }
 
     /* ── Mobile ── */
@@ -1203,6 +1347,14 @@
 
         .vault-add-btn {
             display: none;
+        }
+
+        .vault-mobile-filter-btn {
+            display: flex;
+        }
+
+        .vault-body {
+            flex-direction: column;
         }
 
         .vault-content {
