@@ -462,8 +462,13 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         // can use the in-memory value even before UpdateBiographicalFieldsAsync
         // has persisted it to the DB (which happens further down).
         //
-        // A person is a pseudonym when their P31 (instance_of) QID is Q127843
-        // (pen name) or Q15632617 (fictional human used as shared pen name).
+        // A person is a pseudonym when:
+        //   1. P31 (instance_of) QID is Q127843 (pen name) or Q15632617 (fictional
+        //      human used as shared pen name), OR
+        //   2. P1773 (attributed_to) claims exist — meaning real people stand behind
+        //      this name (e.g., James S. A. Corey → Daniel Abraham + Ty Franck).
+        //      Some collective pseudonyms are classified as Q5 (human) on Wikidata
+        //      rather than Q127843, so P1773 presence is a definitive signal.
         // Check the _qid claim (stable Wikidata IDs) first; fall back to the
         // label claim for the "pen name" string in case the adapter returned
         // labels-only.
@@ -473,7 +478,10 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                  c.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase)))
             || claims.Any(c =>
                 c.Key == "instance_of" &&
-                c.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase));
+                c.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase))
+            || claims.Any(c =>
+                c.Key == "attributed_to_qid" &&
+                !string.IsNullOrWhiteSpace(c.Value));
 
         // ── QID-based deduplication ───────────────────────────────────────────
         // If another person record already owns this Wikidata QID, skip creating

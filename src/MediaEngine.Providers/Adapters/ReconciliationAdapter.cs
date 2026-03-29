@@ -1702,9 +1702,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (audiobookEditionQid is not null)
             claims.Add(new ProviderClaim("audiobook_edition_qid", audiobookEditionQid, 1.0));
 
-        // Emit the reconciliation match label as a title claim (lower confidence than L{lang}).
+        // Emit the reconciliation match label as a title claim. Wikidata is the authority for
+        // canonical data (CLAUDE.md §3.2 Tier C), so the display-language title from Wikidata
+        // must beat the file processor's embedded title (which may be in a foreign language).
+        // Confidence 0.98 ensures it wins over file processor (1.0 is reserved for user locks).
         if (!string.IsNullOrWhiteSpace(reconciliationLabel))
-            claims.Add(new ProviderClaim("title", reconciliationLabel, 0.93));
+            claims.Add(new ProviderClaim("title", reconciliationLabel, 0.98));
 
         // extProps holds the master work extension properties — used by pen name detection and
         // edition bridge ID resolution below. Set inside both branches.
@@ -2210,7 +2213,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         //
         // The entity is fetched in the metadata language so aliases reflect the
         // configured display language. Each alias is emitted as a separate claim
-        // at confidence 0.85 — lower than the primary title (0.93) so it does not
+        // at confidence 0.85 — lower than the primary title (0.98) so it does not
         // compete as the canonical title but is still indexed for search.
         //
         // Aliases already equal to an emitted title or original_title are skipped
@@ -2548,11 +2551,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (pCode.Length == 3 && pCode[0] == 'L' && char.IsLower(pCode[1]))
             {
                 // Emit the Wikidata label as a title claim at lower confidence than the
-                // Reconciliation API label (0.93). The reconciliation label is typically the
+                // reconciliation label (0.98). The reconciliation label is typically the
                 // shorter, more natural title (e.g. "Frankenstein") while L{lang} can return
                 // the full formal title (e.g. "Frankenstein; or, The Modern Prometheus").
                 if (isWork && claims.Count > 0 && !string.IsNullOrWhiteSpace(claims[0].Value?.RawValue))
-                    yield return new ProviderClaim("title", claims[0].Value!.RawValue!, 0.88);
+                    yield return new ProviderClaim("title", claims[0].Value!.RawValue!, 0.95);
                 continue;
             }
 
