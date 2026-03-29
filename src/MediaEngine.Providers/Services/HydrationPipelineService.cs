@@ -1142,8 +1142,20 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
                             _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
 
+                        // Direct Wikidata reconciliation serves as both the identification step
+                        // (Stage 1) and the enrichment step (Stage 2) for items where no retail
+                        // provider found a match. Count claims in both stages so the Vault UI
+                        // correctly shows both pipeline dots as completed rather than showing
+                        // "Stage 1 Pending / Stage 2 Confirmed", which is confusing for the user.
+                        result.Stage1ClaimsAdded = directFallbackClaims.Count;
                         result.Stage2ClaimsAdded = directFallbackClaims.Count;
                         result.WikidataQid = directQidClaim.Value;
+
+                        await _eventPublisher.PublishAsync(
+                            "HydrationStageCompleted",
+                            new HydrationStageCompletedEvent(request.EntityId, 1, directFallbackClaims.Count,
+                                "wikidata_direct_reconciliation"),
+                            ct).ConfigureAwait(false);
 
                         await _eventPublisher.PublishAsync(
                             "HydrationStageCompleted",

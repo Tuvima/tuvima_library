@@ -996,7 +996,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             entityProps,
             _config.DataExtension.PropertyLabels,
             isWork: false,
-            castMemberLimit: 0).ToList();
+            castMemberLimit: 0,
+            metadataLanguage: language).ToList();
 
         _logger.LogDebug("Fictional entity {Qid} ({SubType}): {Count} claims extracted", qid, entitySubType, claims.Count);
         return claims;
@@ -1478,7 +1479,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     resolvedProps,
                     _config.DataExtension.PropertyLabels,
                     isWork: true,
-                    castMemberLimit: _config.Reconciliation.CastMemberLimit));
+                    castMemberLimit: _config.Reconciliation.CastMemberLimit,
+                    metadataLanguage: language));
             }
         }
         catch (OperationCanceledException)
@@ -1543,6 +1545,28 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             searchTitle = CleanTitleForReconciliation(searchTitle);
 
             var candidates = await ReconcileAsync(searchTitle, null, ct).ConfigureAwait(false);
+
+            // When the original query has diacritics (e.g. "Shōgun"), also try the
+            // ASCII-normalised form ("Shogun") to catch Wikidata entities whose primary
+            // label/alias is stored without the diacritic. Results are merged and
+            // deduplicated by QID, keeping the highest-scoring entry.
+            var strippedTitle = StripDiacritics(searchTitle);
+            if (!string.Equals(strippedTitle, searchTitle, StringComparison.OrdinalIgnoreCase))
+            {
+                var strippedCandidates = await ReconcileAsync(strippedTitle, null, ct).ConfigureAwait(false);
+                if (strippedCandidates.Count > 0)
+                {
+                    var merged = new Dictionary<string, ReconciliationResult>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var c in candidates)
+                        if (!string.IsNullOrEmpty(c.Id)) merged[c.Id] = c;
+                    foreach (var c in strippedCandidates)
+                        if (!string.IsNullOrEmpty(c.Id) && (!merged.ContainsKey(c.Id) || c.Score > merged[c.Id].Score))
+                            merged[c.Id] = c;
+                    candidates = merged.Values.OrderByDescending(r => r.Score).ToList();
+                    _logger.LogDebug("{Provider}: diacritic-stripped fallback search '{Stripped}' merged {Count} candidates",
+                        Name, strippedTitle, candidates.Count);
+                }
+            }
 
             if (candidates.Count == 0)
             {
@@ -1661,7 +1685,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             var masterExtensions = await ExtendAsync([masterWorkQid], masterProps, ct).ConfigureAwait(false);
             masterExtensions.TryGetValue(masterWorkQid, out extProps);
             if (extProps is not null)
-                claims.AddRange(ExtensionToClaims(masterWorkQid, extProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit));
+                claims.AddRange(ExtensionToClaims(masterWorkQid, extProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit, metadataLanguage: language));
 
             // Edition: edition-specific properties + bridges
             var editionProps = (_config.DataExtension.AudiobookEditionProperties ?? [])
@@ -1674,7 +1698,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             {
                 var editionExtensions = await ExtendAsync([audiobookEditionQid], editionProps, ct).ConfigureAwait(false);
                 if (editionExtensions.TryGetValue(audiobookEditionQid, out var editionEntityProps))
-                    claims.AddRange(ExtensionToClaims(audiobookEditionQid, editionEntityProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit));
+                    claims.AddRange(ExtensionToClaims(audiobookEditionQid, editionEntityProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit, metadataLanguage: language));
             }
 
             _logger.LogDebug(
@@ -1710,7 +1734,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     "{Provider}: Data Extension returned {PropCount} properties for {QID}: [{Keys}]",
                     Name, extProps.Count, qid,
                     string.Join(", ", extProps.Keys));
-                claims.AddRange(ExtensionToClaims(qid, extProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit));
+                claims.AddRange(ExtensionToClaims(qid, extProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit, metadataLanguage: language));
             }
             else
             {
@@ -2247,7 +2271,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         };
 
         if (extPersonProps is not null)
-            claims.AddRange(ExtensionToClaims(qid, extPersonProps, _config.DataExtension.PropertyLabels, isWork: false, castMemberLimit: 0));
+            claims.AddRange(ExtensionToClaims(qid, extPersonProps, _config.DataExtension.PropertyLabels, isWork: false, castMemberLimit: 0, metadataLanguage: language));
 
         // Fix entity reference labels that may be in wrong language.
         claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
@@ -2465,7 +2489,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> properties,
         Dictionary<string, string> propertyLabels,
         bool isWork,
-        int castMemberLimit = 20)
+        int castMemberLimit = 20,
+        string? metadataLanguage = null)
     {
         foreach (var (pCode, rawClaims) in properties)
         {
@@ -2510,7 +2535,22 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             // P1476 (title) — monolingual text; only take the first value to avoid
             // emitting every language translation as a separate claim.
+            // When metadataLanguage is configured, prefer the value whose Language matches
+            // the user's metadata language (e.g. "en"). Without this, the Wikidata API may
+            // return the original Japanese or French title first for foreign-language works
+            // (e.g. "千と千尋の神隠し" for Spirited Away when the user expects English).
             bool isMonolingualTitle = string.Equals(pCode, "P1476", StringComparison.OrdinalIgnoreCase);
+            if (isMonolingualTitle && !string.IsNullOrWhiteSpace(metadataLanguage) && claims.Count > 1)
+            {
+                // Prefer the value in the user's metadata language; fall through to the
+                // original order (first value) if no match is found.
+                var langNorm = metadataLanguage.Split('-', '_')[0].ToLowerInvariant();
+                var preferredClaim = claims.FirstOrDefault(c =>
+                    !string.IsNullOrWhiteSpace(c.Value?.Language)
+                    && c.Value!.Language!.Split('-', '_')[0].Equals(langNorm, StringComparison.OrdinalIgnoreCase));
+                if (preferredClaim is not null)
+                    claims = [preferredClaim];
+            }
 
             foreach (var claim in claims)
             {
@@ -2661,6 +2701,30 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
 
         return string.IsNullOrWhiteSpace(cleaned) ? title : cleaned;
+    }
+
+    /// <summary>
+    /// Strips diacritical marks (accent characters) from a string, returning an ASCII-normalised
+    /// version. For example: "Shōgun" → "Shogun", "Naïve" → "Naive".
+    /// Uses Unicode canonical decomposition (NFD) to separate base characters from combining marks,
+    /// then removes the combining mark code points (Unicode category Mn).
+    /// </summary>
+    private static string StripDiacritics(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        var normalised = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(normalised.Length);
+        foreach (var ch in normalised)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(ch);
+            }
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
     private static string? ExtractYear(string isoDate)
