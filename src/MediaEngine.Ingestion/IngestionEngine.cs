@@ -8,6 +8,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Events;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
@@ -98,6 +99,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Centralized organization gate — single source of truth for promotion eligibility.
     private readonly IOrganizationGate _gate;
 
+    // Centralized image path resolution — all artwork lives under {libraryRoot}/.images/.
+    private readonly ImagePathService? _imagePathService;
+
     // Per-file ingestion lifecycle log — tracks each file from detection to completion.
     private readonly IIngestionLogRepository _ingestionLog;
 
@@ -143,33 +147,35 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IOrganizationGate          gate,
         IIngestionLogRepository    ingestionLog,
         ISmartLabeler             smartLabeler,
-        IMediaTypeAdvisor         typeAdvisor)
+        IMediaTypeAdvisor         typeAdvisor,
+        ImagePathService?         imagePathService = null)
     {
-        _watcher        = watcher;
-        _debounce       = debounce;
-        _hasher         = hasher;
-        _processors     = processors;
-        _scorer         = scorer;
-        _organizer      = organizer;
-        _taggers        = taggers;
-        _assetRepo      = assetRepo;
-        _worker         = worker;
-        _publisher      = publisher;
-        _options        = options.Value;
-        _logger         = logger;
-        _claimRepo      = claimRepo;
-        _canonicalRepo  = canonicalRepo;
-        _pipeline       = pipeline;
-        _identity       = identity;
-        _chainFactory   = chainFactory;
-        _reviewRepo     = reviewRepo;
-        _activityRepo   = activityRepo;
-        _reconciliation = reconciliation;
-        _heroGenerator  = heroGenerator;
-        _gate           = gate;
-        _ingestionLog   = ingestionLog;
-        _smartLabeler    = smartLabeler;
-        _typeAdvisor     = typeAdvisor;
+        _watcher          = watcher;
+        _debounce         = debounce;
+        _hasher           = hasher;
+        _processors       = processors;
+        _scorer           = scorer;
+        _organizer        = organizer;
+        _taggers          = taggers;
+        _assetRepo        = assetRepo;
+        _worker           = worker;
+        _publisher        = publisher;
+        _options          = options.Value;
+        _logger           = logger;
+        _claimRepo        = claimRepo;
+        _canonicalRepo    = canonicalRepo;
+        _pipeline         = pipeline;
+        _identity         = identity;
+        _chainFactory     = chainFactory;
+        _reviewRepo       = reviewRepo;
+        _activityRepo     = activityRepo;
+        _reconciliation   = reconciliation;
+        _heroGenerator    = heroGenerator;
+        _gate             = gate;
+        _ingestionLog     = ingestionLog;
+        _smartLabeler      = smartLabeler;
+        _typeAdvisor       = typeAdvisor;
+        _imagePathService  = imagePathService;
     }
 
     // =========================================================================
@@ -1309,21 +1315,32 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // HydrationPipelineService.ExtractPersonReferencesFromRawClaims handles person
         // creation, linking, and enrichment after pen name detection has run.
 
-        // Step 11b: persist cover art in staging.
-        // The processor's CoverImage byte array is only available during initial
-        // ingestion — write it alongside the file in staging so it survives until
-        // promotion to the Library by AutoOrganizeService.
-        // Sidecar XML and hero banner generation are deferred to promotion time.
+        // Step 11b: persist embedded cover art.
+        // When ImagePathService is available, write to .images/works/_provisional/{assetId12}/cover.jpg
+        // so the image is decoupled from the staging/library path and survives file moves.
+        // Without ImagePathService (legacy), write alongside the staging file as before.
         bool fileIsInStaging = !string.IsNullOrWhiteSpace(_options.StagingPath)
             && currentPath.StartsWith(_options.StagingPath, StringComparison.OrdinalIgnoreCase);
-        if (fileIsInStaging && result.CoverImage is { Length: > 0 })
+        if ((fileIsInStaging || _imagePathService is not null) && result.CoverImage is { Length: > 0 })
         {
-            string fileFolder = Path.GetDirectoryName(currentPath) ?? string.Empty;
             try
             {
-                await File.WriteAllBytesAsync(
-                    Path.Combine(fileFolder, "cover.jpg"),
-                    result.CoverImage, ct).ConfigureAwait(false);
+                string coverPath;
+                string coverFolder;
+                if (_imagePathService is not null)
+                {
+                    // Write to .images/ — no QID yet at this stage (provisional slot).
+                    coverPath   = _imagePathService.GetWorkCoverPath(wikidataQid: null, assetId);
+                    coverFolder = Path.GetDirectoryName(coverPath) ?? string.Empty;
+                    ImagePathService.EnsureDirectory(coverPath);
+                }
+                else
+                {
+                    coverFolder = Path.GetDirectoryName(currentPath) ?? string.Empty;
+                    coverPath   = Path.Combine(coverFolder, "cover.jpg");
+                }
+
+                await File.WriteAllBytesAsync(coverPath, result.CoverImage, ct).ConfigureAwait(false);
 
                 await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                 {
@@ -1335,16 +1352,16 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     {
                         cover_size_bytes = result.CoverImage.Length,
                         filename         = "cover.jpg",
-                        folder           = fileFolder,
-                        location         = "staging",
+                        folder           = coverFolder,
+                        location         = _imagePathService is not null ? "images" : "staging",
                     }),
-                    Detail         = $"Cover art saved in staging ({result.CoverImage.Length / 1024} KB)",
+                    Detail         = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
                     IngestionRunId = ingestionRunId,
                 }, ct).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to write cover.jpg in staging for {Path}", currentPath);
+                _logger.LogWarning(ex, "Failed to write cover.jpg for {Path}", currentPath);
             }
         }
 
@@ -1399,10 +1416,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             : null;
 
         // Build hero URL if hero was generated for this asset.
-        string? heroUrl = fileIsInLibrary
-            && File.Exists(Path.Combine(Path.GetDirectoryName(currentPath) ?? "", "hero.jpg"))
-            ? $"/stream/{assetId}/hero"
-            : null;
+        // Check .images/ first, then fall back to legacy location alongside the media file.
+        bool heroExists = false;
+        if (_imagePathService is not null)
+        {
+            heroExists = File.Exists(_imagePathService.GetWorkHeroPath(wikidataQid: null, assetId));
+        }
+        if (!heroExists && fileIsInLibrary)
+        {
+            heroExists = File.Exists(Path.Combine(Path.GetDirectoryName(currentPath) ?? "", "hero.jpg"));
+        }
+        string? heroUrl = heroExists ? $"/stream/{assetId}/hero" : null;
 
         // Build per-field provenance so the Dashboard can show exactly
         // how each metadata field was matched and which source won.
@@ -1694,6 +1718,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     || filePath.Contains('/' + ".staging" + '/', StringComparison.OrdinalIgnoreCase))
                     continue;
 
+                // Skip files inside the .images directory — these are artwork managed by
+                // ImagePathService and are never media files.
+                if (filePath.Contains(Path.DirectorySeparatorChar + ".images" + Path.DirectorySeparatorChar,
+                        StringComparison.OrdinalIgnoreCase)
+                    || filePath.Contains('/' + ".images" + '/', StringComparison.OrdinalIgnoreCase))
+                    continue;
+
                 // Skip non-media files (sidecar data, cover art, manifests, etc.)
                 // that may appear in the watch folder alongside media files.
                 if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
@@ -1789,6 +1820,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     if (filePath.Contains(Path.DirectorySeparatorChar + ".staging" + Path.DirectorySeparatorChar,
                             StringComparison.OrdinalIgnoreCase)
                         || filePath.Contains('/' + ".staging" + '/', StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    // Skip files inside the .images directory.
+                    if (filePath.Contains(Path.DirectorySeparatorChar + ".images" + Path.DirectorySeparatorChar,
+                            StringComparison.OrdinalIgnoreCase)
+                        || filePath.Contains('/' + ".images" + '/', StringComparison.OrdinalIgnoreCase))
                         continue;
 
                     // Skip non-media files (sidecar data, cover art, manifests).
@@ -2144,6 +2181,23 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
             SafeDeleteFile(Path.Combine(editionFolder, "hero.jpg"));
             TryDeleteEmptyDirectory(editionFolder);
+        }
+
+        // 1b. Clean .images/ provisional directory for this asset (if ImagePathService is active).
+        if (_imagePathService is not null)
+        {
+            try
+            {
+                var provisionalDir = Path.Combine(
+                    _imagePathService.ImagesRoot, "works", "_provisional",
+                    staged.Id.ToString("N")[..12]);
+                if (Directory.Exists(provisionalDir))
+                    Directory.Delete(provisionalDir, recursive: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to clean .images/_provisional for asset {Id}", staged.Id);
+            }
         }
 
         // 2. Delete DB records: claims → canonical values → asset.

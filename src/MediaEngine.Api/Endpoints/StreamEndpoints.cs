@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -85,25 +86,42 @@ public static class StreamEndpoints
         group.MapGet("/{assetId:guid}/cover", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ImagePathService imagePathService,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
 
-            var dir = Path.GetDirectoryName(asset.FilePathRoot);
-            if (string.IsNullOrEmpty(dir))
-                return Results.NotFound("Cannot resolve asset directory.");
+            // Resolve image path — try .images/ first, fall back to legacy location
+            // alongside the media file for backward compatibility with existing libraries.
+            var canonicals = await canonicalRepo.GetByEntityAsync(assetId, ct);
+            var wikidataQid = canonicals
+                .FirstOrDefault(c => c.Key is "wikidata_qid"
+                    && !string.IsNullOrEmpty(c.Value)
+                    && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
 
-            var coverPath = Path.Combine(dir, "cover.jpg");
-            if (!File.Exists(coverPath))
+            var newCoverPath  = imagePathService.GetWorkCoverPath(wikidataQid, assetId);
+            var legacyCoverPath = string.IsNullOrEmpty(asset.FilePathRoot)
+                ? null
+                : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "cover.jpg");
+
+            string? coverPath = null;
+            if (File.Exists(newCoverPath))
+                coverPath = newCoverPath;
+            else if (!string.IsNullOrEmpty(legacyCoverPath) && File.Exists(legacyCoverPath))
+                coverPath = legacyCoverPath;
+
+            if (coverPath is null)
                 return Results.NotFound("No cover art found for this asset.");
 
             var bytes = await File.ReadAllBytesAsync(coverPath, ct);
             return Results.File(bytes, "image/jpeg", "cover.jpg");
         })
         .WithName("GetAssetCover")
-        .WithSummary("Serve cover.jpg from the asset's edition folder.")
+        .WithSummary("Serve cover.jpg — checks .images/ first, falls back to legacy location alongside media file.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole()
@@ -112,25 +130,41 @@ public static class StreamEndpoints
         group.MapGet("/{assetId:guid}/hero", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ImagePathService imagePathService,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
 
-            var dir = Path.GetDirectoryName(asset.FilePathRoot);
-            if (string.IsNullOrEmpty(dir))
-                return Results.NotFound("Cannot resolve asset directory.");
+            // Resolve image path — try .images/ first, fall back to legacy location.
+            var canonicals = await canonicalRepo.GetByEntityAsync(assetId, ct);
+            var wikidataQid = canonicals
+                .FirstOrDefault(c => c.Key is "wikidata_qid"
+                    && !string.IsNullOrEmpty(c.Value)
+                    && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
 
-            var heroPath = Path.Combine(dir, "hero.jpg");
-            if (!File.Exists(heroPath))
+            var newHeroPath  = imagePathService.GetWorkHeroPath(wikidataQid, assetId);
+            var legacyHeroPath = string.IsNullOrEmpty(asset.FilePathRoot)
+                ? null
+                : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "hero.jpg");
+
+            string? heroPath = null;
+            if (File.Exists(newHeroPath))
+                heroPath = newHeroPath;
+            else if (!string.IsNullOrEmpty(legacyHeroPath) && File.Exists(legacyHeroPath))
+                heroPath = legacyHeroPath;
+
+            if (heroPath is null)
                 return Results.NotFound("No hero banner found for this asset.");
 
             var bytes = await File.ReadAllBytesAsync(heroPath, ct);
             return Results.File(bytes, "image/jpeg", "hero.jpg");
         })
         .WithName("GetAssetHero")
-        .WithSummary("Serve hero.jpg from the asset's edition folder.")
+        .WithSummary("Serve hero.jpg — checks .images/ first, falls back to legacy location alongside media file.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole()

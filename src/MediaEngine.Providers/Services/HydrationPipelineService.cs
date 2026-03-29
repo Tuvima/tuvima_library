@@ -80,6 +80,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly IQidDisambiguator? _disambiguator;
     private readonly ICoverArtHashService? _coverArtHash;
     private readonly IPersonReconciliationService? _personReconciliation;
+    private readonly ImagePathService? _imagePathService;
     private readonly ILogger<HydrationPipelineService> _logger;
 
     // Reverse lookup: claim key → Wikidata P-code (e.g. "isbn_13" → "P212").
@@ -122,7 +123,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         WikidataReconciler? reconciler = null,
         IQidDisambiguator? disambiguator = null,
         ICoverArtHashService? coverArtHash = null,
-        IPersonReconciliationService? personReconciliation = null)
+        IPersonReconciliationService? personReconciliation = null,
+        ImagePathService? imagePathService = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -185,6 +187,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _disambiguator            = disambiguator;
         _coverArtHash             = coverArtHash;
         _personReconciliation     = personReconciliation;
+        _imagePathService         = imagePathService;
         _fictionalEntityRepo      = fictionalEntityRepo;
         _logger                   = logger;
 
@@ -2676,15 +2679,24 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             // Cover art URL for Dashboard rich card display — only emit when the
             // actual cover.jpg file exists on disk to avoid broken images.
+            // Check .images/ directory first, then fall back to legacy location.
             string? coverUrl = null;
             if (asset is not null)
             {
-                var assetDir = Path.GetDirectoryName(asset.FilePathRoot);
-                if (!string.IsNullOrEmpty(assetDir)
-                    && File.Exists(Path.Combine(assetDir, "cover.jpg")))
+                bool coverExists = false;
+                if (_imagePathService is not null)
                 {
-                    coverUrl = $"/stream/{entityId}/cover";
+                    var newCoverPath = _imagePathService.GetWorkCoverPath(qid, entityId);
+                    coverExists = File.Exists(newCoverPath);
                 }
+                if (!coverExists)
+                {
+                    var assetDir = Path.GetDirectoryName(asset.FilePathRoot);
+                    coverExists = !string.IsNullOrEmpty(assetDir)
+                        && File.Exists(Path.Combine(assetDir, "cover.jpg"));
+                }
+                if (coverExists)
+                    coverUrl = $"/stream/{entityId}/cover";
             }
 
             // Resolve hub name from the work -> hub chain via a single targeted query.
@@ -4255,8 +4267,22 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
             if (string.IsNullOrEmpty(fileDir)) return;
 
-            var coverPath = Path.Combine(fileDir, "cover.jpg");
-            if (!File.Exists(coverPath)) return;
+            // Resolve cover path — try .images/ first (no QID yet at this early stage),
+            // then fall back to the legacy path alongside the media file.
+            string? coverPath = null;
+            if (_imagePathService is not null)
+            {
+                var newPath = _imagePathService.GetWorkCoverPath(wikidataQid: null, assetId);
+                if (File.Exists(newPath))
+                    coverPath = newPath;
+            }
+            if (coverPath is null)
+            {
+                var legacyPath = Path.Combine(fileDir, "cover.jpg");
+                if (File.Exists(legacyPath))
+                    coverPath = legacyPath;
+            }
+            if (coverPath is null) return;
 
             var bytes = await File.ReadAllBytesAsync(coverPath, ct).ConfigureAwait(false);
             if (bytes.Length < 100) return;
@@ -4322,8 +4348,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 return;
             }
 
-            var coverPath = Path.Combine(fileDir, "cover.jpg");
-
             // 2. Check for a cover URL in canonical values.
             //    Prefer cover_url over cover — user-locked selections are written
             //    to cover_url, so it must take priority over retail provider covers.
@@ -4339,6 +4363,31 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
 
             if (string.IsNullOrEmpty(coverUrl)) return;
+
+            // Resolve cover path: use .images/ directory when ImagePathService is available,
+            // else fall back to the legacy path alongside the media file.
+            // Extract confirmed Wikidata QID from canonicals (exclude NF-prefixed provisional QIDs).
+            var wikidataQid = canonicals
+                .FirstOrDefault(c => c.Key is "wikidata_qid"
+                    && !string.IsNullOrEmpty(c.Value)
+                    && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            string coverPath;
+            if (_imagePathService is not null)
+            {
+                coverPath = _imagePathService.GetWorkCoverPath(wikidataQid, assetId);
+                ImagePathService.EnsureDirectory(coverPath);
+
+                // If the asset just got a QID and previously had a provisional cover,
+                // promote the provisional directory to the QID-keyed directory.
+                if (!string.IsNullOrEmpty(wikidataQid))
+                    _imagePathService.PromoteToQid(assetId, wikidataQid);
+            }
+            else
+            {
+                coverPath = Path.Combine(fileDir, "cover.jpg");
+            }
 
             // 3a. Capture the embedded cover's pHash before overwriting cover.jpg.
             //     This allows us to measure how similar the provider cover is to the
@@ -4437,7 +4486,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             ], ct).ConfigureAwait(false);
 
             // Generate cinematic hero banner from the newly downloaded cover art.
-            await GenerateHeroBannerAsync(assetId, coverPath, fileDir, ct)
+            // Output directory: use .images/ when available, else legacy file directory.
+            var heroOutputDir = _imagePathService is not null
+                ? _imagePathService.GetWorkImageDir(wikidataQid, assetId)
+                : fileDir;
+            await GenerateHeroBannerAsync(assetId, coverPath, heroOutputDir, ct)
                 .ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

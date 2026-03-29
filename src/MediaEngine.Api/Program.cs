@@ -317,6 +317,23 @@ catch
     // No libraries.json or directory creation failed — non-fatal; directories will be created on demand.
 }
 
+// ── Image Path Service ────────────────────────────────────────────────────────
+// Centralizes image path resolution. All artwork lives under {libraryRoot}/.images/
+// organized by entity type and QID. Registered as a singleton so all services that
+// read or write cover art and hero banners use the same root path.
+builder.Services.AddSingleton(sp =>
+{
+    var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
+    var libraryRoot = core.LibraryRoot;
+    if (string.IsNullOrWhiteSpace(libraryRoot))
+    {
+        // LibraryRoot not yet configured (first run) — use a temp sentinel path.
+        // Services that write images guard against this with their own checks.
+        libraryRoot = Path.Combine(Path.GetTempPath(), "tuvima_images_unset");
+    }
+    return new MediaEngine.Domain.Services.ImagePathService(libraryRoot);
+});
+
 builder.Services.AddSingleton<IAssetHasher, AssetHasher>();
 builder.Services.AddSingleton<IFileWatcher, FileWatcher>();
 builder.Services.AddSingleton<DebounceQueue>();
@@ -416,6 +433,7 @@ foreach (ProviderConfiguration providerConfig in configLoader.LoadAllProviders()
 builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository>();
 builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
+builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();
 
 // QID label cache and multi-value array storage (QID-first architecture).
