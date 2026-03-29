@@ -92,6 +92,12 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("track_number")]
     public string? TrackNumber { get; set; }
 
+    [JsonPropertyName("season_number")]
+    public string? Season { get; set; }
+
+    [JsonPropertyName("episode_number")]
+    public string? Episode { get; set; }
+
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; set; }
 

@@ -78,6 +78,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'rating' THEN cv.value END) AS rating,
                     MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
                     MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
+                    MAX(CASE WHEN cv.key = 'season_number' THEN cv.value END) AS season_number,
+                    MAX(CASE WHEN cv.key = 'episode_number' THEN cv.value END) AS episode_number,
                     (SELECT pr.name || ': ' || mc_rt.claim_value
                      FROM metadata_claims mc_rt
                      INNER JOIN media_assets ma_rt ON ma_rt.id = mc_rt.entity_id
@@ -187,6 +189,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.rating,
                     wd.album,
                     wd.track_number,
+                    wd.season_number,
+                    wd.episode_number,
                     wd.retail_match_detail,
                     wd.file_name,
                     wd.title_provider_id AS match_source,
@@ -322,7 +326,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url,
                 fd.created_at, fd.director, fd.artist, fd.retail_match_detail,
                 fd.series, fd.series_position, fd.narrator, fd.genre,
-                fd.runtime, fd.rating, fd.album, fd.track_number
+                fd.runtime, fd.rating, fd.album, fd.track_number,
+                fd.season_number, fd.episode_number
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -372,6 +377,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 Rating            = reader.IsDBNull(29) ? null : reader.GetString(29),
                 Album             = reader.IsDBNull(30) ? null : reader.GetString(30),
                 TrackNumber       = reader.IsDBNull(31) ? null : reader.GetString(31),
+                SeasonNumber      = reader.IsDBNull(32) ? null : reader.GetString(32),
+                EpisodeNumber     = reader.IsDBNull(33) ? null : reader.GetString(33),
             });
         }
 

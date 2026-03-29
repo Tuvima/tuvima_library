@@ -599,6 +599,30 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                             });
                         }
 
+                        // Add season number if extracted and not already present.
+                        if (cleaned.Season.HasValue
+                            && !updatedClaims.Any(c => c.Key.Equals("season_number", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            updatedClaims.Add(new Processors.Models.ExtractedClaim
+                            {
+                                Key = "season_number",
+                                Value = cleaned.Season.Value.ToString(),
+                                Confidence = cleaned.Confidence,
+                            });
+                        }
+
+                        // Add episode number if extracted and not already present.
+                        if (cleaned.Episode.HasValue
+                            && !updatedClaims.Any(c => c.Key.Equals("episode_number", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            updatedClaims.Add(new Processors.Models.ExtractedClaim
+                            {
+                                Key = "episode_number",
+                                Value = cleaned.Episode.Value.ToString(),
+                                Confidence = cleaned.Confidence,
+                            });
+                        }
+
                         result = new Processors.Models.ProcessorResult
                         {
                             FilePath           = result.FilePath,

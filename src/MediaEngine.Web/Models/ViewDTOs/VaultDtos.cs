@@ -30,6 +30,8 @@ public sealed class VaultItemViewModel
     public string? Rating { get; init; }
     public string? Album { get; init; }
     public string? TrackNumber { get; init; }
+    public string? Season { get; init; }
+    public string? Episode { get; init; }
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }
@@ -86,6 +88,8 @@ public sealed class VaultItemViewModel
         Rating = r.Rating,
         Album = r.Album,
         TrackNumber = r.TrackNumber,
+        Season = r.Season,
+        Episode = r.Episode,
         Year = r.Year,
         MediaType = r.MediaType,
         CoverUrl = r.CoverUrl,

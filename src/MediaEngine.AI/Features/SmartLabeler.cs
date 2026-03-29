@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Contracts;
@@ -32,13 +33,20 @@ public sealed class SmartLabeler : ISmartLabeler
         if (string.IsNullOrWhiteSpace(rawFilename))
             return new CleanedSearchQuery { Title = string.Empty, Confidence = 0 };
 
-        // Short-circuit when the feature is disabled — return the raw filename
-        // as-is so the ingestion pipeline never invokes the LLM.
+        // Short-circuit when the feature is disabled — use regex-based extraction
+        // for season/episode patterns so the ingestion pipeline still gets structured
+        // TV metadata without invoking the LLM.
         if (!_settings.Features.SmartLabeling)
         {
+            var fallbackStem = Path.GetFileNameWithoutExtension(rawFilename);
+            var cleaned = fallbackStem.Replace('.', ' ').Replace('_', ' ').Trim();
+            var (series, season, episode) = ExtractSeasonEpisode(cleaned);
+
             return new CleanedSearchQuery
             {
-                Title = Path.GetFileNameWithoutExtension(rawFilename),
+                Title = series ?? fallbackStem,
+                Season = season,
+                Episode = episode,
                 Confidence = 0.5,
             };
         }
@@ -104,6 +112,53 @@ public sealed class SmartLabeler : ISmartLabeler
                 Confidence = 0.1,
             };
         }
+    }
+
+    // ── Regex-based season/episode extraction ─────────────────────────────
+    // Used when AI Smart Labeling is disabled — provides basic structured
+    // extraction for common TV filename patterns.
+
+    /// <summary>S01E01, S01E01E02 (multi-episode), case-insensitive.</summary>
+    private static readonly Regex SxxExxRegex = new(
+        @"^(?<series>.+?)\s*[.\-_ ]*[Ss](?<season>\d{1,2})\s*[Ee](?<ep1>\d{1,4})(?:\s*[Ee](?<ep2>\d{1,4}))?",
+        RegexOptions.Compiled);
+
+    /// <summary>1x01 format.</summary>
+    private static readonly Regex NxNNRegex = new(
+        @"^(?<series>.+?)\s*[.\-_ ]+(?<season>\d{1,2})[Xx](?<ep1>\d{1,4})",
+        RegexOptions.Compiled);
+
+    /// <summary>Season 1 Episode 1 (verbose).</summary>
+    private static readonly Regex VerboseRegex = new(
+        @"^(?<series>.+?)\s*[.\-_ ]*Season\s*(?<season>\d{1,2})\s*Episode\s*(?<ep1>\d{1,4})",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// Extracts series title, season number, and episode number from a cleaned
+    /// filename using common TV naming patterns (S01E01, 1x01, Season 1 Episode 1).
+    /// Returns (null, null, null) when no pattern matches.
+    /// </summary>
+    private static (string? SeriesTitle, int? Season, int? Episode) ExtractSeasonEpisode(string text)
+    {
+        var m = SxxExxRegex.Match(text);
+        if (m.Success)
+            return (m.Groups["series"].Value.TrimEnd('.', '-', '_', ' '),
+                    int.Parse(m.Groups["season"].Value),
+                    int.Parse(m.Groups["ep1"].Value));
+
+        m = NxNNRegex.Match(text);
+        if (m.Success)
+            return (m.Groups["series"].Value.TrimEnd('.', '-', '_', ' '),
+                    int.Parse(m.Groups["season"].Value),
+                    int.Parse(m.Groups["ep1"].Value));
+
+        m = VerboseRegex.Match(text);
+        if (m.Success)
+            return (m.Groups["series"].Value.TrimEnd('.', '-', '_', ' '),
+                    int.Parse(m.Groups["season"].Value),
+                    int.Parse(m.Groups["ep1"].Value));
+
+        return (null, null, null);
     }
 
     /// <summary>Internal DTO matching the GBNF grammar output.</summary>

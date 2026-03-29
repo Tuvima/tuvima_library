@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Processors.Contracts;
@@ -164,6 +165,25 @@ public sealed class VideoProcessor : IMediaProcessor
     // Claim construction
     // -------------------------------------------------------------------------
 
+    // ── Season/Episode regex patterns ──────────────────────────────────
+    // Matched BEFORE title extraction so the series title (text before the
+    // pattern) can be used as a cleaner title claim.
+
+    /// <summary>S01E01, S01E01E02 (multi-episode), case-insensitive.</summary>
+    private static readonly Regex SxxExxRegex = new(
+        @"^(?<series>.+?)\s*[.\-_ ]*[Ss](?<season>\d{1,2})\s*[Ee](?<ep1>\d{1,4})(?:\s*[Ee](?<ep2>\d{1,4}))?",
+        RegexOptions.Compiled);
+
+    /// <summary>1x01 format.</summary>
+    private static readonly Regex NxNNRegex = new(
+        @"^(?<series>.+?)\s*[.\-_ ]+(?<season>\d{1,2})[Xx](?<ep1>\d{1,4})",
+        RegexOptions.Compiled);
+
+    /// <summary>Season 1 Episode 1 (verbose).</summary>
+    private static readonly Regex VerboseRegex = new(
+        @"^(?<series>.+?)\s*[.\-_ ]*Season\s*(?<season>\d{1,2})\s*Episode\s*(?<ep1>\d{1,4})",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     private static IReadOnlyList<ExtractedClaim> BuildClaims(
         string filePath, VideoContainer container, VideoMetadata? meta)
     {
@@ -176,8 +196,23 @@ public sealed class VideoProcessor : IMediaProcessor
         {
             // Basic filename cleanup — SmartLabeler (Step 6b) handles intelligent parsing.
             var basicTitle = stem.Replace('.', ' ').Replace('_', ' ').Trim();
-            if (!string.IsNullOrWhiteSpace(basicTitle))
+
+            // Attempt season/episode extraction BEFORE the title-only path.
+            // When detected, the series title (text before the episode pattern) is
+            // used as a cleaner title and season_number / episode_number are emitted.
+            var (seriesTitle, seasonNum, episodeNum) = ExtractSeasonEpisode(basicTitle);
+
+            if (seriesTitle is not null && seasonNum.HasValue)
+            {
+                claims.Add(Claim("title", seriesTitle, 0.55));
+                claims.Add(Claim("season_number", seasonNum.Value.ToString(), 0.55));
+                if (episodeNum.HasValue)
+                    claims.Add(Claim("episode_number", episodeNum.Value.ToString(), 0.55));
+            }
+            else if (!string.IsNullOrWhiteSpace(basicTitle))
+            {
                 claims.Add(Claim("title", basicTitle, 0.50));
+            }
         }
 
         // Container format — authoritative from magic bytes.
@@ -212,6 +247,57 @@ public sealed class VideoProcessor : IMediaProcessor
         }
 
         return claims;
+    }
+
+    // -------------------------------------------------------------------------
+    // Season/Episode extraction
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Attempts to extract series title, season number, and episode number from
+    /// a cleaned filename stem using common TV naming patterns:
+    ///   S01E01, S01E01E02, 1x01, Season 1 Episode 1.
+    /// Returns (null, null, null) when no pattern matches.
+    /// </summary>
+    private static (string? SeriesTitle, int? Season, int? Episode) ExtractSeasonEpisode(string text)
+    {
+        // Try S01E01 / S01E01E02 first (most common).
+        var m = SxxExxRegex.Match(text);
+        if (m.Success)
+        {
+            var series = CleanSeriesTitle(m.Groups["series"].Value);
+            var season = int.Parse(m.Groups["season"].Value);
+            var episode = int.Parse(m.Groups["ep1"].Value);
+            return (series, season, episode);
+        }
+
+        // Try 1x01 format.
+        m = NxNNRegex.Match(text);
+        if (m.Success)
+        {
+            var series = CleanSeriesTitle(m.Groups["series"].Value);
+            var season = int.Parse(m.Groups["season"].Value);
+            var episode = int.Parse(m.Groups["ep1"].Value);
+            return (series, season, episode);
+        }
+
+        // Try verbose "Season 1 Episode 1".
+        m = VerboseRegex.Match(text);
+        if (m.Success)
+        {
+            var series = CleanSeriesTitle(m.Groups["series"].Value);
+            var season = int.Parse(m.Groups["season"].Value);
+            var episode = int.Parse(m.Groups["ep1"].Value);
+            return (series, season, episode);
+        }
+
+        return (null, null, null);
+    }
+
+    /// <summary>Trims trailing separators and whitespace from extracted series title.</summary>
+    private static string CleanSeriesTitle(string raw)
+    {
+        return raw.TrimEnd('.', '-', '_', ' ');
     }
 
     // -------------------------------------------------------------------------

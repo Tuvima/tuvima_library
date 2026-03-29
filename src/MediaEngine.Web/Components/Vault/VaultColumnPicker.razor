@@ -245,12 +245,12 @@
     /* ── Panel ── */
     .vcp-panel {
         position: absolute;
-        left: 0;
+        right: 0;
         top: 0;
         bottom: 0;
         width: 280px;
         background: #14181d;
-        border-right: 1px solid rgba(255, 255, 255, 0.08);
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
         display: flex;
         flex-direction: column;
         animation: vcp-slide-in 0.2s ease;
@@ -259,7 +259,7 @@
 
     @@keyframes vcp-slide-in {
         from {
-            transform: translateX(-100%);
+            transform: translateX(100%);
             opacity: 0;
         }
         to {

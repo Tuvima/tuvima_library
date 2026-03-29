@@ -49,6 +49,8 @@ public sealed record RegistryItem
     [JsonPropertyName("rating")]          public string? Rating { get; init; }
     [JsonPropertyName("album")]           public string? Album { get; init; }
     [JsonPropertyName("track_number")]    public string? TrackNumber { get; init; }
+    [JsonPropertyName("season_number")]   public string? SeasonNumber { get; init; }
+    [JsonPropertyName("episode_number")]  public string? EpisodeNumber { get; init; }
 
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; init; }

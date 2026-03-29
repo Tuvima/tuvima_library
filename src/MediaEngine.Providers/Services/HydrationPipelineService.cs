@@ -643,6 +643,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // Used to classify the deferred enrichment request appropriately.
         string? downProviderName = null;
 
+        // FIX B3: Track the best-matching provider (most claims) so we can detect
+        // media type corrections from retail matches.
+        IExternalMetadataProvider? bestStage1Provider = null;
+        int bestStage1ClaimCount = 0;
+
         foreach (var provider in stage1Providers)
         {
             var (claims, downProvider) = await FetchFromProviderAsync(
@@ -677,6 +682,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
 
             stage1Claims += claimsForScoring.Count;
+
+            // FIX B3: Track best provider by claim count for media type correction.
+            if (claimsForScoring.Count > bestStage1ClaimCount)
+            {
+                bestStage1ClaimCount = claimsForScoring.Count;
+                bestStage1Provider = provider;
+            }
 
             _logger.LogInformation(
                 "[STAGE1] Provider '{Provider}' returned {ClaimCount} claims for {EntityId}: [{ClaimKeys}]",
@@ -719,6 +731,64 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         result.Stage1ClaimsAdded = stage1Claims;
+
+        // ── FIX B3: Media type correction from retail match ─────────────────
+        // When the best Stage 1 retail provider handles a specific media type
+        // that differs from the ingestion-detected type, correct the working
+        // media type BEFORE Stage 2 runs. This ensures the correct Wikidata
+        // bridge property is used (e.g. P4983 for TV instead of P4947 for Movies).
+        var effectiveMediaType = request.MediaType;
+        if (bestStage1Provider is not null && bestStage1ClaimCount >= 3)
+        {
+            try
+            {
+                // Find the provider config to get its supported media types.
+                var bestProviderConfig = provConfigs.FirstOrDefault(
+                    pc => string.Equals(pc.Name, bestStage1Provider.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (bestProviderConfig?.CanHandle?.MediaTypes is { Count: > 0 } supportedTypes)
+                {
+                    // If the provider handles exactly one media type and it differs
+                    // from the current type, that's a confident correction.
+                    // If the provider handles multiple types, check if the current
+                    // type is NOT among them — use the first supported type.
+                    var currentTypeStr = request.MediaType.ToString();
+                    var isCurrentTypeSupported = supportedTypes.Any(mt =>
+                        string.Equals(mt, currentTypeStr, StringComparison.OrdinalIgnoreCase));
+
+                    if (!isCurrentTypeSupported || request.MediaType == MediaType.Unknown)
+                    {
+                        // Try to parse the provider's first supported media type.
+                        if (Enum.TryParse<MediaType>(supportedTypes[0], ignoreCase: true, out var correctedType)
+                            && correctedType != MediaType.Unknown)
+                        {
+                            _logger.LogInformation(
+                                "Media type corrected from {OldType} to {NewType} based on retail match " +
+                                "from provider '{Provider}' ({ClaimCount} claims) for entity {Id}",
+                                request.MediaType, correctedType, bestStage1Provider.Name,
+                                bestStage1ClaimCount, request.EntityId);
+
+                            effectiveMediaType = correctedType;
+
+                            // Persist the corrected media type as a high-confidence claim
+                            // so the canonical value is updated for Stage 2 and beyond.
+                            await ScoringHelper.PersistClaimsAndScoreAsync(
+                                request.EntityId,
+                                new[] { new ProviderClaim("media_type", correctedType.ToString(), 0.90) },
+                                bestStage1Provider.ProviderId,
+                                _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                                _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Media type correction check failed for entity {Id}; continuing with original type {MediaType}",
+                    request.EntityId, request.MediaType);
+            }
+        }
 
         _logger.LogInformation(
             "[STAGE1] Complete for {EntityId}: {ClaimCount} claims, confidence prior to Stage 2",
@@ -1249,9 +1319,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         // Media-type-aware P-code override: tmdb_id uses P4947 (movies) or
                         // P4983 (TV series). The static alias in EnsureClaimKeyToPCodeMap
                         // defaults to P4947, but TV items need P4983 for bridge resolution.
+                        // FIX B3: Use effectiveMediaType (corrected from retail match) instead
+                        // of request.MediaType so the correct bridge property is used.
                         var effectivePCode = bridge.WikidataProperty;
                         if (string.Equals(bridge.IdType, "tmdb_id", StringComparison.OrdinalIgnoreCase)
-                            && request.MediaType == MediaType.TV)
+                            && effectiveMediaType == MediaType.TV)
                         {
                             effectivePCode = "P4983";
                         }
@@ -1269,8 +1341,9 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     {
                         var pCode = GetPCodeForClaimKey(kvp.Key);
                         // Media-type-aware override for TV TMDB IDs.
+                        // FIX B3: Use effectiveMediaType (corrected from retail match).
                         if (string.Equals(kvp.Key, "tmdb_id", StringComparison.OrdinalIgnoreCase)
-                            && request.MediaType == MediaType.TV
+                            && effectiveMediaType == MediaType.TV
                             && !string.IsNullOrWhiteSpace(pCode))
                         {
                             pCode = "P4983";
@@ -1281,15 +1354,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
 
                 // Check if this media type is edition-aware.
+                // FIX B3: Use effectiveMediaType (corrected from retail match).
                 var isEditionAware = hydration.EditionAwareMediaTypes
-                    ?.Contains(request.MediaType.ToString(), StringComparer.OrdinalIgnoreCase) ?? false;
+                    ?.Contains(effectiveMediaType.ToString(), StringComparer.OrdinalIgnoreCase) ?? false;
 
                 _logger.LogInformation(
-                    "Stage 2: Resolving Wikidata bridge for entity {Id} — {Count} bridge IDs, edition-aware: {EditionAware}",
-                    request.EntityId, bridgeDict.Count, isEditionAware);
+                    "Stage 2: Resolving Wikidata bridge for entity {Id} — {Count} bridge IDs, edition-aware: {EditionAware}, effectiveMediaType: {MediaType}",
+                    request.EntityId, bridgeDict.Count, isEditionAware, effectiveMediaType);
 
                 var bridgeResult = await stage2ReconAdapter.ResolveBridgeAsync(
-                    bridgeDict, wikidataProps, request.MediaType, isEditionAware, ct)
+                    bridgeDict, wikidataProps, effectiveMediaType, isEditionAware, ct)
                     .ConfigureAwait(false);
 
                 if (bridgeResult.Found)
@@ -1319,7 +1393,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             {
                                 EntityId = request.EntityId,
                                 EntityType = EntityType.MediaAsset,
-                                MediaType = request.MediaType,
+                                MediaType = effectiveMediaType, // FIX B3: Use corrected media type
                                 Title = request.Hints?.GetValueOrDefault("title"),
                                 PreResolvedQid = bridgeResult.WorkQid,
                                 Hints = request.Hints,
@@ -1519,7 +1593,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                 {
                                     EntityId   = request.EntityId,
                                     EntityType = request.EntityType,
-                                    MediaType  = request.MediaType,
+                                    MediaType  = effectiveMediaType, // FIX B3: Use corrected media type
                                     Title      = fallbackTitle,
                                     Author     = fallbackAuthor,
                                     Hints      = request.Hints,
@@ -1914,6 +1988,55 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 await TryAutoResolveMetadataConflictsAsync(
                     request.EntityId, scored.OverallConfidence, ct)
                     .ConfigureAwait(false);
+            }
+        }
+
+        // ── FIX B4: Auto-resolve WikidataBridgeFailed reviews after QID resolution ──
+        // When Stage 2 (or title fallback) successfully resolves a Wikidata QID,
+        // auto-resolve any pending WikidataBridgeFailed review items for this entity.
+        // This runs in PostPipeline to catch ALL resolution paths (bridge, title fallback,
+        // pre-resolved QID), not just the inline bridge resolution.
+        if (result.WikidataQid is not null && request.EntityType == EntityType.MediaAsset)
+        {
+            try
+            {
+                var postPipelineReviews = await _reviewRepo.GetByEntityAsync(request.EntityId, ct)
+                    .ConfigureAwait(false);
+
+                foreach (var review in postPipelineReviews.Where(r =>
+                    r.Status == ReviewStatus.Pending &&
+                    r.Trigger == ReviewTrigger.WikidataBridgeFailed))
+                {
+                    await _reviewRepo.UpdateStatusAsync(
+                        review.Id, ReviewStatus.Resolved, "auto_qid_resolution", ct)
+                        .ConfigureAwait(false);
+
+                    await AdjustBatchForResolveAsync(request.IngestionRunId, ct).ConfigureAwait(false);
+
+                    await _activityRepo.LogAsync(new SystemActivityEntry
+                    {
+                        ActionType = SystemActionType.ReviewItemResolved,
+                        EntityId   = request.EntityId,
+                        Detail     = $"WikidataBridgeFailed auto-resolved: QID {result.WikidataQid} confirms identity.",
+                    }, ct).ConfigureAwait(false);
+
+                    await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                    {
+                        review_item_id = review.Id,
+                        entity_id      = request.EntityId,
+                        status         = "Resolved",
+                    }, ct).ConfigureAwait(false);
+
+                    _logger.LogInformation(
+                        "WikidataBridgeFailed review {ReviewId} auto-resolved for entity {Id} — QID {Qid} confirms identity",
+                        review.Id, request.EntityId, result.WikidataQid);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to auto-resolve WikidataBridgeFailed reviews in PostPipeline for entity {Id}",
+                    request.EntityId);
             }
         }
 
@@ -2482,6 +2605,16 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IReadOnlyList<Storage.Models.ProviderConfiguration> provConfigs,
         HarvestRequest request)
     {
+        // FIX B2: When media type is Unknown, skip the media type filter and
+        // include ALL providers for this stage so they all attempt matching.
+        var isUnknownMediaType = request.MediaType == MediaType.Unknown;
+        if (isUnknownMediaType)
+        {
+            _logger.LogInformation(
+                "Media type unknown — running all Stage {Stage} providers for broad matching (entity {Id})",
+                stage, request.EntityId);
+        }
+
         var result = new List<IExternalMetadataProvider>();
 
         foreach (var provider in _providers)
@@ -2500,7 +2633,12 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 #pragma warning restore CS0618
 
             // Check capability filters.
-            if (!provider.CanHandle(request.MediaType) || !provider.CanHandle(request.EntityType))
+            // When media type is Unknown, skip the media type check — let all
+            // providers attempt matching so the best match wins.
+            if (!isUnknownMediaType && !provider.CanHandle(request.MediaType))
+                continue;
+
+            if (!provider.CanHandle(request.EntityType))
                 continue;
 
             result.Add(provider);

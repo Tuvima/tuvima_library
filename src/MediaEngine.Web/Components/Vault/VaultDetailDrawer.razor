@@ -153,8 +153,15 @@
                             <div class="vdd-pipeline-line">
                                 <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                 <span class="vdd-field-label">RETAIL</span>
-                                <span class="vdd-field-value">@(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
+                                <span class="vdd-field-value">@VaultHelpers.FormatSourceName(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
                             </div>
+                            @if (GetRetailProviderUrl() is { } matchedRetailUrl)
+                            {
+                                <a href="@matchedRetailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
+                                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                    @matchedRetailUrl.Label
+                                </a>
+                            }
                             <div class="vdd-pipeline-line">
                                 <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                 <span class="vdd-field-label">WIKIDATA</span>
@@ -183,8 +190,15 @@
                             <div class="vdd-pipeline-line">
                                 <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                 <span class="vdd-field-label">RETAIL</span>
-                                <span class="vdd-field-value">@(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
+                                <span class="vdd-field-value">@VaultHelpers.FormatSourceName(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
                             </div>
+                            @if (GetRetailProviderUrl() is { } partialUrl)
+                            {
+                                <a href="@partialUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
+                                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                    @partialUrl.Label
+                                </a>
+                            }
                         }
                         @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
                         {
@@ -462,7 +476,38 @@
                         </button>
                     </div>
                     <div class="vdd-metadata-list">
-                        <p class="vdd-stage-hint">Metadata details will populate after enrichment completes.</p>
+                        @if (_claimsLoading)
+                        {
+                            <div style="padding: 8px 0; text-align: center;">
+                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                            </div>
+                        }
+                        else if (_claims.Count == 0)
+                        {
+                            <p class="vdd-stage-hint">No metadata claims recorded yet.</p>
+                        }
+                        else
+                        {
+                            var filteredClaims = _metadataTab == "file"
+                                ? _claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)).ToList()
+                                : _claims.Where(c => !VaultHelpers.IsFileSource(c.ProviderId) && !VaultHelpers.IsUserSource(c.ProviderId)).ToList();
+                            if (filteredClaims.Count == 0)
+                            {
+                                <p class="vdd-stage-hint">No @(_metadataTab == "file" ? "file" : "provider") claims for this item.</p>
+                            }
+                            else
+                            {
+                                foreach (var group in filteredClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                {
+                                    var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                    <div class="vdd-claim-row">
+                                        <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                        <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
+                                        <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
+                                    </div>
+                                }
+                            }
+                        }
                     </div>
                 </div>
             </DrawerSection>
@@ -492,12 +537,25 @@
                             <div class="vdd-identity-items">
                                 @foreach (var alias in _aliases.Aliases.OrderByDescending(a => !string.IsNullOrEmpty(a.WikidataQid)))
                                 {
-                                    var aliasIcon = string.IsNullOrEmpty(alias.WikidataQid) ? Icons.Material.Outlined.Person : Icons.Material.Outlined.Link;
-                                    var aliasColor = string.IsNullOrEmpty(alias.WikidataQid) ? "rgba(255,255,255,0.3)" : "#60A5FA";
                                     <button class="vdd-identity-link" @onclick="() => OnPersonAliasClicked.InvokeAsync(alias.Id)">
-                                        <MudIcon Icon="@aliasIcon" Style="@("font-size: 14px; color: " + aliasColor + ";" )" />
-                                        <span>@alias.Name</span>
-                                        <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
+                                        <div class="vdd-alias-avatar">
+                                            @if (!string.IsNullOrEmpty(alias.HeadshotUrl))
+                                            {
+                                                <img src="@alias.HeadshotUrl" alt="@alias.Name" class="vdd-alias-avatar-img" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
+                                            }
+                                        </div>
+                                        <div class="vdd-alias-info">
+                                            <span class="vdd-alias-name">@alias.Name</span>
+                                            <span class="vdd-alias-relationship">@(alias.Relationship == "real_person" ? "Real person" : "Pen name")</span>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(alias.WikidataQid))
+                                        {
+                                            <span class="vdd-alias-qid">@alias.WikidataQid</span>
+                                        }
                                     </button>
                                 }
                             </div>
@@ -800,6 +858,8 @@
     private UniverseCandidateDto? _pendingWikidataMatch;
     private bool _confirmingWikidataMatch;
     private string _metadataTab = "file";
+    private List<ClaimHistoryDto> _claims = [];
+    private bool _claimsLoading;
 
     private void OnSearchTypeChanged(ChangeEventArgs e)
     {
@@ -851,11 +911,20 @@
         _pendingWikidataMatch = null;
         _confirmingWikidataMatch = false;
         _metadataTab = "file";
+        _claims = [];
+        _claimsLoading = false;
         _universeHealth = null;
         _universeCharacters = [];
         _personCharacterRoles = [];
 
-        if (Person is not null)
+        if (MediaItem is not null)
+        {
+            _claimsLoading = true;
+            StateHasChanged();
+            _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
+            _claimsLoading = false;
+        }
+        else if (Person is not null)
         {
             var aliasTask = ApiClient.GetPersonAliasesAsync(Person.Id);
             var rolesTask = ApiClient.GetPersonCharacterRolesAsync(Person.Id);
@@ -1040,6 +1109,80 @@
         {
             _confirmPurge = true;
         }
+    }
+
+    /// <summary>Formats a claim key (snake_case field name) into a human-readable label.</summary>
+    private static string FormatClaimKey(string key) => key.ToLowerInvariant() switch
+    {
+        "title"            => "Title",
+        "original_title"   => "Original Title",
+        "author"           => "Author",
+        "director"         => "Director",
+        "artist"           => "Artist",
+        "narrator"         => "Narrator",
+        "year"             => "Year",
+        "genre"            => "Genre",
+        "series"           => "Series",
+        "series_position"  => "Series #",
+        "description"      => "Description",
+        "cover_url"        => "Cover Art",
+        "isbn"             => "ISBN",
+        "isbn_13"          => "ISBN-13",
+        "isbn_10"          => "ISBN-10",
+        "asin"             => "ASIN",
+        "tmdb_id"          => "TMDB ID",
+        "imdb_id"          => "IMDb ID",
+        "musicbrainz_id"   => "MusicBrainz ID",
+        "open_library_id"  => "Open Library ID",
+        "google_books_id"  => "Google Books ID",
+        "apple_books_id"   => "Apple Books ID",
+        "wikidata_qid"     => "Wikidata QID",
+        "media_type"       => "Media Type",
+        "rating"           => "Rating",
+        "publisher"        => "Publisher",
+        "language"         => "Language",
+        "runtime"          => "Runtime",
+        "album"            => "Album",
+        "track_number"     => "Track #",
+        "composer"         => "Composer",
+        "illustrator"      => "Illustrator",
+        "screenwriter"     => "Screenwriter",
+        "cast_member"      => "Cast",
+        _                  => string.Join(' ', key.Split('_').Select(w =>
+                                  w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w)),
+    };
+
+    /// <summary>
+    /// Builds the best available external URL for the current item's retail provider match,
+    /// using bridge IDs found in loaded claims data.
+    /// </summary>
+    private (string Label, string Url)? GetRetailProviderUrl()
+    {
+        if (MediaItem is null || _claims.Count == 0) return null;
+
+        // Bridge ID keys in priority order per media type
+        string[] bridgeKeys = (MediaItem.MediaType ?? "").ToLowerInvariant() switch
+        {
+            var t when t.Contains("movie") || t.Contains("video") => ["tmdb_id", "imdb_id"],
+            "tv" => ["tmdb_id", "imdb_id"],
+            var t when t.Contains("book") || t.Contains("epub") => ["open_library_id", "google_books_id", "apple_books_id"],
+            var t when t.Contains("audiobook") => ["apple_books_id", "google_books_id", "open_library_id"],
+            var t when t.Contains("music") => ["musicbrainz_id"],
+            _ => ["tmdb_id", "open_library_id", "google_books_id", "musicbrainz_id"],
+        };
+
+        foreach (var key in bridgeKeys)
+        {
+            var claim = _claims.FirstOrDefault(c =>
+                c.ClaimKey.Equals(key, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(c.ClaimValue));
+            if (claim is not null)
+            {
+                var result = VaultHelpers.BuildProviderUrl(key, claim.ClaimValue, MediaItem.MediaType);
+                if (result is not null) return result;
+            }
+        }
+
+        return null;
     }
 }
 
@@ -2472,5 +2615,92 @@
         display: flex;
         flex-direction: column;
         gap: 6px;
+    }
+
+    /* ── Claims rows (FIX A6) ── */
+    .vdd-claim-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .vdd-claim-row .vdd-field-label {
+        min-width: 80px;
+        flex-shrink: 0;
+    }
+
+    .vdd-claim-row .vdd-field-value {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vdd-claim-confidence {
+        font-size: 11px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+    }
+
+    /* ── Provider URL link (FIX A7) ── */
+    .vdd-provider-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #60A5FA;
+        text-decoration: none;
+        padding: 2px 0 2px 20px;
+        opacity: 0.7;
+        transition: opacity 0.15s;
+    }
+
+    .vdd-provider-link:hover {
+        opacity: 1;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    /* ── Alias avatar (FIX B1) ── */
+    .vdd-alias-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.04);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .vdd-alias-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+
+    .vdd-alias-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .vdd-alias-name {
+        font-size: 13px;
+        color: #60A5FA;
+    }
+
+    .vdd-alias-qid {
+        font-size: 10px;
+        font-family: 'JetBrains Mono', monospace;
+        color: rgba(255,255,255,0.2);
+        flex-shrink: 0;
     }
 </style>

@@ -89,7 +89,9 @@
                       SearchTextChanged="OnSearchChanged"
                       SortByChanged="OnSortChanged"
                       GroupByChanged="OnGroupChanged"
-                      PosterSizeChanged="OnPosterSizeChanged" />
+                      PosterSizeChanged="OnPosterSizeChanged"
+                      OnExpandAll="() => _configurableTableRef?.ExpandAll()"
+                      OnCollapseAll="() => _configurableTableRef?.CollapseAll()" />
         <button class="vault-mobile-filter-btn" @onclick="() => _mobileDrawerOpen = true">
             <MudIcon Icon="@Icons.Material.Outlined.FilterList" Style="font-size: 18px;" />
         </button>
@@ -117,7 +119,8 @@
             }
             else if (_activeTab == "media")
             {
-                <VaultConfigurableTable Columns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
+                <VaultConfigurableTable @ref="_configurableTableRef"
+                                         Columns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
                                          VisibleColumnKeys="@_visibleColumnKeys"
                                          Items="@_mediaItems"
                                          GroupBy="@_groupBy"
@@ -306,6 +309,9 @@
     // ── Mobile sidebar drawer state ──
     private bool _mobileDrawerOpen;
 
+    // ── Table ref for expand/collapse all ──
+    private VaultConfigurableTable? _configurableTableRef;
+
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
     private PersonListItemDto? _selectedPerson;
@@ -363,18 +369,17 @@
         {
             if (cardId == "Total")
             {
-                // Toggle all: if all enabled → clear all; otherwise → enable all
-                if (_enabledMediaTypes.Count == _allMediaTypeIds.Length)
-                    _enabledMediaTypes.Clear();
-                else
-                    _enabledMediaTypes = new HashSet<string>(_allMediaTypeIds);
+                // Total always resets to all
+                _enabledMediaTypes = new HashSet<string>(_allMediaTypeIds);
             }
             else
             {
-                if (_enabledMediaTypes.Contains(cardId))
-                    _enabledMediaTypes.Remove(cardId);
+                // Radio behavior: if this is the only active card, deselect it → show all
+                // Otherwise, select only this card
+                if (_enabledMediaTypes.Count == 1 && _enabledMediaTypes.Contains(cardId))
+                    _enabledMediaTypes = new HashSet<string>(_allMediaTypeIds);
                 else
-                    _enabledMediaTypes.Add(cardId);
+                    _enabledMediaTypes = new HashSet<string> { cardId };
             }
             await LoadMediaItems();
             UpdateUrl();
@@ -1187,7 +1192,7 @@
     .vault-layout {
         display: flex;
         flex-direction: column;
-        height: 100%;
+        height: calc(100vh - 64px); /* 64px = TopBar height */
         overflow: hidden;
         color: rgba(255, 255, 255, 0.85);
         font-family: inherit;

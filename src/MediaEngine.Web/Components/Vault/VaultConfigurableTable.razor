@@ -82,6 +82,20 @@ else
     [Parameter] public EventCallback<HashSet<Guid>> SelectedItemsChanged { get; set; }
 
     private readonly Dictionary<string, bool> _expandedGroups = new();
+
+    public void ExpandAll()
+    {
+        _expandedGroups.Clear(); // default is expanded, so clearing shows all
+        StateHasChanged();
+    }
+
+    public void CollapseAll()
+    {
+        foreach (var group in GetGroups())
+            _expandedGroups[group.Key] = false;
+        StateHasChanged();
+    }
+
     private string? _hoverCover;
     private double _hoverX;
     private double _hoverY;
@@ -475,8 +489,8 @@ else
             "TrackNumber"    => item.TrackNumber ?? "—",
             "PodcastName"   => "—",                   // placeholder
             "EpisodeNumber" => "—",                   // placeholder
-            "Season"        => "—",                   // placeholder
-            "Episode"       => "—",                   // placeholder
+            "Season"        => item.Season ?? "—",
+            "Episode"       => item.Episode ?? "—",
             "IssueNumber"   => "—",                   // placeholder
             "Name"          => item.Title,            // Hubs tab
             "Type"          => item.MediaType ?? "—", // Hubs tab
@@ -677,10 +691,10 @@ else
     }
 
     .vmt-original-title {
-        font-size: 0.75rem;
-        color: var(--mud-palette-text-secondary);
+        font-size: 0.75em;
+        color: rgba(255, 255, 255, 0.4);
+        font-style: italic;
         margin: 2px 0 4px 0;
-        opacity: 0.7;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;

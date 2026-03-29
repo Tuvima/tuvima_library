@@ -51,6 +51,15 @@
                     <option value="genre">Genre</option>
                     <option value="decade">Decade</option>
                 </select>
+                @if (GroupBy != "none")
+                {
+                    <button class="vault-group-action-btn" title="Expand all" @onclick="() => OnExpandAll.InvokeAsync()">
+                        <MudIcon Icon="@Icons.Material.Filled.UnfoldMore" Style="font-size: 16px;" />
+                    </button>
+                    <button class="vault-group-action-btn" title="Collapse all" @onclick="() => OnCollapseAll.InvokeAsync()">
+                        <MudIcon Icon="@Icons.Material.Filled.UnfoldLess" Style="font-size: 16px;" />
+                    </button>
+                }
             </div>
 
             <div class="vault-control-divider"></div>
@@ -79,6 +88,8 @@
     [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
     [Parameter] public EventCallback<string> SortByChanged { get; set; }
     [Parameter] public EventCallback<string> GroupByChanged { get; set; }
+    [Parameter] public EventCallback OnExpandAll { get; set; }
+    [Parameter] public EventCallback OnCollapseAll { get; set; }
 
     private System.Timers.Timer? _debounceTimer;
 
@@ -225,6 +236,26 @@
     .vault-control-divider {
         width: 1px;
         height: 24px;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .vault-group-action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        transition: all 0.15s;
+        padding: 0;
+    }
+
+    .vault-group-action-btn:hover {
+        color: rgba(255, 255, 255, 0.7);
         background: rgba(255, 255, 255, 0.06);
     }
 
