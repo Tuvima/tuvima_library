@@ -68,6 +68,30 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("artist")]
     public string? Artist { get; set; }
 
+    [JsonPropertyName("series")]
+    public string? Series { get; set; }
+
+    [JsonPropertyName("series_position")]
+    public string? SeriesPosition { get; set; }
+
+    [JsonPropertyName("narrator")]
+    public string? Narrator { get; set; }
+
+    [JsonPropertyName("genre")]
+    public string? Genre { get; set; }
+
+    [JsonPropertyName("runtime")]
+    public string? Runtime { get; set; }
+
+    [JsonPropertyName("rating")]
+    public string? Rating { get; set; }
+
+    [JsonPropertyName("album")]
+    public string? Album { get; set; }
+
+    [JsonPropertyName("track_number")]
+    public string? TrackNumber { get; set; }
+
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; set; }
 

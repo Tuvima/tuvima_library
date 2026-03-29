@@ -69,6 +69,7 @@ else
 
 @code {
     [Parameter] public List<VaultColumnDef> Columns { get; set; } = [];
+    [Parameter] public List<string>? VisibleColumnKeys { get; set; }
     [Parameter] public List<VaultItemViewModel> Items { get; set; } = [];
     [Parameter] public string GroupBy { get; set; } = "none";
     [Parameter] public bool Loading { get; set; }
@@ -86,7 +87,14 @@ else
     private double _hoverY;
     private int _lastClickedIndex = -1;
 
-    private List<VaultColumnDef> VisibleColumns => Columns.Where(c => c.DefaultVisible).ToList();
+    private List<VaultColumnDef> ActiveColumns =>
+        VisibleColumnKeys is { Count: > 0 }
+            ? VisibleColumnKeys
+                .Select(key => Columns.FirstOrDefault(c => c.Key == key))
+                .Where(c => c is not null)
+                .Cast<VaultColumnDef>()
+                .ToList()
+            : Columns.Where(c => c.DefaultVisible).ToList();
 
     private void ShowHover(string? coverUrl, MouseEventArgs e)
     {
@@ -155,7 +163,7 @@ else
 
     private RenderFragment RenderTable(List<VaultItemViewModel> items) => __builder =>
     {
-        var cols = VisibleColumns;
+        var cols = ActiveColumns;
         <table class="vmt-table">
             <thead>
                 <tr class="vmt-thead-row">
@@ -391,10 +399,50 @@ else
         {
             var byUniverse = Items
                 .GroupBy(i => i.UniverseName ?? "Standalone")
-                .OrderBy(g => g.Key)
+                .OrderBy(g => g.Key == "Standalone" ? "zzz" : g.Key)
                 .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
                 .ToList();
             return byUniverse;
+        }
+
+        if (GroupBy == "author")
+        {
+            var byAuthor = Items
+                .GroupBy(i => i.Author ?? i.Director ?? i.Artist ?? "Unknown")
+                .OrderBy(g => g.Key == "Unknown" ? "zzz" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byAuthor;
+        }
+
+        if (GroupBy == "artist")
+        {
+            var byArtist = Items
+                .GroupBy(i => i.Artist ?? i.Author ?? "Unknown")
+                .OrderBy(g => g.Key == "Unknown" ? "zzz" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byArtist;
+        }
+
+        if (GroupBy == "genre")
+        {
+            var byGenre = Items
+                .GroupBy(i => i.Genre ?? "Unknown")
+                .OrderBy(g => g.Key == "Unknown" ? "zzz" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byGenre;
+        }
+
+        if (GroupBy == "decade")
+        {
+            var byDecade = Items
+                .GroupBy(i => int.TryParse(i.Year, out var y) ? $"{y / 10 * 10}s" : "Unknown")
+                .OrderByDescending(g => g.Key == "Unknown" ? "0" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byDecade;
         }
 
         return [new TableGroup("all", "All", Items)];
@@ -417,16 +465,19 @@ else
             "Director"      => item.Director ?? "—",
             "Artist"        => item.Artist ?? "—",
             "Year"          => item.Year ?? "—",
-            "Series"        => item.UniverseName ?? "—",
-            "Narrator"      => item.Author ?? "—",   // placeholder — Narrator not on VaultItemViewModel yet
-            "Album"         => "—",                   // placeholder
-            "TrackNumber"   => "—",                   // placeholder
+            "Series"         => item.Series ?? item.UniverseName ?? "—",
+            "SeriesPosition" => item.SeriesPosition ?? "—",
+            "Narrator"       => item.Narrator ?? item.Author ?? "—",
+            "Genre"          => item.Genre ?? "—",
+            "Runtime" or "Duration" => item.Runtime ?? "—",
+            "Rating"         => item.Rating ?? "—",
+            "Album"          => item.Album ?? "—",
+            "TrackNumber"    => item.TrackNumber ?? "—",
             "PodcastName"   => "—",                   // placeholder
             "EpisodeNumber" => "—",                   // placeholder
             "Season"        => "—",                   // placeholder
             "Episode"       => "—",                   // placeholder
             "IssueNumber"   => "—",                   // placeholder
-            "Rating"        => "—",                   // placeholder
             "Name"          => item.Title,            // Hubs tab
             "Type"          => item.MediaType ?? "—", // Hubs tab
             "SeriesCount"   => "—",                   // Universes tab

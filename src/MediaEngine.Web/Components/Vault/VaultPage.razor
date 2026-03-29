@@ -108,9 +108,17 @@
                       OnColumnPickerRequested="() => _showColumnPicker = true" />
 
         <div class="vault-content">
-            @if (_activeTab == "media")
+            @if (_activeTab == "media" && _activeView == "albums")
+            {
+                <VaultMusicGrid Items="@_mediaItems"
+                                CardSize="@_posterSize"
+                                Loading="@_loading"
+                                OnCardClicked="OnMediaRowClicked" />
+            }
+            else if (_activeTab == "media")
             {
                 <VaultConfigurableTable Columns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
+                                         VisibleColumnKeys="@_visibleColumnKeys"
                                          Items="@_mediaItems"
                                          GroupBy="@_groupBy"
                                          Loading="@_loading"
@@ -200,6 +208,7 @@
         <VaultColumnPicker AllColumns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
                            VisibleKeys="@_visibleColumnKeys"
                            VisibleKeysChanged="OnColumnVisibilityChanged"
+                           ViewKey="@GetColumnViewKey()"
                            OnClose="() => _showColumnPicker = false" />
     }
 
@@ -811,9 +820,76 @@
     private async Task OnViewChanged(string view)
     {
         _activeView = view;
+
+        // Map view key to filter/group/sort behaviour
+        switch (view)
+        {
+            case "recent":
+                _sortBy = "newest";
+                _groupBy = "none";
+                ClearStatusFilters();
+                break;
+            case "needs-review":
+                _filterReview = true;
+                _filterProvisional = false;
+                _filterQuarantine = false;
+                _filterWaitingForProvider = false;
+                break;
+            case "quarantined":
+                _filterQuarantine = true;
+                _filterReview = false;
+                _filterProvisional = false;
+                _filterWaitingForProvider = false;
+                break;
+            case "all":
+                _groupBy = "none";
+                ClearStatusFilters();
+                break;
+            case "series":
+                _groupBy = "universe";
+                ClearStatusFilters();
+                break;
+            case "authors":
+            case "narrators":
+            case "directors":
+                _groupBy = "author";
+                ClearStatusFilters();
+                break;
+            case "decades":
+                _groupBy = "decade";
+                ClearStatusFilters();
+                break;
+            case "albums":
+                _groupBy = "none";
+                ClearStatusFilters();
+                break;
+            case "artists":
+                _groupBy = "artist";
+                ClearStatusFilters();
+                break;
+            case "genres":
+                _groupBy = "genre";
+                ClearStatusFilters();
+                break;
+            default:
+                // TV season views (tv-season-{showId}-{seasonNum}) and other media-specific views
+                ClearStatusFilters();
+                break;
+        }
+
+        if (_activeTab == "media")
+            await LoadMediaItems();
+
         StateHasChanged();
         UpdateUrl();
-        await Task.CompletedTask;
+    }
+
+    private void ClearStatusFilters()
+    {
+        _filterReview = false;
+        _filterProvisional = false;
+        _filterQuarantine = false;
+        _filterWaitingForProvider = false;
     }
 
     private string? GetSidebarMediaType()
@@ -822,6 +898,8 @@
             return _enabledMediaTypes.First();
         return null;
     }
+
+    private string GetColumnViewKey() => GetSidebarMediaType()?.ToLowerInvariant() ?? "all";
 
     // ── Delete confirm ──
 

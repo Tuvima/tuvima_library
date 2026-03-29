@@ -41,6 +41,14 @@ public sealed record RegistryItem
     [JsonPropertyName("author")]         public string? Author { get; init; }
     [JsonPropertyName("director")]       public string? Director { get; init; }
     [JsonPropertyName("artist")]         public string? Artist { get; init; }
+    [JsonPropertyName("series")]          public string? Series { get; init; }
+    [JsonPropertyName("series_position")] public string? SeriesPosition { get; init; }
+    [JsonPropertyName("narrator")]        public string? Narrator { get; init; }
+    [JsonPropertyName("genre")]           public string? Genre { get; init; }
+    [JsonPropertyName("runtime")]         public string? Runtime { get; init; }
+    [JsonPropertyName("rating")]          public string? Rating { get; init; }
+    [JsonPropertyName("album")]           public string? Album { get; init; }
+    [JsonPropertyName("track_number")]    public string? TrackNumber { get; init; }
 
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; init; }

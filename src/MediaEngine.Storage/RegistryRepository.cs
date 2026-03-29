@@ -70,6 +70,14 @@ public sealed class RegistryRepository : IRegistryRepository
                     ) AS author,
                     MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS director,
                     MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
+                    MAX(CASE WHEN cv.key = 'series_name' THEN cv.value END) AS series,
+                    MAX(CASE WHEN cv.key = 'series_position' THEN cv.value END) AS series_position,
+                    MAX(CASE WHEN cv.key = 'narrator' THEN cv.value END) AS narrator,
+                    MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
+                    MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
+                    MAX(CASE WHEN cv.key = 'rating' THEN cv.value END) AS rating,
+                    MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
+                    MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
                     (SELECT pr.display_name || ': ' || mc_rt.value
                      FROM metadata_claims mc_rt
                      INNER JOIN media_assets ma_rt ON ma_rt.id = mc_rt.entity_id
@@ -171,6 +179,14 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.author,
                     wd.director,
                     wd.artist,
+                    wd.series,
+                    wd.series_position,
+                    wd.narrator,
+                    wd.genre,
+                    wd.runtime,
+                    wd.rating,
+                    wd.album,
+                    wd.track_number,
                     wd.retail_match_detail,
                     wd.file_name,
                     wd.title_provider_id AS match_source,
@@ -304,7 +320,9 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
                 fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status,
                 fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url,
-                fd.created_at, fd.director, fd.artist, fd.retail_match_detail
+                fd.created_at, fd.director, fd.artist, fd.retail_match_detail,
+                fd.series, fd.series_position, fd.narrator, fd.genre,
+                fd.runtime, fd.rating, fd.album, fd.track_number
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -346,6 +364,14 @@ public sealed class RegistryRepository : IRegistryRepository
                 Director          = reader.IsDBNull(21) ? null : reader.GetString(21),
                 Artist            = reader.IsDBNull(22) ? null : reader.GetString(22),
                 RetailMatchDetail = reader.IsDBNull(23) ? null : reader.GetString(23),
+                Series            = reader.IsDBNull(24) ? null : reader.GetString(24),
+                SeriesPosition    = reader.IsDBNull(25) ? null : reader.GetString(25),
+                Narrator          = reader.IsDBNull(26) ? null : reader.GetString(26),
+                Genre             = reader.IsDBNull(27) ? null : reader.GetString(27),
+                Runtime           = reader.IsDBNull(28) ? null : reader.GetString(28),
+                Rating            = reader.IsDBNull(29) ? null : reader.GetString(29),
+                Album             = reader.IsDBNull(30) ? null : reader.GetString(30),
+                TrackNumber       = reader.IsDBNull(31) ? null : reader.GetString(31),
             });
         }
 

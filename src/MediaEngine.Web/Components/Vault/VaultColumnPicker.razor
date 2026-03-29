@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Vault
 @using MediaEngine.Web.Models.ViewDTOs
+@inject IJSRuntime JS
 
 @if (_initialized)
 {
@@ -65,6 +66,7 @@
     [Parameter] public List<string> VisibleKeys { get; set; } = [];
     [Parameter] public EventCallback<List<string>> VisibleKeysChanged { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string ViewKey { get; set; } = "all";
 
     // Internal state
     private List<string> _orderedKeys = [];
@@ -107,6 +109,50 @@
         }
     }
 
+    // ── localStorage persistence ─────────────────────────────────────────────
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", $"vault-columns-{ViewKey}");
+            if (!string.IsNullOrEmpty(stored))
+            {
+                try
+                {
+                    var keys = System.Text.Json.JsonSerializer.Deserialize<List<string>>(stored);
+                    if (keys is { Count: > 0 })
+                    {
+                        // Restore order from stored keys (excluding checkbox, restricted to known columns)
+                        var knownKeys = new HashSet<string>(_columnMap.Keys);
+                        var restoredOrder = keys
+                            .Where(k => k != "checkbox" && knownKeys.Contains(k))
+                            .ToList();
+                        // Append any new columns not in stored list (at the end)
+                        foreach (var k in _columnMap.Keys)
+                            if (!restoredOrder.Contains(k))
+                                restoredOrder.Add(k);
+                        _orderedKeys = restoredOrder;
+
+                        _visibleSet = keys
+                            .Where(k => k != "checkbox" && knownKeys.Contains(k))
+                            .ToHashSet();
+
+                        await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
+                        StateHasChanged();
+                    }
+                }
+                catch { /* ignore corrupt localStorage */ }
+            }
+        }
+    }
+
+    private async Task SaveToLocalStorage()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(GetVisibleKeys());
+        await JS.InvokeVoidAsync("localStorage.setItem", $"vault-columns-{ViewKey}", json);
+    }
+
     // ── Drag & Drop ──────────────────────────────────────────────────────────
 
     private void OnDragStart(int index)
@@ -142,6 +188,7 @@
         _dragIndex = null;
         _dragOverIndex = null;
 
+        await SaveToLocalStorage();
         await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
     }
 
@@ -154,6 +201,7 @@
         else
             _visibleSet.Add(key);
 
+        await SaveToLocalStorage();
         await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
     }
 
@@ -170,6 +218,7 @@
             .Select(c => c.Key)
             .ToHashSet();
 
+        await JS.InvokeVoidAsync("localStorage.removeItem", $"vault-columns-{ViewKey}");
         await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
     }
 

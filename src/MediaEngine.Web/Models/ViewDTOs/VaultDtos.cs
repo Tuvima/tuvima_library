@@ -22,6 +22,14 @@ public sealed class VaultItemViewModel
     public string? Author { get; init; }
     public string? Director { get; init; }
     public string? Artist { get; init; }
+    public string? Series { get; init; }
+    public string? SeriesPosition { get; init; }
+    public string? Narrator { get; init; }
+    public string? Genre { get; init; }
+    public string? Runtime { get; init; }
+    public string? Rating { get; init; }
+    public string? Album { get; init; }
+    public string? TrackNumber { get; init; }
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }
@@ -70,6 +78,14 @@ public sealed class VaultItemViewModel
         Author = r.Author,
         Director = r.Director,
         Artist = r.Artist,
+        Series = r.Series,
+        SeriesPosition = r.SeriesPosition,
+        Narrator = r.Narrator,
+        Genre = r.Genre,
+        Runtime = r.Runtime,
+        Rating = r.Rating,
+        Album = r.Album,
+        TrackNumber = r.TrackNumber,
         Year = r.Year,
         MediaType = r.MediaType,
         CoverUrl = r.CoverUrl,
