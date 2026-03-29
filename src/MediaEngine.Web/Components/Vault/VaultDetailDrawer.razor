@@ -33,15 +33,22 @@
                 </div>
                 <div class="vdd-header-info">
                     <div class="vdd-badges">
-                        <span class="vdd-location-chip @(IsInLibrary ? "vdd-location-chip--library" : "vdd-location-chip--staging")">
-                            @(IsInLibrary ? "Library" : "Staging")
-                        </span>
+                        @if (!IsInLibrary)
+                        {
+                            <span class="vdd-location-chip vdd-location-chip--staging">
+                                Staging
+                            </span>
+                        }
                         <StatusPill Status="@MediaItem.VaultDisplayStatus" QuarantineDays="@MediaItem.QuarantineDays" />
                         @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
                         {
                             <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
                                 <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
                                 @MediaItem.WikidataQid
+                            </a>
+                            <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(MediaItem.WikidataQid)/enwiki" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
+                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                Wikipedia
                             </a>
                         }
                     </div>
@@ -60,8 +67,8 @@
                         <p class="vdd-subtitle">@drawerCreator.ToUpperInvariant()</p>
                     }
                     <div class="vdd-meta">
-                        <span class="vdd-meta-item">
-                            <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px; opacity: 0.5;" />
+                        <span class="vdd-meta-item" style="color: @VaultHelpers.GetMediaTypeColor(MediaItem.MediaType);">
+                            <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px;" />
                             @VaultHelpers.FormatMediaType(MediaItem.MediaType)
                         </span>
                         @if (!string.IsNullOrEmpty(MediaItem.Year))
@@ -537,6 +544,34 @@
                     }
                 </div>
             </DrawerSection>
+
+            @* ── People section ── *@
+            @if (BuildPeopleEntries() is var peopleEntries && peopleEntries.Count > 0)
+            {
+                <DrawerSection Title="People" Icon="@Icons.Material.Outlined.People" DefaultOpen="true">
+                    <div class="vdd-people-list">
+                        @foreach (var person in peopleEntries)
+                        {
+                            <div class="vdd-person-row">
+                                <div class="vdd-person-avatar-sm">
+                                    @if (!string.IsNullOrEmpty(person.HeadshotUrl))
+                                    {
+                                        <img src="@person.HeadshotUrl" alt="" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
+                                    }
+                                </div>
+                                <div class="vdd-person-info-col">
+                                    <span class="vdd-person-name-link">@person.Name</span>
+                                    <span class="vdd-person-role-label">@person.Role</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </DrawerSection>
+            }
         }
         else if (Person is not null)
         {
@@ -1024,6 +1059,50 @@
         }
     }
 
+    /// <summary>Builds a list of people from claims data (author, director, narrator, etc.) for the People section.</summary>
+    private List<(string Name, string Role, string? HeadshotUrl)> BuildPeopleEntries()
+    {
+        var entries = new List<(string Name, string Role, string? HeadshotUrl)>();
+        if (MediaItem is null) return entries;
+
+        // Add named people from the item's fields
+        void AddPerson(string? name, string role)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            // Split compound names (e.g., "Author1 & Author2")
+            foreach (var part in name.Split(new[] { " & ", " and " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (!string.IsNullOrWhiteSpace(part) && !entries.Any(e => e.Name.Equals(part, StringComparison.OrdinalIgnoreCase) && e.Role == role))
+                    entries.Add((part, role, null));
+            }
+        }
+
+        AddPerson(MediaItem.Author, "Author");
+        AddPerson(MediaItem.Director, "Director");
+        AddPerson(MediaItem.Narrator, "Narrator");
+        AddPerson(MediaItem.Artist, "Artist");
+
+        // Also check claims for additional people fields (composer, illustrator, screenwriter, cast)
+        foreach (var claim in _claims)
+        {
+            var role = claim.ClaimKey.ToLowerInvariant() switch
+            {
+                "composer" => "Composer",
+                "illustrator" => "Illustrator",
+                "screenwriter" => "Screenwriter",
+                "cast_member" => "Cast",
+                _ => null,
+            };
+            if (role is not null && !string.IsNullOrWhiteSpace(claim.ClaimValue)
+                && !entries.Any(e => e.Name.Equals(claim.ClaimValue, StringComparison.OrdinalIgnoreCase) && e.Role == role))
+            {
+                entries.Add((claim.ClaimValue, role, null));
+            }
+        }
+
+        return entries;
+    }
+
     /// <summary>Formats a claim key (snake_case field name) into a human-readable label.</summary>
     private static string FormatClaimKey(string key) => key.ToLowerInvariant() switch
     {
@@ -1238,6 +1317,28 @@
         background: rgba(167, 139, 250, 0.2);
     }
 
+    .vdd-wiki-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.4);
+        text-decoration: none;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: color 0.15s, background 0.15s;
+    }
+
+    .vdd-wiki-badge:hover {
+        color: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
     .vdd-role-chip {
         font-size: 9px;
         font-weight: 800;
@@ -1257,9 +1358,8 @@
         line-height: 1.2;
         letter-spacing: -0.02em;
         margin: 0;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
         padding-right: 48px;
     }
 
@@ -2712,5 +2812,67 @@
         color: rgba(255,255,255,0.4);
         margin: 0;
         padding-left: 26px;
+    }
+
+    .vdd-people-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .vdd-person-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        transition: background 0.15s;
+    }
+
+    .vdd-person-row:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .vdd-person-avatar-sm {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .vdd-person-avatar-sm img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-person-info-col {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .vdd-person-name-link {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .vdd-person-row:hover .vdd-person-name-link {
+        color: #60A5FA;
+    }
+
+    .vdd-person-role-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.3);
     }
 </style>

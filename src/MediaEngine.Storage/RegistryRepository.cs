@@ -48,18 +48,18 @@ public sealed class RegistryRepository : IRegistryRepository
                                 WHEN cnt.total = 2 THEN a1.value || ' & ' || a2.value
                                 ELSE a1.value || ' & ' || a2.value || ' + ' || (cnt.total - 2) || ' more'
                             END
-                         FROM (SELECT COUNT(*) AS total
+                         FROM (SELECT COUNT(DISTINCT cva0.value) AS total
                                FROM canonical_value_arrays cva0
                                INNER JOIN media_assets ma0 ON ma0.id = cva0.entity_id
                                INNER JOIN editions e0 ON e0.id = ma0.edition_id
                                WHERE e0.work_id = w.id AND cva0.key = 'author') cnt
-                         LEFT JOIN (SELECT cva1.value, cva1.entity_id
+                         LEFT JOIN (SELECT DISTINCT cva1.value
                                     FROM canonical_value_arrays cva1
                                     INNER JOIN media_assets ma1 ON ma1.id = cva1.entity_id
                                     INNER JOIN editions e1 ON e1.id = ma1.edition_id
                                     WHERE e1.work_id = w.id AND cva1.key = 'author'
                                     ORDER BY cva1.ordinal LIMIT 1) a1 ON 1=1
-                         LEFT JOIN (SELECT cva2.value, cva2.entity_id
+                         LEFT JOIN (SELECT DISTINCT cva2.value
                                     FROM canonical_value_arrays cva2
                                     INNER JOIN media_assets ma2b ON ma2b.id = cva2.entity_id
                                     INNER JOIN editions e2b ON e2b.id = ma2b.edition_id
