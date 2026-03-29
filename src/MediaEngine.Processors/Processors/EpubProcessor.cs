@@ -28,12 +28,12 @@ namespace MediaEngine.Processors.Processors;
 ///  <see cref="EpubReader"/>; embedded cover image is returned as raw bytes.
 ///
 ///  Extracted claims:
-///   • title        (confidence 1.0 — authoritative OPF element)
-///   • author       (one claim per author, confidence 1.0)
-///   • publisher    (confidence 1.0)
-///   • language     (confidence 1.0)
-///   • description  (confidence 1.0)
-///   • date         (confidence 1.0)
+///   • title        (confidence 0.95 — trustworthy OPF element)
+///   • author       (one claim per author, confidence 0.95)
+///   • publisher    (confidence 0.95)
+///   • language     (confidence 0.95)
+///   • description  (confidence 0.95)
+///   • date         (confidence 0.95)
 ///   \u2022 isbn         (confidence 1.0 \u2014 dc:identifier with ISBN scheme)
 ///   \u2022 word_count   (confidence 1.0 \u2014 counted from reading-order content)
 ///
@@ -323,7 +323,10 @@ public sealed class EpubProcessor : IMediaProcessor
     {
         Key        = key,
         Value      = value.Trim(),
-        Confidence = 1.0,
+        // File-embedded metadata is trustworthy but NOT authoritative. Confidence
+        // 0.95 ensures Wikidata display-language titles (0.98) can override when
+        // the file is in a foreign language. 1.0 is reserved for user locks only.
+        Confidence = 0.95,
     };
 
     /// <summary>

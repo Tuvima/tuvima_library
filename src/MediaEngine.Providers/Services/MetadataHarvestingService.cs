@@ -466,9 +466,11 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         //   1. P31 (instance_of) QID is Q127843 (pen name) or Q15632617 (fictional
         //      human used as shared pen name), OR
         //   2. P1773 (attributed_to) claims exist — meaning real people stand behind
-        //      this name (e.g., James S. A. Corey → Daniel Abraham + Ty Franck).
-        //      Some collective pseudonyms are classified as Q5 (human) on Wikidata
-        //      rather than Q127843, so P1773 presence is a definitive signal.
+        //      this name, OR
+        //   3. P527 (has_parts) claims exist with QID references — collective pen
+        //      names like "James S. A. Corey" use P527 to list constituent authors
+        //      (Daniel Abraham + Ty Franck). The Data Extension API may not return
+        //      P31 for some entities, so P527 presence is a reliable fallback signal.
         // Check the _qid claim (stable Wikidata IDs) first; fall back to the
         // label claim for the "pen name" string in case the adapter returned
         // labels-only.
@@ -481,6 +483,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 c.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase))
             || claims.Any(c =>
                 c.Key == "attributed_to_qid" &&
+                !string.IsNullOrWhiteSpace(c.Value))
+            || claims.Any(c =>
+                c.Key == "has_parts_qid" &&
                 !string.IsNullOrWhiteSpace(c.Value));
 
         // ── QID-based deduplication ───────────────────────────────────────────
@@ -697,9 +702,10 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     {
         try
         {
-            // P1773 (attributed_to): real people behind a pen name.
+            // P1773 (attributed_to) or P527 (has_parts): real people behind a pen name.
+            // James S. A. Corey (Q6142591) uses P527 to list Daniel Abraham + Ty Franck.
             var attributedTo = claims
-                .Where(c => c.Key == "attributed_to_qid")
+                .Where(c => c.Key == "attributed_to_qid" || c.Key == "has_parts_qid")
                 .Select(c => c.Value)
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .ToList();

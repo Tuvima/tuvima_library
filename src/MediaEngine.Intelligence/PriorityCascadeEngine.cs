@@ -165,9 +165,13 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             }
 
             // ── A: Wikidata authority (default for non-overridden fields) ─
+            // When multiple Wikidata claims exist for the same field (e.g. a
+            // display-language title at 0.98 and a reconciliation match label at
+            // 0.90), pick by highest confidence first, then newest as tiebreaker.
             var wikidataClaim = claimsForField
                 .Where(c => c.ProviderId == WikidataProviderId)
-                .OrderByDescending(c => c.ClaimedAt)
+                .OrderByDescending(c => c.Confidence)
+                .ThenByDescending(c => c.ClaimedAt)
                 .FirstOrDefault();
 
             if (wikidataClaim is not null)
