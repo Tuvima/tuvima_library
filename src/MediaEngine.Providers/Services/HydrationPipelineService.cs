@@ -2686,7 +2686,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 bool coverExists = false;
                 if (_imagePathService is not null)
                 {
-                    var newCoverPath = _imagePathService.GetWorkCoverPath(qid, entityId);
+                    var newCoverPath = _imagePathService.GetWorkCoverPath(qid, entityId, mediaType);
                     coverExists = File.Exists(newCoverPath);
                 }
                 if (!coverExists)
@@ -4373,16 +4373,18 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
+            var mediaType = canonicals.FirstOrDefault(c => c.Key is "media_type")?.Value;
+
             string coverPath;
             if (_imagePathService is not null)
             {
-                coverPath = _imagePathService.GetWorkCoverPath(wikidataQid, assetId);
-                ImagePathService.EnsureDirectory(coverPath);
-
                 // If the asset just got a QID and previously had a provisional cover,
                 // promote the provisional directory to the QID-keyed directory.
                 if (!string.IsNullOrEmpty(wikidataQid))
-                    _imagePathService.PromoteToQid(assetId, wikidataQid);
+                    _imagePathService.PromoteToQid(assetId, wikidataQid, mediaType);
+
+                coverPath = _imagePathService.GetWorkCoverPath(wikidataQid, assetId, mediaType);
+                ImagePathService.EnsureDirectory(coverPath);
             }
             else
             {
@@ -4487,16 +4489,28 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             // Generate cinematic hero banner from the newly downloaded cover art.
             // Output directory: use .images/ when available, else legacy file directory.
+            // The hero generator writes hero.jpg into the output dir, then we rename
+            // to the media-type-prefixed filename when using QID directories.
             var heroOutputDir = _imagePathService is not null
                 ? _imagePathService.GetWorkImageDir(wikidataQid, assetId)
                 : fileDir;
             await GenerateHeroBannerAsync(assetId, coverPath, heroOutputDir, ct)
                 .ConfigureAwait(false);
+            // Rename hero.jpg → {mediaType}-hero.jpg if in a QID directory
+            if (_imagePathService is not null)
+            {
+                var expectedHeroPath = _imagePathService.GetWorkHeroPath(wikidataQid, assetId, mediaType);
+                var genericHeroPath = Path.Combine(heroOutputDir, "hero.jpg");
+                if (File.Exists(genericHeroPath) && !string.Equals(genericHeroPath, expectedHeroPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    try { File.Move(genericHeroPath, expectedHeroPath, overwrite: true); } catch { /* best-effort */ }
+                }
+            }
 
             // Generate thumbnail (200px wide, quality 75) for use in list views.
             if (_imagePathService is not null)
             {
-                var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid, assetId);
+                var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid, assetId, mediaType);
                 GenerateThumbnail(coverPath, thumbPath);
             }
         }

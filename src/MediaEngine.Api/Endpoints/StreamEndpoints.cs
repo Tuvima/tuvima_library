@@ -103,7 +103,8 @@ public static class StreamEndpoints
                     && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
-            var newCoverPath  = imagePathService.GetWorkCoverPath(wikidataQid, assetId);
+            var mediaType = canonicals.FirstOrDefault(c => c.Key is "media_type")?.Value;
+            var newCoverPath  = imagePathService.GetWorkCoverPath(wikidataQid, assetId, mediaType);
             var legacyCoverPath = string.IsNullOrEmpty(asset.FilePathRoot)
                 ? null
                 : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "cover.jpg");
@@ -146,12 +147,13 @@ public static class StreamEndpoints
                     && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
-            var thumbPath = imagePathService.GetWorkCoverThumbPath(wikidataQid, assetId);
+            var mediaType = canonicals.FirstOrDefault(c => c.Key is "media_type")?.Value;
+            var thumbPath = imagePathService.GetWorkCoverThumbPath(wikidataQid, assetId, mediaType);
 
             // Fall back to full cover if no thumbnail exists yet.
             if (!File.Exists(thumbPath))
             {
-                var coverPath = imagePathService.GetWorkCoverPath(wikidataQid, assetId);
+                var coverPath = imagePathService.GetWorkCoverPath(wikidataQid, assetId, mediaType);
                 if (File.Exists(coverPath))
                 {
                     thumbPath = coverPath;
@@ -199,7 +201,8 @@ public static class StreamEndpoints
                     && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
-            var newHeroPath  = imagePathService.GetWorkHeroPath(wikidataQid, assetId);
+            var mediaType = canonicals.FirstOrDefault(c => c.Key is "media_type")?.Value;
+            var newHeroPath  = imagePathService.GetWorkHeroPath(wikidataQid, assetId, mediaType);
             var legacyHeroPath = string.IsNullOrEmpty(asset.FilePathRoot)
                 ? null
                 : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "hero.jpg");

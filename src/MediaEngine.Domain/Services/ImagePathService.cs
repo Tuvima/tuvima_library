@@ -4,8 +4,8 @@ namespace MediaEngine.Domain.Services;
 /// Centralizes image path resolution. All images live under {libraryRoot}/.data/images/
 /// organized by entity type and QID (or provisional GUID).
 ///
-/// Each asset gets its own subdirectory under the QID so that different editions
-/// (e.g., ebook vs audiobook of the same title) each retain their own cover art.
+/// Cover art files are prefixed by media type so different editions sharing a QID
+/// (e.g., ebook vs audiobook of the same title) each keep their own artwork.
 ///
 /// Directory layout:
 /// <code>
@@ -13,15 +13,13 @@ namespace MediaEngine.Domain.Services;
 /// └── .data/
 ///     └── images/
 ///         ├── works/
-///         │   ├── {QID}/
-///         │   │   ├── {assetId12}/   ← e.g., Q190306/abc123def456/
-///         │   │   │   ├── cover.jpg
-///         │   │   │   └── hero.jpg
-///         │   │   └── {assetId12}/   ← another edition of the same work
-///         │   │       ├── cover.jpg
-///         │   │       └── hero.jpg
+///         │   ├── {QID}/                ← e.g., Q190306/
+///         │   │   ├── book-cover.jpg
+///         │   │   ├── book-hero.jpg
+///         │   │   ├── audiobook-cover.jpg
+///         │   │   └── audiobook-hero.jpg
 ///         │   └── _provisional/
-///         │       └── {assetId12}/
+///         │       └── {assetId12}/      ← No QID yet
 ///         │           ├── cover.jpg
 ///         │           └── hero.jpg
 ///         ├── people/
@@ -45,28 +43,37 @@ public sealed class ImagePathService
 
     /// <summary>
     /// Gets the directory for a work's images, using QID if available, else provisional GUID slot.
-    /// Each asset gets its own subdirectory (first 12 hex chars of the asset GUID) so that
-    /// multiple editions sharing a QID (e.g., ebook + audiobook) each keep their own cover art.
     /// </summary>
     public string GetWorkImageDir(string? wikidataQid, Guid assetId)
     {
-        var assetSlot = assetId.ToString("N")[..12];
         if (!string.IsNullOrEmpty(wikidataQid) && !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
-            return Path.Combine(_imagesRoot, "works", wikidataQid, assetSlot);
-        return Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
+            return Path.Combine(_imagesRoot, "works", wikidataQid);
+        return Path.Combine(_imagesRoot, "works", "_provisional", assetId.ToString("N")[..12]);
     }
 
-    /// <summary>Gets cover.jpg path for a work.</summary>
-    public string GetWorkCoverPath(string? wikidataQid, Guid assetId) =>
-        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "cover.jpg");
+    /// <summary>Gets cover path for a work. Media-type-prefixed when QID is present.</summary>
+    public string GetWorkCoverPath(string? wikidataQid, Guid assetId, string? mediaType = null)
+    {
+        var dir = GetWorkImageDir(wikidataQid, assetId);
+        var prefix = GetMediaPrefix(wikidataQid, mediaType);
+        return Path.Combine(dir, $"{prefix}cover.jpg");
+    }
 
-    /// <summary>Gets cover_thumb.jpg path for a work.</summary>
-    public string GetWorkCoverThumbPath(string? wikidataQid, Guid assetId) =>
-        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "cover_thumb.jpg");
+    /// <summary>Gets cover thumbnail path for a work. Media-type-prefixed when QID is present.</summary>
+    public string GetWorkCoverThumbPath(string? wikidataQid, Guid assetId, string? mediaType = null)
+    {
+        var dir = GetWorkImageDir(wikidataQid, assetId);
+        var prefix = GetMediaPrefix(wikidataQid, mediaType);
+        return Path.Combine(dir, $"{prefix}cover_thumb.jpg");
+    }
 
-    /// <summary>Gets hero.jpg path for a work.</summary>
-    public string GetWorkHeroPath(string? wikidataQid, Guid assetId) =>
-        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "hero.jpg");
+    /// <summary>Gets hero banner path for a work. Media-type-prefixed when QID is present.</summary>
+    public string GetWorkHeroPath(string? wikidataQid, Guid assetId, string? mediaType = null)
+    {
+        var dir = GetWorkImageDir(wikidataQid, assetId);
+        var prefix = GetMediaPrefix(wikidataQid, mediaType);
+        return Path.Combine(dir, $"{prefix}hero.jpg");
+    }
 
     /// <summary>Gets the directory for a person's images.</summary>
     public string GetPersonImageDir(string wikidataQid) =>
@@ -77,35 +84,33 @@ public sealed class ImagePathService
         Path.Combine(_imagesRoot, "universes", wikidataQid);
 
     /// <summary>
-    /// Promotes a provisional asset's images to QID-keyed location.
+    /// Promotes a provisional asset's images to QID-keyed location with media type prefix.
     /// Call this when an asset gets a confirmed Wikidata QID.
-    /// Moves from <c>_provisional/{assetId12}/</c> to <c>{QID}/{assetId12}/</c>.
+    /// Moves from <c>_provisional/{assetId12}/cover.jpg</c> to <c>{QID}/{mediaType}-cover.jpg</c>.
     /// </summary>
-    public void PromoteToQid(Guid assetId, string wikidataQid)
+    public void PromoteToQid(Guid assetId, string wikidataQid, string? mediaType = null)
     {
-        var assetSlot = assetId.ToString("N")[..12];
-        var provisionalDir = Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
+        var provisionalDir = Path.Combine(_imagesRoot, "works", "_provisional", assetId.ToString("N")[..12]);
         if (!Directory.Exists(provisionalDir)) return;
 
-        var targetDir = Path.Combine(_imagesRoot, "works", wikidataQid, assetSlot);
+        var qidDir = Path.Combine(_imagesRoot, "works", wikidataQid);
+        Directory.CreateDirectory(qidDir);
 
-        if (Directory.Exists(targetDir))
+        var prefix = MediaTypeToSlug(mediaType);
+        var hasPrefix = !string.IsNullOrEmpty(prefix);
+
+        foreach (var file in Directory.GetFiles(provisionalDir))
         {
-            // Target already exists — merge files, do not overwrite existing
-            foreach (var file in Directory.GetFiles(provisionalDir))
-            {
-                var dest = Path.Combine(targetDir, Path.GetFileName(file));
-                if (!File.Exists(dest))
-                    File.Move(file, dest);
-            }
-            // Clean up empty provisional dir
-            try { Directory.Delete(provisionalDir, recursive: false); } catch { /* best-effort */ }
+            var fileName = Path.GetFileName(file);
+            // Rename from plain name to media-type-prefixed name
+            var destName = hasPrefix ? $"{prefix}-{fileName}" : fileName;
+            var dest = Path.Combine(qidDir, destName);
+            if (!File.Exists(dest))
+                File.Move(file, dest);
         }
-        else
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(targetDir)!);
-            Directory.Move(provisionalDir, targetDir);
-        }
+
+        // Clean up empty provisional dir
+        try { Directory.Delete(provisionalDir, recursive: false); } catch { /* best-effort */ }
     }
 
     /// <summary>Ensures the directory containing the given file path exists.</summary>
@@ -115,4 +120,32 @@ public sealed class ImagePathService
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
     }
+
+    /// <summary>
+    /// Returns the media-type prefix for filenames (e.g. "book-").
+    /// Returns empty string for provisional paths (no QID) so filenames stay plain.
+    /// </summary>
+    private static string GetMediaPrefix(string? wikidataQid, string? mediaType)
+    {
+        // Provisional directories are already per-asset — no prefix needed
+        if (string.IsNullOrEmpty(wikidataQid) || wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            return "";
+
+        var slug = MediaTypeToSlug(mediaType);
+        return string.IsNullOrEmpty(slug) ? "" : $"{slug}-";
+    }
+
+    /// <summary>Converts a media type name to a lowercase slug for filename prefixing.</summary>
+    public static string? MediaTypeToSlug(string? mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "books"      => "book",
+        "audiobooks" => "audiobook",
+        "movies"     => "movie",
+        "tv"         => "tv",
+        "music"      => "music",
+        "comics"     => "comic",
+        "podcasts"   => "podcast",
+        null or ""   => null,
+        var other    => other.ToLowerInvariant().Replace(" ", "-"),
+    };
 }

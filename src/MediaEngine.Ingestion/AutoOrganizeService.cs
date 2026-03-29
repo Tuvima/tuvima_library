@@ -370,7 +370,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                     && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
-            coverPath    = _imagePathService.GetWorkCoverPath(wikidataQid, assetId);
+            var mediaType = canonicals.FirstOrDefault(c => c.Key is "media_type")?.Value;
+            coverPath    = _imagePathService.GetWorkCoverPath(wikidataQid, assetId, mediaType);
             heroOutputDir = _imagePathService.GetWorkImageDir(wikidataQid, assetId);
 
             // Fallback: if .images/ cover doesn't exist, try legacy path
