@@ -1497,11 +1497,20 @@ public static class RegistryEndpoints
                     qidStillReferenced = Convert.ToInt64(cmd.ExecuteScalar()) > 0;
                 }
 
+                // Always delete this asset's image subdirectory.
+                var assetDir = imagePaths.GetWorkImageDir(wikidataQid, assetId);
+                if (Directory.Exists(assetDir))
+                    Directory.Delete(assetDir, recursive: true);
+
+                // If no other works reference this QID, clean up the empty QID parent.
                 if (!qidStillReferenced)
                 {
-                    var qidDir = imagePaths.GetWorkImageDir(wikidataQid, assetId);
-                    if (Directory.Exists(qidDir))
-                        Directory.Delete(qidDir, recursive: true);
+                    var qidParent = Path.GetDirectoryName(assetDir);
+                    if (qidParent is not null && Directory.Exists(qidParent)
+                        && !Directory.EnumerateFileSystemEntries(qidParent).Any())
+                    {
+                        try { Directory.Delete(qidParent); } catch { /* best-effort */ }
+                    }
                 }
             }
             else
