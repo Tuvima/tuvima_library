@@ -1584,7 +1584,48 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     request.Title, request.Author, request.Isbn)
                     .ConfigureAwait(false);
                 if (filtered.Count == 0)
-                    filtered = candidates; // Fall back to unfiltered if nothing passes
+                {
+                    // Type-constrained retry: append media type hint to query so that
+                    // Wikidata surfaces the correct entity type (e.g. "Shogun television series"
+                    // finds Q56276181 instead of the novel Q131767 dominating the plain search).
+                    var typeHint = request.MediaType switch
+                    {
+                        MediaType.Books      => "novel book",
+                        MediaType.Audiobooks => "audiobook",
+                        MediaType.Movies     => "film movie",
+                        MediaType.TV         => "television series",
+                        MediaType.Music      => "song music",
+                        MediaType.Comics     => "comic manga",
+                        MediaType.Podcasts   => "podcast",
+                        _                    => null
+                    };
+
+                    if (typeHint is not null)
+                    {
+                        _logger.LogDebug(
+                            "{Provider}: P31 filter eliminated all {Count} candidates for '{Title}' ({MediaType}), retrying with type hint",
+                            Name, candidates.Count, request.Title, request.MediaType);
+
+                        var retryQuery = $"{searchTitle} {typeHint}";
+                        var retryCandidates = await ReconcileAsync(retryQuery, null, ct).ConfigureAwait(false);
+
+                        if (retryCandidates.Count > 0)
+                        {
+                            filtered = await FilterByMediaTypeAsync(
+                                retryCandidates, request.MediaType, ct,
+                                request.Title, request.Author, request.Isbn)
+                                .ConfigureAwait(false);
+                        }
+                    }
+
+                    if (filtered.Count == 0)
+                    {
+                        _logger.LogInformation(
+                            "{Provider}: no candidates survived P31 filter for '{Title}' ({MediaType}), sending to review",
+                            Name, request.Title, request.MediaType);
+                        return [];
+                    }
+                }
             }
 
             // Accept the top candidate if it meets the auto-accept threshold.

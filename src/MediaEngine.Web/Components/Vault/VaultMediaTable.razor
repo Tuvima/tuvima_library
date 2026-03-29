@@ -50,6 +50,13 @@ else
     </div>
 }
 
+@if (_hoverCover is not null)
+{
+    <div class="vmt-hover-overlay" style="top: @(_hoverY)px; left: @(_hoverX)px;">
+        <img src="@_hoverCover" alt="" class="vmt-hover-img" />
+    </div>
+}
+
 @code {
     [Parameter] public List<VaultItemViewModel> Items { get; set; } = [];
     [Parameter] public string GroupBy { get; set; } = "none";
@@ -59,6 +66,23 @@ else
     [Parameter] public EventCallback<string> OnAuthorClicked { get; set; }
 
     private readonly Dictionary<string, bool> _expandedGroups = new();
+
+    private string? _hoverCover;
+    private double _hoverX;
+    private double _hoverY;
+
+    private void ShowHover(string? coverUrl, MouseEventArgs e)
+    {
+        if (string.IsNullOrEmpty(coverUrl)) return;
+        _hoverCover = coverUrl;
+        _hoverX = e.ClientX + 20;
+        _hoverY = e.ClientY - 100;
+    }
+
+    private void HideHover()
+    {
+        _hoverCover = null;
+    }
 
     private RenderFragment RenderTable(List<VaultItemViewModel> items) => __builder =>
     {
@@ -82,7 +106,9 @@ else
                         <td class="vmt-td" style="padding-left: 24px;">
                             <div class="vmt-media-cell">
                                 <div class="vmt-poster-wrap">
-                                    <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;">
+                                    <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
+                                         @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
+                                         @onmouseleave="HideHover">
                                         @if (!string.IsNullOrEmpty(item.CoverUrl))
                                         {
                                             <img src="@item.CoverUrl" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
@@ -286,8 +312,6 @@ else
 
     .vmt-row:hover {
         background: rgba(96, 165, 250, 0.02);
-        position: relative;
-        z-index: 10;
     }
 
     .vmt-row--quarantined {
@@ -326,15 +350,6 @@ else
         align-items: center;
         justify-content: center;
         position: relative;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        z-index: 1;
-    }
-
-    .vmt-thumb:hover {
-        transform: scale(4);
-        z-index: 100;
-        box-shadow: 0 12px 48px rgba(0,0,0,0.9);
-        border-radius: 8px;
     }
 
     .vmt-thumb-img {
@@ -347,6 +362,27 @@ else
 
     .vmt-thumb:hover .vmt-thumb-img {
         opacity: 1;
+    }
+
+    .vmt-hover-overlay {
+        position: fixed;
+        z-index: 10000;
+        pointer-events: none;
+        animation: vmt-hover-fade-in 0.15s ease;
+    }
+
+    .vmt-hover-img {
+        width: 200px;
+        height: auto;
+        max-height: 300px;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 16px 64px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.08);
+    }
+
+    @@keyframes vmt-hover-fade-in {
+        from { opacity: 0; transform: scale(0.92); }
+        to { opacity: 1; transform: scale(1); }
     }
 
     /* ── Media type icon badge ── */

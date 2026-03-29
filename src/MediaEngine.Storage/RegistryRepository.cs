@@ -261,9 +261,12 @@ public sealed class RegistryRepository : IRegistryRepository
 
         var orderBy = query.Sort switch
         {
-            "oldest"     => "ORDER BY fd.created_at ASC, fd.title ASC",
-            "confidence" => "ORDER BY fd.confidence ASC, fd.title ASC",
-            _            => "ORDER BY fd.created_at DESC, fd.title ASC", // "newest" is the default
+            "oldest"       => "ORDER BY fd.created_at ASC, fd.title ASC",
+            "title"        => "ORDER BY fd.title ASC, fd.created_at DESC",
+            "-title"       => "ORDER BY fd.title DESC, fd.created_at DESC",
+            "-confidence"  => "ORDER BY fd.confidence DESC, fd.title ASC",
+            "confidence"   => "ORDER BY fd.confidence ASC, fd.title ASC",
+            _              => "ORDER BY fd.created_at DESC, fd.title ASC", // "newest" is the default
         };
 
         // Count query
