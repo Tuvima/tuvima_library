@@ -78,13 +78,13 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'rating' THEN cv.value END) AS rating,
                     MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
                     MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
-                    (SELECT pr.display_name || ': ' || mc_rt.value
+                    (SELECT pr.name || ': ' || mc_rt.claim_value
                      FROM metadata_claims mc_rt
                      INNER JOIN media_assets ma_rt ON ma_rt.id = mc_rt.entity_id
                      INNER JOIN editions e_rt ON e_rt.id = ma_rt.edition_id
                      INNER JOIN provider_registry pr ON pr.id = mc_rt.provider_id
                      WHERE e_rt.work_id = w.id
-                       AND mc_rt.key = 'title'
+                       AND mc_rt.claim_key = 'title'
                        AND mc_rt.provider_id != 'b3000003-d000-4000-8000-000000000004'
                        AND mc_rt.provider_id != 'local_filesystem'
                      ORDER BY mc_rt.confidence DESC
@@ -262,7 +262,7 @@ public sealed class RegistryRepository : IRegistryRepository
         // parameter lists, and the WHERE clause itself changes shape at runtime.
         var conditions = new List<string>();
         if (!string.IsNullOrWhiteSpace(query.Search))
-            conditions.Add(@"(wd.entity_id IN (SELECT si.entity_id FROM search_index si
+            conditions.Add(@"(fd.entity_id IN (SELECT si.entity_id FROM search_index si
                 WHERE search_index MATCH @ftsQuery) OR fd.file_name LIKE @search)");
         if (!string.IsNullOrWhiteSpace(query.MediaType))
         {

@@ -2570,8 +2570,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (string.Equals(pCode, "P18", StringComparison.OrdinalIgnoreCase) && isWork)
                 continue;
 
-            // P31 (instance_of) used internally for filtering, never as a claim.
-            if (string.Equals(pCode, "P31", StringComparison.OrdinalIgnoreCase))
+            // P31 (instance_of): for works, used internally for filtering only — skip claims.
+            // For persons, emit as claims so pseudonym detection (Q127843/Q15632617) works.
+            if (string.Equals(pCode, "P31", StringComparison.OrdinalIgnoreCase) && isWork)
                 continue;
 
             // P1476 (title) — monolingual text; only take the first value to avoid
