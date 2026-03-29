@@ -4,17 +4,24 @@ namespace MediaEngine.Domain.Services;
 /// Centralizes image path resolution. All images live under {libraryRoot}/.data/images/
 /// organized by entity type and QID (or provisional GUID).
 ///
+/// Each asset gets its own subdirectory under the QID so that different editions
+/// (e.g., ebook vs audiobook of the same title) each retain their own cover art.
+///
 /// Directory layout:
 /// <code>
 /// {libraryRoot}/
 /// └── .data/
 ///     └── images/
 ///         ├── works/
-///         │   ├── {QID}/           ← e.g., Q190306/
-///         │   │   ├── cover.jpg
-///         │   │   └── hero.jpg
+///         │   ├── {QID}/
+///         │   │   ├── {assetId12}/   ← e.g., Q190306/abc123def456/
+///         │   │   │   ├── cover.jpg
+///         │   │   │   └── hero.jpg
+///         │   │   └── {assetId12}/   ← another edition of the same work
+///         │   │       ├── cover.jpg
+///         │   │       └── hero.jpg
 ///         │   └── _provisional/
-///         │       └── {assetId12}/  ← No QID yet (first 12 hex chars of asset GUID)
+///         │       └── {assetId12}/
 ///         │           ├── cover.jpg
 ///         │           └── hero.jpg
 ///         ├── people/
@@ -38,13 +45,15 @@ public sealed class ImagePathService
 
     /// <summary>
     /// Gets the directory for a work's images, using QID if available, else provisional GUID slot.
-    /// The provisional slot uses the first 12 hex characters of the asset GUID.
+    /// Each asset gets its own subdirectory (first 12 hex chars of the asset GUID) so that
+    /// multiple editions sharing a QID (e.g., ebook + audiobook) each keep their own cover art.
     /// </summary>
     public string GetWorkImageDir(string? wikidataQid, Guid assetId)
     {
+        var assetSlot = assetId.ToString("N")[..12];
         if (!string.IsNullOrEmpty(wikidataQid) && !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
-            return Path.Combine(_imagesRoot, "works", wikidataQid);
-        return Path.Combine(_imagesRoot, "works", "_provisional", assetId.ToString("N")[..12]);
+            return Path.Combine(_imagesRoot, "works", wikidataQid, assetSlot);
+        return Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
     }
 
     /// <summary>Gets cover.jpg path for a work.</summary>
@@ -70,21 +79,22 @@ public sealed class ImagePathService
     /// <summary>
     /// Promotes a provisional asset's images to QID-keyed location.
     /// Call this when an asset gets a confirmed Wikidata QID.
+    /// Moves from <c>_provisional/{assetId12}/</c> to <c>{QID}/{assetId12}/</c>.
     /// </summary>
     public void PromoteToQid(Guid assetId, string wikidataQid)
     {
-        var provisionalDir = Path.Combine(_imagesRoot, "works", "_provisional", assetId.ToString("N")[..12]);
+        var assetSlot = assetId.ToString("N")[..12];
+        var provisionalDir = Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
         if (!Directory.Exists(provisionalDir)) return;
 
-        var qidDir = Path.Combine(_imagesRoot, "works", wikidataQid);
-        Directory.CreateDirectory(qidDir);
+        var targetDir = Path.Combine(_imagesRoot, "works", wikidataQid, assetSlot);
 
-        if (Directory.Exists(qidDir))
+        if (Directory.Exists(targetDir))
         {
-            // QID dir already exists — merge files, do not overwrite existing
+            // Target already exists — merge files, do not overwrite existing
             foreach (var file in Directory.GetFiles(provisionalDir))
             {
-                var dest = Path.Combine(qidDir, Path.GetFileName(file));
+                var dest = Path.Combine(targetDir, Path.GetFileName(file));
                 if (!File.Exists(dest))
                     File.Move(file, dest);
             }
@@ -93,7 +103,8 @@ public sealed class ImagePathService
         }
         else
         {
-            Directory.Move(provisionalDir, qidDir);
+            Directory.CreateDirectory(Path.GetDirectoryName(targetDir)!);
+            Directory.Move(provisionalDir, targetDir);
         }
     }
 
