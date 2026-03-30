@@ -4482,19 +4482,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
             if (string.IsNullOrEmpty(fileDir)) return;
 
-            // Guard: only download cover when the file is already in the Library Root.
-            // During first ingestion the file is still in the Watch Folder; downloading
-            // cover.jpg there would place it in the wrong directory and never alongside
-            // the organised media file.
             var core = _configLoader.LoadCore();
-            if (!string.IsNullOrWhiteSpace(core.LibraryRoot)
-                && !asset.FilePathRoot.StartsWith(core.LibraryRoot, StringComparison.OrdinalIgnoreCase))
-            {
-                _logger.LogDebug(
-                    "Cover download skipped for asset {Id} — file not yet in Library Root",
-                    assetId);
-                return;
-            }
 
             // 2. Check for a cover URL in canonical values.
             //    Prefer cover_url over cover — user-locked selections are written
@@ -4653,21 +4641,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex,
-                "Cover art download failed for asset {Id}; retracting cover canonical value",
+                "Cover art download failed for asset {Id}; keeping cover claim for retry on next enrichment cycle",
                 assetId);
-
-            // Retract the provider-sourced cover URL so downstream consumers
-            // (activity log, Dashboard cards) don't reference a nonexistent file.
-            try
-            {
-                await _canonicalRepo.DeleteByKeyAsync(assetId, MetadataFieldConstants.Cover, ct)
-                    .ConfigureAwait(false);
-            }
-            catch (Exception retractEx) when (retractEx is not OperationCanceledException)
-            {
-                _logger.LogWarning(retractEx,
-                    "Failed to retract cover canonical value for asset {Id}", assetId);
-            }
         }
     }
 

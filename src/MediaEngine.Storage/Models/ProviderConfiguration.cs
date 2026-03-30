@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MediaEngine.Storage.Models;
@@ -395,6 +396,15 @@ public sealed class SearchStrategyConfig
     /// </summary>
     [JsonPropertyName("media_types")]
     public List<string>? MediaTypes { get; set; }
+
+    /// <summary>
+    /// Optional nested selection config for choosing a sub-result from within the
+    /// matched result (e.g. picking the best release from a MusicBrainz recording).
+    /// When set, the adapter navigates into the nested array at <see cref="ReleaseSelectionConfig.Path"/>
+    /// and applies filters, sort, and soft preferences to pick the best sub-result.
+    /// </summary>
+    [JsonPropertyName("release_selection")]
+    public ReleaseSelectionConfig? ReleaseSelection { get; set; }
 }
 
 /// <summary>
@@ -439,4 +449,95 @@ public sealed class FieldMappingConfig
     /// </summary>
     [JsonPropertyName("media_types")]
     public List<string>? MediaTypes { get; set; }
+
+    /// <summary>
+    /// When a strategy uses <see cref="SearchStrategyConfig.ReleaseSelection"/>, specifies
+    /// which result node to extract from: <c>"recording"</c> (top-level match) or
+    /// <c>"release"</c> (nested selected sub-result). When null, extracts from the
+    /// top-level result (default behaviour for all other providers).
+    /// </summary>
+    [JsonPropertyName("source")]
+    public string? Source { get; set; }
+
+    /// <summary>
+    /// Optional condition that must be met on the source node for this mapping to emit
+    /// a claim. Used to prevent speculative claims (e.g. only emit a cover URL when
+    /// the API confirms artwork exists).
+    /// </summary>
+    [JsonPropertyName("condition")]
+    public SelectionFilter? Condition { get; set; }
+}
+
+/// <summary>
+/// Configures nested sub-result selection within a matched result.
+/// Used when an API returns hierarchical data (e.g. MusicBrainz recordings
+/// contain nested release arrays) and the adapter needs to pick the best
+/// sub-result based on type, date, and artwork availability.
+/// </summary>
+public sealed class ReleaseSelectionConfig
+{
+    /// <summary>JSON path to the nested array within the matched result (e.g. <c>"releases"</c>).</summary>
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Hard filters — sub-results must match ALL filters to be considered.
+    /// Example: <c>status == "Official"</c>, <c>release-group.primary-type == "Album"</c>.
+    /// </summary>
+    [JsonPropertyName("filters")]
+    public List<SelectionFilter>? Filters { get; set; }
+
+    /// <summary>
+    /// Sort order applied to filtered candidates. First sort field is primary.
+    /// Example: sort by <c>date</c> ascending to prefer the earliest release.
+    /// </summary>
+    [JsonPropertyName("sort")]
+    public List<SelectionSort>? Sort { get; set; }
+
+    /// <summary>
+    /// Soft preferences — among similarly-ranked candidates, prefer those matching
+    /// these conditions. Example: prefer releases where <c>cover-art-archive.artwork == true</c>.
+    /// </summary>
+    [JsonPropertyName("prefer")]
+    public List<SelectionFilter>? Prefer { get; set; }
+
+    /// <summary>
+    /// Fallback release types to try (in order) when no candidates pass the primary filters.
+    /// Example: <c>["Single", "EP"]</c> — if no Album found, try Singles, then EPs.
+    /// Fallback candidates must still have <c>status == "Official"</c>.
+    /// </summary>
+    [JsonPropertyName("fallback_types")]
+    public List<string>? FallbackTypes { get; set; }
+}
+
+/// <summary>
+/// A filter condition that checks a JSON path against an expected value.
+/// Supports string and boolean comparisons.
+/// </summary>
+public sealed class SelectionFilter
+{
+    /// <summary>JSON path to evaluate on the candidate node (e.g. <c>"release-group.primary-type"</c>).</summary>
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Expected value. Supports strings (<c>"Album"</c>) and booleans (<c>true</c>).
+    /// Comparison is case-insensitive for strings.
+    /// </summary>
+    [JsonPropertyName("equals")]
+    public JsonElement? EqualsValue { get; set; }
+}
+
+/// <summary>
+/// A sort directive for ordering candidates by a JSON path value.
+/// </summary>
+public sealed class SelectionSort
+{
+    /// <summary>JSON path to the value used for sorting (e.g. <c>"date"</c>).</summary>
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>Sort direction: <c>"asc"</c> (default) or <c>"desc"</c>.</summary>
+    [JsonPropertyName("direction")]
+    public string Direction { get; set; } = "asc";
 }

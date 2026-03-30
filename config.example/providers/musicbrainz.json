@@ -1,12 +1,12 @@
 {
   "name": "musicbrainz",
-  "version": "1.0",
+  "version": "2.0",
   "enabled": true,
   "weight": 0.7,
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
-  "capability_tags": ["title", "author", "year", "genre", "cover", "musicbrainz_id"],
-  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "isrc"],
+  "capability_tags": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "album", "track_number"],
+  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "isrc", "album", "track_number"],
   "field_weights": {
     "title": 0.8,
     "author": 0.8,
@@ -14,7 +14,9 @@
     "genre": 0.7,
     "cover": 0.7,
     "musicbrainz_id": 1.0,
-    "isrc": 0.9
+    "isrc": 0.9,
+    "album": 0.75,
+    "track_number": 0.8
   },
   "endpoints": {
     "api": "https://musicbrainz.org/ws/2"
@@ -46,23 +48,36 @@
 
   "search_strategies": [
     {
-      "name": "release_search",
+      "name": "recording_album_search",
       "priority": 1,
       "required_fields": ["title"],
-      "url_template": "{base_url}/release?query={query}&fmt=json&limit={limit}",
-      "query_template": "{title}",
-      "results_path": "releases",
-      "result_index": 0,
-      "fetch_limit": 5,
-      "max_results": 10
+      "url_template": "{base_url}/recording?query={query}&fmt=json&limit={limit}",
+      "query_template": "{title} AND artist:{author}",
+      "results_path": "recordings",
+      "fetch_limit": 10,
+      "max_results": 10,
+      "release_selection": {
+        "path": "releases",
+        "filters": [
+          { "path": "status", "equals": "Official" },
+          { "path": "release-group.primary-type", "equals": "Album" }
+        ],
+        "sort": [
+          { "path": "date", "direction": "asc" }
+        ],
+        "prefer": [
+          { "path": "cover-art-archive.artwork", "equals": true }
+        ],
+        "fallback_types": ["Single", "EP"]
+      }
     },
     {
-      "name": "recording_search",
+      "name": "release_search",
       "priority": 2,
       "required_fields": ["title"],
-      "url_template": "{base_url}/recording?query={query}&fmt=json&limit={limit}",
-      "query_template": "{title}",
-      "results_path": "recordings",
+      "url_template": "{base_url}/release?query={query}&fmt=json&limit={limit}",
+      "query_template": "{title} AND artist:{author}",
+      "results_path": "releases",
       "result_index": 0,
       "fetch_limit": 5,
       "max_results": 10
@@ -70,24 +85,14 @@
   ],
 
   "field_mappings": [
-    { "claim_key": "title",          "json_path": "title",                          "confidence": 0.8 },
-    { "claim_key": "author",         "json_path": "artist-credit[*].name",          "confidence": 0.8,  "transform": "array_join" },
-    { "claim_key": "year",           "json_path": "date",                           "confidence": 0.85, "transform": "first_n_chars", "transform_args": "4" },
-    { "claim_key": "musicbrainz_id", "json_path": "id",                             "confidence": 1.0 },
-    { "claim_key": "cover",          "json_path": "id",                             "confidence": 0.7,  "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250" }
-  ],
-  "ui_metadata": {
-    "accent_color": "#BA478F",
-    "material_icon": "MusicNote",
-    "external_url_template": "https://musicbrainz.org/release/{musicbrainz_id}",
-    "category": "Open",
-    "requires_key": false,
-    "auth_type": "none",
-    "search_chips": {
-      "Music": ["Title"]
-    },
-    "ranking_chips": {
-      "Music": ["Artist", "Album", "Year"]
+    { "claim_key": "title",          "json_path": "title",                     "confidence": 0.8,  "source": "recording" },
+    { "claim_key": "author",         "json_path": "artist-credit[*].name",     "confidence": 0.8,  "source": "recording", "transform": "array_join" },
+    { "claim_key": "album",          "json_path": "title",                     "confidence": 0.75, "source": "release" },
+    { "claim_key": "year",           "json_path": "date",                      "confidence": 0.85, "source": "release",   "transform": "first_n_chars", "transform_args": "4" },
+    { "claim_key": "track_number",   "json_path": "track-count",               "confidence": 0.8,  "source": "release" },
+    { "claim_key": "musicbrainz_id", "json_path": "id",                        "confidence": 1.0,  "source": "release" },
+    { "claim_key": "cover",          "json_path": "id",                        "confidence": 0.7,  "source": "release",   "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250",
+      "condition": { "path": "cover-art-archive.artwork", "equals": true }
     }
-  }
+  ]
 }

@@ -679,7 +679,14 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 {
                     var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
                     if (resultNode is not null)
+                    {
+                        if (strategy.ReleaseSelection is not null)
+                        {
+                            var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
+                            return ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType);
+                        }
                         return ExtractClaims(resultNode, request.MediaType);
+                    }
                 }
             }
         }
@@ -757,7 +764,14 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     {
                         var resultNode = NavigateToResult(cachedJson, strategy, request.Title, request.Author);
                         if (resultNode is not null)
+                        {
+                            if (strategy.ReleaseSelection is not null)
+                            {
+                                var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
+                                return ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType);
+                            }
                             return ExtractClaims(resultNode, request.MediaType);
+                        }
                     }
                 }
                 return [];
@@ -796,6 +810,14 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             var resultObj = NavigateToResult(json, strategy, request.Title, request.Author);
             if (resultObj is null)
                 return [];
+
+            // Nested release selection: pick the best sub-result (e.g. album release
+            // from a MusicBrainz recording) and extract claims from both nodes.
+            if (strategy.ReleaseSelection is not null)
+            {
+                var releaseNode = ApplyReleaseSelection(resultObj, strategy.ReleaseSelection);
+                return ExtractClaimsWithRelease(resultObj, releaseNode, request.MediaType);
+            }
 
             // Extract claims from field mappings (filtered by media type).
             return ExtractClaims(resultObj, request.MediaType);
@@ -1046,7 +1068,199 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         return 2 * coverage * precision / (coverage + precision);
     }
 
+    // ── Nested release selection ────────────────────────────────────────────
+
+    /// <summary>
+    /// Selects the best sub-result from a nested array within the matched result node.
+    /// Used for MusicBrainz-style APIs where a recording contains multiple releases
+    /// and the adapter needs to pick the best one (e.g. original studio album with artwork).
+    /// </summary>
+    private JsonNode? ApplyReleaseSelection(JsonNode parentNode, ReleaseSelectionConfig config)
+    {
+        var nested = JsonPathEvaluator.Evaluate(parentNode, config.Path);
+        if (nested is not JsonArray arr || arr.Count == 0)
+        {
+            _logger.LogDebug("{Provider}: release selection — no nested array at '{Path}'", Name, config.Path);
+            return null;
+        }
+
+        // Apply hard filters.
+        var candidates = arr
+            .Where(n => n is not null && PassesFilters(n, config.Filters))
+            .ToList();
+
+        _logger.LogDebug(
+            "{Provider}: release selection — {Total} nested items, {Filtered} pass filters",
+            Name, arr.Count, candidates.Count);
+
+        // Fallback: if no candidates match primary filters, try fallback types in order.
+        if (candidates.Count == 0 && config.FallbackTypes is { Count: > 0 })
+        {
+            foreach (var fallbackType in config.FallbackTypes)
+            {
+                candidates = arr
+                    .Where(n => n is not null
+                        && MatchesJsonPath(n, "release-group.primary-type", fallbackType)
+                        && MatchesJsonPath(n, "status", "Official"))
+                    .ToList();
+
+                if (candidates.Count > 0)
+                {
+                    _logger.LogDebug(
+                        "{Provider}: release selection — using fallback type '{Type}' ({Count} candidates)",
+                        Name, fallbackType, candidates.Count);
+                    break;
+                }
+            }
+        }
+
+        if (candidates.Count == 0)
+        {
+            _logger.LogDebug("{Provider}: release selection — no candidates after filtering", Name);
+            return null;
+        }
+
+        // Sort by configured sort fields.
+        if (config.Sort is { Count: > 0 })
+        {
+            candidates.Sort((a, b) =>
+            {
+                foreach (var sort in config.Sort!)
+                {
+                    var aVal = JsonPathEvaluator.GetStringValue(
+                        JsonPathEvaluator.Evaluate(a!, sort.Path)) ?? "";
+                    var bVal = JsonPathEvaluator.GetStringValue(
+                        JsonPathEvaluator.Evaluate(b!, sort.Path)) ?? "";
+                    var cmp = string.Compare(aVal, bVal, StringComparison.OrdinalIgnoreCase);
+                    if (sort.Direction.Equals("desc", StringComparison.OrdinalIgnoreCase))
+                        cmp = -cmp;
+                    if (cmp != 0) return cmp;
+                }
+                return 0;
+            });
+        }
+
+        // Soft preferences: among candidates, prefer those matching prefer conditions.
+        if (config.Prefer is { Count: > 0 } && candidates.Count > 1)
+        {
+            var preferred = candidates.Where(c => PassesFilters(c!, config.Prefer)).ToList();
+            if (preferred.Count > 0)
+            {
+                _logger.LogDebug(
+                    "{Provider}: release selection — {Count} candidates match soft preferences",
+                    Name, preferred.Count);
+                return preferred[0];
+            }
+        }
+
+        return candidates[0];
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when the node passes ALL filters in the list.
+    /// An empty or null filter list is a pass.
+    /// </summary>
+    private static bool PassesFilters(JsonNode node, List<SelectionFilter>? filters)
+    {
+        if (filters is null || filters.Count == 0) return true;
+
+        foreach (var filter in filters)
+        {
+            var val = JsonPathEvaluator.Evaluate(node, filter.Path);
+            if (val is null) return false;
+
+            if (filter.EqualsValue.HasValue)
+            {
+                var strVal = JsonPathEvaluator.GetStringValue(val) ?? "";
+                var expected = filter.EqualsValue.Value;
+
+                switch (expected.ValueKind)
+                {
+                    case System.Text.Json.JsonValueKind.True:
+                        if (!strVal.Equals("true", StringComparison.OrdinalIgnoreCase))
+                            return false;
+                        break;
+                    case System.Text.Json.JsonValueKind.False:
+                        if (!strVal.Equals("false", StringComparison.OrdinalIgnoreCase))
+                            return false;
+                        break;
+                    case System.Text.Json.JsonValueKind.String:
+                        if (!strVal.Equals(expected.GetString(), StringComparison.OrdinalIgnoreCase))
+                            return false;
+                        break;
+                    default:
+                        if (!strVal.Equals(expected.GetRawText(), StringComparison.OrdinalIgnoreCase))
+                            return false;
+                        break;
+                }
+            }
+        }
+        return true;
+    }
+
+    /// <summary>
+    /// Quick helper: checks if a JSON path on a node equals an expected string value.
+    /// </summary>
+    private static bool MatchesJsonPath(JsonNode node, string path, string expected)
+    {
+        var val = JsonPathEvaluator.Evaluate(node, path);
+        if (val is null) return false;
+        var str = JsonPathEvaluator.GetStringValue(val);
+        return string.Equals(str, expected, StringComparison.OrdinalIgnoreCase);
+    }
+
     // ── Claim extraction ────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Extracts claims using both the top-level result node (recording) and the selected
+    /// nested sub-result (release). Each field mapping's <see cref="FieldMappingConfig.Source"/>
+    /// determines which node to extract from. Mappings with a <see cref="FieldMappingConfig.Condition"/>
+    /// only emit a claim when the condition is met on the source node.
+    /// </summary>
+    private IReadOnlyList<ProviderClaim> ExtractClaimsWithRelease(
+        JsonNode recordingNode, JsonNode? releaseNode, MediaType mediaType = MediaType.Unknown)
+    {
+        var mappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
+        if (mappings.Count == 0)
+            return [];
+
+        var claims = new List<ProviderClaim>();
+
+        foreach (var mapping in mappings)
+        {
+            // Route to the correct source node.
+            var sourceNode = mapping.Source?.ToLowerInvariant() switch
+            {
+                "release" => releaseNode,
+                "recording" => recordingNode,
+                _ => recordingNode, // default: top-level result
+            };
+
+            if (sourceNode is null)
+                continue;
+
+            // Check condition before extracting (e.g. only emit cover when artwork exists).
+            if (mapping.Condition is not null && !PassesFilters(sourceNode, [mapping.Condition]))
+                continue;
+
+            var node = JsonPathEvaluator.Evaluate(sourceNode, mapping.JsonPath);
+            if (node is null)
+                continue;
+
+            var values = ApplyTransform(node, mapping);
+            foreach (var value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                    claims.Add(new ProviderClaim(mapping.ClaimKey, value, mapping.Confidence));
+            }
+        }
+
+        _logger.LogDebug(
+            "{Provider}: extracted {Count} claims from recording+release nodes",
+            Name, claims.Count);
+
+        return claims;
+    }
 
     private IReadOnlyList<ProviderClaim> ExtractClaims(JsonNode resultNode, MediaType mediaType = MediaType.Unknown)
     {
