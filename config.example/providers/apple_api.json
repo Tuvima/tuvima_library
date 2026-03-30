@@ -141,5 +141,21 @@
     }
   ],
   "requires_api_key": false,
-  "custom_icon_name": null
+  "custom_icon_name": null,
+  "ui_metadata": {
+    "accent_color": "#FF2D55",
+    "material_icon": "MenuBook",
+    "external_url_template": "https://books.apple.com/book/id{apple_books_id}",
+    "category": "Retail",
+    "requires_key": false,
+    "auth_type": "none",
+    "search_chips": {
+      "Books": ["Title", "ISBN"],
+      "Audiobooks": ["Title"]
+    },
+    "ranking_chips": {
+      "Books": ["Author", "Year"],
+      "Audiobooks": ["Author", "Narrator", "Year"]
+    }
+  }
 }

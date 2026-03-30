@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
+@inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
 
 @* Setup Wizard — Re-run the setup wizard or inspect the current server configuration.
    All values are read-only summary fields; editing happens in the dedicated tabs.
@@ -7,7 +8,7 @@
    TODO: First-Run Wizard (not yet built) — Step 3 should collect provider credentials.
    Providers requiring authentication at first run:
      - TMDB:         API key (bearer token) — https://www.themoviedb.org/settings/api
-     - Google Books:  API key (query param)  — https://console.cloud.google.com/apis
+
      - Metron:        Username + Password    — https://metron.cloud (sign up for free account)
      - Podcast Index: API key + secret       — https://api.podcastindex.org (free)
    Providers that work without credentials:
@@ -195,17 +196,38 @@
 
     private sealed record ProviderSummary(string Name, string LangLabel);
 
-    private readonly ProviderSummary[] _configuredProviders =
-    [
-        new("Wikidata Reconciliation", "Both"),
-        new("Apple API", "Localized"),
-        new("Open Library", "Source"),
-        new("Google Books", "Source"),
-        new("TMDB", "Localized"),
-        new("MusicBrainz", "Source"),
-        new("Metron", "Source"),
-        new("Fanart.tv", "Source"),
-    ];
+    private ProviderSummary[] _configuredProviders = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var catalogue = await CatalogueService.GetCatalogueAsync();
+        _configuredProviders = catalogue
+            .Where(p => p.Name != "local_filesystem" && p.Enabled)
+            .Select(p => new ProviderSummary(
+                p.DisplayName,
+                p.LanguageStrategy switch
+                {
+                    "localized" => "Localized",
+                    "both"      => "Both",
+                    _           => "Source",
+                }))
+            .ToArray();
+
+        // Fall back to hardcoded list when Engine is unreachable
+        if (_configuredProviders.Length == 0)
+        {
+            _configuredProviders =
+            [
+                new("Wikidata", "Both"),
+                new("Apple API", "Localized"),
+                new("Open Library", "Source"),
+                new("TMDB", "Localized"),
+                new("MusicBrainz", "Source"),
+                new("Metron", "Source"),
+                new("Fanart.tv", "Source"),
+            ];
+        }
+    }
 
     private readonly AiModelSummary[] _aiModels =
     [

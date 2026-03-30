@@ -137,5 +137,15 @@
       "P17": "country",
       "P625": "coordinate_location"
     }
+  },
+  "ui_metadata": {
+    "accent_color": "#339966",
+    "material_icon": "Hub",
+    "external_url_template": "https://www.wikidata.org/wiki/{wikidata_qid}",
+    "category": "Open",
+    "requires_key": false,
+    "auth_type": "none",
+    "search_chips": {},
+    "ranking_chips": {}
   }
 }

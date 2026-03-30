@@ -32,20 +32,25 @@ namespace MediaEngine.Api.Endpoints;
 /// </summary>
 public static class SettingsEndpoints
 {
-    // Maps provider name → human-readable display label.
+    // Fallback display names when a provider config file has no display_name field.
+    // In practice all provider configs have display_name set explicitly; this map
+    // is kept as a safety net and is derived from the same data in the config files.
     private static readonly IReadOnlyDictionary<string, string> _displayNames =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["apple_api"]             = "Apple API",
+            ["apple_api"]                = "Apple API",
+            ["apple_podcasts"]           = "Apple Podcasts",
             // audnexus removed - config file deleted as part of SPARQL cleanup
-            ["wikidata"]              = "Wikidata",
-            ["local_filesystem"]      = "Local Filesystem",
-            ["open_library"]          = "Open Library",
-            ["google_books"]          = "Google Books",
-            ["tmdb"]                  = "TMDB",
-            ["comic_vine"]            = "Comic Vine",
-            ["metron"]                = "Metron",
-            ["musicbrainz"]           = "MusicBrainz",
+            ["wikidata"]                 = "Wikidata",
+            ["wikidata_reconciliation"]  = "Wikidata",
+            ["local_filesystem"]         = "Local Filesystem",
+            ["open_library"]             = "Open Library",
+            ["tmdb"]                     = "TMDB",
+            ["comic_vine"]               = "Comic Vine",
+            ["metron"]                   = "Metron",
+            ["musicbrainz"]              = "MusicBrainz",
+            ["podcast_index"]            = "Podcast Index",
+            ["fanart_tv"]                = "Fanart.tv",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.
@@ -56,7 +61,6 @@ public static class SettingsEndpoints
             // audnexus removed - config file deleted as part of SPARQL cleanup
             ["wikidata"]              = "wikidata_api",
             ["open_library"]          = "open_library",
-            ["google_books"]          = "google_books",
             ["tmdb"]                  = "tmdb",
             ["comic_vine"]            = "comic_vine",
             ["metron"]                = "metron",

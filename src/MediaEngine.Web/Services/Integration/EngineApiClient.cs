@@ -640,6 +640,24 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Provider catalogue (/providers/catalogue) ────────────────────────────
+
+    public async Task<IReadOnlyList<ProviderCatalogueDto>> GetProviderCatalogueAsync(
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<ProviderCatalogueDto[]>("/providers/catalogue", ct);
+            return raw ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /providers/catalogue failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     public async Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(
         CancellationToken ct = default)
     {

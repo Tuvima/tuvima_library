@@ -78,5 +78,19 @@
     { "claim_key": "feed_url",           "json_path": "feedUrl",            "confidence": 0.95 },
     { "claim_key": "apple_podcasts_id",  "json_path": "collectionId",       "confidence": 0.95, "transform": "to_string" },
     { "claim_key": "episode_number",     "json_path": "trackNumber",        "confidence": 0.7,  "transform": "to_string" }
-  ]
+  ],
+  "ui_metadata": {
+    "accent_color": "#9B59B6",
+    "material_icon": "Podcasts",
+    "external_url_template": "",
+    "category": "Retail",
+    "requires_key": false,
+    "auth_type": "none",
+    "search_chips": {
+      "Podcasts": ["Title"]
+    },
+    "ranking_chips": {
+      "Podcasts": []
+    }
+  }
 }

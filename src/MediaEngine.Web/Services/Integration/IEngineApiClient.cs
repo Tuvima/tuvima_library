@@ -136,6 +136,9 @@ public interface IEngineApiClient
     /// <summary>POST /settings/browse-directory — list subdirectories or drive roots.</summary>
     Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(string? path, CancellationToken ct = default);
 
+    /// <summary>GET /providers/catalogue — consolidated UI metadata for all configured providers.</summary>
+    Task<IReadOnlyList<ProviderCatalogueDto>> GetProviderCatalogueAsync(CancellationToken ct = default);
+
     /// <summary>GET /settings/providers — enabled state and live reachability for all providers.</summary>
     Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(CancellationToken ct = default);
 

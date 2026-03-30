@@ -582,6 +582,7 @@ builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentR
 builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineService>();
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
 builder.Services.AddSingleton<IBridgeIdRepository,           BridgeIdRepository>();
+builder.Services.AddSingleton<IEntityTimelineRepository,     EntityTimelineRepository>();
 builder.Services.AddSingleton<IReviewQueueRepository,        ReviewQueueRepository>();
 builder.Services.AddSingleton<IIngestionBatchRepository,     IngestionBatchRepository>();
 builder.Services.AddSingleton<IPendingPersonSignalRepository, PendingPersonSignalRepository>();
@@ -773,6 +774,7 @@ app.MapIngestionEndpoints();
 app.MapMetadataEndpoints();
 app.MapReviewEndpoints();
 app.MapSettingsEndpoints();
+app.MapProviderCatalogueEndpoints();
 app.MapUISettingsEndpoints();
 app.MapProfileEndpoints();
 app.MapPersonEndpoints();

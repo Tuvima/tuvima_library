@@ -19,5 +19,15 @@
   "throttle_ms": 0,
   "max_concurrency": 1,
 
-  "adapter_type": "coded"
+  "adapter_type": "coded",
+  "ui_metadata": {
+    "accent_color": "#90A4AE",
+    "material_icon": "FolderOpen",
+    "external_url_template": "",
+    "category": "Local",
+    "requires_key": false,
+    "auth_type": "none",
+    "search_chips": {},
+    "ranking_chips": {}
+  }
 }

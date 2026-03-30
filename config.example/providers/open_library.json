@@ -1,7 +1,7 @@
 {
   "name": "open_library",
   "version": "1.2",
-  "enabled": true,
+  "enabled": false,
   "language_strategy": "source",
   "weight": 0.7,
   "domain": "Ebook",
@@ -75,5 +75,19 @@
     { "claim_key": "publisher", "json_path": "publisher[0]",       "confidence": 0.7 },
     { "claim_key": "language",  "json_path": "language[0]",        "confidence": 0.7 },
     { "claim_key": "genre",     "json_path": "subject",            "confidence": 0.65, "transform": "array_join", "transform_args": ", " }
-  ]
+  ],
+  "ui_metadata": {
+    "accent_color": "#4CAF50",
+    "material_icon": "LocalLibrary",
+    "external_url_template": "https://openlibrary.org/works/{open_library_id}",
+    "category": "Open",
+    "requires_key": false,
+    "auth_type": "none",
+    "search_chips": {
+      "Books": ["Title", "ISBN"]
+    },
+    "ranking_chips": {
+      "Books": ["Author", "Year"]
+    }
+  }
 }

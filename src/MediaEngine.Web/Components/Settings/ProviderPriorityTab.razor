@@ -1,5 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject IEngineApiClient ApiClient
+@inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
+@using MediaEngine.Web.Models.ViewDTOs
 
 @* Providers — full-width priority chain design.
    Icon-above-label category selector. Provider cards flow responsively.
@@ -619,7 +621,6 @@
     private static readonly ProviderInfo[] AllProviderCatalogue =
     [
         new("Apple API",      "Retail", false, ["Books", "Audiobooks"],                          120, 0.94),
-        new("Google Books",   "Retail", true,  ["Books", "Audiobooks"],                          180, 0.91),
         new("Open Library",   "Open",   false, ["Books"],                                        240, 0.87),
         new("TMDB",           "Retail", true,  ["Movies", "TV"],                                 110, 0.96),
         new("MusicBrainz",    "Open",   false, ["Music"],                                        210, 0.89),
@@ -646,7 +647,7 @@
 
     private static readonly Dictionary<string, List<ProviderAssignment>> DefaultAssignments = new()
     {
-        ["Books"]      = [new() { Name = "Apple API", LanguageStrategy = "localized" }, new() { Name = "Google Books", LanguageStrategy = "source" }],
+        ["Books"]      = [new() { Name = "Apple API", LanguageStrategy = "localized" }],
         ["Audiobooks"] = [new() { Name = "Apple API", LanguageStrategy = "localized" }],
         ["Movies"]     = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
         ["TV"]         = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
@@ -658,7 +659,6 @@
     private static readonly Dictionary<string, string[]> ProviderMediaTypes = new()
     {
         ["Apple API"]      = ["Books", "Audiobooks"],
-        ["Google Books"]   = ["Books", "Audiobooks"],
         ["Open Library"]   = ["Books"],
         ["TMDB"]           = ["Movies", "TV"],
         ["MusicBrainz"]    = ["Music"],
@@ -703,8 +703,13 @@
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
+    // ── Live catalogue (populated on init from ProviderCatalogueService) ─────────
+    private IReadOnlyList<ProviderCatalogueDto> _liveCatalogue = [];
+
     protected override async Task OnInitializedAsync()
     {
+        // Load live catalogue first so subsequent helpers have access to it.
+        _liveCatalogue = await CatalogueService.GetCatalogueAsync();
         await LoadFromEngineAsync();
         await LoadHealthDataAsync();
     }
@@ -924,6 +929,26 @@
         var chain   = GetChain(mediaType);
         var inChain = chain.Select(a => a.Name).ToHashSet();
 
+        // Build from live catalogue when available
+        if (_liveCatalogue.Count > 0)
+        {
+            return _liveCatalogue
+                .Where(p => p.Name != "local_filesystem")  // internal only
+                .Where(p => !inChain.Contains(p.DisplayName) &&
+                            (p.MediaTypes.Contains(mediaType, StringComparer.OrdinalIgnoreCase) ||
+                             p.Name is "wikidata_reconciliation" or "wikidata"))
+                .Select(p => new ProviderInfo(
+                    Name:        p.DisplayName,
+                    Type:        p.Category,
+                    RequiresKey: p.RequiresKey,
+                    Supports:    [.. p.MediaTypes],
+                    LatencyMs:   120,
+                    SuccessRate: 0.90,
+                    AuthType:    p.AuthType))
+                .ToList();
+        }
+
+        // Fallback to hardcoded catalogue
         return AllProviderCatalogue
             .Where(p => !inChain.Contains(p.Name) &&
                         (p.Supports.Contains(mediaType) || p.Name == "Wikidata"))
@@ -1024,21 +1049,54 @@
         _            => Icons.Material.Outlined.Category,
     };
 
-    private static string GetProviderIcon(string provider) => provider switch
+    private string GetProviderIcon(string provider)
     {
-        "Apple API" or "Apple Podcasts" => Icons.Material.Outlined.PhoneIphone,
-        "Google Books"                  => Icons.Material.Outlined.Book,
-        "Open Library"                  => Icons.Material.Outlined.LocalLibrary,
-        "TMDB"                          => Icons.Material.Outlined.Movie,
-        "MusicBrainz"                   => Icons.Material.Outlined.MusicNote,
-        "Comic Vine"                    => Icons.Material.Outlined.AutoStories,
-        "Podcast Index"                 => Icons.Material.Outlined.Podcasts,
-        "Wikidata"                      => Icons.Material.Outlined.Public,
-        _                               => Icons.Material.Outlined.Storage,
-    };
+        // Prefer live catalogue icon (resolves via MaterialIconLookup in ProviderAccentMap)
+        var catalogueEntry = _liveCatalogue.FirstOrDefault(p =>
+            string.Equals(p.DisplayName, provider, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Name.Replace("_", " "), provider, StringComparison.OrdinalIgnoreCase));
+        if (catalogueEntry is not null)
+        {
+            var (_, icon) = MediaEngine.Web.Models.ProviderAccentMap.GetAccent(
+                catalogueEntry.Name, catalogueEntry.MaterialIcon);
+            return icon;
+        }
 
-    private static ProviderInfo? GetProviderInfo(string name) =>
-        AllProviderCatalogue.FirstOrDefault(p => p.Name == name);
+        // Fallback switch for hardcoded catalogue entries (when Engine is unreachable)
+        return provider switch
+        {
+            "Apple API" or "Apple Podcasts" => Icons.Material.Outlined.MenuBook,
+            "Open Library"                  => Icons.Material.Outlined.LocalLibrary,
+            "TMDB"                          => Icons.Material.Outlined.Movie,
+            "MusicBrainz"                   => Icons.Material.Outlined.MusicNote,
+            "Metron"                        => Icons.Material.Outlined.AutoStories,
+            "Podcast Index"                 => Icons.Material.Outlined.Podcasts,
+            "Wikidata"                      => Icons.Material.Outlined.Hub,
+            "Fanart.tv"                     => Icons.Material.Outlined.Image,
+            _                               => Icons.Material.Outlined.Storage,
+        };
+    }
+
+    private ProviderInfo? GetProviderInfo(string name)
+    {
+        // First try live catalogue
+        var live = _liveCatalogue.FirstOrDefault(p =>
+            string.Equals(p.DisplayName, name, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Name.Replace("_", " "), name, StringComparison.OrdinalIgnoreCase));
+        if (live is not null)
+        {
+            return new ProviderInfo(
+                Name:        live.DisplayName,
+                Type:        live.Category,
+                RequiresKey: live.RequiresKey,
+                Supports:    [.. live.MediaTypes],
+                LatencyMs:   120,       // not in catalogue — health data used at runtime
+                SuccessRate: 0.90,      // not in catalogue — health data used at runtime
+                AuthType:    live.AuthType);
+        }
+        // Fall back to hardcoded catalogue
+        return AllProviderCatalogue.FirstOrDefault(p => p.Name == name);
+    }
 
     /// <summary>Returns live latency string from health data, or catalogue default.</summary>
     private string GetLatencyDisplay(string providerName)
@@ -1077,6 +1135,16 @@
         return true; // assume healthy if no health data
     }
 
-    private static string[] GetProviderMediaTypes(string provider) =>
-        ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
+    private string[] GetProviderMediaTypes(string provider)
+    {
+        // Prefer live catalogue
+        var live = _liveCatalogue.FirstOrDefault(p =>
+            string.Equals(p.DisplayName, provider, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(p.Name.Replace("_", " "), provider, StringComparison.OrdinalIgnoreCase));
+        if (live is not null && live.MediaTypes.Count > 0)
+            return [.. live.MediaTypes];
+
+        // Fall back to hardcoded dictionary
+        return ProviderMediaTypes.TryGetValue(provider, out var types) ? types : ["All"];
+    }
 }

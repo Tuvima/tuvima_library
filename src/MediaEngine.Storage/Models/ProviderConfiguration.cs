@@ -197,6 +197,64 @@ public sealed class ProviderConfiguration
         Enum.TryParse<MediaEngine.Domain.Enums.LanguageStrategy>(LanguageStrategyRaw, ignoreCase: true, out var v)
             ? v
             : MediaEngine.Domain.Enums.LanguageStrategy.Source;
+
+    /// <summary>
+    /// Optional UI metadata block read from provider config JSON files.
+    /// Contains accent colour, material icon, external URL template, category,
+    /// auth type, and per-media-type search/ranking chips.
+    /// When absent, the Dashboard falls back to defaults in <c>ProviderAccentMap</c>.
+    /// </summary>
+    [JsonPropertyName("ui_metadata")]
+    public ProviderUiMetadata? UiMetadata { get; set; }
+}
+
+/// <summary>
+/// UI metadata for a provider, stored under the <c>ui_metadata</c> key in each
+/// provider config JSON file. Consumed by <c>GET /providers/catalogue</c>.
+/// </summary>
+public sealed class ProviderUiMetadata
+{
+    /// <summary>Hex accent colour for the provider card (e.g. <c>"#FF2D55"</c>).</summary>
+    [JsonPropertyName("accent_color")]
+    public string AccentColor { get; set; } = "#90A4AE";
+
+    /// <summary>Material icon name (e.g. <c>"MenuBook"</c>).</summary>
+    [JsonPropertyName("material_icon")]
+    public string MaterialIcon { get; set; } = "Cloud";
+
+    /// <summary>
+    /// URL template for linking to the item on the provider's site.
+    /// Placeholders are field names (e.g. <c>{apple_books_id}</c>).
+    /// Empty string means no external link available.
+    /// </summary>
+    [JsonPropertyName("external_url_template")]
+    public string ExternalUrlTemplate { get; set; } = "";
+
+    /// <summary>Provider category: <c>"Retail"</c>, <c>"Open"</c>, <c>"Image"</c>, or <c>"Local"</c>.</summary>
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = "Open";
+
+    /// <summary>When <c>true</c>, the provider requires a user-supplied API key.</summary>
+    [JsonPropertyName("requires_key")]
+    public bool RequiresKey { get; set; }
+
+    /// <summary>Authentication mechanism: <c>"none"</c>, <c>"api_key"</c>, <c>"bearer"</c>, or <c>"basic"</c>.</summary>
+    [JsonPropertyName("auth_type")]
+    public string AuthType { get; set; } = "none";
+
+    /// <summary>
+    /// Per-media-type labels shown as search capability chips in the Pipeline panel.
+    /// Key = media type display name (e.g. <c>"Books"</c>), value = chip labels.
+    /// </summary>
+    [JsonPropertyName("search_chips")]
+    public Dictionary<string, List<string>> SearchChips { get; set; } = [];
+
+    /// <summary>
+    /// Per-media-type labels shown as ranking capability chips in the Pipeline panel.
+    /// Key = media type display name, value = chip labels.
+    /// </summary>
+    [JsonPropertyName("ranking_chips")]
+    public Dictionary<string, List<string>> RankingChips { get; set; } = [];
 }
 
 /// <summary>HTTP client configuration for config-driven provider adapters.</summary>

@@ -1,3 +1,4 @@
+using MediaEngine.Web.Services.Integration;
 using MudBlazor;
 
 namespace MediaEngine.Web.Models;
@@ -5,6 +6,13 @@ namespace MediaEngine.Web.Models;
 /// <summary>
 /// Maps provider config names to unique accent colours and Material icons.
 /// Used by the Metadata Prioritization Matrix for visual provider identification.
+///
+/// <para>
+/// Static methods provide hardcoded fallback values for contexts where the
+/// <see cref="ProviderCatalogueService"/> is not available (e.g. static helpers).
+/// Prefer injecting <see cref="ProviderCatalogueService"/> directly in Blazor
+/// components to get live catalogue data.
+/// </para>
 /// </summary>
 public static class ProviderAccentMap
 {
@@ -20,16 +28,19 @@ public static class ProviderAccentMap
     {
         var (color, defaultIcon) = providerKey switch
         {
-            "apple_api"             => ("#FF2D55", Icons.Material.Filled.MenuBook),
+            "apple_api"                  => ("#FF2D55", Icons.Material.Filled.MenuBook),
             // audnexus removed - config file deleted as part of SPARQL cleanup
-            "open_library"          => ("#4CAF50", Icons.Material.Filled.LocalLibrary),
-            "google_books"          => ("#4285F4", Icons.Material.Filled.Book),
-            "wikidata"              => ("#339966", Icons.Material.Filled.Hub),
-            "tmdb"                  => ("#01B4E4", Icons.Material.Filled.Movie),
-            "metron"                => ("#E91E63", Icons.Material.Filled.AutoStories),
-            "musicbrainz"           => ("#BA478F", Icons.Material.Filled.MusicNote),
-            "fanart_tv"             => ("#19C1CC", Icons.Material.Filled.Image),
-            _                       => ("#90A4AE", Icons.Material.Filled.Cloud),
+            "open_library"               => ("#4CAF50", Icons.Material.Filled.LocalLibrary),
+            "wikidata"                   => ("#339966", Icons.Material.Filled.Hub),
+            "wikidata_reconciliation"    => ("#339966", Icons.Material.Filled.Hub),
+            "tmdb"                       => ("#01B4E4", Icons.Material.Filled.Movie),
+            "metron"                     => ("#E91E63", Icons.Material.Filled.AutoStories),
+            "musicbrainz"                => ("#BA478F", Icons.Material.Filled.MusicNote),
+            "fanart_tv"                  => ("#19C1CC", Icons.Material.Filled.Image),
+            "apple_podcasts"             => ("#9B59B6", Icons.Material.Filled.Podcasts),
+            "podcast_index"              => ("#F7931E", Icons.Material.Filled.Podcasts),
+            "local_filesystem"           => ("#90A4AE", Icons.Material.Filled.FolderOpen),
+            _                            => ("#90A4AE", Icons.Material.Filled.Cloud),
         };
 
         if (!string.IsNullOrWhiteSpace(customIconName)
@@ -54,6 +65,7 @@ public static class ProviderAccentMap
             ("Podcasts",      Icons.Material.Filled.Podcasts),
             ("Description",   Icons.Material.Filled.Description),
             ("Folder",        Icons.Material.Filled.Folder),
+            ("FolderOpen",    Icons.Material.Filled.FolderOpen),
             ("Photo",         Icons.Material.Filled.Photo),
             ("VideoLibrary",  Icons.Material.Filled.VideoLibrary),
             ("AudioFile",     Icons.Material.Filled.AudioFile),
@@ -90,6 +102,7 @@ public static class ProviderAccentMap
         ["Podcasts"]      = Icons.Material.Filled.Podcasts,
         ["Description"]   = Icons.Material.Filled.Description,
         ["Folder"]        = Icons.Material.Filled.Folder,
+        ["FolderOpen"]    = Icons.Material.Filled.FolderOpen,
         ["Photo"]         = Icons.Material.Filled.Photo,
         ["VideoLibrary"]  = Icons.Material.Filled.VideoLibrary,
         ["AudioFile"]     = Icons.Material.Filled.AudioFile,
@@ -114,19 +127,22 @@ public static class ProviderAccentMap
         ["Hub"]           = Icons.Material.Filled.Hub,
     };
 
-    /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple Books" instead of "apple_books").</summary>
+    /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple API" instead of "apple_api").</summary>
     public static string GetDisplayName(string providerKey) => providerKey switch
     {
-        "apple_api"             => "Apple API",
+        "apple_api"                  => "Apple API",
         // audnexus removed - config file deleted as part of SPARQL cleanup
-        "open_library"          => "Open Library",
-        "google_books"          => "Google Books",
-        "wikidata"              => "Wikidata",
-        "tmdb"                  => "TMDB",
-        "metron"                => "Metron",
-        "musicbrainz"           => "MusicBrainz",
-        "fanart_tv"             => "Fanart.tv",
-        _                       => FormatProviderName(providerKey),
+        "open_library"               => "Open Library",
+        "wikidata"                   => "Wikidata",
+        "wikidata_reconciliation"    => "Wikidata",
+        "tmdb"                       => "TMDB",
+        "metron"                     => "Metron",
+        "musicbrainz"                => "MusicBrainz",
+        "fanart_tv"                  => "Fanart.tv",
+        "apple_podcasts"             => "Apple Podcasts",
+        "podcast_index"              => "Podcast Index",
+        "local_filesystem"           => "Local Filesystem",
+        _                            => FormatProviderName(providerKey),
     };
 
     /// <summary>Returns the SVG icon path for a provider (user-provided artwork).</summary>

@@ -82,6 +82,11 @@ builder.Services.AddHttpClient("EngineApi", client =>
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<UIOrchestratorService>();
 
+// ── Provider Catalogue (singleton = loaded once, shared across all circuits) ──
+// Caches provider UI metadata from GET /providers/catalogue. Replaces hardcoded
+// provider accent colours, icons, and chip labels spread across Dashboard files.
+builder.Services.AddSingleton<ProviderCatalogueService>();
+
 // ── Device Context (scoped = per-tab; a TV in television mode won't affect a mobile session) ──
 // Generalised device-context model supporting web, mobile, television, and automotive classes.
 builder.Services.AddScoped<DeviceContextService>();

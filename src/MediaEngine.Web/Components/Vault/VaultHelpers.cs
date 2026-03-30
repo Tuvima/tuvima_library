@@ -111,8 +111,8 @@ public static class VaultHelpers
     {
         "MOVIE" or "MOVIES" => ["TMDB"],
         "TV" => ["TMDB"],
-        "BOOK" or "BOOKS" or "EPUB" => ["Open Library", "Google Books"],
-        "AUDIOBOOK" or "AUDIOBOOKS" => ["Apple API", "Google Books"],
+        "BOOK" or "BOOKS" or "EPUB" => ["Open Library"],
+        "AUDIOBOOK" or "AUDIOBOOKS" => ["Apple API"],
         "MUSIC" => ["MusicBrainz"],
         "COMICS" or "COMIC" => [],
         "PODCASTS" or "PODCAST" => ["Apple Podcasts", "Podcast Index"],
@@ -190,14 +190,13 @@ public static class VaultHelpers
         [new("b3000003-d000-4000-8000-000000000004")] = "Wikidata",
         [new("b4000004-d000-4000-8000-000000000005")] = "Wikipedia",
         [new("b4000004-0000-4000-8000-000000000005")] = "Open Library",
-        [new("b5000005-0000-4000-8000-000000000006")] = "Google Books",
         [new("b6000006-0000-4000-8000-000000000007")] = "MusicBrainz",
         [new("b7000007-0000-4000-8000-000000000008")] = "TMDB",
-        [new("b8000008-0000-4000-8000-000000000009")] = "Comic Vine",
+        [new("b8000008-0000-4000-8000-000000000009")] = "Metron",
         [new("b9000009-0000-4000-8000-000000000010")] = "Apple Podcasts",
         [new("ba00000a-0000-4000-8000-000000000011")] = "Podcast Index",
-        [new("d0000000-0000-4000-8000-000000000001")] = "Manual Match",
         [new("bb00000b-0000-4000-8000-000000000012")] = "Fanart.tv",
+        [new("d0000000-0000-4000-8000-000000000001")] = "Manual Match",
     };
 
     /// <summary>
@@ -223,13 +222,14 @@ public static class VaultHelpers
             "apple_api"                => "Apple API",
             "apple_books"              => "Apple API",
             "open_library"             => "Open Library",
-            "google_books"             => "Google Books",
             "musicbrainz"              => "MusicBrainz",
             "tmdb"                     => "TMDB",
             "comic_vine"               => "Comic Vine",
+            "metron"                   => "Metron",
             "apple_podcasts"           => "Apple Podcasts",
             "podcast_index"            => "Podcast Index",
             "fanart_tv"                => "Fanart.tv",
+            "local_filesystem"         => "File Scan",
             "audnexus"                 => "Audnexus",
             "library_scanner"          => "Library Scanner",
             _                          => source,
@@ -278,8 +278,6 @@ public static class VaultHelpers
                 => ("View on TMDB", $"https://www.themoviedb.org/movie/{value}"),
             "open_library_id" or "olid"
                 => ("View on Open Library", $"https://openlibrary.org/works/{value}"),
-            "google_books_id"
-                => ("View on Google Books", $"https://books.google.com/books?id={value}"),
             "musicbrainz_id"
                 => ("View on MusicBrainz", $"https://musicbrainz.org/release/{value}"),
             "wikidata_qid" when value.StartsWith("Q", StringComparison.OrdinalIgnoreCase)

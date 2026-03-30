@@ -4,6 +4,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
+@inject ProviderCatalogueService CatalogueService
 
 <MudDialog Class="eo-dialog">
     <TitleContent>
@@ -344,7 +345,7 @@
     private static readonly Dictionary<string, int> ProviderPriority = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"] = 100,
-        ["tmdb"] = 90, ["google_books"] = 70, ["open_library"] = 60,
+        ["tmdb"] = 90, ["open_library"] = 60,
     };
 
     private static readonly (string Label, string Value)[] _mediaTypeOptions =
@@ -840,13 +841,27 @@
     private static string FormatFieldKey(string key) =>
         System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
 
-    private static string FormatProviderName(string name) => name switch
+    private string FormatProviderName(string name)
     {
-        "apple_api" => "Apple",
-        "open_library" => "Open Library", "google_books" => "Google Books",
-        "tmdb" => "TMDB",
-        _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace('_', ' ')),
-    };
+        // Prefer live catalogue display name
+        var entry = CatalogueService.GetByName(name);
+        if (entry is not null) return entry.DisplayName;
+
+        // Fall back to hardcoded mapping
+        return name switch
+        {
+            "apple_api"             => "Apple API",
+            "apple_podcasts"        => "Apple Podcasts",
+            "open_library"          => "Open Library",
+            "tmdb"                  => "TMDB",
+            "musicbrainz"           => "MusicBrainz",
+            "metron"                => "Metron",
+            "podcast_index"         => "Podcast Index",
+            "fanart_tv"             => "Fanart.tv",
+            "wikidata_reconciliation" => "Wikidata",
+            _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace('_', ' ')),
+        };
+    }
 
     private static string Truncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";

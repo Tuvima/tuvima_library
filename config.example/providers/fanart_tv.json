@@ -67,5 +67,15 @@
     "TV": "characterart"
   },
 
-  "language_strategy": "source"
+  "language_strategy": "source",
+  "ui_metadata": {
+    "accent_color": "#19C1CC",
+    "material_icon": "Image",
+    "external_url_template": "",
+    "category": "Image",
+    "requires_key": true,
+    "auth_type": "api_key",
+    "search_chips": {},
+    "ranking_chips": {}
+  }
 }

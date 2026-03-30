@@ -103,5 +103,19 @@
     { "claim_key": "gcd_id",          "json_path": "gcd_id",                   "confidence": 0.95, "transform": "to_string" },
     { "claim_key": "isbn",            "json_path": "isbn",                     "confidence": 0.95 },
     { "claim_key": "upc",             "json_path": "upc",                      "confidence": 0.9 }
-  ]
+  ],
+  "ui_metadata": {
+    "accent_color": "#E91E63",
+    "material_icon": "AutoStories",
+    "external_url_template": "",
+    "category": "Open",
+    "requires_key": true,
+    "auth_type": "basic",
+    "search_chips": {
+      "Comics": ["Title", "ISBN"]
+    },
+    "ranking_chips": {
+      "Comics": ["Author", "Year"]
+    }
+  }
 }

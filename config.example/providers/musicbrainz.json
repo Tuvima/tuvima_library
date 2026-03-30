@@ -75,5 +75,19 @@
     { "claim_key": "year",           "json_path": "date",                           "confidence": 0.85, "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "musicbrainz_id", "json_path": "id",                             "confidence": 1.0 },
     { "claim_key": "cover",          "json_path": "id",                             "confidence": 0.7,  "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250" }
-  ]
+  ],
+  "ui_metadata": {
+    "accent_color": "#BA478F",
+    "material_icon": "MusicNote",
+    "external_url_template": "https://musicbrainz.org/release/{musicbrainz_id}",
+    "category": "Open",
+    "requires_key": false,
+    "auth_type": "none",
+    "search_chips": {
+      "Music": ["Title"]
+    },
+    "ranking_chips": {
+      "Music": ["Artist", "Album", "Year"]
+    }
+  }
 }
