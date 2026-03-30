@@ -58,7 +58,8 @@ public sealed class VaultItemViewModel
     // Computed: the 4 vault display statuses
     public VaultStatus VaultDisplayStatus => ComputeVaultStatus();
 
-    // Computed: the 3 pipeline stages
+    // Computed: the 4 pipeline stages (Stage0 = File)
+    public VaultPipelineStage Stage0 => ComputeFileStage();
     public VaultPipelineStage Stage1 => ComputeRetailStage();
     public VaultPipelineStage Stage2 => ComputeWikidataStage();
     public VaultPipelineStage Stage3 => ComputeUniverseStage();
@@ -71,6 +72,12 @@ public sealed class VaultItemViewModel
 
     // Quarantine days remaining (for rejected items, placeholder)
     public int? QuarantineDays { get; init; }
+
+    /// <summary>
+    /// Compact provenance summary for the Resolution column (e.g. "ISBN → Q83471", "Title search → Q12345").
+    /// Returns null when no resolution has occurred.
+    /// </summary>
+    public string? ResolutionSummary => ComputeResolutionSummary();
 
     /// <summary>Factory: convert a RegistryItemViewModel to VaultItemViewModel.</summary>
     public static VaultItemViewModel From(RegistryItemViewModel r) => new()
@@ -152,6 +159,37 @@ public sealed class VaultItemViewModel
 
         // Default: Needs Review
         return VaultStatus.NeedsReview;
+    }
+
+    private VaultPipelineStage ComputeFileStage()
+    {
+        // If the item exists in the vault the file was successfully scanned — always Completed.
+        return new VaultPipelineStage { State = VaultStageState.Completed, Label = "File" };
+    }
+
+    private string? ComputeResolutionSummary()
+    {
+        // Wikidata resolved via a bridge ID (e.g. ISBN → Q83471)
+        if (!string.IsNullOrEmpty(WikidataQid)
+            && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+        {
+            // If we know the retail match provider, prefix with that
+            if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ISBN", StringComparison.OrdinalIgnoreCase))
+                return $"ISBN \u2192 {WikidataQid}";
+            if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("TMDB", StringComparison.OrdinalIgnoreCase))
+                return $"TMDB \u2192 {WikidataQid}";
+            if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ASIN", StringComparison.OrdinalIgnoreCase))
+                return $"ASIN \u2192 {WikidataQid}";
+            if (!string.IsNullOrEmpty(RetailMatch)
+                && RetailMatch != "none"
+                && RetailMatch != "failed"
+                && !RetailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
+                && !RetailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase))
+                return $"{RetailMatch} \u2192 {WikidataQid}";
+            return $"Title search \u2192 {WikidataQid}";
+        }
+
+        return null;
     }
 
     private VaultPipelineStage ComputeRetailStage()

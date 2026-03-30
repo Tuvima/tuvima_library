@@ -1,5 +1,6 @@
 using System.Net;
 using MediaEngine.Api.Services;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Middleware;
@@ -39,7 +40,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
     private static readonly string[] ExemptPrefixes =
     [
         "/swagger",
-        "/hubs/intercom",
+        SignalREvents.HubPath,
     ];
 
     public async Task InvokeAsync(HttpContext ctx, IApiKeyRepository repo, IConfiguration config)
@@ -92,7 +93,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
         if (bypassEnabled && IsLoopback(ctx.Connection.RemoteIpAddress))
         {
             // Localhost callers get full Administrator access when bypass is enabled.
-            ctx.Items["ApiKeyRole"] = "Administrator";
+            ctx.Items["ApiKeyRole"] = AppRoles.Administrator;
             await next(ctx).ConfigureAwait(false);
             return;
         }

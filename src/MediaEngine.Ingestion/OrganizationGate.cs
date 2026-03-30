@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Intelligence.Models;
 
 namespace MediaEngine.Ingestion;
 
@@ -9,8 +10,14 @@ namespace MediaEngine.Ingestion;
 /// </summary>
 public sealed class OrganizationGate : IOrganizationGate
 {
-    private const double HighConfidenceThreshold = 0.85;
     private const double UnidentifiableThreshold = 0.40;
+
+    private readonly double _highConfidenceThreshold;
+
+    public OrganizationGate(ScoringConfiguration scoringConfig)
+    {
+        _highConfidenceThreshold = scoringConfig.AutoLinkThreshold;
+    }
 
     public GateResult Evaluate(
         double overallConfidence,
@@ -27,7 +34,7 @@ public sealed class OrganizationGate : IOrganizationGate
                 "Media type could not be determined with sufficient confidence.");
         }
 
-        bool highConfidence = overallConfidence >= HighConfidenceThreshold;
+        bool highConfidence = overallConfidence >= _highConfidenceThreshold;
         bool passesConfidence = highConfidence || hasUserLock;
 
         // Gate 2: Placeholder title with no bridge ID.
@@ -67,9 +74,9 @@ public sealed class OrganizationGate : IOrganizationGate
             }
 
             return new GateResult(false,
-                $"Confidence {overallConfidence:P0} below organization threshold ({HighConfidenceThreshold:P0})",
+                $"Confidence {overallConfidence:P0} below organization threshold ({_highConfidenceThreshold:P0})",
                 "low-confidence", ReviewTrigger.LowConfidence,
-                $"Overall confidence {overallConfidence:P0} below organization threshold ({HighConfidenceThreshold:P0}). Staged for review.");
+                $"Overall confidence {overallConfidence:P0} below organization threshold ({_highConfidenceThreshold:P0}). Staged for review.");
         }
 
         // All gates passed.

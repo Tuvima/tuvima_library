@@ -1,3 +1,5 @@
+using MediaEngine.Domain;
+
 namespace MediaEngine.Api.Security;
 
 /// <summary>
@@ -56,13 +58,13 @@ public static class RoleFilterExtensions
 {
     /// <summary>Restricts the endpoint to Administrators only.</summary>
     public static RouteHandlerBuilder RequireAdmin(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole("Administrator"));
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator));
 
     /// <summary>Restricts the endpoint to Administrators and Curators.</summary>
     public static RouteHandlerBuilder RequireAdminOrCurator(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole("Administrator", "Curator"));
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator, AppRoles.Curator));
 
     /// <summary>Requires any authenticated role (Administrator, Curator, or Consumer).</summary>
     public static RouteHandlerBuilder RequireAnyRole(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole("Administrator", "Curator", "Consumer"));
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.All));
 }

@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
@@ -535,16 +536,16 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                     thumbnailUrl ??= raw;
                     break;
                 // Provider-specific IDs for direct follow-up lookup.
-                case "isbn":
-                case "asin":
-                case "apple_books_id":
-                case "goodreads_id":
-                case "audible_id":
-                case "tmdb_id":
-                case "imdb_id":
+                case BridgeIdKeys.Isbn:
+                case BridgeIdKeys.Asin:
+                case BridgeIdKeys.AppleBooksId:
+                case BridgeIdKeys.GoodreadsId:
+                case BridgeIdKeys.AudibleId:
+                case BridgeIdKeys.TmdbId:
+                case BridgeIdKeys.ImdbId:
                 case "comicvine_id":
-                case "musicbrainz_id":
-                case "spotify_id":
+                case BridgeIdKeys.MusicBrainzId:
+                case BridgeIdKeys.SpotifyId:
                     providerItemId ??= raw;
                     break;
             }
@@ -1207,12 +1208,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             "title" => request.Title,
             "author" => request.Author,
             "narrator" => request.Narrator,
-            "isbn" => request.Isbn,
-            "asin" => request.Asin,
-            "apple_books_id" => request.AppleBooksId,
-            "audible_id" => request.AudibleId,
-            "tmdb_id" => request.TmdbId,
-            "imdb_id" => request.ImdbId,
+            BridgeIdKeys.Isbn => request.Isbn,
+            BridgeIdKeys.Asin => request.Asin,
+            BridgeIdKeys.AppleBooksId => request.AppleBooksId,
+            BridgeIdKeys.AudibleId => request.AudibleId,
+            BridgeIdKeys.TmdbId => request.TmdbId,
+            BridgeIdKeys.ImdbId => request.ImdbId,
             "person_name" => request.PersonName,
             _ => null
         };

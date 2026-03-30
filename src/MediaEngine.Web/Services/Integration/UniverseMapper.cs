@@ -1,4 +1,7 @@
+using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Theming;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -18,22 +21,23 @@ namespace MediaEngine.Web.Services.Integration;
 public static class UniverseMapper
 {
     // ── Colour palette ────────────────────────────────────────────────────────
-    // Chosen to complement the ThemeService palette:
-    //   Book    = amber  #FF8F00  — warm, literary feel
-    //   Video   = teal   #00BFA5  — matches secondary colour
-    //   Comic   = violet #7C4DFF  — matches primary colour
-    //   Audio   = rose   #EC407A  — distinct, vibrant
-    //   Unknown = slate  #9E9E9E  — neutral fallback
+    // Sourced from PaletteProvider so config/ui/palette.json drives these values.
+    // Bucket → palette mapping:
+    //   Book    → palette.media_type.book
+    //   Video   → palette.media_type.movie
+    //   Comic   → palette.media_type.comic
+    //   Audio   → palette.media_type.audiobook
+    //   Unknown → palette.media_type.unknown (rgba fallback)
     // ─────────────────────────────────────────────────────────────────────────
 
-    private static readonly IReadOnlyDictionary<MediaTypeBucket, string> BucketColours =
+    private static IReadOnlyDictionary<MediaTypeBucket, string> BucketColours =>
         new Dictionary<MediaTypeBucket, string>
         {
-            [MediaTypeBucket.Book]    = "#FF8F00",
-            [MediaTypeBucket.Video]   = "#00BFA5",
-            [MediaTypeBucket.Comic]   = "#7C4DFF",
-            [MediaTypeBucket.Audio]   = "#EC407A",
-            [MediaTypeBucket.Unknown] = "#9E9E9E",
+            [MediaTypeBucket.Book]    = PaletteProvider.Current.MediaType.Book,
+            [MediaTypeBucket.Video]   = PaletteProvider.Current.MediaType.Movie,
+            [MediaTypeBucket.Comic]   = PaletteProvider.Current.MediaType.Comic,
+            [MediaTypeBucket.Audio]   = PaletteProvider.Current.MediaType.Audiobook,
+            [MediaTypeBucket.Unknown] = PaletteProvider.Current.MediaType.Unknown,
         };
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -112,20 +116,21 @@ public static class UniverseMapper
 
     /// <summary>
     /// Classifies the raw domain media-type string (e.g. "Epub", "Video", "Cbz")
-    /// into a broad UI bucket.  Case-insensitive substring matching keeps this
-    /// resilient to future enum additions or casing changes in the API.
+    /// into a broad UI bucket.  Delegates to <see cref="MediaTypeClassifier"/>
+    /// for the canonical type mapping.
     /// </summary>
-    private static MediaTypeBucket ClassifyBucket(string mediaType)
+    private static MediaTypeBucket ClassifyBucket(string? mediaType)
     {
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub")  || t.Contains("book"))                       return MediaTypeBucket.Book;
-        if (t.Contains("video") || t.Contains("movie") || t.Contains("mkv")
-                                || t.Contains("mp4")   || t.Contains("avi")) return MediaTypeBucket.Video;
-        if (t.Contains("comic") || t.Contains("cbz")   || t.Contains("cbr")) return MediaTypeBucket.Comic;
-        if (t.Contains("audio") || t.Contains("mp3")   || t.Contains("flac")
-                                || t.Contains("aac")   || t.Contains("m4a")
-                                || t.Contains("ogg")   || t.Contains("wav")) return MediaTypeBucket.Audio;
-        return MediaTypeBucket.Unknown;
+        var type = MediaTypeClassifier.Classify(mediaType);
+        return type switch
+        {
+            MediaType.Books                    => MediaTypeBucket.Book,
+            MediaType.Audiobooks               => MediaTypeBucket.Audio,
+            MediaType.Movies or MediaType.TV   => MediaTypeBucket.Video,
+            MediaType.Comics                   => MediaTypeBucket.Comic,
+            MediaType.Music or MediaType.Podcasts => MediaTypeBucket.Audio,
+            _                                  => MediaTypeBucket.Unknown,
+        };
     }
 
     /// <summary>

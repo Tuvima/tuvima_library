@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Serialization;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Ingestion.Contracts;
@@ -30,7 +31,7 @@ public sealed class ApiKeyDto
     public string Label { get; init; } = string.Empty;
 
     [JsonPropertyName("role")]
-    public string Role { get; init; } = "Administrator";
+    public string Role { get; init; } = AppRoles.Administrator;
 
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
@@ -66,7 +67,7 @@ public sealed class CreateApiKeyResponse
     public string Label { get; init; } = string.Empty;
 
     [JsonPropertyName("role")]
-    public string Role { get; init; } = "Administrator";
+    public string Role { get; init; } = AppRoles.Administrator;
 
     /// <summary>
     /// The API key plaintext. Shown exactly once — store it now; it cannot be retrieved again.
@@ -822,7 +823,7 @@ public sealed class CreateProfileRequest
     public string DisplayName { get; init; } = string.Empty;
 
     [JsonPropertyName("role")]
-    public string Role { get; init; } = "Consumer";
+    public string Role { get; init; } = AppRoles.Consumer;
 
     [JsonPropertyName("avatar_color")]
     public string AvatarColor { get; init; } = "#7C4DFF";

@@ -1,3 +1,6 @@
+using MediaEngine.Domain.Services;
+using MT = MediaEngine.Domain.Enums.MediaType;
+
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
@@ -32,13 +35,13 @@ public sealed class JourneyItemViewModel
         _       => "Not started",
     };
 
-    public string ActionVerb => MediaType.ToLowerInvariant() switch
+    public string ActionVerb => MediaTypeClassifier.Classify(MediaType) switch
     {
-        var t when t.Contains("epub") || t.Contains("book") => "Continue Reading",
-        var t when t.Contains("audio") => "Continue Listening",
-        var t when t.Contains("video") || t.Contains("movie") || t.Contains("mkv") => "Continue Watching",
-        var t when t.Contains("comic") || t.Contains("cbz") => "Continue Reading",
-        _ => "Continue",
+        MT.Books or MT.Comics   => "Continue Reading",
+        MT.Audiobooks           => "Continue Listening",
+        MT.Movies or MT.TV      => "Continue Watching",
+        MT.Music or MT.Podcasts => "Continue Listening",
+        _                       => "Continue",
     };
 
     /// <summary>Button label including progress percentage, matching HubDetail's PrimaryActionLabel style.</summary>
@@ -46,13 +49,5 @@ public sealed class JourneyItemViewModel
         ? $"{ActionVerb} · {Math.Max(1, ProgressPct):F0}%"
         : ActionVerb;
 
-    public string FormatMediaType => MediaType.ToLowerInvariant() switch
-    {
-        var t when t.Contains("epub") || t.Contains("book")  => "Book",
-        var t when t.Contains("video") || t.Contains("movie") => "Movie",
-        var t when t.Contains("audio") || t.Contains("m4b")   => "Audiobook",
-        var t when t.Contains("comic") || t.Contains("cbz")   => "Comic",
-        var t when t.Contains("mkv") || t.Contains("mp4")     => "Video",
-        _ => MediaType,
-    };
+    public string FormatMediaType => MediaTypeClassifier.GetDisplayLabel(MediaType);
 }

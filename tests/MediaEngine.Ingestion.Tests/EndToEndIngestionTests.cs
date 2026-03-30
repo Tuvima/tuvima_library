@@ -139,10 +139,12 @@ public sealed class EndToEndIngestionTests : IDisposable
             _activityRepo,
             _reconciliation,
             _heroGenerator,
-            new MediaEngine.Ingestion.OrganizationGate(),
+            new MediaEngine.Ingestion.OrganizationGate(new MediaEngine.Intelligence.Models.ScoringConfiguration()),
             _ingestionLog,
             new MediaEngine.Ingestion.Tests.Helpers.StubSmartLabeler(),
-            new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor());
+            new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
+            new MediaEngine.Ingestion.Tests.Helpers.StubEntityTimelineRepository(),
+            new MediaEngine.Intelligence.Models.ScoringConfiguration());
 
         // Run the engine with a timeout. The engine will:
         // 1. Run reconciliation (stub — no-op)

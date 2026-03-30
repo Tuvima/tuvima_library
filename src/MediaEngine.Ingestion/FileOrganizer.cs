@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -289,24 +290,24 @@ public sealed class FileOrganizer : IFileOrganizer
 
         var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Title"]     = meta.GetValueOrDefault("title",     "Unknown"),
-            ["Author"]    = meta.GetValueOrDefault("author",    "Unknown"),
-            ["Year"]      = meta.GetValueOrDefault("year",      string.Empty),
+            ["Title"]     = meta.GetValueOrDefault(MetadataFieldConstants.Title,     "Unknown"),
+            ["Author"]    = meta.GetValueOrDefault(MetadataFieldConstants.Author,    "Unknown"),
+            ["Year"]      = meta.GetValueOrDefault(MetadataFieldConstants.Year,      string.Empty),
             ["MediaType"] = candidate.DetectedMediaType?.ToString() ?? "Unknown",
             ["Extension"] = ext.TrimStart('.'),
             ["Ext"]       = ext,     // includes the dot — e.g. ".epub"
-            ["Series"]    = meta.GetValueOrDefault("series",    "Unknown"),
-            ["Publisher"] = meta.GetValueOrDefault("publisher", "Unknown"),
+            ["Series"]    = meta.GetValueOrDefault(MetadataFieldConstants.Series,    "Unknown"),
+            ["Publisher"] = meta.GetValueOrDefault(MetadataFieldConstants.PublisherField, "Unknown"),
             // ── Hub-First template tokens ────────────────────────────────────────
             ["Category"]  = ResolveCategoryFromMediaType(candidate.DetectedMediaType),
-            ["HubName"]   = meta.GetValueOrDefault("title",   "Unknown"),
+            ["HubName"]   = meta.GetValueOrDefault(MetadataFieldConstants.Title,   "Unknown"),
             ["Format"]    = candidate.DetectedMediaType?.ToString() ?? "Unknown",
             ["Edition"]   = meta.GetValueOrDefault("edition", string.Empty),
             ["Qid"]       = meta.GetValueOrDefault("wikidata_qid") is { Length: > 0 } q ? q : "Q0",
             // ── Per-media-type tokens ────────────────────────────────────────────
-            ["Artist"]      = meta.GetValueOrDefault("artist",       meta.GetValueOrDefault("author", "Unknown")),
-            ["Album"]       = meta.GetValueOrDefault("album",        "Unknown"),
-            ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault("track_number", string.Empty)),
+            ["Artist"]      = meta.GetValueOrDefault(MetadataFieldConstants.Artist,       meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown")),
+            ["Album"]       = meta.GetValueOrDefault(MetadataFieldConstants.Album,        "Unknown"),
+            ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault(MetadataFieldConstants.TrackNumber, string.Empty)),
             ["Season"]      = PadNumeric(meta.GetValueOrDefault("season",       string.Empty)),
             ["Episode"]     = PadNumeric(meta.GetValueOrDefault("episode",      string.Empty)),
             // ── Content hash token for collision avoidance ──────────────────────

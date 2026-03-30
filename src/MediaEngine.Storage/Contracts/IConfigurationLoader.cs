@@ -1,3 +1,4 @@
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Storage.Contracts;
@@ -124,6 +125,14 @@ public interface IConfigurationLoader
 
     /// <summary>Persist AI settings to <c>config/ai.json</c>.</summary>
     void SaveAi<T>(T settings) where T : class;
+
+    // ── UI Palette ───────────────────────────────────────────────────────────
+
+    /// <summary>Load the centralised colour palette from <c>config/ui/palette.json</c>.</summary>
+    PaletteConfiguration LoadPalette();
+
+    /// <summary>Persist the colour palette to <c>config/ui/palette.json</c>.</summary>
+    void SavePalette(PaletteConfiguration palette);
 
     // ── Generic (universe, etc.) ─────────────────────────────────────────────
 

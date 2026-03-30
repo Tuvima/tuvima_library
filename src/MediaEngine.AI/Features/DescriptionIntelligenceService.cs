@@ -1,6 +1,7 @@
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Infrastructure;
 using MediaEngine.AI.Llama;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -154,7 +155,7 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
                         .Select(p => new ExtractedPersonRef(
                             p.Name.Trim(),
                             NormalizeRole(p.Role),
-                            0.70))
+                            ClaimConfidence.AiDescription))
                         .ToList();
                 }
             }

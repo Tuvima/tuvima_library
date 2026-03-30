@@ -1,4 +1,5 @@
 ﻿using System.Reflection;
+using MediaEngine.Domain;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Storage.Contracts;
 
@@ -366,13 +367,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // The original GUID b3000003-w000-... caused a static constructor crash.
         using (var fix = conn.CreateCommand())
         {
-            fix.CommandText = """
+            fix.CommandText = $"""
                 UPDATE provider_registry
-                SET id = 'b3000003-d000-4000-8000-000000000004'
+                SET id = '{WellKnownProviders.Wikidata}'
                 WHERE id = 'b3000003-w000-4000-8000-000000000004';
 
                 UPDATE metadata_claims
-                SET provider_id = 'b3000003-d000-4000-8000-000000000004'
+                SET provider_id = '{WellKnownProviders.Wikidata}'
                 WHERE provider_id = 'b3000003-w000-4000-8000-000000000004';
                 """;
             fix.ExecuteNonQuery();
@@ -1348,6 +1349,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // cover_url alongside hero. This one-time repair inserts the missing rows.
         MigrateBackfillCoverUrl(conn);
 
+        // Migration M-068: Entity timeline tables for pipeline provenance tracking.
+        // Two tables: entity_events (one row per pipeline/lifecycle event) and
+        // entity_field_changes (one row per field that changed, FK to entity_events).
+        MigrateEntityTimeline(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1367,21 +1373,21 @@ public sealed class DatabaseConnection : IDatabaseConnection
     {
         ReadOnlySpan<(string Id, string Name, string Version)> providers =
         [
-            ("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f", "local_processor",      "1.0"),
-            ("c9d8e7f6-a5b4-4321-fedc-0102030405c9",  "library_scanner",      "1.0"),
-            ("b1000001-e000-4000-8000-000000000001",   "apple_api",            "2.0"),
-            ("b2000002-a000-4000-8000-000000000003",   "audnexus",            "1.0"),
-            ("b3000003-d000-4000-8000-000000000004",   "wikidata",            "1.0"),
-            ("b4000004-d000-4000-8000-000000000005",   "wikipedia",           "1.0"),
-            ("b4000004-0000-4000-8000-000000000005",   "open_library",        "1.0"),
-            ("b5000005-0000-4000-8000-000000000006",   "google_books",        "1.0"),
-            ("b6000006-0000-4000-8000-000000000007",   "musicbrainz",         "1.0"),
-            ("b7000007-0000-4000-8000-000000000008",   "tmdb",                "1.0"),
-            ("b8000008-0000-4000-8000-000000000009",   "comic_vine",          "1.0"),
-            ("b9000009-0000-4000-8000-000000000010",   "apple_podcasts",      "1.0"),
-            ("ba00000a-0000-4000-8000-000000000011",   "podcast_index",       "1.0"),
-            ("d0000000-0000-4000-8000-000000000001",   "user_manual",         "1.0"),
-            ("bb00000b-0000-4000-8000-000000000012",   "fanart_tv",           "1.0"),
+            (WellKnownProviders.LocalProcessor.ToString(),  "local_processor",      "1.0"),
+            (WellKnownProviders.LibraryScanner.ToString(),  "library_scanner",      "1.0"),
+            (WellKnownProviders.AppleApi.ToString(),        "apple_api",            "2.0"),
+            (WellKnownProviders.Audnexus.ToString(),        "audnexus",             "1.0"),
+            (WellKnownProviders.Wikidata.ToString(),        "wikidata",             "1.0"),
+            (WellKnownProviders.Wikipedia.ToString(),       "wikipedia",            "1.0"),
+            (WellKnownProviders.OpenLibrary.ToString(),     "open_library",         "1.0"),
+            (WellKnownProviders.GoogleBooks.ToString(),     "google_books",         "1.0"),
+            (WellKnownProviders.MusicBrainz.ToString(),     "musicbrainz",          "1.0"),
+            (WellKnownProviders.Tmdb.ToString(),            "tmdb",                 "1.0"),
+            (WellKnownProviders.Metron.ToString(),          "comic_vine",           "1.0"),
+            (WellKnownProviders.ApplePodcasts.ToString(),   "apple_podcasts",       "1.0"),
+            (WellKnownProviders.PodcastIndex.ToString(),    "podcast_index",        "1.0"),
+            (WellKnownProviders.UserManual.ToString(),      "user_manual",          "1.0"),
+            (WellKnownProviders.AiProvider.ToString(),      "fanart_tv",            "1.0"),
         ];
 
         using var cmd = conn.CreateCommand();
@@ -2109,6 +2115,62 @@ public sealed class DatabaseConnection : IDatabaseConnection
             table:  "persons",
             column: "local_headshot_path",
             ddl:    "ALTER TABLE persons ADD COLUMN local_headshot_path TEXT;");
+    }
+
+    private static void MigrateEntityTimeline(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS entity_events (
+                id                TEXT NOT NULL PRIMARY KEY,
+                entity_id         TEXT NOT NULL,
+                entity_type       TEXT NOT NULL,
+                event_type        TEXT NOT NULL,
+                stage             INTEGER,
+                trigger           TEXT NOT NULL,
+                provider_id       TEXT,
+                provider_name     TEXT,
+                bridge_id_type    TEXT,
+                bridge_id_value   TEXT,
+                resolved_qid      TEXT,
+                confidence        REAL,
+                score_title       REAL,
+                score_author      REAL,
+                score_year        REAL,
+                score_format      REAL,
+                score_cross_field REAL,
+                score_cover_art   REAL,
+                score_composite   REAL,
+                occurred_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                ingestion_run_id  TEXT,
+                detail            TEXT
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_events_entity ON entity_events(entity_id);
+            CREATE INDEX IF NOT EXISTS idx_events_entity_stage ON entity_events(entity_id, stage);
+            CREATE INDEX IF NOT EXISTS idx_events_entity_type ON entity_events(entity_type);
+            CREATE INDEX IF NOT EXISTS idx_events_type ON entity_events(event_type);
+            CREATE INDEX IF NOT EXISTS idx_events_occurred ON entity_events(occurred_at);
+            CREATE INDEX IF NOT EXISTS idx_events_provider ON entity_events(provider_id);
+
+            CREATE TABLE IF NOT EXISTS entity_field_changes (
+                id              TEXT NOT NULL PRIMARY KEY,
+                event_id        TEXT NOT NULL REFERENCES entity_events(id) ON DELETE CASCADE,
+                entity_id       TEXT NOT NULL,
+                field           TEXT NOT NULL,
+                old_value       TEXT,
+                new_value       TEXT,
+                old_provider_id TEXT,
+                new_provider_id TEXT,
+                confidence      REAL,
+                is_file_original INTEGER NOT NULL DEFAULT 0
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_field_changes_event ON entity_field_changes(event_id);
+            CREATE INDEX IF NOT EXISTS idx_field_changes_entity ON entity_field_changes(entity_id);
+            CREATE INDEX IF NOT EXISTS idx_field_changes_field ON entity_field_changes(entity_id, field);
+            """;
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>

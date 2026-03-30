@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
@@ -169,7 +170,7 @@ public sealed class EpubProcessor : IMediaProcessor
 
         // Title
         if (!string.IsNullOrWhiteSpace(book.Title))
-            claims.Add(Claim("title", book.Title));
+            claims.Add(Claim(MetadataFieldConstants.Title, book.Title));
 
         // Authors (one claim per author)
         if (book.AuthorList is { Count: > 0 })
@@ -177,7 +178,7 @@ public sealed class EpubProcessor : IMediaProcessor
             foreach (var author in book.AuthorList)
             {
                 if (!string.IsNullOrWhiteSpace(author))
-                    claims.Add(Claim("author", author));
+                    claims.Add(Claim(MetadataFieldConstants.Author, author));
             }
         }
 
@@ -193,16 +194,16 @@ public sealed class EpubProcessor : IMediaProcessor
             // Publisher
             var publisher = meta.Publishers?.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(publisher))
-                claims.Add(Claim("publisher", publisher));
+                claims.Add(Claim(MetadataFieldConstants.PublisherField, publisher));
 
             // Language
             var language = meta.Languages?.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(language))
-                claims.Add(Claim("language", language));
+                claims.Add(Claim(MetadataFieldConstants.Language, language));
 
             // Description (single string in 3.1.0)
             if (!string.IsNullOrWhiteSpace(meta.Description))
-                claims.Add(Claim("description", meta.Description));
+                claims.Add(Claim(MetadataFieldConstants.Description, meta.Description));
 
             // Date
             var date = meta.Dates?.FirstOrDefault()?.Date;

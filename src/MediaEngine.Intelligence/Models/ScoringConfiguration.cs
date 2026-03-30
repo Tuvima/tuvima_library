@@ -45,6 +45,22 @@ public sealed class ScoringConfiguration
     public double StaleClaimDecayFactor { get; init; } = 0.8;
 
     /// <summary>
+    /// Confidence score at or above which the UI shows the green/high confidence indicator.
+    /// Must be ≤ 1.0 and ≥ <see cref="ConfidenceDisplayMedium"/>.
+    /// Default: 0.85 (matches <see cref="AutoLinkThreshold"/>).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("confidence_display_high")]
+    public double ConfidenceDisplayHigh { get; init; } = 0.85;
+
+    /// <summary>
+    /// Confidence score at or above which the UI shows the amber/medium confidence indicator
+    /// (below <see cref="ConfidenceDisplayHigh"/>).
+    /// Default: 0.60 (matches <see cref="ConflictThreshold"/>).
+    /// </summary>
+    [System.Text.Json.Serialization.JsonPropertyName("confidence_display_medium")]
+    public double ConfidenceDisplayMedium { get; init; } = 0.60;
+
+    /// <summary>
     /// Per-media-type confidence floor configuration.
     /// When ALL critical fields for a media type score at or above the minimum,
     /// the floor boost is added to overall confidence (capped at 1.0).

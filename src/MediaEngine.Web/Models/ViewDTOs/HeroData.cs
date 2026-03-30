@@ -1,3 +1,4 @@
+using MediaEngine.Domain.Services;
 using MudBlazor;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
@@ -141,13 +142,7 @@ public sealed record HeroData
     internal static string FormatLabel(string? mediaType)
     {
         if (string.IsNullOrEmpty(mediaType)) return "";
-        var t = mediaType.ToLowerInvariant();
-        if (t.Contains("epub") || t.Contains("book"))  return "Book";
-        if (t.Contains("audio") || t.Contains("m4b"))  return "Audiobook";
-        if (t.Contains("video") || t.Contains("movie")) return "Movie";
-        if (t.Contains("comic") || t.Contains("cbz"))   return "Comic";
-        if (t.Contains("mkv") || t.Contains("mp4"))     return "Video";
-        return mediaType;
+        return MediaTypeClassifier.GetDisplayLabel(mediaType);
     }
 
     internal static string IconForMediaType(string? mediaType)

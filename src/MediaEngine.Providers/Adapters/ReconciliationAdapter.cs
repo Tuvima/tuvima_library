@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
@@ -1495,7 +1496,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         // Always emit the wikidata_qid for the work.
-        claims.Insert(0, new ProviderClaim("wikidata_qid", workQid!, 1.0));
+        claims.Insert(0, new ProviderClaim(BridgeIdKeys.WikidataQid, workQid!, 1.0));
 
         // When an edition was found, also emit the edition QID.
         if (isEdition && !string.IsNullOrWhiteSpace(editionQid))
@@ -1694,7 +1695,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             // Always emit the master work QID as the canonical wikidata_qid.
             // This ensures Hub grouping is based on the creative work, not the edition.
-            new("wikidata_qid", masterWorkQid, 1.0)
+            new(BridgeIdKeys.WikidataQid, masterWorkQid, 1.0)
         };
 
         // When we pivoted to an audiobook edition, also emit the edition QID as a separate
@@ -1707,7 +1708,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // must beat the file processor's embedded title (which may be in a foreign language).
         // Confidence 0.98 ensures it wins over file processor (1.0 is reserved for user locks).
         if (!string.IsNullOrWhiteSpace(reconciliationLabel))
-            claims.Add(new ProviderClaim("title", reconciliationLabel, 0.98));
+            claims.Add(new ProviderClaim(MetadataFieldConstants.Title, reconciliationLabel, ClaimConfidence.ReconciliationTitle));
 
         // extProps holds the master work extension properties — used by pen name detection and
         // edition bridge ID resolution below. Set inside both branches.
@@ -1763,7 +1764,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             allProps.Add($"D{language}");
 
             if (allProps.Count == 0)
-                return [new ProviderClaim("wikidata_qid", masterWorkQid, 1.0)];
+                return [new ProviderClaim(BridgeIdKeys.WikidataQid, masterWorkQid, 1.0)];
 
             _logger.LogInformation(
                 "{Provider}: Data Extension for {QID} — requesting {Count} properties: [{Props}]",
@@ -1879,18 +1880,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                 {
                                     claims[i] = new ProviderClaim("author_real_name_qid", claims[i].Value, claims[i].Confidence);
                                 }
-                                else if (string.Equals(claims[i].Key, "author", StringComparison.OrdinalIgnoreCase))
+                                else if (string.Equals(claims[i].Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
                                 {
                                     claims[i] = new ProviderClaim("author_real_name", claims[i].Value, claims[i].Confidence);
                                 }
                             }
 
                             // Higher confidence than the individual real-name claims (0.90) so the pen name wins.
-                            claims.Add(new ProviderClaim("author", penName, 0.95));
+                            claims.Add(new ProviderClaim(MetadataFieldConstants.Author, penName, ClaimConfidence.PenName));
 
                             // Signal to the pipeline that this is a collective pseudonym so person
                             // enrichment skips Wikidata lookup (which would return a co-author, not the pen name).
-                            claims.Add(new ProviderClaim("author_is_collective_pseudonym", "true", 0.95));
+                            claims.Add(new ProviderClaim("author_is_collective_pseudonym", "true", ClaimConfidence.CollectivePseudonym));
 
                             // Resolve the pen name's own QID. P742 returns string values (not entity refs),
                             // so we need a Reconciliation lookup for the pen name to get its QID.
@@ -1928,7 +1929,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                             // being enriched with the wrong co-author's data.
                             if (penNameQid is not null)
                             {
-                                claims.Add(new ProviderClaim("author_qid", $"{penNameQid}::{penName}", 0.95));
+                                claims.Add(new ProviderClaim("author_qid", $"{penNameQid}::{penName}", ClaimConfidence.PenName));
                             }
 
                             // Emit the real co-authors as collective_members_qid so the pipeline
@@ -1937,7 +1938,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                             var memberClaims = claims
                                 .Where(c => string.Equals(c.Key, "author_real_name_qid", StringComparison.OrdinalIgnoreCase)
                                              && !string.IsNullOrWhiteSpace(c.Value))
-                                .Select(c => new ProviderClaim("collective_members_qid", c.Value, 0.90))
+                                .Select(c => new ProviderClaim("collective_members_qid", c.Value, ClaimConfidence.WikidataProperty))
                                 .ToList();
                             claims.AddRange(memberClaims);
 
@@ -1975,7 +1976,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             // Collect the author labels that ExtensionToClaims already emitted.
             var wikiAuthorClaims = claims
-                .Where(c => string.Equals(c.Key, "author", StringComparison.OrdinalIgnoreCase))
+                .Where(c => string.Equals(c.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
             if (wikiAuthorClaims.Count > 0)
@@ -1999,7 +2000,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         // claims so they don't compete in the canonical field elections.
                         for (int i = 0; i < claims.Count; i++)
                         {
-                            if (string.Equals(claims[i].Key, "author", StringComparison.OrdinalIgnoreCase))
+                            if (string.Equals(claims[i].Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
                             {
                                 claims[i] = new ProviderClaim("author_real_name", claims[i].Value, claims[i].Confidence);
                             }
@@ -2011,7 +2012,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                         // Emit the embedded (credited) author name at high confidence so it
                         // wins as the canonical author value in the priority cascade.
-                        claims.Add(new ProviderClaim("author", embeddedAuthor, 0.95));
+                        claims.Add(new ProviderClaim(MetadataFieldConstants.Author, embeddedAuthor, ClaimConfidence.EmbeddedAuthor));
 
                         // Resolve the pen name's QID via Reconciliation lookup so person
                         // enrichment creates a Person for the pen name, not the real authors.
@@ -2025,7 +2026,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                             if (bestMatch is not null)
                             {
-                                claims.Add(new ProviderClaim("author_qid", $"{bestMatch.Id}::{embeddedAuthor}", 0.95));
+                                claims.Add(new ProviderClaim("author_qid", $"{bestMatch.Id}::{embeddedAuthor}", ClaimConfidence.EmbeddedAuthor));
                             }
                         }
                         catch (Exception ex)
@@ -2137,7 +2138,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                         var normalized = IdentifierNormalizationService.NormalizeRaw(propCode, strVal);
                                         if (!string.IsNullOrWhiteSpace(normalized))
                                         {
-                                            claims.Add(new ProviderClaim(claimKey, normalized, 0.90));
+                                            claims.Add(new ProviderClaim(claimKey, normalized, ClaimConfidence.WikidataProperty));
                                             break;
                                         }
                                     }
@@ -2189,7 +2190,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     if (fileLangEntities.TryGetValue(masterWorkQid, out var fileLangEntity)
                         && !string.IsNullOrWhiteSpace(fileLangEntity.Label))
                     {
-                        claims.Add(new ProviderClaim("original_title", fileLangEntity.Label, 0.95));
+                        claims.Add(new ProviderClaim(MetadataFieldConstants.OriginalTitle, fileLangEntity.Label, ClaimConfidence.OriginalTitle));
                         _logger.LogDebug(
                             "{Provider}: original_title '{OriginalTitle}' emitted for {QID} in file language '{Lang}'",
                             Name, fileLangEntity.Label, masterWorkQid, fileLang);
@@ -2231,8 +2232,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 {
                     // Collect values already emitted as title or original_title to avoid duplicates.
                     var emittedTitles = claims
-                        .Where(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase)
-                                 || string.Equals(c.Key, "original_title", StringComparison.OrdinalIgnoreCase))
+                        .Where(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(c.Key, MetadataFieldConstants.OriginalTitle, StringComparison.OrdinalIgnoreCase))
                         .Select(c => c.Value)
                         .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -2242,7 +2243,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         if (string.IsNullOrWhiteSpace(alias)) continue;
                         if (emittedTitles.Contains(alias)) continue;
 
-                        claims.Add(new ProviderClaim("alternate_title", alias, 0.85));
+                        claims.Add(new ProviderClaim("alternate_title", alias, ClaimConfidence.AlternateTitle));
                         aliasesEmitted++;
                     }
 
@@ -2304,14 +2305,14 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         allProps.Add($"D{language}");
 
         if (allProps.Count == 0)
-            return [new ProviderClaim("wikidata_qid", qid, 1.0)];
+            return [new ProviderClaim(BridgeIdKeys.WikidataQid, qid, 1.0)];
 
         var extensions = await ExtendAsync([qid], allProps, ct).ConfigureAwait(false);
         extensions.TryGetValue(qid, out var extPersonProps);
 
         var claims = new List<ProviderClaim>
         {
-            new("wikidata_qid", qid, 1.0)
+            new(BridgeIdKeys.WikidataQid, qid, 1.0)
         };
 
         if (extPersonProps is not null)
@@ -2400,7 +2401,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             var resultClaims = new List<ProviderClaim>
             {
-                new("description",   summary.Extract, 0.90),
+                new(MetadataFieldConstants.Description,   summary.Extract, ClaimConfidence.Description),
                 new("wikipedia_url", articleUrl,      1.0),
             };
 
@@ -2424,7 +2425,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                         if (!string.IsNullOrWhiteSpace(plotContent))
                         {
-                            resultClaims.Add(new ProviderClaim("plot_summary", plotContent, 0.88));
+                            resultClaims.Add(new ProviderClaim("plot_summary", plotContent, ClaimConfidence.PlotSummary));
                             _logger.LogInformation(
                                 "{Provider}: Wikipedia plot section '{Section}' for {Qid}: {Len} chars",
                                 Name, plotSection.Title, qid, plotContent.Length);
@@ -2556,8 +2557,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 // can return the full formal title (e.g. "Frankenstein; or, The Modern Prometheus").
                 if (claims.Count > 0 && !string.IsNullOrWhiteSpace(claims[0].Value?.RawValue))
                 {
-                    var labelClaimKey = isWork ? "title" : "name";
-                    yield return new ProviderClaim(labelClaimKey, claims[0].Value!.RawValue!, 0.95);
+                    var labelClaimKey = isWork ? MetadataFieldConstants.Title : "name";
+                    yield return new ProviderClaim(labelClaimKey, claims[0].Value!.RawValue!, ClaimConfidence.WikidataProperty);
                 }
                 continue;
             }
@@ -2565,7 +2566,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (pCode.Length == 3 && pCode[0] == 'D' && char.IsLower(pCode[1]))
             {
                 if (claims.Count > 0 && !string.IsNullOrWhiteSpace(claims[0].Value?.RawValue))
-                    yield return new ProviderClaim("description", claims[0].Value!.RawValue!, 0.90);
+                    yield return new ProviderClaim(MetadataFieldConstants.Description, claims[0].Value!.RawValue!, ClaimConfidence.Description);
                 continue;
             }
 
@@ -2609,7 +2610,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     if (!string.IsNullOrWhiteSpace(filename))
                     {
                         var commonsUrl = $"https://commons.wikimedia.org/wiki/Special:FilePath/{Uri.EscapeDataString(filename)}";
-                        yield return new ProviderClaim("headshot_url", commonsUrl, 0.90);
+                        yield return new ProviderClaim("headshot_url", commonsUrl, ClaimConfidence.HeadshotUrl);
                     }
                     continue;
                 }
@@ -2634,7 +2635,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 if (claim.Value?.EntityId is not null)
                 {
                     var label = claim.Value.RawValue ?? claim.Value.EntityId;
-                    yield return new ProviderClaim($"{claimKey}_qid", $"{claim.Value.EntityId}::{label}", 0.90);
+                    yield return new ProviderClaim($"{claimKey}_qid", $"{claim.Value.EntityId}::{label}", ClaimConfidence.EntityQidReference);
                 }
 
                 // Only emit the first value for monolingual title properties.
@@ -2653,7 +2654,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (val.Kind == WikidataValueKind.Time)
         {
             var year = ExtractYear(val.RawValue);
-            return (year, 0.85);
+            return (year, ClaimConfidence.AlternateTitle);
         }
 
         // Entity reference.
@@ -2661,7 +2662,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             var isBridge = IsBridgeProperty(pCode);
             if (isBridge)
-                return (val.EntityId, 0.95);
+                return (val.EntityId, ClaimConfidence.BridgeId);
 
             // P50 (author) claims from Wikidata get a reduced confidence (0.75) so that
             // an embedded author from file metadata (confidence 1.0) always wins in the
@@ -2671,19 +2672,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // FetchWorkAsync re-keys P50 real-name claims when a mismatch is detected —
             // this reduced confidence acts as a second safety net for that same scenario.
             if (string.Equals(pCode, "P50", StringComparison.OrdinalIgnoreCase))
-                return (val.RawValue ?? val.EntityId, 0.75);
+                return (val.RawValue ?? val.EntityId, ClaimConfidence.WikidataAuthorRaw);
 
             // For other entity references (series, director, etc.) prefer the RawValue (label).
-            return (val.RawValue ?? val.EntityId, 0.90);
+            return (val.RawValue ?? val.EntityId, ClaimConfidence.WikidataProperty);
         }
 
         // Quantity values.
         if (val.Kind == WikidataValueKind.Quantity)
-            return (val.Amount?.ToString(), 0.85);
+            return (val.Amount?.ToString(), ClaimConfidence.Duration);
 
         // Plain string / monolingual text.
         if (!string.IsNullOrWhiteSpace(val.RawValue))
-            return (val.RawValue, 0.90);
+            return (val.RawValue, ClaimConfidence.WikidataProperty);
 
         return (null, 0.0);
     }

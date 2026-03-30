@@ -372,6 +372,23 @@ public interface IEngineApiClient
     /// <summary>GET /vault/assets/{entityId} — entity assets grouped by type.</summary>
     Task<IReadOnlyList<EntityAssetDto>> GetEntityAssetsAsync(string entityId, CancellationToken ct = default);
 
+    // ── Timeline (/timeline) ────────────────────────────────────────────────
+
+    /// <summary>GET /timeline/{entityId} — full event history for an entity, newest first.</summary>
+    Task<List<EntityTimelineEventDto>?> GetEntityTimelineAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>GET /timeline/{entityId}/pipeline — current pipeline state (latest per stage).</summary>
+    Task<List<EntityTimelineEventDto>?> GetPipelineStateAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>GET /timeline/{entityId}/event/{eventId}/changes — field-level changes for a specific event.</summary>
+    Task<List<EntityFieldChangeDto>?> GetEventFieldChangesAsync(Guid entityId, Guid eventId, CancellationToken ct = default);
+
+    /// <summary>POST /timeline/{entityId}/revert/{eventId} — revert a sync writeback event.</summary>
+    Task<bool> RevertSyncWritebackAsync(Guid entityId, Guid eventId, CancellationToken ct = default);
+
+    /// <summary>Re-matches an entity through the full pipeline.</summary>
+    Task<bool> RematchEntityAsync(Guid entityId, CancellationToken ct = default);
+
     /// <summary>POST /vault/enrichment/universe/trigger — manually trigger Stage 3 universe enrichment.</summary>
     Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default);
     // â”€â”€ EPUB Reader (/read, /reader) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

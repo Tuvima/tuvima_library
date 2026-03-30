@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
@@ -36,6 +37,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
     private readonly IDeferredEnrichmentRepository _repo;
     private readonly IHydrationPipelineService _pipeline;
     private readonly IConfigurationLoader _config;
+    private readonly IEntityTimelineRepository _timelineRepo;
     private readonly ILogger<DeferredEnrichmentService> _logger;
 
     private readonly CancellationTokenSource _cts = new();
@@ -51,12 +53,14 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
         IDeferredEnrichmentRepository repo,
         IHydrationPipelineService pipeline,
         IConfigurationLoader config,
+        IEntityTimelineRepository timelineRepo,
         ILogger<DeferredEnrichmentService> logger)
     {
-        _repo     = repo     ?? throw new ArgumentNullException(nameof(repo));
-        _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
-        _config   = config   ?? throw new ArgumentNullException(nameof(config));
-        _logger   = logger   ?? throw new ArgumentNullException(nameof(logger));
+        _repo         = repo         ?? throw new ArgumentNullException(nameof(repo));
+        _pipeline     = pipeline     ?? throw new ArgumentNullException(nameof(pipeline));
+        _config       = config       ?? throw new ArgumentNullException(nameof(config));
+        _timelineRepo = timelineRepo ?? throw new ArgumentNullException(nameof(timelineRepo));
+        _logger       = logger       ?? throw new ArgumentNullException(nameof(logger));
 
         _backgroundLoop = Task.Run(ExecuteAsync);
     }
@@ -293,6 +297,26 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
 
             await _pipeline.RunSynchronousAsync(request, ct).ConfigureAwait(false);
             await _repo.MarkProcessedAsync(item.Id, ct).ConfigureAwait(false);
+
+            // Timeline: record the 30-day refresh completion.
+            try
+            {
+                await _timelineRepo.InsertEventAsync(new EntityEvent
+                {
+                    EntityId   = item.EntityId,
+                    EntityType = "Work",
+                    EventType  = "stage2_refresh",
+                    Stage      = 2,
+                    Trigger    = "30_day_refresh",
+                    ResolvedQid = item.WikidataQid,
+                    Detail     = $"Pass 2 refresh complete (QID: {item.WikidataQid ?? "none"})",
+                }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Failed to write stage2_refresh timeline event for entity {EntityId}",
+                    item.EntityId);
+            }
 
             _logger.LogDebug("Pass 2 complete for entity {EntityId} (QID: {Qid})",
                 item.EntityId, item.WikidataQid ?? "none");

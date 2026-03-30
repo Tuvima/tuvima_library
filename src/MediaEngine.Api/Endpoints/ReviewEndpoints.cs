@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -17,9 +18,6 @@ namespace MediaEngine.Api.Endpoints;
 /// </summary>
 public static class ReviewEndpoints
 {
-    /// <summary>Well-known provider GUID for user-manual metadata corrections.</summary>
-    private static readonly Guid UserManualProviderId =
-        new("d0000000-0000-4000-8000-000000000001");
 
     public static IEndpointRouteBuilder MapReviewEndpoints(this IEndpointRouteBuilder app)
     {
@@ -43,15 +41,15 @@ public static class ReviewEndpoints
                 var lookup = canonicals.ToDictionary(
                     c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
 
-                lookup.TryGetValue("title", out var title);
+                lookup.TryGetValue(MetadataFieldConstants.Title, out var title);
                 if (string.IsNullOrWhiteSpace(title))
                     lookup.TryGetValue("file_name", out title);
                 if (string.IsNullOrWhiteSpace(title))
                     title = "Untitled";
 
-                lookup.TryGetValue("media_type", out var mediaType);
-                if (!lookup.TryGetValue("cover_url", out var coverUrl))
-                    lookup.TryGetValue("cover", out coverUrl);
+                lookup.TryGetValue(MetadataFieldConstants.MediaTypeField, out var mediaType);
+                if (!lookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var coverUrl))
+                    lookup.TryGetValue(MetadataFieldConstants.Cover, out coverUrl);
 
                 var bridgeIds = ExtractBridgeIdentifiers(lookup);
 
@@ -93,15 +91,15 @@ public static class ReviewEndpoints
             var lookup = canonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
 
-            lookup.TryGetValue("title", out var title);
+            lookup.TryGetValue(MetadataFieldConstants.Title, out var title);
             if (string.IsNullOrWhiteSpace(title))
                 lookup.TryGetValue("file_name", out title);
             if (string.IsNullOrWhiteSpace(title))
                 title = "Untitled";
 
-            lookup.TryGetValue("media_type", out var mediaType);
-            if (!lookup.TryGetValue("cover_url", out var coverUrl))
-                lookup.TryGetValue("cover", out coverUrl);
+            lookup.TryGetValue(MetadataFieldConstants.MediaTypeField, out var mediaType);
+            if (!lookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var coverUrl))
+                lookup.TryGetValue(MetadataFieldConstants.Cover, out coverUrl);
 
             var bridgeIds = ExtractBridgeIdentifiers(lookup);
 
@@ -141,7 +139,7 @@ public static class ReviewEndpoints
                     {
                         Id           = Guid.NewGuid(),
                         EntityId     = item.EntityId,
-                        ProviderId   = UserManualProviderId,
+                        ProviderId   = WellKnownProviders.UserManual,
                         ClaimKey     = ov.Key,
                         ClaimValue   = ov.Value,
                         Confidence   = 1.0,
@@ -161,7 +159,7 @@ public static class ReviewEndpoints
                 {
                     Id           = Guid.NewGuid(),
                     EntityId     = item.EntityId,
-                    ProviderId   = UserManualProviderId,
+                    ProviderId   = WellKnownProviders.UserManual,
                     ClaimKey     = "wikidata_qid",
                     ClaimValue   = request.SelectedQid,
                     Confidence   = 1.0,
@@ -206,14 +204,14 @@ public static class ReviewEndpoints
             var resolvedCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
             var resolvedLookup     = resolvedCanonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-            resolvedLookup.TryGetValue("title",       out var rTitle);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.Title,       out var rTitle);
             if (string.IsNullOrWhiteSpace(rTitle)) resolvedLookup.TryGetValue("file_name", out rTitle);
-            resolvedLookup.TryGetValue("author",      out var rAuthor);
-            resolvedLookup.TryGetValue("year",        out var rYear);
-            resolvedLookup.TryGetValue("description", out var rDesc);
-            resolvedLookup.TryGetValue("media_type",  out var rMediaType);
-            if (!resolvedLookup.TryGetValue("cover_url", out var rCover))
-                resolvedLookup.TryGetValue("cover", out rCover);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.Author,      out var rAuthor);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.Year,        out var rYear);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.Description, out var rDesc);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.MediaTypeField,  out var rMediaType);
+            if (!resolvedLookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var rCover))
+                resolvedLookup.TryGetValue(MetadataFieldConstants.Cover, out rCover);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -237,7 +235,7 @@ public static class ReviewEndpoints
             }, ct);
 
             // 5. Broadcast event.
-            await publisher.PublishAsync("ReviewItemResolved", new
+            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
             {
                 review_item_id = id,
                 entity_id      = item.EntityId,
@@ -274,14 +272,14 @@ public static class ReviewEndpoints
             var dismissCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
             var dismissLookup     = dismissCanonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-            dismissLookup.TryGetValue("title",       out var dTitle);
+            dismissLookup.TryGetValue(MetadataFieldConstants.Title,       out var dTitle);
             if (string.IsNullOrWhiteSpace(dTitle)) dismissLookup.TryGetValue("file_name", out dTitle);
-            dismissLookup.TryGetValue("author",      out var dAuthor);
-            dismissLookup.TryGetValue("year",        out var dYear);
-            dismissLookup.TryGetValue("description", out var dDesc);
-            dismissLookup.TryGetValue("media_type",  out var dMediaType);
-            if (!dismissLookup.TryGetValue("cover_url", out var dCover))
-                dismissLookup.TryGetValue("cover", out dCover);
+            dismissLookup.TryGetValue(MetadataFieldConstants.Author,      out var dAuthor);
+            dismissLookup.TryGetValue(MetadataFieldConstants.Year,        out var dYear);
+            dismissLookup.TryGetValue(MetadataFieldConstants.Description, out var dDesc);
+            dismissLookup.TryGetValue(MetadataFieldConstants.MediaTypeField,  out var dMediaType);
+            if (!dismissLookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var dCover))
+                dismissLookup.TryGetValue(MetadataFieldConstants.Cover, out dCover);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -301,7 +299,7 @@ public static class ReviewEndpoints
                 Detail      = "Review item dismissed by user.",
             }, ct);
 
-            await publisher.PublishAsync("ReviewItemResolved", new
+            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
             {
                 review_item_id = id,
                 entity_id      = item.EntityId,
@@ -343,14 +341,14 @@ public static class ReviewEndpoints
             var skipCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
             var skipLookup     = skipCanonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-            skipLookup.TryGetValue("title",       out var sTitle);
+            skipLookup.TryGetValue(MetadataFieldConstants.Title,       out var sTitle);
             if (string.IsNullOrWhiteSpace(sTitle)) skipLookup.TryGetValue("file_name", out sTitle);
-            skipLookup.TryGetValue("author",      out var sAuthor);
-            skipLookup.TryGetValue("year",        out var sYear);
-            skipLookup.TryGetValue("description", out var sDesc);
-            skipLookup.TryGetValue("media_type",  out var sMediaType);
-            if (!skipLookup.TryGetValue("cover_url", out var sCover))
-                skipLookup.TryGetValue("cover", out sCover);
+            skipLookup.TryGetValue(MetadataFieldConstants.Author,      out var sAuthor);
+            skipLookup.TryGetValue(MetadataFieldConstants.Year,        out var sYear);
+            skipLookup.TryGetValue(MetadataFieldConstants.Description, out var sDesc);
+            skipLookup.TryGetValue(MetadataFieldConstants.MediaTypeField,  out var sMediaType);
+            if (!skipLookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var sCover))
+                skipLookup.TryGetValue(MetadataFieldConstants.Cover, out sCover);
 
             // 3. Log activity.
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -372,7 +370,7 @@ public static class ReviewEndpoints
             }, ct);
 
             // 4. Broadcast event.
-            await publisher.PublishAsync("ReviewItemResolved", new
+            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
             {
                 review_item_id = id,
                 entity_id      = item.EntityId,

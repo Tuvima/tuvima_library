@@ -5,6 +5,7 @@ using MediaEngine.Api.Hubs;
 using MediaEngine.Api.Middleware;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion;
 using MediaEngine.Ingestion.Contracts;
@@ -90,41 +91,7 @@ builder.Services.AddSignalR(options =>
 });
 builder.Services.AddSingleton<IEventPublisher, SignalREventPublisher>();
 
-// ── Rate Limiting ─────────────────────────────────────────────────────────────
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-
-    // Policy: key_generation — 5 requests per minute per IP (API key creation).
-    options.AddPolicy("key_generation", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 5,
-                Window      = TimeSpan.FromMinutes(1),
-            }));
-
-    // Policy: streaming — 100 requests per minute per IP (file streaming).
-    options.AddPolicy("streaming", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 100,
-                Window      = TimeSpan.FromMinutes(1),
-            }));
-
-    // Policy: general — 60 requests per minute per IP (everything else).
-    options.AddPolicy("general", context =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = 60,
-                Window      = TimeSpan.FromMinutes(1),
-            }));
-});
+// Rate limiting is registered below, after the config loader is available.
 
 // ── Data Protection / Secret Store ────────────────────────────────────────────
 builder.Services.AddDataProtection();
@@ -207,6 +174,48 @@ var    configLoader  = new ConfigurationDirectoryLoader(configDir, manifestPath)
 builder.Services.AddSingleton<IStorageManifest>(configLoader);
 builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 
+// ── Rate Limiting ─────────────────────────────────────────────────────────────
+// Policy parameters are loaded from config/core.json (rate_limiting section)
+// so they can be tuned without recompiling.  Defaults match the previously
+// hardcoded values: key_generation=5/min, streaming=100/min, general=60/min.
+{
+    var rateLimits = configLoader.LoadCore().RateLimiting;
+    builder.Services.AddRateLimiter(options =>
+    {
+        options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+        // Policy: key_generation — strict per-IP limit for API key creation.
+        options.AddPolicy("key_generation", context =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = rateLimits.KeyGeneration.PermitLimit,
+                    Window      = TimeSpan.FromMinutes(rateLimits.KeyGeneration.WindowMinutes),
+                }));
+
+        // Policy: streaming — higher per-IP limit for file streaming/media playback.
+        options.AddPolicy("streaming", context =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = rateLimits.Streaming.PermitLimit,
+                    Window      = TimeSpan.FromMinutes(rateLimits.Streaming.WindowMinutes),
+                }));
+
+        // Policy: general — default per-IP limit for all other endpoints.
+        options.AddPolicy("general", context =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = rateLimits.General.PermitLimit,
+                    Window      = TimeSpan.FromMinutes(rateLimits.General.WindowMinutes),
+                }));
+    });
+}
+
 builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
 builder.Services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
@@ -241,6 +250,26 @@ builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
 // ── Intelligence ──────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
 builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
+
+// ScoringConfiguration is loaded from config/scoring.json and exposed as a
+// DI singleton so every consumer reads the same config-driven thresholds.
+// Converts from the storage-layer ScoringSettings (JSON-friendly mutable record)
+// to the intelligence-layer ScoringConfiguration (immutable snapshot).
+builder.Services.AddSingleton<MediaEngine.Intelligence.Models.ScoringConfiguration>(sp =>
+{
+    var loader = sp.GetRequiredService<IConfigurationLoader>();
+    MediaEngine.Storage.Models.ScoringSettings s;
+    try   { s = loader.LoadScoring(); }
+    catch { s = new MediaEngine.Storage.Models.ScoringSettings(); }
+    return new MediaEngine.Intelligence.Models.ScoringConfiguration
+    {
+        AutoLinkThreshold       = s.AutoLinkThreshold,
+        ConflictThreshold       = s.ConflictThreshold,
+        ConflictEpsilon         = s.ConflictEpsilon,
+        StaleClaimDecayDays     = s.StaleClaimDecayDays,
+        StaleClaimDecayFactor   = s.StaleClaimDecayFactor,
+    };
+});
 
 builder.Services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 builder.Services.AddSingleton<IRetailMatchScoringService, RetailMatchScoringService>();
@@ -762,7 +791,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // ── Endpoint registration ─────────────────────────────────────────────────────
-app.MapHub<CommunicationHub>("/hubs/intercom");
+app.MapHub<CommunicationHub>(SignalREvents.HubPath);
 app.MapSystemEndpoints();
 app.MapAdminEndpoints();
 app.MapHubEndpoints();
@@ -785,6 +814,7 @@ app.MapCharacterEndpoints();
 app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
 app.MapRegistryEndpoints();
+app.MapTimelineEndpoints();
 app.MapSearchEndpoints();
 app.MapReportEndpoints();
 app.MapDebugEndpoints();

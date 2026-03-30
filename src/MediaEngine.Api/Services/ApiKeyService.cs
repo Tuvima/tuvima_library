@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -29,16 +30,16 @@ public sealed class ApiKeyService(IApiKeyRepository repo)
     /// immediately and MUST NOT be stored anywhere else.
     /// </summary>
     /// <summary>Valid API key roles.  Checked at generation time.</summary>
-    private static readonly string[] ValidRoles = ["Administrator", "Curator", "Consumer"];
+    private static readonly string[] ValidRoles = AppRoles.All;
 
     public async Task<(ApiKey Key, string PlaintextKey)> GenerateAsync(
-        string label, string role = "Administrator", CancellationToken ct = default)
+        string label, string role = AppRoles.Administrator, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
 
         if (!ValidRoles.Contains(role, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException(
-                $"Invalid role '{role}'. Must be Administrator, Curator, or Consumer.");
+                $"Invalid role '{role}'. Must be one of: {string.Join(", ", AppRoles.All)}.");
 
         // 32 random bytes → URL-safe base-64 (no padding) — 43 characters.
         var rawBytes   = RandomNumberGenerator.GetBytes(32);

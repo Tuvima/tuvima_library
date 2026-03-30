@@ -1,5 +1,6 @@
-using Microsoft.Extensions.Options;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using Microsoft.Extensions.Options;
 using MediaEngine.Ingestion.Models;
 
 namespace MediaEngine.Api.Services;
@@ -85,7 +86,7 @@ public sealed class FolderHealthService : BackgroundService
             "FolderHealthChanged: {Path} → Accessible={Accessible} Read={Read} Write={Write}",
             path, current.IsAccessible, current.HasRead, current.HasWrite);
 
-        await _publisher.PublishAsync("FolderHealthChanged", new
+        await _publisher.PublishAsync(SignalREvents.FolderHealthChanged, new
         {
             path,
             is_accessible = current.IsAccessible,

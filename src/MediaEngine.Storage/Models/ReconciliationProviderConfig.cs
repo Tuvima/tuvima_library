@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Domain;
 
 namespace MediaEngine.Storage.Models;
 
@@ -6,7 +7,7 @@ namespace MediaEngine.Storage.Models;
 public sealed class ReconciliationProviderConfig
 {
     [JsonPropertyName("name")] public string Name { get; set; } = "Wikidata Reconciliation";
-    [JsonPropertyName("provider_id")] public string ProviderId { get; set; } = "b3000003-d000-4000-8000-000000000004";
+    [JsonPropertyName("provider_id")] public string ProviderId { get; set; } = WellKnownProviders.Wikidata.ToString();
     [JsonPropertyName("adapter_type")] public string AdapterType { get; set; } = "reconciliation";
     [JsonPropertyName("enabled")] public bool Enabled { get; set; } = true;
     [JsonPropertyName("hydration_stages")] public List<int> HydrationStages { get; set; } = [1];

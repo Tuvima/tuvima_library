@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Xml.Linq;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -40,8 +41,7 @@ public sealed class LibraryScanner : ILibraryScanner
     // Stable GUID representing the library-scanner as a "provider" when re-inserting
     // canonical values. Distinct from the local-processor GUID so the claim source
     // is distinguishable in the claims table.
-    private static readonly Guid ScannerProviderGuid =
-        new("c9d8e7f6-a5b4-4321-fedc-0102030405c9");
+    private static readonly Guid ScannerProviderGuid = WellKnownProviders.LibraryScanner;
 
     // Media file extensions that the scanner should enumerate.
     private static readonly HashSet<string> MediaExtensions =

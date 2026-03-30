@@ -178,6 +178,7 @@ public sealed class HydrationSettings
     /// Default: <c>"0 2 * * *"</c> (2:00 AM daily).
     /// </summary>
     [JsonPropertyName("pass2_nightly_cron")]
+    [System.Obsolete("Use MaintenanceSettings.Schedules[\"pass2_nightly_sweep\"] instead. This property is kept for backward compatibility with existing hydration.json files.")]
     public string Pass2NightlyCron { get; set; } = "0 2 * * *";
 
     /// <summary>
@@ -338,6 +339,7 @@ public sealed class HydrationSettings
     /// Default: <c>"0 3 * * *"</c> (3:00 AM daily).
     /// </summary>
     [JsonPropertyName("stage3_schedule_cron")]
+    [System.Obsolete("Use MaintenanceSettings.Schedules[\"universe_enrichment\"] instead. This property is kept for backward compatibility with existing hydration.json files.")]
     public string Stage3ScheduleCron { get; set; } = "0 3 * * *";
 
     /// <summary>
@@ -368,6 +370,14 @@ public sealed class HydrationSettings
     /// </summary>
     [JsonPropertyName("stage3_max_depth")]
     public int Stage3MaxDepth { get; set; } = 2;
+
+    /// <summary>
+    /// Number of days to retain entity timeline events before automatic culling.
+    /// The most recent event per entity per stage is always preserved regardless
+    /// of age. Set to 0 to disable culling. Default: 365 days.
+    /// </summary>
+    [JsonPropertyName("timeline_retention_days")]
+    public int TimelineRetentionDays { get; set; } = 365;
 
     // ── Backward compatibility ──────────────────────────────────────────
 

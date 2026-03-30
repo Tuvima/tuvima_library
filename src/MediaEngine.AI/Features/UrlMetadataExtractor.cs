@@ -1,4 +1,5 @@
 using MediaEngine.AI.Llama;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -76,7 +77,7 @@ public sealed class UrlMetadataExtractor : IUrlMetadataExtractor
             {
                 Success = true,
                 Fields = fields,
-                Confidence = 0.75,
+                Confidence = ClaimConfidence.UrlExtraction,
             };
         }
         catch (Exception ex)

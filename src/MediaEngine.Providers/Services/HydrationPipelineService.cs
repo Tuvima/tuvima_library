@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -76,6 +77,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private readonly ISearchIndexRepository _searchIndex;
     private readonly IRetailMatchScoringService _retailScoring;
     private readonly IBridgeIdRepository _bridgeIdRepo;
+    private readonly IEntityTimelineRepository _timelineRepo;
     private readonly ILocalMatchService _localMatch;
     private readonly IQidDisambiguator? _disambiguator;
     private readonly ICoverArtHashService? _coverArtHash;
@@ -118,6 +120,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ISearchIndexRepository searchIndex,
         IRetailMatchScoringService retailScoring,
         IBridgeIdRepository bridgeIdRepo,
+        IEntityTimelineRepository timelineRepo,
         ILocalMatchService localMatch,
         ILogger<HydrationPipelineService> logger,
         WikidataReconciler? reconciler = null,
@@ -152,6 +155,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         ArgumentNullException.ThrowIfNull(searchIndex);
         ArgumentNullException.ThrowIfNull(retailScoring);
         ArgumentNullException.ThrowIfNull(bridgeIdRepo);
+        ArgumentNullException.ThrowIfNull(timelineRepo);
         ArgumentNullException.ThrowIfNull(localMatch);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(logger);
@@ -181,6 +185,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         _searchIndex         = searchIndex;
         _retailScoring       = retailScoring;
         _bridgeIdRepo        = bridgeIdRepo;
+        _timelineRepo        = timelineRepo;
         _localMatch          = localMatch;
         _deferredRepo        = deferredRepo;
         _reconciler               = reconciler;
@@ -409,7 +414,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private async Task<HydrationResult> RunPipelineAsync(
         HarvestRequest request, CancellationToken ct)
     {
-        var titleHintForLog = request.Hints.GetValueOrDefault("title", "unknown");
+        var titleHintForLog = request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "unknown");
         _logger.LogInformation(
             "[HYDRATION] Starting pipeline for entity {Id} — title: \"{Title}\", media type: {MediaType}",
             request.EntityId, titleHintForLog, request.MediaType);
@@ -440,7 +445,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 var earlyCanonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                     .ConfigureAwait(false);
                 var langCanonical = earlyCanonicals.FirstOrDefault(c =>
-                    string.Equals(c.Key, "language", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(c.Key, MetadataFieldConstants.Language, StringComparison.OrdinalIgnoreCase));
 
                 if (langCanonical is not null && !string.IsNullOrWhiteSpace(langCanonical.Value))
                 {
@@ -522,7 +527,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // If hint provides a wikidata_qid, set it as PreResolvedQid so the
             // ReconciliationAdapter skips reconciliation and goes straight to deep hydration.
             if (request.PreResolvedQid is null
-                && request.FolderHintBridgeIds.TryGetValue("wikidata_qid", out var hintQid)
+                && request.FolderHintBridgeIds.TryGetValue(BridgeIdKeys.WikidataQid, out var hintQid)
                 && !string.IsNullOrWhiteSpace(hintQid))
             {
                 request = new HarvestRequest
@@ -603,7 +608,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var stage1Providers = GetProvidersForStage(1, provConfigs, request);
         var stage1Claims    = 0;
 
-        var titleHint = request.Hints.GetValueOrDefault("title", "(unknown)");
+        var titleHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "(unknown)");
 
         // Pre-search confidence gate: when the entity has only a filename-derived
         // title with no corroborating signal (author, year, or bridge identifier),
@@ -662,7 +667,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             if (claims.Count == 0) continue;
 
             // Check for QID.
-            var qidClaim = claims.FirstOrDefault(c => c.Key == "wikidata_qid");
+            var qidClaim = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid);
             if (qidClaim is not null)
             {
                 result.WikidataQid = qidClaim.Value;
@@ -777,7 +782,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             // so the canonical value is updated for Stage 2 and beyond.
                             await ScoringHelper.PersistClaimsAndScoreAsync(
                                 request.EntityId,
-                                new[] { new ProviderClaim("media_type", correctedType.ToString(), 0.90) },
+                                new[] { new ProviderClaim(MetadataFieldConstants.MediaTypeField, correctedType.ToString(), ClaimConfidence.MediaTypeCorrection) },
                                 bestStage1Provider.ProviderId,
                                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
                                 _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
@@ -803,7 +808,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var retailProviderNames = stage1Providers.Count > 0
                 ? string.Join(", ", stage1Providers.Select(p => p.Name).Distinct())
                 : "retail providers";
-            var retailTitle = request.Hints.GetValueOrDefault("title", "");
+            var retailTitle = request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "");
             var retailDetail = string.IsNullOrWhiteSpace(retailTitle)
                 ? $"Retail match identified via {retailProviderNames}"
                 : $"Retail match identified: \"{retailTitle}\" via {retailProviderNames}";
@@ -811,9 +816,33 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailEnriched)"); }
 
             await _eventPublisher.PublishAsync(
-                "HydrationStageCompleted",
+                SignalREvents.HydrationStageCompleted,
                 new HydrationStageCompletedEvent(request.EntityId, 1, stage1Claims, "retail_identification"),
                 ct).ConfigureAwait(false);
+
+            // ── Timeline: Stage 1 retail match event ─────────────────────────
+            try
+            {
+                var bestProviderName = bestStage1Provider?.Name ?? retailProviderNames;
+                var bestProviderId = bestStage1Provider?.ProviderId.ToString();
+                await _timelineRepo.InsertEventAsync(new EntityEvent
+                {
+                    EntityId       = request.EntityId,
+                    EntityType     = request.EntityType.ToString(),
+                    EventType      = "retail_matched",
+                    Stage          = 1,
+                    Trigger        = request.IngestionRunId.HasValue ? "ingestion" : "user_rematch",
+                    ProviderId     = bestProviderId,
+                    ProviderName   = bestProviderName,
+                    Confidence     = stage1Claims > 0 ? (double?)bestStage1ClaimCount : null,
+                    IngestionRunId = request.IngestionRunId,
+                    Detail         = retailDetail,
+                }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Failed to write Stage 1 timeline event for entity {Id}", request.EntityId);
+            }
 
             // Hub Intelligence is deferred to Pass 2 (Universe work). Works are displayed
             // directly via /library/works without requiring hub_id assignment.
@@ -902,7 +931,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             .OfType<MediaEngine.Providers.Adapters.ReconciliationAdapter>()
                             .FirstOrDefault();
                         var wikidataProviderId = reconAdapter?.ProviderId
-                            ?? MediaEngine.Domain.MetadataFieldConstants.WikidataProviderId;
+                            ?? WellKnownProviders.Wikidata;
 
                         var newQidClaims = new List<ProviderClaim>();
 
@@ -1064,7 +1093,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         .FirstOrDefault();
                     if (reconAdapter is not null)
                     {
-                        request.Hints.TryGetValue("narrator", out var narratorHint);
+                        request.Hints.TryGetValue(MetadataFieldConstants.Narrator, out var narratorHint);
                         var editions = await reconAdapter.DiscoverAudiobookEditionsAsync(
                             result.WikidataQid, narratorHint, ct).ConfigureAwait(false);
 
@@ -1074,13 +1103,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             var first = editions[0]; // Use first audiobook edition found
 
                             if (!string.IsNullOrWhiteSpace(first.Narrator))
-                                editionClaims.Add(new ProviderClaim("narrator", first.Narrator, 0.90));
+                                editionClaims.Add(new ProviderClaim(MetadataFieldConstants.Narrator, first.Narrator, ClaimConfidence.Narrator));
                             if (!string.IsNullOrWhiteSpace(first.Duration))
-                                editionClaims.Add(new ProviderClaim("duration", first.Duration, 0.85));
+                                editionClaims.Add(new ProviderClaim(MetadataFieldConstants.DurationField, first.Duration, ClaimConfidence.Duration));
                             if (!string.IsNullOrWhiteSpace(first.ASIN))
-                                editionClaims.Add(new ProviderClaim("asin", first.ASIN, 0.95));
+                                editionClaims.Add(new ProviderClaim(BridgeIdKeys.Asin, first.ASIN, ClaimConfidence.BridgeId));
                             if (!string.IsNullOrWhiteSpace(first.Publisher))
-                                editionClaims.Add(new ProviderClaim("publisher", first.Publisher, 0.85));
+                                editionClaims.Add(new ProviderClaim(MetadataFieldConstants.PublisherField, first.Publisher, ClaimConfidence.Publisher));
 
                             if (editionClaims.Count > 0)
                             {
@@ -1116,6 +1145,25 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             try { await _activityRepo.LogAsync(new SystemActivityEntry { ActionType = "WikidataMatchFailed", EntityId = request.EntityId, Detail = "No retail match found — item sent for review" }, ct).ConfigureAwait(false); }
             catch (Exception ex) when (ex is not OperationCanceledException) { _logger.LogWarning(ex, "Failed to log item history (RetailMatchFailed)"); }
 
+            // ── Timeline: Stage 1 no retail match ────────────────────────────
+            try
+            {
+                await _timelineRepo.InsertEventAsync(new EntityEvent
+                {
+                    EntityId       = request.EntityId,
+                    EntityType     = request.EntityType.ToString(),
+                    EventType      = "retail_no_match",
+                    Stage          = 1,
+                    Trigger        = request.IngestionRunId.HasValue ? "ingestion" : "user_rematch",
+                    IngestionRunId = request.IngestionRunId,
+                    Detail         = $"No retail provider matched for \"{request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "(unknown)")}\"",
+                }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Failed to write Stage 1 (no match) timeline event for entity {Id}", request.EntityId);
+            }
+
             // AI QID Disambiguation: attempt to resolve before creating review item.
             // When disambiguation candidates are available, the LLM may be able to
             // pick the best match without human intervention.
@@ -1125,15 +1173,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 {
                     var fileMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     if (!string.IsNullOrWhiteSpace(titleHint))
-                        fileMetadata["title"] = titleHint;
+                        fileMetadata[MetadataFieldConstants.Title] = titleHint;
 
-                    var authorHint = request.Hints.GetValueOrDefault("author");
+                    var authorHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Author);
                     if (!string.IsNullOrWhiteSpace(authorHint))
-                        fileMetadata["author"] = authorHint;
+                        fileMetadata[MetadataFieldConstants.Author] = authorHint;
 
-                    var yearHint = request.Hints.GetValueOrDefault("year");
+                    var yearHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Year);
                     if (!string.IsNullOrWhiteSpace(yearHint))
-                        fileMetadata["year"] = yearHint;
+                        fileMetadata[MetadataFieldConstants.Year] = yearHint;
 
                     var disambResult = await _disambiguator.DisambiguateAsync(
                         fileMetadata, result.DisambiguationCandidates, ct).ConfigureAwait(false);
@@ -1224,10 +1272,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // Use direct assignment so the canonical title overrides any embedded title
         // already in bridgeHints or the original request hints.
         var canonicalTitle = canonicalsForS2
-            .FirstOrDefault(cv => string.Equals(cv.Key, "title", StringComparison.OrdinalIgnoreCase));
+            .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase));
         if (canonicalTitle is not null && !string.IsNullOrWhiteSpace(canonicalTitle.Value))
         {
-            bridgeHints["title"] = canonicalTitle.Value;
+            bridgeHints[MetadataFieldConstants.Title] = canonicalTitle.Value;
         }
 
         // ── Bridge ID fallback from raw claims ────────────────────────────────
@@ -1244,11 +1292,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             var bridgeClaimKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
-                "isbn", "isbn_13", "isbn_10",
-                "asin", "apple_books_id",
-                "tmdb_id", "imdb_id",
-                "audible_id", "goodreads_id",
-                "musicbrainz_id", "comic_vine_id", "gcd_id",
+                BridgeIdKeys.Isbn, BridgeIdKeys.Isbn13, BridgeIdKeys.Isbn10,
+                BridgeIdKeys.Asin, BridgeIdKeys.AppleBooksId,
+                BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId,
+                BridgeIdKeys.AudibleId, BridgeIdKeys.GoodreadsId,
+                BridgeIdKeys.MusicBrainzId, BridgeIdKeys.ComicVineId, "gcd_id",
             };
 
             foreach (var claim in rawClaims)
@@ -1263,8 +1311,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                 var normalizedValue = effectiveKey switch
                 {
-                    "isbn" => NormalizeIsbnForRetail(claim.ClaimValue),
-                    "asin" => claim.ClaimValue.Trim().ToUpperInvariant(),
+                    BridgeIdKeys.Isbn => NormalizeIsbnForRetail(claim.ClaimValue),
+                    BridgeIdKeys.Asin => claim.ClaimValue.Trim().ToUpperInvariant(),
                     _      => claim.ClaimValue.Trim(),
                 };
 
@@ -1325,7 +1373,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         // FIX B3: Use effectiveMediaType (corrected from retail match) instead
                         // of request.MediaType so the correct bridge property is used.
                         var effectivePCode = bridge.WikidataProperty;
-                        if (string.Equals(bridge.IdType, "tmdb_id", StringComparison.OrdinalIgnoreCase)
+                        if (string.Equals(bridge.IdType, BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase)
                             && effectiveMediaType == MediaType.TV)
                         {
                             effectivePCode = "P4983";
@@ -1345,7 +1393,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         var pCode = GetPCodeForClaimKey(kvp.Key);
                         // Media-type-aware override for TV TMDB IDs.
                         // FIX B3: Use effectiveMediaType (corrected from retail match).
-                        if (string.Equals(kvp.Key, "tmdb_id", StringComparison.OrdinalIgnoreCase)
+                        if (string.Equals(kvp.Key, BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase)
                             && effectiveMediaType == MediaType.TV
                             && !string.IsNullOrWhiteSpace(pCode))
                         {
@@ -1375,7 +1423,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     var qidClaims = new List<ProviderClaim>();
 
                     if (!string.IsNullOrWhiteSpace(bridgeResult.WorkQid))
-                        qidClaims.Add(new ProviderClaim("wikidata_qid", bridgeResult.WorkQid, 1.0));
+                        qidClaims.Add(new ProviderClaim(BridgeIdKeys.WikidataQid, bridgeResult.WorkQid, 1.0));
 
                     if (bridgeResult.IsEdition && !string.IsNullOrWhiteSpace(bridgeResult.EditionQid))
                         qidClaims.Add(new ProviderClaim("edition_qid", bridgeResult.EditionQid, 1.0));
@@ -1397,7 +1445,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                 EntityId = request.EntityId,
                                 EntityType = EntityType.MediaAsset,
                                 MediaType = effectiveMediaType, // FIX B3: Use corrected media type
-                                Title = request.Hints?.GetValueOrDefault("title"),
+                                Title = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Title),
                                 PreResolvedQid = bridgeResult.WorkQid,
                                 Hints = request.Hints,
                                 FileLanguage = detectedFileLanguage,
@@ -1463,10 +1511,48 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     }
 
                     await _eventPublisher.PublishAsync(
-                        "HydrationStageCompleted",
+                        SignalREvents.HydrationStageCompleted,
                         new HydrationStageCompletedEvent(request.EntityId, 2, stage2Claims,
                             "wikidata_bridge"),
                         ct).ConfigureAwait(false);
+
+                    // ── Timeline: Stage 2 bridge resolved ────────────────────────
+                    try
+                    {
+                        // Determine which bridge ID actually resolved.
+                        var resolvedBridgeType = bridgeResult.CollectedBridgeIds.Count > 0
+                            ? bridgeResult.CollectedBridgeIds.Keys.FirstOrDefault()
+                            : null;
+                        var resolvedBridgeValue = resolvedBridgeType is not null
+                            ? bridgeResult.CollectedBridgeIds.GetValueOrDefault(resolvedBridgeType)
+                            : null;
+
+                        await _timelineRepo.InsertEventAsync(new EntityEvent
+                        {
+                            EntityId       = request.EntityId,
+                            EntityType     = request.EntityType.ToString(),
+                            EventType      = request.PreResolvedQid is not null
+                                             ? "wikidata_pre_resolved"
+                                             : "wikidata_bridge_resolved",
+                            Stage          = 2,
+                            Trigger        = request.IngestionRunId.HasValue ? "ingestion" : "user_rematch",
+                            ProviderId     = stage2ReconAdapter.ProviderId.ToString(),
+                            ProviderName   = stage2ReconAdapter.Name,
+                            BridgeIdType   = resolvedBridgeType,
+                            BridgeIdValue  = resolvedBridgeValue,
+                            ResolvedQid    = bridgeResult.WorkQid ?? bridgeResult.Qid,
+                            Confidence     = stage2Claims > 0 ? 1.0 : null,
+                            IngestionRunId = request.IngestionRunId,
+                            Detail         = request.PreResolvedQid is not null
+                                             ? $"Pre-resolved QID: {request.PreResolvedQid}"
+                                             : $"Bridge resolved: {resolvedBridgeType}={resolvedBridgeValue} → {bridgeResult.WorkQid ?? bridgeResult.Qid}" +
+                                               (bridgeResult.IsEdition ? $" (edition: {bridgeResult.EditionQid})" : ""),
+                        }, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex, "Failed to write Stage 2 bridge timeline event for entity {Id}", request.EntityId);
+                    }
 
                     _logger.LogInformation(
                         "Stage 2: Wikidata bridge resolved for entity {Id} — QID: {Qid}, edition: {IsEdition}, claims: {Claims}",
@@ -1532,13 +1618,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         try
                         {
                             var s2FileMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                            var s2TitleHint = request.Hints.GetValueOrDefault("title", "(unknown)");
+                            var s2TitleHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "(unknown)");
                             if (!string.IsNullOrWhiteSpace(s2TitleHint))
-                                s2FileMetadata["title"] = s2TitleHint;
+                                s2FileMetadata[MetadataFieldConstants.Title] = s2TitleHint;
 
-                            var s2AuthorHint = request.Hints.GetValueOrDefault("author");
+                            var s2AuthorHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Author);
                             if (!string.IsNullOrWhiteSpace(s2AuthorHint))
-                                s2FileMetadata["author"] = s2AuthorHint;
+                                s2FileMetadata[MetadataFieldConstants.Author] = s2AuthorHint;
 
                             var s2DisambResult = await _disambiguator.DisambiguateAsync(
                                 s2FileMetadata, result.DisambiguationCandidates, ct).ConfigureAwait(false);
@@ -1550,6 +1636,27 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                     "(confidence: {Conf:F2}): {Reasoning}",
                                     request.EntityId, s2DisambResult.SelectedQid,
                                     s2DisambResult.Confidence, s2DisambResult.Reasoning);
+
+                                // ── Timeline: Stage 2 AI disambiguation ──────────────
+                                try
+                                {
+                                    await _timelineRepo.InsertEventAsync(new EntityEvent
+                                    {
+                                        EntityId       = request.EntityId,
+                                        EntityType     = request.EntityType.ToString(),
+                                        EventType      = "wikidata_ai_disambiguated",
+                                        Stage          = 2,
+                                        Trigger        = "ai_disambiguation",
+                                        ResolvedQid    = s2DisambResult.SelectedQid,
+                                        Confidence     = s2DisambResult.Confidence,
+                                        IngestionRunId = request.IngestionRunId,
+                                        Detail         = $"AI disambiguation: {s2DisambResult.SelectedQid} (confidence: {s2DisambResult.Confidence:F2}) — {s2DisambResult.Reasoning}",
+                                    }, ct).ConfigureAwait(false);
+                                }
+                                catch (Exception ex) when (ex is not OperationCanceledException)
+                                {
+                                    _logger.LogWarning(ex, "Failed to write Stage 2 AI disambiguation timeline event for entity {Id}", request.EntityId);
+                                }
 
                                 await EnqueueAsync(new HarvestRequest
                                 {
@@ -1580,8 +1687,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     // Bridge IDs (Apple Books ID, ISBN) are often on edition entities
                     // or absent from Wikidata entirely. Fall back to title+author
                     // reconciliation which uses wbsearchentities text search.
-                    var fallbackTitle  = request.Hints?.GetValueOrDefault("title");
-                    var fallbackAuthor = request.Hints?.GetValueOrDefault("author");
+                    var fallbackTitle  = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Title);
+                    var fallbackAuthor = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Author);
 
                     if (!string.IsNullOrWhiteSpace(fallbackTitle))
                     {
@@ -1606,7 +1713,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             if (titleFallbackClaims.Count > 0)
                             {
                                 var fallbackQidClaim = titleFallbackClaims
-                                    .FirstOrDefault(c => string.Equals(c.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+                                    .FirstOrDefault(c => string.Equals(c.Key, BridgeIdKeys.WikidataQid, StringComparison.OrdinalIgnoreCase));
 
                                 if (fallbackQidClaim is not null && !string.IsNullOrWhiteSpace(fallbackQidClaim.Value))
                                 {
@@ -1624,10 +1731,32 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                     lastSuccessfulProvider = stage2ReconAdapter;
 
                                     await _eventPublisher.PublishAsync(
-                                        "HydrationStageCompleted",
+                                        SignalREvents.HydrationStageCompleted,
                                         new HydrationStageCompletedEvent(request.EntityId, 2, stage2Claims,
                                             "wikidata_title_fallback"),
                                         ct).ConfigureAwait(false);
+
+                                    // ── Timeline: Stage 2 title fallback resolved ────────
+                                    try
+                                    {
+                                        await _timelineRepo.InsertEventAsync(new EntityEvent
+                                        {
+                                            EntityId       = request.EntityId,
+                                            EntityType     = request.EntityType.ToString(),
+                                            EventType      = "wikidata_title_resolved",
+                                            Stage          = 2,
+                                            Trigger        = request.IngestionRunId.HasValue ? "ingestion" : "user_rematch",
+                                            ProviderId     = stage2ReconAdapter.ProviderId.ToString(),
+                                            ProviderName   = stage2ReconAdapter.Name,
+                                            ResolvedQid    = fallbackQidClaim.Value,
+                                            IngestionRunId = request.IngestionRunId,
+                                            Detail         = $"Title+author fallback resolved: \"{fallbackTitle}\" → {fallbackQidClaim.Value}",
+                                        }, ct).ConfigureAwait(false);
+                                    }
+                                    catch (Exception ex) when (ex is not OperationCanceledException)
+                                    {
+                                        _logger.LogWarning(ex, "Failed to write Stage 2 title-fallback timeline event for entity {Id}", request.EntityId);
+                                    }
 
                                     // Person enrichment from title-fallback claims.
                                     var fallbackPersonRefs = ExtractPersonReferencesFromRawClaims(
@@ -1667,6 +1796,25 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                 "Stage 2: Title-based reconciliation fallback failed for entity {Id}",
                                 request.EntityId);
                         }
+                    }
+
+                    // ── Timeline: Stage 2 no Wikidata match ──────────────────────
+                    try
+                    {
+                        await _timelineRepo.InsertEventAsync(new EntityEvent
+                        {
+                            EntityId       = request.EntityId,
+                            EntityType     = request.EntityType.ToString(),
+                            EventType      = "wikidata_no_match",
+                            Stage          = 2,
+                            Trigger        = request.IngestionRunId.HasValue ? "ingestion" : "user_rematch",
+                            IngestionRunId = request.IngestionRunId,
+                            Detail         = "No Wikidata entity found via bridge IDs or title+author fallback",
+                        }, ct).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogWarning(ex, "Failed to write Stage 2 no-match timeline event for entity {Id}", request.EntityId);
                     }
 
                     // No Wikidata match — file stays at "retail_only" match level.
@@ -1740,7 +1888,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                             Detail     = $"AmbiguousMediaType auto-resolved: Stage 2 returned {stage2Claims} claims, confirming media type.",
                         }, ct).ConfigureAwait(false);
 
-                        await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                        await _eventPublisher.PublishAsync(SignalREvents.ReviewItemResolved, new
                         {
                             review_item_id = review.Id,
                             entity_id      = request.EntityId,
@@ -1796,10 +1944,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 var postS2Canonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                     .ConfigureAwait(false);
                 var hasCover = postS2Canonicals.Any(c =>
-                    string.Equals(c.Key, "cover", StringComparison.OrdinalIgnoreCase)
+                    string.Equals(c.Key, MetadataFieldConstants.Cover, StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrEmpty(c.Value));
-                var hadPreciseLookup = bridgeHints.ContainsKey("isbn")
-                    || bridgeHints.ContainsKey("apple_books_id");
+                var hadPreciseLookup = bridgeHints.ContainsKey(BridgeIdKeys.Isbn)
+                    || bridgeHints.ContainsKey(BridgeIdKeys.AppleBooksId);
 
                 if (hasCover && !hadPreciseLookup)
                 {
@@ -1857,7 +2005,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 // Check if entity already has a wikidata_qid (could have been set earlier).
                 var existingQid = (await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                     .ConfigureAwait(false))
-                    .FirstOrDefault(c => string.Equals(c.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefault(c => string.Equals(c.Key, BridgeIdKeys.WikidataQid, StringComparison.OrdinalIgnoreCase));
 
                 if (existingQid is null || string.IsNullOrWhiteSpace(existingQid.Value))
                 {
@@ -1868,7 +2016,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         new CanonicalValue
                         {
                             EntityId     = request.EntityId,
-                            Key          = "wikidata_qid",
+                            Key          = BridgeIdKeys.WikidataQid,
                             Value        = placeholder,
                             LastScoredAt = DateTimeOffset.UtcNow,
                         },
@@ -1974,7 +2122,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // Check for metadata conflicts after post-hydration re-scoring.
             // Conflicts don't block organization — just surface them for user review.
             var conflictedFields = scored.FieldScores
-                .Where(f => f.IsConflicted && f.Key != "media_type")
+                .Where(f => f.IsConflicted && f.Key != MetadataFieldConstants.MediaTypeField)
                 .Select(f => f.Key)
                 .ToList();
 
@@ -2023,7 +2171,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         Detail     = $"WikidataBridgeFailed auto-resolved: QID {result.WikidataQid} confirms identity.",
                     }, ct).ConfigureAwait(false);
 
-                    await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                    await _eventPublisher.PublishAsync(SignalREvents.ReviewItemResolved, new
                     {
                         review_item_id = review.Id,
                         entity_id      = request.EntityId,
@@ -2106,7 +2254,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 if (review?.Status == ReviewStatus.Pending)
                 {
                     await _eventPublisher.PublishAsync(
-                        "ReviewItemCreated",
+                        SignalREvents.ReviewItemCreated,
                         new ReviewItemCreatedEvent(
                             review.Id, review.EntityId, review.Trigger, null),
                         ct).ConfigureAwait(false);
@@ -2175,7 +2323,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     Detail     = $"Auto-resolved ({review.Trigger}): confidence improved to {confidence:P0} after hydration.",
                 }, ct).ConfigureAwait(false);
 
-                await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                await _eventPublisher.PublishAsync(SignalREvents.ReviewItemResolved, new
                 {
                     review_item_id = review.Id,
                     entity_id      = request.EntityId,
@@ -2195,7 +2343,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 var postCanonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
                     .ConfigureAwait(false);
                 var qidCv = postCanonicals.FirstOrDefault(cv =>
-                    string.Equals(cv.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase));
+                    string.Equals(cv.Key, BridgeIdKeys.WikidataQid, StringComparison.OrdinalIgnoreCase));
                 var hasQid = qidCv is not null
                     && !string.IsNullOrWhiteSpace(qidCv.Value)
                     && !qidCv.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
@@ -2280,7 +2428,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     Detail     = $"Auto-resolved ({review.Trigger}): confidence improved to {confidence:P0} after hydration.",
                 }, ct).ConfigureAwait(false);
 
-                await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                await _eventPublisher.PublishAsync(SignalREvents.ReviewItemResolved, new
                 {
                     review_item_id = review.Id,
                     entity_id      = entityId,
@@ -2317,17 +2465,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         var h = request.Hints;
 
-        if (!string.IsNullOrWhiteSpace(h.GetValueOrDefault("author"))) return true;
+        if (!string.IsNullOrWhiteSpace(h.GetValueOrDefault(MetadataFieldConstants.Author))) return true;
 
-        var year = h.GetValueOrDefault("year");
+        var year = h.GetValueOrDefault(MetadataFieldConstants.Year);
         if (!string.IsNullOrWhiteSpace(year) && year.Length >= 4) return true;
 
         // Any bridge identifier enables a direct lookup instead of a noisy search.
         foreach (var key in new[]
         {
-            "isbn", "asin", "tmdb_id", "imdb_id", "goodreads_id",
-            "musicbrainz_id", "apple_books_id", "audible_asin", "open_library_id",
-            "comic_vine_id", "gcd_id", "apple_podcasts_id",
+            BridgeIdKeys.Isbn, BridgeIdKeys.Asin, BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId, BridgeIdKeys.GoodreadsId,
+            BridgeIdKeys.MusicBrainzId, BridgeIdKeys.AppleBooksId, "audible_asin", BridgeIdKeys.OpenLibraryId,
+            BridgeIdKeys.ComicVineId, "gcd_id", "apple_podcasts_id",
         })
         {
             if (!string.IsNullOrWhiteSpace(h.GetValueOrDefault(key))) return true;
@@ -2337,7 +2485,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // Wikidata's Reconciliation API is designed for fuzzy title search, and the
         // existing TokenSet ratio >= 0.60 verification already guards against
         // false-positive matches.
-        var title = h.GetValueOrDefault("title");
+        var title = h.GetValueOrDefault(MetadataFieldConstants.Title);
         if (!string.IsNullOrWhiteSpace(title) && IsRealTitle(title)) return true;
 
         return false;
@@ -2405,27 +2553,27 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                     // Also handle the "isbn" alias that IsBridgeIdClaim recognises but
                     // may not have its own entry (isbn_13 is the canonical Wikidata form).
-                    if (!map.ContainsKey("isbn") && map.TryGetValue("isbn_13", out var isbn13PCode))
-                        map["isbn"] = isbn13PCode;
+                    if (!map.ContainsKey(BridgeIdKeys.Isbn) && map.TryGetValue(BridgeIdKeys.Isbn13, out var isbn13PCode))
+                        map[BridgeIdKeys.Isbn] = isbn13PCode;
 
                     // Bridge ID aliases: retail providers emit generic claim keys (e.g. "tmdb_id")
                     // but the config maps media-specific keys (e.g. "tmdb_movie_id" → P4947).
                     // Add aliases so GetPCodeForClaimKey finds a match for IsBridgeIdClaim keys.
-                    if (!map.ContainsKey("tmdb_id"))
+                    if (!map.ContainsKey(BridgeIdKeys.TmdbId))
                     {
                         // Prefer movie ID property; most TMDB lookups resolve movies.
                         if (map.TryGetValue("tmdb_movie_id", out var tmdbMoviePCode))
-                            map["tmdb_id"] = tmdbMoviePCode;
+                            map[BridgeIdKeys.TmdbId] = tmdbMoviePCode;
                         else if (map.TryGetValue("tmdb_tv_id", out var tmdbTvPCode))
-                            map["tmdb_id"] = tmdbTvPCode;
+                            map[BridgeIdKeys.TmdbId] = tmdbTvPCode;
                     }
 
-                    if (!map.ContainsKey("musicbrainz_id"))
+                    if (!map.ContainsKey(BridgeIdKeys.MusicBrainzId))
                     {
                         if (map.TryGetValue("musicbrainz_release_id", out var mbReleasePCode))
-                            map["musicbrainz_id"] = mbReleasePCode;
+                            map[BridgeIdKeys.MusicBrainzId] = mbReleasePCode;
                         else if (map.TryGetValue("musicbrainz_artist_id", out var mbArtistPCode))
-                            map["musicbrainz_id"] = mbArtistPCode;
+                            map[BridgeIdKeys.MusicBrainzId] = mbArtistPCode;
                     }
 
                     _claimKeyToPCode = map;
@@ -2442,15 +2590,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     {
         return claimKey switch
         {
-            "isbn" or "isbn_13" or "isbn_10" => true,
-            "asin" => true,
-            "apple_books_id" => true,
-            "tmdb_id" => true,
-            "imdb_id" => true,
-            "audible_id" => true,
-            "goodreads_id" => true,
-            "musicbrainz_id" => true,
-            "comic_vine_id" => true,
+            BridgeIdKeys.Isbn or BridgeIdKeys.Isbn13 or BridgeIdKeys.Isbn10 => true,
+            BridgeIdKeys.Asin => true,
+            BridgeIdKeys.AppleBooksId => true,
+            BridgeIdKeys.TmdbId => true,
+            BridgeIdKeys.ImdbId => true,
+            BridgeIdKeys.AudibleId => true,
+            BridgeIdKeys.GoodreadsId => true,
+            BridgeIdKeys.MusicBrainzId => true,
+            BridgeIdKeys.ComicVineId => true,
             "gcd_id" => true,
             "apple_podcasts_id" => true,
             "apple_music_id" => true,
@@ -2667,11 +2815,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
             string? Val(string key) => canonicals.FirstOrDefault(c => c.Key == key)?.Value;
 
-            var title     = Val("title")      ?? "Unknown";
-            var author    = Val("author")      ?? string.Empty;
-            var year      = Val("year")        ?? string.Empty;
-            var mediaType = Val("media_type")  ?? string.Empty;
-            var qid       = Val("wikidata_qid");
+            var title     = Val(MetadataFieldConstants.Title)      ?? "Unknown";
+            var author    = Val(MetadataFieldConstants.Author)      ?? string.Empty;
+            var year      = Val(MetadataFieldConstants.Year)        ?? string.Empty;
+            var mediaType = Val(MetadataFieldConstants.MediaTypeField)  ?? string.Empty;
+            var qid       = Val(BridgeIdKeys.WikidataQid);
 
             // Look up the asset to get the final file path.
             var asset = await _assetRepo.FindByIdAsync(entityId, ct).ConfigureAwait(false);
@@ -2745,7 +2893,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // Build per-field provenance from the final scored state so the
             // Dashboard can show which provider won each field after all three
             // hydration stages have run (not just the local-processor snapshot).
-            var localProcessorId = new Guid("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f");
+            var localProcessorId = WellKnownProviders.LocalProcessor;
             List<object> fieldSources = [];
             string matchMethod = "embedded_metadata";
             try
@@ -2783,7 +2931,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         conflicted  = f.IsConflicted,
                     })];
 
-                var titleScore = finalScored.FieldScores.FirstOrDefault(f => f.Key == "title");
+                var titleScore = finalScored.FieldScores.FirstOrDefault(f => f.Key == MetadataFieldConstants.Title);
                 if (!string.IsNullOrEmpty(qid))
                     matchMethod = "provider_match";
                 else if (titleScore?.WinningProviderId is not null
@@ -2895,7 +3043,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // Resolve title for the event.
         var canonicals = await _canonicalRepo.GetByEntityAsync(request.EntityId, ct)
             .ConfigureAwait(false);
-        var titleCanonical = canonicals.FirstOrDefault(c => c.Key == "title");
+        var titleCanonical = canonicals.FirstOrDefault(c => c.Key == MetadataFieldConstants.Title);
 
         await _activityRepo.LogAsync(new SystemActivityEntry
         {
@@ -2914,7 +3062,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         else
         {
             await _eventPublisher.PublishAsync(
-                "ReviewItemCreated",
+                SignalREvents.ReviewItemCreated,
                 new ReviewItemCreatedEvent(
                     reviewEntry.Id, request.EntityId, trigger,
                     titleCanonical?.Value),
@@ -2981,7 +3129,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             else
             {
                 await _eventPublisher.PublishAsync(
-                    "ReviewItemCreated",
+                    SignalREvents.ReviewItemCreated,
                     new ReviewItemCreatedEvent(entry.Id, entityId, ReviewTrigger.MetadataConflict, null),
                     ct).ConfigureAwait(false);
             }
@@ -3026,7 +3174,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     Detail     = $"Auto-resolved (MetadataConflict): conflicts cleared after hydration, confidence {confidence:P0}.",
                 }, ct).ConfigureAwait(false);
 
-                await _eventPublisher.PublishAsync("ReviewItemResolved", new
+                await _eventPublisher.PublishAsync(SignalREvents.ReviewItemResolved, new
                 {
                     review_item_id = review.Id,
                     entity_id      = entityId,
@@ -3095,7 +3243,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     {
         var updatedFields = claims.Select(c => c.Key).Distinct().ToList();
         await _eventPublisher.PublishAsync(
-            "MetadataHarvested",
+            SignalREvents.MetadataHarvested,
             new MetadataHarvestedEvent(entityId, providerName, updatedFields),
             ct).ConfigureAwait(false);
     }
@@ -3148,8 +3296,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // Apply a best-effort normalization by stripping common ISBN formatting.
             var normalizedValue = effectiveKey switch
             {
-                "isbn" => NormalizeIsbnForRetail(cv.Value),
-                "asin" => cv.Value.Trim().ToUpperInvariant(),
+                BridgeIdKeys.Isbn => NormalizeIsbnForRetail(cv.Value),
+                BridgeIdKeys.Asin => cv.Value.Trim().ToUpperInvariant(),
                 _      => cv.Value.Trim()
             };
 
@@ -3244,7 +3392,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         // 3. Discover and enqueue enrichment for fictional entities.
-        var workLabel = canonicals.FirstOrDefault(c => c.Key == "title")?.Value;
+        var workLabel = canonicals.FirstOrDefault(c => c.Key == MetadataFieldConstants.Title)?.Value;
 
         _logger.LogInformation(
             "Fictional entity enrichment: {Count} entities for work '{Title}' (QID={Qid}) " +
@@ -3486,7 +3634,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private async Task<string> GenerateNfPlaceholderAsync(CancellationToken ct)
     {
         // Find the highest existing NF placeholder across all entities.
-        var allNf = await _canonicalRepo.FindByKeyAndPrefixAsync("wikidata_qid", "NF", ct)
+        var allNf = await _canonicalRepo.FindByKeyAndPrefixAsync(BridgeIdKeys.WikidataQid, "NF", ct)
             .ConfigureAwait(false);
 
         int maxNumber = 0;
@@ -3514,7 +3662,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         try
         {
             var authorCanonical = canonicals.FirstOrDefault(
-                c => string.Equals(c.Key, "author", StringComparison.OrdinalIgnoreCase));
+                c => string.Equals(c.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase));
             if (authorCanonical is null || string.IsNullOrWhiteSpace(authorCanonical.Value))
                 return;
 
@@ -3533,11 +3681,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // to ensure the pseudonym name wins the scoring election.
             var pseudonymClaims = new List<ProviderClaim>
             {
-                new("author", pseudonymPerson.Name, 0.98),
+                new(MetadataFieldConstants.Author, pseudonymPerson.Name, ClaimConfidence.ReconciliationTitle),
             };
 
             // Use a stable provider GUID for pseudonym protection claims.
-            var pseudonymProviderId = Guid.Parse("ffa00001-0000-4000-8000-000000000099");
+            var pseudonymProviderId = WellKnownProviders.Pseudonym;
             await ScoringHelper.PersistClaimsAndScoreAsync(
                 entityId, pseudonymClaims, pseudonymProviderId,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
@@ -3562,7 +3710,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// </summary>
     private static readonly HashSet<string> PersonLabelKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        "author", "narrator", "director", "illustrator", "voice_actor", "performer",
+        MetadataFieldConstants.Author, MetadataFieldConstants.Narrator, MetadataFieldConstants.Director, MetadataFieldConstants.Illustrator, "voice_actor", "performer",
     };
 
     /// <summary>
@@ -3633,8 +3781,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         var refs = new List<PersonReference>();
-        AddPersonRefsFromLists(refs, "Author",   byKey, "author",    "author_qid");
-        AddPersonRefsFromLists(refs, "Narrator", byKey, "narrator",  "narrator_qid");
+        AddPersonRefsFromLists(refs, "Author",   byKey, MetadataFieldConstants.Author,    "author_qid");
+        AddPersonRefsFromLists(refs, "Narrator", byKey, MetadataFieldConstants.Narrator,  "narrator_qid");
         AddPersonRefsFromLists(refs, "Narrator", byKey, "performer", "performer_qid");
         AddPersonRefsFromLists(refs, "Director", byKey, "director",  "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
@@ -3715,8 +3863,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         var refs = new List<PersonReference>();
-        AddPersonRefsFromLists(refs, "Author",       byKey, "author",       "author_qid");
-        AddPersonRefsFromLists(refs, "Narrator",     byKey, "narrator",     "narrator_qid");
+        AddPersonRefsFromLists(refs, "Author",       byKey, MetadataFieldConstants.Author,       "author_qid");
+        AddPersonRefsFromLists(refs, "Narrator",     byKey, MetadataFieldConstants.Narrator,     "narrator_qid");
         AddPersonRefsFromLists(refs, "Narrator",     byKey, "performer",    "performer_qid");
         AddPersonRefsFromLists(refs, "Director",     byKey, "director",     "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
@@ -3784,8 +3932,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     {
         var refs = new List<PersonReference>();
 
-        AddPersonRefs(refs, "Author",   canonicals, "author",   "author_qid");
-        AddPersonRefs(refs, "Narrator", canonicals, "narrator", "narrator_qid");
+        AddPersonRefs(refs, "Author",   canonicals, MetadataFieldConstants.Author,   "author_qid");
+        AddPersonRefs(refs, "Narrator", canonicals, MetadataFieldConstants.Narrator, "narrator_qid");
         AddPersonRefs(refs, "Narrator", canonicals, "performer", "performer_qid");
         AddPersonRefs(refs, "Director", canonicals, "director", "director_qid");
         AddPersonRefs(refs, "Screenwriter", canonicals, "screenwriter", "screenwriter_qid");
@@ -3915,15 +4063,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             EntityId      = request.EntityId,
             EntityType    = request.EntityType,
             MediaType     = request.MediaType,
-            Title         = h.GetValueOrDefault("title"),
-            Author        = h.GetValueOrDefault("author"),
-            Narrator      = h.GetValueOrDefault("narrator"),
-            Asin          = h.GetValueOrDefault("asin"),
-            Isbn          = NormalizeIsbnHint(h.GetValueOrDefault("isbn")),
-            AppleBooksId  = h.GetValueOrDefault("apple_books_id"),
-            AudibleId     = h.GetValueOrDefault("audible_id"),
-            TmdbId        = h.GetValueOrDefault("tmdb_id"),
-            ImdbId        = h.GetValueOrDefault("imdb_id"),
+            Title         = h.GetValueOrDefault(MetadataFieldConstants.Title),
+            Author        = h.GetValueOrDefault(MetadataFieldConstants.Author),
+            Narrator      = h.GetValueOrDefault(MetadataFieldConstants.Narrator),
+            Asin          = h.GetValueOrDefault(BridgeIdKeys.Asin),
+            Isbn          = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),
+            AppleBooksId  = h.GetValueOrDefault(BridgeIdKeys.AppleBooksId),
+            AudibleId     = h.GetValueOrDefault(BridgeIdKeys.AudibleId),
+            TmdbId        = h.GetValueOrDefault(BridgeIdKeys.TmdbId),
+            ImdbId        = h.GetValueOrDefault(BridgeIdKeys.ImdbId),
             PersonName     = h.GetValueOrDefault("name"),
             PersonRole     = h.GetValueOrDefault("role"),
             PreResolvedQid = request.PreResolvedQid,
@@ -3983,7 +4131,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 // later (e.g. via manual hydration) the firm-link path will reassign the
                 // work to a franchise/series Hub, and the singleton is pruned by reconciliation.
                 var title = canonicals
-                    .FirstOrDefault(c => c.Key.Equals("title", StringComparison.OrdinalIgnoreCase))
+                    .FirstOrDefault(c => c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))
                     ?.Value;
                 if (!string.IsNullOrWhiteSpace(title))
                     await CreateSingletonHubAsync(workId.Value, title, ct).ConfigureAwait(false);
@@ -4051,7 +4199,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // Every work needs a Hub to appear in the library, so create a singleton Hub keyed
             // on the canonical title.  If a Hub with that name already exists, reuse it.
             var title = canonicals
-                .FirstOrDefault(c => c.Key.Equals("title", StringComparison.OrdinalIgnoreCase))
+                .FirstOrDefault(c => c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))
                 ?.Value;
             if (!string.IsNullOrWhiteSpace(title))
                 await CreateSingletonHubAsync(workId, title, ct).ConfigureAwait(false);
@@ -4063,7 +4211,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         // Tier 1: franchise, series, fictional_universe
-        string[] tier1Types = ["franchise", "series", "fictional_universe"];
+        string[] tier1Types = [MetadataFieldConstants.Franchise, MetadataFieldConstants.Series, "fictional_universe"];
         // Tier 2: based_on, preceded_by, followed_by
         string[] tier2Types = ["based_on", "preceded_by", "followed_by"];
 
@@ -4188,7 +4336,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     private static List<(string RelType, List<(string Qid, string? Label)> Qids)> ExtractRelationshipQids(
         IReadOnlyList<MetadataClaim> claims)
     {
-        string[] relKeys = ["franchise", "series", "fictional_universe", "based_on", "preceded_by", "followed_by"];
+        string[] relKeys = [MetadataFieldConstants.Franchise, MetadataFieldConstants.Series, "fictional_universe", "based_on", "preceded_by", "followed_by"];
 
         // Build a quick lookup for companion _qid claims (e.g. "franchise_qid" -> ["Q937618", ...]).
         var qidLookup = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -4354,11 +4502,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var canonicals = await _canonicalRepo.GetByEntityAsync(assetId, ct)
                 .ConfigureAwait(false);
             var coverUrl = canonicals
-                .Where(c => c.Key is "cover_url")
+                .Where(c => c.Key is MetadataFieldConstants.CoverUrl)
                 .Select(c => c.Value)
                 .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase))
                 ?? canonicals
-                .Where(c => c.Key is "cover")
+                .Where(c => c.Key is MetadataFieldConstants.Cover)
                 .Select(c => c.Value)
                 .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
 
@@ -4368,7 +4516,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // else fall back to the legacy path alongside the media file.
             // Extract confirmed Wikidata QID from canonicals (exclude NF-prefixed provisional QIDs).
             var wikidataQid = canonicals
-                .FirstOrDefault(c => c.Key is "wikidata_qid"
+                .FirstOrDefault(c => c.Key is BridgeIdKeys.WikidataQid
                     && !string.IsNullOrEmpty(c.Value)
                     && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
@@ -4479,7 +4627,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 new CanonicalValue
                 {
                     EntityId     = assetId,
-                    Key          = "cover_url",
+                    Key          = MetadataFieldConstants.CoverUrl,
                     Value        = $"/stream/{assetId}/cover",
                     LastScoredAt = DateTimeOffset.UtcNow,
                 },
@@ -4512,7 +4660,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // (activity log, Dashboard cards) don't reference a nonexistent file.
             try
             {
-                await _canonicalRepo.DeleteByKeyAsync(assetId, "cover", ct)
+                await _canonicalRepo.DeleteByKeyAsync(assetId, MetadataFieldConstants.Cover, ct)
                     .ConfigureAwait(false);
             }
             catch (Exception retractEx) when (retractEx is not OperationCanceledException)

@@ -167,6 +167,26 @@
                 </div>
             }
 
+            @* ── Pipeline Circles ── *@
+            <div class="vdd-pipeline-circles-wrap">
+                <VaultPipelineCircles
+                    Stage0="@(new VaultPipelineStage { State = VaultStageState.Completed, Label = "File scanned" })"
+                    Stage1="@MediaItem.Stage1"
+                    Stage2="@MediaItem.Stage2"
+                    Stage3="@MediaItem.Stage3"
+                    @bind-SelectedStage="_selectedStage" />
+            </div>
+
+            @* ── Stage Panel ── *@
+            <div class="vdd-stage-panel-wrap">
+                <VaultStagePanel SelectedStage="_selectedStage" Item="@MediaItem" />
+            </div>
+
+            @* ── History Timeline ── *@
+            <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
+                <VaultTimeline EntityId="@MediaItem.EntityId" />
+            </DrawerSection>
+
             @* ── Media Sections ── *@
             <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
                            HasProblem="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))"
@@ -723,6 +743,11 @@
                 </div>
             </DrawerSection>
 
+            @* ── History Timeline ── *@
+            <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
+                <VaultTimeline EntityId="@Universe.Id" />
+            </DrawerSection>
+
             @* Trigger enrichment + open explorer actions *@
             <div class="vdd-universe-actions">
                 <button class="vdd-action-btn vdd-action-btn--primary" @onclick="OpenUniverseExplorer">
@@ -776,6 +801,7 @@
     [Parameter] public EventCallback<Guid> OnPersonAliasClicked { get; set; }
 
     private bool _confirmPurge;
+    private int _selectedStage = 0;
     private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
     private string _manualSearchQuery = "";
     private bool _searching;
@@ -841,6 +867,7 @@
     protected override async Task OnParametersSetAsync()
     {
         _confirmPurge = false;
+        _selectedStage = 0;
         _manualSearchQuery = "";
         _searchResults = [];
         _aliases = null;
@@ -1126,7 +1153,7 @@
         "imdb_id"          => "IMDb ID",
         "musicbrainz_id"   => "MusicBrainz ID",
         "open_library_id"  => "Open Library ID",
-        "google_books_id"  => "Google Books ID",
+
         "apple_books_id"   => "Apple Books ID",
         "wikidata_qid"     => "Wikidata QID",
         "media_type"       => "Media Type",
@@ -1157,10 +1184,10 @@
         {
             var t when t.Contains("movie") || t.Contains("video") => ["tmdb_id", "imdb_id"],
             "tv" => ["tmdb_id", "imdb_id"],
-            var t when t.Contains("book") || t.Contains("epub") => ["open_library_id", "google_books_id", "apple_books_id"],
-            var t when t.Contains("audiobook") => ["apple_books_id", "google_books_id", "open_library_id"],
+            var t when t.Contains("book") || t.Contains("epub") => ["open_library_id", "apple_books_id"],
+            var t when t.Contains("audiobook") => ["apple_books_id", "open_library_id"],
             var t when t.Contains("music") => ["musicbrainz_id"],
-            _ => ["tmdb_id", "open_library_id", "google_books_id", "musicbrainz_id"],
+            _ => ["tmdb_id", "open_library_id", "musicbrainz_id"],
         };
 
         foreach (var key in bridgeKeys)
@@ -1179,6 +1206,18 @@
 }
 
 <style>
+    /* ── Pipeline Circles + Stage Panel wrapper ── */
+    .vdd-pipeline-circles-wrap {
+        margin: 0 -4px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .vdd-stage-panel-wrap {
+        padding: 12px 4px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        margin-bottom: 4px;
+    }
+
     /* ── Backdrop ── */
     .vdd-backdrop {
         position: fixed;

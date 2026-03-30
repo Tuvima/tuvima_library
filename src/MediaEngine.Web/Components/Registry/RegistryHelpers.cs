@@ -1,5 +1,9 @@
 using System.IO;
+using MediaEngine.Domain;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Theming;
 using MudBlazor;
 
 namespace MediaEngine.Web.Components.Registry;
@@ -7,33 +11,34 @@ namespace MediaEngine.Web.Components.Registry;
 /// <summary>Static display helpers shared across Registry components.</summary>
 public static class RegistryHelpers
 {
-    public static string GetMediaTypeIcon(string? mediaType) => mediaType?.ToUpperInvariant() switch
+    public static string GetMediaTypeIcon(string? mediaType)
     {
-        "EPUB" or "BOOK" or "BOOKS" => Icons.Material.Outlined.MenuBook,
-        "AUDIOBOOK" or "AUDIOBOOKS" => Icons.Material.Outlined.Headphones,
-        "MOVIES" or "MOVIE" => Icons.Material.Outlined.Movie,
-        "TV" => Icons.Material.Outlined.Tv,
-        "MUSIC" => Icons.Material.Outlined.MusicNote,
-        "COMICS" or "COMIC" => Icons.Material.Outlined.AutoStories,
-        "PODCASTS" or "PODCAST" => Icons.Material.Outlined.Podcasts,
-        "UNIVERSE" => Icons.Material.Outlined.AutoAwesome,
-        "PERSON" or "PEOPLE" => Icons.Material.Outlined.Person,
-        _ => Icons.Material.Outlined.InsertDriveFile,
-    };
+        var upper = mediaType?.ToUpperInvariant();
+        if (upper is "UNIVERSE") return Icons.Material.Outlined.AutoAwesome;
+        if (upper is "PERSON" or "PEOPLE") return Icons.Material.Outlined.Person;
 
-    public static string FormatMediaType(string? mediaType) => mediaType?.ToUpperInvariant() switch
+        var type = MediaTypeClassifier.Classify(mediaType);
+        return type switch
+        {
+            MediaType.Books      => Icons.Material.Outlined.MenuBook,
+            MediaType.Audiobooks => Icons.Material.Outlined.Headphones,
+            MediaType.Movies     => Icons.Material.Outlined.Movie,
+            MediaType.TV         => Icons.Material.Outlined.Tv,
+            MediaType.Music      => Icons.Material.Outlined.MusicNote,
+            MediaType.Comics     => Icons.Material.Outlined.AutoStories,
+            MediaType.Podcasts   => Icons.Material.Outlined.Podcasts,
+            _                    => Icons.Material.Outlined.InsertDriveFile,
+        };
+    }
+
+    public static string FormatMediaType(string? mediaType)
     {
-        "EPUB" or "BOOKS" or "BOOK"      => "Book",
-        "AUDIOBOOK" or "AUDIOBOOKS"      => "Audiobook",
-        "MOVIES" or "MOVIE"              => "Movie",
-        "TV"                             => "TV",
-        "MUSIC"                          => "Music",
-        "COMICS" or "COMIC"              => "Comic",
-        "PODCASTS" or "PODCAST"          => "Podcast",
-        "PERSON" or "PEOPLE"             => "Person",
-        "UNIVERSE" or "UNIVERSES"        => "Universe",
-        _ => mediaType ?? "—",
-    };
+        // Handle special UI entity types not in the Domain enum
+        var upper = mediaType?.ToUpperInvariant();
+        if (upper is "PERSON" or "PEOPLE") return "Person";
+        if (upper is "UNIVERSE" or "UNIVERSES") return "Universe";
+        return MediaTypeClassifier.GetDisplayLabel(mediaType);
+    }
 
     public static Color GetConfidenceColor(double conf) => conf switch
     {
@@ -42,12 +47,16 @@ public static class RegistryHelpers
         _ => Color.Error,
     };
 
-    public static string GetConfidenceHexColor(double conf) => conf switch
+    public static string GetConfidenceHexColor(double conf)
     {
-        >= 0.85 => "#5A8A5E",
-        >= 0.60 => "#B08940",
-        _ => "#A05050",
-    };
+        var p = PaletteProvider.Current.Confidence;
+        return conf switch
+        {
+            >= 0.85 => p.High,
+            >= 0.60 => p.Medium,
+            _       => p.Low,
+        };
+    }
 
     public static string GetConfidenceLabel(double conf) => conf switch
     {
@@ -66,41 +75,45 @@ public static class RegistryHelpers
         _ => "background: rgba(255,255,255,0.05); color: #6B6B6B; font-size: 0.7rem; height: 22px;",
     };
 
-    public static (string Label, string Color, string Icon) FormatReviewTrigger(string? trigger) => trigger switch
+    public static (string Label, string Color, string Icon) FormatReviewTrigger(string? trigger)
     {
+        var p = PaletteProvider.Current.ReviewTrigger;
         // Muted cinematic palette: warm amber, cool slate, soft rose — never raw Material Design.
-        "LowConfidence"         => ("Needs Verification",     "#B08940", Icons.Material.Outlined.TrendingDown),
-        "MultipleQidMatches"    => ("Multiple Matches Found", "#5C7A99", Icons.Material.Outlined.CallSplit),
-        "AuthorityMatchFailed"  => ("No Match Found",         "#A05050", Icons.Material.Outlined.LinkOff),
-        "ContentMatchFailed"    => ("No Cover Art Found",     "#A05050", Icons.Material.Outlined.SearchOff),
-        "AmbiguousMediaType"    => ("Unknown Format",         "#B08940", Icons.Material.Outlined.HelpOutline),
-        "MissingQid"            => ("Needs Manual Match",     "#5C7A99", Icons.Material.Outlined.QuestionMark),
-        "PlaceholderTitle"      => ("Missing Title",          "#A05050", Icons.Material.Outlined.Title),
-        "StagedUnidentifiable"  => ("Cannot Identify",        "#A05050", Icons.Material.Outlined.ErrorOutline),
-        "ArtworkUnconfirmed"    => ("Verify Cover Art",       "#B08940", Icons.Material.Outlined.Image),
-        "MetadataConflict"      => ("Conflicting Data",       "#B08940", Icons.Material.Outlined.Compare),
-        "UserFixMatch"          => ("User Correction",        "#5C7A99", Icons.Material.Outlined.Edit),
-        "ArbiterNeedsReview"    => ("Review Grouping",        "#B08940", Icons.Material.Outlined.Gavel),
-        "LanguageMismatch"      => ("Foreign Language",       "#B08940", Icons.Material.Filled.Translate),
-        "UserReport"            => ("User Report",            "#C9922E", Icons.Material.Filled.Flag),
-        "WikidataBridgeFailed"  => ("Wikidata Match Failed",  "#A05050", Icons.Material.Outlined.CloudOff),
-        _ => ("Needs Review", "#6B6B6B", Icons.Material.Outlined.RateReview),
-    };
+        return trigger switch
+        {
+            "LowConfidence"        => ("Needs Verification",     p.LowConfidence,   Icons.Material.Outlined.TrendingDown),
+            "MultipleQidMatches"   => ("Multiple Matches Found", p.MultipleMatches, Icons.Material.Outlined.CallSplit),
+            "AuthorityMatchFailed" => ("No Match Found",         p.MatchFailed,     Icons.Material.Outlined.LinkOff),
+            "ContentMatchFailed"   => ("No Cover Art Found",     p.MatchFailed,     Icons.Material.Outlined.SearchOff),
+            "AmbiguousMediaType"   => ("Unknown Format",         p.Ambiguous,       Icons.Material.Outlined.HelpOutline),
+            "MissingQid"           => ("Needs Manual Match",     p.MultipleMatches, Icons.Material.Outlined.QuestionMark),
+            "PlaceholderTitle"     => ("Missing Title",          p.MatchFailed,     Icons.Material.Outlined.Title),
+            "StagedUnidentifiable" => ("Cannot Identify",        p.MatchFailed,     Icons.Material.Outlined.ErrorOutline),
+            "ArtworkUnconfirmed"   => ("Verify Cover Art",       p.Ambiguous,       Icons.Material.Outlined.Image),
+            "MetadataConflict"     => ("Conflicting Data",       p.Ambiguous,       Icons.Material.Outlined.Compare),
+            "UserFixMatch"         => ("User Correction",        p.MultipleMatches, Icons.Material.Outlined.Edit),
+            "ArbiterNeedsReview"   => ("Review Grouping",        p.Ambiguous,       Icons.Material.Outlined.Gavel),
+            "LanguageMismatch"     => ("Foreign Language",       p.Ambiguous,       Icons.Material.Filled.Translate),
+            "UserReport"           => ("User Report",            p.UserReport,      Icons.Material.Filled.Flag),
+            "WikidataBridgeFailed" => ("Wikidata Match Failed",  p.MatchFailed,     Icons.Material.Outlined.CloudOff),
+            _                      => ("Needs Review",           p.Default,         Icons.Material.Outlined.RateReview),
+        };
+    }
 
     public static string FormatBridgeKey(string key) => key switch
     {
-        "isbn"           => "ISBN",
-        "isbn_13"        => "ISBN-13",
-        "isbn_10"        => "ISBN-10",
-        "asin"           => "ASIN",
-        "tmdb_id"        => "TMDB",
-        "imdb_id"        => "IMDb",
-        "wikidata_qid"   => "Wikidata",
-        "apple_books_id" => "Apple API",
-        "audible_id"     => "Audible",
-        "goodreads_id"   => "Goodreads",
-        "musicbrainz_id" => "MusicBrainz",
-        "comic_vine_id"  => "Comic Vine",
+        BridgeIdKeys.Isbn        => "ISBN",
+        BridgeIdKeys.Isbn13      => "ISBN-13",
+        BridgeIdKeys.Isbn10      => "ISBN-10",
+        BridgeIdKeys.Asin        => "ASIN",
+        BridgeIdKeys.TmdbId      => "TMDB",
+        BridgeIdKeys.ImdbId      => "IMDb",
+        BridgeIdKeys.WikidataQid => "Wikidata",
+        BridgeIdKeys.AppleBooksId => "Apple API",
+        BridgeIdKeys.AudibleId   => "Audible",
+        BridgeIdKeys.GoodreadsId => "Goodreads",
+        BridgeIdKeys.MusicBrainzId => "MusicBrainz",
+        BridgeIdKeys.ComicVineId => "Comic Vine",
         _ => key.Replace("_", " ").ToUpperInvariant(),
     };
 
@@ -139,23 +152,27 @@ public static class RegistryHelpers
     // ── Status helpers (new 4-state model) ────────────────────────────────
 
     /// <summary>Returns the hex color for the four-state registry model.</summary>
-    public static string GetStatusColor(string status) => status switch
+    public static string GetStatusColor(string status)
     {
-        "Identified"     => "#5DCAA5",  // teal green — matched and confirmed via Wikidata
-        "Confirmed"      => "#5C9FCA",  // blue — curator confirmed, no Wikidata QID
-        "InReview"       => "#EF9F27",  // amber
-        "Provisional"    => "#B4B2A9",  // neutral gray
-        "Rejected"       => "#E24B4A",  // red
-        "Known"          => "#B39DDB",  // soft purple — for people/universes
-        "AwaitingStage2" => "#7F77DD",  // purple — Stage 1 done, awaiting Wikidata
-        // Legacy statuses (backward compat during migration)
-        "Review"      => "#EF9F27",
-        "Auto"        => "#5DCAA5",
-        "Edited"      => "#5DCAA5",
-        "Staging"     => "#EF9F27",
-        "Duplicate"   => "#EF9F27",
-        _             => "rgba(255,255,255,0.3)",
-    };
+        var p = PaletteProvider.Current.Status;
+        return status switch
+        {
+            "Identified"     => p.Identified,
+            "Confirmed"      => p.Confirmed,
+            "InReview"       => p.InReview,
+            "Provisional"    => p.Provisional,
+            "Rejected"       => p.Rejected,
+            "Known"          => p.Known,
+            "AwaitingStage2" => p.AwaitingStage2,
+            // Legacy statuses (backward compat during migration)
+            "Review"     => p.InReview,
+            "Auto"       => p.Identified,
+            "Edited"     => p.Identified,
+            "Staging"    => p.InReview,
+            "Duplicate"  => p.InReview,
+            _            => p.Default,
+        };
+    }
 
     /// <summary>Returns the icon for a registry status badge.</summary>
     public static string GetStatusIcon(string status) => status switch
@@ -196,17 +213,20 @@ public static class RegistryHelpers
 
     // ── Four-State Colors (Registry Overhaul spec) ────────────────────────
 
-    /// <summary>Returns the hex color for the four-state model: Identified (#5DCAA5), InReview (#EF9F27), Provisional (#B4B2A9), Rejected (#E24B4A).</summary>
-    public static string GetStateColor(string state) => state switch
+    /// <summary>Returns the hex color for the four-state model.</summary>
+    public static string GetStateColor(string state)
     {
-        "Identified"               => "#5DCAA5",
-        "InReview" or "Review"
-            or "NeedsReview"        => "#EF9F27",
-        "Provisional" or "NoMatch"  => "#B4B2A9",
-        "Rejected" or "Failed"      => "#E24B4A",
-        "Known"                    => "#B39DDB",
-        _ => "#B4B2A9",
-    };
+        var p = PaletteProvider.Current.Status;
+        return state switch
+        {
+            "Identified"                          => p.Identified,
+            "InReview" or "Review" or "NeedsReview" => p.InReview,
+            "Provisional" or "NoMatch"            => p.Provisional,
+            "Rejected" or "Failed"                => p.Rejected,
+            "Known"                               => p.Known,
+            _                                     => p.Provisional,
+        };
+    }
 
     /// <summary>Returns a CSS style for a state-colored left border (3px solid).</summary>
     public static string GetStateBorderStyle(string state) =>

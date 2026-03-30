@@ -222,6 +222,22 @@ Two-stage enrichment runs after ingestion. Cover art from providers is written t
 
 All settings live in `config/` directory as individual JSON files grouped by concern. One concern per file. Provider files are self-contained. Universe files hold the knowledge model. Example files committed in `config.example/`; live files gitignored. Adding a new REST+JSON provider is a zero-code operation: drop a config file, restart.
 
+**Provider Catalogue Centralisation (implemented):** Provider UI metadata (display names, icons, accent colours, supported media types, language strategy) is centralised in provider config JSON files and exposed via `GET /providers/catalogue`. `ProviderCatalogueService` in the Dashboard caches the catalogue at startup. `ProviderAccentMap` provides static fallbacks during boot. See [`docs/providers.md`](docs/providers.md) for the complete provider reference.
+
+**Configuration Centralisation (implemented):** All scattered configuration has been consolidated into single sources of truth:
+- **`WellKnownProviders.cs`** (Domain) — all 16 provider GUIDs, replacing ~15 files of copy-pasted literals
+- **`ClaimConfidence.cs`** (Domain) — 22 named constants for the metadata confidence hierarchy (0.70–1.00)
+- **`AppRoles.cs`** (Domain) — authorisation role constants bridging `ProfileRole` enum to string comparisons
+- **`BridgeIdKeys.cs`** (Domain) — 15 external identifier key constants (isbn, tmdb_id, etc.), replacing 218 raw strings
+- **`MetadataFieldConstants.cs`** (Domain) — extended with 34 single-valued claim key constants (title, author, year, etc.), replacing 500+ raw strings
+- **`SignalREvents.cs`** (Domain) — hub path + 16 event name constants, shared between Engine publishers and Dashboard subscribers
+- **`MediaTypeClassifier.cs`** (Domain/Services) — single classifier replacing 4 divergent format-to-type implementations
+- **`PaletteConfiguration`** (Domain/Models) — ~80 hex colours loaded from `config/ui/palette.json`, enabling seasonal themes
+- **`PaletteProvider`** (Web/Theming) — static accessor for palette colours used by VaultHelpers, RegistryHelpers, ThemeService, UniverseMapper
+- **`ScoringConfiguration`** — now registered as DI singleton; `IngestionEngine`, `OrganizationGate` read thresholds from config instead of hardcoding
+- **`MaintenanceSettings.Schedules`** — all 11 cron expressions (5 background services + hydration pass2 + 5 AI schedules) consolidated from 3 config files into one `schedules` section in `maintenance.json`
+- **`RateLimitingSettings`** — rate limiting parameters (key_generation, streaming, general) moved from hardcoded `Program.cs` to `core.json`
+
 ### 3.9 — Universe Graph & Chronicle Engine
 **Detail:** [`docs/architecture/universe-graph.md`](docs/architecture/universe-graph.md)
 

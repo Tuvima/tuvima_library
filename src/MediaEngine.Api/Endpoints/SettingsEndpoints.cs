@@ -1,5 +1,6 @@
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
@@ -138,7 +139,7 @@ public static class SettingsEndpoints
 
             // Broadcast the new active watch path to all connected Dashboard circuits.
             await publisher.PublishAsync(
-                "WatchFolderActive",
+                SignalREvents.WatchFolderActive,
                 new WatchFolderActiveEvent(core.WatchDirectory, DateTimeOffset.UtcNow),
                 ct);
 

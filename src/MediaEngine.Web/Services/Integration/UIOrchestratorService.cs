@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+﻿using MediaEngine.Domain;
+using Microsoft.AspNetCore.SignalR.Client;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -783,7 +784,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         var baseUrl = _config["Engine:BaseUrl"] ?? "http://localhost:61495";
         var apiKey  = _config["Engine:ApiKey"]  ?? string.Empty;
-        var hubUrl  = $"{baseUrl.TrimEnd('/')}/hubs/intercom";
+        var hubUrl  = $"{baseUrl.TrimEnd('/')}{SignalREvents.HubPath}";
 
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(hubUrl, options =>
@@ -805,7 +806,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "MediaAdded" ──────────────────────────────────────────────────────
         // A new Work has been committed to the library.
         // Invalidate the cache so the grid refreshes on next render.
-        _hubConnection.On<MediaAddedEvent>("MediaAdded", ev =>
+        _hubConnection.On<MediaAddedEvent>(SignalREvents.MediaAdded, ev =>
         {
             _logger.LogInformation(
                 "Intercom ← MediaAdded: WorkId={WorkId} Title=\"{Title}\" Type={MediaType}",
@@ -816,7 +817,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "IngestionCompleted" ────────────────────────────────────────────────
         // A file has been fully ingested (hashed, scored, and optionally moved).
         // The Engine publishes this event; invalidate the cache so the grid refreshes.
-        _hubConnection.On<IngestionCompletedClientEvent>("IngestionCompleted", ev =>
+        _hubConnection.On<IngestionCompletedClientEvent>(SignalREvents.IngestionCompleted, ev =>
         {
             _logger.LogInformation(
                 "Intercom ← IngestionCompleted: File=\"{File}\" Type={MediaType}",
@@ -826,7 +827,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         // ── "IngestionProgress" ───────────────────────────────────────────────
         // Active ingestion tick — update the progress indicator.
-        _hubConnection.On<IngestionProgressEvent>("IngestionProgress", ev =>
+        _hubConnection.On<IngestionProgressEvent>(SignalREvents.IngestionProgress, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← IngestionProgress: [{Stage}] {Done}/{Total} — {File}",
@@ -837,7 +838,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "BatchProgress" ─────────────────────────────────────────────────
         // Per-file progress tick during an ingestion batch — carries running
         // counters and estimated time remaining for the active batch card.
-        _hubConnection.On<BatchProgressEvent>("BatchProgress", ev =>
+        _hubConnection.On<BatchProgressEvent>(SignalREvents.BatchProgress, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← BatchProgress: {Done}/{Total} ({Pct}%) ~{Eta}s remaining",
@@ -848,7 +849,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "MetadataHarvested" ───────────────────────────────────────────────
         // An external provider updated cover art / description / narrator etc.
         // Invalidate the state cache so cards re-render with the new data.
-        _hubConnection.On<MetadataHarvestedEvent>("MetadataHarvested", ev =>
+        _hubConnection.On<MetadataHarvestedEvent>(SignalREvents.MetadataHarvested, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← MetadataHarvested: EntityId={Id} Provider={Provider} Fields=[{Fields}]",
@@ -858,7 +859,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         // ── "PersonEnriched" ──────────────────────────────────────────────────
         // Wikidata has enriched an author/narrator with a headshot + biography.
-        _hubConnection.On<PersonEnrichedEvent>("PersonEnriched", ev =>
+        _hubConnection.On<PersonEnrichedEvent>(SignalREvents.PersonEnriched, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← PersonEnriched: PersonId={Id} Name={Name}",
@@ -869,7 +870,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "MediaRemoved" ────────────────────────────────────────────────────
         // A file was removed (orphaned during ingestion scan or reconciliation).
         // Invalidate the hub cache so the home page refreshes on next render.
-        _hubConnection.On("MediaRemoved", () =>
+        _hubConnection.On(SignalREvents.MediaRemoved, () =>
         {
             _logger.LogInformation("Intercom ← MediaRemoved: invalidating hub cache");
             _state.Invalidate();
@@ -878,7 +879,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "WatchFolderActive" ───────────────────────────────────────────────
         // The Watch Folder has been updated; notify state container so interested
         // components (e.g. Settings page connection indicator) can react.
-        _hubConnection.On<WatchFolderActiveEvent>("WatchFolderActive", ev =>
+        _hubConnection.On<WatchFolderActiveEvent>(SignalREvents.WatchFolderActive, ev =>
         {
             _logger.LogInformation(
                 "Intercom ← WatchFolderActive: Dir={Dir} At={At}",
@@ -888,7 +889,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         // ── "ReviewItemCreated" ──────────────────────────────────────────────
         // A new review item was created by the hydration pipeline.
-        _hubConnection.On<ReviewItemCreatedEvent>("ReviewItemCreated", ev =>
+        _hubConnection.On<ReviewItemCreatedEvent>(SignalREvents.ReviewItemCreated, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← ReviewItemCreated: ReviewId={Id} EntityId={EntityId} Trigger={Trigger}",
@@ -899,7 +900,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         // ── "ReviewItemResolved" ─────────────────────────────────────────────
         // A review item was resolved or dismissed.
-        _hubConnection.On<ReviewItemResolvedEvent>("ReviewItemResolved", ev =>
+        _hubConnection.On<ReviewItemResolvedEvent>(SignalREvents.ReviewItemResolved, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← ReviewItemResolved: ReviewId={Id} Status={Status}",
@@ -911,7 +912,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         // ── "HydrationStageCompleted" ────────────────────────────────────────
         // A pipeline stage completed — metadata may have changed.
-        _hubConnection.On<HydrationStageCompletedEvent>("HydrationStageCompleted", ev =>
+        _hubConnection.On<HydrationStageCompletedEvent>(SignalREvents.HydrationStageCompleted, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← HydrationStageCompleted: EntityId={Id} Stage={Stage} Claims={Claims}",
@@ -922,7 +923,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "FolderHealthChanged" ───────────────────────────────────────────
         // Periodic health check reports whether Watch/Library folders are accessible.
         // LibrariesTab subscribes to OnFolderHealthChanged to update status dots.
-        _hubConnection.On<FolderHealthChangedEvent>("FolderHealthChanged", ev =>
+        _hubConnection.On<FolderHealthChangedEvent>(SignalREvents.FolderHealthChanged, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← FolderHealthChanged: Path={Path} Accessible={Ok}",
@@ -936,7 +937,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         // ── "LoreDeltaDiscovered" ─────────────────────────────────────────────
         // Stage 3 Lore Delta sweep found entities with updated Wikidata revisions.
         // Vault page subscribes to OnLoreDeltaDiscovered to show an amber banner.
-        _hubConnection.On<LoreDeltaDiscoveredEvent>("LoreDeltaDiscovered", ev =>
+        _hubConnection.On<LoreDeltaDiscoveredEvent>(SignalREvents.LoreDeltaDiscovered, ev =>
         {
             _logger.LogDebug(
                 "Intercom ← LoreDeltaDiscovered: Universe={Qid} Changed={Count}",

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -47,8 +48,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 {
     // Stable GUID representing the local-file processor as a "provider".
     // Used as ProviderId in MetadataClaim rows so the scoring engine can weight it.
-    private static readonly Guid LocalProcessorProviderId =
-        new("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f");
+    private static readonly Guid LocalProcessorProviderId = WellKnownProviders.LocalProcessor;
 
     // Extensions that are never media files and must be skipped by the batch
     // scanner and polling sweep.  These can appear in watch folders as sidecar
@@ -109,6 +109,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly ISmartLabeler _smartLabeler;
     private readonly IMediaTypeAdvisor _typeAdvisor;
 
+    // Pipeline provenance — records lifecycle events for timeline.
+    private readonly IEntityTimelineRepository _timelineRepo;
+
+    // Config-driven thresholds — replaces hardcoded 0.85 literals.
+    private readonly ScoringConfiguration _scoringConfig;
+
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -148,6 +154,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IIngestionLogRepository    ingestionLog,
         ISmartLabeler             smartLabeler,
         IMediaTypeAdvisor         typeAdvisor,
+        IEntityTimelineRepository timelineRepo,
+        ScoringConfiguration      scoringConfig,
         ImagePathService?         imagePathService = null)
     {
         _watcher          = watcher;
@@ -175,6 +183,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _ingestionLog     = ingestionLog;
         _smartLabeler      = smartLabeler;
         _typeAdvisor       = typeAdvisor;
+        _timelineRepo      = timelineRepo;
+        _scoringConfig     = scoringConfig;
         _imagePathService  = imagePathService;
     }
 
@@ -392,7 +402,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogWarning(
                 "Ingestion skipped (lock probe failed): {Path} — {Reason}",
                 candidate.Path, candidate.FailureReason);
-            await SafePublishAsync("IngestionFailed", new IngestionFailedEvent(
+            await SafePublishAsync(SignalREvents.IngestionFailed, new IngestionFailedEvent(
                 candidate.Path,
                 candidate.FailureReason ?? "Lock probe exhausted",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
@@ -412,7 +422,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return;
         }
 
-        await SafePublishAsync("IngestionStarted", new IngestionStartedEvent(
+        await SafePublishAsync(SignalREvents.IngestionStarted, new IngestionStartedEvent(
             candidate.Path, DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
         // Lifecycle log: create entry at detection.
@@ -434,7 +444,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Step 4: hash.
         var hash = await _hasher.ComputeAsync(candidate.Path, ct).ConfigureAwait(false);
 
-        await SafePublishAsync("IngestionHashed", new IngestionHashedEvent(
+        await SafePublishAsync(SignalREvents.IngestionHashed, new IngestionHashedEvent(
             candidate.Path, hash.Hex, hash.FileSize, hash.Elapsed), ct).ConfigureAwait(false);
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
@@ -557,7 +567,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // "2001 A Space Odyssey" keeps the year, "Frank Herbert - Dune" extracts the author.
         {
             var rawTitle = result.Claims.FirstOrDefault(c =>
-                c.Key.Equals("title", StringComparison.OrdinalIgnoreCase));
+                c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase));
 
             if (rawTitle is not null)
             {
@@ -570,23 +580,23 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     {
                         // Replace the title claim with the AI-cleaned version at higher confidence.
                         var updatedClaims = result.Claims
-                            .Where(c => !c.Key.Equals("title", StringComparison.OrdinalIgnoreCase))
+                            .Where(c => !c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))
                             .ToList();
 
                         updatedClaims.Add(new Processors.Models.ExtractedClaim
                         {
-                            Key = "title",
+                            Key = MetadataFieldConstants.Title,
                             Value = cleaned.Title,
                             Confidence = Math.Max(rawTitle.Confidence, cleaned.Confidence),
                         });
 
                         // Add author if extracted and not already present.
                         if (!string.IsNullOrWhiteSpace(cleaned.Author)
-                            && !result.Claims.Any(c => c.Key.Equals("author", StringComparison.OrdinalIgnoreCase)))
+                            && !result.Claims.Any(c => c.Key.Equals(MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase)))
                         {
                             updatedClaims.Add(new Processors.Models.ExtractedClaim
                             {
-                                Key = "author",
+                                Key = MetadataFieldConstants.Author,
                                 Value = cleaned.Author,
                                 Confidence = cleaned.Confidence * 0.9,
                             });
@@ -594,7 +604,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                         // Add year if extracted and not already present.
                         if (cleaned.Year.HasValue
-                            && !result.Claims.Any(c => c.Key.Equals("year", StringComparison.OrdinalIgnoreCase)
+                            && !result.Claims.Any(c => c.Key.Equals(MetadataFieldConstants.Year, StringComparison.OrdinalIgnoreCase)
                                                     || c.Key.Equals("release_year", StringComparison.OrdinalIgnoreCase)))
                         {
                             updatedClaims.Add(new Processors.Models.ExtractedClaim
@@ -607,11 +617,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                         // Add season number if extracted and not already present.
                         if (cleaned.Season.HasValue
-                            && !updatedClaims.Any(c => c.Key.Equals("season_number", StringComparison.OrdinalIgnoreCase)))
+                            && !updatedClaims.Any(c => c.Key.Equals(MetadataFieldConstants.SeasonNumber, StringComparison.OrdinalIgnoreCase)))
                         {
                             updatedClaims.Add(new Processors.Models.ExtractedClaim
                             {
-                                Key = "season_number",
+                                Key = MetadataFieldConstants.SeasonNumber,
                                 Value = cleaned.Season.Value.ToString(),
                                 Confidence = cleaned.Confidence,
                             });
@@ -619,11 +629,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                         // Add episode number if extracted and not already present.
                         if (cleaned.Episode.HasValue
-                            && !updatedClaims.Any(c => c.Key.Equals("episode_number", StringComparison.OrdinalIgnoreCase)))
+                            && !updatedClaims.Any(c => c.Key.Equals(MetadataFieldConstants.EpisodeNumber, StringComparison.OrdinalIgnoreCase)))
                         {
                             updatedClaims.Add(new Processors.Models.ExtractedClaim
                             {
-                                Key = "episode_number",
+                                Key = MetadataFieldConstants.EpisodeNumber,
                                 Value = cleaned.Episode.Value.ToString(),
                                 Confidence = cleaned.Confidence,
                             });
@@ -676,7 +686,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
-            await SafePublishAsync("IngestionFailed", new IngestionFailedEvent(
+            await SafePublishAsync(SignalREvents.IngestionFailed, new IngestionFailedEvent(
                 candidate.Path,
                 $"Corrupt: {result.CorruptReason}",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
@@ -704,6 +714,28 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             Detail = $"Metadata extracted — {result.Claims.Count} fields found",
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
+
+        // ── Timeline: Stage 0 file_scanned event ────────────────────────────
+        try
+        {
+            await _timelineRepo.InsertEventAsync(new EntityEvent
+            {
+                EntityId       = assetId,
+                EntityType     = "Work",
+                EventType      = "file_scanned",
+                Stage          = 0,
+                Trigger        = "ingestion",
+                ProviderId     = LocalProcessorProviderId.ToString(),
+                ProviderName   = "local_processor",
+                Confidence     = result.Claims.Count > 0 ? 1.0 : 0.0,
+                IngestionRunId = ingestionRunId,
+                Detail         = $"File scanned: {Path.GetFileName(candidate.Path)} — {result.Claims.Count} fields extracted ({result.DetectedType})",
+            }, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to write Stage 0 timeline event for asset {Id}", assetId);
+        }
 
         // Step 9: score.
         // CategoryConfidencePrior: currently 0.0 (single WatchDirectory = general catch-all).
@@ -755,7 +787,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Lifecycle log: scored.
         var detectedTitle = scored.FieldScores
-            .FirstOrDefault(f => f.Key.Equals("title", StringComparison.OrdinalIgnoreCase))?.WinningValue;
+            .FirstOrDefault(f => f.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.WinningValue;
         try { await _ingestionLog.UpdateStatusAsync(logEntryId, "scored",
             confidenceScore: scored.OverallConfidence,
             detectedTitle: detectedTitle,
@@ -935,7 +967,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             try
             {
                 var genreClaim = result.Claims.FirstOrDefault(c =>
-                    c.Key.Equals("genre", StringComparison.OrdinalIgnoreCase));
+                    c.Key.Equals(MetadataFieldConstants.Genre, StringComparison.OrdinalIgnoreCase));
                 var durationClaim = result.Claims.FirstOrDefault(c =>
                     c.Key.Equals("duration_sec", StringComparison.OrdinalIgnoreCase));
                 var bitrateClaim = result.Claims.FirstOrDefault(c =>
@@ -1025,7 +1057,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         canonicals.Add(new CanonicalValue
         {
             EntityId     = assetId,
-            Key          = "media_type",
+            Key          = MetadataFieldConstants.MediaTypeField,
             Value        = resolvedMediaType.ToString(),
             LastScoredAt = scored.ScoredAt,
             IsConflicted = mediaTypeIsConflicted,
@@ -1040,7 +1072,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             canonicals.Add(new CanonicalValue
             {
                 EntityId     = assetId,
-                Key          = "cover_url",
+                Key          = MetadataFieldConstants.CoverUrl,
                 Value        = $"/stream/{assetId}/cover",
                 LastScoredAt = scored.ScoredAt,
             });
@@ -1051,7 +1083,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Create MetadataConflict review item when any canonical value has IsConflicted=true.
         // Conflicts don't block organization — the file proceeds with the best-guess value.
         var conflictedFields = canonicals
-            .Where(c => c.IsConflicted && c.Key != "media_type") // media_type handled separately
+            .Where(c => c.IsConflicted && c.Key != MetadataFieldConstants.MediaTypeField) // media_type handled separately
             .Select(c => c.Key)
             .ToList();
 
@@ -1128,11 +1160,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             ActionType     = Domain.Enums.SystemActionType.EntityChainCreated,
             EntityId       = assetId,
             EntityType     = "MediaAsset",
-            Detail         = $"Catalogue entry created for \"{candidate.Metadata?.GetValueOrDefault("title", "Unknown") ?? "Unknown"}\"",
+            Detail         = $"Catalogue entry created for \"{candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown") ?? "Unknown"}\"",
             ChangesJson    = JsonSerializer.Serialize(new
             {
-                title      = candidate.Metadata?.GetValueOrDefault("title"),
-                author     = candidate.Metadata?.GetValueOrDefault("author"),
+                title      = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title),
+                author     = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Author),
                 media_type = resolvedMediaType.ToString(),
                 edition_id = editionId.ToString(),
             }),
@@ -1157,8 +1189,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             return;
         }
 
-        var resolvedTitle  = candidate.Metadata?.GetValueOrDefault("title",  "Unknown") ?? "Unknown";
-        var resolvedAuthor = candidate.Metadata?.GetValueOrDefault("author", string.Empty) ?? string.Empty;
+        var resolvedTitle  = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title,  "Unknown") ?? "Unknown";
+        var resolvedAuthor = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Author, string.Empty) ?? string.Empty;
 
         _logger.LogInformation(
             "Ingested [{Type}] '{Title}' (confidence={Confidence:P0}, hash={Hash})",
@@ -1168,8 +1200,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         string authorPart = string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}";
 
         // Build structured JSON for the rich match card in the Dashboard.
-        var resolvedYear        = candidate.Metadata?.GetValueOrDefault("year", string.Empty) ?? string.Empty;
-        var resolvedDescription = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty;
+        var resolvedYear        = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Year, string.Empty) ?? string.Empty;
+        var resolvedDescription = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Description, string.Empty) ?? string.Empty;
         var richJson = JsonSerializer.Serialize(new
         {
             title       = resolvedTitle,
@@ -1188,7 +1220,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             "FileDetected — \"{Title}\"{Author} ({Confidence:P0})",
             resolvedTitle, authorPart, scored.OverallConfidence);
 
-        await SafePublishAsync("IngestionCompleted", new IngestionCompletedEvent(
+        await SafePublishAsync(SignalREvents.IngestionCompleted, new IngestionCompletedEvent(
             candidate.Path,
             resolvedMediaType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
@@ -1409,6 +1441,41 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     Detail         = $"Tags written back to file ({tagsWritten.Count} field(s){(coverWritten ? " + cover art" : "")})",
                     IngestionRunId = ingestionRunId,
                 }, ct).ConfigureAwait(false);
+
+                // ── Timeline: sync writeback event ───────────────────────────
+                try
+                {
+                    var writebackEvent = new EntityEvent
+                    {
+                        EntityId       = assetId,
+                        EntityType     = "Work",
+                        EventType      = "sync_writeback",
+                        Stage          = null,
+                        Trigger        = "ingestion",
+                        IngestionRunId = ingestionRunId,
+                        Detail         = $"Metadata written back to file: {tagsWritten.Count} field(s){(coverWritten ? " + cover art" : "")}",
+                    };
+                    await _timelineRepo.InsertEventAsync(writebackEvent, ct).ConfigureAwait(false);
+
+                    // Record each written field as a field change.
+                    if (candidate.Metadata.Count > 0)
+                    {
+                        var fieldChanges = candidate.Metadata
+                            .Select(kvp => new EntityFieldChange
+                            {
+                                EventId    = writebackEvent.Id,
+                                EntityId   = assetId,
+                                Field      = kvp.Key,
+                                NewValue   = kvp.Value,
+                            })
+                            .ToList();
+                        await _timelineRepo.InsertFieldChangesAsync(fieldChanges, ct).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex, "Failed to write sync writeback timeline event for asset {Id}", assetId);
+                }
             }
         }
 
@@ -1450,7 +1517,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Determine the primary match method for the summary.
         string matchMethod;
-        var titleField = scored.FieldScores.FirstOrDefault(f => f.Key == "title");
+        var titleField = scored.FieldScores.FirstOrDefault(f => f.Key == MetadataFieldConstants.Title);
         if (titleField is not null && titleField.WinningProviderId == LocalProcessorProviderId)
             matchMethod = "embedded_metadata";
         else if (titleField is not null && titleField.WinningProviderId.HasValue)
@@ -1462,12 +1529,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             title         = resolvedTitle,
             author        = resolvedAuthor,
-            year          = candidate.Metadata?.GetValueOrDefault("year", string.Empty) ?? string.Empty,
+            year          = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Year, string.Empty) ?? string.Empty,
             media_type    = resolvedMediaType.ToString(),
             confidence    = scored.OverallConfidence,
             source_file   = Path.GetFileName(candidate.Path),
             source_path   = candidate.Path,
-            description   = candidate.Metadata?.GetValueOrDefault("description", string.Empty) ?? string.Empty,
+            description   = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Description, string.Empty) ?? string.Empty,
             entity_id     = assetId.ToString(),
             organized_to  = organizedTo,
             hero_url      = heroUrl,
@@ -1546,7 +1613,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             "Asset {AssetId} marked Orphaned (file no longer exists at {Path}).",
             asset.Id, candidate.Path);
 
-        await SafePublishAsync("MediaRemoved", new
+        await SafePublishAsync(SignalREvents.MediaRemoved, new
         {
             asset_id  = asset.Id,
             file_path = candidate.Path,
@@ -1894,7 +1961,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
 
         // Determine media type from canonical values or fall back to Unknown.
-        var mediaType = metadata.TryGetValue("media_type", out var mtStr)
+        var mediaType = metadata.TryGetValue(MetadataFieldConstants.MediaTypeField, out var mtStr)
             && Enum.TryParse<MediaType>(mtStr, ignoreCase: true, out var mt)
                 ? mt
                 : (MediaType?)null;
@@ -1911,12 +1978,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         };
         var reorgScored = await _scorer.ScoreEntityAsync(reorgScoringContext, ct).ConfigureAwait(false);
         bool reorgHasUserLock    = reorgClaims.Any(c => c.IsUserLocked);
-        bool reorgHighConfidence = reorgScored.OverallConfidence >= 0.85;
+        bool reorgHighConfidence = reorgScored.OverallConfidence >= _scoringConfig.AutoLinkThreshold;
         if (!reorgHighConfidence && !reorgHasUserLock)
         {
             _logger.LogInformation(
-                "Re-organize skipped for {Hash}: confidence {Confidence:P0} below threshold (0.85)",
-                existing.ContentHash[..12], reorgScored.OverallConfidence);
+                "Re-organize skipped for {Hash}: confidence {Confidence:P0} below threshold ({Threshold:P0})",
+                existing.ContentHash[..12], reorgScored.OverallConfidence, _scoringConfig.AutoLinkThreshold);
 
             // Move to staging so the file doesn't loop on every poll sweep.
             // Only fires when the file is still in the Watch Folder (MoveToStagingAsync
@@ -1982,7 +2049,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Placeholder title guard: stage as low-confidence when the title is a
         // well-known placeholder and no bridge ID confirms identity.
-        string? reorgTitle = metadata.GetValueOrDefault("title");
+        string? reorgTitle = metadata.GetValueOrDefault(MetadataFieldConstants.Title);
         bool isPlaceholder = MetadataGuards.IsPlaceholderTitle(reorgTitle)
             && !MetadataGuards.HasBridgeId(metadata);
 
@@ -2334,11 +2401,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         foreach (var key in new[]
         {
             // Core
-            "title", "author", "narrator", "year", "series", "series_position",
+            MetadataFieldConstants.Title, MetadataFieldConstants.Author, MetadataFieldConstants.Narrator,
+            MetadataFieldConstants.Year, MetadataFieldConstants.Series, MetadataFieldConstants.SeriesPosition,
             // Bridge identifiers
-            "asin", "isbn", "tmdb_id", "imdb_id", "goodreads_id",
-            "musicbrainz_id", "apple_books_id", "audible_asin", "open_library_id",
-            "comic_vine_id", "apple_podcasts_id",
+            BridgeIdKeys.Asin, BridgeIdKeys.Isbn, BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId, BridgeIdKeys.GoodreadsId,
+            BridgeIdKeys.MusicBrainzId, BridgeIdKeys.AppleBooksId, "audible_asin", BridgeIdKeys.OpenLibraryId,
+            BridgeIdKeys.ComicVineId, "apple_podcasts_id",
         })
         {
             if (metadata.TryGetValue(key, out var value) &&
@@ -2360,11 +2428,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         var refs = new List<PersonReference>();
 
-        if (metadata.TryGetValue("author", out var author) &&
+        if (metadata.TryGetValue(MetadataFieldConstants.Author, out var author) &&
             !string.IsNullOrWhiteSpace(author))
             refs.Add(new PersonReference("Author", author.Trim()));
 
-        if (metadata.TryGetValue("narrator", out var narrator) &&
+        if (metadata.TryGetValue(MetadataFieldConstants.Narrator, out var narrator) &&
             !string.IsNullOrWhiteSpace(narrator))
             refs.Add(new PersonReference("Narrator", narrator.Trim()));
 
@@ -2423,7 +2491,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
-            await SafePublishAsync("ReviewItemCreated", new
+            await SafePublishAsync(SignalREvents.ReviewItemCreated, new
             {
                 review_id   = entry.Id,
                 entity_id   = entityId,
@@ -2492,7 +2560,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
-            await SafePublishAsync("ReviewItemCreated", new
+            await SafePublishAsync(SignalREvents.ReviewItemCreated, new
             {
                 review_id   = entry.Id,
                 entity_id   = entityId,
@@ -2560,7 +2628,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
-            await SafePublishAsync("ReviewItemCreated", new
+            await SafePublishAsync(SignalREvents.ReviewItemCreated, new
             {
                 review_id   = entry.Id,
                 entity_id   = entityId,

@@ -144,6 +144,11 @@
     </DrawerSection>
 }
 
+@* ── History Timeline ── *@
+<DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
+    <VaultTimeline EntityId="@Person.Id" />
+</DrawerSection>
+
 @* ── Assets ── *@
 <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
     <div class="vdd-assets">

@@ -1,12 +1,12 @@
 {
   "Books": {
     "primary": "apple_books",
-    "secondary": "google_books",
-    "tertiary": "open_library"
+    "secondary": "open_library",
+    "tertiary": null
   },
   "Audiobooks": {
     "primary": "apple_books",
-    "secondary": "google_books",
+    "secondary": null,
     "tertiary": null
   },
   "Comics": {

@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using MediaEngine.AI.Configuration;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -116,7 +117,7 @@ public sealed class ModelDownloadManager : IModelDownloadManager
             {
                 lastProgressReport = DateTimeOffset.UtcNow;
                 var percent = totalBytes > 0 ? (int)(downloaded * 100 / totalBytes) : 0;
-                await _eventPublisher.PublishAsync("ModelDownloadProgress", new
+                await _eventPublisher.PublishAsync(SignalREvents.ModelDownloadProgress, new
                 {
                     Role = role.ToString(),
                     Percent = percent,
@@ -149,7 +150,7 @@ public sealed class ModelDownloadManager : IModelDownloadManager
         _inventory.SetState(role, AiModelState.Ready);
         _logger.LogInformation("Model {Role} downloaded successfully: {Path} ({MB} MB)", role, modelPath, downloaded / (1024 * 1024));
 
-        await _eventPublisher.PublishAsync("ModelStateChanged", new
+        await _eventPublisher.PublishAsync(SignalREvents.ModelStateChanged, new
         {
             Role = role.ToString(),
             OldState = AiModelState.Downloading.ToString(),

@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -54,7 +55,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
             _recoveryQueue.Enqueue(providerId);
 
             // Notify Dashboard.
-            await _hubContext.Clients.All.SendAsync("ProviderStatusChanged", new
+            await _hubContext.Clients.All.SendAsync(SignalREvents.ProviderStatusChanged, new
             {
                 ProviderId = providerId,
                 Status = "Healthy",
@@ -72,7 +73,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
         // Notify Dashboard on transition to Down.
         if (newStatus == ProviderHealthStatus.Down && previousStatus != ProviderHealthStatus.Down)
         {
-            await _hubContext.Clients.All.SendAsync("ProviderStatusChanged", new
+            await _hubContext.Clients.All.SendAsync(SignalREvents.ProviderStatusChanged, new
             {
                 ProviderId = providerId,
                 Status = "Down",
@@ -199,7 +200,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
                     waitingItems.Count, providerId);
 
                 // Notify Dashboard.
-                await _hubContext.Clients.All.SendAsync("ProviderRecoveryFlush", new
+                await _hubContext.Clients.All.SendAsync(SignalREvents.ProviderRecoveryFlush, new
                 {
                     ProviderId = providerId,
                     ItemCount = waitingItems.Count,

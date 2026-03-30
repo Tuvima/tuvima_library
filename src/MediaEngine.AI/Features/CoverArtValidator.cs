@@ -1,4 +1,5 @@
 using MediaEngine.AI.Llama;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using Microsoft.Extensions.Logging;
@@ -32,10 +33,10 @@ public sealed class CoverArtValidator : ICoverArtValidator
 
         // Basic checks that don't need LLM.
         if (fileInfo.Length < 1024) // < 1KB
-            return new CoverValidationResult { IsValid = false, Confidence = 0.95, Issue = "Cover file is too small (< 1KB) — likely a placeholder" };
+            return new CoverValidationResult { IsValid = false, Confidence = ClaimConfidence.CoverArtInvalid, Issue = "Cover file is too small (< 1KB) — likely a placeholder" };
 
         if (fileInfo.Length > 50 * 1024 * 1024) // > 50MB
-            return new CoverValidationResult { IsValid = false, Confidence = 0.95, Issue = "Cover file is unusually large (> 50MB)" };
+            return new CoverValidationResult { IsValid = false, Confidence = ClaimConfidence.CoverArtInvalid, Issue = "Cover file is unusually large (> 50MB)" };
 
         // For now, basic validation passes. LLM-based comparison will be added
         // when vision models are available (Llama 3.2 Vision or similar).
@@ -44,7 +45,7 @@ public sealed class CoverArtValidator : ICoverArtValidator
         return new CoverValidationResult
         {
             IsValid = true,
-            Confidence = 0.70,
+            Confidence = ClaimConfidence.CoverArtValid,
             Issue = null,
         };
     }

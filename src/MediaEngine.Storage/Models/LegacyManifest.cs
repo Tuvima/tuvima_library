@@ -322,6 +322,45 @@ public sealed class MaintenanceSettings
     /// </summary>
     [JsonPropertyName("edition_recheck_interval_days")]
     public int EditionRecheckIntervalDays { get; set; } = 7;
+
+    /// <summary>
+    /// Cron expressions for all background services. Keys are service names,
+    /// values are standard 5-field cron expressions. Centralised here so all
+    /// schedules are visible and tuneable in one place.
+    ///
+    /// <para>Recognised keys (all default to overnight, low-traffic windows):</para>
+    /// <list type="bullet">
+    ///   <item><c>activity_pruning</c> — ActivityPruningService (default: 3 AM daily)</item>
+    ///   <item><c>library_reconciliation</c> — LibraryReconciliationService (default: 5 AM daily)</item>
+    ///   <item><c>missing_universe_sweep</c> — MissingUniverseSweepService (default: 4 AM Sundays)</item>
+    ///   <item><c>rejected_file_cleanup</c> — RejectedFileCleanupService (default: 4 AM daily)</item>
+    ///   <item><c>universe_enrichment</c> — UniverseEnrichmentService (default: 3 AM daily)</item>
+    ///   <item><c>pass2_nightly_sweep</c> — Pass 2 hydration sweep (default: 2 AM daily)</item>
+    ///   <item><c>vibe_batch</c> — AI vibe tagging batch (default: 4 AM daily)</item>
+    ///   <item><c>series_check</c> — AI series alignment check (default: 3 AM daily)</item>
+    ///   <item><c>whisper_bake</c> — Whisper audio bake (default: 2 AM daily)</item>
+    ///   <item><c>taste_profile_update</c> — Taste profile update (default: 5 AM Sundays)</item>
+    ///   <item><c>description_intelligence</c> — Description intelligence batch (default: every 15 min)</item>
+    /// </list>
+    ///
+    /// Missing keys fall back to each service's hardcoded default, so existing
+    /// deployments without this section continue to work unchanged.
+    /// </summary>
+    [JsonPropertyName("schedules")]
+    public Dictionary<string, string> Schedules { get; set; } = new()
+    {
+        ["activity_pruning"]         = "0 3 * * *",
+        ["library_reconciliation"]   = "0 5 * * *",
+        ["missing_universe_sweep"]   = "0 4 * * 0",
+        ["rejected_file_cleanup"]    = "0 4 * * *",
+        ["universe_enrichment"]      = "0 3 * * *",
+        ["pass2_nightly_sweep"]      = "0 2 * * *",
+        ["vibe_batch"]               = "0 4 * * *",
+        ["series_check"]             = "0 3 * * *",
+        ["whisper_bake"]             = "0 2 * * *",
+        ["taste_profile_update"]     = "0 5 * * 0",
+        ["description_intelligence"] = "*/15 * * * *",
+    };
 }
 
 /// <summary>

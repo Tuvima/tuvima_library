@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -119,7 +120,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
                 if (intervalHours > 0)
                 {
-                    var delay = CronScheduler.UntilNext(DefaultSchedule, TimeSpan.FromHours(24));
+                    var schedule = maintenance.Schedules.GetValueOrDefault("library_reconciliation", DefaultSchedule);
+                    if (string.IsNullOrWhiteSpace(schedule)) schedule = DefaultSchedule;
+                    var delay = CronScheduler.UntilNext(schedule, TimeSpan.FromHours(24));
                     await Task.Delay(delay, stoppingToken);
                     await ReconcileAsync(stoppingToken);
                 }
@@ -336,7 +339,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         {
             try
             {
-                await _publisher.PublishAsync("MediaRemoved", new
+                await _publisher.PublishAsync(SignalREvents.MediaRemoved, new
                 {
                     source        = "reconciliation",
                     removed_count = missingCount,

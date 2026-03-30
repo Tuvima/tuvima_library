@@ -1,5 +1,6 @@
 using System.Linq;
 using Dapper;
+using MediaEngine.Domain;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
@@ -29,7 +30,10 @@ public sealed class RegistryRepository : IRegistryRepository
         // Build the core CTE query with pivoted canonical values.
         // Canonical values are stored against media_asset.id, so we join
         // through editions → media_assets to find the correct entity_id.
-        var sql = """
+        var wikidataId       = WellKnownProviders.Wikidata.ToString();
+        var localProcessorId = WellKnownProviders.LocalProcessor.ToString();
+        var libraryScanId    = WellKnownProviders.LibraryScanner.ToString();
+        var sql = $"""
             WITH work_data AS (
                 SELECT
                     w.id AS entity_id,
@@ -87,7 +91,7 @@ public sealed class RegistryRepository : IRegistryRepository
                      INNER JOIN provider_registry pr ON pr.id = mc_rt.provider_id
                      WHERE e_rt.work_id = w.id
                        AND mc_rt.claim_key = 'title'
-                       AND mc_rt.provider_id != 'b3000003-d000-4000-8000-000000000004'
+                       AND mc_rt.provider_id != '{wikidataId}'
                        AND mc_rt.provider_id != 'local_filesystem'
                      ORDER BY mc_rt.confidence DESC
                      LIMIT 1
@@ -237,10 +241,10 @@ public sealed class RegistryRepository : IRegistryRepository
                             INNER JOIN media_assets ma_r ON ma_r.id = mc_retail.entity_id
                             INNER JOIN editions e_r ON e_r.id = ma_r.edition_id
                             WHERE e_r.work_id = wd.entity_id
-                              AND mc_retail.provider_id != 'b3000003-d000-4000-8000-000000000004'
+                              AND mc_retail.provider_id != '{wikidataId}'
                               AND mc_retail.provider_id != 'local_filesystem'
-                              AND mc_retail.provider_id != 'a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f'
-                              AND mc_retail.provider_id != 'c9d8e7f6-a5b4-4321-fedc-0102030405c9'
+                              AND mc_retail.provider_id != '{localProcessorId}'
+                              AND mc_retail.provider_id != '{libraryScanId}'
                         ) THEN 'matched'
                         WHEN rd.review_id IS NOT NULL AND rd.trigger IN ('RetailMatchFailed', 'ArtworkUnconfirmed') THEN 'failed'
                         ELSE 'none'
@@ -512,7 +516,7 @@ public sealed class RegistryRepository : IRegistryRepository
         }
         var hasUserLocks = claims.Any(c => c.IsUserLocked);
         var titleProvider = canonicalValues.FirstOrDefault(v => v.Key == "title")?.WinningProviderId;
-        var wikidataQid = cv("wikidata_qid");
+        var wikidataQid = cv(BridgeIdKeys.WikidataQid);
 
         // Status logic mirrors GetPageAsync: curator_state overrides, then review, then QID check
         bool hasValidQid = !string.IsNullOrEmpty(wikidataQid)
@@ -534,9 +538,9 @@ public sealed class RegistryRepository : IRegistryRepository
         // Collect bridge identifiers from canonical values
         var bridgeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            "isbn", "isbn_13", "isbn_10", "asin", "tmdb_id", "imdb_id", "wikidata_qid",
-            "apple_books_id", "audible_id", "goodreads_id", "musicbrainz_id",
-            "comic_vine_id"
+            BridgeIdKeys.Isbn, BridgeIdKeys.Isbn13, BridgeIdKeys.Isbn10, BridgeIdKeys.Asin, BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId, BridgeIdKeys.WikidataQid,
+            BridgeIdKeys.AppleBooksId, BridgeIdKeys.AudibleId, BridgeIdKeys.GoodreadsId, BridgeIdKeys.MusicBrainzId,
+            BridgeIdKeys.ComicVineId
         };
         var bridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var cvEntry in canonicalValues)
@@ -544,8 +548,8 @@ public sealed class RegistryRepository : IRegistryRepository
             if (bridgeKeys.Contains(cvEntry.Key) && !string.IsNullOrWhiteSpace(cvEntry.Value))
                 bridgeIds[cvEntry.Key] = cvEntry.Value;
         }
-        if (!string.IsNullOrEmpty(wikidataQid) && !bridgeIds.ContainsKey("wikidata_qid"))
-            bridgeIds["wikidata_qid"] = wikidataQid;
+        if (!string.IsNullOrEmpty(wikidataQid) && !bridgeIds.ContainsKey(BridgeIdKeys.WikidataQid))
+            bridgeIds[BridgeIdKeys.WikidataQid] = wikidataQid;
 
         // Derive match confidence: review score → QID exists (0.95) → no match (0%)
         var matchConfidence = reviewConfidence

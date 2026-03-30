@@ -1,5 +1,6 @@
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Identity.Contracts;
@@ -63,7 +64,7 @@ public static class ProfileEndpoints
 
             if (!Enum.TryParse<ProfileRole>(request.Role, ignoreCase: true, out var role))
                 return Results.BadRequest(
-                    $"Invalid role '{request.Role}'. Must be one of: Administrator, Curator, Consumer.");
+                    $"Invalid role '{request.Role}'. Must be one of: {string.Join(", ", AppRoles.All)}.");
 
             var profile = await svc.CreateProfileAsync(
                 request.DisplayName, role, request.AvatarColor, ct);
@@ -91,7 +92,7 @@ public static class ProfileEndpoints
 
             if (!Enum.TryParse<ProfileRole>(request.Role, ignoreCase: true, out var role))
                 return Results.BadRequest(
-                    $"Invalid role '{request.Role}'. Must be one of: Administrator, Curator, Consumer.");
+                    $"Invalid role '{request.Role}'. Must be one of: {string.Join(", ", AppRoles.All)}.");
 
             existing.DisplayName = request.DisplayName.Trim();
             existing.AvatarColor = string.IsNullOrWhiteSpace(request.AvatarColor)

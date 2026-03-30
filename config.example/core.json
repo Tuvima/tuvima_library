@@ -24,5 +24,10 @@
   },
   "country": "US",
   "date_format": "system",
-  "time_format": "system"
+  "time_format": "system",
+  "rate_limiting": {
+    "key_generation": { "permit_limit": 5,   "window_minutes": 1 },
+    "streaming":      { "permit_limit": 100, "window_minutes": 1 },
+    "general":        { "permit_limit": 60,  "window_minutes": 1 }
+  }
 }

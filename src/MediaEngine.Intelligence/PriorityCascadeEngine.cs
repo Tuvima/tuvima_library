@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
@@ -28,8 +29,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
     /// Claims from this provider always win over retail/local claims
     /// — unless the field has a per-field priority override.
     /// </summary>
-    private static readonly Guid WikidataProviderId =
-        Guid.Parse("b3000003-d000-4000-8000-000000000004");
+    private static readonly Guid WikidataProviderId = WellKnownProviders.Wikidata;
 
     /// <summary>
     /// Fields for which a user lock (Tier A) is honoured.

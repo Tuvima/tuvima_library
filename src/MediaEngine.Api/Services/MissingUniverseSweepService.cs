@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -37,7 +38,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
     private const double AutoAcceptThreshold  = 0.90;
 
     // User-locked claim provider GUID (matches the pattern in RegistryEndpoints)
-    private static readonly Guid UserProviderId = new("d0000000-0000-4000-8000-000000000001");
+    private static readonly Guid UserProviderId = WellKnownProviders.UserManual;
 
     private readonly IDatabaseConnection         _db;
     private readonly ISearchService              _search;
@@ -45,6 +46,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
     private readonly IHubRepository             _hubRepo;
     private readonly IHydrationPipelineService   _pipeline;
     private readonly ISystemActivityRepository   _activityRepo;
+    private readonly IConfigurationLoader        _configLoader;
     private readonly ILogger<MissingUniverseSweepService> _logger;
 
     public MissingUniverseSweepService(
@@ -54,6 +56,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         IHubRepository                        hubRepo,
         IHydrationPipelineService              pipeline,
         ISystemActivityRepository              activityRepo,
+        IConfigurationLoader                   configLoader,
         ILogger<MissingUniverseSweepService>   logger)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -62,6 +65,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         ArgumentNullException.ThrowIfNull(hubRepo);
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(activityRepo);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
 
         _db           = db;
@@ -70,6 +74,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         _hubRepo      = hubRepo;
         _pipeline     = pipeline;
         _activityRepo = activityRepo;
+        _configLoader = configLoader;
         _logger       = logger;
     }
 
@@ -97,7 +102,18 @@ public sealed class MissingUniverseSweepService : BackgroundService
                 _logger.LogWarning(ex, "MissingUniverseSweepService: sweep failed; will retry next cycle");
             }
 
-            var delay = CronScheduler.UntilNext(DefaultSchedule, TimeSpan.FromDays(7));
+            string cronSchedule;
+            try
+            {
+                var maintenanceConfig = _configLoader.LoadMaintenance();
+                cronSchedule = maintenanceConfig.Schedules.GetValueOrDefault("missing_universe_sweep", DefaultSchedule);
+                if (string.IsNullOrWhiteSpace(cronSchedule)) cronSchedule = DefaultSchedule;
+            }
+            catch
+            {
+                cronSchedule = DefaultSchedule;
+            }
+            var delay = CronScheduler.UntilNext(cronSchedule, TimeSpan.FromDays(7));
             await Task.Delay(delay, stoppingToken);
         }
     }

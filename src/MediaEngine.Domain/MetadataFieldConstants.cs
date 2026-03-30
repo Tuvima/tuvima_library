@@ -13,15 +13,53 @@ public static class MetadataFieldConstants
     /// </summary>
     public const string CompanionQidSuffix = "_qid";
 
-    /// <summary>
-    /// The Wikidata Reconciliation provider GUID.
-    /// Used to identify Wikidata claims in the priority cascade.
-    /// </summary>
-    public static readonly Guid WikidataProviderId =
-        Guid.Parse("b3000003-d000-4000-8000-000000000004");
+    /// <summary>Use <see cref="WellKnownProviders.Wikidata"/> instead.</summary>
+    [Obsolete("Use WellKnownProviders.Wikidata instead.")]
+    public static readonly Guid WikidataProviderId = WellKnownProviders.Wikidata;
 
-    /// <summary>Stable GUID for AI-generated claims (Description Intelligence, TL;DR, etc.).</summary>
-    public static readonly Guid AiProviderId = Guid.Parse("bb00000b-0000-4000-8000-000000000012");
+    /// <summary>Use <see cref="WellKnownProviders.AiProvider"/> instead.</summary>
+    [Obsolete("Use WellKnownProviders.AiProvider instead.")]
+    public static readonly Guid AiProviderId = WellKnownProviders.AiProvider;
+
+    // ── Single-valued claim keys ──────────────────────────────────────────────
+    // These are the canonical key names stored in the metadata_claims table.
+    // All claim creation and field lookups must use these constants.
+
+    public const string Title           = "title";
+    public const string Author          = "author";
+    public const string Year            = "year";
+    public const string Description     = "description";
+    public const string Cover           = "cover";
+    public const string Rating          = "rating";
+    public const string Series          = "series";
+    public const string SeriesPosition  = "series_position";
+    public const string Runtime         = "runtime";
+    public const string Album           = "album";
+    public const string Artist          = "artist";
+    public const string OriginalTitle   = "original_title";
+    public const string SeasonNumber    = "season_number";
+    public const string EpisodeNumber   = "episode_number";
+    public const string TrackNumber     = "track_number";
+    public const string MediaTypeField  = "media_type";
+    public const string PublisherField  = "publisher";
+    public const string PageCount       = "page_count";
+    public const string Language        = "language";
+    public const string DurationField   = "duration";
+    public const string Franchise       = "franchise";
+    public const string CustomTags      = "custom_tags";
+    public const string CoverUrl        = "cover_url";
+    public const string ShowName        = "show_name";
+    public const string EpisodeTitle    = "episode_title";
+    public const string PodcastName     = "podcast_name";
+
+    // ── Multi-valued claim keys also used in claim creation ──────────────────
+    public const string Narrator        = "narrator";
+    public const string Director        = "director";
+    public const string Genre           = "genre";
+    public const string Illustrator     = "illustrator";
+    public const string CastMember      = "cast_member";
+    public const string Composer        = "composer";
+    public const string Screenwriter    = "screenwriter";
 
     /// <summary>
     /// Multi-valued field keys that may contain multiple values from Wikidata

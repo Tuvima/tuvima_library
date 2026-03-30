@@ -1,4 +1,5 @@
 using MediaEngine.AI.Llama;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -29,7 +30,7 @@ public sealed class QidDisambiguator : IQidDisambiguator
             return new DisambiguationResult
             {
                 SelectedQid = candidates[0].Qid,
-                Confidence = 0.90,
+                Confidence = ClaimConfidence.QidDisambiguator,
                 Reasoning = "Single candidate — auto-selected",
             };
 

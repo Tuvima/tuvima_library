@@ -1,4 +1,5 @@
 using MediaEngine.AI.Configuration;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -80,7 +81,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager, IDisposable
 
             _logger.LogInformation("Model {Role} loaded (~{MB} MB)", role, _currentMemoryMB);
 
-            await _eventPublisher.PublishAsync("ModelStateChanged", new
+            await _eventPublisher.PublishAsync(SignalREvents.ModelStateChanged, new
             {
                 Role = role.ToString(),
                 OldState = AiModelState.Ready.ToString(),
@@ -166,7 +167,7 @@ public sealed class ModelLifecycleManager : IModelLifecycleManager, IDisposable
         _currentRole = null;
         _currentMemoryMB = 0;
 
-        await _eventPublisher.PublishAsync("ModelStateChanged", new
+        await _eventPublisher.PublishAsync(SignalREvents.ModelStateChanged, new
         {
             Role = role.ToString(),
             OldState = AiModelState.Loaded.ToString(),

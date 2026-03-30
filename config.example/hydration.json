@@ -33,6 +33,7 @@
   "retail_auto_accept_threshold": 0.85,
   "retail_ambiguous_threshold": 0.50,
   "edition_aware_media_types": ["Books", "Audiobooks", "Movies", "Comics", "Music"],
+  "timeline_retention_days": 365,
   "fuzzy_match_weights": {
     "title": 0.45,
     "author": 0.35,

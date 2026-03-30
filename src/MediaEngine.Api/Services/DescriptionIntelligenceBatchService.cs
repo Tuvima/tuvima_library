@@ -160,7 +160,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "themes",
                             Value        = theme,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     foreach (var mood in diResult.Mood)
@@ -170,7 +170,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "mood",
                             Value        = mood,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     if (!string.IsNullOrWhiteSpace(diResult.Tldr))
@@ -180,7 +180,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "tldr",
                             Value        = diResult.Tldr,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     if (!string.IsNullOrWhiteSpace(diResult.Setting))
@@ -190,7 +190,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "setting",
                             Value        = diResult.Setting,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     if (!string.IsNullOrWhiteSpace(diResult.TimePeriod))
@@ -200,7 +200,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "time_period",
                             Value        = diResult.TimePeriod,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     if (!string.IsNullOrWhiteSpace(diResult.Audience))
@@ -210,7 +210,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "audience",
                             Value        = diResult.Audience,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     foreach (var warning in diResult.ContentWarnings)
@@ -220,7 +220,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "content_warnings",
                             Value        = warning,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     if (!string.IsNullOrWhiteSpace(diResult.Pace))
@@ -230,7 +230,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             Key          = "pace",
                             Value        = diResult.Pace,
                             LastScoredAt = now,
-                            WinningProviderId = MetadataFieldConstants.AiProviderId,
+                            WinningProviderId = WellKnownProviders.AiProvider,
                         });
 
                     if (aiValues.Count > 0)
@@ -273,7 +273,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                 .OfType<ReconciliationAdapter>()
                                 .FirstOrDefault();
                             var wikidataProviderId = reconAdapter?.ProviderId
-                                ?? MetadataFieldConstants.WikidataProviderId;
+                                ?? WellKnownProviders.Wikidata;
 
                             var aiPersonClaims = new List<ProviderClaim>();
 

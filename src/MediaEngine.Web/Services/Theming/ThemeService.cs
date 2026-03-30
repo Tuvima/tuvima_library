@@ -4,19 +4,18 @@ namespace MediaEngine.Web.Services.Theming;
 
 /// <summary>
 /// Manages the active UI theme. Dark mode only — light mode has been removed.
-/// The accent colour is fixed to golden amber.
+/// The accent colour is fixed to golden amber, sourced from <see cref="PaletteProvider"/>.
 /// </summary>
 public sealed class ThemeService
 {
-    private const string DefaultPrimary = "#EAB308"; // amber gold — cinematic accent
-
     /// <summary>Always dark — light mode has been removed.</summary>
     public bool IsDarkMode => true;
 
     /// <summary>
     /// The active MudBlazor theme. Uses the cinematic dark palette exclusively.
+    /// Colours are sourced from <see cref="PaletteProvider.Current"/> at construction time.
     /// </summary>
-    public MudTheme Theme { get; } = BuildTheme(DefaultPrimary);
+    public MudTheme Theme { get; } = BuildTheme();
 
     /// <summary>
     /// Legacy API — retained so existing callers compile. No-op: accent is fixed.
@@ -25,8 +24,13 @@ public sealed class ThemeService
 
     // ── Theme construction ─────────────────────────────────────────────────────
 
-    private static MudTheme BuildTheme(string primaryHex) => new()
+    private static MudTheme BuildTheme()
     {
+        var t = PaletteProvider.Current.Theme;
+        var primaryHex = t.Primary;
+
+        return new MudTheme
+        {
         LayoutProperties = new LayoutProperties
         {
             // 8 px border radius — rectangular with a light curve.
@@ -39,26 +43,26 @@ public sealed class ThemeService
             Primary             = primaryHex,
             PrimaryDarken       = DarkenHex(primaryHex),
             PrimaryLighten      = LightenHex(primaryHex),
-            Secondary           = "#9CA3AF",
-            SecondaryDarken     = "#4B5563",
-            Background          = "#080B14",
-            BackgroundGray      = "#0C1020",
-            Surface             = "#0C1020",
-            AppbarBackground    = "#080B14",
-            DrawerBackground    = "#0C1020",
-            DrawerText          = "#F3F4F6",
-            DrawerIcon          = "#9CA3AF",
-            TextPrimary         = "#F3F4F6",
-            TextSecondary       = "#9CA3AF",
-            TextDisabled        = "#4B5563",
+            Secondary           = t.Secondary,
+            SecondaryDarken     = t.TextDisabled,
+            Background          = t.Background,
+            BackgroundGray      = t.Surface,
+            Surface             = t.Surface,
+            AppbarBackground    = t.Background,
+            DrawerBackground    = t.Surface,
+            DrawerText          = t.TextPrimary,
+            DrawerIcon          = t.TextSecondary,
+            TextPrimary         = t.TextPrimary,
+            TextSecondary       = t.TextSecondary,
+            TextDisabled        = t.TextDisabled,
             ActionDefault       = "rgba(243,244,246,0.54)",
             LinesDefault        = "rgba(255,255,255,0.08)",
             Divider             = "rgba(255,255,255,0.08)",
             OverlayDark         = "rgba(0,0,0,0.8)",
-            Error               = "#CF6679",
-            Warning             = "#FFB74D",
-            Info                = "#4FC3F7",
-            Success             = "#81C784",
+            Error               = t.Error,
+            Warning             = t.Warning,
+            Info                = t.Info,
+            Success             = t.Success,
         },
 
         Typography = new Typography
@@ -87,7 +91,8 @@ public sealed class ThemeService
             // Metadata Tags (Tiny, bold, wide tracking, uppercase)
             Overline = new OverlineTypography { FontWeight = "600", FontSize = "0.7rem", LetterSpacing = "0.08em", TextTransform = "uppercase" }
         },
-    };
+        };
+    }
 
     // ── Colour helpers ─────────────────────────────────────────────────────────
 

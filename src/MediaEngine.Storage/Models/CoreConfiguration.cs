@@ -110,6 +110,13 @@ public sealed class CoreConfiguration
     [JsonPropertyName("time_format")]
     public string TimeFormat { get; set; } = "system";
 
+    /// <summary>
+    /// Rate limiting policy parameters for the Engine API.
+    /// Controls per-IP request limits for key generation, streaming, and general endpoints.
+    /// </summary>
+    [JsonPropertyName("rate_limiting")]
+    public RateLimitingSettings RateLimiting { get; set; } = new();
+
     private static string GetDefaultCountry()
     {
         try { return RegionInfo.CurrentRegion.TwoLetterISORegionName; }

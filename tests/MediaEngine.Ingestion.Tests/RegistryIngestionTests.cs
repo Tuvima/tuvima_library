@@ -132,10 +132,12 @@ public sealed class RegistryIngestionTests : IDisposable
             _activityRepo,
             _reconciliation,
             _heroGenerator,
-            new MediaEngine.Ingestion.OrganizationGate(),
+            new MediaEngine.Ingestion.OrganizationGate(new MediaEngine.Intelligence.Models.ScoringConfiguration()),
             _ingestionLog,
             new MediaEngine.Ingestion.Tests.Helpers.StubSmartLabeler(),
-            new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor());
+            new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
+            new MediaEngine.Ingestion.Tests.Helpers.StubEntityTimelineRepository(),
+            new MediaEngine.Intelligence.Models.ScoringConfiguration());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

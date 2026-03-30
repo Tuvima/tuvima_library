@@ -3329,6 +3329,84 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Timeline (/timeline) ─────────────────────────────────────────────────
+
+    public async Task<List<EntityTimelineEventDto>?> GetEntityTimelineAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<EntityTimelineEventDto>>(
+                $"/timeline/{entityId}", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /timeline/{EntityId} failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<List<EntityTimelineEventDto>?> GetPipelineStateAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<EntityTimelineEventDto>>(
+                $"/timeline/{entityId}/pipeline", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /timeline/{EntityId}/pipeline failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<List<EntityFieldChangeDto>?> GetEventFieldChangesAsync(Guid entityId, Guid eventId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<EntityFieldChangeDto>>(
+                $"/timeline/{entityId}/event/{eventId}/changes", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /timeline/{EntityId}/event/{EventId}/changes failed", entityId, eventId);
+            return null;
+        }
+    }
+
+    public async Task<bool> RevertSyncWritebackAsync(Guid entityId, Guid eventId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync(
+                $"/timeline/{entityId}/revert/{eventId}", new { }, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /timeline/{EntityId}/revert/{EventId} failed", entityId, eventId);
+            return false;
+        }
+    }
+
+    public async Task<bool> RematchEntityAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsync($"/timeline/{entityId}/rematch", null, ct).ConfigureAwait(false);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /timeline/{EntityId}/rematch failed", entityId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Raw deserialization models (character/universe health) ────────────────
 
     private sealed class UniverseHealthRaw

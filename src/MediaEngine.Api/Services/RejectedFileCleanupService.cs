@@ -73,7 +73,18 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 _logger.LogWarning(ex, "Rejected file cleanup pass failed; will retry next cycle");
             }
 
-            var delay = CronScheduler.UntilNext(DefaultSchedule, TimeSpan.FromHours(24));
+            string cleanupSchedule;
+            try
+            {
+                var maintenanceConfig = _configLoader.LoadMaintenance();
+                cleanupSchedule = maintenanceConfig.Schedules.GetValueOrDefault("rejected_file_cleanup", DefaultSchedule);
+                if (string.IsNullOrWhiteSpace(cleanupSchedule)) cleanupSchedule = DefaultSchedule;
+            }
+            catch
+            {
+                cleanupSchedule = DefaultSchedule;
+            }
+            var delay = CronScheduler.UntilNext(cleanupSchedule, TimeSpan.FromHours(24));
             _logger.LogInformation("Next rejected-file cleanup at {NextRun}", DateTimeOffset.Now.Add(delay));
             await Task.Delay(delay, stoppingToken);
         }

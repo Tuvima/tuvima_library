@@ -1,4 +1,6 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Services;
@@ -72,13 +74,23 @@ public sealed class UniverseEnrichmentService : BackgroundService
             _manualTrigger.Reset();
 
             // Reload config each iteration so schedule changes take effect.
+            // Prefer the centralised Schedules["universe_enrichment"] key in maintenance.json;
+            // fall back to the legacy Stage3ScheduleCron in hydration.json for backward compatibility.
             string cron;
             try
             {
                 using var configScope = _scopeFactory.CreateScope();
                 var configLoader = configScope.ServiceProvider.GetRequiredService<IConfigurationLoader>();
-                var config = configLoader.LoadHydration();
-                cron = config.Stage3ScheduleCron;
+                var maintenance = configLoader.LoadMaintenance();
+                cron = maintenance.Schedules.GetValueOrDefault("universe_enrichment", string.Empty);
+                if (string.IsNullOrWhiteSpace(cron))
+                {
+                    // Legacy fallback: read from hydration.json
+#pragma warning disable CS0618 // Stage3ScheduleCron is intentionally read here for backward compatibility
+                    var hydration = configLoader.LoadHydration();
+                    cron = hydration.Stage3ScheduleCron;
+#pragma warning restore CS0618
+                }
             }
             catch
             {
@@ -336,6 +348,31 @@ public sealed class UniverseEnrichmentService : BackgroundService
                     }
                 ], ct).ConfigureAwait(false);
 
+                // ── Timeline: Stage 3 universe_grouped event ─────────────────
+                try
+                {
+                    var timelineRepo = scope.ServiceProvider.GetService<IEntityTimelineRepository>();
+                    if (timelineRepo is not null)
+                    {
+                        await timelineRepo.InsertEventAsync(new EntityEvent
+                        {
+                            EntityId    = entityId,
+                            EntityType  = "Work",
+                            EventType   = "universe_grouped",
+                            Stage       = 3,
+                            Trigger     = "universe_enrichment",
+                            ResolvedQid = qidValue,
+                            Detail      = $"Universe enrichment complete for \"{workTitle ?? "(untitled)"}\" ({qidValue})",
+                        }, ct).ConfigureAwait(false);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "[UNIVERSE-ENRICH] Failed to write Stage 3 timeline event for entity {Id}",
+                        entityId);
+                }
+
                 processed++;
 
                 _logger.LogDebug(
@@ -446,6 +483,31 @@ public sealed class UniverseEnrichmentService : BackgroundService
                         enrichedAt:  DateTimeOffset.MinValue,   // Signals "needs re-enrichment"
                         ct).ConfigureAwait(false);
 
+                    // Timeline: record Lore Delta discovery.
+                    try
+                    {
+                        var timelineRepo = scope.ServiceProvider.GetService<IEntityTimelineRepository>();
+                        if (timelineRepo is not null)
+                        {
+                            await timelineRepo.InsertEventAsync(new EntityEvent
+                            {
+                                EntityId    = entity.Id,
+                                EntityType  = "Work",
+                                EventType   = "universe_refreshed",
+                                Stage       = 3,
+                                Trigger     = "lore_delta",
+                                ResolvedQid = result.EntityQid,
+                                Detail      = $"Lore Delta: \"{result.Label ?? result.EntityQid}\" marked for re-enrichment (rev {result.CachedRevision} → {result.CurrentRevision})",
+                            }, ct).ConfigureAwait(false);
+                        }
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        _logger.LogDebug(ex,
+                            "[LORE-DELTA] Failed to write universe_refreshed timeline event for entity {Id}",
+                            entity.Id);
+                    }
+
                     changedInUniverse++;
                     totalChanged++;
 
@@ -460,7 +522,7 @@ public sealed class UniverseEnrichmentService : BackgroundService
                     try
                     {
                         await eventPublisher.PublishAsync(
-                            "LoreDeltaDiscovered",
+                            SignalREvents.LoreDeltaDiscovered,
                             new { UniverseQid = universeQid, ChangedCount = changedInUniverse },
                             ct).ConfigureAwait(false);
                     }

@@ -2,6 +2,7 @@
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -14,9 +15,6 @@ namespace MediaEngine.Api.Endpoints;
 
 public static class MetadataEndpoints
 {
-    /// <summary>Well-known provider GUID for user-manual metadata corrections.</summary>
-    private static readonly Guid UserManualProviderId =
-        new("d0000000-0000-4000-8000-000000000001");
 
     /// <summary>
     /// Fields that may be set via user-locked claims. Structured metadata
@@ -27,9 +25,9 @@ public static class MetadataEndpoints
     private static readonly HashSet<string> UserLockableFields =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            "rating",       // User's personal rating for this title
-            "media_type",   // User correction of detected media type (see /reclassify)
-            "custom_tags",  // User-defined collection / labelling tags
+            MetadataFieldConstants.Rating,          // User's personal rating for this title
+            MetadataFieldConstants.MediaTypeField,  // User correction of detected media type (see /reclassify)
+            MetadataFieldConstants.CustomTags,      // User-defined collection / labelling tags
         };
 
     public static IEndpointRouteBuilder MapMetadataEndpoints(this IEndpointRouteBuilder app)
@@ -128,7 +126,7 @@ public static class MetadataEndpoints
             {
                 Id           = Guid.NewGuid(),
                 EntityId     = request.EntityId,
-                ProviderId   = UserManualProviderId,
+                ProviderId   = WellKnownProviders.UserManual,
                 ClaimKey     = request.ClaimKey,
                 ClaimValue   = request.ChosenValue,
                 ClaimedAt    = lockedAt,
@@ -158,7 +156,7 @@ public static class MetadataEndpoints
             journal.Log("CLAIM_USER_LOCKED", "MetadataClaim", request.EntityId.ToString());
 
             // 4. Broadcast so the Dashboard refreshes.
-            await publisher.PublishAsync("MetadataHarvested", new
+            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
             {
                 entity_id     = request.EntityId,
                 provider_name = "user_manual",
@@ -407,7 +405,7 @@ public static class MetadataEndpoints
                 {
                     Id           = Guid.NewGuid(),
                     EntityId     = entityId,
-                    ProviderId   = UserManualProviderId,
+                    ProviderId   = WellKnownProviders.UserManual,
                     ClaimKey     = key,
                     ClaimValue   = value,
                     ClaimedAt    = now,
@@ -444,7 +442,7 @@ public static class MetadataEndpoints
             }, ct);
 
             // 4. Broadcast so the Dashboard refreshes.
-            await publisher.PublishAsync("MetadataHarvested", new
+            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
             {
                 entity_id      = entityId,
                 provider_name  = "user_manual",
@@ -503,8 +501,8 @@ public static class MetadataEndpoints
             {
                 Id           = Guid.NewGuid(),
                 EntityId     = entityId,
-                ProviderId   = UserManualProviderId,
-                ClaimKey     = "media_type",
+                ProviderId   = WellKnownProviders.UserManual,
+                ClaimKey     = MetadataFieldConstants.MediaTypeField,
                 ClaimValue   = newMediaType.ToString(),
                 ClaimedAt    = now,
                 IsUserLocked = true,
@@ -515,7 +513,7 @@ public static class MetadataEndpoints
             await canonicalRepo.UpsertBatchAsync([new CanonicalValue
             {
                 EntityId     = entityId,
-                Key          = "media_type",
+                Key          = MetadataFieldConstants.MediaTypeField,
                 Value        = newMediaType.ToString(),
                 LastScoredAt = now,
                 IsConflicted = false,
@@ -555,7 +553,7 @@ public static class MetadataEndpoints
             }, ct);
 
             // 6. Broadcast events.
-            await publisher.PublishAsync("MetadataHarvested", new
+            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
             {
                 entity_id  = entityId,
                 media_type = newMediaType.ToString(),
@@ -563,7 +561,7 @@ public static class MetadataEndpoints
 
             if (reviewResolved)
             {
-                await publisher.PublishAsync("ReviewItemResolved", new
+                await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
                 {
                     entity_id = entityId,
                     status    = "Resolved",
@@ -1022,7 +1020,7 @@ public static class MetadataEndpoints
                     new()
                     {
                         EntityId     = entityId,
-                        Key          = "cover_url",
+                        Key          = MetadataFieldConstants.CoverUrl,
                         Value        = $"/stream/{entityId}/cover",
                         LastScoredAt = DateTimeOffset.UtcNow,
                     },
@@ -1186,15 +1184,15 @@ public static class MetadataEndpoints
         var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrEmpty(item.Title))
-            fields["title"] = item.Title;
+            fields[MetadataFieldConstants.Title] = item.Title;
         if (!string.IsNullOrEmpty(item.Author))
-            fields["author"] = item.Author;
+            fields[MetadataFieldConstants.Author] = item.Author;
         if (!string.IsNullOrEmpty(item.Description))
-            fields["description"] = item.Description;
+            fields[MetadataFieldConstants.Description] = item.Description;
         if (!string.IsNullOrEmpty(item.Year))
-            fields["year"] = item.Year;
+            fields[MetadataFieldConstants.Year] = item.Year;
         if (!string.IsNullOrEmpty(item.ThumbnailUrl))
-            fields["cover"] = item.ThumbnailUrl;
+            fields[MetadataFieldConstants.Cover] = item.ThumbnailUrl;
         if (!string.IsNullOrEmpty(item.ProviderItemId))
             fields["provider_item_id"] = item.ProviderItemId;
 

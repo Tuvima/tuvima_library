@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -265,7 +266,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         try
         {
-            await _publisher.PublishAsync("IngestionCompleted", new
+            await _publisher.PublishAsync(SignalREvents.IngestionCompleted, new
             {
                 path       = destPath,
                 media_type = mediaType?.ToString() ?? "Unknown",

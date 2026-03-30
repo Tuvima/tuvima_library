@@ -1,4 +1,6 @@
 using System.Text.Json;
+using MediaEngine.Domain;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
@@ -259,6 +261,22 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     public void SaveFieldPriorities(FieldPriorityConfiguration config) =>
         SaveFile(FieldPrioritiesFileName, config);
 
+    // ── UI Palette ───────────────────────────────────────────────────────────
+
+    private const string UiSubdir      = "ui";
+    private const string PaletteFileName = "palette.json";
+
+    /// <inheritdoc/>
+    public PaletteConfiguration LoadPalette() =>
+        LoadFile<PaletteConfiguration>(Path.Combine(UiSubdir, PaletteFileName)) ?? new();
+
+    /// <inheritdoc/>
+    public void SavePalette(PaletteConfiguration palette)
+    {
+        ArgumentNullException.ThrowIfNull(palette);
+        SaveFile(Path.Combine(UiSubdir, PaletteFileName), palette);
+    }
+
     // ── AI Settings ──────────────────────────────────────────────────────────
 
     private const string AiFileName = "ai.json";
@@ -375,7 +393,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             Domain         = ProviderDomain.Universal,
             DisplayName    = "Apple API",
             AdapterType    = "config_driven",
-            ProviderId     = "b1000001-e000-4000-8000-000000000001",
+            ProviderId     = WellKnownProviders.AppleApi.ToString(),
             CapabilityTags = ["cover", "title", "author", "description", "genre"],
             AvailableFields = ["title", "author", "cover", "description", "genre", "rating", "apple_books_id"],
             FieldWeights   = new() { ["cover"] = 0.85, ["title"] = 0.7, ["author"] = 0.7, ["description"] = 0.85, ["genre"] = 0.7, ["rating"] = 0.7 },
@@ -672,21 +690,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             ThrottleMs     = 500,
         });
 
-        SaveProvider(new ProviderConfiguration
-        {
-            Name           = "google_books",
-            Enabled        = true,
-            Weight         = 0.65,
-            Domain         = ProviderDomain.Ebook,
-            CapabilityTags = ["title", "author", "cover", "description", "isbn", "year", "rating"],
-            FieldWeights   = new()
-            {
-                ["title"] = 0.7, ["author"] = 0.75, ["cover"] = 0.75,
-                ["description"] = 0.8, ["isbn"] = 0.85, ["year"] = 0.8, ["rating"] = 0.7,
-            },
-            Endpoints      = new() { ["google_books"] = "https://www.googleapis.com/books/v1" },
-            ThrottleMs     = 200,
-        });
 
         SaveProvider(new ProviderConfiguration
         {
@@ -705,6 +708,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         });
 
         // Default UI configuration
+        SavePalette(new PaletteConfiguration());
         SaveConfig("ui", "global", new UIGlobalSettings());
         SaveConfig("ui/devices", "web", new UIDeviceProfile
         {

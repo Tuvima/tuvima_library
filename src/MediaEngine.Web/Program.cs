@@ -3,6 +3,7 @@ using MediaEngine.Web.Components;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Theming;
 using MediaEngine.Web.Services.Narration;
+using MediaEngine.Domain.Models;
 using Microsoft.AspNetCore.Localization;
 using System.Globalization;
 
@@ -42,6 +43,12 @@ builder.Services.AddMudServices();
 // ── Theming ───────────────────────────────────────────────────────────────────
 // Singleton: dark-mode-only theme shared across all connections.
 builder.Services.AddSingleton<ThemeService>();
+
+// ── Colour Palette ────────────────────────────────────────────────────────────
+// Initialize the static palette accessor with defaults. In a future phase
+// (Provider Catalogue), this will be replaced by a call to GET /ui/palette
+// so the Engine's config/ui/palette.json drives the Dashboard colours.
+PaletteProvider.Initialize(new PaletteConfiguration());
 
 // ── Narration ─────────────────────────────────────────────────────────────────
 // Singleton: config-driven phrase templates for hero subtitles and section headings.

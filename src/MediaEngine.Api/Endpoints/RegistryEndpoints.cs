@@ -1,5 +1,6 @@
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -165,7 +166,7 @@ public static class RegistryEndpoints
             var claims = new List<MetadataClaim>();
 
             // User provider GUID for user-locked claims
-            var userProviderId = new Guid("d0000000-0000-4000-8000-000000000001");
+            var userProviderId = WellKnownProviders.UserManual;
 
             // Build user-locked claims for provided metadata fields
             void AddClaim(string key, string? value)
@@ -185,12 +186,12 @@ public static class RegistryEndpoints
             }
 
             // Always write provided metadata as user-locked claims
-            AddClaim("title",        request.Title);
+            AddClaim(MetadataFieldConstants.Title,        request.Title);
             AddClaim("release_year", request.Year);
-            AddClaim("author",       request.Author);
+            AddClaim(MetadataFieldConstants.Author,       request.Author);
             AddClaim("director",     request.Director);
-            AddClaim("description",  request.Description);
-            AddClaim("cover_url",    request.CoverUrl);
+            AddClaim(MetadataFieldConstants.Description,  request.Description);
+            AddClaim(MetadataFieldConstants.CoverUrl,    request.CoverUrl);
 
             bool hydrationTriggered = false;
             string wikidataStatus;
@@ -198,7 +199,7 @@ public static class RegistryEndpoints
             if (!string.IsNullOrWhiteSpace(request.Qid))
             {
                 // QID provided: lock the QID and trigger full hydration
-                AddClaim("wikidata_qid", request.Qid);
+                AddClaim(BridgeIdKeys.WikidataQid, request.Qid);
                 wikidataStatus = "confirmed";
 
                 if (claims.Count > 0)
@@ -237,11 +238,11 @@ public static class RegistryEndpoints
                 // Build hints from the claims for the pipeline
                 var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["wikidata_qid"] = request.Qid,
+                    [BridgeIdKeys.WikidataQid] = request.Qid,
                 };
-                if (!string.IsNullOrWhiteSpace(request.Title))   hints["title"]        = request.Title;
+                if (!string.IsNullOrWhiteSpace(request.Title))   hints[MetadataFieldConstants.Title]        = request.Title;
                 if (!string.IsNullOrWhiteSpace(request.Year))    hints["release_year"] = request.Year;
-                if (!string.IsNullOrWhiteSpace(request.Author))  hints["author"]       = request.Author;
+                if (!string.IsNullOrWhiteSpace(request.Author))  hints[MetadataFieldConstants.Author]       = request.Author;
 
                 // Trigger full hydration (synchronous, Universe pass).
                 // SuppressReviewCreation = true — the curator just approved this item;
@@ -419,7 +420,7 @@ public static class RegistryEndpoints
                 return Results.Problem("Invalid asset ID in database.");
 
             var now          = DateTimeOffset.UtcNow;
-            var userProvider = new Guid("d0000000-0000-4000-8000-000000000001");
+            var userProvider = WellKnownProviders.UserManual;
             var claims       = new List<MetadataClaim>();
 
             void AddClaim(string key, string? value)
@@ -438,10 +439,10 @@ public static class RegistryEndpoints
                     });
             }
 
-            AddClaim("title",        request.Title);
+            AddClaim(MetadataFieldConstants.Title,        request.Title);
             AddClaim("release_year", request.Year);
-            AddClaim("author",       request.Author);
-            AddClaim("description",  request.Description);
+            AddClaim(MetadataFieldConstants.Author,       request.Author);
+            AddClaim(MetadataFieldConstants.Description,  request.Description);
 
             if (claims.Count > 0)
             {
@@ -793,7 +794,7 @@ public static class RegistryEndpoints
                 Detail     = $"Rejected '{workTitle ?? "unknown"}' — file moved to .staging/rejected/.",
             }, ct);
 
-            await publisher.PublishAsync("ReviewItemResolved", new
+            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
             {
                 entity_id = entityId,
                 action = "rejected",
@@ -1235,7 +1236,7 @@ public static class RegistryEndpoints
             }
             catch (Exception) { /* history is supplementary */ }
 
-            await publisher.PublishAsync("ReviewItemCreated", new
+            await publisher.PublishAsync(SignalREvents.ReviewItemCreated, new
             {
                 review_item_id = Guid.Empty,
                 entity_id = entityId,
@@ -1311,21 +1312,21 @@ public static class RegistryEndpoints
             if (assetIdStr is not null && Guid.TryParse(assetIdStr, out var assetGuid))
             {
                 var now = DateTimeOffset.UtcNow.ToString("o");
-                var localProviderId = "a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f"; // LocalProcessorProviderId
+                var localProviderId = WellKnownProviders.LocalProcessor.ToString();
 
                 var fields = new Dictionary<string, string?>
                 {
-                    ["title"]       = body.Title,
-                    ["author"]      = body.Creator,
-                    ["year"]        = body.Year,
-                    ["description"] = body.Description,
+                    [MetadataFieldConstants.Title]       = body.Title,
+                    [MetadataFieldConstants.Author]      = body.Creator,
+                    [MetadataFieldConstants.Year]        = body.Year,
+                    [MetadataFieldConstants.Description] = body.Description,
                     ["narrator"]    = body.Narrator,
-                    ["isbn"]        = body.Isbn,
+                    [BridgeIdKeys.Isbn]        = body.Isbn,
                     ["director"]    = body.Director,
-                    ["runtime"]     = body.Runtime,
+                    [MetadataFieldConstants.Runtime]     = body.Runtime,
                     ["host"]        = body.Host,
                     ["writer"]      = body.Writer,
-                    ["artist"]      = body.Artist,
+                    [MetadataFieldConstants.Artist]      = body.Artist,
                 };
 
                 foreach (var (key, value) in fields)
@@ -1381,7 +1382,7 @@ public static class RegistryEndpoints
             }
             catch (Exception) { /* history is supplementary */ }
 
-            await publisher.PublishAsync("ReviewItemResolved", new
+            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
             {
                 entity_id = entityId,
                 action = "provisional",

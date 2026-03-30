@@ -1,5 +1,7 @@
+using MediaEngine.Domain;
 using MediaEngine.Web.Components.Registry;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Theming;
 using MudBlazor;
 
 namespace MediaEngine.Web.Components.Vault;
@@ -8,14 +10,18 @@ namespace MediaEngine.Web.Components.Vault;
 public static class VaultHelpers
 {
     /// <summary>Returns the hex color for a VaultStatus.</summary>
-    public static string GetVaultStatusColor(VaultStatus status) => status switch
+    public static string GetVaultStatusColor(VaultStatus status)
     {
-        VaultStatus.Verified => "#5DCAA5",
-        VaultStatus.Provisional => "#3B82F6",
-        VaultStatus.NeedsReview => "#EF9F27",
-        VaultStatus.Quarantined => "#E24B4A",
-        _ => "rgba(255,255,255,0.3)",
-    };
+        var p = PaletteProvider.Current.Status;
+        return status switch
+        {
+            VaultStatus.Verified    => p.Verified,
+            VaultStatus.Provisional => p.Provisional,
+            VaultStatus.NeedsReview => p.NeedsReview,
+            VaultStatus.Quarantined => p.Quarantined,
+            _                       => p.Default,
+        };
+    }
 
     /// <summary>Returns the display label for a VaultStatus.</summary>
     public static string GetVaultStatusLabel(VaultStatus status) => status switch
@@ -38,31 +44,47 @@ public static class VaultHelpers
     };
 
     /// <summary>Returns the hex color for a pipeline stage state.</summary>
-    public static string GetStageColor(VaultStageState state) => state switch
+    public static string GetStageColor(VaultStageState state)
     {
-        VaultStageState.Completed => "#5DCAA5",
-        VaultStageState.Warning => "#EF9F27",
-        VaultStageState.Failed => "#A05050",
-        VaultStageState.Pending => "#3B3B3B",
-        _ => "#3B3B3B",
-    };
+        var p = PaletteProvider.Current.Pipeline;
+        return state switch
+        {
+            VaultStageState.Completed => p.Completed,
+            VaultStageState.Warning   => p.Warning,
+            VaultStageState.Failed    => p.Failed,
+            VaultStageState.Pending   => p.Pending,
+            _                         => p.Pending,
+        };
+    }
 
     /// <summary>Returns the CSS shadow glow for a pipeline stage state.</summary>
-    public static string GetStageShadow(VaultStageState state) => state switch
+    public static string GetStageShadow(VaultStageState state)
     {
-        VaultStageState.Completed => "0 0 8px rgba(93,202,165,0.3)",
-        VaultStageState.Warning => "0 0 8px rgba(239,159,39,0.3)",
-        VaultStageState.Failed => "0 0 8px rgba(160,80,80,0.3)",
-        _ => "none",
-    };
+        var p = PaletteProvider.Current.Pipeline;
+        return state switch
+        {
+            VaultStageState.Completed => $"0 0 8px {HexToRgba(p.Completed, 0.3)}",
+            VaultStageState.Warning   => $"0 0 8px {HexToRgba(p.Warning, 0.3)}",
+            VaultStageState.Failed    => $"0 0 8px {HexToRgba(p.Failed, 0.3)}",
+            _                         => "none",
+        };
+    }
 
     /// <summary>Returns the confidence bar fill color based on score.</summary>
-    public static string GetConfidenceColor(double confidence) => confidence switch
+    /// <remarks>
+    /// Thresholds: ≥0.85 = green (matches AutoLinkThreshold), ≥0.60 = amber (matches ConflictThreshold).
+    /// TODO: drive thresholds from ScoringConfiguration once VaultHelpers is no longer static.
+    /// </remarks>
+    public static string GetConfidenceColor(double confidence)
     {
-        >= 0.80 => "#5DCAA5",
-        >= 0.60 => "#EF9F27",
-        _ => "#A05050",
-    };
+        var p = PaletteProvider.Current.Confidence;
+        return confidence switch
+        {
+            >= 0.85 => p.High,
+            >= 0.60 => p.Medium,
+            _       => p.Low,
+        };
+    }
 
     /// <summary>Delegates to RegistryHelpers for media type icon.</summary>
     public static string GetMediaTypeIcon(string? mediaType) =>
@@ -183,20 +205,20 @@ public static class VaultHelpers
 
     private static readonly Dictionary<Guid, string> ProviderDisplayNames = new()
     {
-        [new("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f")] = "File Scan",
-        [new("c9d8e7f6-a5b4-4321-fedc-0102030405c9")] = "Library Scanner",
-        [new("b1000001-e000-4000-8000-000000000001")] = "Apple API",
-        [new("b2000002-a000-4000-8000-000000000003")] = "Audnexus",
-        [new("b3000003-d000-4000-8000-000000000004")] = "Wikidata",
-        [new("b4000004-d000-4000-8000-000000000005")] = "Wikipedia",
-        [new("b4000004-0000-4000-8000-000000000005")] = "Open Library",
-        [new("b6000006-0000-4000-8000-000000000007")] = "MusicBrainz",
-        [new("b7000007-0000-4000-8000-000000000008")] = "TMDB",
-        [new("b8000008-0000-4000-8000-000000000009")] = "Metron",
-        [new("b9000009-0000-4000-8000-000000000010")] = "Apple Podcasts",
-        [new("ba00000a-0000-4000-8000-000000000011")] = "Podcast Index",
-        [new("bb00000b-0000-4000-8000-000000000012")] = "Fanart.tv",
-        [new("d0000000-0000-4000-8000-000000000001")] = "Manual Match",
+        [WellKnownProviders.LocalProcessor]  = "File Scan",
+        [WellKnownProviders.LibraryScanner]  = "Library Scanner",
+        [WellKnownProviders.AppleApi]        = "Apple API",
+        [WellKnownProviders.Audnexus]        = "Audnexus",
+        [WellKnownProviders.Wikidata]        = "Wikidata",
+        [WellKnownProviders.Wikipedia]       = "Wikipedia",
+        [WellKnownProviders.OpenLibrary]     = "Open Library",
+        [WellKnownProviders.MusicBrainz]     = "MusicBrainz",
+        [WellKnownProviders.Tmdb]            = "TMDB",
+        [WellKnownProviders.Metron]          = "Metron",
+        [WellKnownProviders.ApplePodcasts]   = "Apple Podcasts",
+        [WellKnownProviders.PodcastIndex]    = "Podcast Index",
+        [WellKnownProviders.AiProvider]      = "Fanart.tv",
+        [WellKnownProviders.UserManual]      = "Manual Match",
     };
 
     /// <summary>
@@ -248,19 +270,14 @@ public static class VaultHelpers
     /// Returns true if the given provider GUID represents a file/local source
     /// (local_processor or library_scanner).
     /// </summary>
-    public static bool IsFileSource(Guid providerId)
-    {
-        return providerId == new Guid("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f")
-            || providerId == new Guid("c9d8e7f6-a5b4-4321-fedc-0102030405c9");
-    }
+    public static bool IsFileSource(Guid providerId) =>
+        WellKnownProviders.IsFileSource(providerId);
 
     /// <summary>
     /// Returns true if the given provider GUID represents a user manual source.
     /// </summary>
-    public static bool IsUserSource(Guid providerId)
-    {
-        return providerId == new Guid("d0000000-0000-4000-8000-000000000001");
-    }
+    public static bool IsUserSource(Guid providerId) =>
+        WellKnownProviders.IsUserSource(providerId);
 
     /// <summary>
     /// Builds a clickable external URL for a given bridge ID key and value.
@@ -272,19 +289,19 @@ public static class VaultHelpers
 
         return key.ToLowerInvariant() switch
         {
-            "tmdb_id" when (mediaType ?? "").Contains("TV", StringComparison.OrdinalIgnoreCase)
+            BridgeIdKeys.TmdbId when (mediaType ?? "").Contains("TV", StringComparison.OrdinalIgnoreCase)
                 => ("View on TMDB", $"https://www.themoviedb.org/tv/{value}"),
-            "tmdb_id"
+            BridgeIdKeys.TmdbId
                 => ("View on TMDB", $"https://www.themoviedb.org/movie/{value}"),
-            "open_library_id" or "olid"
+            BridgeIdKeys.OpenLibraryId or "olid"
                 => ("View on Open Library", $"https://openlibrary.org/works/{value}"),
-            "musicbrainz_id"
+            BridgeIdKeys.MusicBrainzId
                 => ("View on MusicBrainz", $"https://musicbrainz.org/release/{value}"),
-            "wikidata_qid" when value.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
+            BridgeIdKeys.WikidataQid when value.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
                 => ("View on Wikidata", $"https://www.wikidata.org/wiki/{value}"),
-            "imdb_id" when value.StartsWith("tt", StringComparison.OrdinalIgnoreCase)
+            BridgeIdKeys.ImdbId when value.StartsWith("tt", StringComparison.OrdinalIgnoreCase)
                 => ("View on IMDb", $"https://www.imdb.com/title/{value}"),
-            "apple_books_id"
+            BridgeIdKeys.AppleBooksId
                 => ("View on Apple Books", $"https://books.apple.com/book/id{value}"),
             _ => null,
         };
@@ -293,14 +310,15 @@ public static class VaultHelpers
     /// <summary>Returns the brand colour for a media type string, matching stats bar colours.</summary>
     public static string GetMediaTypeColor(string? mediaType)
     {
+        var p = PaletteProvider.Current.MediaType;
         var t = (mediaType ?? "").ToLowerInvariant();
-        if (t.Contains("movie") || t.Contains("video")) return "#60A5FA";
-        if (t.Contains("book") && !t.Contains("audio")) return "#5DCAA5";
-        if (t.Contains("audiobook")) return "#A78BFA";
-        if (t == "tv") return "#FBBF24";
-        if (t.Contains("music")) return "#22D3EE";
-        if (t.Contains("podcast")) return "#FB923C";
-        if (t.Contains("comic")) return "#7C4DFF";
-        return "rgba(255,255,255,0.4)";
+        if (t.Contains("movie") || t.Contains("video")) return p.Movie;
+        if (t.Contains("book") && !t.Contains("audio")) return p.Book;
+        if (t.Contains("audiobook")) return p.Audiobook;
+        if (t == "tv") return p.TV;
+        if (t.Contains("music")) return p.Music;
+        if (t.Contains("podcast")) return p.Podcast;
+        if (t.Contains("comic")) return p.Comic;
+        return p.Unknown;
     }
 }

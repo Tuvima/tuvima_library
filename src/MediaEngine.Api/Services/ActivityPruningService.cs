@@ -19,6 +19,7 @@ public sealed class ActivityPruningService : BackgroundService
 {
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IConfigurationLoader      _configLoader;
+    private readonly IEntityTimelineRepository _timelineRepo;
     private readonly ILogger<ActivityPruningService> _logger;
 
     /// <summary>Cron expression for the prune schedule. Default: 3 AM daily.</summary>
@@ -27,26 +28,30 @@ public sealed class ActivityPruningService : BackgroundService
     public ActivityPruningService(
         ISystemActivityRepository activityRepo,
         IConfigurationLoader      configLoader,
+        IEntityTimelineRepository timelineRepo,
         ILogger<ActivityPruningService> logger)
     {
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(timelineRepo);
         ArgumentNullException.ThrowIfNull(logger);
 
         _activityRepo = activityRepo;
         _configLoader = configLoader;
+        _timelineRepo = timelineRepo;
         _logger       = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("ActivityPruningService started — schedule: {Schedule}", DefaultSchedule);
+        _logger.LogInformation("ActivityPruningService started — default schedule: {Schedule}", DefaultSchedule);
 
         // Initial delay to let the rest of the app start.
         await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // ── Activity log prune ────────────────────────────────────────
             try
             {
                 var maintenance = _configLoader.LoadMaintenance();
@@ -86,7 +91,39 @@ public sealed class ActivityPruningService : BackgroundService
                 _logger.LogWarning(ex, "Activity prune failed; will retry next cycle");
             }
 
-            var schedule = DefaultSchedule; // future: read from config/maintenance.json
+            // ── Timeline cull ─────────────────────────────────────────────
+            try
+            {
+                var hydration     = _configLoader.LoadHydration();
+                var retentionDays = hydration.TimelineRetentionDays > 0
+                                        ? hydration.TimelineRetentionDays
+                                        : 365;
+                var culled = await _timelineRepo.CullOldEventsAsync(
+                    TimeSpan.FromDays(retentionDays), stoppingToken);
+
+                if (culled > 0)
+                {
+                    _logger.LogInformation(
+                        "Timeline cull: removed {Count} events older than {Days} days",
+                        culled, retentionDays);
+                }
+                else
+                {
+                    _logger.LogDebug("Timeline cull: nothing to remove (retention={Days}d)", retentionDays);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Timeline cull failed; will retry next cycle");
+            }
+
+            var maintenanceConfig = _configLoader.LoadMaintenance();
+            var schedule = maintenanceConfig.Schedules.GetValueOrDefault("activity_pruning", DefaultSchedule);
+            if (string.IsNullOrWhiteSpace(schedule)) schedule = DefaultSchedule;
             var delay = CronScheduler.UntilNext(schedule, TimeSpan.FromHours(24));
             _logger.LogInformation("Next activity prune at {NextRun}", DateTimeOffset.Now.Add(delay));
             await Task.Delay(delay, stoppingToken);

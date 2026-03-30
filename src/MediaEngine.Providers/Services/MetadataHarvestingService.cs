@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -72,6 +73,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IImageCacheRepository _imageCache;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IQidLabelRepository _qidLabelRepo;
+    private readonly IEntityTimelineRepository? _timelineRepo;
     private readonly ImagePathService? _imagePathService;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
@@ -93,7 +95,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ISystemActivityRepository activityRepo,
         IQidLabelRepository qidLabelRepo,
         ILogger<MetadataHarvestingService> logger,
-        ImagePathService? imagePathService = null)
+        ImagePathService? imagePathService = null,
+        IEntityTimelineRepository? timelineRepo = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -126,6 +129,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _activityRepo         = activityRepo;
         _qidLabelRepo         = qidLabelRepo;
         _imagePathService     = imagePathService;
+        _timelineRepo         = timelineRepo;
         _logger               = logger;
 
         _channel = Channel.CreateBounded<HarvestRequest>(new BoundedChannelOptions(500)
@@ -317,7 +321,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             // Publish MetadataHarvested event.
             var updatedFields = domainClaims.Select(c => c.ClaimKey).Distinct().ToList();
             await _eventPublisher.PublishAsync(
-                "MetadataHarvested",
+                SignalREvents.MetadataHarvested,
                 new MetadataHarvestedEvent(request.EntityId, provider.Name, updatedFields),
                 ct).ConfigureAwait(false);
 
@@ -380,7 +384,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
             // Populate relationship edges from _qid claims.
             await _relPopService.PopulateAsync(
-                request.Hints.GetValueOrDefault("wikidata_qid") ?? string.Empty,
+                request.Hints.GetValueOrDefault(BridgeIdKeys.WikidataQid) ?? string.Empty,
                 canonicalDict,
                 universeQid ?? string.Empty,
                 universeLabel: null,
@@ -403,7 +407,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             var label = request.Hints.GetValueOrDefault("label") ?? request.EntityId.ToString();
 
             // Cache fictional entity QID → label for offline resolution.
-            var entityQid = request.Hints.GetValueOrDefault("wikidata_qid");
+            var entityQid = request.Hints.GetValueOrDefault(BridgeIdKeys.WikidataQid);
             if (!string.IsNullOrWhiteSpace(entityQid) && !string.IsNullOrWhiteSpace(label))
             {
                 try
@@ -427,7 +431,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
             // Publish SignalR event.
             await _eventPublisher.PublishAsync(
-                "FictionalEntityEnriched",
+                SignalREvents.FictionalEntityEnriched,
                 new FictionalEntityEnrichedEvent(request.EntityId, label, entitySubType, universeQid),
                 ct).ConfigureAwait(false);
 
@@ -454,7 +458,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     {
         var personSw = System.Diagnostics.Stopwatch.StartNew();
 
-        var qid         = claims.FirstOrDefault(c => c.Key == "wikidata_qid")?.Value;
+        var qid         = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid)?.Value;
         var headshotUrl = claims.FirstOrDefault(c => c.Key == "headshot_url")?.Value;
         var biography   = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
 
@@ -570,7 +574,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                         }, ct).ConfigureAwait(false);
 
                         await _eventPublisher.PublishAsync(
-                            "PersonEnriched",
+                            SignalREvents.PersonEnriched,
                             new PersonEnrichedEvent(canonicalPerson.Id, canonicalPerson.Name, canonicalPerson.HeadshotUrl, qid),
                             ct).ConfigureAwait(false);
 
@@ -681,9 +685,32 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         }
 
         await _eventPublisher.PublishAsync(
-            "PersonEnriched",
+            SignalREvents.PersonEnriched,
             new PersonEnrichedEvent(request.EntityId, personName, headshotUrl, qid),
             ct).ConfigureAwait(false);
+
+        // Timeline: record person enrichment.
+        if (_timelineRepo is not null)
+        {
+            try
+            {
+                await _timelineRepo.InsertEventAsync(new EntityEvent
+                {
+                    EntityId    = request.EntityId,
+                    EntityType  = "Person",
+                    EventType   = "person_enriched",
+                    Stage       = null,
+                    Trigger     = "person_enrichment",
+                    ResolvedQid = qid,
+                    Detail      = $"Person \"{personName}\" enriched from Wikidata",
+                }, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "Failed to write person_enriched timeline event for {PersonId}",
+                    request.EntityId);
+            }
+        }
 
         personSw.Stop();
         _logger.LogInformation(
@@ -1052,15 +1079,15 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             Title        = h.GetValueOrDefault("title"),
             Author       = h.GetValueOrDefault("author"),
             Narrator     = h.GetValueOrDefault("narrator"),
-            Asin         = h.GetValueOrDefault("asin"),
-            Isbn         = NormalizeIsbnHint(h.GetValueOrDefault("isbn")),
-            AppleBooksId = h.GetValueOrDefault("apple_books_id"),
-            AudibleId    = h.GetValueOrDefault("audible_id"),
-            TmdbId       = h.GetValueOrDefault("tmdb_id"),
-            ImdbId       = h.GetValueOrDefault("imdb_id"),
+            Asin         = h.GetValueOrDefault(BridgeIdKeys.Asin),
+            Isbn         = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),
+            AppleBooksId = h.GetValueOrDefault(BridgeIdKeys.AppleBooksId),
+            AudibleId    = h.GetValueOrDefault(BridgeIdKeys.AudibleId),
+            TmdbId       = h.GetValueOrDefault(BridgeIdKeys.TmdbId),
+            ImdbId       = h.GetValueOrDefault(BridgeIdKeys.ImdbId),
             PersonName   = h.GetValueOrDefault("name"),
             PersonRole   = h.GetValueOrDefault("role"),
-            PreResolvedQid = request.PreResolvedQid ?? h.GetValueOrDefault("wikidata_qid"),
+            PreResolvedQid = request.PreResolvedQid ?? h.GetValueOrDefault(BridgeIdKeys.WikidataQid),
             BaseUrl      = baseUrl,
             SparqlBaseUrl = sparqlBaseUrl,
             Language     = lang,
