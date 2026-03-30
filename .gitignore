@@ -73,3 +73,19 @@ site/
 
 # Local Codex-derived context
 .codex/
+
+# Local .NET CLI tooling
+.dotnet-cli/
+
+# Generated MudBlazor service/tag metadata
+MudServices.json
+MudTags.json
+
+# Runtime logs (not under logs/)
+build.log
+dashboard.log
+engine.log
+
+# Integration test HTML reports
+tools/reports/*.html
+src/MediaEngine.Api/DevSupport/integration-test-report.html
