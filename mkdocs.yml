@@ -1,8 +1,8 @@
 site_name: Tuvima Library
 site_description: User-first documentation for building, configuring, and understanding Tuvima Library.
-site_url: https://shyfaruqi.github.io/tuvima-library/
-repo_url: https://github.com/shyfaruqi/tuvima-library
-repo_name: shyfaruqi/tuvima-library
+site_url: https://tuvima.github.io/tuvima_library/
+repo_url: https://github.com/Tuvima/tuvima_library
+repo_name: Tuvima/tuvima_library
 edit_uri: edit/main/docs/
 docs_dir: docs
 site_dir: site

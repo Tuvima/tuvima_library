@@ -8,7 +8,7 @@
 
 **Make your media collection discoverable.**
 
-*Tuvima Library is the first media platform that organizes by story, not by file type — unifying your books, audiobooks, movies, TV shows, music, comics, and podcasts into one intelligent library, with a cinematic dashboard and a built-in AI that runs entirely on your machine.*
+*Tuvima Library is the first media platform that organizes by story, not by file type â€” unifying your books, audiobooks, movies, TV shows, music, comics, and podcasts into one intelligent library, with a cinematic dashboard and a built-in AI that runs entirely on your machine.*
 
 <br/>
 
@@ -22,17 +22,17 @@
 
 ## Why Tuvima?
 
-Plex organizes your videos. Calibre organizes your books. Audiobookshelf organizes your audiobooks. But none of them talk to each other. Your Dune ebook lives in one app, the audiobook in another, and the Villeneuve film in a third. Three apps, three databases, three interfaces — for the same story.
+Plex organizes your videos. Calibre organizes your books. Audiobookshelf organizes your audiobooks. But none of them talk to each other. Your Dune ebook lives in one app, the audiobook in another, and the Villeneuve film in a third. Three apps, three databases, three interfaces â€” for the same story.
 
 **Tuvima Library organizes by story, not by file type.**
 
-Drop your files into a folder. Tuvima reads each one, figures out what it is using a built-in AI and Wikidata (the knowledge database behind Wikipedia), downloads cover art and author photos, and files everything into a clean, organized library. Books, audiobooks, movies, TV shows, music, comics, and podcasts — all in one place.
+Drop your files into a folder. Tuvima reads each one, figures out what it is using a built-in AI and Wikidata (the knowledge database behind Wikipedia), downloads cover art and author photos, and files everything into a clean, organized library. Books, audiobooks, movies, TV shows, music, comics, and podcasts â€” all in one place.
 
 ### One story, every format
 
-When Tuvima discovers that your Dune ebook, Dune audiobook, and Dune film belong to the same creative world, it groups them together into a single entry called a **Series**. Click it, and you see every version of the story you own — read, listen, or watch. No switching apps.
+When Tuvima discovers that your Dune ebook, Dune audiobook, and Dune film belong to the same creative world, it groups them together into a single entry called a **Series**. Click it, and you see every version of the story you own â€” read, listen, or watch. No switching apps.
 
-Related Series are grouped into **Universes** — the Dune novels, the Dune films, and the Dune audiobooks all live under the "Dune" Universe. [Learn more about Universes and Series.](docs/explanation/how-universes-work.md)
+Related Series are grouped into **Universes** â€” the Dune novels, the Dune films, and the Dune audiobooks all live under the "Dune" Universe. [Learn more about Universes and Series.](docs/explanation/how-universes-work.md)
 
 ### How Tuvima compares
 
@@ -53,13 +53,13 @@ Related Series are grouped into **Universes** — the Dune novels, the Dune film
 
 ## How It Works
 
-Drop a file into a watched folder. The Engine reads it, cleans the filename with AI, searches Wikidata and retail providers for a match, downloads cover art and metadata, enriches the file with themes, mood, and a TL;DR summary — then organizes it into your library. Every 30 days it re-checks for updated information.
+Drop a file into a watched folder. The Engine reads it, cleans the filename with AI, searches Wikidata and retail providers for a match, downloads cover art and metadata, enriches the file with themes, mood, and a TL;DR summary â€” then organizes it into your library. Every 30 days it re-checks for updated information.
 
-[Full walkthrough: How Ingestion Works](docs/explanation/how-ingestion-works.md) · [How Enrichment Works](docs/explanation/how-hydration-works.md) · [How Scoring Works](docs/explanation/how-scoring-works.md)
+[Full walkthrough: How Ingestion Works](docs/explanation/how-ingestion-works.md) Â· [How Enrichment Works](docs/explanation/how-hydration-works.md) Â· [How Scoring Works](docs/explanation/how-scoring-works.md)
 
 ### Built-in AI
 
-Four local AI models (~9 GB total) handle filename parsing, media classification, vibe tagging, and audiobook transcription. Everything runs on your CPU/GPU — no cloud, no subscription. The Engine benchmarks your hardware on first startup and adapts: gaming PCs run enrichment continuously, quieter machines schedule it overnight.
+Four local AI models (~9 GB total) handle filename parsing, media classification, vibe tagging, and audiobook transcription. Everything runs on your CPU/GPU â€” no cloud, no subscription. The Engine benchmarks your hardware on first startup and adapts: gaming PCs run enrichment continuously, quieter machines schedule it overnight.
 
 [Learn more about the AI.](docs/explanation/how-ai-works.md)
 
@@ -81,10 +81,10 @@ Four local AI models (~9 GB total) handle filename parsing, media classification
 
 ## Privacy
 
-- **Everything runs locally** — your data store, your AI models, your files. Nothing leaves your machine.
-- **No accounts** — no sign-up, no login, no telemetry, no tracking.
-- **AI runs on your hardware** — no OpenAI, no Anthropic, no cloud AI calls.
-- **Portable data** — metadata is written back into your files, so you can take your library anywhere.
+- **Everything runs locally** â€” your data store, your AI models, your files. Nothing leaves your machine.
+- **No accounts** â€” no sign-up, no login, no telemetry, no tracking.
+- **AI runs on your hardware** â€” no OpenAI, no Anthropic, no cloud AI calls.
+- **Portable data** â€” metadata is written back into your files, so you can take your library anywhere.
 
 ---
 
@@ -93,7 +93,7 @@ Four local AI models (~9 GB total) handle filename parsing, media classification
 **Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) and 10 GB free disk space.
 
 ```bash
-git clone https://github.com/shyfaruqi/tuvima-library.git
+git clone https://github.com/Tuvima/tuvima_library.git
 cd tuvima-library
 cp -r config.example config
 ```
@@ -107,13 +107,13 @@ dotnet run --project src/MediaEngine.Web    # Dashboard at localhost:5016
 
 On first startup the Engine downloads AI models (~9 GB), benchmarks your hardware, and begins watching your folders.
 
-[Full setup guide](docs/tutorials/getting-started.md) · [Docker instructions](docs/tutorials/getting-started.md#docker) · [Configuration reference](docs/reference/configuration.md)
+[Full setup guide](docs/tutorials/getting-started.md) Â· [Docker instructions](docs/tutorials/getting-started.md#docker) Â· [Configuration reference](docs/reference/configuration.md)
 
 ---
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/index.md), organised using the [Diátaxis framework](https://diataxis.fr/):
+Full documentation lives in [`docs/`](docs/index.md), organised using the [DiÃ¡taxis framework](https://diataxis.fr/):
 
 | | For users | For developers |
 |---|---|---|
@@ -122,7 +122,7 @@ Full documentation lives in [`docs/`](docs/index.md), organised using the [Diát
 | **Reference** | [Configuration](docs/reference/configuration.md), [Media Types](docs/reference/media-types.md), [Glossary](docs/reference/glossary.md) | [API Endpoints](docs/reference/api-endpoints.md), [Database Schema](docs/reference/database-schema.md) |
 | **Explanation** | [Ingestion](docs/explanation/how-ingestion-works.md), [Scoring](docs/explanation/how-scoring-works.md), [Universes](docs/explanation/how-universes-work.md), [AI](docs/explanation/how-ai-works.md), [Enrichment](docs/explanation/how-hydration-works.md), [Vault](docs/explanation/how-the-vault-works.md) | [Architecture deep-dives](docs/architecture/ingestion-pipeline.md) |
 
-Published documentation is available on GitHub Pages at [shyfaruqi.github.io/tuvima-library](https://shyfaruqi.github.io/tuvima-library/).
+Published documentation is available on GitHub Pages at [tuvima.github.io/tuvima_library](https://tuvima.github.io/tuvima_library/).
 
 Docs can also be previewed locally with:
 
@@ -147,6 +147,6 @@ No premium tiers. No feature gates. No "Pro" version.
 
 No subscriptions. No cloud. No compromises. Just your stories, finally together.
 
-[Report a Bug](https://github.com/shyfaruqi/tuvima-library/issues) · [Request a Feature](https://github.com/shyfaruqi/tuvima-library/issues)
+[Report a Bug](https://github.com/Tuvima/tuvima_library/issues) · [Request a Feature](https://github.com/Tuvima/tuvima_library/issues)
 
 </div>
