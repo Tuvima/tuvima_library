@@ -458,6 +458,7 @@ taskkill //F //IM dotnet.exe
 | `CLAUDE.md` §3 or `docs/architecture/*.md` | Architecture changes |
 | `CLAUDE.md` §5.1 | New dependency approved |
 | `MEMORY.md` | New architectural decision |
+| `docs/**/*.md` | Feature, config, API, schema, or UI changes |
 
 **Step 5 — Commit and push**
 ```bash
@@ -489,6 +490,32 @@ git push
 | `hubs-and-playlists.md` | (new — create matching `.agent/` file) |
 
 After updating any architecture doc, update the corresponding `.agent/` file(s). The `.agent/SYNC-MAP.md` file contains the reverse mapping.
+
+### 5.4 — Documentation Upkeep (Diátaxis)
+
+> **All project documentation follows the [Diátaxis framework](https://diataxis.fr/).** The `docs/` directory is organised into four categories: **Tutorials** (learning-oriented), **How-to Guides** (task-oriented), **Reference** (information-oriented), and **Explanation** (understanding-oriented). The landing page is `docs/index.md`.
+
+**Documentation must be updated when:**
+
+| Trigger | What to update |
+|---|---|
+| New feature added | Relevant Explanation page + Reference entries + How-to Guide if user-facing |
+| New config field added | `docs/reference/configuration.md` |
+| New API endpoint added | `docs/reference/api-endpoints.md` |
+| New database table or column | `docs/reference/database-schema.md` |
+| New file format supported | `docs/reference/media-types.md` |
+| New provider added | `docs/reference/configuration.md` (provider section) + `docs/guides/configuring-providers.md` |
+| New processor added | `docs/reference/media-types.md` + `docs/guides/writing-a-processor.md` (if pattern changes) |
+| Terminology change | `docs/reference/glossary.md` |
+| Architecture change | `docs/architecture/*.md` (existing) + corresponding Explanation page |
+| New UI screen or Settings tab | `docs/explanation/how-the-vault-works.md` or relevant Explanation page |
+
+**Rules:**
+1. Documentation updates are part of Step 4 in the Mandatory Workflow (§5.2). They are not optional.
+2. User-facing docs use plain English per §4.1 vocabulary rules. Developer docs may use technical terms.
+3. The `docs/index.md` landing page must be updated when new pages are added.
+4. Cross-link between related docs: Explanation pages link to Architecture deep-dives. How-to Guides link to relevant Reference pages.
+5. Every new Explanation page must be linked from `docs/index.md`.
 
 ---
 
