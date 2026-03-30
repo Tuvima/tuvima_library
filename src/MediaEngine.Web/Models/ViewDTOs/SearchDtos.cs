@@ -151,6 +151,10 @@ public sealed class RetailCandidateDto
     [JsonPropertyName("description_field_matches")]
     public List<DescriptionFieldMatchDto>? DescriptionFieldMatches { get; set; }
 
+    /// <summary>Additional fields not covered by typed properties — keyed by metadata field constant (e.g. "narrator", "runtime").</summary>
+    [JsonPropertyName("extra_fields")]
+    public Dictionary<string, string> ExtraFields { get; set; } = [];
+
     /// <summary>Composite ranking score (fuzzy 60% + description 40%). Used for display ordering.</summary>
     [JsonPropertyName("composite_score")]
     public double CompositeScore { get; set; }

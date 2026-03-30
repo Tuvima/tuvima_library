@@ -1,4 +1,6 @@
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Domain.Constants
+@using MediaEngine.Domain.Enums
 @namespace MediaEngine.Web.Components.Vault
 @inject IStringLocalizer<SharedStrings> L
 @inject IEngineApiClient ApiClient
@@ -356,6 +358,7 @@
                                     @foreach (var result in _retailSearchResults)
                                     {
                                         var isExpanded = _pendingRetailMatch == result;
+                                        var displayFields = GetRetailResultFields(result);
                                         <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
                                              @onclick="() => SelectRetailResult(result)">
                                             <div class="vdd-search-result-row">
@@ -372,15 +375,13 @@
                                                 <div class="vdd-search-result-info">
                                                     <span class="vdd-search-result-title">@result.Title</span>
                                                     <span class="vdd-search-result-meta">
-                                                        @(result.Author ?? result.Director)
-                                                        @(!string.IsNullOrEmpty(result.Year) ? $"• {result.Year}" : "")
+                                                        @displayFields.Subline
+                                                        @if (!string.IsNullOrEmpty(displayFields.Tertiary))
+                                                        {
+                                                            <span> · @displayFields.Tertiary</span>
+                                                        }
                                                     </span>
-                                                    @if (!string.IsNullOrEmpty(result.Description))
-                                                    {
-                                                        <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
-                                                    }
                                                 </div>
-                                                <span class="vdd-result-source-tag">@result.ProviderName</span>
                                             </div>
                                             @if (isExpanded)
                                             {
@@ -389,13 +390,11 @@
                                                     {
                                                         <p class="vdd-detail-description">@(result.Description.Length > 300 ? result.Description[..300] + "\u2026" : result.Description)</p>
                                                     }
-                                                    @{
-                                                        var detailFields = GetDetailFieldsForResult(result);
-                                                    }
-                                                    @if (detailFields.Count > 0)
+
+                                                    @if (displayFields.Details.Count > 0)
                                                     {
                                                         <div class="vdd-detail-fields-compact">
-                                                            @foreach (var (label, value) in detailFields)
+                                                            @foreach (var (label, value) in displayFields.Details)
                                                             {
                                                                 <div class="vdd-detail-field-inline">
                                                                     <span class="vdd-field-label">@label</span>
@@ -404,6 +403,17 @@
                                                             }
                                                         </div>
                                                     }
+
+                                                    @if (displayFields.BridgeIds.Count > 0)
+                                                    {
+                                                        <div class="vdd-bridge-chips">
+                                                            @foreach (var (label, _) in displayFields.BridgeIds)
+                                                            {
+                                                                <span class="vdd-bridge-chip">@label ✓</span>
+                                                            }
+                                                        </div>
+                                                    }
+
                                                     @if (!_confirmingRetailMatch)
                                                     {
                                                         <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
@@ -487,6 +497,15 @@
                                     <input type="text" class="vdd-search-input"
                                            placeholder="@(hasWikidata ? "Search to relink..." : "Search Wikidata by title or QID...")"
                                            @bind="_wikidataSearchQuery" @bind:event="oninput" @onkeydown="OnWikidataSearchKeyDown" />
+                                    <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
+                                        <option value="Books">Books</option>
+                                        <option value="Audiobooks">Audiobooks</option>
+                                        <option value="Movies">Movies</option>
+                                        <option value="TV">TV</option>
+                                        <option value="Music">Music</option>
+                                        <option value="Comics">Comics</option>
+                                        <option value="Podcasts">Podcasts</option>
+                                    </select>
                                     <button class="vdd-search-btn" @onclick="RunWikidataSearch"
                                             disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery))">
                                         <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
@@ -1055,18 +1074,63 @@
         return $"Matched to {qid} on Wikidata. Canonical data (title, author, year, genre) is sourced from Wikidata.";
     }
 
-    /// <summary>Returns media-type-appropriate detail fields for a retail search result, avoiding duplication with the row.</summary>
-    private static List<(string Label, string Value)> GetDetailFieldsForResult(RetailCandidateDto result)
+    /// <summary>Result display data extracted from a retail candidate using the media type registry.</summary>
+    private sealed record RetailResultDisplay(
+        string? Subline,
+        string? Tertiary,
+        List<(string Label, string Value)> Details,
+        List<(string Label, string Value)> BridgeIds);
+
+    /// <summary>
+    /// Builds media-type-aware display data for a retail search result.
+    /// Uses MediaTypeFieldRegistry to determine which fields to show per media type.
+    /// </summary>
+    private RetailResultDisplay GetRetailResultFields(RetailCandidateDto result)
     {
-        var fields = new List<(string, string)>();
+        // Parse the media type enum
+        if (!Enum.TryParse<MediaType>(_searchMediaType, true, out var mediaType))
+            mediaType = MediaType.Books;
 
-        if (!string.IsNullOrEmpty(result.ProviderItemId))
-            fields.Add(("ID", $"{result.ProviderName}: {result.ProviderItemId}"));
+        var config = MediaTypeFieldRegistry.GetSearchDisplay(mediaType);
 
-        if (!string.IsNullOrEmpty(result.Director) && string.IsNullOrEmpty(result.Author))
-            fields.Add(("Director", result.Director));
+        // Build a lookup from all available fields on the result
+        var allFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(result.Title)) allFields["title"] = result.Title;
+        if (!string.IsNullOrEmpty(result.Author)) allFields["author"] = result.Author;
+        if (!string.IsNullOrEmpty(result.Director)) allFields["director"] = result.Director;
+        if (!string.IsNullOrEmpty(result.Year)) allFields["year"] = result.Year;
+        if (!string.IsNullOrEmpty(result.Description)) allFields["description"] = result.Description;
+        if (!string.IsNullOrEmpty(result.ProviderItemId)) allFields["provider_item_id"] = result.ProviderItemId;
 
-        return fields;
+        // Merge extra fields from the provider
+        foreach (var (k, v) in result.ExtraFields)
+        {
+            if (!string.IsNullOrWhiteSpace(v))
+                allFields.TryAdd(k, v);
+        }
+
+        // Extract display values using the config
+        string? subline = allFields.GetValueOrDefault(config.Subline);
+        string? tertiary = allFields.GetValueOrDefault(config.Tertiary);
+
+        // Detail fields (excluding any already shown in subline/tertiary)
+        var details = new List<(string, string)>();
+        foreach (var fieldKey in config.DetailFields)
+        {
+            if (fieldKey == config.Subline || fieldKey == config.Tertiary) continue;
+            if (allFields.TryGetValue(fieldKey, out var val) && !string.IsNullOrWhiteSpace(val))
+                details.Add((FormatClaimKey(fieldKey), val.Length > 80 ? val[..77] + "\u2026" : val));
+        }
+
+        // Bridge IDs
+        var bridges = new List<(string, string)>();
+        foreach (var bridgeKey in config.BridgeLabels)
+        {
+            if (allFields.TryGetValue(bridgeKey, out var val) && !string.IsNullOrWhiteSpace(val))
+                bridges.Add((FormatClaimKey(bridgeKey), val));
+        }
+
+        return new RetailResultDisplay(subline, tertiary, details, bridges);
     }
 
     private void SelectRetailResult(RetailCandidateDto result)
@@ -2702,16 +2766,20 @@
         gap: 6px;
     }
 
-    .vdd-result-source-tag {
-        font-size: 9px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: rgba(255,255,255,0.25);
-        flex-shrink: 0;
+    /* ── Bridge ID chips ── */
+    .vdd-bridge-chips {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin: 6px 0;
+    }
+
+    .vdd-bridge-chip {
+        font-size: 10px;
         padding: 2px 6px;
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 4px;
+        border-radius: 3px;
+        background: rgba(93,202,165,0.12);
+        color: rgba(93,202,165,0.7);
     }
 
     /* ── Status section ── */
