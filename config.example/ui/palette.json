@@ -1,0 +1,57 @@
+{
+  "theme": {
+    "primary": "#EAB308",
+    "secondary": "#9CA3AF",
+    "background": "#080B14",
+    "surface": "#0C1020",
+    "text_primary": "#F3F4F6",
+    "text_secondary": "#9CA3AF",
+    "text_disabled": "#4B5563",
+    "error": "#CF6679",
+    "warning": "#FFB74D",
+    "info": "#4FC3F7",
+    "success": "#81C784"
+  },
+  "status": {
+    "verified": "#5DCAA5",
+    "provisional": "#3B82F6",
+    "needs_review": "#EF9F27",
+    "quarantined": "#E24B4A",
+    "identified": "#5DCAA5",
+    "confirmed": "#5C9FCA",
+    "in_review": "#EF9F27",
+    "known": "#B39DDB",
+    "awaiting_stage2": "#7F77DD",
+    "rejected": "#E24B4A",
+    "default": "rgba(255,255,255,0.3)"
+  },
+  "pipeline": {
+    "completed": "#5DCAA5",
+    "warning": "#EF9F27",
+    "failed": "#A05050",
+    "pending": "#3B3B3B"
+  },
+  "media_type": {
+    "movie": "#60A5FA",
+    "book": "#5DCAA5",
+    "audiobook": "#A78BFA",
+    "tv": "#FBBF24",
+    "music": "#22D3EE",
+    "podcast": "#FB923C",
+    "comic": "#7C4DFF",
+    "unknown": "rgba(255,255,255,0.4)"
+  },
+  "confidence": {
+    "high": "#5DCAA5",
+    "medium": "#EF9F27",
+    "low": "#A05050"
+  },
+  "review_trigger": {
+    "low_confidence": "#B08940",
+    "multiple_matches": "#5C7A99",
+    "match_failed": "#A05050",
+    "ambiguous": "#B08940",
+    "user_report": "#C9922E",
+    "default": "#6B6B6B"
+  }
+}

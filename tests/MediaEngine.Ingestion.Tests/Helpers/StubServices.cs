@@ -239,6 +239,8 @@ internal sealed class StubConfigurationLoader : IConfigurationLoader
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
     public T? LoadAi<T>() where T : class => default;
     public void SaveAi<T>(T settings) where T : class { }
+    public PaletteConfiguration LoadPalette() => new();
+    public void SavePalette(PaletteConfiguration palette) { }
 }
 
 // ── SmartLabeler Stub ─────────────────────────────────────────────────────────
@@ -280,5 +282,28 @@ internal sealed class StubMediaTypeAdvisor : IMediaTypeAdvisor
             Confidence = 0.0,
             Reason     = "Stub — no AI classification in tests",
         });
+}
+
+// ── EntityTimelineRepository Stub ────────────────────────────────────────────
+
+/// <summary>
+/// No-op timeline repository for tests — all writes are silently discarded.
+/// </summary>
+internal sealed class StubEntityTimelineRepository : IEntityTimelineRepository
+{
+    public Task InsertEventAsync(Domain.Entities.EntityEvent evt, CancellationToken ct = default) => Task.CompletedTask;
+    public Task InsertEventsAsync(IReadOnlyList<Domain.Entities.EntityEvent> events, CancellationToken ct = default) => Task.CompletedTask;
+    public Task InsertFieldChangesAsync(IReadOnlyList<Domain.Entities.EntityFieldChange> changes, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<IReadOnlyList<Domain.Entities.EntityEvent>> GetEventsByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Domain.Entities.EntityEvent>>([]);
+    public Task<Domain.Entities.EntityEvent?> GetLatestEventAsync(Guid entityId, int stage, CancellationToken ct = default) => Task.FromResult<Domain.Entities.EntityEvent?>(null);
+    public Task<IReadOnlyList<Domain.Entities.EntityEvent>> GetCurrentPipelineStateAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Domain.Entities.EntityEvent>>([]);
+    public Task<Domain.Entities.EntityEvent?> GetEventByIdAsync(Guid eventId, CancellationToken ct = default) => Task.FromResult<Domain.Entities.EntityEvent?>(null);
+    public Task<IReadOnlyList<Domain.Entities.EntityFieldChange>> GetFieldChangesByEventAsync(Guid eventId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Domain.Entities.EntityFieldChange>>([]);
+    public Task<IReadOnlyList<Domain.Entities.EntityFieldChange>> GetFieldHistoryAsync(Guid entityId, string field, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Domain.Entities.EntityFieldChange>>([]);
+    public Task<IReadOnlyList<Domain.Entities.EntityFieldChange>> GetFieldHistoryAsync(Guid entityId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Domain.Entities.EntityFieldChange>>([]);
+    public Task<IReadOnlyList<Domain.Entities.EntityFieldChange>> GetFileOriginalsForEventAsync(Guid eventId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Domain.Entities.EntityFieldChange>>([]);
+    public Task<IReadOnlyDictionary<Guid, Domain.Entities.EntityEvent>> GetLatestStage2EventsAsync(IReadOnlyList<Guid> entityIds, CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<Guid, Domain.Entities.EntityEvent>>(new Dictionary<Guid, Domain.Entities.EntityEvent>());
+    public Task<int> CullOldEventsAsync(TimeSpan retention, CancellationToken ct = default) => Task.FromResult(0);
+    public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default) => Task.CompletedTask;
 }
 

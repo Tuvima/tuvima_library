@@ -1,3 +1,4 @@
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
@@ -301,4 +302,6 @@ file sealed class StubConfigLoader : IConfigurationLoader
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
     public T? LoadAi<T>() where T : class => default;
     public void SaveAi<T>(T settings) where T : class { }
+    public PaletteConfiguration LoadPalette() => new();
+    public void SavePalette(PaletteConfiguration palette) { }
 }

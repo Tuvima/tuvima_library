@@ -1,0 +1,50 @@
+namespace MediaEngine.Domain;
+
+/// <summary>
+/// Single source of truth for SignalR hub paths and event names.
+/// Both Engine (publishers) and Dashboard (subscribers) must reference
+/// these constants instead of using raw string literals.
+/// </summary>
+public static class SignalREvents
+{
+    /// <summary>SignalR hub endpoint path.</summary>
+    public const string HubPath = "/hubs/intercom";
+
+    // ── Ingestion lifecycle ──────────────────────────────────────────
+    public const string IngestionStarted   = "IngestionStarted";
+    public const string IngestionHashed    = "IngestionHashed";
+    public const string IngestionCompleted = "IngestionCompleted";
+    public const string IngestionFailed    = "IngestionFailed";
+    public const string IngestionProgress  = "IngestionProgress";
+    public const string BatchProgress      = "BatchProgress";
+
+    // ── Media management ─────────────────────────────────────────────
+    public const string MediaAdded   = "MediaAdded";
+    public const string MediaRemoved = "MediaRemoved";
+
+    // ── Metadata & enrichment ────────────────────────────────────────
+    public const string MetadataHarvested       = "MetadataHarvested";
+    public const string HydrationStageCompleted = "HydrationStageCompleted";
+    public const string PersonEnriched          = "PersonEnriched";
+    public const string FictionalEntityEnriched = "FictionalEntityEnriched";
+
+    // ── Review queue ─────────────────────────────────────────────────
+    public const string ReviewItemCreated  = "ReviewItemCreated";
+    public const string ReviewItemResolved = "ReviewItemResolved";
+
+    // ── Provider health ──────────────────────────────────────────────
+    public const string ProviderStatusChanged  = "ProviderStatusChanged";
+    public const string ProviderRecoveryFlush  = "ProviderRecoveryFlush";
+
+    // ── AI model lifecycle ───────────────────────────────────────────
+    public const string ModelStateChanged      = "ModelStateChanged";
+    public const string ModelDownloadProgress  = "ModelDownloadProgress";
+
+    // ── Library health ───────────────────────────────────────────────
+    public const string FolderHealthChanged = "FolderHealthChanged";
+    public const string WatchFolderActive   = "WatchFolderActive";
+
+    // ── Universe enrichment ──────────────────────────────────────────
+    public const string UniverseEnrichmentProgress = "UniverseEnrichmentProgress";
+    public const string LoreDeltaDiscovered        = "LoreDeltaDiscovered";
+}

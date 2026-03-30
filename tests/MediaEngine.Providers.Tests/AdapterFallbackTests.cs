@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
@@ -196,6 +197,8 @@ file sealed class StubConfigurationLoader : IConfigurationLoader
     public void SaveConfig<T>(string subdirectory, string name, T config) where T : class { }
     public T? LoadAi<T>() where T : class => default;
     public void SaveAi<T>(T settings) where T : class { }
+    public PaletteConfiguration LoadPalette() => new();
+    public void SavePalette(PaletteConfiguration palette) { }
 }
 
 /// <summary>No-op QID label repository for adapter tests.</summary>
