@@ -32,7 +32,7 @@ Drop your files into a folder. Tuvima reads each one, figures out what it is usi
 
 When Tuvima discovers that your Dune ebook, Dune audiobook, and Dune film belong to the same creative world, it groups them together into a single entry called a **Series**. Click it, and you see every version of the story you own â€” read, listen, or watch. No switching apps.
 
-Related Series are grouped into **Universes** â€” the Dune novels, the Dune films, and the Dune audiobooks all live under the "Dune" Universe. [Learn more about Universes and Series.](docs/explanation/how-universes-work.md)
+Related Series are grouped into **Universes** â€” the Dune novels, the Dune films, and the Dune audiobooks all live under the "Dune" Universe. [Learn more about Universes and Series.](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/)
 
 ### How Tuvima compares
 
@@ -55,13 +55,13 @@ Related Series are grouped into **Universes** â€” the Dune novels, the Dune
 
 Drop a file into a watched folder. The Engine reads it, cleans the filename with AI, searches Wikidata and retail providers for a match, downloads cover art and metadata, enriches the file with themes, mood, and a TL;DR summary â€” then organizes it into your library. Every 30 days it re-checks for updated information.
 
-[Full walkthrough: How Ingestion Works](docs/explanation/how-ingestion-works.md) Â· [How Enrichment Works](docs/explanation/how-hydration-works.md) Â· [How Scoring Works](docs/explanation/how-scoring-works.md)
+[Full walkthrough: How Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/) Â· [How Enrichment Works](https://tuvima.github.io/tuvima_library/explanation/how-hydration-works/) Â· [How Scoring Works](https://tuvima.github.io/tuvima_library/explanation/how-scoring-works/)
 
 ### Built-in AI
 
 Four local AI models (~9 GB total) handle filename parsing, media classification, vibe tagging, and audiobook transcription. Everything runs on your CPU/GPU â€” no cloud, no subscription. The Engine benchmarks your hardware on first startup and adapts: gaming PCs run enrichment continuously, quieter machines schedule it overnight.
 
-[Learn more about the AI.](docs/explanation/how-ai-works.md)
+[Learn more about the AI.](https://tuvima.github.io/tuvima_library/explanation/how-ai-works/)
 
 ### Supported media
 
@@ -75,7 +75,7 @@ Four local AI models (~9 GB total) handle filename parsing, media classification
 | **Comics** | CBZ, CBR |
 | **Podcasts** | MP3, M4A |
 
-[Full format details, processors, and providers.](docs/reference/media-types.md)
+[Full format details, processors, and providers.](https://tuvima.github.io/tuvima_library/reference/media-types/)
 
 ---
 
@@ -107,20 +107,20 @@ dotnet run --project src/MediaEngine.Web    # Dashboard at localhost:5016
 
 On first startup the Engine downloads AI models (~9 GB), benchmarks your hardware, and begins watching your folders.
 
-[Full setup guide](docs/tutorials/getting-started.md) Â· [Docker instructions](docs/tutorials/getting-started.md#docker) Â· [Configuration reference](docs/reference/configuration.md)
+[Full setup guide](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) Â· [Docker instructions](https://tuvima.github.io/tuvima_library/tutorials/getting-started/#docker) Â· [Configuration reference](https://tuvima.github.io/tuvima_library/reference/configuration/)
 
 ---
 
 ## Documentation
 
-Full documentation lives in [`docs/`](docs/index.md), organised using the [DiÃ¡taxis framework](https://diataxis.fr/):
+Full documentation lives on GitHub Pages at [tuvima.github.io/tuvima_library](https://tuvima.github.io/tuvima_library/), organised using the [DiÃ¡taxis framework](https://diataxis.fr/):
 
 | | For users | For developers |
 |---|---|---|
-| **Tutorials** | [Getting Started](docs/tutorials/getting-started.md), [Your First Library](docs/tutorials/first-library.md) | [Developer Setup](docs/tutorials/dev-setup.md) |
-| **How-to Guides** | [Adding Media](docs/guides/adding-media.md), [Resolving Reviews](docs/guides/resolving-reviews.md), [Providers](docs/guides/configuring-providers.md), [Languages](docs/guides/language-setup.md) | [Adding a Provider](docs/guides/adding-a-provider.md), [Writing a Processor](docs/guides/writing-a-processor.md), [Running Tests](docs/guides/running-tests.md) |
-| **Reference** | [Configuration](docs/reference/configuration.md), [Media Types](docs/reference/media-types.md), [Glossary](docs/reference/glossary.md) | [API Endpoints](docs/reference/api-endpoints.md), [Database Schema](docs/reference/database-schema.md) |
-| **Explanation** | [Ingestion](docs/explanation/how-ingestion-works.md), [Scoring](docs/explanation/how-scoring-works.md), [Universes](docs/explanation/how-universes-work.md), [AI](docs/explanation/how-ai-works.md), [Enrichment](docs/explanation/how-hydration-works.md), [Vault](docs/explanation/how-the-vault-works.md) | [Architecture deep-dives](docs/architecture/ingestion-pipeline.md) |
+| **Tutorials** | [Getting Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/), [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) | [Developer Setup](https://tuvima.github.io/tuvima_library/tutorials/dev-setup/) |
+| **How-to Guides** | [Adding Media](https://tuvima.github.io/tuvima_library/guides/adding-media/), [Resolving Reviews](https://tuvima.github.io/tuvima_library/guides/resolving-reviews/), [Providers](https://tuvima.github.io/tuvima_library/guides/configuring-providers/), [Languages](https://tuvima.github.io/tuvima_library/guides/language-setup/) | [Adding a Provider](https://tuvima.github.io/tuvima_library/guides/adding-a-provider/), [Writing a Processor](https://tuvima.github.io/tuvima_library/guides/writing-a-processor/), [Running Tests](https://tuvima.github.io/tuvima_library/guides/running-tests/) |
+| **Reference** | [Configuration](https://tuvima.github.io/tuvima_library/reference/configuration/), [Media Types](https://tuvima.github.io/tuvima_library/reference/media-types/), [Glossary](https://tuvima.github.io/tuvima_library/reference/glossary/) | [API Endpoints](https://tuvima.github.io/tuvima_library/reference/api-endpoints/), [Database Schema](https://tuvima.github.io/tuvima_library/reference/database-schema/) |
+| **Explanation** | [Ingestion](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/), [Scoring](https://tuvima.github.io/tuvima_library/explanation/how-scoring-works/), [Universes](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/), [AI](https://tuvima.github.io/tuvima_library/explanation/how-ai-works/), [Enrichment](https://tuvima.github.io/tuvima_library/explanation/how-hydration-works/), [Vault](https://tuvima.github.io/tuvima_library/explanation/how-the-vault-works/) | [Architecture deep-dives](https://tuvima.github.io/tuvima_library/architecture/ingestion-pipeline/) |
 
 Published documentation is available on GitHub Pages at [tuvima.github.io/tuvima_library](https://tuvima.github.io/tuvima_library/).
 
