@@ -1,7 +1,7 @@
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>Vault pipeline stage states.</summary>
-public enum VaultStageState { Completed, Warning, Failed, Pending }
+public enum VaultStageState { Completed, Warning, Failed, Pending, Running }
 
 /// <summary>Vault item display statuses.</summary>
 public enum VaultStatus { Verified, Provisional, NeedsReview, Quarantined, WaitingForProvider }

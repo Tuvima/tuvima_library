@@ -135,8 +135,9 @@
         <MudText Typo="Typo.h6">Providers</MudText>
     </MudStack>
     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
-        Build a priority chain for each media type. The Engine tries providers left to right,
-        stopping when one returns a result.
+        Build a priority chain for each media type. Choose a strategy to control
+        how providers interact — waterfall stops at the first match, cascade
+        merges results from all, sequential chains providers together.
     </MudText>
 
     @* ── Category selector (icons on top) ────────────────────────────────── *@
@@ -157,13 +158,40 @@
         var chain = GetChain(_activeTab);
     }
 
+    @* ── Pipeline strategy ── *@
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+        <MudText Typo="Typo.body2" Style="color: var(--mud-palette-text-secondary); white-space: nowrap;">
+            Strategy:
+        </MudText>
+        <MudSelect T="string"
+                   Value="@GetStrategy(_activeTab)"
+                   ValueChanged="@(v => SetStrategy(_activeTab, v))"
+                   Variant="Variant.Outlined"
+                   Margin="Margin.Dense"
+                   Dense="true"
+                   Style="max-width: 220px;">
+            <MudSelectItem T="string" Value="@("Waterfall")">
+                Waterfall — first match wins
+            </MudSelectItem>
+            <MudSelectItem T="string" Value="@("Cascade")">
+                Cascade — all run, merge results
+            </MudSelectItem>
+            <MudSelectItem T="string" Value="@("Sequential")">
+                Sequential — chained, each feeds next
+            </MudSelectItem>
+        </MudSelect>
+    </div>
+
     <div class="chain-container">
         @for (int i = 0; i < chain.Count; i++)
         {
             var idx        = i;
             var assignment = chain[idx];
             var info       = GetProviderInfo(assignment.Name);
-            var posLabel   = idx == 0 ? "Primary" : idx == 1 ? "Secondary" : "Fallback";
+            var strategy = GetStrategy(_activeTab);
+            var posLabel = strategy == "Sequential"
+                ? $"Step {idx + 1}"
+                : idx == 0 ? "Primary" : idx == 1 ? "Secondary" : $"Rank {idx + 1}";
             var enabledDot = assignment.Enabled ? "#4caf50" : "#f44336";
 
             @* ── Provider card ── *@
@@ -645,6 +673,17 @@
         public string LanguageStrategy { get; set; } = "source";
     }
 
+    private static readonly Dictionary<string, string> DefaultStrategies = new()
+    {
+        ["Books"]      = "Cascade",
+        ["Audiobooks"] = "Sequential",
+        ["Movies"]     = "Waterfall",
+        ["TV"]         = "Waterfall",
+        ["Music"]      = "Sequential",
+        ["Comics"]     = "Waterfall",
+        ["Podcasts"]   = "Cascade",
+    };
+
     private static readonly Dictionary<string, List<ProviderAssignment>> DefaultAssignments = new()
     {
         ["Books"]      = [new() { Name = "Apple API", LanguageStrategy = "localized" }],
@@ -678,6 +717,9 @@
 
     // Working copy: mediaType → ordered list of assignments
     private Dictionary<string, List<ProviderAssignment>> _assignments = new();
+
+    // Pipeline strategy per media type
+    private Dictionary<string, string> _strategies = new();
 
     // Drawer state
     private bool               _drawerOpen        = false;
@@ -742,6 +784,13 @@
                 {
                     if (!_assignments.ContainsKey(mt))
                         _assignments[mt] = [];
+                }
+
+                // Initialize strategies from defaults (pipeline API will provide these later)
+                foreach (var mt in _mediaTypes)
+                {
+                    if (!_strategies.ContainsKey(mt))
+                        _strategies[mt] = DefaultStrategies.GetValueOrDefault(mt, "Waterfall");
                 }
                 return;
             }
@@ -976,6 +1025,18 @@
                 Retries          = a.Retries,
                 LanguageStrategy = a.LanguageStrategy,
             }).ToList());
+        _strategies = new Dictionary<string, string>(DefaultStrategies);
+    }
+
+    private string GetStrategy(string mediaType)
+    {
+        if (_strategies.TryGetValue(mediaType, out var s)) return s;
+        return DefaultStrategies.GetValueOrDefault(mediaType, "Waterfall");
+    }
+
+    private void SetStrategy(string mediaType, string strategy)
+    {
+        _strategies[mediaType] = strategy;
     }
 
     private async Task SaveAsync()

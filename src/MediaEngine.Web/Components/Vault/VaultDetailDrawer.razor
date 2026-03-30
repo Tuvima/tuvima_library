@@ -169,7 +169,7 @@
                 </div>
             }
 
-            @* ── Pipeline (consolidated: circles + stages + search + history) ── *@
+            @* ── Pipeline (circles + File/Retail/Wikidata tabs) ── *@
             <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
                            HasProblem="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))"
                            DefaultOpen="true">
@@ -184,257 +184,400 @@
                         @bind-SelectedStage="_selectedStage" />
                 </div>
 
-                @* Stage detail panel *@
-                <div class="vdd-stage-panel-wrap">
-                    <VaultStagePanel SelectedStage="_selectedStage" Item="@MediaItem" Claims="@_claims" />
+                @* Tab bar *@
+                <div class="vdd-stage-tabs">
+                    <button class="vdd-stage-tab @(ActiveTab == 0 ? "vdd-stage-tab--active" : "")" @onclick="() => SetActiveTab(0)">
+                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px;" />
+                        File
+                    </button>
+                    <button class="vdd-stage-tab @(ActiveTab == 1 ? "vdd-stage-tab--active" : "")" @onclick="() => SetActiveTab(1)">
+                        <MudIcon Icon="@Icons.Material.Outlined.Store" Style="font-size: 14px;" />
+                        Retail
+                    </button>
+                    <button class="vdd-stage-tab @(ActiveTab == 2 ? "vdd-stage-tab--active" : "")" @onclick="() => SetActiveTab(2)">
+                        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 14px;" />
+                        Wikidata
+                    </button>
                 </div>
 
-                <div class="vdd-pipeline">
-                    @{
-                        var _hasRetailMatch = IsRealRetailMatch(MediaItem.RetailMatch);
-                        var _hasWikidataMatch = IsWikidataMatched(MediaItem.WikidataQid);
-                    }
-
-                    @* Stage status lines *@
-                    @if (_hasRetailMatch)
-                    {
-                        <div class="vdd-pipeline-line">
-                            <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                            <span class="vdd-field-label">RETAIL</span>
-                            <span class="vdd-field-value">@VaultHelpers.FormatSourceName(!string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch)</span>
-                        </div>
-                        @if (GetRetailProviderUrl() is { } retailUrl)
-                        {
-                            <a href="@retailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
-                                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
-                                @retailUrl.Label
-                            </a>
-                        }
-                    }
-                    else
-                    {
-                        <div class="vdd-pipeline-line">
-                            <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
-                            <span class="vdd-field-label">RETAIL</span>
-                            <span class="vdd-field-value" style="color: rgba(255,255,255,0.3); font-style: italic;">No retail match yet</span>
-                        </div>
-                    }
-
-                    @if (_hasWikidataMatch)
-                    {
-                        <div class="vdd-pipeline-line">
-                            <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                            <span class="vdd-field-label">WIKIDATA</span>
-                            <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem.WikidataQid</a>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="vdd-pipeline-line">
-                            <span class="vdd-pipeline-dot @(_hasRetailMatch ? "vdd-pipeline-dot--warn" : "vdd-pipeline-dot--fail")"></span>
-                            <span class="vdd-field-label">WIKIDATA</span>
-                            <span class="vdd-field-value" style="color: rgba(255,255,255,0.3); font-style: italic;">@(_hasRetailMatch ? "Awaiting" : "No match yet")</span>
-                        </div>
-                    }
-
-                    @* Search — always visible for all items *@
-                    <div class="vdd-unified-search">
-                        <div class="vdd-search-row">
-                            <input type="text" class="vdd-search-input" placeholder="Search by title, QID, or ID..."
-                                   @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnSearchKeyDown" />
-                            <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
-                                <option value="Books">Books</option>
-                                <option value="Audiobooks">Audiobooks</option>
-                                <option value="Movies">Movies</option>
-                                <option value="TV">TV</option>
-                                <option value="Music">Music</option>
-                                <option value="Comics">Comics</option>
-                                <option value="Podcasts">Podcasts</option>
-                            </select>
-                            <button class="vdd-search-btn" @onclick="RunUnifiedSearch"
-                                    disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
-                                <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
-                            </button>
-                        </div>
-                    </div>
-
-                    @if (_searching || _searchingWikidata)
-                    {
-                        <div style="padding: 8px 0; text-align: center;">
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
-                        </div>
-                    }
-                    else if (_hasSearched && _retailSearchResults.Count == 0 && _wikidataSearchResults.Count == 0)
-                    {
-                        <p class="vdd-stage-hint">No results found for "@_manualSearchQuery"</p>
-                    }
-                    else
-                    {
-                        @* Retail results *@
-                        @if (_retailSearchResults.Count > 0)
-                        {
-                            <div class="vdd-search-results-header">Retail results</div>
-                            <div class="vdd-search-results">
-                                @foreach (var result in _retailSearchResults)
+                @* ── Tab content ── *@
+                @{
+                    var hasRetail = IsRealRetailMatch(MediaItem.RetailMatch);
+                    var hasWikidata = IsWikidataMatched(MediaItem.WikidataQid);
+                    var hasRetailForWiki = hasRetail;
+                    var retailClaims = _claims.Where(c =>
+                        !VaultHelpers.IsFileSource(c.ProviderId) &&
+                        !VaultHelpers.IsUserSource(c.ProviderId) &&
+                        !c.ProviderId.ToString().Contains("b3000003")).ToList();
+                    var wikiClaims = _claims.Where(c =>
+                        c.ProviderId.ToString().Contains("b3000003")).ToList();
+                }
+                @switch (ActiveTab)
+                {
+                    case 0:
+                        @* ── FILE TAB ── *@
+                        <div class="vdd-tab-content">
+                            <h4 class="vdd-tab-heading">Current Metadata</h4>
+                            <div class="vdd-metadata-list">
+                                @foreach (var (label, val) in GetCurrentMetadataRows())
                                 {
-                                    var isExpanded = _pendingRetailMatch == result;
-                                    <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
-                                         @onclick="() => SelectRetailResult(result)">
-                                        <div class="vdd-search-result-row">
-                                            <div class="vdd-search-result-thumb">
-                                                @if (!string.IsNullOrEmpty(result.CoverUrl))
-                                                {
-                                                    <img src="@result.CoverUrl" alt="" loading="lazy" />
-                                                }
-                                                else
-                                                {
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
-                                                }
-                                            </div>
-                                            <div class="vdd-search-result-info">
-                                                <span class="vdd-search-result-title">@result.Title</span>
-                                                <span class="vdd-search-result-meta">
-                                                    @(result.Author ?? result.Director)
-                                                    @(!string.IsNullOrEmpty(result.Year) ? $"• {result.Year}" : "")
-                                                </span>
-                                                @if (!string.IsNullOrEmpty(result.Description))
-                                                {
-                                                    <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
-                                                }
-                                            </div>
-                                            <span class="vdd-result-source-tag">@result.ProviderName</span>
+                                    <div class="vdd-claim-row">
+                                        <span class="vdd-field-label">@label</span>
+                                        <span class="vdd-field-value">@val</span>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
+                            {
+                                <div class="vdd-file-cover">
+                                    <span class="vdd-field-label">Cover Art</span>
+                                    <img src="@MediaItem.CoverUrl" alt="Cover" class="vdd-file-cover-img" loading="lazy" />
+                                </div>
+                            }
+
+                            @* Collapsed original metadata *@
+                            <details class="vdd-original-meta">
+                                <summary class="vdd-original-meta-summary">Original File Metadata</summary>
+                                <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                    @if (_claimsLoading)
+                                    {
+                                        <div style="padding: 8px 0; text-align: center;">
+                                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
                                         </div>
-                                        @if (isExpanded)
+                                    }
+                                    else
+                                    {
+                                        var fileClaims = _claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)).ToList();
+                                        @if (fileClaims.Count == 0)
                                         {
-                                            <div class="vdd-search-result-detail-below">
-                                                @if (!string.IsNullOrEmpty(result.Description))
-                                                {
-                                                    <p class="vdd-detail-description">@(result.Description.Length > 300 ? result.Description[..300] + "\u2026" : result.Description)</p>
-                                                }
-                                                @{
-                                                    var detailFields = GetDetailFieldsForResult(result);
-                                                }
-                                                @if (detailFields.Count > 0)
-                                                {
-                                                    <div class="vdd-detail-fields-compact">
-                                                        @foreach (var (label, value) in detailFields)
-                                                        {
-                                                            <div class="vdd-detail-field-inline">
-                                                                <span class="vdd-field-label">@label</span>
-                                                                <span class="vdd-field-value">@value</span>
-                                                            </div>
-                                                        }
-                                                    </div>
-                                                }
-                                                @if (!_confirmingRetailMatch)
-                                                {
-                                                    <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                            @onclick="() => _confirmingRetailMatch = true">
-                                                        Confirm Match
-                                                    </button>
-                                                }
-                                                else
-                                                {
-                                                    <div class="vdd-confirm-row" @onclick:stopPropagation="true">
-                                                        @if (IsRealRetailMatch(MediaItem?.RetailMatch))
-                                                        {
-                                                            <span class="vdd-overwrite-warning">
-                                                                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
-                                                                This will replace the current retail match.
-                                                            </span>
-                                                        }
-                                                        <span class="vdd-confirm-prompt">Are you sure?</span>
-                                                        <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
-                                                            Yes
-                                                        </button>
-                                                        <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                }
+                                            <p class="vdd-stage-hint">No file metadata extracted yet.</p>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var group in fileClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                            {
+                                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                                <div class="vdd-claim-row">
+                                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                                    <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
+                                                    <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                </div>
+                            </details>
+                        </div>
+                        break;
+
+                    case 1:
+                        @* ── RETAIL TAB ── *@
+                        <div class="vdd-tab-content">
+                            @if (hasRetail)
+                            {
+                                <div class="vdd-match-status vdd-match-status--ok">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                    <span>Matched by @GetRetailProviderDisplayName()</span>
+                                </div>
+                                @if (GetRetailProviderUrl() is { } retailUrl)
+                                {
+                                    <a href="@retailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
+                                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                        @retailUrl.Label
+                                    </a>
+                                }
+
+                                @* Show retail provider claims *@
+                                @if (retailClaims.Count > 0)
+                                {
+                                    <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                        @foreach (var group in retailClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                        {
+                                            var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                            <div class="vdd-claim-row">
+                                                <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                                <span class="vdd-field-value">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
                                             </div>
                                         }
                                     </div>
                                 }
-                            </div>
-                        }
-
-                        @* Wikidata results *@
-                        @if (_wikidataSearchResults.Count > 0)
-                        {
-                            @if (_retailSearchResults.Count > 0)
-                            {
-                                <div class="vdd-or-divider"><span>Wikidata results</span></div>
                             }
                             else
                             {
-                                <div class="vdd-search-results-header">Wikidata results</div>
+                                <div class="vdd-match-status vdd-match-status--warn">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
+                                    <span>Unmatched — no retail provider confirmed this item</span>
+                                </div>
                             }
-                            <div class="vdd-search-results">
-                                @foreach (var result in _wikidataSearchResults)
+
+                            @* Always-visible search *@
+                            <div class="vdd-tab-search">
+                                <div class="vdd-search-row">
+                                    <input type="text" class="vdd-search-input"
+                                           placeholder="@(hasRetail ? "Search to rematch..." : "Search by title or ID...")"
+                                           @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnRetailSearchKeyDown" />
+                                    <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
+                                        <option value="Books">Books</option>
+                                        <option value="Audiobooks">Audiobooks</option>
+                                        <option value="Movies">Movies</option>
+                                        <option value="TV">TV</option>
+                                        <option value="Music">Music</option>
+                                        <option value="Comics">Comics</option>
+                                        <option value="Podcasts">Podcasts</option>
+                                    </select>
+                                    <button class="vdd-search-btn" @onclick="RunRetailSearch"
+                                            disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                                    </button>
+                                </div>
+                                @if (hasRetail && !string.IsNullOrWhiteSpace(_manualSearchQuery))
                                 {
-                                    var isExpanded = _pendingWikidataMatch == result;
-                                    <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
-                                         @onclick="() => SelectWikidataResult(result)">
-                                        <div class="vdd-search-result-row">
-                                            <div class="vdd-search-result-thumb" style="background: rgba(167,139,250,0.1);">
-                                                <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 16px; color: #A78BFA;" />
+                                    <p class="vdd-rematch-warning">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                        Searching will let you replace the current retail match.
+                                    </p>
+                                }
+                            </div>
+
+                            @if (_searching)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else if (_hasSearched && _retailSearchResults.Count == 0)
+                            {
+                                <p class="vdd-stage-hint">No retail results for "@_manualSearchQuery"</p>
+                            }
+                            else if (_retailSearchResults.Count > 0)
+                            {
+                                <div class="vdd-search-results">
+                                    @foreach (var result in _retailSearchResults)
+                                    {
+                                        var isExpanded = _pendingRetailMatch == result;
+                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                             @onclick="() => SelectRetailResult(result)">
+                                            <div class="vdd-search-result-row">
+                                                <div class="vdd-search-result-thumb">
+                                                    @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                    {
+                                                        <img src="@result.CoverUrl" alt="" loading="lazy" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                                    }
+                                                </div>
+                                                <div class="vdd-search-result-info">
+                                                    <span class="vdd-search-result-title">@result.Title</span>
+                                                    <span class="vdd-search-result-meta">
+                                                        @(result.Author ?? result.Director)
+                                                        @(!string.IsNullOrEmpty(result.Year) ? $"• {result.Year}" : "")
+                                                    </span>
+                                                    @if (!string.IsNullOrEmpty(result.Description))
+                                                    {
+                                                        <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
+                                                    }
+                                                </div>
+                                                <span class="vdd-result-source-tag">@result.ProviderName</span>
                                             </div>
-                                            <div class="vdd-search-result-info">
-                                                <span class="vdd-search-result-title">@result.Label</span>
-                                                <span class="vdd-search-result-meta">@result.Qid</span>
-                                                @if (!string.IsNullOrEmpty(result.Description))
-                                                {
-                                                    <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
-                                                }
-                                            </div>
+                                            @if (isExpanded)
+                                            {
+                                                <div class="vdd-search-result-detail-below">
+                                                    @if (!string.IsNullOrEmpty(result.Description))
+                                                    {
+                                                        <p class="vdd-detail-description">@(result.Description.Length > 300 ? result.Description[..300] + "\u2026" : result.Description)</p>
+                                                    }
+                                                    @{
+                                                        var detailFields = GetDetailFieldsForResult(result);
+                                                    }
+                                                    @if (detailFields.Count > 0)
+                                                    {
+                                                        <div class="vdd-detail-fields-compact">
+                                                            @foreach (var (label, value) in detailFields)
+                                                            {
+                                                                <div class="vdd-detail-field-inline">
+                                                                    <span class="vdd-field-label">@label</span>
+                                                                    <span class="vdd-field-value">@value</span>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                    @if (!_confirmingRetailMatch)
+                                                    {
+                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                                @onclick="() => _confirmingRetailMatch = true">
+                                                            Confirm Match
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                            @if (IsRealRetailMatch(MediaItem?.RetailMatch))
+                                                            {
+                                                                <span class="vdd-overwrite-warning">
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                    This will replace the current retail match.
+                                                                </span>
+                                                            }
+                                                            <span class="vdd-confirm-prompt">Are you sure?</span>
+                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
+                                                                Yes
+                                                            </button>
+                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
                                         </div>
-                                        @if (isExpanded)
+                                    }
+                                </div>
+                            }
+                        </div>
+                        break;
+
+                    case 2:
+                        @* ── WIKIDATA TAB ── *@
+                        <div class="vdd-tab-content">
+                            @if (hasWikidata)
+                            {
+                                <div class="vdd-match-status vdd-match-status--ok">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                    <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem.WikidataQid</a>
+                                </div>
+                                <p class="vdd-match-explanation">@GetWikidataExplanation()</p>
+
+                                @* Wikidata claims *@
+                                @if (wikiClaims.Count > 0)
+                                {
+                                    <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                        @foreach (var group in wikiClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
                                         {
-                                            <div class="vdd-search-result-detail-below">
-                                                @if (!string.IsNullOrEmpty(result.Description))
-                                                {
-                                                    <p class="vdd-detail-description">@result.Description</p>
-                                                }
-                                                @if (!_confirmingWikidataMatch)
-                                                {
-                                                    <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                            @onclick="() => _confirmingWikidataMatch = true">
-                                                        Link to @result.Qid
-                                                    </button>
-                                                }
-                                                else
-                                                {
-                                                    <div class="vdd-confirm-row" @onclick:stopPropagation="true">
-                                                        @if (IsWikidataMatched(MediaItem?.WikidataQid))
-                                                        {
-                                                            <span class="vdd-overwrite-warning">
-                                                                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
-                                                                This will replace the current Wikidata link (@MediaItem?.WikidataQid).
-                                                            </span>
-                                                        }
-                                                        <span class="vdd-confirm-prompt">Are you sure?</span>
-                                                        <button class="vdd-confirm-match-btn" @onclick="() => ConfirmWikidataMatch(result.Qid)">
-                                                            Yes
-                                                        </button>
-                                                        <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
-                                                            Cancel
-                                                        </button>
-                                                    </div>
-                                                }
+                                            var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                            <div class="vdd-claim-row">
+                                                <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                                <span class="vdd-field-value">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
                                             </div>
                                         }
                                     </div>
                                 }
-                            </div>
-                        }
-                    }
-                </div>
+                            }
+                            else
+                            {
+                                <div class="vdd-match-status @(hasRetailForWiki ? "vdd-match-status--warn" : "vdd-match-status--fail")">
+                                    <span class="vdd-pipeline-dot @(hasRetailForWiki ? "vdd-pipeline-dot--warn" : "vdd-pipeline-dot--fail")"></span>
+                                    <span>@(hasRetailForWiki ? "Awaiting Wikidata lookup" : "No identity confirmed")</span>
+                                </div>
+                                @if (!hasRetailForWiki)
+                                {
+                                    <p class="vdd-stage-hint">A retail match is needed first so the Engine has a bridge ID (like an ISBN or TMDB ID) to look up on Wikidata.</p>
+                                }
+                                else
+                                {
+                                    <p class="vdd-stage-hint">A retail match was found but the Wikidata lookup hasn't completed yet, or no matching entry was found.</p>
+                                }
+                            }
 
-                @* History timeline *@
-                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 8px; padding-top: 8px;">
-                    <VaultTimeline EntityId="@MediaItem.EntityId" />
-                </div>
+                            @* Always-visible Wikidata search *@
+                            <div class="vdd-tab-search">
+                                <div class="vdd-search-row">
+                                    <input type="text" class="vdd-search-input"
+                                           placeholder="@(hasWikidata ? "Search to relink..." : "Search Wikidata by title or QID...")"
+                                           @bind="_wikidataSearchQuery" @bind:event="oninput" @onkeydown="OnWikidataSearchKeyDown" />
+                                    <button class="vdd-search-btn" @onclick="RunWikidataSearch"
+                                            disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
+                                    </button>
+                                </div>
+                                @if (hasWikidata && !string.IsNullOrWhiteSpace(_wikidataSearchQuery))
+                                {
+                                    <p class="vdd-rematch-warning">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                        Searching will let you replace the current Wikidata link.
+                                    </p>
+                                }
+                            </div>
+
+                            @if (_searchingWikidata)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else if (_hasSearchedWikidata && _wikidataSearchResults.Count == 0)
+                            {
+                                <p class="vdd-stage-hint">No Wikidata results for "@_wikidataSearchQuery"</p>
+                            }
+                            else if (_wikidataSearchResults.Count > 0)
+                            {
+                                <div class="vdd-search-results">
+                                    @foreach (var result in _wikidataSearchResults)
+                                    {
+                                        var isExpanded = _pendingWikidataMatch == result;
+                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                             @onclick="() => SelectWikidataResult(result)">
+                                            <div class="vdd-search-result-row">
+                                                <div class="vdd-search-result-thumb" style="background: rgba(167,139,250,0.1);">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 16px; color: #A78BFA;" />
+                                                </div>
+                                                <div class="vdd-search-result-info">
+                                                    <span class="vdd-search-result-title">@result.Label</span>
+                                                    <span class="vdd-search-result-meta">@result.Qid</span>
+                                                    @if (!string.IsNullOrEmpty(result.Description))
+                                                    {
+                                                        <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                            @if (isExpanded)
+                                            {
+                                                <div class="vdd-search-result-detail-below">
+                                                    @if (!string.IsNullOrEmpty(result.Description))
+                                                    {
+                                                        <p class="vdd-detail-description">@result.Description</p>
+                                                    }
+                                                    @if (!_confirmingWikidataMatch)
+                                                    {
+                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                                @onclick="() => _confirmingWikidataMatch = true">
+                                                            Link to @result.Qid
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                            @if (IsWikidataMatched(MediaItem?.WikidataQid))
+                                                            {
+                                                                <span class="vdd-overwrite-warning">
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                    This will replace the current Wikidata link (@MediaItem?.WikidataQid).
+                                                                </span>
+                                                            }
+                                                            <span class="vdd-confirm-prompt">Are you sure?</span>
+                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmWikidataMatch(result.Qid)">
+                                                                Yes
+                                                            </button>
+                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        break;
+                }
+            </DrawerSection>
+
+            <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
+                <VaultTimeline EntityId="@MediaItem.EntityId" />
             </DrawerSection>
 
             <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
@@ -485,46 +628,6 @@
                                 </div>
                             </div>
                         </div>
-                    }
-                </div>
-            </DrawerSection>
-
-            @* ── File Info section ── *@
-            <DrawerSection Title="File Info" Icon="@Icons.Material.Outlined.InsertDriveFile" DefaultOpen="false">
-                <div class="vdd-metadata-list">
-                    @if (MediaItem.FileSizeBytes.HasValue)
-                    {
-                        <div class="vdd-claim-row">
-                            <span class="vdd-field-label">Size</span>
-                            <span class="vdd-field-value">@VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)</span>
-                            <span class="vdd-claim-confidence" style="color: transparent;">—</span>
-                        </div>
-                    }
-                    @if (_claimsLoading)
-                    {
-                        <div style="padding: 8px 0; text-align: center;">
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
-                        </div>
-                    }
-                    else
-                    {
-                        var fileClaims = _claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)).ToList();
-                        if (fileClaims.Count == 0 && !MediaItem.FileSizeBytes.HasValue)
-                        {
-                            <p class="vdd-stage-hint">No file metadata extracted yet.</p>
-                        }
-                        else
-                        {
-                            foreach (var group in fileClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
-                            {
-                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
-                                <div class="vdd-claim-row">
-                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                    <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
-                                    <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
-                                </div>
-                            }
-                        }
                     }
                 </div>
             </DrawerSection>
@@ -754,6 +857,8 @@
     private List<UniverseCandidateDto> _wikidataSearchResults = [];
     private UniverseCandidateDto? _pendingWikidataMatch;
     private bool _confirmingWikidataMatch;
+    private string _wikidataSearchQuery = "";
+    private bool _hasSearchedWikidata;
     // _metadataTab removed — Metadata section split into File Info + Provider Claims
     private List<ClaimHistoryDto> _claims = [];
     private bool _claimsLoading;
@@ -786,6 +891,9 @@
     private static bool IsWikidataMatched(string? qid) =>
         !string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
 
+    private int ActiveTab => Math.Min(_selectedStage, 2);
+    private void SetActiveTab(int tab) { _selectedStage = tab; }
+
     private void NavigateToCreatorPerson(string creatorName)
     {
         // TODO: Look up person by name and open person drawer
@@ -812,6 +920,8 @@
         _wikidataSearchResults = [];
         _pendingWikidataMatch = null;
         _confirmingWikidataMatch = false;
+        _wikidataSearchQuery = "";
+        _hasSearchedWikidata = false;
         _claims = [];
         _claimsLoading = false;
         _universeHealth = null;
@@ -860,13 +970,13 @@
         await ApiClient.TriggerUniverseEnrichmentAsync();
     }
 
-    private async Task RunManualSearch()
+    private async Task RunRetailSearch()
     {
         if (string.IsNullOrWhiteSpace(_manualSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType)) return;
         _searching = true;
         _retailSearchResults = [];
-        _searchResults = [];
         _pendingRetailMatch = null;
+        _confirmingRetailMatch = false;
         StateHasChanged();
 
         var response = await ApiClient.SearchRetailAsync(_manualSearchQuery, _searchMediaType, 10);
@@ -877,44 +987,72 @@
         _hasSearched = true;
     }
 
-    private async Task RunUnifiedSearch()
+    private async Task RunWikidataSearch()
     {
-        if (string.IsNullOrWhiteSpace(_manualSearchQuery)) return;
+        if (string.IsNullOrWhiteSpace(_wikidataSearchQuery)) return;
 
-        // Check if input looks like a QID
-        var trimmed = _manualSearchQuery.Trim();
+        // Direct QID entry
+        var trimmed = _wikidataSearchQuery.Trim();
         if (trimmed.StartsWith("Q", StringComparison.OrdinalIgnoreCase) && trimmed.Length > 1 && trimmed[1..].All(char.IsDigit))
         {
             await ConfirmWikidataMatch(trimmed.ToUpperInvariant());
             return;
         }
 
-        _searching = true;
         _searchingWikidata = true;
-        _retailSearchResults = [];
         _wikidataSearchResults = [];
-        _pendingRetailMatch = null;
         _pendingWikidataMatch = null;
-        _confirmingRetailMatch = false;
         _confirmingWikidataMatch = false;
-        _hasSearched = false;
         StateHasChanged();
 
-        var retailTask = ApiClient.SearchRetailAsync(_manualSearchQuery, _searchMediaType, 10);
-        var wikidataTask = ApiClient.SearchUniverseAsync(_manualSearchQuery, _searchMediaType, 10);
+        var response = await ApiClient.SearchUniverseAsync(_wikidataSearchQuery, _searchMediaType, 10);
+        _wikidataSearchResults = response?.Candidates ?? [];
 
-        await Task.WhenAll(retailTask, wikidataTask);
-
-        var retailResponse = await retailTask;
-        if (retailResponse?.Candidates is not null)
-            _retailSearchResults = retailResponse.Candidates.ToList();
-
-        var wikidataResponse = await wikidataTask;
-        _wikidataSearchResults = wikidataResponse?.Candidates ?? [];
-
-        _searching = false;
         _searchingWikidata = false;
-        _hasSearched = true;
+        _hasSearchedWikidata = true;
+    }
+
+    /// <summary>Gets the current resolved metadata for the File tab.</summary>
+    private List<(string Label, string Value)> GetCurrentMetadataRows()
+    {
+        var rows = new List<(string, string)>();
+        if (MediaItem is null) return rows;
+
+        if (!string.IsNullOrEmpty(MediaItem.Title)) rows.Add(("Title", MediaItem.Title));
+        if (!string.IsNullOrEmpty(MediaItem.OriginalTitle) && MediaItem.OriginalTitle != MediaItem.Title)
+            rows.Add(("Original Title", MediaItem.OriginalTitle));
+        if (!string.IsNullOrEmpty(MediaItem.Author)) rows.Add(("Author", MediaItem.Author));
+        if (!string.IsNullOrEmpty(MediaItem.Director)) rows.Add(("Director", MediaItem.Director));
+        if (!string.IsNullOrEmpty(MediaItem.Artist)) rows.Add(("Artist", MediaItem.Artist));
+        if (!string.IsNullOrEmpty(MediaItem.Narrator)) rows.Add(("Narrator", MediaItem.Narrator));
+        if (!string.IsNullOrEmpty(MediaItem.Year)) rows.Add(("Year", MediaItem.Year));
+        rows.Add(("Media Type", MediaItem.MediaType));
+        if (!string.IsNullOrEmpty(MediaItem.Genre)) rows.Add(("Genre", MediaItem.Genre));
+        if (!string.IsNullOrEmpty(MediaItem.Series))
+            rows.Add(("Series", MediaItem.Series + (!string.IsNullOrEmpty(MediaItem.SeriesPosition) ? $" #{MediaItem.SeriesPosition}" : "")));
+        if (!string.IsNullOrEmpty(MediaItem.UniverseName)) rows.Add(("Universe", MediaItem.UniverseName));
+        if (!string.IsNullOrEmpty(MediaItem.FileName)) rows.Add(("File", MediaItem.FileName));
+        if (MediaItem.FileSizeBytes.HasValue && MediaItem.FileSizeBytes.Value > 0)
+            rows.Add(("Size", VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)));
+
+        return rows;
+    }
+
+    /// <summary>Returns a display name for the retail provider that matched this item.</summary>
+    private string GetRetailProviderDisplayName()
+    {
+        if (MediaItem is null) return "a retail provider";
+        var match = !string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch;
+        return VaultHelpers.FormatSourceName(match ?? "");
+    }
+
+    /// <summary>Returns a short explanation of the Wikidata match for the Wikidata tab.</summary>
+    private string GetWikidataExplanation()
+    {
+        if (MediaItem is null) return "";
+        var qid = MediaItem.WikidataQid;
+        if (string.IsNullOrEmpty(qid)) return "";
+        return $"Matched to {qid} on Wikidata. Canonical data (title, author, year, genre) is sourced from Wikidata.";
     }
 
     /// <summary>Returns media-type-appropriate detail fields for a retail search result, avoiding duplication with the row.</summary>
@@ -961,10 +1099,16 @@
         await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
     }
 
-    private async Task OnSearchKeyDown(KeyboardEventArgs e)
+    private async Task OnRetailSearchKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Enter")
-            await RunUnifiedSearch();
+            await RunRetailSearch();
+    }
+
+    private async Task OnWikidataSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await RunWikidataSearch();
     }
 
 
@@ -2816,5 +2960,134 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* ── Stage Tabs ── */
+    .vdd-stage-tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        margin: 0 -4px;
+    }
+
+    .vdd-stage-tab {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 0;
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.4);
+        font-size: 12px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+        border-bottom: 2px solid transparent;
+    }
+
+    .vdd-stage-tab--active {
+        color: rgba(255,255,255,0.9);
+        border-bottom-color: #C9922E;
+    }
+
+    .vdd-stage-tab:hover {
+        color: rgba(255,255,255,0.7);
+    }
+
+    /* ── Tab Content ── */
+    .vdd-tab-content {
+        padding: 12px 4px 0;
+    }
+
+    .vdd-tab-heading {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255,255,255,0.5);
+        margin: 0 0 10px;
+    }
+
+    .vdd-file-cover {
+        margin-top: 12px;
+    }
+
+    .vdd-file-cover-img {
+        width: 80px;
+        border-radius: 6px;
+        margin-top: 4px;
+    }
+
+    /* ── Original Metadata Collapse ── */
+    .vdd-original-meta {
+        margin-top: 14px;
+        border-top: 1px solid rgba(255,255,255,0.04);
+        padding-top: 10px;
+    }
+
+    .vdd-original-meta-summary {
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(255,255,255,0.4);
+        cursor: pointer;
+        user-select: none;
+        padding: 4px 0;
+    }
+
+    .vdd-original-meta-summary:hover {
+        color: rgba(255,255,255,0.6);
+    }
+
+    /* ── Match Status ── */
+    .vdd-match-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .vdd-match-status--ok {
+        background: rgba(93,202,165,0.08);
+        color: #5DCAA5;
+    }
+
+    .vdd-match-status--warn {
+        background: rgba(239,159,39,0.08);
+        color: #EF9F27;
+    }
+
+    .vdd-match-status--fail {
+        background: rgba(160,80,80,0.08);
+        color: rgba(255,255,255,0.5);
+    }
+
+    .vdd-match-explanation {
+        font-size: 12px;
+        color: rgba(255,255,255,0.4);
+        margin: 4px 0 8px;
+        line-height: 1.4;
+    }
+
+    /* ── Tab Search ── */
+    .vdd-tab-search {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .vdd-rematch-warning {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #EF9F27;
+        margin-top: 6px;
     }
 </style>

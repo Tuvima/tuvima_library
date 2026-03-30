@@ -1,7 +1,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="stage-gate">
-    <div class="stage-dot"
+    <div class="stage-dot @(Stage.State == VaultStageState.Running ? "stage-dot--running" : "")"
          style="background: @DotColor; box-shadow: @DotShadow;"
          title="@Stage.Label"></div>
     @if (!IsLast)
@@ -19,6 +19,7 @@
         VaultStageState.Completed => "#5DCAA5",
         VaultStageState.Warning => "#EF9F27",
         VaultStageState.Failed => "#A05050",
+        VaultStageState.Running => "#90CAF9",
         _ => "rgba(255,255,255,0.12)",
     };
 
@@ -27,6 +28,7 @@
         VaultStageState.Completed => "0 0 8px rgba(93,202,165,0.3)",
         VaultStageState.Warning => "0 0 8px rgba(239,159,39,0.3)",
         VaultStageState.Failed => "0 0 8px rgba(160,80,80,0.3)",
+        VaultStageState.Running => "0 0 8px rgba(144,202,249,0.4)",
         _ => "none",
     };
 
@@ -48,6 +50,15 @@
         z-index: 1;
         border: 2px solid #0d0f12;
         flex-shrink: 0;
+    }
+
+    .stage-dot--running {
+        animation: stage-pulse 1.2s ease-in-out infinite;
+    }
+
+    @@keyframes stage-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.8); }
     }
 
     .stage-line {

@@ -2,6 +2,7 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Storage.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -1143,6 +1144,42 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "PUT /settings/provider-slots failed");
             LastError = ex.Message;
+            return false;
+        }
+    }
+
+    // ── Pipelines (/settings/pipelines) ──────────────────────────────────
+
+    public async Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<PipelineConfiguration>(
+                "/settings/pipelines", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/pipelines failed");
+            return null;
+        }
+    }
+
+    public async Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PutAsJsonAsync("/settings/pipelines", pipelines, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("PUT /settings/pipelines returned {Status}",
+                    resp.StatusCode);
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /settings/pipelines failed");
             return false;
         }
     }

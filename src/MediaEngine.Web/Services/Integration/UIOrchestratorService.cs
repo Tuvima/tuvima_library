@@ -1,4 +1,5 @@
 ﻿using MediaEngine.Domain;
+using MediaEngine.Storage.Models;
 using Microsoft.AspNetCore.SignalR.Client;
 using MediaEngine.Web.Models.ViewDTOs;
 
@@ -476,6 +477,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateProviderSlotsAsync(
         Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default)
         => _api.UpdateProviderSlotsAsync(slots, ct);
+
+    // ── Pipelines ───────────────────────────────────────────────────────────
+
+    public Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default)
+        => _api.GetPipelinesAsync(ct);
+
+    public Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default)
+        => _api.SavePipelinesAsync(pipelines, ct);
 
     // ── Media types ─────────────────────────────────────────────────────────
 

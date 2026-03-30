@@ -840,6 +840,28 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
+        // ── GET /settings/pipelines ──────────────────────────────────────
+        grp.MapGet("/pipelines", (IConfigurationLoader configLoader) =>
+        {
+            var pipelines = configLoader.LoadPipelines();
+            return Results.Ok(pipelines);
+        })
+        .WithName("GetPipelines")
+        .WithDescription("Current pipeline configuration per media type")
+        .Produces<PipelineConfiguration>(StatusCodes.Status200OK);
+
+        // ── PUT /settings/pipelines ──────────────────────────────────────
+        grp.MapPut("/pipelines", (
+            PipelineConfiguration pipelines,
+            IConfigurationLoader configLoader) =>
+        {
+            configLoader.SavePipelines(pipelines);
+            return Results.Ok(new { saved = true });
+        })
+        .WithName("SavePipelines")
+        .WithDescription("Save pipeline configuration")
+        .Produces(StatusCodes.Status200OK);
+
         // ── GET /settings/media-types ──────────────────────────────────────────
         grp.MapGet("/media-types", (IConfigurationLoader configLoader) =>
         {

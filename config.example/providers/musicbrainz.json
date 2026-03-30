@@ -6,7 +6,7 @@
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
   "capability_tags": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "album", "track_number"],
-  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "isrc", "album", "track_number"],
+  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "isrc", "album", "track_number", "duration", "barcode"],
   "field_weights": {
     "title": 0.8,
     "author": 0.8,
@@ -16,7 +16,9 @@
     "musicbrainz_id": 1.0,
     "isrc": 0.9,
     "album": 0.75,
-    "track_number": 0.8
+    "track_number": 0.8,
+    "duration": 0.8,
+    "barcode": 0.85
   },
   "endpoints": {
     "api": "https://musicbrainz.org/ws/2"
@@ -38,12 +40,13 @@
   },
 
   "can_handle": {
-    "media_types": ["Music"],
+    "media_types": ["Music", "Audiobooks"],
     "entity_types": ["Work", "MediaAsset"]
   },
 
   "preferred_bridge_ids": {
-    "Music": ["musicbrainz_id", "isrc"]
+    "Music": ["musicbrainz_id", "isrc"],
+    "Audiobooks": ["musicbrainz_id"]
   },
 
   "search_strategies": [
@@ -93,6 +96,9 @@
     { "claim_key": "musicbrainz_id", "json_path": "id",                        "confidence": 1.0,  "source": "release" },
     { "claim_key": "cover",          "json_path": "id",                        "confidence": 0.7,  "source": "release",   "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250",
       "condition": { "path": "cover-art-archive.artwork", "equals": true }
-    }
+    },
+    { "claim_key": "isrc",           "json_path": "isrcs[0]",                 "confidence": 0.9,  "source": "recording" },
+    { "claim_key": "duration",       "json_path": "length",                   "confidence": 0.8,  "source": "recording", "transform": "to_string" },
+    { "claim_key": "barcode",        "json_path": "barcode",                  "confidence": 0.85, "source": "release" }
   ]
 }

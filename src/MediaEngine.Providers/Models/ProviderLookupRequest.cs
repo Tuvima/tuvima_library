@@ -89,6 +89,17 @@ public sealed class ProviderLookupRequest
     /// </summary>
     public IReadOnlyDictionary<string, string>? Hints { get; init; }
 
+    // ── Sequential pipeline hints ────────────────────────────────────────────
+
+    /// <summary>
+    /// Bridge IDs collected from prior providers in a Sequential pipeline.
+    /// Key = bridge ID type (e.g. "musicbrainz_id", "isbn"), value = the ID value.
+    /// Populated by the pipeline orchestrator between sequential provider calls.
+    /// The <c>ConfigDrivenAdapter</c> checks this dictionary when resolving URL
+    /// template placeholders, allowing Provider B to use Provider A's identifiers.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? PriorProviderBridgeIds { get; init; }
+
     // ── Infrastructure ────────────────────────────────────────────────────────
 
     /// <summary>

@@ -269,6 +269,8 @@ file sealed class StubConfigLoader : IConfigurationLoader
     public void SaveHydration(HydrationSettings settings) { }
     public ProviderSlotConfiguration LoadSlots() => new();
     public void SaveSlots(ProviderSlotConfiguration slots) { }
+    public PipelineConfiguration LoadPipelines() => new();
+    public void SavePipelines(PipelineConfiguration config) { }
     public DisambiguationSettings LoadDisambiguation() => new();
     public void SaveDisambiguation(DisambiguationSettings settings) { }
     public MediaTypeConfiguration LoadMediaTypes() => new();

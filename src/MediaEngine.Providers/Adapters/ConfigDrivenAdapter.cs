@@ -1417,7 +1417,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     /// </summary>
     private static string? ResolveRequestField(ProviderLookupRequest request, string fieldName)
     {
-        return fieldName.ToLowerInvariant() switch
+        var direct = fieldName.ToLowerInvariant() switch
         {
             "title" => request.Title,
             "author" => request.Author,
@@ -1429,8 +1429,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             BridgeIdKeys.TmdbId => request.TmdbId,
             BridgeIdKeys.ImdbId => request.ImdbId,
             "person_name" => request.PersonName,
-            _ => null
+            _ => (string?)null
         };
+
+        // In Sequential pipeline mode, check bridge IDs from prior providers
+        // when the direct request property is empty.
+        if (direct is not null)
+            return direct;
+
+        return request.PriorProviderBridgeIds?.TryGetValue(fieldName.ToLowerInvariant(), out var bridgeValue) == true
+            ? bridgeValue
+            : null;
     }
 
     // ── Media type filtering ────────────────────────────────────────────────

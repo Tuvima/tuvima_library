@@ -1,0 +1,85 @@
+{
+  "Books": {
+    "strategy": "Cascade",
+    "providers": [
+      { "rank": 1, "name": "apple_api" },
+      { "rank": 2, "name": "open_library" }
+    ],
+    "field_priorities": {
+      "cover": ["apple_api", "open_library"],
+      "description": ["apple_api", "open_library"],
+      "rating": ["apple_api"],
+      "page_count": ["open_library"]
+    }
+  },
+  "Audiobooks": {
+    "strategy": "Sequential",
+    "providers": [
+      { "rank": 1, "name": "musicbrainz" },
+      { "rank": 2, "name": "apple_api" }
+    ],
+    "field_priorities": {
+      "cover": ["apple_api", "musicbrainz"],
+      "narrator": ["apple_api"],
+      "description": ["apple_api"],
+      "duration": ["musicbrainz"],
+      "rating": ["apple_api"]
+    }
+  },
+  "Music": {
+    "strategy": "Sequential",
+    "providers": [
+      { "rank": 1, "name": "musicbrainz" },
+      { "rank": 2, "name": "apple_api" }
+    ],
+    "field_priorities": {
+      "cover": ["apple_api", "musicbrainz"],
+      "description": ["apple_api"],
+      "rating": ["apple_api"],
+      "duration": ["musicbrainz"]
+    }
+  },
+  "Movies": {
+    "strategy": "Waterfall",
+    "providers": [
+      { "rank": 1, "name": "tmdb" }
+    ],
+    "field_priorities": {
+      "cover": ["tmdb"],
+      "description": ["tmdb"],
+      "rating": ["tmdb"]
+    }
+  },
+  "TV": {
+    "strategy": "Waterfall",
+    "providers": [
+      { "rank": 1, "name": "tmdb" }
+    ],
+    "field_priorities": {
+      "cover": ["tmdb"],
+      "description": ["tmdb"],
+      "rating": ["tmdb"]
+    }
+  },
+  "Comics": {
+    "strategy": "Waterfall",
+    "providers": [
+      { "rank": 1, "name": "metron" }
+    ],
+    "field_priorities": {
+      "cover": ["metron"],
+      "description": ["metron"]
+    }
+  },
+  "Podcasts": {
+    "strategy": "Cascade",
+    "providers": [
+      { "rank": 1, "name": "apple_podcasts" },
+      { "rank": 2, "name": "podcast_index" }
+    ],
+    "field_priorities": {
+      "cover": ["apple_podcasts", "podcast_index"],
+      "description": ["apple_podcasts", "podcast_index"]
+    }
+  }
+}

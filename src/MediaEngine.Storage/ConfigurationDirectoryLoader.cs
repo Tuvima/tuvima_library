@@ -75,6 +75,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string DisambiguationFileName   = "disambiguation.json";
     private const string TranscodingFileName      = "transcoding.json";
     private const string FieldPrioritiesFileName  = "field_priorities.json";
+    private const string PipelinesFileName        = "pipelines.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -317,6 +318,27 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         ArgumentNullException.ThrowIfNull(slots);
         // Store as a flat dictionary (matching slots.json format).
         SaveFile(SlotsFileName, slots.Slots);
+    }
+
+    /// <inheritdoc/>
+    public PipelineConfiguration LoadPipelines()
+    {
+        // Try pipelines.json first (new format).
+        var pipelines = LoadFile<Dictionary<string, MediaTypePipeline>>(PipelinesFileName);
+        if (pipelines is not null && pipelines.Count > 0)
+            return new PipelineConfiguration { Pipelines = new Dictionary<string, MediaTypePipeline>(pipelines, StringComparer.OrdinalIgnoreCase) };
+
+        // Fall back to slots.json → auto-convert to Waterfall pipelines.
+        var slots = LoadSlots();
+        return PipelineConfiguration.FromLegacySlots(slots);
+    }
+
+    /// <inheritdoc/>
+    public void SavePipelines(PipelineConfiguration config)
+    {
+        ArgumentNullException.ThrowIfNull(config);
+        // Store as a flat dictionary (matching pipelines.json format).
+        SaveFile(PipelinesFileName, config.Pipelines);
     }
 
     /// <inheritdoc/>

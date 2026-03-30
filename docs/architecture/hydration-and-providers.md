@@ -463,6 +463,53 @@ Cover art is never stored in the database. `cover.jpg` lives alongside the media
 
 **Image hash validation:** Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `image_cache` table to prevent redundant re-downloads. When the same image URL appears across multiple entities, the hash is checked first; if found, the cached file path is reused.
 
+## 11. Ranked Pipeline System
+
+Stage 1 retail identification now supports unlimited ranked providers per media type, replacing the fixed 3-slot waterfall system.
+
+### Execution Strategies
+
+| Strategy | Behaviour | Default for |
+|---|---|---|
+| **Waterfall** | First provider to return a match wins; remaining providers are skipped | Movies, TV, Comics |
+| **Cascade** | All providers run independently; their claims are merged | Books, Podcasts |
+| **Sequential** | Providers run in order; each passes its bridge IDs to the next | Audiobooks, Music |
+
+### Configuration
+
+Pipeline configuration lives in `config/pipelines.json`:
+
+```json
+{
+  "pipelines": {
+    "Audiobooks": {
+      "strategy": "Sequential",
+      "providers": [
+        { "rank": 1, "name": "musicbrainz" },
+        { "rank": 2, "name": "apple_api" }
+      ]
+    }
+  }
+}
+```
+
+Falls back to `slots.json` auto-conversion via `PipelineConfiguration.FromLegacySlots()`.
+
+### Sequential Bridge ID Passing
+
+In Sequential mode, `PriorProviderBridgeIds` on `ProviderLookupRequest` carries bridge IDs from Provider A to Provider B. `ConfigDrivenAdapter.ResolveRequestField` checks these before falling back to the original request properties.
+
+### Key Files
+
+- `src/MediaEngine.Domain/Enums/ProviderStrategy.cs` — Waterfall, Cascade, Sequential enum
+- `src/MediaEngine.Storage/Models/PipelineConfiguration.cs` — Pipeline config model + legacy converter
+- `src/MediaEngine.Domain/Constants/MediaTypeFieldRegistry.cs` — Fields, search display, searchable fields per media type
+- `src/MediaEngine.Providers/Services/HydrationPipelineService.cs` — Strategy execution loop
+- `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs` — Tier B reads per-media-type field priorities
+- `config.example/pipelines.json` — Example configuration
+
+---
+
 ## Related
 
 - [How Two-Stage Enrichment Works](../explanation/how-hydration-works.md)

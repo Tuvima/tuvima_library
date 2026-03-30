@@ -11,7 +11,12 @@
     "cover",
     "description",
     "rating",
-    "apple_books_id"
+    "apple_books_id",
+    "genre",
+    "year",
+    "narrator",
+    "title",
+    "author"
   ],
   "field_weights": {},
   "endpoints": {
@@ -34,7 +39,8 @@
   "can_handle": {
     "media_types": [
       "Epub",
-      "Audiobook"
+      "Audiobook",
+      "Music"
     ],
     "entity_types": [
       "Work",
@@ -90,6 +96,19 @@
       "max_results": 25,
       "fetch_limit": 5,
       "media_types": ["Audiobook"]
+    },
+    {
+      "name": "music_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}\u0026entity=musicTrack\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
+      "query_template": "{title} {author}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 25,
+      "fetch_limit": 5,
+      "media_types": ["Music"]
     }
   ],
   "field_mappings": [
@@ -137,6 +156,52 @@
       "transform_args": null,
       "media_types": [
         "Audiobook"
+      ]
+    },
+    {
+      "claim_key": "genre",
+      "json_path": "primaryGenreName",
+      "confidence": 0.7,
+      "media_types": null
+    },
+    {
+      "claim_key": "year",
+      "json_path": "releaseDate",
+      "confidence": 0.8,
+      "transform": "first_n_chars",
+      "transform_args": "4",
+      "media_types": null
+    },
+    {
+      "claim_key": "narrator",
+      "json_path": "artistName",
+      "confidence": 0.8,
+      "media_types": [
+        "Audiobook"
+      ]
+    },
+    {
+      "claim_key": "title",
+      "json_path": "trackName",
+      "confidence": 0.8,
+      "media_types": [
+        "Epub"
+      ]
+    },
+    {
+      "claim_key": "title",
+      "json_path": "collectionName",
+      "confidence": 0.8,
+      "media_types": [
+        "Audiobook"
+      ]
+    },
+    {
+      "claim_key": "author",
+      "json_path": "artistName",
+      "confidence": 0.75,
+      "media_types": [
+        "Epub"
       ]
     }
   ],

@@ -7,7 +7,7 @@
   "domain": "Ebook",
   "icon": "images/providers/open_library.svg",
   "capability_tags": ["title", "author", "cover", "isbn", "year", "description", "publisher", "language", "genre"],
-  "available_fields": ["title", "author", "year", "cover", "isbn", "description", "publisher", "language", "genre"],
+  "available_fields": ["title", "author", "year", "cover", "isbn", "description", "publisher", "language", "genre", "page_count", "rating"],
   "field_weights": {
     "title": 0.75,
     "author": 0.8,
@@ -16,7 +16,9 @@
     "year": 0.85,
     "publisher": 0.7,
     "language": 0.7,
-    "genre": 0.65
+    "genre": 0.65,
+    "page_count": 0.75,
+    "rating": 0.65
   },
   "endpoints": {
     "api": "https://openlibrary.org"
@@ -74,7 +76,9 @@
     { "claim_key": "description", "json_path": "first_sentence[0]",  "confidence": 0.6, "transform": "strip_html" },
     { "claim_key": "publisher", "json_path": "publisher[0]",       "confidence": 0.7 },
     { "claim_key": "language",  "json_path": "language[0]",        "confidence": 0.7 },
-    { "claim_key": "genre",     "json_path": "subject",            "confidence": 0.65, "transform": "array_join", "transform_args": ", " }
+    { "claim_key": "genre",     "json_path": "subject",            "confidence": 0.65, "transform": "array_join", "transform_args": ", " },
+    { "claim_key": "page_count",    "json_path": "number_of_pages_median",  "confidence": 0.75, "transform": "to_string" },
+    { "claim_key": "rating",        "json_path": "ratings_average",         "confidence": 0.65, "transform": "to_string" }
   ],
   "ui_metadata": {
     "accent_color": "#4CAF50",

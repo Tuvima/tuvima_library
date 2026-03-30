@@ -109,6 +109,8 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         // take effect without a restart. The file is small and the load is a no-op
         // cache miss (file → parse → return) — negligible cost per scoring call.
         var fieldPriorities = _configLoader.LoadFieldPriorities();
+        var pipelines       = _configLoader.LoadPipelines();
+        var mediaTypePipeline = pipelines.GetPipelineForMediaType(context.DetectedMediaType);
 
         var fieldScores = new List<FieldScore>();
 
@@ -150,7 +152,21 @@ public sealed class PriorityCascadeEngine : IScoringEngine
                 }
             }
 
-            // ── Check for per-field provider priority override ───────────
+            // ── Tier B: Per-field provider priority override ─────────────
+            // Check pipeline field priorities (media-type-specific) first,
+            // then fall back to global field_priorities.json.
+            if (mediaTypePipeline.FieldPriorities.TryGetValue(group.Key, out var pipelinePriority)
+                && pipelinePriority.Count > 0)
+            {
+                var pipelineOverride = new FieldPriorityOverride { Priority = pipelinePriority };
+                var resolved = ResolveByFieldPriority(claimsForField, pipelineOverride);
+                if (resolved is not null)
+                {
+                    fieldScores.Add(resolved);
+                    continue;
+                }
+            }
+
             if (fieldPriorities.FieldOverrides.TryGetValue(group.Key, out var fieldOverride)
                 && fieldOverride.Priority.Count > 0)
             {

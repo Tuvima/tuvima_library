@@ -61,6 +61,17 @@ public interface IConfigurationLoader
     /// <summary>Persist provider slot assignments to <c>config/slots.json</c>.</summary>
     void SaveSlots(ProviderSlotConfiguration slots);
 
+    // ── Pipeline Configuration ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Load pipeline configuration from <c>config/pipelines.json</c>.
+    /// Falls back to <c>slots.json</c> (auto-converted to Waterfall pipelines) if not found.
+    /// </summary>
+    PipelineConfiguration LoadPipelines();
+
+    /// <summary>Persist pipeline configuration to <c>config/pipelines.json</c>.</summary>
+    void SavePipelines(PipelineConfiguration config);
+
     // ── Disambiguation ─────────────────────────────────────────────────────
 
     /// <summary>Load media type disambiguation settings from <c>config/disambiguation.json</c>.</summary>

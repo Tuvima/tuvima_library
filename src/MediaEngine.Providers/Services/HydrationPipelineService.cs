@@ -477,7 +477,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         var hydration    = _configLoader.LoadHydration();
         var provConfigs  = _configLoader.LoadAllProviders();
-        var slots        = _configLoader.LoadSlots();
+        var pipelines    = _configLoader.LoadPipelines();
         var core         = _configLoader.LoadCore();
         var lang         = string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata.ToLowerInvariant();
         var country      = string.IsNullOrWhiteSpace(core.Country)  ? "us" : core.Country.ToLowerInvariant();
@@ -605,7 +605,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         var stageSw = System.Diagnostics.Stopwatch.StartNew();
-        var stage1Providers = GetProvidersForStage(1, provConfigs, request);
+        var (stage1Providers, stage1Strategy) = ResolvePipelineProviders(pipelines, provConfigs, request);
         var stage1Claims    = 0;
 
         var titleHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "(unknown)");
@@ -656,15 +656,45 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         IExternalMetadataProvider? bestStage1Provider = null;
         int bestStage1ClaimCount = 0;
 
+        // ── Execute Stage 1 providers according to pipeline strategy ──────────
+        // Waterfall: first provider with claims wins, skip rest.
+        // Cascade: all providers run independently, claims merge.
+        // Sequential: each provider's bridge IDs feed the next provider.
+        var sequentialBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var provider in stage1Providers)
         {
+            // For Sequential mode, enrich the request with prior providers' bridge IDs.
+            var effectiveRequest = stage1Strategy == ProviderStrategy.Sequential && sequentialBridgeIds.Count > 0
+                ? new HarvestRequest
+                {
+                    EntityId               = request.EntityId,
+                    EntityType             = request.EntityType,
+                    MediaType              = request.MediaType,
+                    Hints                  = request.Hints,
+                    PreResolvedQid         = request.PreResolvedQid,
+                    SuppressActivityEntry  = request.SuppressActivityEntry,
+                    SuppressReviewCreation = request.SuppressReviewCreation,
+                    IngestionRunId         = request.IngestionRunId,
+                    FolderHintBridgeIds    = request.FolderHintBridgeIds,
+                    HintedHubId            = request.HintedHubId,
+                    Pass                   = request.Pass,
+                    PriorProviderBridgeIds = sequentialBridgeIds,
+                }
+                : request;
+
             var (claims, downProvider) = await FetchFromProviderAsync(
-                provider, request, providerEndpoints, lang, country, ct, effectivePass).ConfigureAwait(false);
+                provider, effectiveRequest, providerEndpoints, lang, country, ct, effectivePass).ConfigureAwait(false);
 
             if (downProvider is not null)
                 downProviderName = downProvider;
 
-            if (claims.Count == 0) continue;
+            if (claims.Count == 0)
+            {
+                // Waterfall: continue to next provider on empty.
+                // Cascade/Sequential: continue to next provider regardless.
+                continue;
+            }
 
             // Check for QID.
             var qidClaim = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid);
@@ -680,8 +710,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // For scoring, collapse multi-valued person LABEL claims to the
             // first value only.  The display author should be a single name
             // (pen name or primary author), never a "|||"-joined string.
-            // The *_qid companions keep their multi-values — they are not
-            // displayed and feed only the person enrichment pipeline.
             var claimsForScoring = DeMultiValuePersonLabels(claims);
 
             await ScoringHelper.PersistClaimsAndScoreAsync(
@@ -699,8 +727,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             }
 
             _logger.LogInformation(
-                "[STAGE1] Provider '{Provider}' returned {ClaimCount} claims for {EntityId}: [{ClaimKeys}]",
-                provider.Name, claimsForScoring.Count, request.EntityId,
+                "[STAGE1] Provider '{Provider}' ({Strategy}) returned {ClaimCount} claims for {EntityId}: [{ClaimKeys}]",
+                provider.Name, stage1Strategy, claimsForScoring.Count, request.EntityId,
                 string.Join(", ", claimsForScoring.Select(c => c.Key).Distinct()));
 
             await PublishHarvestEvent(request.EntityId, provider.Name, claims, ct)
@@ -728,6 +756,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         "Persisted {Count} bridge IDs from Stage 1 provider '{Provider}' for entity {Id}: {Keys}",
                         bridgeEntries.Count, provider.Name, request.EntityId,
                         string.Join(", ", bridgeEntries.Select(b => $"{b.IdType}={b.IdValue}")));
+
+                    // For Sequential mode: accumulate bridge IDs for the next provider.
+                    if (stage1Strategy == ProviderStrategy.Sequential)
+                    {
+                        foreach (var entry in bridgeEntries)
+                        {
+                            sequentialBridgeIds.TryAdd(entry.IdType, entry.IdValue);
+                        }
+                    }
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -735,6 +772,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 _logger.LogWarning(ex,
                     "Failed to persist bridge IDs from Stage 1 for entity {Id}; continuing",
                     request.EntityId);
+            }
+
+            // Waterfall: stop after first successful provider.
+            if (stage1Strategy == ProviderStrategy.Waterfall)
+            {
+                _logger.LogDebug(
+                    "Waterfall strategy: stopping after successful provider '{Provider}' for entity {Id}",
+                    provider.Name, request.EntityId);
+                break;
             }
         }
 
@@ -2673,6 +2719,50 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     }
 
     /// <summary>
+    /// Returns an ordered list of providers and the execution strategy for Stage 1,
+    /// based on the pipeline configuration for the request's media type.
+    /// Falls back to <see cref="GetProvidersForStage"/> when no pipeline is configured.
+    /// </summary>
+    private (List<IExternalMetadataProvider> Providers, ProviderStrategy Strategy) ResolvePipelineProviders(
+        PipelineConfiguration pipelines,
+        IReadOnlyList<Storage.Models.ProviderConfiguration> provConfigs,
+        HarvestRequest request)
+    {
+        var mediaTypeKey = ProviderSlotConfiguration.MediaTypeToDisplayName(request.MediaType);
+        var pipeline     = pipelines.GetPipelineForMediaType(mediaTypeKey);
+
+        if (pipeline.Providers.Count == 0)
+        {
+            // No pipeline configured — fall back to stage-based provider discovery.
+            var fallback = GetProvidersForStage(1, provConfigs, request);
+            return (fallback, ProviderStrategy.Waterfall);
+        }
+
+        var result = new List<IExternalMetadataProvider>();
+
+        foreach (var entry in pipeline.Providers.OrderBy(p => p.Rank))
+        {
+            var provConfig = provConfigs.FirstOrDefault(
+                pc => string.Equals(pc.Name, entry.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (provConfig is null || !provConfig.Enabled)
+                continue;
+
+            // Verify the provider participates in Stage 1.
+            if (!provConfig.HydrationStages.Contains(1))
+                continue;
+
+            var adapter = _providers.FirstOrDefault(
+                p => string.Equals(p.Name, entry.Name, StringComparison.OrdinalIgnoreCase));
+
+            if (adapter is not null)
+                result.Add(adapter);
+        }
+
+        return (result, pipeline.Strategy);
+    }
+
+    /// <summary>
     /// Returns an ordered list of providers for the retail waterfall execution:
     /// primary, then secondary, then tertiary — filtering out nulls/disabled.
     /// Used for Stage 2 (Wikidata Bridge Resolution).
@@ -4060,27 +4150,28 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         var h = request.Hints;
         return new ProviderLookupRequest
         {
-            EntityId      = request.EntityId,
-            EntityType    = request.EntityType,
-            MediaType     = request.MediaType,
-            Title         = h.GetValueOrDefault(MetadataFieldConstants.Title),
-            Author        = h.GetValueOrDefault(MetadataFieldConstants.Author),
-            Narrator      = h.GetValueOrDefault(MetadataFieldConstants.Narrator),
-            Asin          = h.GetValueOrDefault(BridgeIdKeys.Asin),
-            Isbn          = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),
-            AppleBooksId  = h.GetValueOrDefault(BridgeIdKeys.AppleBooksId),
-            AudibleId     = h.GetValueOrDefault(BridgeIdKeys.AudibleId),
-            TmdbId        = h.GetValueOrDefault(BridgeIdKeys.TmdbId),
-            ImdbId        = h.GetValueOrDefault(BridgeIdKeys.ImdbId),
-            PersonName     = h.GetValueOrDefault("name"),
-            PersonRole     = h.GetValueOrDefault("role"),
-            PreResolvedQid = request.PreResolvedQid,
-            BaseUrl        = baseUrl,
-            SparqlBaseUrl  = null,
-            Language       = language,
-            Country        = country,
-            HydrationPass  = effectivePass,
-            FileLanguage   = fileLanguage,
+            EntityId              = request.EntityId,
+            EntityType            = request.EntityType,
+            MediaType             = request.MediaType,
+            Title                 = h.GetValueOrDefault(MetadataFieldConstants.Title),
+            Author                = h.GetValueOrDefault(MetadataFieldConstants.Author),
+            Narrator              = h.GetValueOrDefault(MetadataFieldConstants.Narrator),
+            Asin                  = h.GetValueOrDefault(BridgeIdKeys.Asin),
+            Isbn                  = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),
+            AppleBooksId          = h.GetValueOrDefault(BridgeIdKeys.AppleBooksId),
+            AudibleId             = h.GetValueOrDefault(BridgeIdKeys.AudibleId),
+            TmdbId                = h.GetValueOrDefault(BridgeIdKeys.TmdbId),
+            ImdbId                = h.GetValueOrDefault(BridgeIdKeys.ImdbId),
+            PersonName             = h.GetValueOrDefault("name"),
+            PersonRole             = h.GetValueOrDefault("role"),
+            PreResolvedQid        = request.PreResolvedQid,
+            BaseUrl               = baseUrl,
+            SparqlBaseUrl         = null,
+            Language              = language,
+            Country               = country,
+            HydrationPass         = effectivePass,
+            FileLanguage          = fileLanguage,
+            PriorProviderBridgeIds = request.PriorProviderBridgeIds,
         };
     }
 

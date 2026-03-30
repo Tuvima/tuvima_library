@@ -1,4 +1,5 @@
-﻿using MediaEngine.Web.Models.ViewDTOs;
+﻿using MediaEngine.Storage.Models;
+using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -236,6 +237,14 @@ public interface IEngineApiClient
 
     /// <summary>PUT /settings/provider-slots — save slot assignments for all media types.</summary>
     Task<bool> UpdateProviderSlotsAsync(Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default);
+
+    // ── Pipelines (/settings/pipelines) ─────────────────────────────────────
+
+    /// <summary>GET /settings/pipelines — pipeline configuration per media type.</summary>
+    Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/pipelines — save pipeline configuration.</summary>
+    Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default);
 
     // ── Metadata search (/metadata/search) ───────────────────────────────
 

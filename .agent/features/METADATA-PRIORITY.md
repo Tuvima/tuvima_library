@@ -2,7 +2,8 @@
 
 > **Mirrors:** `CLAUDE.md` §3.6 (Metadata Adapters) — keep both in sync per `.agent/SYNC-MAP.md`
 
-> Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)
+> Last audited: 2026-03-30 | Auditor: Claude
+> **Update 2026-03-30:** The Weighted Voter has been replaced by the Priority Cascade Engine (4-tier: User Lock → Per-field provider priority → Wikidata authority → Highest confidence). Stage 1 retail identification now uses a ranked pipeline system with three strategies (Waterfall, Cascade, Sequential) configured in `config/pipelines.json`. See `CLAUDE.md` §3.2 and §3.7 for current details.
 
 ---
 

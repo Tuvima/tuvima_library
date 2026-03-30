@@ -106,4 +106,13 @@ public sealed class HarvestRequest
     /// creating a review queue entry on final failure.
     /// </summary>
     public int RetryCount { get; set; }
+
+    /// <summary>
+    /// Bridge identifiers accumulated from prior providers in a Sequential pipeline.
+    /// When set, the current provider can use these as direct lookup hints instead
+    /// of relying solely on file-embedded metadata.
+    /// Only populated during Stage 1 execution when the pipeline strategy is
+    /// <see cref="MediaEngine.Domain.Enums.ProviderStrategy.Sequential"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? PriorProviderBridgeIds { get; init; }
 }

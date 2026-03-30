@@ -75,7 +75,9 @@
     { "claim_key": "feed_url",        "json_path": "url",                "confidence": 1.0 },
     { "claim_key": "podcast_guid",    "json_path": "podcastGuid",        "confidence": 1.0 },
     { "claim_key": "language",        "json_path": "language",           "confidence": 0.8 },
-    { "claim_key": "explicit",        "json_path": "explicit",           "confidence": 0.9, "transform": "to_string" }
+    { "claim_key": "explicit",        "json_path": "explicit",           "confidence": 0.9, "transform": "to_string" },
+    { "claim_key": "episode_number","json_path": "episodeNumber",           "confidence": 0.85, "transform": "to_string" },
+    { "claim_key": "season_number", "json_path": "season",                  "confidence": 0.85, "transform": "to_string" }
   ],
   "ui_metadata": {
     "accent_color": "#F7931E",
