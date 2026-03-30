@@ -1,3 +1,15 @@
+---
+title: "Security Architecture"
+summary: "Deep technical documentation for authentication, authorization, rate limiting, and secure service boundaries."
+audience: "developer"
+category: "architecture"
+product_area: "security"
+tags:
+  - "security"
+  - "api-keys"
+  - "authorization"
+---
+
 # Security Architecture
 
 ## Secret Store
@@ -16,8 +28,8 @@ Any application that wants to communicate with the Engine must present a valid A
 
 Every Engine endpoint requires authentication, with two exceptions:
 
-- `/system/status` — the health probe endpoint, always open without authentication
-- Localhost requests — when `MediaEngine:Security:LocalhostBypass` is `true` (the default), requests originating from the local machine are treated as Administrator without requiring a key. This preserves the local development and home-server experience.
+- `/system/status` â€” the health probe endpoint, always open without authentication
+- Localhost requests â€” when `MediaEngine:Security:LocalhostBypass` is `true` (the default), requests originating from the local machine are treated as Administrator without requiring a key. This preserves the local development and home-server experience.
 
 All other unauthenticated requests receive `401 Unauthorized`.
 
@@ -25,11 +37,11 @@ All other unauthenticated requests receive `401 Unauthorized`.
 
 Each API key carries one of three roles:
 
-**Administrator** — Full access to all endpoints.
+**Administrator** â€” Full access to all endpoints.
 
-**Curator** — Can browse the library, stream files, read and write metadata claims, and view provider status. Cannot access admin operations, folder settings, ingestion controls, or profile management.
+**Curator** â€” Can browse the library, stream files, read and write metadata claims, and view provider status. Cannot access admin operations, folder settings, ingestion controls, or profile management.
 
-**Consumer** — Can browse the library, stream files, and read metadata claim history. Cannot modify metadata or access any settings endpoints.
+**Consumer** â€” Can browse the library, stream files, and read metadata claim history. Cannot modify metadata or access any settings endpoints.
 
 ## Rate Limiting
 
@@ -54,3 +66,9 @@ The real-time Intercom at `/hubs/intercom` requires authentication via one of:
 - Localhost bypass (when `LocalhostBypass` is enabled)
 
 Unauthenticated connection attempts from non-localhost origins are rejected before the WebSocket handshake completes.
+
+## Related
+
+- [Engine API Reference](../reference/api-endpoints.md)
+- [How to Build, Test, and Verify Changes](../guides/running-tests.md)
+- [Settings Architecture and Library Vault](settings-and-vault.md)

@@ -1,3 +1,15 @@
+---
+title: "How to Configure Metadata Providers"
+summary: "Set up provider keys, priorities, and defaults so enrichment behaves the way you expect."
+audience: "user"
+category: "guide"
+product_area: "providers"
+tags:
+  - "providers"
+  - "api-keys"
+  - "configuration"
+---
+
 # How to Configure Metadata Providers
 
 This guide explains what metadata providers are, which ones work out of the box, which ones need a key, and how to control how they're used.
@@ -10,9 +22,9 @@ When the Engine identifies a file in your library, it reaches out to external so
 
 Providers work in two stages:
 
-1. **Retail providers** (Stage 1) — run first. These gather practical information: cover art, descriptions, ratings, and identifiers. The Engine uses this data both to enrich your library and to improve its confidence in identifying what the file is.
+1. **Retail providers** (Stage 1) â€” run first. These gather practical information: cover art, descriptions, ratings, and identifiers. The Engine uses this data both to enrich your library and to improve its confidence in identifying what the file is.
 
-2. **Wikidata** (Stage 2) — runs second, using identifiers gathered in Stage 1. Wikidata is the authority for canonical structured data: the author's full name, the official series name, genre classifications, director credits, and so on. Wikidata is always free to use and requires no key.
+2. **Wikidata** (Stage 2) â€” runs second, using identifiers gathered in Stage 1. Wikidata is the authority for canonical structured data: the author's full name, the official series name, genre classifications, director credits, and so on. Wikidata is always free to use and requires no key.
 
 ---
 
@@ -44,28 +56,28 @@ TMDB supplies cover art, descriptions, cast and crew, ratings, and backdrops for
 1. Go to `https://www.themoviedb.org/settings/api` and create a free account.
 2. Request an API key (choose "Developer" use type).
 3. Copy the key.
-4. In the Dashboard, go to **Settings → Providers → Connections**.
+4. In the Dashboard, go to **Settings â†’ Providers â†’ Connections**.
 5. Find TMDB in the list and paste your key into the API Key field.
 6. Click **Save**.
 
 ### Comic Vine
 
-Comic Vine supplies metadata for comics — issue numbers, story arcs, publishers, and character information.
+Comic Vine supplies metadata for comics â€” issue numbers, story arcs, publishers, and character information.
 
 1. Go to `https://comicvine.gamespot.com/api/` and create a free account.
 2. Click **Get API Key**.
 3. Copy the key.
-4. In the Dashboard, go to **Settings → Providers → Connections**.
+4. In the Dashboard, go to **Settings â†’ Providers â†’ Connections**.
 5. Find Comic Vine and paste your key.
 6. Click **Save**.
 
 ### Podcast Index
 
-Podcast Index supplies podcast metadata — episodes, descriptions, artwork, and feed URLs.
+Podcast Index supplies podcast metadata â€” episodes, descriptions, artwork, and feed URLs.
 
 1. Go to `https://api.podcastindex.org/signup` and register for a free account.
 2. You will receive an API key and secret.
-3. In the Dashboard, go to **Settings → Providers → Connections**.
+3. In the Dashboard, go to **Settings â†’ Providers â†’ Connections**.
 4. Find Podcast Index and enter both the key and the secret.
 5. Click **Save**.
 
@@ -75,12 +87,12 @@ Podcast Index supplies podcast metadata — episodes, descriptions, artwork, and
 
 For each media type, you can control which provider's data is preferred when multiple providers return conflicting information. This is the **provider priority** order.
 
-1. Go to **Settings → Providers**.
+1. Go to **Settings â†’ Providers**.
 2. Select the media type you want to adjust (Books, Movies, TV, and so on).
 3. You will see the providers listed in their current priority order.
 4. Drag providers up or down to change the order. Providers at the top are preferred over providers further down.
 
-The provider priority affects how the Priority Cascade resolves conflicts. When two providers disagree about a title or description, the one higher in the list wins — unless a user lock or Wikidata data overrides it.
+The provider priority affects how the Priority Cascade resolves conflicts. When two providers disagree about a title or description, the one higher in the list wins â€” unless a user lock or Wikidata data overrides it.
 
 ---
 
@@ -96,7 +108,7 @@ Providers differ in what languages they support. Each provider has a **language 
 
 To change the language strategy for a provider:
 
-1. Go to **Settings → Providers**.
+1. Go to **Settings â†’ Providers**.
 2. Click the provider you want to configure.
 3. Find the **Language Strategy** dropdown in the provider's settings panel.
 4. Select the strategy you want and click **Save**.
@@ -107,7 +119,7 @@ To change the language strategy for a provider:
 
 Each provider that supports cover art will download images and store them locally in your library's data directory. You never need to re-download them.
 
-When multiple providers supply cover art for the same title, the Engine also checks the artwork visually against the cover already embedded in the file. This comparison helps identify the best match and can improve the Engine's confidence in its identification — not just the quality of the image.
+When multiple providers supply cover art for the same title, the Engine also checks the artwork visually against the cover already embedded in the file. This comparison helps identify the best match and can improve the Engine's confidence in its identification â€” not just the quality of the image.
 
 In the Library Vault, you can see all the cover art options gathered for any item. Open the item's detail drawer and look at the **Assets** section. You can set a preferred image, upload your own, or keep the one the Engine selected automatically. Any image you upload is protected and will never be overwritten by an automatic refresh.
 
@@ -118,3 +130,9 @@ In the Library Vault, you can see all the cover art options gathered for any ite
 Providers update their data over time. New editions are added, descriptions are improved, cover art is refreshed. The Engine automatically re-queries providers for all items in your library every 30 days to pick up these improvements.
 
 You can also trigger a manual refresh at any time. In the Library Vault, select one or more items and click **Sync Now** in the floating action bar. This immediately re-runs both enrichment stages for the selected items.
+
+## Related
+
+- [Providers Reference](../reference/providers.md)
+- [Configuration Reference](../reference/configuration.md)
+- [How Two-Stage Enrichment Works](../explanation/how-hydration-works.md)

@@ -1,6 +1,18 @@
+---
+title: "Configuration Reference"
+summary: "Look up every committed config file, field, and default used by Tuvima Library."
+audience: "operator"
+category: "reference"
+product_area: "configuration"
+tags:
+  - "config"
+  - "json"
+  - "defaults"
+---
+
 # Configuration Reference
 
-All configuration lives in the `config/` directory as individual JSON files grouped by concern. Live config files are gitignored; committed examples live in `config.example/`. Adding a new REST+JSON provider requires only a config file — no code changes.
+All configuration lives in the `config/` directory as individual JSON files grouped by concern. Live config files are gitignored; committed examples live in `config.example/`. Adding a new REST+JSON provider requires only a config file â€” no code changes.
 
 ---
 
@@ -15,10 +27,10 @@ Core Engine settings. Restart required for changes to take effect.
 | `data_root` | string | `""` | Root directory for all internal Engine storage (`.data/`). Must be set before first run. |
 | `watch_directory` | string | `""` | Legacy single-directory watch. Prefer `config/libraries.json` for multi-folder setups. |
 | `library_root` | string | `""` | Root directory where the Engine places organized media after promotion. |
-| `organization_template` | string | — | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
-| `organization_templates` | object | — | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`, `Podcasts`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
+| `organization_template` | string | â€” | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
+| `organization_templates` | object | â€” | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`, `Podcasts`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
 | `server_name` | string | `"Tuvima Library"` | Display name shown in the Dashboard title bar and system status. |
-| `language` | object | — | Language preferences. See sub-fields below. |
+| `language` | object | â€” | Language preferences. See sub-fields below. |
 | `language.display` | string | `"en"` | UI display language (BCP-47 code). Controls Dashboard localization. |
 | `language.metadata` | string | `"en"` | Language used for provider queries (titles, descriptions). |
 | `language.additional` | string[] | `[]` | Additional content languages accepted (BCP-47 codes). |
@@ -48,7 +60,7 @@ AI/ML subsystem configuration. Controls model selection, feature toggles, vibe v
 | `text_cjk.path` | string | Path to the Qwen 2.5 3B Instruct model. Auto-downloads only when CJK languages (ja/ko/zh/zh-TW) are in language preferences. Available on High and Medium hardware tiers. |
 | `text_cjk.context_size` | int | Model context window size. |
 | `audio.path` | string | Path to Whisper Medium model. Used for speech-to-text and audio language detection. |
-| `audio.language` | string | `"auto"` — automatic language detection. Set to a BCP-47 code to force a specific language. |
+| `audio.language` | string | `"auto"` â€” automatic language detection. Set to a BCP-47 code to force a specific language. |
 
 ### features
 
@@ -70,7 +82,7 @@ Boolean toggles. All default to `true` unless noted.
 
 ### vibe_vocabulary
 
-Per-media-type lists of vibe descriptors across four dimensions. Each media type has 25–30 entries total.
+Per-media-type lists of vibe descriptors across four dimensions. Each media type has 25â€“30 entries total.
 
 | Key | Description |
 |---|---|
@@ -114,8 +126,8 @@ Enrichment pipeline configuration. Controls timeouts, concurrency, and two-pass 
 | `stage1_timeout_seconds` | int | Per-provider HTTP timeout for Stage 1 (RetailIdentification). |
 | `stage2_timeout_seconds` | int | Per-request timeout for Stage 2 (WikidataBridge). |
 | `max_concurrency` | int | Maximum parallel enrichment tasks. |
-| `pass1_enabled` | bool | Quick first pass — gets files visible in the Dashboard fast. |
-| `pass2_enabled` | bool | Deep background pass — universe enrichment, person reconciliation, extended properties. |
+| `pass1_enabled` | bool | Quick first pass â€” gets files visible in the Dashboard fast. |
+| `pass2_enabled` | bool | Deep background pass â€” universe enrichment, person reconciliation, extended properties. |
 | `pass2_schedule_cron` | string | Cron expression controlling when Pass 2 runs. |
 | `retail_candidate_limit` | int | Maximum retail candidates evaluated per work before selecting the best match. |
 | `person_freshness_days` | int | Days before an enriched person record is considered stale and re-checked. Default: 30. |
@@ -133,8 +145,8 @@ Defines the Library Folders the Engine monitors. Contains a `libraries` array; e
 | `media_types` | string[] | Media types expected in this folder. Accepted values: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`, `Podcasts`. |
 | `source_path` | string | Absolute path to the folder to monitor. |
 | `library_root` | string | Destination root for promoted files from this library. Overrides the global `library_root` if set. |
-| `intake_mode` | string | `"watch"` — continuous file monitoring. `"import"` — one-time scan of existing collection. |
-| `import_action` | string | `"move"` — move files after ingestion. `"copy"` — copy and leave originals in place. |
+| `intake_mode` | string | `"watch"` â€” continuous file monitoring. `"import"` â€” one-time scan of existing collection. |
+| `import_action` | string | `"move"` â€” move files after ingestion. `"copy"` â€” copy and leave originals in place. |
 | `include_subdirectories` | bool | Whether to recurse into subdirectories. |
 
 ---
@@ -172,7 +184,7 @@ Controls how resolved metadata is written back into file tags.
 
 ## config/providers/
 
-One JSON file per metadata provider. All provider files are self-contained — adding a new REST+JSON provider requires only dropping a config file and restarting. Provider files are gitignored; examples are in `config.example/providers/`.
+One JSON file per metadata provider. All provider files are self-contained â€” adding a new REST+JSON provider requires only dropping a config file and restarting. Provider files are gitignored; examples are in `config.example/providers/`.
 
 | File | Provider | Stage | Language Strategy |
 |---|---|---|---|
@@ -198,7 +210,7 @@ One JSON file per metadata provider. All provider files are self-contained — a
 | `base_url` | string | Provider API base URL. |
 | `priority` | int | Tier B cascade priority. Lower numbers = higher priority within the same tier. |
 | `media_types` | string[] | Which media types this provider serves. |
-| `language_strategy` | string | `"source"` — always English. `"localized"` — user's metadata language. `"both"` — query twice and merge. |
+| `language_strategy` | string | `"source"` â€” always English. `"localized"` â€” user's metadata language. `"both"` â€” query twice and merge. |
 | `rate_limit_ms` | int | Minimum milliseconds between requests to this provider. |
 | `cache_ttl_hours` | int | How long provider responses are cached in `provider_response_cache`. |
 
@@ -206,7 +218,7 @@ One JSON file per metadata provider. All provider files are self-contained — a
 
 ## config/ui/
 
-UI settings are layered: global defaults → device profile → user profile → resolved effective settings.
+UI settings are layered: global defaults â†’ device profile â†’ user profile â†’ resolved effective settings.
 
 ### config/ui/global.json
 
@@ -215,8 +227,8 @@ Global UI defaults applied to all devices and users unless overridden.
 | Field | Type | Description |
 |---|---|---|
 | `theme` | string | Always `"dark"`. The Dashboard is dark-mode-only. |
-| `accent_color` | string | `"#C9922E"` — fixed golden amber accent. Do not change. |
-| `poster_aspect_ratio` | string | `"2:3"` — standard cover art card ratio. |
+| `accent_color` | string | `"#C9922E"` â€” fixed golden amber accent. Do not change. |
+| `poster_aspect_ratio` | string | `"2:3"` â€” standard cover art card ratio. |
 | `default_view_mode` | string | `"list"` or `"grid"`. Default Vault view mode. |
 
 ### config/ui/devices/*.json
@@ -228,3 +240,9 @@ Each file defines constraints appropriate for the device class: navigation style
 ### config/ui/profiles/*.json
 
 Per-user UI preference overrides. Stored server-side and merged into the resolved settings at circuit start. Controls: column visibility and order per Vault media type (also persisted to localStorage), default sort column, sidebar collapsed state.
+
+## Related
+
+- [How to Configure Metadata Providers](../guides/configuring-providers.md)
+- [How to Set Up Language Preferences](../guides/language-setup.md)
+- [Developer Setup](../tutorials/dev-setup.md)

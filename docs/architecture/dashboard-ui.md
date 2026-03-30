@@ -1,8 +1,20 @@
+---
+title: "Dashboard UI Architecture"
+summary: "Understand the layout rules, component patterns, and presentation system used by the Dashboard."
+audience: "developer"
+category: "architecture"
+product_area: "ui"
+tags:
+  - "dashboard"
+  - "ui"
+  - "components"
+---
+
 # Dashboard UI Architecture
 
 ## Visual Design
 
-The Dashboard is dark-mode only — light mode has been fully removed.
+The Dashboard is dark-mode only â€” light mode has been fully removed.
 
 **Background:** Base color `#080B14` with three radial gradients applied at the `MudLayout` root via the `.app-bg` CSS class:
 - Purple, top-left: `rgba(127, 119, 221, 0.10)`
@@ -11,7 +23,7 @@ The Dashboard is dark-mode only — light mode has been fully removed.
 
 A subtle SVG noise overlay at 1.5% opacity adds a film-grain texture. Page root containers use `transparent` backgrounds so the gradient shows through. Sticky headers and modal overlays remain opaque.
 
-**Accent color:** Fixed to golden amber `#C9922E`, derived from the logo gradient. `ThemeService.SetHubAccent()` is a no-op — the accent cannot be changed by users or code.
+**Accent color:** Fixed to golden amber `#C9922E`, derived from the logo gradient. `ThemeService.SetHubAccent()` is a no-op â€” the accent cannot be changed by users or code.
 
 ---
 
@@ -21,19 +33,19 @@ A subtle SVG noise overlay at 1.5% opacity adds a film-grain texture. Page root 
 
 Fixed horizontal bar, `height: 56px`. Always present.
 
-**Contents (left to right):** AppLogo wordmark — spacer — search icon — notification bell with review count badge — profile avatar.
+**Contents (left to right):** AppLogo wordmark â€” spacer â€” search icon â€” notification bell with review count badge â€” profile avatar.
 
 **Four layout variants:**
-- `full` — desktop: all elements visible
-- `mobile` — hamburger button (left) + centered logo
-- `simplified` — TV: logo only
-- `minimal` — automotive: icon only
+- `full` â€” desktop: all elements visible
+- `mobile` â€” hamburger button (left) + centered logo
+- `simplified` â€” TV: logo only
+- `minimal` â€” automotive: icon only
 
-**Styling:** Glassmorphic — `rgba(0, 0, 0, 0.4)` background with `backdrop-filter: blur(12px)`.
+**Styling:** Glassmorphic â€” `rgba(0, 0, 0, 0.4)` background with `backdrop-filter: blur(12px)`.
 
 ### LeftDock
 
-Floating icon-only panel, `64px` wide. Desktop only — hidden on mobile.
+Floating icon-only panel, `64px` wide. Desktop only â€” hidden on mobile.
 
 **Contents:** Fixed content-type lane icons (Home, Search, Books, Video, Music, Podcasts, Comics) + Settings + Profile Avatar + Live Clock.
 
@@ -41,7 +53,7 @@ Content-type lanes are defined in `ContentLanes.cs` and are not user-configurabl
 
 **Active state:** 3px solid amber bar on the left edge of the active icon.
 
-**Styling:** Dark blue glassmorphic — `rgba(8, 13, 30, 0.92)`.
+**Styling:** Dark blue glassmorphic â€” `rgba(8, 13, 30, 0.92)`.
 
 ### MobileNavDrawer
 
@@ -49,8 +61,8 @@ Slide-out drawer for mobile viewports. Triggered by the hamburger button in the 
 
 ### Content Area Offsets
 
-- `padding-top: 56px` — clears the TopBar
-- `padding-left: 68px` — clears the LeftDock (desktop only)
+- `padding-top: 56px` â€” clears the TopBar
+- `padding-left: 68px` â€” clears the LeftDock (desktop only)
 
 ---
 
@@ -81,7 +93,7 @@ The main content presentation layer: horizontal-scrolling rows of poster-art car
 
 ## Real-Time Updates
 
-The Dashboard maintains a persistent connection to the Engine via SignalR (the "Intercom"). When a new file is ingested or processing progresses, the Dashboard updates instantly — no polling, no manual refresh required.
+The Dashboard maintains a persistent connection to the Engine via SignalR (the "Intercom"). When a new file is ingested or processing progresses, the Dashboard updates instantly â€” no polling, no manual refresh required.
 
 ---
 
@@ -91,7 +103,7 @@ The Dashboard adapts its layout, available features, and page structure based on
 
 ### Three-Tier Cascade
 
-Settings merge in order: **Global** (app-wide defaults) → **Device** (structural constraints and overrides per device class) → **Profile** (per-user preferences). Device constraints — disabled features, disabled pages, forced dark mode — are hard limits that no profile can override.
+Settings merge in order: **Global** (app-wide defaults) â†’ **Device** (structural constraints and overrides per device class) â†’ **Profile** (per-user preferences). Device constraints â€” disabled features, disabled pages, forced dark mode â€” are hard limits that no profile can override.
 
 ### Configuration Files
 
@@ -113,7 +125,7 @@ Example files live in `config.example/ui/`. Live files in `config/ui/` are gitig
 
 | Class | Touch Targets | Key Constraints |
 |-------|--------------|-----------------|
-| `web` | Standard | None — fully unconstrained |
+| `web` | Standard | None â€” fully unconstrained |
 | `mobile` | 48px | View toggle disabled, compact appbar, icon-only logo, stacked layouts, 1-column grid |
 | `television` | 64px | 8 features disabled, server settings page disabled, no text input, focus-navigable tabs, 2-column large tiles |
 | `automotive` | 80px | Same as television plus forced dark mode, minimal appbar, 2 dock items (Series + Listen), audio-only tiles |
@@ -123,9 +135,9 @@ Example files live in `config.example/ui/`. Live files in `config/ui/` are gitig
 Handled client-side via JavaScript interop. Detection priority:
 1. URL query parameter `?device=`
 2. `localStorage` value
-3. Auto-detect: viewport ≤ 768px + touch events present → `mobile`, otherwise → `web`
+3. Auto-detect: viewport â‰¤ 768px + touch events present â†’ `mobile`, otherwise â†’ `web`
 
-Television and automotive require explicit selection — they are never auto-detected.
+Television and automotive require explicit selection â€” they are never auto-detected.
 
 ---
 
@@ -135,8 +147,14 @@ Three official SVG logo files. Never replace logo placements with hand-written t
 
 | File | Location | Use when |
 |------|----------|----------|
-| `tuvima-logo.svg` | `wwwroot/images/` | Full horizontal logo — mark + "TUVIMA" wordmark. Use in LeftDock and full branded headers. |
+| `tuvima-logo.svg` | `wwwroot/images/` | Full horizontal logo â€” mark + "TUVIMA" wordmark. Use in LeftDock and full branded headers. |
 | `tuvima-icon.svg` | `wwwroot/images/`, `wwwroot/favicon.svg` | Square icon mark only. Use as favicon, narrow LeftDock icon, or any small/square slot. |
 | `tuvima-hero.svg` | `assets/images/` | Mark + wordmark + subtitle. Use in README hero and marketing contexts only. |
 
-All three SVGs use hardcoded fills: white (`#fff`) for highlight layers, black for main strokes. Designed for dark backgrounds. Source files live outside the repository — do not modify the SVGs in the repo directly.
+All three SVGs use hardcoded fills: white (`#fff`) for highlight layers, black for main strokes. Designed for dark backgrounds. Source files live outside the repository â€” do not modify the SVGs in the repo directly.
+
+## Related
+
+- [How the Library Vault Works](../explanation/how-the-vault-works.md)
+- [Settings Architecture and Library Vault](settings-and-vault.md)
+- [Target State](target-state.md)

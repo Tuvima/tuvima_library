@@ -66,3 +66,10 @@ tools/reports/*.log
 
 # Serilog rolling log files — generated at runtime, never committed
 logs/
+
+# MkDocs / GitHub Pages local build output
+site/
+.mkdocs-cache/
+
+# Local Codex-derived context
+.codex/

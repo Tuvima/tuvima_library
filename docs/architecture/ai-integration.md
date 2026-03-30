@@ -1,3 +1,15 @@
+---
+title: "Local AI Intelligence Layer"
+summary: "Deep technical documentation for model orchestration, prompts, hardware tiers, and AI service boundaries."
+audience: "developer"
+category: "architecture"
+product_area: "ai"
+tags:
+  - "ai"
+  - "architecture"
+  - "models"
+---
+
 # Local AI Intelligence Layer
 
 ## Role in the System
@@ -10,11 +22,11 @@ All inference runs entirely on the local machine. No cloud account, no subscript
 
 ## Project Structure
 
-All AI implementations live in `MediaEngine.AI`. This project sits alongside `MediaEngine.Providers` in the dependency chain — it references `MediaEngine.Domain` (for contracts) and `MediaEngine.Storage` (for configuration).
+All AI implementations live in `MediaEngine.AI`. This project sits alongside `MediaEngine.Providers` in the dependency chain â€” it references `MediaEngine.Domain` (for contracts) and `MediaEngine.Storage` (for configuration).
 
 NuGet dependencies:
-- `LLamaSharp` + `LLamaSharp.Backend.Cpu` (both MIT) — .NET native llama.cpp binding with GBNF grammar constraint support
-- `Whisper.net` + `Whisper.net.Runtime` (both MIT) — .NET native whisper.cpp binding for speech-to-text and language detection
+- `LLamaSharp` + `LLamaSharp.Backend.Cpu` (both MIT) â€” .NET native llama.cpp binding with GBNF grammar constraint support
+- `Whisper.net` + `Whisper.net.Runtime` (both MIT) â€” .NET native whisper.cpp binding for speech-to-text and language detection
 
 ---
 
@@ -34,7 +46,7 @@ Model roles are configurable in `config/ai.json`. Any GGUF-format model can be s
 
 ## Structured Output
 
-All LLM calls use GBNF grammar constraints — llama.cpp forces the model to produce valid JSON at the token level. This is model-agnostic and works with Llama, Mistral, Phi, Gemma, and Qwen models. JSON schema validation and retry logic serve as a safety net over the grammar constraint.
+All LLM calls use GBNF grammar constraints â€” llama.cpp forces the model to produce valid JSON at the token level. This is model-agnostic and works with Llama, Mistral, Phi, Gemma, and Qwen models. JSON schema validation and retry logic serve as a safety net over the grammar constraint.
 
 ---
 
@@ -46,7 +58,7 @@ All LLM calls use GBNF grammar constraints — llama.cpp forces the model to pro
 |---|---|---|
 | Smart Labeling | text_quality | Cleans raw filenames into structured title/author/year/series fields. Replaces `TitleNormalizer.cs`. |
 | Media Type Classification | text_quality | Classifies ambiguous file formats (MP3, MP4, M4A) when heuristic signals are insufficient. Replaces AudioProcessor/VideoProcessor disambiguation heuristics. |
-| Batch Manifest Builder | text_quality | Analyses an entire folder of files as a group before retail API calls, inferring series, author, and format context. Reduces retail API calls by 80–95% for bulk imports. Supersedes `IngestionHintCache`. |
+| Batch Manifest Builder | text_quality | Analyses an entire folder of files as a group before retail API calls, inferring series, author, and format context. Reduces retail API calls by 80â€“95% for bulk imports. Supersedes `IngestionHintCache`. |
 | Audio Language Detection | audio | Detects the spoken language of audio files using Whisper. |
 
 ### Alignment (automatic / on-demand)
@@ -61,16 +73,16 @@ All LLM calls use GBNF grammar constraints — llama.cpp forces the model to pro
 
 | Feature | Model | What it does |
 |---|---|---|
-| Vibe Tags | text_quality | Generates mood and atmosphere tags (3–5 per work) using per-category controlled vocabularies defined in `config/ai.json`. 25–30 tags per media type, organised by dimension: pacing, mood, atmosphere, tone, intensity. Vibes describe *how something feels*, not *what it is* — genre handles categorisation (from Wikidata/retail), vibes handle the emotional/atmospheric space. Background service (4 AM daily). |
-| TL;DR | text_fast | Generates a 2–3 sentence plain-language summary of a work's description. On-demand. |
+| Vibe Tags | text_quality | Generates mood and atmosphere tags (3â€“5 per work) using per-category controlled vocabularies defined in `config/ai.json`. 25â€“30 tags per media type, organised by dimension: pacing, mood, atmosphere, tone, intensity. Vibes describe *how something feels*, not *what it is* â€” genre handles categorisation (from Wikidata/retail), vibes handle the emotional/atmospheric space. Background service (4 AM daily). |
+| TL;DR | text_fast | Generates a 2â€“3 sentence plain-language summary of a work's description. On-demand. |
 | Cover Art Validation | text_fast | Verifies that a downloaded cover image matches the expected work (catches mismatched covers from retail providers). |
-| Audio Similarity | — | Chromaprint-based acoustic fingerprinting to detect duplicate audio files across formats. No LLM required. |
+| Audio Similarity | â€” | Chromaprint-based acoustic fingerprinting to detect duplicate audio files across formats. No LLM required. |
 
 ### Syncing (scheduled / on-demand)
 
 | Feature | Models | What it does |
 |---|---|---|
-| Immersive Bake | audio + text_quality | Generates a synchronized audiobook/ebook experience — aligns audio timestamps to text positions. |
+| Immersive Bake | audio + text_quality | Generates a synchronized audiobook/ebook experience â€” aligns audio timestamps to text positions. |
 | Subtitle Sync | audio | Corrects subtitle timing drift using Whisper-generated transcription as ground truth. |
 | Cross-Media Scene Mapping | text_quality | Maps equivalent scenes across book, film, and audiobook editions of the same work. |
 
@@ -101,34 +113,34 @@ AI does not replace the Priority Cascade Engine. Wikidata remains the sole autho
 
 | AI feature | Cascade interaction |
 |---|---|
-| SmartLabeler | Cleans filenames before they are parsed into claims — better raw input for Tier D scoring |
+| SmartLabeler | Cleans filenames before they are parsed into claims â€” better raw input for Tier D scoring |
 | MediaTypeAdvisor | Emits a high-confidence `media_type` claim that enters the cascade as any other claim |
 | QidDisambiguator | Accelerates Tier C resolution when multiple Wikidata candidates are returned |
 | BatchManifestBuilder | Reduces the number of API calls, but does not change claim weights or cascade logic |
 
-The cascade evaluates all claims — including those produced by AI features — using the same tier system.
+The cascade evaluates all claims â€” including those produced by AI features â€” using the same tier system.
 
 ---
 
-## Genre vs Vibe — Discovery Model
+## Genre vs Vibe â€” Discovery Model
 
 Genres and vibes serve different purposes and come from different sources. Together they power the discovery and smart playlist features.
 
 | Layer | Source | Example | Answers |
 |---|---|---|---|
-| **Genre** | Wikidata (P136) / retail providers | Science Fiction, Mystery, Biography | "What is it?" — categorical |
-| **Vibe** | AI (VibeTagger, text_quality model) | atmospheric, slow-burn, haunting | "How does it feel?" — emotional/atmospheric |
-| **Taste Profile** | AI (TasteProfileBackgroundService) | User prefers cerebral + atmospheric sci-fi | "What do I like?" — personalised |
-| **Intent Search** | AI (text_fast model) | "something scary set in space" → genre:horror + genre:sci-fi + vibe:tense | "What am I in the mood for?" — natural language |
+| **Genre** | Wikidata (P136) / retail providers | Science Fiction, Mystery, Biography | "What is it?" â€” categorical |
+| **Vibe** | AI (VibeTagger, text_quality model) | atmospheric, slow-burn, haunting | "How does it feel?" â€” emotional/atmospheric |
+| **Taste Profile** | AI (TasteProfileBackgroundService) | User prefers cerebral + atmospheric sci-fi | "What do I like?" â€” personalised |
+| **Intent Search** | AI (text_fast model) | "something scary set in space" â†’ genre:horror + genre:sci-fi + vibe:tense | "What am I in the mood for?" â€” natural language |
 
-**Intent Search** is the bridge — it translates natural language into a structured query that combines genres, vibes, media types, and other metadata. The **"Why" Factor** then explains recommendations in plain language.
+**Intent Search** is the bridge â€” it translates natural language into a structured query that combines genres, vibes, media types, and other metadata. The **"Why" Factor** then explains recommendations in plain language.
 
 ### Vibe vocabulary design principles
 
 - Vibes must not overlap with genres. "Science Fiction" is a genre; "cerebral" and "futuristic-feeling" are vibes.
 - Vibes are organised by dimension: **pacing** (page-turner, slow-burn), **mood** (dark, uplifting), **atmosphere** (atmospheric, gritty), **tone** (satirical, whimsical), **intensity** (epic, intimate).
 - Cross-media tags (atmospheric, dark, intimate, haunting, raw, gentle) appear across most media types because those vibes are universal. Media-specific tags stay where they make sense (visually-stunning for film, driving for music, noir for comics).
-- 25–30 tags per media type. The LLM selects 3–5 per work, so the larger vocabulary gives range without diluting results.
+- 25â€“30 tags per media type. The LLM selects 3â€“5 per work, so the larger vocabulary gives range without diluting results.
 - Vocabularies are editable by the user in Settings > Intelligence > Vibe Vocabulary.
 
 ---
@@ -170,3 +182,9 @@ All AI settings live in `config/ai.json`:
 - Per-category vibe vocabularies (Books, Movies, Music, Podcasts, Comics)
 - Scheduling parameters for background services
 - Idle unload timeout
+
+## Related
+
+- [How the Local AI Works](../explanation/how-ai-works.md)
+- [How to Set Up Language Preferences](../guides/language-setup.md)
+- [Hydration Pipeline, Provider Architecture and Enrichment Strategy](hydration-and-providers.md)

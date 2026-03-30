@@ -1,8 +1,20 @@
+---
+title: "Priority Cascade Engine"
+summary: "Deep technical documentation for metadata claims, weights, thresholds, and conflict resolution."
+audience: "developer"
+category: "architecture"
+product_area: "scoring"
+tags:
+  - "scoring"
+  - "metadata"
+  - "conflicts"
+---
+
 # Priority Cascade Engine
 
 ## Purpose
 
-When multiple sources disagree about a metadata field — title, author, year, cover art — the Priority Cascade Engine resolves the dispute and produces a single canonical value for each field. Every piece of metadata is modeled as a **Claim**: a triple of (source, value, confidence). Claims accumulate from all sources. The cascade picks a winner per field.
+When multiple sources disagree about a metadata field â€” title, author, year, cover art â€” the Priority Cascade Engine resolves the dispute and produces a single canonical value for each field. Every piece of metadata is modeled as a **Claim**: a triple of (source, value, confidence). Claims accumulate from all sources. The cascade picks a winner per field.
 
 ---
 
@@ -10,12 +22,12 @@ When multiple sources disagree about a metadata field — title, author, year, c
 
 | Source | Base confidence | Notes |
 |---|---|---|
-| File internal metadata (OPF, ID3) | 0.9 | High trust — embedded at creation time |
-| Filename | 0.5 | Medium trust — often approximate or user-modified |
+| File internal metadata (OPF, ID3) | 0.9 | High trust â€” embedded at creation time |
+| Filename | 0.5 | Medium trust â€” often approximate or user-modified |
 | External providers | Configurable per field | See per-field trust weights below |
-| User lock | 1.0 | Absolute — see Tier A |
+| User lock | 1.0 | Absolute â€” see Tier A |
 
-External providers declare per-field trust weights in their provider config files (`config/providers/`). These weights reflect how reliable that provider is for a specific kind of data — Wikidata carries franchise identifiers at weight 1.0, Apple API carries cover art at 0.85, and so on.
+External providers declare per-field trust weights in their provider config files (`config/providers/`). These weights reflect how reliable that provider is for a specific kind of data â€” Wikidata carries franchise identifiers at weight 1.0, Apple API carries cover art at 0.85, and so on.
 
 ---
 
@@ -23,11 +35,11 @@ External providers declare per-field trust weights in their provider config file
 
 Tiers are evaluated in order. The first tier that can resolve a field wins; lower tiers are not consulted for that field.
 
-### Tier A — User Locks
+### Tier A â€” User Locks
 
 User-locked claims always win, regardless of any provider or scoring result. A user-locked claim carries confidence 1.0 and is never overridden on any future re-score. This guarantee is absolute.
 
-### Tier B — Per-Field Provider Priority
+### Tier B â€” Per-Field Provider Priority
 
 Some fields benefit from a specific provider rather than the default Wikidata-always-wins rule. When a field has an override in `config/field_priorities.json`, the cascade walks the provider priority list and returns the first provider that has a claim for that field. Tier C is skipped entirely for this field.
 
@@ -42,11 +54,11 @@ Example overrides from `config/field_priorities.json`:
 
 Fields not listed in the config default to Tier C (Wikidata authority).
 
-### Tier C — Wikidata Authority
+### Tier C â€” Wikidata Authority
 
-For any field without a Tier B override, Wikidata claims win unconditionally when present. Wikidata is the sole identity authority — every media item is identified by its Wikidata Q-identifier.
+For any field without a Tier B override, Wikidata claims win unconditionally when present. Wikidata is the sole identity authority â€” every media item is identified by its Wikidata Q-identifier.
 
-### Tier D — Confidence Cascade
+### Tier D â€” Confidence Cascade
 
 When no Tier A, B, or C claim exists for a field, the highest-confidence claim across all remaining sources wins.
 
@@ -72,7 +84,7 @@ When two claims for the same field are too close in confidence to pick a clear w
 
 ## Claim History
 
-All claims are stored append-only. No claim is ever deleted or overwritten — only superseded by higher-priority claims. The full provenance trail for every field is always available.
+All claims are stored append-only. No claim is ever deleted or overwritten â€” only superseded by higher-priority claims. The full provenance trail for every field is always available.
 
 ---
 
@@ -103,7 +115,7 @@ Per-field provider priority overrides live in `config/field_priorities.json`.
 
 ## AI and the Cascade
 
-AI features in `MediaEngine.AI` improve the quality of inputs to the cascade — they do not replace it. The cascade determines all final canonical values.
+AI features in `MediaEngine.AI` improve the quality of inputs to the cascade â€” they do not replace it. The cascade determines all final canonical values.
 
 | AI feature | Role in scoring |
 |---|---|
@@ -113,3 +125,9 @@ AI features in `MediaEngine.AI` improve the quality of inputs to the cascade —
 | BatchManifestBuilder | Reduces retail API calls during bulk ingestion, but does not change how claims are weighted or selected |
 
 Wikidata remains the authority for all canonical data. AI accelerates and improves the matching process that feeds the cascade; the cascade itself is unchanged.
+
+## Related
+
+- [How the Priority Cascade Works](../explanation/how-scoring-works.md)
+- [Database Schema Reference](../reference/database-schema.md)
+- [How to Resolve Items That Need Review](../guides/resolving-reviews.md)

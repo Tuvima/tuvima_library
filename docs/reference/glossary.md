@@ -1,3 +1,15 @@
+---
+title: "Glossary"
+summary: "Reference the core product and architecture terms used throughout Tuvima Library documentation."
+audience: "user"
+category: "reference"
+product_area: "concepts"
+tags:
+  - "glossary"
+  - "terminology"
+  - "concepts"
+---
+
 # Glossary
 
 Reference definitions for Tuvima Library terms. User-facing names are used throughout the Dashboard and documentation. Internal code names appear in parentheses where both exist.
@@ -10,7 +22,7 @@ Reference definitions for Tuvima Library terms. User-facing names are used throu
 The winning claim for a metadata field after the Priority Cascade has resolved all competing sources. Stored in `canonical_values` / `canonical_value_arrays`. Displayed in the Dashboard and written back to file tags on sync.
 
 **Claim**
-A single piece of metadata from a specific source, tagged with a confidence score (0.0–1.0) and a source identifier. Multiple claims for the same field compete in the Priority Cascade. All claims are append-only; history is never lost. Stored in `metadata_claims`.
+A single piece of metadata from a specific source, tagged with a confidence score (0.0â€“1.0) and a source identifier. Multiple claims for the same field compete in the Priority Cascade. All claims are append-only; history is never lost. Stored in `metadata_claims`.
 
 ## D
 
@@ -23,7 +35,7 @@ The browser interface (`MediaEngine.Web`) served at `http://localhost:5016`. Dis
 A specific physical or digital version of a Work. Examples: "4K HDR Blu-ray Remux", "Audible Whispersync Edition", "First Edition Hardcover". One Work may have many Editions. An Edition may have many Media Assets (e.g., a multi-disc rip).
 
 **Engine**
-The intelligence and data layer (`MediaEngine.Api`) served at `http://localhost:61495`. Handles all file monitoring, metadata processing, enrichment, and database operations. The Dashboard never touches data directly — it asks the Engine.
+The intelligence and data layer (`MediaEngine.Api`) served at `http://localhost:61495`. Handles all file monitoring, metadata processing, enrichment, and database operations. The Dashboard never touches data directly â€” it asks the Engine.
 
 ## H
 
@@ -52,10 +64,10 @@ The format category assigned to a file. The seven supported types are: Books, Au
 See **Universe**.
 
 **Priority Cascade**
-The four-tier system that resolves metadata conflicts when multiple sources disagree. Tiers in order: Tier A (user locks always win) → Tier B (per-field provider priority from config) → Tier C (Wikidata authority) → Tier D (highest confidence wins). Configured in `config/scoring.json`.
+The four-tier system that resolves metadata conflicts when multiple sources disagree. Tiers in order: Tier A (user locks always win) â†’ Tier B (per-field provider priority from config) â†’ Tier C (Wikidata authority) â†’ Tier D (highest confidence wins). Configured in `config/scoring.json`.
 
 **Processor**
-Code that opens a specific file format and extracts embedded metadata. One processor per format family: `EpubProcessor`, `AudioProcessor`, `VideoProcessor`, `ComicProcessor`. Processors produce Claims at high confidence (typically 0.85–1.0).
+Code that opens a specific file format and extracts embedded metadata. One processor per format family: `EpubProcessor`, `AudioProcessor`, `VideoProcessor`, `ComicProcessor`. Processors produce Claims at high confidence (typically 0.85â€“1.0).
 
 **Provider**
 An external service that supplies metadata. Providers are called during Hydration. Examples: Apple API, Open Library, Google Books, TMDB, MusicBrainz, Metron, Wikidata, Fanart.tv. Each provider has a self-contained config file in `config/providers/`.
@@ -63,20 +75,20 @@ An external service that supplies metadata. Providers are called during Hydratio
 ## Q
 
 **QID**
-A Wikidata entity identifier. Format: `Q` followed by digits (e.g., `Q190804` = Dune). QIDs are the Engine's canonical identity anchor — once a Work has a QID, structured metadata (title, author, year, genre) comes exclusively from Wikidata.
+A Wikidata entity identifier. Format: `Q` followed by digits (e.g., `Q190804` = Dune). QIDs are the Engine's canonical identity anchor â€” once a Work has a QID, structured metadata (title, author, year, genre) comes exclusively from Wikidata.
 
 ## S
 
 **Series** *(internal name: Hub)*
-A sub-grouping within a Universe — a specific sequence or collection of related works. Examples: "Dune Novels", "Dune Films". A Series is a flexible container for any creative grouping; it is not limited to numbered sequences. Series are resolved at metadata-scoring time and have no presence on the filesystem.
+A sub-grouping within a Universe â€” a specific sequence or collection of related works. Examples: "Dune Novels", "Dune Films". A Series is a flexible container for any creative grouping; it is not limited to numbered sequences. Series are resolved at metadata-scoring time and have no presence on the filesystem.
 
 **Staging**
-The `.data/staging/` area where files live between ingestion and promotion. Each in-flight asset gets its own subfolder (`{assetId12}/`). Files with confidence ≥ 0.85 are promoted to the organized library; explicitly rejected files move to `.data/staging/rejected/`.
+The `.data/staging/` area where files live between ingestion and promotion. Each in-flight asset gets its own subfolder (`{assetId12}/`). Files with confidence â‰¥ 0.85 are promoted to the organized library; explicitly rejected files move to `.data/staging/rejected/`.
 
 ## U
 
 **Universe** *(internal name: ParentHub)*
-A franchise-level grouping that links multiple Series sharing the same creative world. Examples: "Dune", "Marvel", "Tolkien". Universes are optional — a Series without a parent franchise sits directly under the Library. Universes are always Wikidata-sourced and auto-cleaned when all child Series are removed.
+A franchise-level grouping that links multiple Series sharing the same creative world. Examples: "Dune", "Marvel", "Tolkien". Universes are optional â€” a Series without a parent franchise sits directly under the Library. Universes are always Wikidata-sourced and auto-cleaned when all child Series are removed.
 
 ## V
 
@@ -84,12 +96,18 @@ A franchise-level grouping that links multiple Series sharing the same creative 
 The Library Vault at `/vault`. The command centre for managing everything in the library. Contains four tabs: Media, People, Universes, and Hubs. Provides batch operations, detail drawers, pipeline visibility, and inline resolution for items needing review.
 
 **Vibe Tags**
-AI-generated mood and atmosphere descriptors, distinct from genre. Genres (from Wikidata and retail providers) describe *what something is*. Vibes describe *how it feels*. Each media type has 25–30 vibe vocabulary entries across four dimensions: theme, mood, setting, and pace. Used by Intent Search for natural-language discovery.
+AI-generated mood and atmosphere descriptors, distinct from genre. Genres (from Wikidata and retail providers) describe *what something is*. Vibes describe *how it feels*. Each media type has 25â€“30 vibe vocabulary entries across four dimensions: theme, mood, setting, and pace. Used by Intent Search for natural-language discovery.
 
 ## W
 
 **Work**
-A single title — one creative work, independent of format or version. Examples: "Dune Part One", "The Godfather". One Work may have many Editions. Works are deduplicated by title + author + media type so that duplicate files create new Editions rather than duplicate Works.
+A single title â€” one creative work, independent of format or version. Examples: "Dune Part One", "The Godfather". One Work may have many Editions. Works are deduplicated by title + author + media type so that duplicate files create new Editions rather than duplicate Works.
 
 **Writeback**
 The process of writing resolved metadata back into file tags after enrichment or user correction. Formats: EPUB OPF metadata, ID3 tags (MP3/M4B), MP4 atoms. Controlled by `config/writeback.json`. Enabled by default.
+
+## Related
+
+- [How Universes and Series Work](../explanation/how-universes-work.md)
+- [How File Ingestion Works](../explanation/how-ingestion-works.md)
+- [How the Library Vault Works](../explanation/how-the-vault-works.md)

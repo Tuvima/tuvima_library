@@ -1,3 +1,15 @@
+---
+title: "How to Build, Test, and Verify Changes"
+summary: "Run the project quality checks and verify changes before you commit or open a pull request."
+audience: "developer"
+category: "guide"
+product_area: "testing"
+tags:
+  - "build"
+  - "test"
+  - "verification"
+---
+
 # How to Build, Test, and Verify Changes
 
 This guide covers the full verification workflow: building the solution, running unit
@@ -107,7 +119,7 @@ both must be running for the full UI to work.
 
 ---
 
-## 4. Swagger — interactive API exploration
+## 4. Swagger â€” interactive API exploration
 
 With the Engine running, open:
 
@@ -182,10 +194,10 @@ run is always aliased to `tools/reports/integration-test-latest.html`.
 
 ---
 
-## 6. Debug lookup — test enrichment without persisting
+## 6. Debug lookup â€” test enrichment without persisting
 
 The `/debug/lookup` endpoint runs a live Wikidata Reconciliation + retail provider pass
-against a given title, returning every claim that would be written to the database —
+against a given title, returning every claim that would be written to the database â€”
 without actually writing anything.
 
 ```http
@@ -205,7 +217,7 @@ is not matching during hydration.
 
 ---
 
-## 7. SignalR — testing real-time events
+## 7. SignalR â€” testing real-time events
 
 The SignalR hub for real-time dashboard updates is at:
 
@@ -333,11 +345,11 @@ One concern per file. Names are lowercase with underscores. Provider configs go 
 
 ## 12. Common issues
 
-**Build error: `CS8618` — Non-nullable property not initialised**
+**Build error: `CS8618` â€” Non-nullable property not initialised**
 Add `= null!;` for properties initialised by the framework (e.g. `[Inject]` in Blazor
 components), or make the property nullable with `?` if it can legitimately be null.
 
-**Build warning: `CS1998` — Async method lacks `await`**
+**Build warning: `CS1998` â€” Async method lacks `await`**
 Either add `await` to an async operation in the body, or remove `async` and return
 `Task.CompletedTask` or `ValueTask.CompletedTask`.
 
@@ -361,9 +373,8 @@ matches `http://localhost:61495`.
 
 ---
 
-## See also
+## Related
 
-- `docs/architecture/ingestion-pipeline.md` — pipeline stages and configuration
-- `docs/architecture/hydration-and-providers.md` — enrichment pipeline
-- `docs/guides/adding-a-provider.md` — adding a new metadata provider
-- `docs/guides/writing-a-processor.md` — adding a new file format processor
+- [Developer Setup](../tutorials/dev-setup.md)
+- [Engine API Reference](../reference/api-endpoints.md)
+- [Database Schema Reference](../reference/database-schema.md)

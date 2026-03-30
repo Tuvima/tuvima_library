@@ -1,113 +1,137 @@
+---
+title: "Tuvima Library Documentation"
+summary: "Start here to install Tuvima Library, build your first library, and find the right documentation path."
+audience: "user"
+category: "guide"
+product_area: "docs"
+tags:
+  - "landing"
+  - "start-here"
+  - "navigation"
+---
+
+<div class="tl-hero" markdown="1">
+
+<span class="tl-kicker">User-first documentation</span>
+
 # Tuvima Library Documentation
 
-Tuvima Library is a unified media intelligence platform that runs entirely on your own machine. It organises books, audiobooks, movies, TV shows, music, comics, and podcasts into a single coherent library — with no cloud account, no subscription, and no data leaving your home. Point it at your hard drive and it takes care of the rest.
+Build your library, configure enrichment, and understand how Tuvima organizes stories across books, audio, video, comics, music, and podcasts.
 
----
+<div class="tl-actions" markdown="1">
 
-## For Users
+[Get Started](tutorials/getting-started.md){ .md-button .md-button--primary }
+[Build Your First Library](tutorials/first-library.md){ .md-button }
+[Configure Providers](guides/configuring-providers.md){ .md-button }
 
-You want to install Tuvima Library, add your media, and get the most out of it.
+</div>
 
-### Tutorials — Learn by doing
+</div>
 
-Step-by-step walkthroughs for people who are new to Tuvima Library.
+## Start Here
 
-| Guide | Description |
-|---|---|
-| [Getting Started](tutorials/getting-started.md) | Install and run Tuvima Library for the first time |
-| [Your First Library](tutorials/first-library.md) | Add a watch folder and see your media appear |
+<div class="tl-card-grid" markdown="1">
 
-### How-to Guides — Get specific things done
+<div class="tl-card" markdown="1">
 
-Task-focused instructions for common goals. You already know the basics; you want to accomplish something specific.
+### Install and launch
 
-| Guide | Description |
-|---|---|
-| [Adding Media](guides/adding-media.md) | Watch folders, import mode, and supported formats |
-| [Resolving Reviews](guides/resolving-reviews.md) | Fix items that need your attention in the Vault |
-| [Configuring Providers](guides/configuring-providers.md) | Set up API keys and provider priorities |
-| [Language Setup](guides/language-setup.md) | Configure languages and CJK support |
+Follow the first-run path for the Engine, Dashboard, configuration files, and local data paths.
 
-### Reference — Look something up
+[Open Getting Started](tutorials/getting-started.md)
 
-Factual descriptions of every setting, status indicator, and configuration option.
+<div class="tl-meta">
+  <span class="tl-pill">Tutorial</span>
+  <span class="tl-pill">15-30 min</span>
+</div>
 
-| Reference | Description |
-|---|---|
-| [Configuration](reference/configuration.md) | Every config file and field explained |
-| [Media Types](reference/media-types.md) | Supported formats, processors, and providers |
-| [Glossary](reference/glossary.md) | Definitions for every term used in the project |
+</div>
 
-### Explanation — Understand how it works
+<div class="tl-card" markdown="1">
 
-Background reading that explains why Tuvima Library behaves the way it does.
+### Build your first library
 
-| Article | Description |
-|---|---|
-| [How Ingestion Works](explanation/how-ingestion-works.md) | The journey from file to library entry |
-| [How Scoring Works](explanation/how-scoring-works.md) | How metadata conflicts are resolved |
-| [How Universes Work](explanation/how-universes-work.md) | The grouping model that links stories across formats |
-| [How the AI Works](explanation/how-ai-works.md) | Local AI models, hardware tiers, and what they do |
-| [How Enrichment Works](explanation/how-hydration-works.md) | Two-stage enrichment from retail providers and Wikidata |
-| [How the Vault Works](explanation/how-the-vault-works.md) | The command centre for managing your library |
+Add a watch folder, ingest real media, and see how Universes and Series appear.
 
----
+[Open Your First Library](tutorials/first-library.md)
 
-## For Developers
+<div class="tl-meta">
+  <span class="tl-pill">Tutorial</span>
+  <span class="tl-pill">Hands-on</span>
+</div>
 
-You want to understand the codebase, contribute code, or build something on top of Tuvima Library.
+</div>
 
-### Tutorials — Set up your environment
+<div class="tl-card" markdown="1">
 
-| Guide | Description |
-|---|---|
-| [Developer Setup](tutorials/dev-setup.md) | Clone, build, run, and explore the codebase |
+### Configure the important knobs
 
-### How-to Guides — Common development tasks
+Set provider keys, language preferences, and library behavior without digging through unrelated docs.
 
-| Guide | Description |
-|---|---|
-| [Adding a Provider](guides/adding-a-provider.md) | Create a new metadata provider with zero code |
-| [Writing a Processor](guides/writing-a-processor.md) | Add support for a new file format |
-| [Running Tests](guides/running-tests.md) | Build, test, and verify changes |
+[Open Configure Providers](guides/configuring-providers.md)  
+[Open Language Setup](guides/language-setup.md)  
+[Open Configuration Reference](reference/configuration.md)
 
-### Reference — Technical specifications
+<div class="tl-meta">
+  <span class="tl-pill">Guide</span>
+  <span class="tl-pill">Reference</span>
+</div>
 
-| Reference | Description |
-|---|---|
-| [API Endpoints](reference/api-endpoints.md) | Every Engine HTTP route and SignalR hub |
-| [Database Schema](reference/database-schema.md) | All tables, columns, and relationships |
-| [Configuration](reference/configuration.md) | Every config file and field explained |
-| [Glossary](reference/glossary.md) | Definitions for every term used in the project |
+</div>
 
-### Explanation — Architecture and design decisions
+</div>
 
-| Article | Description |
-|---|---|
-| [All Explanation articles](explanation/) | Ingestion, scoring, universes, AI, enrichment, and the Vault |
+## Browse by Goal
 
-### Architecture deep-dives
+<div class="tl-card-grid" markdown="1">
 
-Detailed technical documentation for each subsystem lives in the [`architecture/`](architecture/) directory.
+<div class="tl-card" markdown="1">
 
-| Document | Covers |
-|---|---|
-| [architecture/ingestion-pipeline.md](architecture/ingestion-pipeline.md) | How files move from disk into the library |
-| [architecture/scoring-and-cascade.md](architecture/scoring-and-cascade.md) | Priority Cascade and metadata conflict resolution |
-| [architecture/hydration-and-providers.md](architecture/hydration-and-providers.md) | Two-stage enrichment: retail providers and Wikidata |
-| [architecture/dashboard-ui.md](architecture/dashboard-ui.md) | Dashboard design system and component layout |
-| [architecture/settings-and-vault.md](architecture/settings-and-vault.md) | Settings screens, Library Vault, and Vault page design |
-| [architecture/universe-graph.md](architecture/universe-graph.md) | Universe graph, Chronicle Engine, and SPARQL queries |
-| [architecture/ai-integration.md](architecture/ai-integration.md) | Local AI: models, features, and hardware tiers |
-| [architecture/security.md](architecture/security.md) | Authentication, API keys, roles, and rate limiting |
-| [architecture/target-state.md](architecture/target-state.md) | Planned features not yet implemented |
+### Use Tuvima
 
----
+- [Add Media to Your Library](guides/adding-media.md)
+- [Resolve Items That Need Review](guides/resolving-reviews.md)
+- [How Universes and Series Work](explanation/how-universes-work.md)
+- [How File Ingestion Works](explanation/how-ingestion-works.md)
 
-## Quick Links
+</div>
 
-- [Getting Started](tutorials/getting-started.md) — First-time install
-- [Your First Library](tutorials/first-library.md) — Add media and watch it appear
-- [Developer Setup](tutorials/dev-setup.md) — Build and run from source
-- [Configuration Reference](reference/) — Every config file explained
-- [Architecture Overview](architecture/) — Technical deep-dives
+<div class="tl-card" markdown="1">
+
+### Configure Tuvima
+
+- [How to Configure Metadata Providers](guides/configuring-providers.md)
+- [How to Set Up Language Preferences](guides/language-setup.md)
+- [Providers Reference](reference/providers.md)
+- [Configuration Reference](reference/configuration.md)
+
+</div>
+
+<div class="tl-card" markdown="1">
+
+### Build on Tuvima
+
+- [Developer Setup](tutorials/dev-setup.md)
+- [How to Add a New Metadata Provider](guides/adding-a-provider.md)
+- [How to Write a New File Format Processor](guides/writing-a-processor.md)
+- [How to Build, Test, and Verify Changes](guides/running-tests.md)
+
+</div>
+
+</div>
+
+## Reference and Architecture
+
+The public reference section is optimized for quick lookup. The architecture section is deeper and more technical, and the future-state documents are clearly separated so end users do not land in planning material by accident.
+
+- [Media Types](reference/media-types.md)
+- [Glossary](reference/glossary.md)
+- [Engine API Reference](reference/api-endpoints.md)
+- [Database Schema Reference](reference/database-schema.md)
+- [Architecture: Product Concepts and Deep Dives](architecture/ingestion-pipeline.md)
+
+## Related
+
+- [Getting Started](tutorials/getting-started.md)
+- [Your First Library](tutorials/first-library.md)
+- [Configuration Reference](reference/configuration.md)

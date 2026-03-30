@@ -1,3 +1,15 @@
+---
+title: "Database Schema Reference"
+summary: "Inspect the database tables, columns, and relationships that back Tuvima Library."
+audience: "developer"
+category: "reference"
+product_area: "storage"
+tags:
+  - "sqlite"
+  - "schema"
+  - "storage"
+---
+
 # Database Schema Reference
 
 SQLite database located at `.data/database/library.db` (path set in `config/core.json`).
@@ -24,7 +36,7 @@ Represents a Series (user-facing) or Universe (ParentHub). Both are stored in th
 | `hub_type` | TEXT | `"Hub"` = Series, `"ParentHub"` = Universe |
 | `title` | TEXT | Display title |
 | `wikidata_qid` | TEXT | Wikidata entity identifier. Indexed. |
-| `parent_hub_id` | TEXT | FK → `hubs.id`. NULL for top-level Universes and standalone Series. |
+| `parent_hub_id` | TEXT | FK â†’ `hubs.id`. NULL for top-level Universes and standalone Series. |
 | `media_type` | TEXT | Primary media type for this hub |
 | `description` | TEXT | Wikipedia or provider description |
 | `sort_title` | TEXT | Normalized title for alphabetical sorting |
@@ -41,7 +53,7 @@ A single title, independent of version or format.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `hub_id` | TEXT | FK → `hubs.id`. The Series this work belongs to. |
+| `hub_id` | TEXT | FK â†’ `hubs.id`. The Series this work belongs to. |
 | `wikidata_qid` | TEXT | Wikidata entity identifier. Indexed. |
 | `title` | TEXT | Canonical display title |
 | `original_title` | TEXT | Title in the work's source language (Phase 2 localization) |
@@ -61,7 +73,7 @@ A specific version of a Work (e.g., "4K HDR Blu-ray Remux", "First Edition Hardc
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `work_id` | TEXT | FK → `works.id` |
+| `work_id` | TEXT | FK â†’ `works.id` |
 | `title` | TEXT | Edition label |
 | `created_at` | TEXT | Timestamp |
 
@@ -72,7 +84,7 @@ A single file on disk.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `edition_id` | TEXT | FK → `editions.id` |
+| `edition_id` | TEXT | FK â†’ `editions.id` |
 | `file_path` | TEXT | Absolute path on disk |
 | `file_name` | TEXT | Filename only |
 | `fingerprint` | TEXT | SHA-256 hash. Used for deduplication and move detection. |
@@ -92,8 +104,8 @@ Links works to hubs (Series to Universe relationships).
 
 | Column | Type | Notes |
 |---|---|---|
-| `hub_id` | TEXT | FK → `hubs.id` |
-| `work_id` | TEXT | FK → `works.id` |
+| `hub_id` | TEXT | FK â†’ `hubs.id` |
+| `work_id` | TEXT | FK â†’ `works.id` |
 | `sort_order` | INTEGER | Position within the hub |
 
 ### hub_work_links
@@ -102,8 +114,8 @@ Many-to-many cross-links between works and hubs for works that span multiple Ser
 
 | Column | Type | Notes |
 |---|---|---|
-| `hub_id` | TEXT | FK → `hubs.id` |
-| `work_id` | TEXT | FK → `works.id` |
+| `hub_id` | TEXT | FK â†’ `hubs.id` |
+| `work_id` | TEXT | FK â†’ `works.id` |
 | `link_type` | TEXT | Relationship type (e.g., `"adaptation"`, `"companion"`) |
 
 ---
@@ -123,9 +135,9 @@ Append-only log of every metadata value ever received for an entity, with its so
 | `value` | TEXT | Claim value |
 | `source_id` | TEXT | Provider GUID |
 | `source_name` | TEXT | Human-readable provider name |
-| `confidence` | REAL | Score 0.0–1.0 |
+| `confidence` | REAL | Score 0.0â€“1.0 |
 | `source_language` | TEXT | BCP-47 language code of this claim's value (Phase 6) |
-| `is_user_lock` | INTEGER | 1 if user explicitly set this value (Tier A — always wins) |
+| `is_user_lock` | INTEGER | 1 if user explicitly set this value (Tier A â€” always wins) |
 | `created_at` | TEXT | Timestamp |
 | `decayed_at` | TEXT | Timestamp when stale decay was applied. NULL if fresh. |
 
@@ -168,7 +180,7 @@ FTS5 full-text search index with trigram tokenizer (migration M-062). Handles CJ
 
 | Column | Type | Notes |
 |---|---|---|
-| `entity_id` | TEXT | UNINDEXED — used for JOIN back to source tables |
+| `entity_id` | TEXT | UNINDEXED â€” used for JOIN back to source tables |
 | `title` | TEXT | Primary display title |
 | `original_title` | TEXT | Source-language title |
 | `alternate_titles` | TEXT | Wikidata aliases and romanizations (e.g., "Sen to Chihiro no Kamikakushi") |
@@ -204,17 +216,17 @@ Roles a person plays in the library (author, director, narrator, composer, etc.)
 
 | Column | Type | Notes |
 |---|---|---|
-| `person_id` | TEXT | FK → `persons.id` |
+| `person_id` | TEXT | FK â†’ `persons.id` |
 | `role` | TEXT | Wikidata property code (e.g., `P50` = author, `P57` = director, `P161` = cast member) |
-| `work_id` | TEXT | FK → `works.id` |
+| `work_id` | TEXT | FK â†’ `works.id` |
 
 ### person_media_links
 
-Aggregated library presence — which media types a person appears in and how many works.
+Aggregated library presence â€” which media types a person appears in and how many works.
 
 | Column | Type | Notes |
 |---|---|---|
-| `person_id` | TEXT | FK → `persons.id` |
+| `person_id` | TEXT | FK â†’ `persons.id` |
 | `media_type` | TEXT | |
 | `work_count` | INTEGER | |
 
@@ -224,7 +236,7 @@ Pseudonyms and alternate names, including Wikidata-resolved aliases.
 
 | Column | Type | Notes |
 |---|---|---|
-| `person_id` | TEXT | FK → `persons.id` |
+| `person_id` | TEXT | FK â†’ `persons.id` |
 | `alias` | TEXT | Alternate name |
 | `alias_type` | TEXT | `"pseudonym"`, `"birth_name"`, `"wikidata_alias"` |
 | `merge_target_id` | TEXT | If this alias resolves to a different person record, the canonical person's id |
@@ -248,9 +260,9 @@ Links fictional characters to the real-world performers who portray them.
 
 | Column | Type | Notes |
 |---|---|---|
-| `character_id` | TEXT | FK → `fictional_entities.id` |
-| `person_id` | TEXT | FK → `persons.id` |
-| `work_id` | TEXT | FK → `works.id`. Scopes the link to a specific adaptation. |
+| `character_id` | TEXT | FK â†’ `fictional_entities.id` |
+| `person_id` | TEXT | FK â†’ `persons.id` |
+| `work_id` | TEXT | FK â†’ `works.id`. Scopes the link to a specific adaptation. |
 | `era_qualifier` | TEXT | Temporal qualifier (e.g., "young", "2024 series") for era-correct actor matching |
 
 ---
@@ -277,18 +289,18 @@ Which works a fictional entity appears in.
 
 | Column | Type | Notes |
 |---|---|---|
-| `entity_id` | TEXT | FK → `fictional_entities.id` |
-| `work_id` | TEXT | FK → `works.id` |
+| `entity_id` | TEXT | FK â†’ `fictional_entities.id` |
+| `work_id` | TEXT | FK â†’ `works.id` |
 | `appearance_type` | TEXT | `"primary"`, `"supporting"`, `"mention"` |
 
 ### entity_relationships
 
-Directed relationships between fictional entities (e.g., "Frodo" → `parent_of` → "Sam").
+Directed relationships between fictional entities (e.g., "Frodo" â†’ `parent_of` â†’ "Sam").
 
 | Column | Type | Notes |
 |---|---|---|
-| `source_entity_id` | TEXT | FK → `fictional_entities.id` |
-| `target_entity_id` | TEXT | FK → `fictional_entities.id` |
+| `source_entity_id` | TEXT | FK â†’ `fictional_entities.id` |
+| `target_entity_id` | TEXT | FK â†’ `fictional_entities.id` |
 | `relationship_type` | TEXT | Relationship label |
 | `temporal_qualifier` | TEXT | Era or time scope for this relationship |
 | `lore_delta_type` | TEXT | Canon discrepancy flag (e.g., `"adaptation_change"`) |
@@ -300,7 +312,7 @@ Universe-level root records with Wikidata provenance.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `hub_id` | TEXT | FK → `hubs.id` (the ParentHub) |
+| `hub_id` | TEXT | FK â†’ `hubs.id` (the ParentHub) |
 | `wikidata_qid` | TEXT | |
 | `franchise_qid` | TEXT | Wikidata P8345 franchise identifier |
 | `series_qid` | TEXT | Wikidata P179 series identifier |
@@ -325,7 +337,7 @@ Registered providers and their runtime state.
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | TEXT | GUID — matches `provider_id` in config files. Primary key. |
+| `id` | TEXT | GUID â€” matches `provider_id` in config files. Primary key. |
 | `name` | TEXT | Display name |
 | `media_types` | TEXT | JSON array of served media types |
 | `stage` | TEXT | `"Stage1"` or `"Stage2"` |
@@ -339,7 +351,7 @@ Live provider configuration values (mirrors `config/providers/*.json` after load
 
 | Column | Type | Notes |
 |---|---|---|
-| `provider_id` | TEXT | FK → `provider_registry.id` |
+| `provider_id` | TEXT | FK â†’ `provider_registry.id` |
 | `config_key` | TEXT | Configuration field name |
 | `config_value` | TEXT | Configuration field value |
 
@@ -408,8 +420,8 @@ One row per file processed through the ingestion pipeline.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `batch_id` | TEXT | FK → `ingestion_batches.id` |
-| `asset_id` | TEXT | FK → `media_assets.id` |
+| `batch_id` | TEXT | FK â†’ `ingestion_batches.id` |
+| `asset_id` | TEXT | FK â†’ `media_assets.id` |
 | `file_path` | TEXT | Original file path |
 | `fingerprint` | TEXT | SHA-256 hash |
 | `outcome` | TEXT | `"Promoted"`, `"Rejected"`, `"NeedsReview"`, `"Duplicate"`, `"Failed"` |
@@ -536,8 +548,8 @@ Saved reading positions.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `asset_id` | TEXT | FK → `media_assets.id` |
-| `profile_id` | TEXT | FK → `profiles.id` |
+| `asset_id` | TEXT | FK â†’ `media_assets.id` |
+| `profile_id` | TEXT | FK â†’ `profiles.id` |
 | `chapter_index` | INTEGER | |
 | `cfi` | TEXT | EPUB Canonical Fragment Identifier for precise position |
 | `created_at` | TEXT | Timestamp |
@@ -567,7 +579,7 @@ Aggregated reading session data.
 | `asset_id` | TEXT | |
 | `profile_id` | TEXT | |
 | `total_seconds` | INTEGER | Total reading time |
-| `completion_pct` | REAL | 0.0–1.0 |
+| `completion_pct` | REAL | 0.0â€“1.0 |
 | `last_position_cfi` | TEXT | Last known reading position |
 | `session_count` | INTEGER | Number of reading sessions |
 | `last_opened_at` | TEXT | Timestamp |
@@ -606,10 +618,10 @@ AI-generated per-user taste vectors, updated by the Taste Profiling feature.
 
 | Column | Type | Notes |
 |---|---|---|
-| `profile_id` | TEXT | Primary key. FK → `profiles.id`. |
-| `genre_weights` | TEXT | JSON map of genre → weight |
-| `vibe_weights` | TEXT | JSON map of vibe tag → weight |
-| `creator_weights` | TEXT | JSON map of person QID → weight |
+| `profile_id` | TEXT | Primary key. FK â†’ `profiles.id`. |
+| `genre_weights` | TEXT | JSON map of genre â†’ weight |
+| `vibe_weights` | TEXT | JSON map of vibe tag â†’ weight |
+| `creator_weights` | TEXT | JSON map of person QID â†’ weight |
 | `computed_at` | TEXT | Timestamp |
 
 ---
@@ -645,3 +657,9 @@ Ordered log of all database writes, used for debugging and rollback analysis.
 | `old_values` | TEXT | JSON snapshot before change. NULL for INSERT. |
 | `new_values` | TEXT | JSON snapshot after change. NULL for DELETE. |
 | `created_at` | TEXT | Timestamp |
+
+## Related
+
+- [Engine API Reference](api-endpoints.md)
+- [Priority Cascade Engine](../architecture/scoring-and-cascade.md)
+- [Settings Architecture and Library Vault](../architecture/settings-and-vault.md)

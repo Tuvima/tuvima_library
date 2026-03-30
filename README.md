@@ -120,7 +120,16 @@ Full documentation lives in [`docs/`](docs/index.md), organised using the [Diát
 | **Tutorials** | [Getting Started](docs/tutorials/getting-started.md), [Your First Library](docs/tutorials/first-library.md) | [Developer Setup](docs/tutorials/dev-setup.md) |
 | **How-to Guides** | [Adding Media](docs/guides/adding-media.md), [Resolving Reviews](docs/guides/resolving-reviews.md), [Providers](docs/guides/configuring-providers.md), [Languages](docs/guides/language-setup.md) | [Adding a Provider](docs/guides/adding-a-provider.md), [Writing a Processor](docs/guides/writing-a-processor.md), [Running Tests](docs/guides/running-tests.md) |
 | **Reference** | [Configuration](docs/reference/configuration.md), [Media Types](docs/reference/media-types.md), [Glossary](docs/reference/glossary.md) | [API Endpoints](docs/reference/api-endpoints.md), [Database Schema](docs/reference/database-schema.md) |
-| **Explanation** | [Ingestion](docs/explanation/how-ingestion-works.md), [Scoring](docs/explanation/how-scoring-works.md), [Universes](docs/explanation/how-universes-work.md), [AI](docs/explanation/how-ai-works.md), [Enrichment](docs/explanation/how-hydration-works.md), [Vault](docs/explanation/how-the-vault-works.md) | [Architecture deep-dives](docs/architecture/) |
+| **Explanation** | [Ingestion](docs/explanation/how-ingestion-works.md), [Scoring](docs/explanation/how-scoring-works.md), [Universes](docs/explanation/how-universes-work.md), [AI](docs/explanation/how-ai-works.md), [Enrichment](docs/explanation/how-hydration-works.md), [Vault](docs/explanation/how-the-vault-works.md) | [Architecture deep-dives](docs/architecture/ingestion-pipeline.md) |
+
+Published documentation is available on GitHub Pages at [shyfaruqi.github.io/tuvima-library](https://shyfaruqi.github.io/tuvima-library/).
+
+Docs can also be previewed locally with:
+
+```powershell
+./scripts/docs/build-docs.ps1
+./scripts/docs/serve-docs.ps1
+```
 
 ---
 

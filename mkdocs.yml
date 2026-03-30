@@ -1,0 +1,107 @@
+site_name: Tuvima Library
+site_description: User-first documentation for building, configuring, and understanding Tuvima Library.
+site_url: https://shyfaruqi.github.io/tuvima-library/
+repo_url: https://github.com/shyfaruqi/tuvima-library
+repo_name: shyfaruqi/tuvima-library
+edit_uri: edit/main/docs/
+docs_dir: docs
+site_dir: site
+strict: true
+not_in_nav: |
+  /404.md
+  /providers.md
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/lightbulb-outline
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/lightbulb
+        name: Switch to light mode
+
+plugins:
+  - search
+  - tags
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_css:
+  - assets/stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Getting Started: tutorials/getting-started.md
+  - Use Tuvima:
+      - Your First Library: tutorials/first-library.md
+      - Add Media: guides/adding-media.md
+      - Resolve Review Items: guides/resolving-reviews.md
+      - Understand Universes and Series: explanation/how-universes-work.md
+      - Understand Ingestion: explanation/how-ingestion-works.md
+      - Understand Enrichment: explanation/how-hydration-works.md
+  - Configure:
+      - Language Setup: guides/language-setup.md
+      - Configure Metadata Providers: guides/configuring-providers.md
+  - Reference:
+      - Configuration Reference: reference/configuration.md
+      - Providers Reference: reference/providers.md
+      - Media Types: reference/media-types.md
+      - Glossary: reference/glossary.md
+      - API Endpoints: reference/api-endpoints.md
+      - Database Schema: reference/database-schema.md
+  - Developer Docs:
+      - Developer Setup: tutorials/dev-setup.md
+      - Add a Provider: guides/adding-a-provider.md
+      - Write a Processor: guides/writing-a-processor.md
+      - Run Tests: guides/running-tests.md
+  - Architecture:
+      - Product Concepts:
+          - How the Priority Cascade Works: explanation/how-scoring-works.md
+          - How the Local AI Works: explanation/how-ai-works.md
+          - How the Library Vault Works: explanation/how-the-vault-works.md
+      - Deep Dives:
+          - Ingestion Pipeline: architecture/ingestion-pipeline.md
+          - Hydration Pipeline and Providers: architecture/hydration-and-providers.md
+          - Priority Cascade Engine: architecture/scoring-and-cascade.md
+          - Dashboard UI Architecture: architecture/dashboard-ui.md
+          - Settings and Library Vault: architecture/settings-and-vault.md
+          - Universe Graph: architecture/universe-graph.md
+          - Hubs and Playlists: architecture/hubs-and-playlists.md
+          - Local AI Integration: architecture/ai-integration.md
+          - Security Architecture: architecture/security.md
+      - Future State:
+          - Target State: architecture/target-state.md

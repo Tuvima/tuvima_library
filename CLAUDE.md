@@ -222,7 +222,7 @@ Two-stage enrichment runs after ingestion. Cover art from providers is written t
 
 All settings live in `config/` directory as individual JSON files grouped by concern. One concern per file. Provider files are self-contained. Universe files hold the knowledge model. Example files committed in `config.example/`; live files gitignored. Adding a new REST+JSON provider is a zero-code operation: drop a config file, restart.
 
-**Provider Catalogue Centralisation (implemented):** Provider UI metadata (display names, icons, accent colours, supported media types, language strategy) is centralised in provider config JSON files and exposed via `GET /providers/catalogue`. `ProviderCatalogueService` in the Dashboard caches the catalogue at startup. `ProviderAccentMap` provides static fallbacks during boot. See [`docs/providers.md`](docs/providers.md) for the complete provider reference.
+**Provider Catalogue Centralisation (implemented):** Provider UI metadata (display names, icons, accent colours, supported media types, language strategy) is centralised in provider config JSON files and exposed via `GET /providers/catalogue`. `ProviderCatalogueService` in the Dashboard caches the catalogue at startup. `ProviderAccentMap` provides static fallbacks during boot. See [`docs/reference/providers.md`](docs/reference/providers.md) for the complete provider reference.
 
 **Configuration Centralisation (implemented):** All scattered configuration has been consolidated into single sources of truth:
 - **`WellKnownProviders.cs`** (Domain) — all 16 provider GUIDs, replacing ~15 files of copy-pasted literals
@@ -448,6 +448,8 @@ This project uses a two-tier model strategy to balance quality with speed:
 | Dapper | Apache 2.0 |
 | LLamaSharp + Backend.Cpu | MIT |
 | Whisper.net + Runtime | MIT |
+| MkDocs | BSD-2-Clause |
+| Material for MkDocs | MIT |
 
 ### 5.2 — Mandatory Workflow
 
@@ -485,7 +487,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 git push
 ```
 
-**Never commit:** `tuvima_master.json`, `*.db`, `bin/`, `obj/`, `.vs/`, `.idea/`, `appsettings.*.json` with real keys.
+**Never commit:** `tuvima_master.json`, `*.db`, `bin/`, `obj/`, `.vs/`, `.idea/`, `appsettings.*.json` with real keys, `.codex/`, `site/`.
 
 ### 5.3 — Cross-Agent Synchronization
 
@@ -532,6 +534,8 @@ After updating any architecture doc, update the corresponding `.agent/` file(s).
 3. The `docs/index.md` landing page must be updated when new pages are added.
 4. Cross-link between related docs: Explanation pages link to Architecture deep-dives. How-to Guides link to relevant Reference pages.
 5. Every new Explanation page must be linked from `docs/index.md`.
+6. Every published docs page must include front matter with `title`, `summary`, `audience`, `category`, and `product_area`. Use `status: target-state` for future-facing pages.
+7. `.codex/` is a gitignored, derived local context layer. Regenerate it with `scripts/docs/refresh-codex-context.ps1`; never edit it by hand or treat it as canonical.
 
 ---
 

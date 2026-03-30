@@ -1,8 +1,20 @@
+---
+title: "How to Add a New Metadata Provider"
+summary: "Create or configure a metadata provider and wire it into Tuvima's enrichment flow."
+audience: "developer"
+category: "guide"
+product_area: "providers"
+tags:
+  - "providers"
+  - "hydration"
+  - "extensibility"
+---
+
 # How to Add a New Metadata Provider
 
 This guide explains how to wire a new REST/JSON metadata source into the Tuvima Library
 enrichment pipeline. For standard providers that return JSON from a public HTTP endpoint,
-**no C# code is required** — you drop a config file and restart.
+**no C# code is required** â€” you drop a config file and restart.
 
 ---
 
@@ -14,7 +26,7 @@ enrichment pipeline. For standard providers that return JSON from a public HTTP 
 
 ---
 
-## Step 1 — Understand where providers fit
+## Step 1 â€” Understand where providers fit
 
 All providers run during **Stage 1 (RetailIdentification)** of the hydration pipeline.
 They gather cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID, etc.)
@@ -34,12 +46,12 @@ config/providers/
   tmdb.json
   musicbrainz.json
   metron.json
-  wikidata_reconciliation.json    ← Stage 2, not Stage 1
+  wikidata_reconciliation.json    â† Stage 2, not Stage 1
 ```
 
 ---
 
-## Step 2 — Create the config file
+## Step 2 â€” Create the config file
 
 Create `config/providers/my_provider.json`. The complete schema is documented below
 with every field explained. Use `apple_api.json` (books/audio) or `tmdb.json` (video)
@@ -53,7 +65,7 @@ as your template depending on the media domain.
   "version": "1.0",
   "display_name": "My Provider",  // Shown in the Dashboard Settings UI
   "enabled": true,
-  "weight": 0.75,                 // Provider-level confidence weight [0.0–1.0]
+  "weight": 0.75,                 // Provider-level confidence weight [0.0â€“1.0]
   "domain": "Ebook",              // "Ebook" | "Video" | "Music" | "Comics" | "Universal"
   "icon": "images/providers/my_provider.svg",
   "capability_tags": ["title", "author", "cover", "description"],
@@ -71,7 +83,7 @@ as your template depending on the media domain.
 ```
 
 `weight` scales every confidence value this provider emits before they enter the
-Priority Cascade. A provider returning unreliable data should use 0.5–0.6; a
+Priority Cascade. A provider returning unreliable data should use 0.5â€“0.6; a
 high-quality source like TMDB uses 0.8.
 
 `field_weights` are per-field multipliers on top of the provider weight. Use higher
@@ -108,7 +120,7 @@ If `api_key_delivery` is `"bearer"`, the adapter sends `Authorization: Bearer <k
 If `"query_param"`, it appends `?<api_key_param_name>=<key>` to every URL.
 If `"header"`, set the header name in `api_key_param_name`.
 
-### Provider GUID — pick one and never change it
+### Provider GUID â€” pick one and never change it
 
 Every provider needs a stable UUID. It is a foreign key in the `metadata_claims` table
 (`provider_id` column). Changing it orphans historical claim rows.
@@ -257,17 +269,17 @@ the result object from `results_path[result_index]`.
 
 | Transform | `transform_args` | Effect |
 |---|---|---|
-| `strip_html` | — | Strips HTML tags from the value |
-| `first_n_chars` | `"4"` | Truncates to N characters (useful for ISO date → year) |
-| `array_first` | — | Takes the first element of a JSON array |
+| `strip_html` | â€” | Strips HTML tags from the value |
+| `first_n_chars` | `"4"` | Truncates to N characters (useful for ISO date â†’ year) |
+| `array_first` | â€” | Takes the first element of a JSON array |
 | `array_join` | `", "` | Joins array elements with separator |
-| `to_string` | — | Converts numeric values to string |
+| `to_string` | â€” | Converts numeric values to string |
 | `regex_replace` | `"pattern\|replacement"` | Regex find-and-replace |
 | `replace` | `"old\|new"` | Literal string substitution |
 
 `media_types` on a mapping restricts it to specific media types. `null` applies to all.
 
-The effective confidence for a claim is: `provider.weight × field_weights[claim_key] × mapping.confidence`.
+The effective confidence for a claim is: `provider.weight Ã— field_weights[claim_key] Ã— mapping.confidence`.
 
 ### Bridge IDs and preferred lookup order
 
@@ -306,7 +318,7 @@ genuinely returns localized titles and descriptions (e.g. TMDB, Apple API).
 
 ---
 
-## Step 3 — Complete example: a hypothetical "BookHive" provider
+## Step 3 â€” Complete example: a hypothetical "BookHive" provider
 
 `config/providers/bookhive.json`:
 
@@ -445,7 +457,7 @@ genuinely returns localized titles and descriptions (e.g. TMDB, Apple API).
 
 ---
 
-## Step 4 — How the runtime loads your config
+## Step 4 â€” How the runtime loads your config
 
 At startup, `ConfigDrivenAdapter` scans `config/providers/` for JSON files where
 `adapter_type == "config_driven"`. For each file it:
@@ -453,14 +465,14 @@ At startup, `ConfigDrivenAdapter` scans `config/providers/` for JSON files where
 1. Deserialises `ProviderConfiguration` from the JSON.
 2. Registers an HTTP client named after `provider_id`.
 3. Seeds a row in `provider_registry(id, name, version, is_enabled)` via `DatabaseConnection`
-   — the `INSERT OR IGNORE` means existing rows are never overwritten.
+   â€” the `INSERT OR IGNORE` means existing rows are never overwritten.
 4. Makes the adapter available as `IExternalMetadataProvider` through DI.
 
 Nothing else needs to change. Restart the Engine and the provider is active.
 
 ---
 
-## Step 5 — Verify the provider works
+## Step 5 â€” Verify the provider works
 
 Use the debug lookup endpoint (development environment only) to run a live enrichment
 pass without writing anything to the database:
@@ -486,11 +498,11 @@ confidence value, and which search strategy fired. If no claims appear, check:
 - The API key is set correctly if `requires_api_key: true`.
 - Check `engine.log` (Serilog rolling log) for HTTP-level errors from the adapter.
 
-You can also browse all registered providers via the Settings → Providers screen in
+You can also browse all registered providers via the Settings â†’ Providers screen in
 the Dashboard, or inspect the `provider_registry` table directly:
 
 ```http
-GET http://localhost:61495/swagger  → Providers section → GET /settings/providers
+GET http://localhost:61495/swagger  â†’ Providers section â†’ GET /settings/providers
 ```
 
 ---
@@ -499,31 +511,29 @@ GET http://localhost:61495/swagger  → Providers section → GET /settings/prov
 
 | Field | Type | Required | Default | Notes |
 |---|---|---|---|---|
-| `name` | string | yes | — | Matches filename stem |
-| `version` | string | yes | — | Informational only |
-| `display_name` | string | yes | — | Shown in Settings UI |
-| `enabled` | bool | yes | — | `false` skips this provider entirely |
-| `weight` | float | yes | — | Provider-level multiplier [0.0–1.0] |
-| `domain` | string | yes | — | Ebook / Video / Music / Comics / Universal |
-| `adapter_type` | string | yes | — | Must be `config_driven` |
-| `provider_id` | UUID string | yes | — | Stable FK — never change after first use |
-| `hydration_stages` | int[] | yes | — | `[1]` for Stage 1 (RetailIdentification) |
-| `can_handle.media_types` | string[] | yes | — | Restricts to named media types |
-| `can_handle.entity_types` | string[] | yes | — | Work / MediaAsset |
-| `endpoints.api` | string | yes | — | Base URL for all requests |
+| `name` | string | yes | â€” | Matches filename stem |
+| `version` | string | yes | â€” | Informational only |
+| `display_name` | string | yes | â€” | Shown in Settings UI |
+| `enabled` | bool | yes | â€” | `false` skips this provider entirely |
+| `weight` | float | yes | â€” | Provider-level multiplier [0.0â€“1.0] |
+| `domain` | string | yes | â€” | Ebook / Video / Music / Comics / Universal |
+| `adapter_type` | string | yes | â€” | Must be `config_driven` |
+| `provider_id` | UUID string | yes | â€” | Stable FK â€” never change after first use |
+| `hydration_stages` | int[] | yes | â€” | `[1]` for Stage 1 (RetailIdentification) |
+| `can_handle.media_types` | string[] | yes | â€” | Restricts to named media types |
+| `can_handle.entity_types` | string[] | yes | â€” | Work / MediaAsset |
+| `endpoints.api` | string | yes | â€” | Base URL for all requests |
 | `throttle_ms` | int | no | 250 | Min ms between requests |
 | `max_concurrency` | int | no | 1 | Parallel request cap |
 | `cache_ttl_hours` | int? | no | null | null = no caching |
 | `requires_api_key` | bool | no | false | Shown in Setup Wizard |
 | `language_strategy` | string | no | `"source"` | source / localized / both |
-| `preferred_bridge_ids` | object | no | — | Keys used by Wikidata Stage 2 |
+| `preferred_bridge_ids` | object | no | â€” | Keys used by Wikidata Stage 2 |
 
 ---
 
-## See also
+## Related
 
-- `docs/architecture/hydration-and-providers.md` — full pipeline documentation
-- `config/providers/apple_api.json` — reference for books/audiobook providers
-- `config/providers/tmdb.json` — reference for video providers with API key auth
-- `config/providers/open_library.json` — reference for key-free REST providers
-- `src/MediaEngine.Providers/Adapters/ConfigDrivenAdapter.cs` — runtime implementation
+- [Providers Reference](../reference/providers.md)
+- [Hydration Pipeline, Provider Architecture and Enrichment Strategy](../architecture/hydration-and-providers.md)
+- [Configuration Reference](../reference/configuration.md)
