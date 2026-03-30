@@ -64,7 +64,9 @@
                     }
                     @if (!string.IsNullOrEmpty(drawerCreator))
                     {
-                        <p class="vdd-subtitle">@drawerCreator.ToUpperInvariant()</p>
+                        <p class="vdd-subtitle vdd-subtitle--clickable" @onclick="() => NavigateToCreatorPerson(drawerCreator)">
+                            @drawerCreator.ToUpperInvariant()
+                        </p>
                     }
                     <div class="vdd-meta">
                         <span class="vdd-meta-item" style="color: @VaultHelpers.GetMediaTypeColor(MediaItem.MediaType);">
@@ -167,30 +169,26 @@
                 </div>
             }
 
-            @* ── Pipeline Circles ── *@
-            <div class="vdd-pipeline-circles-wrap">
-                <VaultPipelineCircles
-                    Stage0="@(new VaultPipelineStage { State = VaultStageState.Completed, Label = "File scanned" })"
-                    Stage1="@MediaItem.Stage1"
-                    Stage2="@MediaItem.Stage2"
-                    Stage3="@MediaItem.Stage3"
-                    @bind-SelectedStage="_selectedStage" />
-            </div>
-
-            @* ── Stage Panel ── *@
-            <div class="vdd-stage-panel-wrap">
-                <VaultStagePanel SelectedStage="_selectedStage" Item="@MediaItem" />
-            </div>
-
-            @* ── History Timeline ── *@
-            <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
-                <VaultTimeline EntityId="@MediaItem.EntityId" />
-            </DrawerSection>
-
-            @* ── Media Sections ── *@
+            @* ── Pipeline (consolidated: circles + stages + search + history) ── *@
             <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
                            HasProblem="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))"
-                           DefaultOpen="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))">
+                           DefaultOpen="true">
+
+                @* Pipeline stage circles *@
+                <div class="vdd-pipeline-circles-wrap">
+                    <VaultPipelineCircles
+                        Stage0="@(new VaultPipelineStage { State = VaultStageState.Completed, Label = "File scanned" })"
+                        Stage1="@MediaItem.Stage1"
+                        Stage2="@MediaItem.Stage2"
+                        Stage3="@MediaItem.Stage3"
+                        @bind-SelectedStage="_selectedStage" />
+                </div>
+
+                @* Stage detail panel *@
+                <div class="vdd-stage-panel-wrap">
+                    <VaultStagePanel SelectedStage="_selectedStage" Item="@MediaItem" Claims="@_claims" />
+                </div>
+
                 <div class="vdd-pipeline">
                     @{
                         var _hasRetailMatch = IsRealRetailMatch(MediaItem.RetailMatch);
@@ -236,27 +234,6 @@
                             <span class="vdd-pipeline-dot @(_hasRetailMatch ? "vdd-pipeline-dot--warn" : "vdd-pipeline-dot--fail")"></span>
                             <span class="vdd-field-label">WIKIDATA</span>
                             <span class="vdd-field-value" style="color: rgba(255,255,255,0.3); font-style: italic;">@(_hasRetailMatch ? "Awaiting" : "No match yet")</span>
-                        </div>
-                    }
-
-                    @* Unmatch actions — always shown when a match exists *@
-                    @if (_hasRetailMatch || _hasWikidataMatch)
-                    {
-                        <div class="vdd-unmatch-row">
-                            @if (_hasRetailMatch)
-                            {
-                                <button class="vdd-unmatch-btn" @onclick="HandleUnmatchRetail">
-                                    <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="font-size: 12px;" />
-                                    Unmatch Retail
-                                </button>
-                            }
-                            @if (_hasWikidataMatch)
-                            {
-                                <button class="vdd-unmatch-btn" @onclick="HandleUnmatchWikidata">
-                                    <MudIcon Icon="@Icons.Material.Outlined.LinkOff" Style="font-size: 12px;" />
-                                    Unmatch Wikidata
-                                </button>
-                            }
                         </div>
                     }
 
@@ -359,6 +336,13 @@
                                                 else
                                                 {
                                                     <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                        @if (IsRealRetailMatch(MediaItem?.RetailMatch))
+                                                        {
+                                                            <span class="vdd-overwrite-warning">
+                                                                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                This will replace the current retail match.
+                                                            </span>
+                                                        }
                                                         <span class="vdd-confirm-prompt">Are you sure?</span>
                                                         <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
                                                             Yes
@@ -422,6 +406,13 @@
                                                 else
                                                 {
                                                     <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                        @if (IsWikidataMatched(MediaItem?.WikidataQid))
+                                                        {
+                                                            <span class="vdd-overwrite-warning">
+                                                                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                This will replace the current Wikidata link (@MediaItem?.WikidataQid).
+                                                            </span>
+                                                        }
                                                         <span class="vdd-confirm-prompt">Are you sure?</span>
                                                         <button class="vdd-confirm-match-btn" @onclick="() => ConfirmWikidataMatch(result.Qid)">
                                                             Yes
@@ -438,6 +429,11 @@
                             </div>
                         }
                     }
+                </div>
+
+                @* History timeline *@
+                <div style="border-top: 1px solid rgba(255,255,255,0.06); margin-top: 8px; padding-top: 8px;">
+                    <VaultTimeline EntityId="@MediaItem.EntityId" />
                 </div>
             </DrawerSection>
 
@@ -533,65 +529,6 @@
                 </div>
             </DrawerSection>
 
-            @* ── Provider Claims section ── *@
-            <DrawerSection Title="Provider Claims" Icon="@Icons.Material.Outlined.Cloud" DefaultOpen="false">
-                <div class="vdd-metadata-list">
-                    @if (_claimsLoading)
-                    {
-                        <div style="padding: 8px 0; text-align: center;">
-                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
-                        </div>
-                    }
-                    else
-                    {
-                        var providerClaims = _claims.Where(c => !VaultHelpers.IsFileSource(c.ProviderId) && !VaultHelpers.IsUserSource(c.ProviderId)).ToList();
-                        if (providerClaims.Count == 0)
-                        {
-                            <p class="vdd-stage-hint">No provider claims recorded yet.</p>
-                        }
-                        else
-                        {
-                            foreach (var group in providerClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
-                            {
-                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
-                                <div class="vdd-claim-row">
-                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                    <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
-                                    <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
-                                </div>
-                            }
-                        }
-                    }
-                </div>
-            </DrawerSection>
-
-            @* ── People section ── *@
-            @if (BuildPeopleEntries() is var peopleEntries && peopleEntries.Count > 0)
-            {
-                <DrawerSection Title="People" Icon="@Icons.Material.Outlined.People" DefaultOpen="true">
-                    <div class="vdd-people-list">
-                        @foreach (var person in peopleEntries)
-                        {
-                            <div class="vdd-person-row">
-                                <div class="vdd-person-avatar-sm">
-                                    @if (!string.IsNullOrEmpty(person.HeadshotUrl))
-                                    {
-                                        <img src="@person.HeadshotUrl" alt="" loading="lazy" />
-                                    }
-                                    else
-                                    {
-                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
-                                    }
-                                </div>
-                                <div class="vdd-person-info-col">
-                                    <span class="vdd-person-name-link">@person.Name</span>
-                                    <span class="vdd-person-role-label">@person.Role</span>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </DrawerSection>
-            }
         }
         else if (Person is not null)
         {
@@ -795,8 +732,6 @@
     [Parameter] public HubViewModel? Universe { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<Guid> OnPurge { get; set; }
-    [Parameter] public EventCallback<Guid> OnUnmatchRetail { get; set; }
-    [Parameter] public EventCallback<Guid> OnUnmatchWikidata { get; set; }
     [Parameter] public EventCallback<Guid> OnApplyMatch { get; set; }
     [Parameter] public EventCallback<Guid> OnPersonAliasClicked { get; set; }
 
@@ -851,18 +786,11 @@
     private static bool IsWikidataMatched(string? qid) =>
         !string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
 
-    private async Task HandleUnmatchRetail()
+    private void NavigateToCreatorPerson(string creatorName)
     {
-        if (MediaItem is not null)
-            await OnUnmatchRetail.InvokeAsync(MediaItem.EntityId);
+        // TODO: Look up person by name and open person drawer
+        // For now, this is a placeholder that will be wired to the person detail drawer
     }
-
-    private async Task HandleUnmatchWikidata()
-    {
-        if (MediaItem is not null)
-            await OnUnmatchWikidata.InvokeAsync(MediaItem.EntityId);
-    }
-
 
     protected override async Task OnParametersSetAsync()
     {
@@ -1086,50 +1014,6 @@
         }
     }
 
-    /// <summary>Builds a list of people from claims data (author, director, narrator, etc.) for the People section.</summary>
-    private List<(string Name, string Role, string? HeadshotUrl)> BuildPeopleEntries()
-    {
-        var entries = new List<(string Name, string Role, string? HeadshotUrl)>();
-        if (MediaItem is null) return entries;
-
-        // Add named people from the item's fields
-        void AddPerson(string? name, string role)
-        {
-            if (string.IsNullOrWhiteSpace(name)) return;
-            // Split compound names (e.g., "Author1 & Author2")
-            foreach (var part in name.Split(new[] { " & ", " and " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                if (!string.IsNullOrWhiteSpace(part) && !entries.Any(e => e.Name.Equals(part, StringComparison.OrdinalIgnoreCase) && e.Role == role))
-                    entries.Add((part, role, null));
-            }
-        }
-
-        AddPerson(MediaItem.Author, "Author");
-        AddPerson(MediaItem.Director, "Director");
-        AddPerson(MediaItem.Narrator, "Narrator");
-        AddPerson(MediaItem.Artist, "Artist");
-
-        // Also check claims for additional people fields (composer, illustrator, screenwriter, cast)
-        foreach (var claim in _claims)
-        {
-            var role = claim.ClaimKey.ToLowerInvariant() switch
-            {
-                "composer" => "Composer",
-                "illustrator" => "Illustrator",
-                "screenwriter" => "Screenwriter",
-                "cast_member" => "Cast",
-                _ => null,
-            };
-            if (role is not null && !string.IsNullOrWhiteSpace(claim.ClaimValue)
-                && !entries.Any(e => e.Name.Equals(claim.ClaimValue, StringComparison.OrdinalIgnoreCase) && e.Role == role))
-            {
-                entries.Add((claim.ClaimValue, role, null));
-            }
-        }
-
-        return entries;
-    }
-
     /// <summary>Formats a claim key (snake_case field name) into a human-readable label.</summary>
     private static string FormatClaimKey(string key) => key.ToLowerInvariant() switch
     {
@@ -1216,6 +1100,25 @@
         padding: 12px 4px 14px;
         border-bottom: 1px solid rgba(255,255,255,0.06);
         margin-bottom: 4px;
+    }
+
+    .vdd-subtitle--clickable {
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+
+    .vdd-subtitle--clickable:hover {
+        color: #C9922E;
+    }
+
+    .vdd-overwrite-warning {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #EF9F27;
+        margin-bottom: 4px;
+        width: 100%;
     }
 
     /* ── Backdrop ── */

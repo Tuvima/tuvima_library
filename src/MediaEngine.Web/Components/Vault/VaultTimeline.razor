@@ -1,0 +1,309 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@namespace MediaEngine.Web.Components.Vault
+
+@inject IEngineApiClient ApiClient
+
+<div class="vault-timeline">
+    @if (_loading)
+    {
+        <div class="timeline-loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+            <span>Loading history...</span>
+        </div>
+    }
+    else if (_events is null || _events.Count == 0)
+    {
+        <div class="timeline-empty">No history recorded yet.</div>
+    }
+    else
+    {
+        <div class="timeline-list">
+            @foreach (var evt in MergeAndSimplify(_events))
+            {
+                <div class="timeline-event @evt.TintClass">
+                    <div class="event-track">
+                        <div class="event-dot @evt.StageClass"></div>
+                        <div class="event-line"></div>
+                    </div>
+                    <div class="event-content">
+                        <div class="event-header">
+                            <span class="event-type">@evt.Headline</span>
+                            <span class="event-time">@evt.Time</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(evt.Body))
+                        {
+                            <p class="event-detail">@evt.Body</p>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid EntityId { get; set; }
+
+    private List<RegistryItemHistoryDto>? _events;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EntityId != Guid.Empty)
+        {
+            await LoadTimelineAsync();
+        }
+    }
+
+    private async Task LoadTimelineAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        _events = await ApiClient.GetItemHistoryAsync(EntityId);
+        _loading = false;
+        StateHasChanged();
+    }
+
+    private sealed record TimelineEntry(string Headline, string? Body, string Time, string StageClass, string TintClass);
+
+    /// <summary>
+    /// Merge raw engine events into a human-readable narrative.
+    /// Combines related events and drops noise.
+    /// </summary>
+    private static List<TimelineEntry> MergeAndSimplify(List<RegistryItemHistoryDto> events)
+    {
+        var entries = new List<TimelineEntry>();
+
+        foreach (var evt in events)
+        {
+            var (headline, body, stageClass, tint) = MapEvent(evt);
+            if (headline is null) continue; // Skip noise events
+
+            entries.Add(new TimelineEntry(
+                headline,
+                body,
+                FormatTime(evt.OccurredAt),
+                stageClass,
+                tint
+            ));
+        }
+
+        return entries;
+    }
+
+    private static (string? Headline, string? Body, string StageClass, string Tint) MapEvent(RegistryItemHistoryDto evt)
+    {
+        var detail = evt.Detail;
+        return evt.EventType switch
+        {
+            // ── File stage ──────────────────────────────────────────
+            "file_scanned" or "file_detected" =>
+                ("File received", detail, "stage-file", ""),
+
+            "metadata_extracted" =>
+                ("Metadata read from file",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-file", ""),
+
+            "file_scored" or "confidence_scored" =>
+                ("Confidence assessed",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-file", ""),
+
+            "entity_chain" or "entity_chain_created" =>
+                ("Work record created",
+                 string.IsNullOrEmpty(detail) ? "A new entry was created in your library for this file." : detail,
+                 "stage-file", ""),
+
+            "entity_chain_linked" =>
+                ("Linked to existing work",
+                 string.IsNullOrEmpty(detail) ? "This file was recognised as another edition of a work already in your library." : detail,
+                 "stage-file", ""),
+
+            "staged" or "moved_to_staging" =>
+                ("File received",
+                 "Queued for identification.",
+                 "stage-file", ""),
+
+            "promoted" or "moved_to_library" =>
+                ("Added to library",
+                 string.IsNullOrEmpty(detail) ? "Identification complete — file organised into your library." : detail,
+                 "stage-file", ""),
+
+            "media_type_classified" or "ai_classified" =>
+                ("Media type identified",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-file", ""),
+
+            // ── Retail stage ────────────────────────────────────────
+            "retail_matched" =>
+                ("Provider match found",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-retail", ""),
+
+            "retail_no_match" =>
+                ("No provider match",
+                 string.IsNullOrEmpty(detail) ? "No retail provider could identify this item." : detail,
+                 "stage-retail", "event-warning"),
+
+            "retail_manual_approved" =>
+                ("Match confirmed by you",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-retail", ""),
+
+            "retail_manual_dismissed" =>
+                ("Match rejected by you",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-retail", "event-warning"),
+
+            "retail_rematched" =>
+                ("Re-matched to a different provider result",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-retail", ""),
+
+            "retail_ai_classified" =>
+                ("AI helped classify this item",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-retail", ""),
+
+            "stage1_refresh" =>
+                ("Provider data refreshed",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-retail", ""),
+
+            // ── Wikidata stage ──────────────────────────────────────
+            "wikidata_bridge_resolved" =>
+                ("Linked to Wikidata",
+                 string.IsNullOrEmpty(detail) ? "Identity confirmed using a bridge ID from the retail provider." : detail,
+                 "stage-wikidata", ""),
+
+            "wikidata_title_resolved" =>
+                ("Found on Wikidata by title",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-wikidata", ""),
+
+            "wikidata_ai_disambiguated" =>
+                ("AI helped identify the correct Wikidata entry",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-wikidata", ""),
+
+            "wikidata_pre_resolved" =>
+                ("Wikidata identity already known",
+                 string.IsNullOrEmpty(detail) ? "This item matched a Wikidata entry that was already in your library." : detail,
+                 "stage-wikidata", ""),
+
+            "wikidata_manual_resolved" =>
+                ("Wikidata link set by you",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-wikidata", ""),
+
+            "wikidata_no_match" =>
+                ("No Wikidata match found",
+                 string.IsNullOrEmpty(detail) ? "The Engine couldn't find a matching entry on Wikidata." : detail,
+                 "stage-wikidata", "event-warning"),
+
+            "stage2_refresh" =>
+                ("Wikidata data refreshed",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-wikidata", ""),
+
+            // ── Universe stage ──────────────────────────────────────
+            "universe_grouped" =>
+                ("Assigned to a universe",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-universe", ""),
+
+            "universe_pending" =>
+                ("Universe assignment pending",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-universe", "event-warning"),
+
+            "universe_refreshed" =>
+                ("Universe data refreshed",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-universe", ""),
+
+            "stage3_refresh" =>
+                ("Universe enrichment refreshed",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-universe", ""),
+
+            // ── User actions ────────────────────────────────────────
+            "user_field_edit" =>
+                ("You edited a field",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-user", ""),
+
+            "user_lock" =>
+                ("You locked a field",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-user", ""),
+
+            "sync_writeback" =>
+                ("Metadata written back to file",
+                 string.IsNullOrEmpty(detail) ? "Updated the file's embedded tags with the resolved metadata." : detail,
+                 "stage-user", ""),
+
+            "sync_reverted" =>
+                ("File metadata reverted",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-user", "event-warning"),
+
+            // ── People / enrichment ─────────────────────────────────
+            "person_enriched" =>
+                ("Person details enriched",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-wikidata", ""),
+
+            "person_refreshed" =>
+                ("Person data refreshed",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-wikidata", ""),
+
+            // ── Catch-all ───────────────────────────────────────────
+            _ => (FormatFallback(evt.EventType), detail, "stage-other", ""),
+        };
+    }
+
+    private static string FormatFallback(string eventType)
+    {
+        // Convert snake_case to "Title Case Words"
+        var words = eventType.Split('_', StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', words.Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
+    }
+
+    private static string FormatTime(DateTimeOffset dt) =>
+        dt.ToLocalTime().ToString("MMM dd, HH:mm");
+}
+
+<style>
+    .vault-timeline { padding: 0 4px; }
+    .vault-timeline-heading { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .timeline-loading { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-size: 12px; color: rgba(255,255,255,0.35); }
+    .timeline-empty { font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic; padding: 4px 0; }
+    .timeline-list { display: flex; flex-direction: column; gap: 0; }
+    .timeline-event { display: grid; grid-template-columns: 20px 1fr; gap: 10px; }
+    .event-track { display: flex; flex-direction: column; align-items: center; }
+    .event-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .event-line { width: 2px; flex: 1; min-height: 12px; background: rgba(255,255,255,0.08); margin: 2px 0; }
+    .timeline-event:last-child .event-line { display: none; }
+    .event-content { padding-bottom: 14px; }
+    .event-header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .event-type { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.75); }
+    .event-time { font-size: 10px; color: rgba(255,255,255,0.3); white-space: nowrap; flex-shrink: 0; }
+    .event-detail { font-size: 11px; color: rgba(255,255,255,0.45); margin: 3px 0 0 0; line-height: 1.4; }
+
+    /* Dot colours by stage */
+    .event-dot.stage-file      { background: rgba(255,255,255,0.4); }
+    .event-dot.stage-retail    { background: #C9922E; }
+    .event-dot.stage-wikidata  { background: #A78BFA; }
+    .event-dot.stage-universe  { background: #5DCAA5; }
+    .event-dot.stage-user      { background: #60A5FA; }
+    .event-dot.stage-other     { background: rgba(255,255,255,0.2); }
+
+    /* Event row tints for warning states */
+    .timeline-event.event-warning .event-dot   { background: #EF9F27; }
+    .timeline-event.event-warning .event-type  { color: rgba(239,159,39,0.8); }
+</style>

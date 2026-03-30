@@ -413,6 +413,129 @@ public static class DevSeedEndpoints
             TestCategory: "Comic — manga, Japanese creator"),
     ];
 
+    // ── Supported test media types and their provider health-check URLs ────
+    // Provider → media types it gates. If the provider's API endpoint is unreachable,
+    // those media types are skipped with a reason in the response.
+
+    private static readonly string[] AllTestableTypes = ["books", "audiobooks", "movies", "tv", "music", "comics"];
+
+    private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["apple_api"]   = ["books", "audiobooks"],
+        ["tmdb"]        = ["movies", "tv"],
+        ["musicbrainz"] = ["music"],
+        ["metron"]      = ["comics"],
+    };
+
+    private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
+        ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
+        ["musicbrainz"] = "https://musicbrainz.org/ws/2/artist?query=test&limit=1",
+        ["metron"]      = "https://metron.cloud/api/issue/?series_name=test&limit=1",
+    };
+
+    /// <summary>
+    /// Parse the <c>?types=books,comics,music</c> query parameter.
+    /// Returns a normalised set of requested types (default: all).
+    /// </summary>
+    private static HashSet<string> ParseTypes(HttpContext context)
+    {
+        if (context.Request.Query.TryGetValue("types", out var typesParam) && !string.IsNullOrWhiteSpace(typesParam))
+        {
+            return typesParam.ToString()
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(t => t.ToLowerInvariant())
+                .Where(t => AllTestableTypes.Contains(t))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        return new HashSet<string>(AllTestableTypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Probe each provider's API endpoint in parallel. Returns a dictionary of
+    /// provider name → (healthy, reason). Timeout: 5 seconds per provider.
+    /// </summary>
+    private static async Task<Dictionary<string, (bool Healthy, string Reason)>> CheckProviderHealthAsync(
+        ILogger logger)
+    {
+        var results = new Dictionary<string, (bool, string)>(StringComparer.OrdinalIgnoreCase);
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("TuvimaLibrary/1.0 (integration-test)");
+
+        var tasks = ProviderHealthUrls.Select(async kvp =>
+        {
+            try
+            {
+                // Metron requires Basic auth for any request
+                if (kvp.Key.Equals("metron", StringComparison.OrdinalIgnoreCase))
+                {
+                    var creds = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Shyatic:fgn4vfg*wqx_MZK@cup"));
+                    httpClient.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+                }
+
+                using var response = await httpClient.GetAsync(kvp.Value);
+                bool ok = response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
+                return (kvp.Key, Healthy: ok, Reason: ok ? "OK" : $"HTTP {(int)response.StatusCode}");
+            }
+            catch (Exception ex)
+            {
+                return (kvp.Key, Healthy: false, Reason: ex.GetType().Name);
+            }
+        });
+
+        foreach (var result in await Task.WhenAll(tasks))
+        {
+            results[result.Key] = (result.Healthy, result.Reason);
+            logger.LogInformation("[HealthCheck] {Provider}: {Status} ({Reason})", result.Key,
+                result.Healthy ? "HEALTHY" : "UNAVAILABLE", result.Reason);
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Given the requested types and provider health results, compute the set of
+    /// types that are actually active (requested AND provider healthy).
+    /// Also returns skip reasons for types that were excluded.
+    /// </summary>
+    private static (HashSet<string> ActiveTypes, Dictionary<string, string> SkipReasons) ResolveActiveTypes(
+        HashSet<string> requestedTypes,
+        Dictionary<string, (bool Healthy, string Reason)> health)
+    {
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var skipped = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var type in AllTestableTypes)
+        {
+            if (!requestedTypes.Contains(type))
+            {
+                skipped[type] = "Not requested";
+                continue;
+            }
+
+            // Find which provider gates this type
+            var gatingProvider = ProviderToTypes
+                .Where(kvp => kvp.Value.Contains(type, StringComparer.OrdinalIgnoreCase))
+                .Select(kvp => kvp.Key)
+                .FirstOrDefault();
+
+            if (gatingProvider is null)
+            {
+                active.Add(type); // No provider gate — always active
+                continue;
+            }
+
+            if (health.TryGetValue(gatingProvider, out var status) && status.Healthy)
+                active.Add(type);
+            else
+                skipped[type] = $"Provider '{gatingProvider}' unavailable ({(health.TryGetValue(gatingProvider!, out var s) ? s.Reason : "unknown")})";
+        }
+
+        return (active, skipped);
+    }
+
     // ── Endpoint registration ────────────────────────────────────────────────
 
     public static void MapDevSeedEndpoints(this WebApplication app)
@@ -421,22 +544,27 @@ public static class DevSeedEndpoints
             .WithTags("Development");
 
         group.MapPost("/seed-library", SeedLibraryAsync)
-            .WithSummary($"Drop {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length} test files into media-type-specific Watch Folders (comics excluded)");
+            .WithSummary($"Drop up to {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length} test files into Watch Folders (?types=books,comics,… to filter; providers health-checked automatically)");
 
         group.MapPost("/wipe", WipeAsync)
             .WithSummary("Wipe database, library root, and watch folder — then reinitialize a fresh DB");
 
         group.MapPost("/full-test", FullTestAsync)
-            .WithSummary("Wipe everything → seed test files (excluding comics) → return per-type summary");
+            .WithSummary("Wipe everything → seed test files → return per-type summary (?types= to filter)");
     }
 
     // ── POST /dev/seed-library ───────────────────────────────────────────────
 
     private static async Task<IResult> SeedLibraryAsync(
+        HttpContext context,
         IOptions<IngestionOptions> options,
         Storage.Contracts.IConfigurationLoader configLoader,
         ILogger<Program> logger)
     {
+        var requestedTypes = ParseTypes(context);
+        var health = await CheckProviderHealthAsync(logger);
+        var (activeTypes, skipReasons) = ResolveActiveTypes(requestedTypes, health);
+
         var created = new List<string>();
         var perTypeResults = new Dictionary<string, object>();
         int skipped = 0;
@@ -444,7 +572,7 @@ public static class DevSeedEndpoints
         // ── Seed EPUBs ──────────────────────────────────────────────────────
         var booksDir = ResolveWatchDirectory(configLoader, options, "Books");
         int booksCreated = 0;
-        if (!string.IsNullOrWhiteSpace(booksDir))
+        if (activeTypes.Contains("books") && !string.IsNullOrWhiteSpace(booksDir))
         {
             EnsureDirectory(booksDir, logger);
             foreach (SeedBook book in SeedBooks)
@@ -464,12 +592,14 @@ public static class DevSeedEndpoints
                 logger.LogInformation("Seed EPUB created: {Path} [{Category}]", filePath, book.TestCategory ?? "Uncategorised");
             }
         }
-        perTypeResults["books"] = new { total = SeedBooks.Length, created = booksCreated, directory = booksDir ?? "not configured" };
+        perTypeResults["books"] = activeTypes.Contains("books")
+            ? new { total = SeedBooks.Length, created = booksCreated, directory = booksDir ?? "not configured" }
+            : (object)new { total = SeedBooks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("books", "Excluded") };
 
         // ── Seed MP3 Audiobooks ─────────────────────────────────────────────
         // Audiobooks share the Books library folder.
         int audiobooksCreated = 0;
-        if (!string.IsNullOrWhiteSpace(booksDir))
+        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
         {
             foreach (SeedAudiobook ab in SeedAudiobooks)
             {
@@ -489,12 +619,16 @@ public static class DevSeedEndpoints
                 logger.LogInformation("Seed MP3 created: {Path} [{Category}]", filePath, ab.TestCategory ?? "Uncategorised");
             }
         }
-        perTypeResults["audiobooks"] = new { total = SeedAudiobooks.Length, created = audiobooksCreated, directory = booksDir ?? "not configured" };
+        perTypeResults["audiobooks"] = activeTypes.Contains("audiobooks")
+            ? new { total = SeedAudiobooks.Length, created = audiobooksCreated, directory = booksDir ?? "not configured" }
+            : (object)new { total = SeedAudiobooks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("audiobooks", "Excluded") };
 
         // ── Seed MP4 Videos (Movies + TV) ─────────────────────────────────
         int moviesCreated = 0, tvCreated = 0;
         foreach (SeedVideo video in SeedVideos)
         {
+            var typeKey = video.MediaType == "TV" ? "tv" : "movies";
+            if (!activeTypes.Contains(typeKey)) continue;
             var category = video.MediaType == "TV" ? "TV" : "Movies";
             var videoDir = ResolveWatchDirectory(configLoader, options, category);
             if (string.IsNullOrWhiteSpace(videoDir)) continue;
@@ -517,13 +651,17 @@ public static class DevSeedEndpoints
         }
         var moviesDir = ResolveWatchDirectory(configLoader, options, "Movies");
         var tvDir = ResolveWatchDirectory(configLoader, options, "TV");
-        perTypeResults["movies"] = new { total = SeedVideos.Count(v => v.MediaType == "Movie"), created = moviesCreated, directory = moviesDir ?? "not configured" };
-        perTypeResults["tv"] = new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = tvCreated, directory = tvDir ?? "not configured" };
+        perTypeResults["movies"] = activeTypes.Contains("movies")
+            ? new { total = SeedVideos.Count(v => v.MediaType == "Movie"), created = moviesCreated, directory = moviesDir ?? "not configured" }
+            : (object)new { total = SeedVideos.Count(v => v.MediaType == "Movie"), created = 0, skipped_reason = skipReasons.GetValueOrDefault("movies", "Excluded") };
+        perTypeResults["tv"] = activeTypes.Contains("tv")
+            ? new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = tvCreated, directory = tvDir ?? "not configured" }
+            : (object)new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = 0, skipped_reason = skipReasons.GetValueOrDefault("tv", "Excluded") };
 
         // ── Seed FLAC Music ───────────────────────────────────────────────
         var musicDir = ResolveWatchDirectory(configLoader, options, "Music");
         int musicCreated = 0;
-        if (!string.IsNullOrWhiteSpace(musicDir))
+        if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
         {
             EnsureDirectory(musicDir, logger);
             foreach (SeedMusic track in SeedMusicTracks)
@@ -542,13 +680,38 @@ public static class DevSeedEndpoints
                 logger.LogInformation("Seed FLAC created: {Path} [{Category}]", filePath, track.TestCategory ?? "Uncategorised");
             }
         }
-        perTypeResults["music"] = new { total = SeedMusicTracks.Length, created = musicCreated, directory = musicDir ?? "not configured" };
+        perTypeResults["music"] = activeTypes.Contains("music")
+            ? new { total = SeedMusicTracks.Length, created = musicCreated, directory = musicDir ?? "not configured" }
+            : (object)new { total = SeedMusicTracks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("music", "Excluded") };
 
-        // ── Comics: SKIPPED (Metron provider is down) ───────────────────
-        perTypeResults["comics"] = new { total = SeedComics.Length, created = 0, skipped_reason = "Metron provider is down — comics excluded from testing" };
+        // ── Seed CBZ Comics ──────────────────────────────────────────────
+        var comicsDir = ResolveWatchDirectory(configLoader, options, "Comics");
+        int comicsCreated = 0;
+        if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
+        {
+            EnsureDirectory(comicsDir, logger);
+            foreach (SeedComic comic in SeedComics)
+            {
+                string fileName = $"{SanitizeFileName(comic.Title)}.cbz";
+                string filePath = Path.Combine(comicsDir, fileName);
 
-        int totalSeeded = booksCreated + audiobooksCreated + moviesCreated + tvCreated + musicCreated;
-        int totalSeed = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length;
+                if (File.Exists(filePath)) { skipped++; continue; }
+
+                byte[] cbz = CbzBuilder.Create(
+                    comic.Title, comic.Writer, comic.Series, comic.Number,
+                    comic.Year, comic.Genre, comic.Summary, comic.Publisher, comic.Penciller);
+                await File.WriteAllBytesAsync(filePath, cbz);
+                created.Add(fileName);
+                comicsCreated++;
+                logger.LogInformation("Seed CBZ created: {Path} [{Category}]", filePath, comic.TestCategory ?? "Uncategorised");
+            }
+        }
+        perTypeResults["comics"] = activeTypes.Contains("comics")
+            ? new { total = SeedComics.Length, created = comicsCreated, directory = comicsDir ?? "not configured" }
+            : (object)new { total = SeedComics.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("comics", "Excluded") };
+
+        int totalSeeded = booksCreated + audiobooksCreated + moviesCreated + tvCreated + musicCreated + comicsCreated;
+        int totalSeed = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length;
         string message = totalSeeded > 0
             ? $"{totalSeeded} files dropped into Watch Folders. Ingestion will begin automatically."
             : "All seed files already exist in the Watch Folders.";
@@ -558,6 +721,9 @@ public static class DevSeedEndpoints
             files_created = totalSeeded,
             files_skipped = skipped,
             total_seed_files = totalSeed,
+            active_types = activeTypes.ToArray(),
+            skipped_types = skipReasons,
+            provider_health = health.ToDictionary(h => h.Key, h => h.Value.Healthy ? "healthy" : h.Value.Reason),
             per_type = perTypeResults,
             files = created,
             message
@@ -737,6 +903,7 @@ public static class DevSeedEndpoints
     // ── POST /dev/full-test ─────────────────────────────────────────────────
 
     private static async Task<IResult> FullTestAsync(
+        HttpContext context,
         IDatabaseConnection db,
         IOptions<IngestionOptions> options,
         Storage.Contracts.IConfigurationLoader configLoader,
@@ -749,7 +916,7 @@ public static class DevSeedEndpoints
         var wipeResult = await WipeAsync(db, options, configLoader, ingestionEngine, logger);
 
         // Step 2: Seed
-        var seedResult = await SeedLibraryAsync(options, configLoader, logger);
+        var seedResult = await SeedLibraryAsync(context, options, configLoader, logger);
 
         // Step 3: Trigger a directory scan so the file watcher picks up the seeded files.
         //         FSW only detects NEW events; files already present when the watcher
@@ -776,11 +943,10 @@ public static class DevSeedEndpoints
         {
             message = "Full test initiated: database wiped, library cleared, seed files dropped, " +
                       "directory scan triggered. Ingestion pipeline will process files automatically. " +
-                      "Monitor via GET /ingestion/batches and SignalR intercom. " +
-                      "Note: Comics excluded (Metron provider down).",
+                      "Monitor via GET /ingestion/batches and SignalR intercom.",
             wipe = wipeResult,
             seed = seedResult,
-            total_test_files = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length,
+            total_test_files = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length,
             next_steps = new[]
             {
                 "Watch ingestion progress: GET /ingestion/batches",

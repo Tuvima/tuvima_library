@@ -66,6 +66,14 @@ public static class IntegrationTestEndpoints
         new("Clair de Lune", "Music", "musicbrainz", "Clair de Lune Debussy", true),
     ];
 
+    private static readonly TestExpectation[] ComicExpectations =
+    [
+        new("Batman: Year One Part 1", "Comics", "metron", "Batman Year One", true),
+        new("Saga Chapter One", "Comics", "metron", "Saga Brian Vaughan", true),
+        new("The Sandman: Sleep of the Just", "Comics", "metron", "Sandman Neil Gaiman", true),
+        new("Akira Vol 1", "Comics", "metron", "Akira Otomo", true),
+    ];
+
     // ── Test result models ────────────────────────────────────────────────
 
     private sealed class TestReport
@@ -90,6 +98,9 @@ public static class IntegrationTestEndpoints
         public int TotalNeedsReview { get; set; }
         public int TotalFailed { get; set; }
         public bool OverallPass => IssuesFound.Count == 0;
+        public HashSet<string> ActiveTypes { get; set; } = [];
+        public Dictionary<string, string> SkippedTypes { get; set; } = [];
+        public Dictionary<string, bool> ProviderHealth { get; set; } = [];
     }
 
     /// <summary>Per-item Vault display validation result.</summary>
@@ -167,6 +178,111 @@ public static class IntegrationTestEndpoints
         public bool Found { get; set; }
     }
 
+    // ── Dynamic type selection + provider health ─────────────────────────
+
+    private static readonly string[] AllTestableTypes = ["books", "audiobooks", "movies", "tv", "music", "comics"];
+
+    private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["apple_api"]   = ["books", "audiobooks"],
+        ["tmdb"]        = ["movies", "tv"],
+        ["musicbrainz"] = ["music"],
+        ["metron"]      = ["comics"],
+    };
+
+    private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
+        ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
+        ["musicbrainz"] = "https://musicbrainz.org/ws/2/artist?query=test&limit=1",
+        ["metron"]      = "https://metron.cloud/api/issue/?series_name=test&limit=1",
+    };
+
+    private static HashSet<string> ParseTypes(HttpContext context)
+    {
+        if (context.Request.Query.TryGetValue("types", out var typesParam) && !string.IsNullOrWhiteSpace(typesParam))
+        {
+            return typesParam.ToString()
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(t => t.ToLowerInvariant())
+                .Where(t => AllTestableTypes.Contains(t))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        return new HashSet<string>(AllTestableTypes, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static async Task<Dictionary<string, (bool Healthy, string Reason)>> CheckProviderHealthAsync(ILogger logger)
+    {
+        var results = new Dictionary<string, (bool, string)>(StringComparer.OrdinalIgnoreCase);
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("TuvimaLibrary/1.0 (integration-test)");
+
+        var tasks = ProviderHealthUrls.Select(async kvp =>
+        {
+            try
+            {
+                if (kvp.Key.Equals("metron", StringComparison.OrdinalIgnoreCase))
+                {
+                    var creds = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Shyatic:fgn4vfg*wqx_MZK@cup"));
+                    httpClient.DefaultRequestHeaders.Authorization =
+                        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+                }
+
+                using var response = await httpClient.GetAsync(kvp.Value);
+                bool ok = response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
+                return (kvp.Key, Healthy: ok, Reason: ok ? "OK" : $"HTTP {(int)response.StatusCode}");
+            }
+            catch (Exception ex)
+            {
+                return (kvp.Key, Healthy: false, Reason: ex.GetType().Name);
+            }
+        });
+
+        foreach (var result in await Task.WhenAll(tasks))
+        {
+            results[result.Key] = (result.Healthy, result.Reason);
+            logger.LogInformation("[HealthCheck] {Provider}: {Status} ({Reason})", result.Key,
+                result.Healthy ? "HEALTHY" : "UNAVAILABLE", result.Reason);
+        }
+
+        return results;
+    }
+
+    private static (HashSet<string> ActiveTypes, Dictionary<string, string> SkipReasons) ResolveActiveTypes(
+        HashSet<string> requestedTypes,
+        Dictionary<string, (bool Healthy, string Reason)> health)
+    {
+        var active = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var skipped = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var type in AllTestableTypes)
+        {
+            if (!requestedTypes.Contains(type))
+            {
+                skipped[type] = "Not requested";
+                continue;
+            }
+
+            var gatingProvider = ProviderToTypes
+                .Where(kvp => kvp.Value.Contains(type, StringComparer.OrdinalIgnoreCase))
+                .Select(kvp => kvp.Key)
+                .FirstOrDefault();
+
+            if (gatingProvider is null)
+            {
+                active.Add(type);
+                continue;
+            }
+
+            if (health.TryGetValue(gatingProvider, out var status) && status.Healthy)
+                active.Add(type);
+            else
+                skipped[type] = $"Provider '{gatingProvider}' unavailable ({(health.TryGetValue(gatingProvider!, out var s) ? s.Reason : "unknown")})";
+        }
+
+        return (active, skipped);
+    }
+
     // ── Endpoint registration ─────────────────────────────────────────────
 
     public static void MapIntegrationTestEndpoints(this WebApplication app)
@@ -211,9 +327,23 @@ public static class IntegrationTestEndpoints
             _ => $"Stage level {stages} (unknown — defaulting to 1+2)"
         };
 
+        // ── Parse optional types parameter ──────────────────────────────
+        var requestedTypes = ParseTypes(context);
+        var health = await CheckProviderHealthAsync(logger);
+        var (activeTypes, skipReasons) = ResolveActiveTypes(requestedTypes, health);
+        report.ActiveTypes = activeTypes;
+        report.SkippedTypes = skipReasons;
+        report.ProviderHealth = health.ToDictionary(h => h.Key, h => h.Value.Healthy);
+
+        string typesLabel = string.Join(", ", activeTypes.OrderBy(t => t));
+
         logger.LogInformation("╔══════════════════════════════════════════╗");
         logger.LogInformation("║   INTEGRATION TEST — Starting            ║");
         logger.LogInformation("║   {StageLabel}                           ║", stageLabel);
+        logger.LogInformation("║   Active types: {Types}                  ║", typesLabel);
+        if (skipReasons.Count > 0)
+            logger.LogInformation("║   Skipped: {Skipped}                     ║",
+                string.Join(", ", skipReasons.Select(s => $"{s.Key} ({s.Value})")));
         logger.LogInformation("╚══════════════════════════════════════════╝");
 
         // ── Phase 1: Wipe ─────────────────────────────────────────────────
@@ -229,11 +359,11 @@ public static class IntegrationTestEndpoints
             report.IssuesFound.Add($"Wipe failed: {ex.Message}");
         }
 
-        // ── Phase 2: Seed (no comics, no podcasts) ────────────────────────
-        logger.LogInformation("[Phase 2] Seeding test files (excluding comics and podcasts)...");
+        // ── Phase 2: Seed ────────────────────────────────────────────────
+        logger.LogInformation("[Phase 2] Seeding test files...");
         try
         {
-            int seeded = await SeedInternalAsync(options, configLoader, logger);
+            int seeded = await SeedInternalAsync(options, configLoader, activeTypes, logger);
             report.SeedStatus = $"OK — {seeded} files";
             report.TotalFilesSeeded = seeded;
         }
@@ -426,11 +556,12 @@ public static class IntegrationTestEndpoints
         finally { db.ReleaseWriteLock(); }
     }
 
-    // ── Internal seed (no comics, no podcasts) ────────────────────────────
+    // ── Internal seed ────────────────────────────────────────────────────
 
     private static async Task<int> SeedInternalAsync(
         IOptions<IngestionOptions> options,
         IConfigurationLoader configLoader,
+        HashSet<string> activeTypes,
         ILogger logger)
     {
         var libConfig = configLoader.LoadLibraries();
@@ -460,38 +591,44 @@ public static class IntegrationTestEndpoints
         if (!string.IsNullOrWhiteSpace(booksDir))
         {
             EnsureDir(booksDir);
-            foreach (var book in DevSeedEndpoints_SeedBooks())
+            if (activeTypes.Contains("books"))
             {
-                string fileName = $"{SanitizeFileName(book.Title)}.epub";
-                string filePath = Path.Combine(booksDir, fileName);
-                if (File.Exists(filePath)) continue;
-                byte[] epub = EpubBuilder.Create(book.Title, book.Author, book.Isbn, book.Year, book.Description,
-                    book.Publisher, book.Language, book.AdditionalAuthors, book.Series, book.SeriesPosition);
-                await File.WriteAllBytesAsync(filePath, epub);
-                total++;
+                foreach (var book in DevSeedEndpoints_SeedBooks())
+                {
+                    string fileName = $"{SanitizeFileName(book.Title)}.epub";
+                    string filePath = Path.Combine(booksDir, fileName);
+                    if (File.Exists(filePath)) continue;
+                    byte[] epub = EpubBuilder.Create(book.Title, book.Author, book.Isbn, book.Year, book.Description,
+                        book.Publisher, book.Language, book.AdditionalAuthors, book.Series, book.SeriesPosition);
+                    await File.WriteAllBytesAsync(filePath, epub);
+                    total++;
+                }
             }
 
-            // Audiobooks share the Books library folder so the folder prior
-            // (config/libraries.json media_types: ["Books", "Audiobooks"]) applies.
-            // Using the same booksDir ensures the IngestionEngine's folder-matching
-            // StartsWith check finds the configured folder and boosts audiobook
-            // classification confidence.
-            var audiobooksDir = booksDir;
-            foreach (var ab in DevSeedEndpoints_SeedAudiobooks())
+            if (activeTypes.Contains("audiobooks"))
             {
-                string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
-                string filePath = Path.Combine(audiobooksDir, fileName);
-                if (File.Exists(filePath)) continue;
-                byte[] mp3 = Mp3Builder.Create(ab.Title, ab.Artist, narrator: ab.Narrator,
-                    year: ab.Year, language: ab.Language, series: ab.Series, seriesPosition: ab.SeriesPosition, asin: ab.Asin);
-                await File.WriteAllBytesAsync(filePath, mp3);
-                total++;
+                // Audiobooks share the Books library folder so the folder prior
+                // (config/libraries.json media_types: ["Books", "Audiobooks"]) applies.
+                // Using the same booksDir ensures the IngestionEngine's folder-matching
+                // StartsWith check finds the configured folder and boosts audiobook
+                // classification confidence.
+                var audiobooksDir = booksDir;
+                foreach (var ab in DevSeedEndpoints_SeedAudiobooks())
+                {
+                    string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
+                    string filePath = Path.Combine(audiobooksDir, fileName);
+                    if (File.Exists(filePath)) continue;
+                    byte[] mp3 = Mp3Builder.Create(ab.Title, ab.Artist, narrator: ab.Narrator,
+                        year: ab.Year, language: ab.Language, series: ab.Series, seriesPosition: ab.SeriesPosition, asin: ab.Asin);
+                    await File.WriteAllBytesAsync(filePath, mp3);
+                    total++;
+                }
             }
         }
 
         // Movies
         var moviesDir = ResolveDir("Movies");
-        if (!string.IsNullOrWhiteSpace(moviesDir))
+        if (activeTypes.Contains("movies") && !string.IsNullOrWhiteSpace(moviesDir))
         {
             EnsureDir(moviesDir);
             foreach (var v in DevSeedEndpoints_SeedVideos().Where(v => v.MediaType == "Movie"))
@@ -507,7 +644,7 @@ public static class IntegrationTestEndpoints
 
         // TV
         var tvDir = ResolveDir("TV");
-        if (!string.IsNullOrWhiteSpace(tvDir))
+        if (activeTypes.Contains("tv") && !string.IsNullOrWhiteSpace(tvDir))
         {
             EnsureDir(tvDir);
             foreach (var v in DevSeedEndpoints_SeedVideos().Where(v => v.MediaType == "TV"))
@@ -525,7 +662,7 @@ public static class IntegrationTestEndpoints
 
         // Music
         var musicDir = ResolveDir("Music");
-        if (!string.IsNullOrWhiteSpace(musicDir))
+        if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
         {
             EnsureDir(musicDir);
             foreach (var m in DevSeedEndpoints_SeedMusic())
@@ -539,7 +676,24 @@ public static class IntegrationTestEndpoints
             }
         }
 
-        logger.LogInformation("[Seed] {Count} test files created (no comics, no podcasts)", total);
+        // Comics
+        var comicsDir = ResolveDir("Comics");
+        if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
+        {
+            EnsureDir(comicsDir);
+            foreach (var c in DevSeedEndpoints_SeedComics())
+            {
+                string fileName = $"{SanitizeFileName(c.Title)}.cbz";
+                string filePath = Path.Combine(comicsDir, fileName);
+                if (File.Exists(filePath)) continue;
+                byte[] cbz = CbzBuilder.Create(c.Title, c.Writer, c.Series, c.Number,
+                    c.Year, c.Genre, c.Summary, c.Publisher, c.Penciller);
+                await File.WriteAllBytesAsync(filePath, cbz);
+                total++;
+            }
+        }
+
+        logger.LogInformation("[Seed] {Count} test files created", total);
 
         // Allow file handles to fully release before the filesystem watcher triggers.
         // Without this, the DebounceQueue's file-lock probe may fail repeatedly on
@@ -685,7 +839,11 @@ public static class IntegrationTestEndpoints
         }
 
         // Check for expected media types that have zero items
-        foreach (var expected in new[] { "Books", "Audiobooks", "Movies", "TV", "Music" })
+        foreach (var expected in report.ActiveTypes.Select(t => t switch
+        {
+            "books" => "Books", "audiobooks" => "Audiobooks", "movies" => "Movies",
+            "tv" => "TV", "music" => "Music", "comics" => "Comics", _ => t
+        }))
         {
             if (!report.MediaTypeResults.Any(r => r.MediaType.Equals(expected, StringComparison.OrdinalIgnoreCase)))
             {
@@ -705,13 +863,18 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         // Test one search per media type using the correct provider
-        var searchTests = new (string query, string providerName, string mediaType, MediaType enumType)[]
+        var allSearchTests = new (string query, string providerName, string mediaType, MediaType enumType, string typeKey)[]
         {
-            ("Dune Frank Herbert", "apple_api", "Books", MediaType.Books),
-            ("Blade Runner 2049", "tmdb", "Movies", MediaType.Movies),
-            ("Breaking Bad", "tmdb", "TV", MediaType.TV),
-            ("Bohemian Rhapsody Queen", "musicbrainz", "Music", MediaType.Music),
+            ("Dune Frank Herbert", "apple_api", "Books", MediaType.Books, "books"),
+            ("Blade Runner 2049", "tmdb", "Movies", MediaType.Movies, "movies"),
+            ("Breaking Bad", "tmdb", "TV", MediaType.TV, "tv"),
+            ("Bohemian Rhapsody Queen", "musicbrainz", "Music", MediaType.Music, "music"),
+            ("Batman Year One", "metron", "Comics", MediaType.Comics, "comics"),
         };
+        var searchTests = allSearchTests
+            .Where(t => report.ActiveTypes.Contains(t.typeKey))
+            .Select(t => (t.query, t.providerName, t.mediaType, t.enumType))
+            .ToArray();
 
         var providerList = providers.ToList();
 
@@ -1083,6 +1246,7 @@ public static class IntegrationTestEndpoints
             .badge-fail { background: rgba(226,75,74,0.15); color: #E24B4A; border: 1px solid rgba(226,75,74,0.3); }
             .badge-warn { background: rgba(239,159,39,0.15); color: #EF9F27; border: 1px solid rgba(239,159,39,0.3); }
             .badge-info { background: rgba(96,165,250,0.15); color: #60A5FA; border: 1px solid rgba(96,165,250,0.3); }
+            .badge-skip { background: rgba(148,163,184,0.15); color: #94A3B8; border: 1px solid rgba(148,163,184,0.3); }
             .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
             .summary-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center; }
             .summary-card .num { font-size: 28px; font-weight: 700; }
@@ -1123,7 +1287,10 @@ public static class IntegrationTestEndpoints
             123 => "<span class=\"badge badge-info\">Stage 1+2+3</span>",
             _   => $"<span class=\"badge badge-warn\">Stage {report.StagesLevel}</span>",
         };
-        sb.AppendLine($"<p class=\"subtitle\">{report.Timestamp:yyyy-MM-dd HH:mm:ss UTC} · Duration: {report.TotalDuration.TotalSeconds:F1}s · Ingestion: {report.IngestionDuration.TotalSeconds:F1}s · {stageBadge}</p>");
+        string typesBadge = report.ActiveTypes.Count == AllTestableTypes.Length
+            ? "<span class=\"badge badge-pass\">All Types</span>"
+            : $"<span class=\"badge badge-info\">{string.Join(", ", report.ActiveTypes.OrderBy(t => t))}</span>";
+        sb.AppendLine($"<p class=\"subtitle\">{report.Timestamp:yyyy-MM-dd HH:mm:ss UTC} · Duration: {report.TotalDuration.TotalSeconds:F1}s · Ingestion: {report.IngestionDuration.TotalSeconds:F1}s · {stageBadge} · {typesBadge}</p>");
 
         // Summary cards
         sb.AppendLine("<div class=\"summary-grid\">");
@@ -1135,7 +1302,37 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
         SummaryCard(sb, report.VaultChecks.Count(v => v.Pass).ToString() + "/" + report.VaultChecks.Count, "Vault Checks", "#22D3EE");
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
+        if (report.SkippedTypes.Count > 0)
+            SummaryCard(sb, report.SkippedTypes.Count.ToString(), "Skipped Types", "#94A3B8");
         sb.AppendLine("</div>");
+
+        // Provider health section
+        if (report.ProviderHealth.Count > 0)
+        {
+            sb.AppendLine("<h2>Provider Health</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Provider</th><th>Status</th><th>Media Types</th></tr>");
+            foreach (var (provider, healthy) in report.ProviderHealth.OrderBy(p => p.Key))
+            {
+                string badge = healthy
+                    ? "<span class=\"badge badge-pass\">HEALTHY</span>"
+                    : "<span class=\"badge badge-fail\">UNAVAILABLE</span>";
+                string types = ProviderToTypes.TryGetValue(provider, out var ts) ? string.Join(", ", ts) : "—";
+                sb.AppendLine($"<tr><td>{Esc(provider)}</td><td>{badge}</td><td>{Esc(types)}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        // Skipped types section
+        if (report.SkippedTypes.Count > 0)
+        {
+            sb.AppendLine("<h2>Skipped Media Types</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Media Type</th><th>Reason</th></tr>");
+            foreach (var (type, reason) in report.SkippedTypes.OrderBy(s => s.Key))
+                sb.AppendLine($"<tr><td>{Esc(type)}</td><td><span class=\"badge badge-skip\">{Esc(reason)}</span></td></tr>");
+            sb.AppendLine("</table>");
+        }
 
         // Issues section (if any)
         if (report.IssuesFound.Count > 0)
@@ -1180,6 +1377,16 @@ public static class IntegrationTestEndpoints
                 }
                 sb.AppendLine("</table>");
             }
+            sb.AppendLine("</div>");
+        }
+
+        // Skipped media types as greyed-out sections
+        foreach (var (type, reason) in report.SkippedTypes.OrderBy(s => s.Key))
+        {
+            // Don't double-render if it already appeared in results
+            if (report.MediaTypeResults.Any(r => r.MediaType.Equals(type, StringComparison.OrdinalIgnoreCase))) continue;
+            sb.AppendLine("<div class=\"section\" style=\"opacity: 0.5;\">");
+            sb.AppendLine($"<div class=\"media-type-header\"><span class=\"mt-dot\" style=\"background:#94A3B8\"></span><strong>{Esc(type)}</strong> <span class=\"badge badge-skip\">SKIPPED — {Esc(reason)}</span></div>");
             sb.AppendLine("</div>");
         }
 
@@ -1339,6 +1546,31 @@ public static class IntegrationTestEndpoints
         new("Lose Yourself", "Eminem", Album: "8 Mile Soundtrack", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1),
         new("Across the Stars", "John Williams", Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3),
         new("Nuvole Bianche", "Ludovico Einaudi", Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6),
+    ];
+
+    internal sealed record SeedComicInfo(string Title, string? Writer = null,
+        string? Series = null, int? Number = null, int Year = 0,
+        string? Genre = null, string? Summary = null, string? Publisher = null,
+        string? Penciller = null);
+
+    internal static SeedComicInfo[] DevSeedEndpoints_SeedComics() =>
+    [
+        new("Batman: Year One Part 1", Writer: "Frank Miller",
+            Series: "Batman", Number: 404, Year: 1987, Genre: "Superhero",
+            Summary: "Bruce Wayne returns to Gotham City after years abroad.",
+            Publisher: "DC Comics", Penciller: "David Mazzucchelli"),
+        new("Saga Chapter One", Writer: "Brian K. Vaughan",
+            Series: "Saga", Number: 1, Year: 2012, Genre: "Science Fiction, Fantasy",
+            Summary: "A new epic from the creators of Y: The Last Man.",
+            Publisher: "Image Comics", Penciller: "Fiona Staples"),
+        new("The Sandman: Sleep of the Just", Writer: "Neil Gaiman",
+            Series: "The Sandman", Number: 1, Year: 1989, Genre: "Fantasy, Horror",
+            Summary: "Morpheus, the King of Dreams, is captured and held prisoner for 70 years.",
+            Publisher: "DC Comics/Vertigo", Penciller: "Sam Kieth"),
+        new("Akira Vol 1", Writer: "Katsuhiro Otomo",
+            Series: "Akira", Number: 1, Year: 1982, Genre: "Science Fiction",
+            Summary: "In the year 2019, Neo-Tokyo has risen from the ashes of World War III.",
+            Publisher: "Kodansha", Penciller: "Katsuhiro Otomo"),
     ];
 
     // ── Helpers ──────────────────────────────────────────────────────────

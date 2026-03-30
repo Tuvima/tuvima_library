@@ -1,0 +1,387 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Vault
+
+<div class="stage-panel">
+    @switch (SelectedStage)
+    {
+        case 0:
+            <div class="stage-panel-content">
+                <h4 class="stage-panel-heading">What the file contains</h4>
+                @if (Item is not null)
+                {
+                    <div class="metadata-grid">
+                        @foreach (var (label, value) in GetFileMetadataRows())
+                        {
+                            <div class="meta-row">
+                                <span class="meta-label">@label</span>
+                                <span class="meta-value">@value</span>
+                            </div>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(Item.CoverUrl))
+                    {
+                        <div class="embedded-cover">
+                            <p class="stage-panel-sub">Embedded Cover Art</p>
+                            <img src="@Item.CoverUrl" alt="Cover art" class="cover-thumbnail" loading="lazy" />
+                        </div>
+                    }
+
+                    @* File-source claims *@
+                    @if (GetStageClaims(0) is var fileClaims && fileClaims.Count > 0)
+                    {
+                        <div class="claims-section">
+                            <p class="stage-panel-sub">Extracted metadata</p>
+                            @foreach (var claim in fileClaims)
+                            {
+                                <div class="claim-row">
+                                    <span class="claim-key">@FormatClaimKey(claim.ClaimKey)</span>
+                                    <span class="claim-val">@TruncateValue(claim.ClaimValue)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+            break;
+
+        case 1:
+            <div class="stage-panel-content">
+                <h4 class="stage-panel-heading">Retail identification</h4>
+                @if (Item is not null)
+                {
+                    var hasRetailMatch = IsRealRetailMatch(Item.RetailMatch);
+                    @if (hasRetailMatch)
+                    {
+                        var providerName = GetRetailProviderDisplayName();
+                        <div class="match-badge match-badge--completed">
+                            <span>Matched by @providerName</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="match-badge match-badge--pending">
+                            <span>No match yet</span>
+                        </div>
+                        <p class="stage-panel-hint">No retail provider has confirmed this item yet. Use the search below to find a match.</p>
+                    }
+
+                    @* Retail provider claims *@
+                    @if (GetStageClaims(1) is var retailClaims && retailClaims.Count > 0)
+                    {
+                        <div class="claims-section">
+                            <p class="stage-panel-sub">Data from provider</p>
+                            @foreach (var claim in retailClaims)
+                            {
+                                <div class="claim-row">
+                                    <span class="claim-key">@FormatClaimKey(claim.ClaimKey)</span>
+                                    <span class="claim-val">@TruncateValue(claim.ClaimValue)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+            break;
+
+        case 2:
+            <div class="stage-panel-content">
+                <h4 class="stage-panel-heading">Wikidata identity</h4>
+                @if (Item is not null)
+                {
+                    @if (!string.IsNullOrEmpty(Item.WikidataQid) && !Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                    {
+                        <div class="qid-badge">
+                            <a href="https://www.wikidata.org/wiki/@Item.WikidataQid" target="_blank" rel="noopener" class="qid-link">
+                                @Item.WikidataQid
+                            </a>
+                        </div>
+                        <p class="match-detail">@GetWikidataExplanation()</p>
+                    }
+                    else
+                    {
+                        var hasRetailForWiki = IsRealRetailMatch(Item.RetailMatch);
+                        <div class="match-badge @(hasRetailForWiki ? "match-badge--warning" : "match-badge--pending")">
+                            <span>@(hasRetailForWiki ? "Waiting for Wikidata lookup" : "No identity confirmed")</span>
+                        </div>
+                        @if (!hasRetailForWiki)
+                        {
+                            <p class="stage-panel-hint">A retail match is needed first so the Engine has a bridge ID (like an ISBN or TMDB ID) to look up on Wikidata.</p>
+                        }
+                        else
+                        {
+                            <p class="stage-panel-hint">A retail match was found but the Wikidata lookup hasn't completed yet, or no matching entry was found.</p>
+                        }
+                    }
+
+                    @* Wikidata claims *@
+                    @if (GetStageClaims(2) is var wikiClaims && wikiClaims.Count > 0)
+                    {
+                        <div class="claims-section">
+                            <p class="stage-panel-sub">Data from Wikidata</p>
+                            @foreach (var claim in wikiClaims)
+                            {
+                                <div class="claim-row">
+                                    <span class="claim-key">@FormatClaimKey(claim.ClaimKey)</span>
+                                    <span class="claim-val">@TruncateValue(claim.ClaimValue)</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+            break;
+
+        case 3:
+            <div class="stage-panel-content">
+                <h4 class="stage-panel-heading">Universe grouping</h4>
+                @if (Item is not null)
+                {
+                    @if (!string.IsNullOrEmpty(Item.UniverseName))
+                    {
+                        <div class="universe-info">
+                            <div class="match-badge match-badge--completed">
+                                <span>@Item.UniverseName</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Item.Series))
+                            {
+                                <p class="match-detail">Series: @Item.Series</p>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="match-badge match-badge--pending">
+                            <span>No universe yet</span>
+                        </div>
+                        @if (string.IsNullOrEmpty(Item.WikidataQid) || Item.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <p class="stage-panel-hint">Universe grouping happens after Wikidata confirms this item's identity. Once linked, the Engine can discover which creative world it belongs to.</p>
+                        }
+                        else
+                        {
+                            <p class="stage-panel-hint">This item has a Wikidata identity but hasn't been grouped into a universe yet. This may happen during the next enrichment cycle, or it may be a standalone work.</p>
+                        }
+                    }
+                }
+            </div>
+            break;
+    }
+</div>
+
+@code {
+    [Parameter] public int SelectedStage { get; set; }
+    [Parameter] public VaultItemViewModel? Item { get; set; }
+    [Parameter] public List<ClaimHistoryDto> Claims { get; set; } = [];
+
+    private List<(string Label, string Value)> GetFileMetadataRows()
+    {
+        var rows = new List<(string, string)>();
+        if (Item is null) return rows;
+
+        if (!string.IsNullOrEmpty(Item.Title)) rows.Add(("Title", Item.Title));
+        if (!string.IsNullOrEmpty(Item.OriginalTitle) && Item.OriginalTitle != Item.Title)
+            rows.Add(("Original Title", Item.OriginalTitle));
+        if (!string.IsNullOrEmpty(Item.Author)) rows.Add(("Author", Item.Author));
+        if (!string.IsNullOrEmpty(Item.Director)) rows.Add(("Director", Item.Director));
+        if (!string.IsNullOrEmpty(Item.Artist)) rows.Add(("Artist", Item.Artist));
+        if (!string.IsNullOrEmpty(Item.Narrator)) rows.Add(("Narrator", Item.Narrator));
+        if (!string.IsNullOrEmpty(Item.Year)) rows.Add(("Year", Item.Year));
+        rows.Add(("Media Type", Item.MediaType));
+        if (!string.IsNullOrEmpty(Item.Genre)) rows.Add(("Genre", Item.Genre));
+        if (!string.IsNullOrEmpty(Item.Series))
+            rows.Add(("Series", Item.Series + (!string.IsNullOrEmpty(Item.SeriesPosition) ? $" #{Item.SeriesPosition}" : "")));
+        if (!string.IsNullOrEmpty(Item.FileName)) rows.Add(("File", Item.FileName));
+        if (Item.FileSizeBytes.HasValue && Item.FileSizeBytes.Value > 0)
+            rows.Add(("Size", FormatFileSize(Item.FileSizeBytes.Value)));
+
+        return rows;
+    }
+
+    /// <summary>Get the actual retail provider display name, not "local_processor".</summary>
+    private string GetRetailProviderDisplayName()
+    {
+        if (Item is null) return "a provider";
+
+        // First check RetailMatchDetail — this often has the actual provider name
+        var detail = Item.RetailMatchDetail;
+        if (!string.IsNullOrEmpty(detail))
+        {
+            var formatted = VaultHelpers.FormatSourceName(detail);
+            if (formatted != "File Scan" && formatted != "Library Scanner" && formatted != "Unknown")
+                return formatted;
+        }
+
+        // Fall back to RetailMatch field
+        var match = Item.RetailMatch;
+        if (!string.IsNullOrEmpty(match))
+        {
+            var formatted = VaultHelpers.FormatSourceName(match);
+            if (formatted != "File Scan" && formatted != "Library Scanner" && formatted != "Unknown")
+                return formatted;
+        }
+
+        // Last resort: try to infer from claims data
+        var retailClaim = Claims.FirstOrDefault(c =>
+            !VaultHelpers.IsFileSource(c.ProviderId) &&
+            !VaultHelpers.IsUserSource(c.ProviderId) &&
+            !c.ProviderId.ToString().Contains("b3000003")); // Not Wikidata
+        if (retailClaim is not null)
+            return VaultHelpers.FormatProviderName(retailClaim.ProviderId);
+
+        return "a provider";
+    }
+
+    /// <summary>Build a plain-English explanation of how the Wikidata link was made.</summary>
+    private string GetWikidataExplanation()
+    {
+        if (Item is null) return "";
+
+        // Check which bridge ID was used
+        var bridgeId = Claims.FirstOrDefault(c => c.ClaimKey is "isbn" or "isbn_13" or "isbn_10"
+            && !VaultHelpers.IsFileSource(c.ProviderId));
+        if (bridgeId is not null)
+            return $"Linked to Wikidata using ISBN {bridgeId.ClaimValue} from {GetRetailProviderDisplayName()}";
+
+        bridgeId = Claims.FirstOrDefault(c => c.ClaimKey == "tmdb_id"
+            && !VaultHelpers.IsFileSource(c.ProviderId));
+        if (bridgeId is not null)
+            return $"Linked to Wikidata using TMDB ID {bridgeId.ClaimValue}";
+
+        bridgeId = Claims.FirstOrDefault(c => c.ClaimKey == "musicbrainz_id"
+            && !VaultHelpers.IsFileSource(c.ProviderId));
+        if (bridgeId is not null)
+            return $"Linked to Wikidata using MusicBrainz ID";
+
+        bridgeId = Claims.FirstOrDefault(c => c.ClaimKey == "open_library_id"
+            && !VaultHelpers.IsFileSource(c.ProviderId));
+        if (bridgeId is not null)
+            return $"Linked to Wikidata using Open Library ID {bridgeId.ClaimValue}";
+
+        // Fallback based on WikidataMatch field
+        var match = Item.WikidataMatch?.ToLowerInvariant() ?? "";
+        if (match.Contains("bridge")) return $"Linked to Wikidata via bridge ID from {GetRetailProviderDisplayName()}";
+        if (match.Contains("title")) return "Found on Wikidata by title search";
+        if (match.Contains("manual")) return "Manually linked to Wikidata";
+        if (match.Contains("ai")) return "Linked to Wikidata with AI assistance";
+
+        return "Confirmed on Wikidata";
+    }
+
+    /// <summary>
+    /// Get claims relevant to a specific pipeline stage:
+    /// 0 = file sources, 1 = retail providers, 2 = Wikidata/Wikipedia.
+    /// Returns best claim per key, sorted.
+    /// </summary>
+    private List<ClaimHistoryDto> GetStageClaims(int stage)
+    {
+        if (Claims.Count == 0) return [];
+
+        // Wikidata provider GUID prefix
+        const string wikidataGuidPrefix = "b3000003";
+
+        var filtered = stage switch
+        {
+            0 => Claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)),
+            1 => Claims.Where(c => !VaultHelpers.IsFileSource(c.ProviderId) && !VaultHelpers.IsUserSource(c.ProviderId)
+                && !c.ProviderId.ToString().StartsWith(wikidataGuidPrefix)),
+            2 => Claims.Where(c => c.ProviderId.ToString().StartsWith(wikidataGuidPrefix)),
+            _ => Enumerable.Empty<ClaimHistoryDto>(),
+        };
+
+        // Best claim per key
+        return filtered
+            .GroupBy(c => c.ClaimKey)
+            .Select(g => g.OrderByDescending(c => c.Confidence).First())
+            .Where(c => c.ClaimKey is not "cover_url" and not "cover" and not "hero_url") // Skip image URLs
+            .OrderBy(c => c.ClaimKey)
+            .ToList();
+    }
+
+    private static string FormatClaimKey(string key) => key.ToLowerInvariant() switch
+    {
+        "title"            => "Title",
+        "original_title"   => "Original Title",
+        "author"           => "Author",
+        "director"         => "Director",
+        "artist"           => "Artist",
+        "narrator"         => "Narrator",
+        "year"             => "Year",
+        "genre"            => "Genre",
+        "series"           => "Series",
+        "series_position"  => "Series #",
+        "description"      => "Description",
+        "isbn"             => "ISBN",
+        "isbn_13"          => "ISBN-13",
+        "isbn_10"          => "ISBN-10",
+        "asin"             => "ASIN",
+        "tmdb_id"          => "TMDB ID",
+        "imdb_id"          => "IMDb ID",
+        "musicbrainz_id"   => "MusicBrainz ID",
+        "open_library_id"  => "Open Library ID",
+        "apple_books_id"   => "Apple Books ID",
+        "wikidata_qid"     => "Wikidata QID",
+        "media_type"       => "Media Type",
+        "rating"           => "Rating",
+        "publisher"        => "Publisher",
+        "language"         => "Language",
+        "runtime"          => "Runtime",
+        "album"            => "Album",
+        "track_number"     => "Track #",
+        "composer"         => "Composer",
+        "illustrator"      => "Illustrator",
+        "screenwriter"     => "Screenwriter",
+        "cast_member"      => "Cast",
+        "issue_number"     => "Issue #",
+        "comic_vine_id"    => "Comic Vine ID",
+        "gcd_id"           => "GCD ID",
+        "upc"              => "UPC",
+        _                  => string.Join(' ', key.Split('_').Select(w =>
+                                  w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w)),
+    };
+
+    private static string TruncateValue(string value) =>
+        value.Length > 100 ? value[..100] + "\u2026" : value;
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+        if (bytes < 1024L * 1024 * 1024) return $"{bytes / (1024.0 * 1024.0):F1} MB";
+        return $"{bytes / (1024.0 * 1024.0 * 1024.0):F2} GB";
+    }
+
+    private static bool IsRealRetailMatch(string? retailMatch) =>
+        retailMatch is not "none" and not "" and not null
+        && !retailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
+        && !retailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase);
+}
+
+<style>
+    .stage-panel { padding: 0 4px; }
+    .stage-panel-content { display: flex; flex-direction: column; gap: 10px; }
+    .stage-panel-heading { font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.7); margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stage-panel-sub { font-size: 11px; color: rgba(255,255,255,0.4); margin: 8px 0 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
+    .stage-panel-hint { font-size: 12px; color: rgba(255,255,255,0.35); font-style: italic; line-height: 1.5; margin: 4px 0 0 0; }
+    .metadata-grid { display: flex; flex-direction: column; gap: 4px; }
+    .meta-row { display: grid; grid-template-columns: 90px 1fr; gap: 8px; align-items: baseline; }
+    .meta-label { font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.35); text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap; }
+    .meta-value { font-size: 13px; color: rgba(255,255,255,0.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .embedded-cover { margin-top: 8px; }
+    .cover-thumbnail { width: 80px; height: auto; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); display: block; }
+    .match-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+    .match-badge--completed { background: rgba(93,202,165,0.15); border: 1px solid rgba(93,202,165,0.3); color: #5DCAA5; }
+    .match-badge--warning { background: rgba(239,159,39,0.12); border: 1px solid rgba(239,159,39,0.25); color: #EF9F27; }
+    .match-badge--pending { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); }
+    .match-detail { font-size: 12px; color: rgba(255,255,255,0.5); margin: 4px 0 0 0; line-height: 1.4; }
+    .qid-badge { display: inline-flex; }
+    .qid-link { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; background: rgba(167,139,250,0.12); border: 1px solid rgba(167,139,250,0.25); color: #A78BFA; text-decoration: none; letter-spacing: 0.3px; }
+    .qid-link:hover { background: rgba(167,139,250,0.2); text-decoration: none; }
+    .universe-info { display: flex; flex-direction: column; gap: 6px; }
+
+    /* Claims section */
+    .claims-section { margin-top: 4px; }
+    .claim-row { display: grid; grid-template-columns: 100px 1fr; gap: 6px; align-items: baseline; padding: 2px 0; }
+    .claim-key { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.3px; white-space: nowrap; }
+    .claim-val { font-size: 12px; color: rgba(255,255,255,0.65); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
