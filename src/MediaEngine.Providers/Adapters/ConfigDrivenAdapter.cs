@@ -435,7 +435,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 if (resultNode is null)
                     continue;
 
-                var item = ExtractSearchResultItem(resultNode, request.MediaType, request.Title);
+                var item = ExtractSearchResultItem(resultNode, request.MediaType, request.Title, strategy);
                 if (item is not null)
                     items.Add(item);
             }
@@ -469,11 +469,18 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     private SearchResultItem? ExtractSearchResultItem(
         System.Text.Json.Nodes.JsonNode resultNode,
         MediaType mediaType = MediaType.Unknown,
-        string? query = null)
+        string? query = null,
+        SearchStrategyConfig? strategy = null)
     {
         var filteredMappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
         if (filteredMappings.Count == 0)
             return null;
+
+        // When the strategy has release selection (e.g. MusicBrainz recordings with nested
+        // releases), pick the best release so source-routed mappings resolve correctly.
+        JsonNode? releaseNode = strategy?.ReleaseSelection is not null
+            ? ApplyReleaseSelection(resultNode, strategy.ReleaseSelection)
+            : null;
 
         string? title = null;
         string? author = null;
@@ -481,10 +488,18 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         string? year = null;
         string? thumbnailUrl = null;
         string? providerItemId = null;
+        var extraFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var mapping in filteredMappings)
         {
-            var node = JsonPathEvaluator.Evaluate(resultNode, mapping.JsonPath);
+            // Route to the correct source node (recording vs release) when configured.
+            var sourceNode = mapping.Source?.ToLowerInvariant() switch
+            {
+                "release" => releaseNode ?? resultNode,
+                _ => resultNode,
+            };
+
+            var node = JsonPathEvaluator.Evaluate(sourceNode, mapping.JsonPath);
             if (node is null)
             {
                 _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — node not found",
@@ -492,26 +507,30 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 continue;
             }
 
-            var raw = JsonPathEvaluator.GetStringValue(node);
-            if (string.IsNullOrWhiteSpace(raw))
+            // Check condition if configured.
+            if (mapping.Condition is not null && !PassesFilters(sourceNode, [mapping.Condition]))
             {
-                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — value is null or non-scalar",
-                    Name, mapping.ClaimKey, mapping.JsonPath);
+                _logger.LogDebug("{Provider}: mapping '{Key}' — condition not met", Name, mapping.ClaimKey);
                 continue;
             }
 
-            // Apply transform if configured.
+            // Use ApplyTransform for array-aware extraction (array_join, etc.),
+            // then fall back to GetStringValue for simple scalars.
+            string? raw;
             if (!string.IsNullOrEmpty(mapping.Transform))
             {
-                raw = !string.IsNullOrEmpty(mapping.TransformArgs)
-                    ? ValueTransformRegistry.Apply(mapping.Transform, raw, mapping.TransformArgs)
-                    : ValueTransformRegistry.Apply(mapping.Transform, raw);
+                var values = ApplyTransform(node, mapping);
+                raw = values.Count > 0 ? values[0] : null;
+            }
+            else
+            {
+                raw = JsonPathEvaluator.GetStringValue(node);
             }
 
             if (string.IsNullOrWhiteSpace(raw))
             {
-                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — empty after transform '{Transform}'",
-                    Name, mapping.ClaimKey, mapping.JsonPath, mapping.Transform);
+                _logger.LogDebug("{Provider}: mapping '{Key}' (path '{Path}') — value is null or empty",
+                    Name, mapping.ClaimKey, mapping.JsonPath);
                 continue;
             }
 
@@ -548,6 +567,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 case BridgeIdKeys.SpotifyId:
                     providerItemId ??= raw;
                     break;
+                default:
+                    // Collect any other mapped fields (album, track_number, duration, etc.)
+                    extraFields.TryAdd(mapping.ClaimKey, raw);
+                    break;
             }
         }
 
@@ -563,9 +586,9 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         _logger.LogInformation(
             "{Provider}: extracted result Title='{Title}' Author='{Author}' Year='{Year}' " +
-            "HasDesc={HasDesc} HasCover={HasCover} Score={Score:P0}",
+            "HasDesc={HasDesc} HasCover={HasCover} ExtraFields={ExtraCount} Score={Score:P0}",
             Name, title, author ?? "—", year ?? "—",
-            description is not null, thumbnailUrl is not null, confidence);
+            description is not null, thumbnailUrl is not null, extraFields.Count, confidence);
 
         return new SearchResultItem(
             Title:          title,
@@ -575,7 +598,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             ThumbnailUrl:   thumbnailUrl,
             ProviderItemId: providerItemId,
             Confidence:     confidence,
-            ProviderName:   Name);
+            ProviderName:   Name,
+            ExtraFields:    extraFields.Count > 0 ? extraFields : null);
     }
 
     /// <summary>

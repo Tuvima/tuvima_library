@@ -125,6 +125,10 @@ public sealed class RetailCandidate
     [JsonPropertyName("confidence")]
     public double Confidence { get; init; }
 
+    /// <summary>Additional media-type-specific fields not covered by typed properties (e.g. album, track_number, duration).</summary>
+    [JsonPropertyName("extra_fields")]
+    public IReadOnlyDictionary<string, string> ExtraFields { get; init; } = new Dictionary<string, string>();
+
     /// <summary>Per-field match scores when compared against local file metadata. Null if no local context provided.</summary>
     [JsonPropertyName("match_scores")]
     public FieldMatchResult? MatchScores { get; set; }

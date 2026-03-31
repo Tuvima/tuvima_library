@@ -385,6 +385,7 @@ public sealed class SearchService : ISearchService
                 Description    = r.Description,
                 CoverUrl       = r.ThumbnailUrl,
                 Confidence     = r.Confidence,
+                ExtraFields    = r.ExtraFields ?? new Dictionary<string, string>(),
             });
         }
         catch (Exception ex)

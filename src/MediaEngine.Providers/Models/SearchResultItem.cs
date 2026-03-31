@@ -35,4 +35,5 @@ public sealed record SearchResultItem(
     string? ProviderItemId,
     double Confidence,
     string ProviderName,
-    string? ResultType = null);
+    string? ResultType = null,
+    IReadOnlyDictionary<string, string>? ExtraFields = null);
