@@ -11,9 +11,9 @@
     <PackageReference Include="LLamaSharp" />
     <!-- LLamaSharp CPU backend: always included as the universal fallback. -->
     <PackageReference Include="LLamaSharp.Backend.Cpu" />
-    <!-- LLamaSharp Vulkan GPU backend: covers AMD, Intel Arc, and NVIDIA. -->
-    <PackageReference Include="LLamaSharp.Backend.Vulkan" />
-    <!-- LLamaSharp CUDA 12 GPU backend: NVIDIA-optimised higher-throughput path. -->
+    <!-- LLamaSharp CUDA 12 GPU backend: NVIDIA-optimised higher-throughput path.
+         Vulkan backend intentionally excluded — it causes a fatal segfault (0xC0000005)
+         on NVIDIA RTX hardware during llama_decode. CUDA is the correct backend for NVIDIA. -->
     <PackageReference Include="LLamaSharp.Backend.Cuda12" />
     <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->

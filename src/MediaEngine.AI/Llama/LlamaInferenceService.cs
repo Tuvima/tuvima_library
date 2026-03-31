@@ -216,12 +216,16 @@ public sealed class LlamaInferenceService : ILlamaInferenceService
             var modelPath = _inventory.GetModelPath(role);
             var definition = _inventory.GetDefinition(role);
 
-            _logger.LogInformation("Loading LLamaSharp model for {Role}: {Path}", role, modelPath);
+            // TextFast is always CPU-only — it serves on-demand, latency-sensitive
+            // requests (search parsing, TL;DR, Why Factor) where the GPU is better
+            // reserved for heavier background models. Background models (TextQuality,
+            // TextScholar, TextCjk) offload to GPU when the hardware tier supports it.
+            bool forceCpu = role == AiModelRole.TextFast;
+            int gpuLayers = forceCpu ? 0 : ResolveGpuLayerCount(definition.GpuLayers);
 
-            // Determine GPU layer count: hardware tier policy takes priority over the
-            // per-model config value, so the benchmark result automatically governs
-            // how many layers are offloaded to the GPU.
-            int gpuLayers = ResolveGpuLayerCount(definition.GpuLayers);
+            _logger.LogInformation(
+                "Loading LLamaSharp model for {Role}: {Path} (gpu_layers={GpuLayers})",
+                role, modelPath, gpuLayers);
 
             var modelParams = new ModelParams(modelPath)
             {
@@ -233,7 +237,8 @@ public sealed class LlamaInferenceService : ILlamaInferenceService
             var entry = (weights, modelParams);
             _loadedModels[role] = entry;
 
-            _logger.LogInformation("LLamaSharp model loaded for {Role}", role);
+            _logger.LogInformation("LLamaSharp model loaded for {Role} (backend: {Backend})",
+                role, gpuLayers > 0 ? "GPU" : "CPU");
             return entry;
         }
         finally

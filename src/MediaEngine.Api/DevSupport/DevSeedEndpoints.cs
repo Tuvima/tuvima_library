@@ -802,7 +802,8 @@ public static class DevSeedEndpoints
         IOptions<IngestionOptions> options,
         Storage.Contracts.IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        bool startEngineAfterWipe = true)
     {
         var wiped = new List<string>();
 
@@ -945,22 +946,33 @@ public static class DevSeedEndpoints
             logger.LogError(ex, "[Wipe] Failed to wipe database");
         }
 
-        // 5. Restart the ingestion engine.
-        try
+        // 5. Restart the ingestion engine (conditionally — FullTestAsync defers this
+        //    until after seeding so the FSW cannot fire on newly-written seed files
+        //    before ScanDirectory has a chance to enqueue them directly).
+        if (startEngineAfterWipe)
         {
-            ingestionEngine.Start();
-            logger.LogInformation("[Wipe] Ingestion engine restarted");
-            wiped.Add("Ingestion engine: restarted");
+            try
+            {
+                ingestionEngine.Start();
+                logger.LogInformation("[Wipe] Ingestion engine restarted");
+                wiped.Add("Ingestion engine: restarted");
+            }
+            catch (Exception ex)
+            {
+                wiped.Add($"Ingestion engine restart: FAILED — {ex.Message}");
+                logger.LogWarning(ex, "[Wipe] Failed to restart ingestion engine");
+            }
         }
-        catch (Exception ex)
+        else
         {
-            wiped.Add($"Ingestion engine restart: FAILED — {ex.Message}");
-            logger.LogWarning(ex, "[Wipe] Failed to restart ingestion engine");
+            wiped.Add("Ingestion engine: restart deferred (caller will start after seeding)");
         }
 
         return Results.Ok(new
         {
-            message = "Wipe complete. Database reinitialized. Ready for seeding.",
+            message = startEngineAfterWipe
+                ? "Wipe complete. Database reinitialized. Ready for seeding."
+                : "Wipe complete. Database reinitialized. Engine NOT restarted — caller will start after seeding.",
             details = wiped
         });
     }
@@ -975,24 +987,34 @@ public static class DevSeedEndpoints
         IIngestionEngine ingestionEngine,
         ILogger<Program> logger)
     {
-        logger.LogInformation("[FullTest] Starting full ingestion test: wipe → seed → scan");
+        logger.LogInformation("[FullTest] Starting full ingestion test: wipe → seed → scan → start");
 
-        // Step 1: Wipe
-        var wipeResult = await WipeAsync(db, options, configLoader, ingestionEngine, logger);
+        // ── Step 1: Wipe (engine NOT restarted yet) ───────────────────────────
+        // Keeping the FSW stopped during seeding prevents the FileSystemWatcher
+        // from firing "Created" events on seed files. Those FSW events would enter
+        // the 30-second quiet-period buffer and later attempt to re-process files
+        // that ScanDirectory has already enqueued. By deferring the engine start
+        // until after seeding, every file is ingested exactly once via the direct
+        // ScanDirectory path, giving deterministic, race-free behaviour.
+        var wipeResult = await WipeAsync(db, options, configLoader, ingestionEngine, logger,
+            startEngineAfterWipe: false);
 
-        // Step 2: Seed
+        // ── Step 2: Seed files (FSW is NOT watching — no spurious events) ─────
         var seedResult = await SeedLibraryAsync(context, options, configLoader, logger);
 
-        // Step 3: Trigger a directory scan so the file watcher picks up the seeded files.
-        //         FSW only detects NEW events; files already present when the watcher
-        //         started require an explicit scan to generate synthetic "Created" events.
-        //         Scan each library source path + legacy watch folder.
+        // ── Step 3: Enqueue each seeded file directly into the pipeline ────────
+        // ScanDirectory bypasses the 30-second FSW quiet-period buffer because it
+        // stamps each event with a BatchId before calling Enqueue. Files flow
+        // directly into the debounce queue and are processed without any timing
+        // ambiguity — no Task.Delay, no settle uncertainty.
         var libConfig = configLoader.LoadLibraries();
+        var scannedPaths = new List<string>();
         foreach (var lib in libConfig.Libraries)
         {
             if (!string.IsNullOrWhiteSpace(lib.SourcePath) && Directory.Exists(lib.SourcePath))
             {
                 ingestionEngine.ScanDirectory(lib.SourcePath, lib.IncludeSubdirectories);
+                scannedPaths.Add(lib.SourcePath);
                 logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", lib.SourcePath);
             }
         }
@@ -1001,16 +1023,33 @@ public static class DevSeedEndpoints
         if (!string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
         {
             ingestionEngine.ScanDirectory(watchDir);
+            scannedPaths.Add(watchDir);
             logger.LogInformation("[FullTest] ScanDirectory triggered for legacy watch folder {Path}", watchDir);
+        }
+
+        // ── Step 4: Start the FSW watcher AFTER all files are enqueued ─────────
+        // Now that every seed file is already queued in the pipeline, the watcher
+        // can safely observe new arrivals. Any FSW events for the already-queued
+        // files are harmless: the hash-based duplicate check inside
+        // ProcessCandidateAsync short-circuits them instantly.
+        try
+        {
+            ingestionEngine.Start();
+            logger.LogInformation("[FullTest] Ingestion engine started — FSW active");
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[FullTest] Failed to start ingestion engine after seeding");
         }
 
         return Results.Ok(new
         {
-            message = "Full test initiated: database wiped, library cleared, seed files dropped, " +
-                      "directory scan triggered. Ingestion pipeline will process files automatically. " +
+            message = "Full test initiated: database wiped, library cleared, seed files enqueued " +
+                      "directly into the pipeline (race-free), FSW started. " +
                       "Monitor via GET /ingestion/batches and SignalR intercom.",
             wipe = wipeResult,
             seed = seedResult,
+            scanned_directories = scannedPaths,
             total_test_files = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length,
             next_steps = new[]
             {

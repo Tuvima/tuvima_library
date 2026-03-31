@@ -4,8 +4,11 @@ namespace MediaEngine.AI.Infrastructure;
 
 /// <summary>
 /// Detects the best available GPU backend for LLamaSharp inference.
-/// Probe order: Vulkan (broadest support) → CUDA 12 (NVIDIA-optimised) → CPU (fallback).
+/// Probe order: CUDA 12 (NVIDIA-optimised, preferred) → Vulkan (broad coverage) → CPU (fallback).
 /// Detection is purely filesystem-based — no driver calls, no native P/Invoke.
+/// Note: the Vulkan NuGet backend has been intentionally removed from the project because it
+/// causes a fatal 0xC0000005 segfault on NVIDIA RTX hardware during llama_decode. CUDA 12 is
+/// the active GPU backend. Vulkan probe logic is retained for informational detection only.
 /// </summary>
 public sealed class GpuBackendDetector
 {
