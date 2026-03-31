@@ -63,7 +63,17 @@ public static class IntegrationTestEndpoints
     private static readonly TestExpectation[] MusicExpectations =
     [
         new("Bohemian Rhapsody", "Music", "musicbrainz", "Bohemian Rhapsody Queen", true),
+        new("99 Luftballons", "Music", "musicbrainz", "99 Luftballons Nena", true),
+        new("Lose Yourself", "Music", "musicbrainz", "Lose Yourself Eminem", true),
+        new("Imagine", "Music", "musicbrainz", "Imagine John Lennon", true),
+        new("Smells Like Teen Spirit", "Music", "musicbrainz", "Smells Like Teen Spirit Nirvana", true),
+        new("Under Pressure", "Music", "musicbrainz", "Under Pressure Queen Bowie", true),
+        new("La Vie en rose", "Music", "musicbrainz", "La Vie en rose Piaf", true),
+        new("Take Five", "Music", "musicbrainz", "Take Five Dave Brubeck", true),
+        new("Yesterday", "Music", "musicbrainz", "Yesterday Beatles", true),
         new("Clair de Lune", "Music", "musicbrainz", "Clair de Lune Debussy", true),
+        new("Nuvole Bianche", "Music", "musicbrainz", "Nuvole Bianche Einaudi", true),
+        new("Stan", "Music", "musicbrainz", "Stan Eminem", true),
     ];
 
     private static readonly TestExpectation[] ComicExpectations =
@@ -869,6 +879,9 @@ public static class IntegrationTestEndpoints
             ("Blade Runner 2049", "tmdb", "Movies", MediaType.Movies, "movies"),
             ("Breaking Bad", "tmdb", "TV", MediaType.TV, "tv"),
             ("Bohemian Rhapsody Queen", "musicbrainz", "Music", MediaType.Music, "music"),
+            ("Lose Yourself Eminem", "musicbrainz", "Music", MediaType.Music, "music"),
+            ("Yesterday Beatles", "musicbrainz", "Music", MediaType.Music, "music"),
+            ("Clair de Lune Debussy", "musicbrainz", "Music", MediaType.Music, "music"),
             ("Batman Year One", "metron", "Comics", MediaType.Comics, "comics"),
         };
         var searchTests = allSearchTests
@@ -1543,9 +1556,24 @@ public static class IntegrationTestEndpoints
     [
         new("Bohemian Rhapsody", "Queen", Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11),
         new("Clair de Lune", "Claude Debussy", Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3),
-        new("Lose Yourself", "Eminem", Album: "8 Mile Soundtrack", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1),
-        new("Across the Stars", "John Williams", Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3),
+        new("Lose Yourself", "Eminem", Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1),
         new("Nuvole Bianche", "Ludovico Einaudi", Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6),
+        new("Across the Stars", "John Williams", Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3),
+        new("You're My Best Friend", "Queen", Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 4),
+        new("Death on Two Legs", "Queen", Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 1),
+        new("Under Pressure", "Queen & David Bowie", Album: "Hot Space", Year: 1982, Genre: "Rock", TrackNumber: 11),
+        new("Stan", "Eminem", Album: "The Marshall Mathers LP", Year: 2000, Genre: "Hip-Hop", TrackNumber: 3),
+        new("La Vie en rose", "Édith Piaf", Album: "La Vie en rose", Year: 1947, Genre: "Chanson", TrackNumber: 1),
+        new("Für Elise", "Ludwig van Beethoven", Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1),
+        new("99 Luftballons", "Nena", Album: "99 Luftballons", Year: 1983, Genre: "New Wave", TrackNumber: 1),
+        new("Yesterday", "The Beatles", Album: "Help!", Year: 1965, Genre: "Pop", TrackNumber: 13),
+        new("Imagine", "John Lennon", Album: "Imagine", Year: 1971, Genre: "Pop", TrackNumber: 1),
+        new("The Imperial March", "John Williams", Album: "Star Wars: The Empire Strikes Back", Year: 1980, Genre: "Soundtrack", TrackNumber: 3),
+        new("In the Hall of the Mountain King", "Edvard Grieg", Album: "Peer Gynt Suite No. 1", Year: 1875, Genre: "Classical", TrackNumber: 4),
+        new("4'33\"", "John Cage", Album: "John Cage: 4'33\"", Year: 1952, Genre: "Avant-Garde", TrackNumber: 1),
+        new("MMMBop", "Hanson", Album: "Middle of Nowhere", Year: 1997, Genre: "Pop", TrackNumber: 1),
+        new("Take Five", "Dave Brubeck", Album: "Time Out", Year: 1959, Genre: "Jazz", TrackNumber: 4),
+        new("Smells Like Teen Spirit", "Nirvana", Album: "Nevermind", Year: 1991, Genre: "Grunge", TrackNumber: 1),
     ];
 
     internal sealed record SeedComicInfo(string Title, string? Writer = null,

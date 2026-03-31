@@ -18,6 +18,8 @@ public static class BridgeIdKeys
     public const string AudibleId = "audible_id";
     public const string GoodreadsId = "goodreads_id";
     public const string MusicBrainzId = "musicbrainz_id";
+    public const string MusicBrainzRecordingId = "musicbrainz_recording_id";
+    public const string MusicBrainzReleaseGroupId = "musicbrainz_release_group_id";
     public const string ComicVineId = "comic_vine_id";
     public const string SpotifyId = "spotify_id";
     public const string PodcastIndexId = "podcast_index_id";
@@ -28,6 +30,7 @@ public static class BridgeIdKeys
     {
         Isbn, Isbn13, Isbn10, Asin, TmdbId, ImdbId, WikidataQid,
         AppleBooksId, AudibleId, GoodreadsId, MusicBrainzId,
+        MusicBrainzRecordingId, MusicBrainzReleaseGroupId,
         ComicVineId, SpotifyId, PodcastIndexId, OpenLibraryId
     };
 }

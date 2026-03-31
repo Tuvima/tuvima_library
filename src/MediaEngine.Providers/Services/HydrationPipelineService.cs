@@ -2616,11 +2616,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                     if (!map.ContainsKey(BridgeIdKeys.MusicBrainzId))
                     {
-                        if (map.TryGetValue("musicbrainz_release_id", out var mbReleasePCode))
-                            map[BridgeIdKeys.MusicBrainzId] = mbReleasePCode;
+                        if (map.TryGetValue("musicbrainz_release_group_id", out var mbReleaseGroupPCode))
+                            map[BridgeIdKeys.MusicBrainzId] = mbReleaseGroupPCode;
                         else if (map.TryGetValue("musicbrainz_artist_id", out var mbArtistPCode))
                             map[BridgeIdKeys.MusicBrainzId] = mbArtistPCode;
                     }
+
+                    if (!map.ContainsKey(BridgeIdKeys.MusicBrainzRecordingId))
+                        map[BridgeIdKeys.MusicBrainzRecordingId] = "P966";
+
+                    if (!map.ContainsKey(BridgeIdKeys.MusicBrainzReleaseGroupId))
+                        map[BridgeIdKeys.MusicBrainzReleaseGroupId] = "P436";
 
                     _claimKeyToPCode = map;
                 }

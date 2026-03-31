@@ -362,6 +362,7 @@ public static class DevSeedEndpoints
 
     private static readonly SeedMusic[] SeedMusicTracks =
     [
+        // ── Category 1: Standard (strong MusicBrainz presence) ────────────
         new("Bohemian Rhapsody", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11,
             TestCategory: "Music — classic track, strong MusicBrainz match"),
@@ -371,16 +372,82 @@ public static class DevSeedEndpoints
             TestCategory: "Music — classical, foreign artist name"),
 
         new("Lose Yourself", "Eminem",
-            Album: "8 Mile Soundtrack", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
-            TestCategory: "Music — soundtrack cross-reference potential"),
+            Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
+            TestCategory: "Music — soundtrack, must resolve to 8 Mile OST via MusicBrainz"),
+
+        new("Nuvole Bianche", "Ludovico Einaudi",
+            Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6,
+            TestCategory: "Music — contemporary classical, Italian artist"),
 
         new("Across the Stars", "John Williams",
             Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3,
             TestCategory: "Music — film soundtrack, franchise cross-ref"),
 
-        new("Nuvole Bianche", "Ludovico Einaudi",
-            Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6,
-            TestCategory: "Music — contemporary classical, Italian artist"),
+        // ── Category 2: Album grouping (multiple tracks, same album) ──────
+        new("You're My Best Friend", "Queen",
+            Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 4,
+            TestCategory: "Music — same album as Bohemian Rhapsody, Hub grouping test"),
+
+        new("Death on Two Legs", "Queen",
+            Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 1,
+            TestCategory: "Music — same album, track 1, Hub grouping test"),
+
+        // ── Category 3: Multi-artist / featured / collaboration ───────────
+        new("Under Pressure", "Queen & David Bowie",
+            Album: "Hot Space", Year: 1982, Genre: "Rock", TrackNumber: 11,
+            TestCategory: "Music — dual artist, ampersand separator"),
+
+        new("Stan", "Eminem",
+            Album: "The Marshall Mathers LP", Year: 2000, Genre: "Hip-Hop", TrackNumber: 3,
+            TestCategory: "Music — same artist as Lose Yourself, different album"),
+
+        // ── Category 4: Foreign language / non-Latin ──────────────────────
+        new("La Vie en rose", "Édith Piaf",
+            Album: "La Vie en rose", Year: 1947, Genre: "Chanson", TrackNumber: 1,
+            TestCategory: "Music — French, accented artist name, classic"),
+
+        new("Für Elise", "Ludwig van Beethoven",
+            Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1,
+            TestCategory: "Music — German umlaut in title, historical classical"),
+
+        new("99 Luftballons", "Nena",
+            Album: "99 Luftballons", Year: 1983, Genre: "New Wave", TrackNumber: 1,
+            TestCategory: "Music — German title, one-name artist"),
+
+        // ── Category 5: Disambiguation / common titles ────────────────────
+        new("Yesterday", "The Beatles",
+            Album: "Help!", Year: 1965, Genre: "Pop", TrackNumber: 13,
+            TestCategory: "Music — extremely common title, must resolve to Beatles version"),
+
+        new("Imagine", "John Lennon",
+            Album: "Imagine", Year: 1971, Genre: "Pop", TrackNumber: 1,
+            TestCategory: "Music — album same name as track, iconic single"),
+
+        // ── Category 6: Instrumental / soundtrack / orchestral ────────────
+        new("The Imperial March", "John Williams",
+            Album: "Star Wars: The Empire Strikes Back", Year: 1980, Genre: "Soundtrack", TrackNumber: 3,
+            TestCategory: "Music — same artist as Across the Stars, different franchise entry"),
+
+        new("In the Hall of the Mountain King", "Edvard Grieg",
+            Album: "Peer Gynt Suite No. 1", Year: 1875, Genre: "Classical", TrackNumber: 4,
+            TestCategory: "Music — public domain classical, Norwegian composer"),
+
+        // ── Category 7: Edge cases ────────────────────────────────────────
+        new("4'33\"", "John Cage",
+            Album: "John Cage: 4'33\"", Year: 1952, Genre: "Avant-Garde", TrackNumber: 1,
+            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece"),
+
+        new("MMMBop", "Hanson",
+            Album: "Middle of Nowhere", Year: 1997, Genre: "Pop", TrackNumber: 1,
+            TestCategory: "Edge — unusual capitalization, 90s one-hit wonder"),
+
+        new("Take Five", "Dave Brubeck",
+            Album: "Time Out", Year: 1959, Genre: "Jazz", TrackNumber: 4,
+            TestCategory: "Music — jazz standard, strong MusicBrainz presence"),
+
+        new("Smells Like Teen Spirit", "Nirvana",
+            Album: "Nevermind", Year: 1991, Genre: "Grunge", TrackNumber: 1,
+            TestCategory: "Music — 90s rock, strong Wikidata QID presence"),
     ];
 
     // ── CBZ Comic Seed definitions ─────────────────────────────────────────
