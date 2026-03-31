@@ -307,6 +307,62 @@ public static class VaultHelpers
         };
     }
 
+    /// <summary>Formats a claim key (snake_case field name) into a human-readable label.</summary>
+    public static string FormatClaimKey(string key) => key.ToLowerInvariant() switch
+    {
+        "title"                     => "Title",
+        "original_title"            => "Original Title",
+        "author"                    => "Author",
+        "director"                  => "Director",
+        "artist"                    => "Artist",
+        "narrator"                  => "Narrator",
+        "year"                      => "Year",
+        "genre"                     => "Genre",
+        "series"                    => "Series",
+        "series_position"           => "Series #",
+        "description"               => "Description",
+        "cover_url"                 => "Cover Art",
+        "isbn"                      => "ISBN",
+        "isbn_13"                   => "ISBN-13",
+        "isbn_10"                   => "ISBN-10",
+        "asin"                      => "ASIN",
+        "tmdb_id"                   => "TMDB ID",
+        "imdb_id"                   => "IMDb ID",
+        "musicbrainz_id"            => "MusicBrainz ID",
+        "open_library_id"           => "Open Library ID",
+        "apple_books_id"            => "Apple Books ID",
+        "apple_music_id"            => "Apple Music ID",
+        "apple_music_collection_id" => "Apple Album ID",
+        "apple_artist_id"           => "Apple Artist ID",
+        "apple_podcasts_id"         => "Apple Podcasts ID",
+        "comic_vine_id"             => "Comic Vine ID",
+        "podcast_index_id"          => "Podcast Index ID",
+        "wikidata_qid"              => "Wikidata QID",
+        "show_name"                 => "Show Name",
+        "episode_title"             => "Episode Title",
+        "season_number"             => "Season",
+        "episode_number"            => "Episode",
+        "track_number"              => "Track #",
+        "album"                     => "Album",
+        "composer"                  => "Composer",
+        "rating"                    => "Rating",
+        "runtime"                   => "Runtime",
+        "duration"                  => "Duration",
+        "publisher"                 => "Publisher",
+        "language"                  => "Language",
+        "page_count"                => "Pages",
+        "feed_url"                  => "Feed URL",
+        "barcode"                   => "Barcode",
+        "store_date"                => "Store Date",
+        "explicit"                  => "Explicit",
+        "media_type"                => "Media Type",
+        "illustrator"               => "Illustrator",
+        "screenwriter"              => "Screenwriter",
+        "cast_member"               => "Cast",
+        _                           => string.Join(' ', key.Split('_').Select(w =>
+                                           w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w)),
+    };
+
     /// <summary>Returns the brand colour for a media type string, matching stats bar colours.</summary>
     public static string GetMediaTypeColor(string? mediaType)
     {

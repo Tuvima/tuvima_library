@@ -1,0 +1,582 @@
+@page "/provider-tester"
+@namespace MediaEngine.Web.Components.Pages
+@using MediaEngine.Domain
+@using MediaEngine.Domain.Constants
+@using MediaEngine.Domain.Enums
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Services.Integration
+@using MudBlazor
+@inject IEngineApiClient ApiClient
+@inject ProviderCatalogueService Catalogue
+
+<PageTitle>Provider Tester — Tuvima Library</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
+
+    <MudText Typo="Typo.h4" GutterBottom="true"
+             Style="color: #F8F8F8; font-family: 'Montserrat', sans-serif; font-weight: 700;">
+        Provider Tester
+    </MudText>
+    <MudText Typo="Typo.body2" Class="mb-6"
+             Style="color: rgba(248,248,248,0.55);">
+        Search retail providers using the same attribute-targeted methodology as the Vault.
+        Select a media type and optionally filter to a specific provider.
+    </MudText>
+
+    @* ── Filters ── *@
+    <MudPaper Elevation="0" Class="pa-4 mb-4"
+              Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+        <MudGrid>
+            <MudItem xs="12" sm="4">
+                <MudSelect Value="@_selectedMediaType"
+                           Label="Media Type"
+                           Variant="Variant.Outlined"
+                           T="string"
+                           ValueChanged="OnMediaTypeChanged">
+                    @foreach (var mt in _mediaTypes)
+                    {
+                        <MudSelectItem Value="@mt">@mt</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_selectedProvider"
+                           Label="Provider"
+                           Variant="Variant.Outlined"
+                           T="string">
+                    <MudSelectItem Value="@("all")">All Providers</MudSelectItem>
+                    @foreach (var p in _filteredProviders)
+                    {
+                        <MudSelectItem Value="@p.Name">
+                            <div class="d-flex align-center gap-2">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: @p.AccentColor; display: inline-block;"></span>
+                                @p.DisplayName
+                                @if (!p.Enabled)
+                                {
+                                    <span style="color: rgba(255,255,255,0.3); font-size: 0.75rem;">(disabled)</span>
+                                }
+                            </div>
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4" Class="d-flex align-center">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           OnClick="@RunSearch"
+                           Disabled="@(_loading || !HasAnyFieldValue())"
+                           StartIcon="@Icons.Material.Outlined.Bolt">
+                    Search
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @* ── Search Fields ── *@
+    <MudPaper Elevation="0" Class="pa-4 mb-4"
+              Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
+
+        @* Field picker chips *@
+        <MudText Typo="Typo.caption" Class="mb-2"
+                 Style="color: rgba(248,248,248,0.4); text-transform: uppercase; letter-spacing: 1px;">
+            Search Fields
+        </MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            @foreach (var field in _searchableFields)
+            {
+                var isActive = _activeFields.Contains(field.FieldKey);
+                <MudChip T="string"
+                         Color="@(isActive ? Color.Primary : Color.Default)"
+                         Variant="@(isActive ? Variant.Filled : Variant.Outlined)"
+                         OnClick="@(() => ToggleField(field.FieldKey))"
+                         Style="@(isActive ? "" : "border-color: rgba(255,255,255,0.15); color: rgba(255,255,255,0.5);")">
+                    @field.DisplayLabel
+                </MudChip>
+            }
+        </div>
+
+        @* Active field inputs *@
+        <MudGrid>
+            @foreach (var field in _searchableFields.Where(f => _activeFields.Contains(f.FieldKey)))
+            {
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_fieldValues[field.FieldKey]"
+                                  Label="@field.DisplayLabel"
+                                  Placeholder="@($"Enter {field.DisplayLabel.ToLower()}...")"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@Icons.Material.Outlined.Close"
+                                  OnAdornmentClick="@(() => ClearField(field.FieldKey))"
+                                  OnKeyUp="@OnFieldKeyUp" />
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+
+    @* ── Loading ── *@
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                           Style="border-radius: 4px;" />
+        <MudText Typo="Typo.body2" Class="mb-4" Style="color: rgba(248,248,248,0.55);">
+            Searching providers...
+        </MudText>
+    }
+
+    @* ── Error ── *@
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4" Variant="Variant.Outlined">@_error</MudAlert>
+    }
+
+    @* ── Results ── *@
+    @if (_results is { Count: > 0 })
+    {
+        @* Stats bar *@
+        <div class="d-flex align-center gap-4 mb-4" style="color: rgba(248,248,248,0.55);">
+            <MudText Typo="Typo.body2">
+                <strong style="color: #F8F8F8;">@_results.Count</strong> result@(_results.Count == 1 ? "" : "s")
+                from <strong style="color: #F8F8F8;">@_results.Select(r => r.ProviderName).Distinct().Count()</strong> provider@(_results.Select(r => r.ProviderName).Distinct().Count() == 1 ? "" : "s")
+            </MudText>
+            @if (_searchDuration > TimeSpan.Zero)
+            {
+                <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.3);">
+                    @_searchDuration.TotalMilliseconds.ToString("F0")ms
+                </MudText>
+            }
+        </div>
+
+        @* Group results by provider *@
+        @foreach (var providerGroup in _results.GroupBy(r => r.ProviderName).OrderByDescending(g => g.Max(r => r.CompositeScore)))
+        {
+            var providerColor = Catalogue.GetAccentColor(providerGroup.Key);
+            var providerDisplay = Catalogue.GetDisplayName(providerGroup.Key);
+
+            <MudPaper Elevation="0" Class="pa-0 mb-4"
+                      Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden;">
+
+                @* Provider header *@
+                <div class="pa-3 d-flex align-center gap-2"
+                     style="background: @(providerColor)18; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                    <span style="width: 10px; height: 10px; border-radius: 50%; background: @providerColor;"></span>
+                    <MudText Typo="Typo.subtitle2" Style="color: #F8F8F8; font-weight: 600;">
+                        @providerDisplay
+                    </MudText>
+                    <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);">
+                        @providerGroup.Count() result@(providerGroup.Count() == 1 ? "" : "s")
+                    </MudText>
+                </div>
+
+                @* Result rows *@
+                @foreach (var result in providerGroup.OrderByDescending(r => r.CompositeScore))
+                {
+                    <div class="pt-result-row">
+                        @* Cover + main info *@
+                        <div class="d-flex gap-3 pa-3">
+                            @* Cover thumbnail *@
+                            <div style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.04);">
+                                @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                {
+                                    <img src="@result.CoverUrl" alt="" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" />
+                                }
+                                else
+                                {
+                                    <div class="d-flex align-center justify-center" style="width: 100%; height: 100%;">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; color: rgba(255,255,255,0.1);" />
+                                    </div>
+                                }
+                            </div>
+
+                            @* Title + metadata *@
+                            <div style="flex: 1; min-width: 0;">
+                                <MudText Typo="Typo.subtitle1" Style="color: #F8F8F8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                    @result.Title
+                                </MudText>
+                                @{
+                                    var subline = GetSubline(result);
+                                    var tertiary = GetTertiary(result);
+                                }
+                                @if (!string.IsNullOrEmpty(subline) || !string.IsNullOrEmpty(tertiary))
+                                {
+                                    <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.6);">
+                                        @subline
+                                        @if (!string.IsNullOrEmpty(subline) && !string.IsNullOrEmpty(tertiary))
+                                        {
+                                            <span style="color: rgba(255,255,255,0.2); margin: 0 6px;">·</span>
+                                        }
+                                        @tertiary
+                                    </MudText>
+                                }
+                                @if (!string.IsNullOrEmpty(result.Description))
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.35); margin-top: 2px;">
+                                        @(result.Description.Length > 200 ? result.Description[..197] + "…" : result.Description)
+                                    </MudText>
+                                }
+                            </div>
+
+                            @* Score badge *@
+                            <div class="d-flex flex-column align-end" style="flex-shrink: 0;">
+                                <MudChip T="string"
+                                         Size="Size.Small"
+                                         Color="@GetScoreColor(result.CompositeScore)"
+                                         Variant="Variant.Outlined"
+                                         Style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;">
+                                    @result.CompositeScore.ToString("F2")
+                                </MudChip>
+                                @if (!string.IsNullOrEmpty(result.ProviderItemId))
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.25); margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;">
+                                        @(result.ProviderItemId.Length > 20 ? result.ProviderItemId[..17] + "…" : result.ProviderItemId)
+                                    </MudText>
+                                }
+                            </div>
+                        </div>
+
+                        @* Detail fields + extra fields *@
+                        @{
+                            var details = GetDetailFields(result);
+                            var bridges = GetBridgeFields(result);
+                        }
+                        @if (details.Count > 0 || bridges.Count > 0)
+                        {
+                            <div class="px-3 pb-3" style="padding-left: 75px;">
+                                @* Detail fields row *@
+                                @if (details.Count > 0)
+                                {
+                                    <div class="d-flex flex-wrap gap-3 mb-1">
+                                        @foreach (var (label, val) in details)
+                                        {
+                                            <span style="font-size: 0.75rem;">
+                                                <span style="color: rgba(248,248,248,0.35);">@label:</span>
+                                                <span style="color: rgba(248,248,248,0.7);">@val</span>
+                                            </span>
+                                        }
+                                    </div>
+                                }
+                                @* Bridge ID chips *@
+                                @if (bridges.Count > 0)
+                                {
+                                    <div class="d-flex flex-wrap gap-1">
+                                        @foreach (var (label, val) in bridges)
+                                        {
+                                            <MudChip T="string"
+                                                     Size="Size.Small"
+                                                     Variant="Variant.Outlined"
+                                                     Style="font-size: 0.65rem; height: 20px; color: rgba(248,248,248,0.5); border-color: rgba(255,255,255,0.1);"
+                                                     title="@val">
+                                                @label
+                                            </MudChip>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        @* Extra fields (all remaining data from provider) *@
+                        @if (result.ExtraFields.Count > 0)
+                        {
+                            <div class="px-3 pb-3" style="padding-left: 75px;">
+                                <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.25); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
+                                    Extra Fields
+                                </MudText>
+                                <div class="d-flex flex-wrap gap-3">
+                                    @foreach (var (key, val) in result.ExtraFields.OrderBy(kv => kv.Key))
+                                    {
+                                        <span style="font-size: 0.7rem;">
+                                            <span style="color: rgba(248,248,248,0.3);">@VaultHelpers.FormatClaimKey(key):</span>
+                                            <span style="color: rgba(248,248,248,0.55);">@(val.Length > 80 ? val[..77] + "…" : val)</span>
+                                        </span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        }
+    }
+    else if (!_loading && _hasSearched)
+    {
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
+            No results found. Try broadening your search or changing the media type.
+        </MudAlert>
+    }
+
+</MudContainer>
+
+<style>
+    .pt-result-row {
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .pt-result-row:last-child {
+        border-bottom: none;
+    }
+    .pt-result-row:hover {
+        background: rgba(255,255,255,0.02);
+    }
+</style>
+
+@code {
+
+    // ── State ────────────────────────────────────────────────────────────────
+
+    private string _selectedMediaType = "Books";
+    private string _selectedProvider = "all";
+    private bool _loading;
+    private bool _hasSearched;
+    private string? _error;
+    private TimeSpan _searchDuration;
+
+    private IReadOnlyList<SearchableField> _searchableFields = [];
+    private readonly HashSet<string> _activeFields = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _fieldValues = new(StringComparer.OrdinalIgnoreCase);
+
+    private List<RetailCandidateDto> _results = [];
+    private IReadOnlyList<ProviderCatalogueDto> _filteredProviders = [];
+
+    private static readonly string[] _mediaTypes =
+        ["Books", "Audiobooks", "Music", "Movies", "TV", "Comics", "Podcasts"];
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Catalogue.GetCatalogueAsync();
+        RefreshProviderList();
+        RefreshSearchableFields();
+    }
+
+    // ── Filter changes ───────────────────────────────────────────────────────
+
+    private void OnMediaTypeChanged(string newType)
+    {
+        _selectedMediaType = newType;
+        _selectedProvider = "all";
+        RefreshProviderList();
+        RefreshSearchableFields();
+        _results = [];
+        _hasSearched = false;
+        _error = null;
+    }
+
+    private void RefreshProviderList()
+    {
+        var catalogue = Catalogue.GetCatalogueAsync().GetAwaiter().GetResult();
+        _filteredProviders = catalogue
+            .Where(p => p.MediaTypes.Any(mt =>
+                string.Equals(mt, _selectedMediaType, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(mt, MapMediaTypeAlias(_selectedMediaType), StringComparison.OrdinalIgnoreCase)))
+            .Where(p => p.HydrationStages.Contains(1)) // Stage 1 retail providers only
+            .OrderBy(p => p.DisplayName)
+            .ToList();
+    }
+
+    private void RefreshSearchableFields()
+    {
+        var mediaType = ParseMediaType(_selectedMediaType);
+        _searchableFields = MediaTypeFieldRegistry.GetSearchableFields(mediaType);
+
+        // Reset active fields to defaults
+        _activeFields.Clear();
+        _fieldValues.Clear();
+        foreach (var f in _searchableFields)
+        {
+            _fieldValues[f.FieldKey] = "";
+            if (f.IsDefault)
+                _activeFields.Add(f.FieldKey);
+        }
+    }
+
+    // ── Field management ─────────────────────────────────────────────────────
+
+    private void ToggleField(string key)
+    {
+        if (_activeFields.Contains(key))
+        {
+            _activeFields.Remove(key);
+            _fieldValues[key] = "";
+        }
+        else
+        {
+            _activeFields.Add(key);
+        }
+    }
+
+    private void ClearField(string key)
+    {
+        _fieldValues[key] = "";
+    }
+
+    private bool HasAnyFieldValue() =>
+        _activeFields.Any(k => _fieldValues.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v));
+
+    private async Task OnFieldKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && HasAnyFieldValue())
+            await RunSearch();
+    }
+
+    // ── Search ───────────────────────────────────────────────────────────────
+
+    private async Task RunSearch()
+    {
+        if (!HasAnyFieldValue()) return;
+
+        _loading = true;
+        _error = null;
+        _results = [];
+        _hasSearched = true;
+        StateHasChanged();
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        try
+        {
+            // Build structured search fields from active inputs
+            var searchFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in _activeFields)
+            {
+                if (_fieldValues.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+                    searchFields[key] = val.Trim();
+            }
+
+            // Build combined query for providers that need a single string
+            var combinedQuery = string.Join(" ", searchFields.Values);
+
+            var response = await ApiClient.SearchRetailAsync(
+                combinedQuery,
+                _selectedMediaType,
+                maxCandidates: 25,
+                searchFields: searchFields);
+
+            if (response?.Candidates is not null)
+            {
+                _results = response.Candidates;
+
+                // Client-side provider filter
+                if (_selectedProvider != "all")
+                {
+                    _results = _results
+                        .Where(r => string.Equals(r.ProviderName, _selectedProvider, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"Search failed: {ex.Message}";
+        }
+        finally
+        {
+            sw.Stop();
+            _searchDuration = sw.Elapsed;
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Result display helpers ───────────────────────────────────────────────
+
+    private string? GetSubline(RetailCandidateDto result)
+    {
+        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        return GetFieldValue(result, display.Subline);
+    }
+
+    private string? GetTertiary(RetailCandidateDto result)
+    {
+        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        return GetFieldValue(result, display.Tertiary);
+    }
+
+    private List<(string Label, string Value)> GetDetailFields(RetailCandidateDto result)
+    {
+        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        var allFields = BuildFieldLookup(result);
+        var details = new List<(string, string)>();
+
+        foreach (var key in display.DetailFields)
+        {
+            if (key == display.Subline || key == display.Tertiary) continue;
+            if (allFields.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+                details.Add((VaultHelpers.FormatClaimKey(key), val.Length > 80 ? val[..77] + "…" : val));
+        }
+        return details;
+    }
+
+    private List<(string Label, string Value)> GetBridgeFields(RetailCandidateDto result)
+    {
+        var display = MediaTypeFieldRegistry.GetSearchDisplay(ParseMediaType(_selectedMediaType));
+        var allFields = BuildFieldLookup(result);
+        var bridges = new List<(string, string)>();
+
+        foreach (var key in display.BridgeLabels)
+        {
+            if (allFields.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+                bridges.Add((VaultHelpers.FormatClaimKey(key), val));
+        }
+        return bridges;
+    }
+
+    private string? GetFieldValue(RetailCandidateDto result, string key)
+    {
+        var lookup = BuildFieldLookup(result);
+        return lookup.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val) ? val : null;
+    }
+
+    private static Dictionary<string, string> BuildFieldLookup(RetailCandidateDto result)
+    {
+        var lookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        // Typed fields
+        if (!string.IsNullOrEmpty(result.Title)) lookup["title"] = result.Title;
+        if (!string.IsNullOrEmpty(result.Author)) { lookup["author"] = result.Author; lookup["artist"] = result.Author; }
+        if (!string.IsNullOrEmpty(result.Director)) lookup["director"] = result.Director;
+        if (!string.IsNullOrEmpty(result.Year)) lookup["year"] = result.Year;
+        if (!string.IsNullOrEmpty(result.Description)) lookup["description"] = result.Description;
+        if (!string.IsNullOrEmpty(result.ProviderItemId)) lookup["provider_item_id"] = result.ProviderItemId;
+
+        // Extra fields from provider
+        foreach (var (key, val) in result.ExtraFields)
+        {
+            if (!string.IsNullOrWhiteSpace(val))
+                lookup.TryAdd(key, val);
+        }
+
+        return lookup;
+    }
+
+    // ── Formatting helpers ───────────────────────────────────────────────────
+
+    private static Color GetScoreColor(double score) => score switch
+    {
+        >= 0.85 => Color.Success,
+        >= 0.60 => Color.Warning,
+        _ => Color.Default,
+    };
+
+    // FormatClaimKey is shared via VaultHelpers.FormatClaimKey()
+
+    private static MediaType ParseMediaType(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return MediaType.Unknown;
+        var normalized = s.Trim() switch
+        {
+            "Epub" => "Books",
+            "Audiobook" or "Audiobooks" => "Audiobooks",
+            "Comics" => "Comic",
+            _ => s.Trim(),
+        };
+        return Enum.TryParse<MediaType>(normalized, ignoreCase: true, out var mt) ? mt : MediaType.Unknown;
+    }
+
+    private static string? MapMediaTypeAlias(string type) => type switch
+    {
+        "Books" => "Epub",
+        "Audiobooks" => "Audiobook",
+        _ => null,
+    };
+}
