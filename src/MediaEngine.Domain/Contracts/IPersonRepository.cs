@@ -220,4 +220,13 @@ public interface IPersonRepository
     /// name record (e.g. "James S.A. Corey") into one of its real authors.
     /// </summary>
     Task<bool> IsPseudonymOrAliasAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Links a member person to a group person in the <c>person_group_members</c> table.
+    /// Idempotent — duplicate (group_id, member_id) pairs are silently ignored.
+    /// </summary>
+    /// <param name="groupId">The group person (e.g. Metallica).</param>
+    /// <param name="memberId">The member person (e.g. James Hetfield).</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task LinkGroupMemberAsync(Guid groupId, Guid memberId, CancellationToken ct = default);
 }

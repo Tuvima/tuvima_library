@@ -1096,7 +1096,81 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         if (string.IsNullOrWhiteSpace(resolvedQid))
-            return BridgeResolutionResult.NotFound;
+        {
+            // ── Fallback: text-based reconciliation with type filtering ───────
+            // When no bridge ID matches on Wikidata (e.g. Apple Music trackId not
+            // yet in P4857), fall back to a CirrusSearch using title + author with
+            // instance_of type constraints. This is especially effective for music
+            // where Q105543609 (musical work/composition) filtering eliminates
+            // movies, albums, and other entities with the same name.
+            // The fallback only fires for media types that have instance_of_classes
+            // configured in wikidata_reconciliation.json.
+            var mediaTypeKey = mediaType.ToString();
+            if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var typeClasses)
+                && typeClasses.Count > 0
+                && bridgeIds.TryGetValue("_title", out var fallbackTitle)
+                && !string.IsNullOrWhiteSpace(fallbackTitle))
+            {
+                bridgeIds.TryGetValue("_author", out var fallbackAuthor);
+                var fallbackQuery = string.IsNullOrWhiteSpace(fallbackAuthor)
+                    ? fallbackTitle
+                    : $"{fallbackTitle} {fallbackAuthor}";
+
+                _logger.LogInformation(
+                    "{Provider}: ResolveBridgeAsync — bridge IDs exhausted, attempting text reconciliation " +
+                    "for '{Query}' ({MediaType}, types={TypeClasses})",
+                    Name, fallbackQuery, mediaType, string.Join(",", typeClasses));
+
+                try
+                {
+                    // Use the first type class for CirrusSearch filtering.
+                    // For Music, this is Q105543609 (musical work/composition).
+                    var reconRequest = new ReconciliationRequest
+                    {
+                        Query = fallbackQuery,
+                        Limit = 5,
+                        Language = language,
+                        DiacriticInsensitive = true,
+                        Cleaners = QueryCleaners.All(),
+                        Types = typeClasses.ToList(),
+                    };
+
+                    var fallbackCandidates = await _reconciler.ReconcileAsync(reconRequest, ct)
+                        .ConfigureAwait(false);
+
+                    if (fallbackCandidates.Count > 0)
+                    {
+                        var topCandidate = fallbackCandidates[0];
+                        if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
+                        {
+                            resolvedQid = topCandidate.Id;
+                            _logger.LogInformation(
+                                "{Provider}: ResolveBridgeAsync — text reconciliation matched '{Query}' to " +
+                                "{QID} '{Label}' (score={Score})",
+                                Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
+                        }
+                        else
+                        {
+                            _logger.LogDebug(
+                                "{Provider}: ResolveBridgeAsync — text reconciliation top candidate " +
+                                "'{Label}' ({QID}) score {Score} below threshold",
+                                Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
+                        }
+                    }
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex,
+                        "{Provider}: ResolveBridgeAsync — text reconciliation fallback failed for '{Query}'",
+                        Name, fallbackQuery);
+                }
+            }
+
+            // If still no match after text fallback, give up.
+            if (string.IsNullOrWhiteSpace(resolvedQid))
+                return BridgeResolutionResult.NotFound;
+        }
 
         // ── Step 2: Check P629 to determine if the resolved entity is an edition ──
         bool isEdition = false;
@@ -1158,6 +1232,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             "P9586", // Apple TV movie ID
             "P9750", // Apple TV show ID
             "P4857", // Apple Music ID
+            "P1243", // ISRC (International Standard Recording Code)
             "P5849", // Apple Podcasts ID
             "P434",  // MusicBrainz artist ID
             "P436",  // MusicBrainz release ID

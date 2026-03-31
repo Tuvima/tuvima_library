@@ -245,6 +245,7 @@
   <data name="StatusPill_Quarantined" xml:space="preserve"><value>EN QUARANTAINE</value></data>
   <data name="StatusPill_Unknown" xml:space="preserve"><value>INCONNU</value></data>
   <data name="StatusPill_WaitingForProvider" xml:space="preserve"><value>EN ATTENTE DU FOURNISSEUR</value></data>
+  <data name="StatusPill_Unowned" xml:space="preserve"><value>NON POSSÉDÉ</value></data>
   <data name="StatusPill_DeletesIn" xml:space="preserve"><value>Suppression dans {0}j</value></data>
 
   <!-- ── Profile Tab ────────────────────────────────────────────────────── -->

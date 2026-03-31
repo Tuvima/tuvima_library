@@ -114,6 +114,14 @@ public sealed class Person
     public bool IsPseudonym { get; set; }
 
     /// <summary>
+    /// Whether this person record represents a musical group, band, or ensemble
+    /// rather than an individual. When <c>true</c>, the <c>person_group_members</c>
+    /// table links this record to its constituent member persons via P527/P463.
+    /// Determined by Wikidata P31 = Q215380 (musical group) or Q5741069 (musical ensemble).
+    /// </summary>
+    public bool IsGroup { get; set; }
+
+    /// <summary>
     /// Path to the locally downloaded headshot image under
     /// <c>{LibraryRoot}/.people/{id}/headshot.jpg</c>.
     /// Null until the headshot has been downloaded from Wikimedia Commons.

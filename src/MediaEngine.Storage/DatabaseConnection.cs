@@ -1354,6 +1354,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // entity_field_changes (one row per field that changed, FK to entity_events).
         MigrateEntityTimeline(conn);
 
+        // Migration M-069: Music provider support — is_group column on persons,
+        // person_group_members junction table, Performer/Artist roles.
+        MigrateMusicGroupSupport(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2171,6 +2175,106 @@ public sealed class DatabaseConnection : IDatabaseConnection
             CREATE INDEX IF NOT EXISTS idx_field_changes_field ON entity_field_changes(entity_id, field);
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-069: Music provider support.
+    ///
+    /// <list type="bullet">
+    ///   <item><c>is_group</c> column on persons (0 = individual, 1 = group/band).</item>
+    ///   <item><c>person_group_members</c> junction table linking groups to their member persons.</item>
+    ///   <item>Expanded person_roles CHECK to include 'Performer' and 'Artist'.</item>
+    /// </list>
+    ///
+    /// Idempotent: checks for <c>is_group</c> column before running.
+    /// </summary>
+    private static void MigrateMusicGroupSupport(SqliteConnection conn)
+    {
+        // Check if is_group column already exists on persons.
+        bool isGroupExists = false;
+        using (var infoCmd = conn.CreateCommand())
+        {
+            infoCmd.CommandText = "PRAGMA table_info(persons);";
+            using var reader = infoCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), "is_group", StringComparison.OrdinalIgnoreCase))
+                {
+                    isGroupExists = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isGroupExists)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                ALTER TABLE persons ADD COLUMN is_group INTEGER NOT NULL DEFAULT 0;
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        // Create person_group_members junction table.
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS person_group_members (
+                    group_id    TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    member_id   TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    start_date  TEXT,   -- ISO-8601 date when member joined (from Wikidata P580 qualifier)
+                    end_date    TEXT,   -- ISO-8601 date when member left (from Wikidata P582 qualifier)
+                    PRIMARY KEY (group_id, member_id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_person_group_members_member
+                    ON person_group_members (member_id);
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        // Expand person_roles CHECK constraint to include 'Performer' and 'Artist'.
+        // Check if already expanded.
+        bool rolesExpanded = false;
+        using (var sqlCmd = conn.CreateCommand())
+        {
+            sqlCmd.CommandText =
+                "SELECT sql FROM sqlite_master WHERE type='table' AND name='person_roles';";
+            var sql = sqlCmd.ExecuteScalar() as string;
+            if (sql is not null && sql.Contains("Performer", StringComparison.OrdinalIgnoreCase))
+                rolesExpanded = true;
+        }
+
+        if (!rolesExpanded)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                PRAGMA foreign_keys=OFF;
+
+                CREATE TABLE person_roles_new (
+                    person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+                    role      TEXT NOT NULL CHECK (role IN (
+                                  'Author','Narrator','Director',
+                                  'Illustrator','Cast Member','Voice Actor',
+                                  'Screenwriter','Composer',
+                                  'Translator','Editor','Host','Producer',
+                                  'Performer','Artist')),
+                    PRIMARY KEY (person_id, role)
+                );
+
+                INSERT INTO person_roles_new (person_id, role)
+                SELECT person_id, role FROM person_roles;
+
+                DROP TABLE person_roles;
+
+                ALTER TABLE person_roles_new RENAME TO person_roles;
+
+                PRAGMA foreign_keys=ON;
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        System.Diagnostics.Debug.WriteLine("M-069: Music group support — is_group, person_group_members, expanded roles");
     }
 
     /// <summary>

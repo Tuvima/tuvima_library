@@ -260,7 +260,8 @@ CREATE TABLE IF NOT EXISTS person_roles (
                   'Author','Narrator','Director',
                   'Illustrator','Cast Member','Voice Actor',
                   'Screenwriter','Composer',
-                  'Translator','Editor','Host','Producer')),
+                  'Translator','Editor','Host','Producer',
+                  'Performer','Artist')),
     PRIMARY KEY (person_id, role)
 );
 

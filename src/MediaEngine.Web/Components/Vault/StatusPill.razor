@@ -2,7 +2,7 @@
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="vault-status-pill">
-    <div class="vault-status-badge" style="color: @_color; background: @_bgColor; border-color: @_borderColor;">
+    <div class="vault-status-badge" style="color: @_color; background: @_bgColor; border-color: @_borderColor; @(Status == VaultStatus.Unowned ? "opacity: 0.5;" : "")">
         <MudIcon Icon="@_icon" Style="font-size: 12px;" />
         <span>@_label</span>
     </div>
@@ -23,6 +23,7 @@
         VaultStatus.NeedsReview => "#EF9F27",
         VaultStatus.Quarantined => "rgba(255,255,255,0.5)",
         VaultStatus.WaitingForProvider => "#38BDF8",
+        VaultStatus.Unowned => "rgba(255,255,255,0.3)",
         _ => "rgba(255,255,255,0.3)",
     };
 
@@ -33,6 +34,7 @@
         VaultStatus.NeedsReview => "rgba(239,159,39,0.05)",
         VaultStatus.Quarantined => "rgba(255,255,255,0.03)",
         VaultStatus.WaitingForProvider => "rgba(56,189,248,0.05)",
+        VaultStatus.Unowned => "rgba(255,255,255,0.02)",
         _ => "rgba(255,255,255,0.02)",
     };
 
@@ -43,6 +45,7 @@
         VaultStatus.NeedsReview => "rgba(239,159,39,0.2)",
         VaultStatus.Quarantined => "rgba(255,255,255,0.1)",
         VaultStatus.WaitingForProvider => "rgba(56,189,248,0.2)",
+        VaultStatus.Unowned => "rgba(255,255,255,0.06)",
         _ => "rgba(255,255,255,0.05)",
     };
 
@@ -53,6 +56,7 @@
         VaultStatus.NeedsReview => Icons.Material.Filled.Warning,
         VaultStatus.Quarantined => Icons.Material.Filled.Close,
         VaultStatus.WaitingForProvider => Icons.Material.Filled.Schedule,
+        VaultStatus.Unowned => Icons.Material.Outlined.RemoveShoppingCart,
         _ => Icons.Material.Filled.HelpOutline,
     };
 
@@ -63,6 +67,7 @@
         VaultStatus.NeedsReview => L["StatusPill_NeedsReview"],
         VaultStatus.Quarantined => L["StatusPill_Quarantined"],
         VaultStatus.WaitingForProvider => L["StatusPill_WaitingForProvider"],
+        VaultStatus.Unowned => L["StatusPill_Unowned"],
         _ => L["StatusPill_Unknown"],
     };
 }

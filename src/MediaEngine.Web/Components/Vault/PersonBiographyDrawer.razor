@@ -107,6 +107,56 @@
     </div>
 </DrawerSection>
 
+@* ── Members (for groups/bands) ── *@
+@if (Person.IsGroup && GroupMembers?.Count > 0)
+{
+    <DrawerSection Title="Members" Icon="@Icons.Material.Outlined.Groups" DefaultOpen="true">
+        <div class="pbd-members-list">
+            @foreach (var member in GroupMembers)
+            {
+                <button class="pbd-work-row" @onclick="() => OnMemberClicked.InvokeAsync(member.Id)">
+                    <div class="pbd-work-thumb" style="border-radius: 50%;">
+                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                    </div>
+                    <div class="pbd-work-info">
+                        <span class="pbd-work-title">@member.Name</span>
+                        @if (!string.IsNullOrEmpty(member.DateRange))
+                        {
+                            <span class="pbd-work-type" style="color: rgba(255,255,255,0.35);">@member.DateRange</span>
+                        }
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
+                </button>
+            }
+        </div>
+    </DrawerSection>
+}
+
+@* ── Member of (for individuals who belong to groups) ── *@
+@if (!Person.IsGroup && MemberOfGroups?.Count > 0)
+{
+    <DrawerSection Title="Member of" Icon="@Icons.Material.Outlined.Groups" DefaultOpen="true">
+        <div class="pbd-members-list">
+            @foreach (var group in MemberOfGroups)
+            {
+                <button class="pbd-work-row" @onclick="() => OnMemberClicked.InvokeAsync(group.Id)">
+                    <div class="pbd-work-thumb" style="border-radius: 6px;">
+                        <MudIcon Icon="@Icons.Material.Outlined.Groups" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                    </div>
+                    <div class="pbd-work-info">
+                        <span class="pbd-work-title">@group.Name</span>
+                        @if (!string.IsNullOrEmpty(group.DateRange))
+                        {
+                            <span class="pbd-work-type" style="color: rgba(255,255,255,0.35);">@group.DateRange</span>
+                        }
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
+                </button>
+            }
+        </div>
+    </DrawerSection>
+}
+
 @* ── Character Roles ── *@
 @if (PersonCharacterRoles.Count > 0)
 {
@@ -190,8 +240,11 @@
     [Parameter] public PersonAliasesResponseDto? Aliases { get; set; }
     [Parameter] public List<HubViewModel>? PersonWorks { get; set; }
     [Parameter] public IReadOnlyList<CharacterRoleDto> PersonCharacterRoles { get; set; } = [];
+    [Parameter] public List<GroupMemberView>? GroupMembers { get; set; }
+    [Parameter] public List<GroupMemberView>? MemberOfGroups { get; set; }
     [Parameter] public EventCallback<Guid> OnPersonAliasClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnWorkClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnMemberClicked { get; set; }
 
     // Works grouped by the person's role for the "In Your Library" section.
     // PersonWorks from GetWorksByPersonAsync returns HubViewModel items which carry
@@ -388,6 +441,13 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
+    }
+
+    /* ── Members list ── */
+    .pbd-members-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
     }
 
     /* ── Empty hint ── */

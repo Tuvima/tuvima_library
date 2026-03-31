@@ -1343,6 +1343,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId,
                 BridgeIdKeys.AudibleId, BridgeIdKeys.GoodreadsId,
                 BridgeIdKeys.MusicBrainzId, BridgeIdKeys.ComicVineId, "gcd_id",
+                BridgeIdKeys.AppleMusicId, BridgeIdKeys.AppleMusicCollectionId,
+                BridgeIdKeys.AppleArtistId,
             };
 
             foreach (var claim in rawClaims)
@@ -1458,6 +1460,29 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 _logger.LogInformation(
                     "Stage 2: Resolving Wikidata bridge for entity {Id} — {Count} bridge IDs, edition-aware: {EditionAware}, effectiveMediaType: {MediaType}",
                     request.EntityId, bridgeDict.Count, isEditionAware, effectiveMediaType);
+
+                // ── Inject title + author sentinels for text reconciliation fallback ──
+                // When bridge IDs fail to resolve (e.g. Apple Music trackId not yet in
+                // Wikidata P4857), ReconciliationAdapter.ResolveBridgeAsync can fall back
+                // to CirrusSearch text matching with type filtering. The _title and _author
+                // sentinel keys carry the canonical title/author for this fallback.
+                var titleForFallback = canonicalsForS2
+                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))
+                    ?.Value;
+                var authorForFallback = canonicalsForS2
+                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
+                    ?.Value;
+
+                // Fall back to request hints if canonicals are empty.
+                if (string.IsNullOrWhiteSpace(titleForFallback))
+                    titleForFallback = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Title);
+                if (string.IsNullOrWhiteSpace(authorForFallback))
+                    authorForFallback = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Author);
+
+                if (!string.IsNullOrWhiteSpace(titleForFallback))
+                    bridgeDict["_title"] = titleForFallback;
+                if (!string.IsNullOrWhiteSpace(authorForFallback))
+                    bridgeDict["_author"] = authorForFallback;
 
                 var bridgeResult = await stage2ReconAdapter.ResolveBridgeAsync(
                     bridgeDict, wikidataProps, effectiveMediaType, isEditionAware, ct)

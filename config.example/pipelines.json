@@ -13,30 +13,29 @@
     }
   },
   "Audiobooks": {
-    "strategy": "Sequential",
+    "strategy": "Waterfall",
     "providers": [
-      { "rank": 1, "name": "musicbrainz" },
-      { "rank": 2, "name": "apple_api" }
+      { "rank": 1, "name": "apple_api" }
     ],
     "field_priorities": {
-      "cover": ["apple_api", "musicbrainz"],
+      "cover": ["apple_api"],
       "narrator": ["apple_api"],
       "description": ["apple_api"],
-      "duration": ["musicbrainz"],
       "rating": ["apple_api"]
     }
   },
   "Music": {
-    "strategy": "Sequential",
+    "strategy": "Waterfall",
     "providers": [
-      { "rank": 1, "name": "musicbrainz" },
-      { "rank": 2, "name": "apple_api" }
+      { "rank": 1, "name": "apple_api" }
     ],
     "field_priorities": {
-      "cover": ["apple_api", "musicbrainz"],
+      "cover": ["apple_api"],
       "description": ["apple_api"],
-      "rating": ["apple_api"],
-      "duration": ["musicbrainz"]
+      "genre": ["apple_api"],
+      "album": ["apple_api"],
+      "track_number": ["apple_api"],
+      "duration": ["apple_api"]
     }
   },
   "Movies": {

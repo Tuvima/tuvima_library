@@ -25,8 +25,16 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
     private const double OccupationBoost = 0.20;
     private const double NotableWorkBoost = 0.10;
 
-    // Q5 = human — used to filter non-person entities from search results.
+    // Q5 = human, Q215380 = musical group, Q5741069 = musical ensemble.
     private const string HumanClassQid = "Q5";
+    private const string MusicalGroupClassQid = "Q215380";
+    private const string MusicalEnsembleClassQid = "Q5741069";
+
+    /// <summary>Music-specific roles that should also search for groups/bands.</summary>
+    private static readonly HashSet<string> MusicRoles = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Performer", "Artist", "Composer"
+    };
 
     private readonly WikidataReconciler? _reconciler;
     private readonly IConfigurationLoader _configLoader;
@@ -46,6 +54,8 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
             ["Composer"]     = new(StringComparer.OrdinalIgnoreCase) { "composer", "film score composer", "musician", "songwriter" },
             ["Cast Member"]  = new(StringComparer.OrdinalIgnoreCase) { "actor", "actress", "film actor", "television actor", "voice actor" },
             ["Illustrator"]  = new(StringComparer.OrdinalIgnoreCase) { "illustrator", "comics artist", "mangaka", "graphic artist", "artist" },
+            ["Performer"]    = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "vocalist", "guitarist", "drummer", "bassist", "pianist", "DJ", "band", "musical group" },
+            ["Artist"]       = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "band", "musical group", "recording artist", "songwriter", "performer" },
         };
 
     public PersonReconciliationService(
@@ -74,6 +84,11 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         // Step 1: Search Wikidata for person candidates.
         // Type = "Q5" filters for humans at search time (TypeHierarchyDepth = 1 catches
         // subclasses such as fictional humans). DiacriticInsensitive handles accented names.
+
+        // For music-specific roles, search both humans and musical groups.
+        // Groups (Q215380) and ensembles (Q5741069) would be missed by Q5-only filter.
+        bool isMusicRole = MusicRoles.Contains(expectedRole);
+
         var request = new ReconciliationRequest
         {
             Query = name,
@@ -88,6 +103,37 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         try
         {
             candidates = await _reconciler.ReconcileAsync(request, ct).ConfigureAwait(false);
+
+            // If this is a music role and no human candidates were found (or none met
+            // threshold), also search for musical groups.
+            if (isMusicRole && candidates.Count == 0)
+            {
+                var groupRequest = new ReconciliationRequest
+                {
+                    Query = name,
+                    Limit = 10,
+                    Language = language,
+                    Type = MusicalGroupClassQid,
+                    TypeHierarchyDepth = 1,
+                    DiacriticInsensitive = true,
+                };
+                candidates = await _reconciler.ReconcileAsync(groupRequest, ct).ConfigureAwait(false);
+
+                if (candidates.Count == 0)
+                {
+                    // Try musical ensemble as well.
+                    var ensembleRequest = new ReconciliationRequest
+                    {
+                        Query = name,
+                        Limit = 10,
+                        Language = language,
+                        Type = MusicalEnsembleClassQid,
+                        TypeHierarchyDepth = 1,
+                        DiacriticInsensitive = true,
+                    };
+                    candidates = await _reconciler.ReconcileAsync(ensembleRequest, ct).ConfigureAwait(false);
+                }
+            }
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)

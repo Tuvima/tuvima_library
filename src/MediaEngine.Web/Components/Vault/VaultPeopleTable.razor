@@ -48,7 +48,14 @@ else
                                 }
                             </div>
                             <div class="vpt-person-info">
-                                <span class="vpt-name">@person.Name</span>
+                                <span class="vpt-name">
+                                    @if (person.IsGroup)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.Groups"
+                                                 Style="font-size: 14px; color: rgba(255,255,255,0.35); margin-right: 4px; vertical-align: middle;" />
+                                    }
+                                    @person.Name
+                                </span>
                             @if (!string.IsNullOrWhiteSpace(person.Biography))
                             {
                                 <span class="vpt-description">@person.Biography</span>

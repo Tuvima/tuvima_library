@@ -796,6 +796,20 @@ public sealed class PersonRepository : IPersonRepository
         return Task.FromResult(isAlias);
     }
 
+    /// <inheritdoc/>
+    public async Task LinkGroupMemberAsync(Guid groupId, Guid memberId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            """
+            INSERT OR IGNORE INTO person_group_members (group_id, member_id)
+            VALUES (@GroupId, @MemberId)
+            """,
+            new { GroupId = groupId.ToString(), MemberId = memberId.ToString() }).ConfigureAwait(false);
+    }
+
     // -------------------------------------------------------------------------
     // Private helpers
     // -------------------------------------------------------------------------

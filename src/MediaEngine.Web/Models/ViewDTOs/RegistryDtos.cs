@@ -520,6 +520,24 @@ public sealed class PersonListItemDto
 
     [JsonPropertyName("is_pseudonym")]
     public bool IsPseudonym { get; set; }
+
+    [JsonPropertyName("is_group")]
+    public bool IsGroup { get; set; }
+}
+
+/// <summary>A group member or parent group for display in PersonBiographyDrawer.</summary>
+public sealed class GroupMemberView
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = "";
+    public string? DateRange { get; init; }
+
+    public GroupMemberView(Guid id, string name, string? dateRange = null)
+    {
+        Id = id;
+        Name = name;
+        DateRange = dateRange;
+    }
 }
 
 /// <summary>A single alias entry from GET /persons/{id}/aliases.</summary>
