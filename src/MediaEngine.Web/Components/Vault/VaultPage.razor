@@ -789,7 +789,6 @@
     private async Task OnApplyMatchClicked(Guid matchEntityId)
     {
         Snackbar.Add("Match applied — re-identifying item...", Severity.Info);
-        CloseDetailDrawer();
         await LoadCounts();
 
         // If the active status filter now has 0 items, auto-clear it

@@ -793,9 +793,14 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 continue;
             }
 
+            // Extract QIDs from P31 claims — check both EntityId and RawValue
+            // (some Wikidata API responses put entity references in RawValue).
             var instanceOfQids = p31Values
-                .Where(c => c.Value?.EntityId is not null)
-                .Select(c => c.Value!.EntityId!)
+                .Select(c =>
+                    c.Value?.EntityId
+                    ?? (c.Value?.RawValue is string raw && raw.StartsWith('Q') ? raw : null))
+                .Where(qid => qid is not null)
+                .Select(qid => qid!)
                 .ToList();
 
             if (excludedSet.Count > 0 && instanceOfQids.Any(qid => excludedSet.Contains(qid)))

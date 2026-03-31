@@ -262,8 +262,7 @@
                                                 var bestClaim = group.OrderByDescending(c => c.Confidence).First();
                                                 <div class="vdd-claim-row">
                                                     <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                                    <span class="vdd-field-value" title="@($"{VaultHelpers.FormatProviderName(bestClaim.ProviderId)} — {bestClaim.Confidence:P0}")">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
-                                                    <span class="vdd-claim-confidence" style="color: @VaultHelpers.GetConfidenceColor(bestClaim.Confidence);">@((int)(bestClaim.Confidence * 100))%</span>
+                                                    <span class="vdd-field-value">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
                                                 </div>
                                             }
                                         }
@@ -278,9 +277,11 @@
                         <div class="vdd-tab-content">
                             @if (hasRetail)
                             {
+                                var retailDisplayName = GetRetailProviderDisplayName();
+                                var isManualMatch = MediaItem.RetailMatch?.Equals("user_manual", StringComparison.OrdinalIgnoreCase) == true;
                                 <div class="vdd-match-status vdd-match-status--ok">
                                     <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                    <span>Matched by @GetRetailProviderDisplayName()</span>
+                                    <span>@(isManualMatch ? "Matched manually" : $"Matched via {retailDisplayName}")</span>
                                 </div>
                                 @if (GetRetailProviderUrl() is { } retailUrl)
                                 {
@@ -317,7 +318,7 @@
                             <div class="vdd-tab-search">
                                 <div class="vdd-search-row">
                                     <input type="text" class="vdd-search-input"
-                                           placeholder="@(hasRetail ? "Search to rematch..." : "Search by title or ID...")"
+                                           placeholder="@GetSearchPlaceholder()"
                                            @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnRetailSearchKeyDown" />
                                     <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
                                         <option value="Books">Books</option>
@@ -332,6 +333,19 @@
                                             disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
                                         <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
                                     </button>
+                                </div>
+                                <div class="vdd-field-chips">
+                                    @{
+                                        var searchableFields = GetSearchableFieldsForCurrentType();
+                                    }
+                                    @foreach (var field in searchableFields)
+                                    {
+                                        var f = field;
+                                        <button class="vdd-field-chip @(_searchField == f.FieldKey ? "vdd-field-chip--active" : "")"
+                                                @onclick="() => _searchField = f.FieldKey">
+                                            @f.DisplayLabel
+                                        </button>
+                                    }
                                 </div>
                                 @if (hasRetail && !string.IsNullOrWhiteSpace(_manualSearchQuery))
                                 {
@@ -869,6 +883,7 @@
     private RegistryItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
     private string _searchMediaType = "";
+    private string _searchField = "title";
     private List<RetailCandidateDto> _retailSearchResults = [];
     private RetailCandidateDto? _pendingRetailMatch;
     private bool _confirmingRetailMatch;
@@ -887,6 +902,7 @@
         _searchMediaType = e.Value?.ToString() ?? "";
         _retailSearchResults = [];
         _pendingRetailMatch = null;
+        _searchField = "title";
     }
 
     // Universe data
@@ -934,6 +950,7 @@
         _confirmingRetailMatch = false;
         _selectedMediaType = MediaItem?.MediaType ?? "";
         _searchMediaType = MediaItem?.MediaType ?? "";
+        _searchField = "title";
         _retailSearchResults = [];
         _searchingWikidata = false;
         _wikidataSearchResults = [];
@@ -1010,11 +1027,22 @@
     {
         if (string.IsNullOrWhiteSpace(_wikidataSearchQuery)) return;
 
-        // Direct QID entry
+        // Direct QID entry — show as a result for confirmation, don't auto-confirm
         var trimmed = _wikidataSearchQuery.Trim();
         if (trimmed.StartsWith("Q", StringComparison.OrdinalIgnoreCase) && trimmed.Length > 1 && trimmed[1..].All(char.IsDigit))
         {
-            await ConfirmWikidataMatch(trimmed.ToUpperInvariant());
+            var directQid = trimmed.ToUpperInvariant();
+            _wikidataSearchResults =
+            [
+                new UniverseCandidateDto
+                {
+                    Qid = directQid,
+                    Label = directQid,
+                    Description = "Direct QID entry — confirm to link this item",
+                }
+            ];
+            _searchingWikidata = false;
+            _hasSearchedWikidata = true;
             return;
         }
 
@@ -1133,6 +1161,20 @@
         return new RetailResultDisplay(subline, tertiary, details, bridges);
     }
 
+    private IReadOnlyList<SearchableField> GetSearchableFieldsForCurrentType()
+    {
+        if (Enum.TryParse<MediaEngine.Domain.Enums.MediaType>(_searchMediaType, true, out var mt))
+            return MediaTypeFieldRegistry.GetSearchableFields(mt);
+        return MediaTypeFieldRegistry.GetSearchableFields(MediaEngine.Domain.Enums.MediaType.Books);
+    }
+
+    private string GetSearchPlaceholder()
+    {
+        var fields = GetSearchableFieldsForCurrentType();
+        var activeField = fields.FirstOrDefault(f => f.FieldKey == _searchField);
+        return activeField is not null ? $"Search by {activeField.DisplayLabel.ToLowerInvariant()}..." : "Search...";
+    }
+
     private void SelectRetailResult(RetailCandidateDto result)
     {
         _pendingRetailMatch = _pendingRetailMatch == result ? null : result;
@@ -1160,6 +1202,15 @@
         _pendingRetailMatch = null;
         _retailSearchResults = [];
         _manualSearchQuery = "";
+        _confirmingRetailMatch = false;
+        _hasSearched = false;
+
+        // Reload claims to reflect the new match
+        _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
+
+        // Switch to Wikidata tab — Wikidata lookup kicks off automatically after retail match
+        _selectedStage = 2;
+
         await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
     }
 
@@ -1192,6 +1243,12 @@
         _pendingWikidataMatch = null;
         _wikidataSearchResults = [];
         _confirmingWikidataMatch = false;
+        _wikidataSearchQuery = "";
+        _hasSearchedWikidata = false;
+
+        // Reload claims to reflect the new Wikidata link
+        _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
+
         await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
     }
 
@@ -2736,6 +2793,36 @@
     .vdd-search-row .vdd-type-dropdown {
         width: auto;
         min-width: 100px;
+    }
+
+    /* ── Field picker chips ── */
+    .vdd-field-chips {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+    }
+
+    .vdd-field-chip {
+        font-size: 10px;
+        padding: 3px 8px;
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: transparent;
+        color: rgba(255,255,255,0.4);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-field-chip:hover {
+        border-color: rgba(255,255,255,0.2);
+        color: rgba(255,255,255,0.6);
+    }
+
+    .vdd-field-chip--active {
+        border-color: #C9922E;
+        background: rgba(201,146,46,0.12);
+        color: #C9922E;
     }
 
     /* ── Result detail below (not beside) ── */
