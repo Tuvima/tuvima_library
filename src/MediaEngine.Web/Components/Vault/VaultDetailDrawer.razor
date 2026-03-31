@@ -1124,7 +1124,12 @@
         // Build a lookup from all available fields on the result
         var allFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrEmpty(result.Title)) allFields["title"] = result.Title;
-        if (!string.IsNullOrEmpty(result.Author)) allFields["author"] = result.Author;
+        if (!string.IsNullOrEmpty(result.Author))
+        {
+            allFields["author"] = result.Author;
+            // Music display uses "artist" while providers use "author" — expose under both keys.
+            allFields.TryAdd("artist", result.Author);
+        }
         if (!string.IsNullOrEmpty(result.Director)) allFields["director"] = result.Director;
         if (!string.IsNullOrEmpty(result.Year)) allFields["year"] = result.Year;
         if (!string.IsNullOrEmpty(result.Description)) allFields["description"] = result.Description;
