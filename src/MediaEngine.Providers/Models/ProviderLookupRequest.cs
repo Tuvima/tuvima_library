@@ -34,6 +34,35 @@ public sealed class ProviderLookupRequest
     /// <summary>Narrator name (audiobooks), e.g. <c>"Scott Brick"</c>.</summary>
     public string? Narrator { get; init; }
 
+    // ── Media-specific hints ──────────────────────────────────────────────────
+
+    /// <summary>TV show name, e.g. <c>"Breaking Bad"</c>. Used for TMDB/Apple show-level search.</summary>
+    public string? ShowName { get; init; }
+
+    /// <summary>Album name, e.g. <c>"Abbey Road"</c>. Used for Apple attribute=albumTerm search.</summary>
+    public string? Album { get; init; }
+
+    /// <summary>Artist/performer name, e.g. <c>"The Beatles"</c>. Used for Apple attribute=artistTerm search.</summary>
+    public string? Artist { get; init; }
+
+    /// <summary>Director name, e.g. <c>"Denis Villeneuve"</c>. Used for TMDB/Apple directorTerm search.</summary>
+    public string? Director { get; init; }
+
+    /// <summary>Composer name, e.g. <c>"Hans Zimmer"</c>. Used for Apple composerTerm search.</summary>
+    public string? Composer { get; init; }
+
+    /// <summary>Season number for TV episodes, e.g. <c>"1"</c>.</summary>
+    public string? SeasonNumber { get; init; }
+
+    /// <summary>Episode number for TV episodes, e.g. <c>"5"</c>.</summary>
+    public string? EpisodeNumber { get; init; }
+
+    /// <summary>Track number for music, e.g. <c>"3"</c>.</summary>
+    public string? TrackNumber { get; init; }
+
+    /// <summary>Genre hint, e.g. <c>"Science Fiction"</c>. Used for Apple genreIndex search.</summary>
+    public string? Genre { get; init; }
+
     // ── Identifier hints ──────────────────────────────────────────────────────
 
     /// <summary>Amazon Standard Identification Number. Required by Audnexus.</summary>

@@ -2481,6 +2481,7 @@ public sealed class EngineApiClient : IEngineApiClient
         string query, string mediaType, int maxCandidates = 5,
         string? localTitle = null, string? localAuthor = null, string? localYear = null,
         Dictionary<string, string>? fileHints = null,
+        Dictionary<string, string>? searchFields = null,
         CancellationToken ct = default)
     {
         try
@@ -2494,6 +2495,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 LocalAuthor   = localAuthor,
                 LocalYear     = localYear,
                 FileHints     = fileHints,
+                SearchFields  = searchFields,
             };
             var resp = await _http.PostAsJsonAsync("/search/retail", payload, ct);
             if (!resp.IsSuccessStatusCode)

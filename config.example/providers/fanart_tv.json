@@ -53,6 +53,7 @@
       "tvposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
       "showbackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },
       "hdtvlogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
+      "clearlogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
       "tvbanner": { "claim_key": "banner", "asset_type": "Banner", "take_first": true }
     },
     "Music": {

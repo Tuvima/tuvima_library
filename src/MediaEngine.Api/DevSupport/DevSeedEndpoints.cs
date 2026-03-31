@@ -362,10 +362,10 @@ public static class DevSeedEndpoints
 
     private static readonly SeedMusic[] SeedMusicTracks =
     [
-        // ── Category 1: Standard (strong MusicBrainz presence) ────────────
+        // ── Category 1: Standard (strong Apple Music presence) ─────────────
         new("Bohemian Rhapsody", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11,
-            TestCategory: "Music — classic track, strong MusicBrainz match"),
+            TestCategory: "Music — classic track, strong Apple Music match"),
 
         new("Clair de Lune", "Claude Debussy",
             Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3,
@@ -373,7 +373,7 @@ public static class DevSeedEndpoints
 
         new("Lose Yourself", "Eminem",
             Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
-            TestCategory: "Music — soundtrack, must resolve to 8 Mile OST via MusicBrainz"),
+            TestCategory: "Music — soundtrack, must resolve to 8 Mile OST via Apple Music"),
 
         new("Nuvole Bianche", "Ludovico Einaudi",
             Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6,
@@ -443,7 +443,7 @@ public static class DevSeedEndpoints
 
         new("Take Five", "Dave Brubeck",
             Album: "Time Out", Year: 1959, Genre: "Jazz", TrackNumber: 4,
-            TestCategory: "Music — jazz standard, strong MusicBrainz presence"),
+            TestCategory: "Music — jazz standard, strong Apple Music presence"),
 
         new("Smells Like Teen Spirit", "Nirvana",
             Album: "Nevermind", Year: 1991, Genre: "Grunge", TrackNumber: 1,
@@ -488,9 +488,8 @@ public static class DevSeedEndpoints
 
     private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_api"]   = ["books", "audiobooks"],
+        ["apple_api"]   = ["books", "audiobooks", "music"],
         ["tmdb"]        = ["movies", "tv"],
-        ["musicbrainz"] = ["music"],
         ["metron"]      = ["comics"],
     };
 
@@ -498,7 +497,6 @@ public static class DevSeedEndpoints
     {
         ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
         ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
-        ["musicbrainz"] = "https://musicbrainz.org/ws/2/artist?query=test&limit=1",
         ["metron"]      = "https://metron.cloud/api/issue/?series_name=test&limit=1",
     };
 

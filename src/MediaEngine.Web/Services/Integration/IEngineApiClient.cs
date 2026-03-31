@@ -590,6 +590,7 @@ public interface IEngineApiClient
         string query, string mediaType, int maxCandidates = 5,
         string? localTitle = null, string? localAuthor = null, string? localYear = null,
         Dictionary<string, string>? fileHints = null,
+        Dictionary<string, string>? searchFields = null,
         CancellationToken ct = default);
 
     /// <summary>Unified resolve search with retail + description scoring.</summary>

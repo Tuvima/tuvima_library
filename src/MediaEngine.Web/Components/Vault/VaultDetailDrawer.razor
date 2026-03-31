@@ -314,12 +314,9 @@
                                 </div>
                             }
 
-                            @* Always-visible search *@
+                            @* Always-visible multi-field search *@
                             <div class="vdd-tab-search">
-                                <div class="vdd-search-row">
-                                    <input type="text" class="vdd-search-input"
-                                           placeholder="@GetSearchPlaceholder()"
-                                           @bind="_manualSearchQuery" @bind:event="oninput" @onkeydown="OnRetailSearchKeyDown" />
+                                <div class="vdd-search-header">
                                     <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
                                         <option value="Books">Books</option>
                                         <option value="Audiobooks">Audiobooks</option>
@@ -330,7 +327,7 @@
                                         <option value="Podcasts">Podcasts</option>
                                     </select>
                                     <button class="vdd-search-btn" @onclick="RunRetailSearch"
-                                            disabled="@(string.IsNullOrWhiteSpace(_manualSearchQuery))">
+                                            disabled="@(!HasAnySearchFieldValue())">
                                         <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
                                     </button>
                                 </div>
@@ -341,13 +338,29 @@
                                     @foreach (var field in searchableFields)
                                     {
                                         var f = field;
-                                        <button class="vdd-field-chip @(_searchField == f.FieldKey ? "vdd-field-chip--active" : "")"
-                                                @onclick="() => _searchField = f.FieldKey">
+                                        <button class="vdd-field-chip @(_activeSearchFields.Contains(f.FieldKey) ? "vdd-field-chip--active" : "")"
+                                                @onclick="() => ToggleSearchField(f.FieldKey)">
                                             @f.DisplayLabel
                                         </button>
                                     }
                                 </div>
-                                @if (hasRetail && !string.IsNullOrWhiteSpace(_manualSearchQuery))
+                                @foreach (var field in searchableFields)
+                                {
+                                    if (!_activeSearchFields.Contains(field.FieldKey)) continue;
+                                    var f = field;
+                                    <div class="vdd-field-row">
+                                        <label class="vdd-field-label">@f.DisplayLabel</label>
+                                        <input type="text" class="vdd-search-input vdd-field-input"
+                                               placeholder="@f.DisplayLabel..."
+                                               value="@GetSearchFieldValue(f.FieldKey)"
+                                               @oninput="(e) => SetSearchFieldValue(f.FieldKey, e.Value?.ToString())"
+                                               @onkeydown="OnRetailSearchKeyDown" />
+                                        <button class="vdd-field-remove" @onclick="() => ToggleSearchField(f.FieldKey)">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 12px;" />
+                                        </button>
+                                    </div>
+                                }
+                                @if (hasRetail && HasAnySearchFieldValue())
                                 {
                                     <p class="vdd-rematch-warning">
                                         <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
@@ -364,7 +377,7 @@
                             }
                             else if (_hasSearched && _retailSearchResults.Count == 0)
                             {
-                                <p class="vdd-stage-hint">No retail results for "@_manualSearchQuery"</p>
+                                <p class="vdd-stage-hint">No retail results found</p>
                             }
                             else if (_retailSearchResults.Count > 0)
                             {
@@ -874,7 +887,7 @@
     private bool _confirmPurge;
     private int _selectedStage = 0;
     private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
-    private string _manualSearchQuery = "";
+    // _manualSearchQuery removed — replaced by _searchFieldValues multi-field system
     private bool _searching;
     private bool _hasSearched;
     private List<RegistryItemViewModel> _searchResults = [];
@@ -883,7 +896,8 @@
     private RegistryItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
     private string _searchMediaType = "";
-    private string _searchField = "title";
+    private HashSet<string> _activeSearchFields = new(StringComparer.OrdinalIgnoreCase) { "title" };
+    private Dictionary<string, string> _searchFieldValues = new(StringComparer.OrdinalIgnoreCase);
     private List<RetailCandidateDto> _retailSearchResults = [];
     private RetailCandidateDto? _pendingRetailMatch;
     private bool _confirmingRetailMatch;
@@ -902,7 +916,8 @@
         _searchMediaType = e.Value?.ToString() ?? "";
         _retailSearchResults = [];
         _pendingRetailMatch = null;
-        _searchField = "title";
+        _activeSearchFields = new(StringComparer.OrdinalIgnoreCase) { "title" };
+        _searchFieldValues.Clear();
     }
 
     // Universe data
@@ -939,7 +954,7 @@
     {
         _confirmPurge = false;
         _selectedStage = 0;
-        _manualSearchQuery = "";
+        _searchFieldValues.Clear();
         _searchResults = [];
         _aliases = null;
         _personWorks = null;
@@ -950,7 +965,8 @@
         _confirmingRetailMatch = false;
         _selectedMediaType = MediaItem?.MediaType ?? "";
         _searchMediaType = MediaItem?.MediaType ?? "";
-        _searchField = "title";
+        _activeSearchFields = new(StringComparer.OrdinalIgnoreCase) { "title" };
+        _searchFieldValues.Clear();
         _retailSearchResults = [];
         _searchingWikidata = false;
         _wikidataSearchResults = [];
@@ -1008,14 +1024,28 @@
 
     private async Task RunRetailSearch()
     {
-        if (string.IsNullOrWhiteSpace(_manualSearchQuery) || string.IsNullOrWhiteSpace(_searchMediaType)) return;
+        if (!HasAnySearchFieldValue() || string.IsNullOrWhiteSpace(_searchMediaType)) return;
         _searching = true;
         _retailSearchResults = [];
         _pendingRetailMatch = null;
         _confirmingRetailMatch = false;
         StateHasChanged();
 
-        var response = await ApiClient.SearchRetailAsync(_manualSearchQuery, _searchMediaType, 10);
+        // Build structured search fields from active field inputs
+        var searchFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in _activeSearchFields)
+        {
+            if (_searchFieldValues.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+                searchFields[key] = val.Trim();
+        }
+
+        // Build a combined query string for providers that need it
+        var queryParts = searchFields.Values.ToList();
+        var combinedQuery = string.Join(" ", queryParts);
+
+        var response = await ApiClient.SearchRetailAsync(
+            combinedQuery, _searchMediaType, 10,
+            searchFields: searchFields);
         if (response?.Candidates is not null)
             _retailSearchResults = response.Candidates.ToList();
 
@@ -1173,12 +1203,27 @@
         return MediaTypeFieldRegistry.GetSearchableFields(MediaEngine.Domain.Enums.MediaType.Books);
     }
 
-    private string GetSearchPlaceholder()
+    private void ToggleSearchField(string fieldKey)
     {
-        var fields = GetSearchableFieldsForCurrentType();
-        var activeField = fields.FirstOrDefault(f => f.FieldKey == _searchField);
-        return activeField is not null ? $"Search by {activeField.DisplayLabel.ToLowerInvariant()}..." : "Search...";
+        if (_activeSearchFields.Contains(fieldKey))
+        {
+            _activeSearchFields.Remove(fieldKey);
+            _searchFieldValues.Remove(fieldKey);
+        }
+        else
+        {
+            _activeSearchFields.Add(fieldKey);
+        }
     }
+
+    private string GetSearchFieldValue(string fieldKey) =>
+        _searchFieldValues.TryGetValue(fieldKey, out var val) ? val : "";
+
+    private void SetSearchFieldValue(string fieldKey, string? value) =>
+        _searchFieldValues[fieldKey] = value ?? "";
+
+    private bool HasAnySearchFieldValue() =>
+        _searchFieldValues.Any(kv => _activeSearchFields.Contains(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value));
 
     private void SelectRetailResult(RetailCandidateDto result)
     {
@@ -1206,7 +1251,7 @@
 
         _pendingRetailMatch = null;
         _retailSearchResults = [];
-        _manualSearchQuery = "";
+        _searchFieldValues.Clear();
         _confirmingRetailMatch = false;
         _hasSearched = false;
 
@@ -1267,7 +1312,7 @@
     {
         _pendingMatch = null;
         _searchResults = [];
-        _manualSearchQuery = "";
+        _searchFieldValues.Clear();
         await OnApplyMatch.InvokeAsync(entityId);
     }
 
@@ -1308,6 +1353,23 @@
         "musicbrainz_id"   => "MusicBrainz ID",
         "open_library_id"  => "Open Library ID",
 
+        "show_name"                 => "Show Name",
+        "episode_title"             => "Episode Title",
+        "season_number"             => "Season",
+        "episode_number"            => "Episode",
+        "page_count"                => "Pages",
+        "duration"                  => "Duration",
+        "podcast_name"              => "Podcast",
+        "apple_music_id"            => "Apple Music ID",
+        "apple_music_collection_id" => "Apple Album ID",
+        "apple_artist_id"           => "Apple Artist ID",
+        "apple_podcasts_id"         => "Apple Podcasts ID",
+        "comic_vine_id"             => "Comic Vine ID",
+        "podcast_index_id"          => "Podcast Index ID",
+        "feed_url"                  => "Feed URL",
+        "store_date"                => "Store Date",
+        "barcode"                   => "Barcode",
+        "explicit"                  => "Explicit",
         "apple_books_id"   => "Apple Books ID",
         "wikidata_qid"     => "Wikidata QID",
         "media_type"       => "Media Type",
@@ -2828,6 +2890,52 @@
         border-color: #C9922E;
         background: rgba(201,146,46,0.12);
         color: #C9922E;
+    }
+
+    /* ── Multi-field search rows ── */
+    .vdd-search-header {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .vdd-search-header .vdd-type-dropdown {
+        flex: 1;
+        min-width: 100px;
+    }
+
+    .vdd-field-row {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        margin-top: 4px;
+    }
+
+    .vdd-field-label {
+        font-size: 10px;
+        color: rgba(255,255,255,0.5);
+        min-width: 60px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .vdd-field-input {
+        flex: 1;
+    }
+
+    .vdd-field-remove {
+        background: transparent;
+        border: none;
+        color: rgba(255,255,255,0.3);
+        cursor: pointer;
+        padding: 2px;
+        display: flex;
+        align-items: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-field-remove:hover {
+        color: rgba(255,255,255,0.6);
     }
 
     /* ── Result detail below (not beside) ── */

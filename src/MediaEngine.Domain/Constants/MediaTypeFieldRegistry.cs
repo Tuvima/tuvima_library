@@ -173,15 +173,15 @@ public static class MediaTypeFieldRegistry
         Headline: MetadataFieldConstants.Title,
         Subline: MetadataFieldConstants.Artist,
         Tertiary: MetadataFieldConstants.Album,
-        DetailFields: [MetadataFieldConstants.Year, MetadataFieldConstants.DurationField, MetadataFieldConstants.TrackNumber],
-        BridgeLabels: [BridgeIdKeys.MusicBrainzId, BridgeIdKeys.SpotifyId]
+        DetailFields: [MetadataFieldConstants.Year, MetadataFieldConstants.DurationField, MetadataFieldConstants.TrackNumber, MetadataFieldConstants.Genre, MetadataFieldConstants.Composer],
+        BridgeLabels: [BridgeIdKeys.AppleMusicId, BridgeIdKeys.AppleMusicCollectionId, BridgeIdKeys.MusicBrainzId]
     );
 
     private static readonly SearchDisplayConfig MovieSearchDisplay = new(
         Headline: MetadataFieldConstants.Title,
         Subline: MetadataFieldConstants.Director,
         Tertiary: MetadataFieldConstants.Year,
-        DetailFields: [MetadataFieldConstants.Runtime, MetadataFieldConstants.Language, MetadataFieldConstants.Rating],
+        DetailFields: [MetadataFieldConstants.Runtime, MetadataFieldConstants.Genre, MetadataFieldConstants.Language, MetadataFieldConstants.Rating],
         BridgeLabels: [BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId]
     );
 
@@ -206,7 +206,7 @@ public static class MediaTypeFieldRegistry
         Subline: MetadataFieldConstants.Author,
         Tertiary: MetadataFieldConstants.Year,
         DetailFields: [MetadataFieldConstants.EpisodeNumber, MetadataFieldConstants.SeasonNumber, MetadataFieldConstants.DurationField],
-        BridgeLabels: [BridgeIdKeys.PodcastIndexId, BridgeIdKeys.AppleBooksId]
+        BridgeLabels: [BridgeIdKeys.PodcastIndexId, "apple_podcasts_id"]
     );
 
     private static readonly SearchDisplayConfig DefaultSearchDisplay = new(
@@ -249,7 +249,8 @@ public static class MediaTypeFieldRegistry
         new(MetadataFieldConstants.Title, "Title", IsDefault: true),
         new(MetadataFieldConstants.Artist, "Artist"),
         new(MetadataFieldConstants.Album, "Album"),
-        new(BridgeIdKeys.MusicBrainzId, "MusicBrainz ID"),
+        new(MetadataFieldConstants.Composer, "Composer"),
+        new(BridgeIdKeys.AppleMusicId, "Apple Music ID"),
     ];
 
     private static readonly SearchableField[] MovieSearchableFields =
@@ -267,6 +268,7 @@ public static class MediaTypeFieldRegistry
         new(MetadataFieldConstants.EpisodeTitle, "Episode Title"),
         new(MetadataFieldConstants.Year, "Year"),
         new(BridgeIdKeys.TmdbId, "TMDB ID"),
+        new(BridgeIdKeys.ImdbId, "IMDb ID"),
     ];
 
     private static readonly SearchableField[] ComicSearchableFields =
@@ -274,6 +276,8 @@ public static class MediaTypeFieldRegistry
         new(MetadataFieldConstants.Title, "Title", IsDefault: true),
         new(MetadataFieldConstants.Author, "Author"),
         new(MetadataFieldConstants.Series, "Series"),
+        new(MetadataFieldConstants.Illustrator, "Illustrator"),
+        new(BridgeIdKeys.Isbn, "ISBN"),
         new(BridgeIdKeys.ComicVineId, "Comic Vine ID"),
     ];
 
@@ -281,6 +285,7 @@ public static class MediaTypeFieldRegistry
     [
         new(MetadataFieldConstants.PodcastName, "Podcast Name", IsDefault: true),
         new(MetadataFieldConstants.Author, "Author"),
+        new(MetadataFieldConstants.EpisodeTitle, "Episode Title"),
     ];
 
     private static readonly SearchableField[] DefaultSearchableFields =

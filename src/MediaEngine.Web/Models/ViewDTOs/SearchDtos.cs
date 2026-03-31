@@ -105,6 +105,13 @@ public sealed class SearchRetailRequestDto
     /// </summary>
     [JsonPropertyName("file_hints")]
     public Dictionary<string, string>? FileHints { get; set; }
+
+    /// <summary>
+    /// Structured search fields from multi-field search UI (e.g. "title" → "Yesterday", "artist" → "Beatles").
+    /// When populated, the Engine uses these to build field-specific provider queries instead of the single query string.
+    /// </summary>
+    [JsonPropertyName("search_fields")]
+    public Dictionary<string, string>? SearchFields { get; set; }
 }
 
 /// <summary>A single retail provider candidate.</summary>

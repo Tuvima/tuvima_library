@@ -6,7 +6,7 @@
   "domain": "Comic",
   "icon": "images/providers/metron.svg",
   "capability_tags": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "comic_vine_id", "gcd_id", "isbn"],
-  "available_fields": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "issue_number", "comic_vine_id", "gcd_id", "isbn", "upc", "illustrator"],
+  "available_fields": ["title", "issue_number", "description", "cover", "year", "publisher", "series", "series_position", "author", "comic_vine_id", "gcd_id", "isbn", "upc", "illustrator", "page_count", "rating", "store_date", "credits", "characters", "arcs"],
   "field_weights": {
     "title": 0.85,
     "author": 0.8,

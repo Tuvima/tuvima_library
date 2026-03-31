@@ -886,6 +886,11 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             query = ReplacePlaceholder(query, "{title}", searchTitle, encode: false);
             query = ReplacePlaceholder(query, "{author}", request.Author, encode: false);
             query = ReplacePlaceholder(query, "{narrator}", request.Narrator, encode: false);
+            query = ReplacePlaceholder(query, "{show_name}", request.ShowName, encode: false);
+            query = ReplacePlaceholder(query, "{album}", request.Album, encode: false);
+            query = ReplacePlaceholder(query, "{artist}", request.Artist, encode: false);
+            query = ReplacePlaceholder(query, "{director}", request.Director, encode: false);
+            query = ReplacePlaceholder(query, "{composer}", request.Composer, encode: false);
             // Remove dangling Lucene operators when optional fields are empty.
             // e.g. "{title} AND artist:{author}" → "Bohemian Rhapsody AND artist:" when author is null
             // → becomes "Bohemian Rhapsody" after cleanup.
@@ -908,6 +913,15 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{audible_id}", request.AudibleId, encode: true);
         url = ReplacePlaceholder(url, "{tmdb_id}", request.TmdbId, encode: true);
         url = ReplacePlaceholder(url, "{imdb_id}", request.ImdbId, encode: true);
+        url = ReplacePlaceholder(url, "{show_name}", request.ShowName, encode: true);
+        url = ReplacePlaceholder(url, "{album}", request.Album, encode: true);
+        url = ReplacePlaceholder(url, "{artist}", request.Artist, encode: true);
+        url = ReplacePlaceholder(url, "{director}", request.Director, encode: true);
+        url = ReplacePlaceholder(url, "{composer}", request.Composer, encode: true);
+        url = ReplacePlaceholder(url, "{season_number}", request.SeasonNumber, encode: true);
+        url = ReplacePlaceholder(url, "{episode_number}", request.EpisodeNumber, encode: true);
+        url = ReplacePlaceholder(url, "{track_number}", request.TrackNumber, encode: true);
+        url = ReplacePlaceholder(url, "{genre}", request.Genre, encode: true);
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
         url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
         url = ReplacePlaceholder(url, "{country}", request.Country.ToLowerInvariant(),  encode: true);
@@ -918,6 +932,18 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var resolvedLimit = limitOverride
             ?? (strategy.MaxResults > 0 ? strategy.MaxResults : 25);
         url = ReplacePlaceholder(url, "{limit}", resolvedLimit.ToString(), encode: false);
+
+        // Generic hint-based placeholder resolution — any remaining {key} placeholders
+        // are resolved from the Hints dictionary, enabling zero-code config additions.
+        if (request.Hints is { Count: > 0 })
+        {
+            foreach (var (key, value) in request.Hints)
+            {
+                var placeholder = $"{{{key}}}";
+                if (url.Contains(placeholder, StringComparison.Ordinal) && !string.IsNullOrEmpty(value))
+                    url = ReplacePlaceholder(url, placeholder, value, encode: true);
+            }
+        }
 
         return url;
     }

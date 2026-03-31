@@ -62,18 +62,18 @@ public static class IntegrationTestEndpoints
 
     private static readonly TestExpectation[] MusicExpectations =
     [
-        new("Bohemian Rhapsody", "Music", "musicbrainz", "Bohemian Rhapsody Queen", true),
-        new("99 Luftballons", "Music", "musicbrainz", "99 Luftballons Nena", true),
-        new("Lose Yourself", "Music", "musicbrainz", "Lose Yourself Eminem", true),
-        new("Imagine", "Music", "musicbrainz", "Imagine John Lennon", true),
-        new("Smells Like Teen Spirit", "Music", "musicbrainz", "Smells Like Teen Spirit Nirvana", true),
-        new("Under Pressure", "Music", "musicbrainz", "Under Pressure Queen Bowie", true),
-        new("La Vie en rose", "Music", "musicbrainz", "La Vie en rose Piaf", true),
-        new("Take Five", "Music", "musicbrainz", "Take Five Dave Brubeck", true),
-        new("Yesterday", "Music", "musicbrainz", "Yesterday Beatles", true),
-        new("Clair de Lune", "Music", "musicbrainz", "Clair de Lune Debussy", true),
-        new("Nuvole Bianche", "Music", "musicbrainz", "Nuvole Bianche Einaudi", true),
-        new("Stan", "Music", "musicbrainz", "Stan Eminem", true),
+        new("Bohemian Rhapsody", "Music", "apple_api", "Bohemian Rhapsody Queen", true),
+        new("99 Luftballons", "Music", "apple_api", "99 Luftballons Nena", true),
+        new("Lose Yourself", "Music", "apple_api", "Lose Yourself Eminem", true),
+        new("Imagine", "Music", "apple_api", "Imagine John Lennon", true),
+        new("Smells Like Teen Spirit", "Music", "apple_api", "Smells Like Teen Spirit Nirvana", true),
+        new("Under Pressure", "Music", "apple_api", "Under Pressure Queen Bowie", true),
+        new("La Vie en rose", "Music", "apple_api", "La Vie en rose Piaf", true),
+        new("Take Five", "Music", "apple_api", "Take Five Dave Brubeck", true),
+        new("Yesterday", "Music", "apple_api", "Yesterday Beatles", true),
+        new("Clair de Lune", "Music", "apple_api", "Clair de Lune Debussy", true),
+        new("Nuvole Bianche", "Music", "apple_api", "Nuvole Bianche Einaudi", true),
+        new("Stan", "Music", "apple_api", "Stan Eminem", true),
     ];
 
     private static readonly TestExpectation[] ComicExpectations =
@@ -194,9 +194,8 @@ public static class IntegrationTestEndpoints
 
     private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_api"]   = ["books", "audiobooks"],
+        ["apple_api"]   = ["books", "audiobooks", "music"],
         ["tmdb"]        = ["movies", "tv"],
-        ["musicbrainz"] = ["music"],
         ["metron"]      = ["comics"],
     };
 
@@ -204,7 +203,6 @@ public static class IntegrationTestEndpoints
     {
         ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
         ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
-        ["musicbrainz"] = "https://musicbrainz.org/ws/2/artist?query=test&limit=1",
         ["metron"]      = "https://metron.cloud/api/issue/?series_name=test&limit=1",
     };
 
@@ -878,10 +876,10 @@ public static class IntegrationTestEndpoints
             ("Dune Frank Herbert", "apple_api", "Books", MediaType.Books, "books"),
             ("Blade Runner 2049", "tmdb", "Movies", MediaType.Movies, "movies"),
             ("Breaking Bad", "tmdb", "TV", MediaType.TV, "tv"),
-            ("Bohemian Rhapsody Queen", "musicbrainz", "Music", MediaType.Music, "music"),
-            ("Lose Yourself Eminem", "musicbrainz", "Music", MediaType.Music, "music"),
-            ("Yesterday Beatles", "musicbrainz", "Music", MediaType.Music, "music"),
-            ("Clair de Lune Debussy", "musicbrainz", "Music", MediaType.Music, "music"),
+            ("Bohemian Rhapsody Queen", "apple_api", "Music", MediaType.Music, "music"),
+            ("Lose Yourself Eminem", "apple_api", "Music", MediaType.Music, "music"),
+            ("Yesterday Beatles", "apple_api", "Music", MediaType.Music, "music"),
+            ("Clair de Lune Debussy", "apple_api", "Music", MediaType.Music, "music"),
             ("Batman Year One", "metron", "Comics", MediaType.Comics, "comics"),
         };
         var searchTests = allSearchTests

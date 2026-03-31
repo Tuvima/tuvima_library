@@ -1098,17 +1098,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (string.IsNullOrWhiteSpace(resolvedQid))
         {
             // ── Fallback: text-based reconciliation with type filtering ───────
-            // When no bridge ID matches on Wikidata (e.g. Apple Music trackId not
-            // yet in P4857), fall back to a CirrusSearch using title + author with
-            // instance_of type constraints. This is especially effective for music
-            // where Q105543609 (musical work/composition) filtering eliminates
-            // movies, albums, and other entities with the same name.
-            // The fallback only fires for media types that have instance_of_classes
-            // configured in wikidata_reconciliation.json.
+            // Two-pass approach: (1) type-constrained search using instance_of_classes
+            // from config, then (2) unconstrained search if pass 1 scores below
+            // threshold. This handles cases where Wikidata classifies an entity
+            // under a P31 class not in our config (e.g. Q55850643 before it was added).
             var mediaTypeKey = mediaType.ToString();
-            if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var typeClasses)
-                && typeClasses.Count > 0
-                && bridgeIds.TryGetValue("_title", out var fallbackTitle)
+            var hasTypeClasses = _config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var typeClasses)
+                && typeClasses.Count > 0;
+
+            if (bridgeIds.TryGetValue("_title", out var fallbackTitle)
                 && !string.IsNullOrWhiteSpace(fallbackTitle))
             {
                 bridgeIds.TryGetValue("_author", out var fallbackAuthor);
@@ -1116,45 +1114,90 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     ? fallbackTitle
                     : $"{fallbackTitle} {fallbackAuthor}";
 
-                _logger.LogInformation(
-                    "{Provider}: ResolveBridgeAsync — bridge IDs exhausted, attempting text reconciliation " +
-                    "for '{Query}' ({MediaType}, types={TypeClasses})",
-                    Name, fallbackQuery, mediaType, string.Join(",", typeClasses));
-
                 try
                 {
-                    // Use the first type class for CirrusSearch filtering.
-                    // For Music, this is Q105543609 (musical work/composition).
-                    var reconRequest = new ReconciliationRequest
+                    // Pass 1: type-constrained reconciliation (when classes configured).
+                    if (hasTypeClasses)
                     {
-                        Query = fallbackQuery,
-                        Limit = 5,
-                        Language = language,
-                        DiacriticInsensitive = true,
-                        Cleaners = QueryCleaners.All(),
-                        Types = typeClasses.ToList(),
-                    };
+                        _logger.LogInformation(
+                            "{Provider}: ResolveBridgeAsync — bridge IDs exhausted, attempting text reconciliation " +
+                            "for '{Query}' ({MediaType}, types={TypeClasses})",
+                            Name, fallbackQuery, mediaType, string.Join(",", typeClasses!));
 
-                    var fallbackCandidates = await _reconciler.ReconcileAsync(reconRequest, ct)
-                        .ConfigureAwait(false);
-
-                    if (fallbackCandidates.Count > 0)
-                    {
-                        var topCandidate = fallbackCandidates[0];
-                        if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
+                        var reconRequest = new ReconciliationRequest
                         {
-                            resolvedQid = topCandidate.Id;
-                            _logger.LogInformation(
-                                "{Provider}: ResolveBridgeAsync — text reconciliation matched '{Query}' to " +
-                                "{QID} '{Label}' (score={Score})",
-                                Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
+                            Query = fallbackQuery,
+                            Limit = 5,
+                            Language = language,
+                            DiacriticInsensitive = true,
+                            Cleaners = QueryCleaners.All(),
+                            Types = typeClasses!.ToList(),
+                        };
+
+                        var fallbackCandidates = await _reconciler.ReconcileAsync(reconRequest, ct)
+                            .ConfigureAwait(false);
+
+                        if (fallbackCandidates.Count > 0)
+                        {
+                            var topCandidate = fallbackCandidates[0];
+                            if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
+                            {
+                                resolvedQid = topCandidate.Id;
+                                _logger.LogInformation(
+                                    "{Provider}: ResolveBridgeAsync — text reconciliation matched '{Query}' to " +
+                                    "{QID} '{Label}' (score={Score})",
+                                    Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
+                            }
+                            else
+                            {
+                                _logger.LogDebug(
+                                    "{Provider}: ResolveBridgeAsync — text reconciliation top candidate " +
+                                    "'{Label}' ({QID}) score {Score} below threshold",
+                                    Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
+                            }
                         }
-                        else
+                    }
+
+                    // Pass 2: unconstrained reconciliation (no type filter).
+                    // Fires when pass 1 scored below threshold or had no candidates,
+                    // or when no type classes are configured for this media type.
+                    if (string.IsNullOrWhiteSpace(resolvedQid))
+                    {
+                        _logger.LogInformation(
+                            "{Provider}: ResolveBridgeAsync — pass 2: unconstrained text reconciliation " +
+                            "for '{Query}' ({MediaType})",
+                            Name, fallbackQuery, mediaType);
+
+                        var unconstrainedRequest = new ReconciliationRequest
                         {
-                            _logger.LogDebug(
-                                "{Provider}: ResolveBridgeAsync — text reconciliation top candidate " +
-                                "'{Label}' ({QID}) score {Score} below threshold",
-                                Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
+                            Query = fallbackQuery,
+                            Limit = 5,
+                            Language = language,
+                            DiacriticInsensitive = true,
+                            Cleaners = QueryCleaners.All(),
+                        };
+
+                        var pass2Candidates = await _reconciler.ReconcileAsync(unconstrainedRequest, ct)
+                            .ConfigureAwait(false);
+
+                        if (pass2Candidates.Count > 0)
+                        {
+                            var topCandidate = pass2Candidates[0];
+                            if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
+                            {
+                                resolvedQid = topCandidate.Id;
+                                _logger.LogInformation(
+                                    "{Provider}: ResolveBridgeAsync — unconstrained reconciliation matched " +
+                                    "'{Query}' to {QID} '{Label}' (score={Score})",
+                                    Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
+                            }
+                            else
+                            {
+                                _logger.LogDebug(
+                                    "{Provider}: ResolveBridgeAsync — unconstrained reconciliation top candidate " +
+                                    "'{Label}' ({QID}) score {Score} below threshold",
+                                    Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
+                            }
                         }
                     }
                 }
@@ -1167,7 +1210,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
             }
 
-            // If still no match after text fallback, give up.
+            // If still no match after both passes, give up.
             if (string.IsNullOrWhiteSpace(resolvedQid))
                 return BridgeResolutionResult.NotFound;
         }

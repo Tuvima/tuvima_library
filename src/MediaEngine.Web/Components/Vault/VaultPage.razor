@@ -107,6 +107,7 @@
                       SelectedMediaType="@GetSidebarMediaType()"
                       ActiveView="@_activeView"
                       ActiveViewChanged="OnViewChanged"
+                      TvShows="@_tvShows"
                       OnColumnPickerRequested="() => _showColumnPicker = true" />
 
         <div class="vault-content">
@@ -336,6 +337,9 @@
     private string? _activeGroupType;
     private Guid? _activeGroupId;
 
+    // ── TV sidebar data ──
+    private List<VaultSidebar.TvShowSidebarItem>? _tvShows;
+
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
     private PersonListItemDto? _selectedPerson;
@@ -408,6 +412,7 @@
                     _enabledMediaTypes = new HashSet<string> { cardId };
             }
             await LoadMediaItems();
+            await LoadTvShowsForSidebar();
             UpdateUrl();
         }
         else if (_activeTab == "people")
@@ -447,7 +452,11 @@
         if (_activeTab == "people") await LoadPeople();
         else if (_activeTab == "universes") await LoadUniverses();
         else if (_activeTab == "hubs") await LoadManagedHubs();
-        else await LoadMediaItems();
+        else
+        {
+            await LoadMediaItems();
+            await LoadTvShowsForSidebar();
+        }
 
         // Open drawer if URL had ?item=
         if (_pendingItemId.HasValue)
@@ -543,6 +552,30 @@
     private async Task LoadMore()
     {
         await LoadMediaItems(append: true);
+    }
+
+    /// <summary>Load TV show content groups for the sidebar when TV media type is selected.</summary>
+    private async Task LoadTvShowsForSidebar()
+    {
+        var sidebarType = GetSidebarMediaType();
+        if (sidebarType != "TV")
+        {
+            _tvShows = null;
+            return;
+        }
+
+        try
+        {
+            var groups = await ApiClient.GetContentGroupsAsync();
+            _tvShows = groups?
+                .Where(g => string.Equals(g.PrimaryMediaType, "TV", StringComparison.OrdinalIgnoreCase))
+                .Select(g => new VaultSidebar.TvShowSidebarItem(g.DisplayName, g.WorkCount, g.HubId.ToString()))
+                .ToList();
+        }
+        catch
+        {
+            _tvShows = null;
+        }
     }
 
     private async Task LoadPeople()
@@ -977,6 +1010,16 @@
                 ClearStatusFilters();
                 break;
             default:
+                // TV show views (tv-show-{hubId}) navigate to group drill-down
+                if (view.StartsWith("tv-show-", StringComparison.Ordinal))
+                {
+                    var showId = view.Substring("tv-show-".Length);
+                    if (Guid.TryParse(showId, out var hubId))
+                    {
+                        NavigateToGroup("tv-show", hubId);
+                        return;
+                    }
+                }
                 // TV season views (tv-season-{showId}-{seasonNum}) and other media-specific views
                 ClearStatusFilters();
                 break;

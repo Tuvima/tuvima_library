@@ -2403,6 +2403,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Core
             MetadataFieldConstants.Title, MetadataFieldConstants.Author, MetadataFieldConstants.Narrator,
             MetadataFieldConstants.Year, MetadataFieldConstants.Series, MetadataFieldConstants.SeriesPosition,
+            // Media-specific fields for attribute-targeted provider search
+            MetadataFieldConstants.ShowName, MetadataFieldConstants.EpisodeTitle,
+            MetadataFieldConstants.Album, MetadataFieldConstants.Artist,
+            MetadataFieldConstants.SeasonNumber, MetadataFieldConstants.EpisodeNumber,
+            MetadataFieldConstants.TrackNumber, MetadataFieldConstants.DurationField,
+            MetadataFieldConstants.Composer, MetadataFieldConstants.Director,
+            MetadataFieldConstants.Genre, MetadataFieldConstants.PodcastName,
             // Bridge identifiers
             BridgeIdKeys.Asin, BridgeIdKeys.Isbn, BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId, BridgeIdKeys.GoodreadsId,
             BridgeIdKeys.MusicBrainzId, BridgeIdKeys.AppleBooksId, "audible_asin", BridgeIdKeys.OpenLibraryId,

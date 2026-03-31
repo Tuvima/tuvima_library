@@ -6,8 +6,8 @@
   "weight": 0.8,
   "domain": "Video",
   "icon": "images/providers/tmdb.svg",
-  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "cover", "backdrop", "tmdb_id", "imdb_id", "rating", "runtime", "tagline", "original_title"],
-  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "cover", "backdrop", "tmdb_id", "imdb_id", "rating", "runtime", "language", "tagline"],
+  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "cover", "backdrop", "tmdb_id", "imdb_id", "rating", "runtime", "language", "tagline", "original_title", "popularity", "vote_count", "origin_country"],
+  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "cover", "backdrop", "tmdb_id", "imdb_id", "rating", "runtime", "language", "tagline", "original_title", "popularity", "vote_count", "origin_country"],
   "field_weights": {
     "title": 0.85,
     "director": 0.9,
@@ -50,6 +50,16 @@
   },
 
   "search_strategies": [
+    {
+      "name": "tv_show_name_search",
+      "priority": 0,
+      "required_fields": ["show_name"],
+      "url_template": "{base_url}/search/tv?query={show_name}&first_air_date_year={year}&include_adult=false&language={lang}-{country}&page=1",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "media_types": ["TV"]
+    },
     {
       "name": "movie_search",
       "priority": 1,

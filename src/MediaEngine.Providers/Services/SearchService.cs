@@ -197,7 +197,7 @@ public sealed class SearchService : ISearchService
 
         // Call each retail provider in parallel
         var tasks = retailProviders.Select(p =>
-            SearchProviderAsync(p, request.Query, mediaType, providerEndpoints, request.MaxCandidates, ct));
+            SearchProviderAsync(p, request.Query, mediaType, providerEndpoints, request.MaxCandidates, request.SearchFields, ct));
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         foreach (var providerResults in results)
@@ -357,19 +357,55 @@ public sealed class SearchService : ISearchService
         MediaType mediaType,
         Dictionary<string, Dictionary<string, string>> providerEndpoints,
         int maxCandidates,
+        IReadOnlyDictionary<string, string>? searchFields,
         CancellationToken ct)
     {
         try
         {
+            // When structured search fields are provided, extract title/author
+            // for the provider query template (e.g. "{title} {author}").
+            // Falls back to the combined query string when fields are absent.
+            string? fieldTitle = null, fieldAuthor = null;
+            string? fieldShowName = null, fieldAlbum = null, fieldArtist = null;
+            string? fieldDirector = null, fieldComposer = null, fieldGenre = null;
+            if (searchFields is { Count: > 0 })
+            {
+                searchFields.TryGetValue("title", out fieldTitle);
+                // Also check show_name and podcast_name as title sources
+                if (fieldTitle is null)
+                {
+                    if (!searchFields.TryGetValue("show_name", out fieldTitle))
+                        searchFields.TryGetValue("podcast_name", out fieldTitle);
+                }
+                if (!searchFields.TryGetValue("author", out fieldAuthor))
+                    searchFields.TryGetValue("artist", out fieldAuthor);
+                searchFields.TryGetValue("show_name", out fieldShowName);
+                searchFields.TryGetValue("album", out fieldAlbum);
+                searchFields.TryGetValue("artist", out fieldArtist);
+                searchFields.TryGetValue("director", out fieldDirector);
+                searchFields.TryGetValue("composer", out fieldComposer);
+                searchFields.TryGetValue("genre", out fieldGenre);
+            }
+
             var providerRequest = new ProviderLookupRequest
             {
                 EntityId   = Guid.NewGuid(),
                 EntityType = EntityType.Work,
                 MediaType  = mediaType,
-                Title      = query,
+                Title      = fieldTitle ?? query,
+                Author     = fieldAuthor,
+                ShowName   = fieldShowName,
+                Album      = fieldAlbum,
+                Artist     = fieldArtist,
+                Director   = fieldDirector,
+                Composer   = fieldComposer,
+                Genre      = fieldGenre,
                 BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
                 Language   = "en",
                 Country    = "us",
+                Hints      = searchFields is { Count: > 0 }
+                    ? new Dictionary<string, string>(searchFields)
+                    : null,
             };
 
             var results = await provider.SearchAsync(providerRequest, maxCandidates, ct).ConfigureAwait(false);

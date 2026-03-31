@@ -90,7 +90,8 @@ public sealed record SearchRetailRequest(
     [property: JsonPropertyName("local_title")]    string? LocalTitle = null,
     [property: JsonPropertyName("local_author")]   string? LocalAuthor = null,
     [property: JsonPropertyName("local_year")]     string? LocalYear = null,
-    [property: JsonPropertyName("file_hints")]     IReadOnlyDictionary<string, string>? FileHints = null);
+    [property: JsonPropertyName("file_hints")]     IReadOnlyDictionary<string, string>? FileHints = null,
+    [property: JsonPropertyName("search_fields")]  IReadOnlyDictionary<string, string>? SearchFields = null);
 
 /// <summary>A single retail provider candidate with cover art and basic metadata.</summary>
 public sealed class RetailCandidate

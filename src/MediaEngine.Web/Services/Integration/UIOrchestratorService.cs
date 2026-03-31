@@ -710,12 +710,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         string query, string mediaType, int maxCandidates = 5,
         string? localTitle = null, string? localAuthor = null, string? localYear = null,
         Dictionary<string, string>? fileHints = null,
+        Dictionary<string, string>? searchFields = null,
         CancellationToken ct = default)
     {
         var result = await _api.SearchRetailAsync(
             query, mediaType, maxCandidates,
             localTitle, localAuthor, localYear,
-            fileHints, ct);
+            fileHints, searchFields, ct);
         return result?.Candidates ?? [];
     }
 

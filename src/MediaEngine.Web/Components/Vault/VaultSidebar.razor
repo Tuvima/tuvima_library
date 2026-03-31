@@ -78,12 +78,14 @@
                             foreach (var show in TvShows)
                             {
                                 <button class="vault-sidebar-item vault-sidebar-item--show"
-                                        @onclick="() => ToggleShow(show.ShowId)">
+                                        @onclick="@(() => SelectShowView(show.ShowId))">
                                     <MudIcon Icon="@Icons.Material.Outlined.LiveTv"
                                              Style="font-size: 14px; color: rgba(255,255,255,0.2);" />
                                     <span class="vault-sidebar-item-label vault-sidebar-item-label--sub" title="@show.ShowName">@show.ShowName</span>
-                                    <MudIcon Icon="@(_expandedShows.Contains(show.ShowId) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                                             Style="font-size: 12px; color: rgba(255,255,255,0.2); margin-left: auto;" />
+                                    <span class="vault-sidebar-expand-btn" @onclick="() => ToggleShow(show.ShowId)" @onclick:stopPropagation="true">
+                                        <MudIcon Icon="@(_expandedShows.Contains(show.ShowId) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                                 Style="font-size: 12px; color: rgba(255,255,255,0.2);" />
+                                    </span>
                                 </button>
                                 @if (_expandedShows.Contains(show.ShowId))
                                 {
@@ -216,6 +218,11 @@
     private async Task SelectView(string key)
     {
         await ActiveViewChanged.InvokeAsync(key);
+    }
+
+    private async Task SelectShowView(string showId)
+    {
+        await ActiveViewChanged.InvokeAsync($"tv-show-{showId}");
     }
 
     private void ToggleShow(string showId)
@@ -362,6 +369,21 @@
 
     .vault-sidebar-item--show {
         padding-left: 14px;
+    }
+
+    .vault-sidebar-expand-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: auto;
+        padding: 2px;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background 0.15s ease;
+    }
+
+    .vault-sidebar-expand-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
     }
 
     .vault-sidebar-item--season {

@@ -6,7 +6,7 @@
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
   "capability_tags": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "album", "track_number"],
-  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "isrc", "album", "track_number", "duration", "barcode"],
+  "available_fields": ["title", "author", "album", "year", "track_number", "musicbrainz_id", "cover", "isrc", "duration", "barcode", "artist", "genre", "status", "country", "disambiguation"],
   "field_weights": {
     "title": 0.8,
     "author": 0.8,

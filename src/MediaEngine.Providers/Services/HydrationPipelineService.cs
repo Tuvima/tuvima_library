@@ -4187,6 +4187,15 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             Title                 = h.GetValueOrDefault(MetadataFieldConstants.Title),
             Author                = h.GetValueOrDefault(MetadataFieldConstants.Author),
             Narrator              = h.GetValueOrDefault(MetadataFieldConstants.Narrator),
+            ShowName              = h.GetValueOrDefault(MetadataFieldConstants.ShowName),
+            Album                 = h.GetValueOrDefault(MetadataFieldConstants.Album),
+            Artist                = h.GetValueOrDefault(MetadataFieldConstants.Artist),
+            Director              = h.GetValueOrDefault(MetadataFieldConstants.Director),
+            Composer              = h.GetValueOrDefault(MetadataFieldConstants.Composer),
+            SeasonNumber          = h.GetValueOrDefault(MetadataFieldConstants.SeasonNumber),
+            EpisodeNumber         = h.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber),
+            TrackNumber           = h.GetValueOrDefault(MetadataFieldConstants.TrackNumber),
+            Genre                 = h.GetValueOrDefault(MetadataFieldConstants.Genre),
             Asin                  = h.GetValueOrDefault(BridgeIdKeys.Asin),
             Isbn                  = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),
             AppleBooksId          = h.GetValueOrDefault(BridgeIdKeys.AppleBooksId),
@@ -4203,6 +4212,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             HydrationPass         = effectivePass,
             FileLanguage          = fileLanguage,
             PriorProviderBridgeIds = request.PriorProviderBridgeIds,
+            Hints                 = request.Hints,
         };
     }
 
