@@ -20,7 +20,7 @@
     </MudText>
     <MudText Typo="Typo.body2" Class="mb-6"
              Style="color: rgba(248,248,248,0.55);">
-        Search retail providers using the same attribute-targeted methodology as the Vault.
+        Search retail providers and Wikidata using the same attribute-targeted methodology as the Vault.
         Select a media type and optionally filter to a specific provider.
     </MudText>
 
@@ -46,6 +46,12 @@
                            Variant="Variant.Outlined"
                            T="string">
                     <MudSelectItem Value="@("all")">All Providers</MudSelectItem>
+                    <MudSelectItem Value="@("wikidata")">
+                        <div class="d-flex align-center gap-2">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: #339966; display: inline-block;"></span>
+                            Wikidata
+                        </div>
+                    </MudSelectItem>
                     @foreach (var p in _filteredProviders)
                     {
                         <MudSelectItem Value="@p.Name">
@@ -121,7 +127,7 @@
         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
                            Style="border-radius: 4px;" />
         <MudText Typo="Typo.body2" Class="mb-4" Style="color: rgba(248,248,248,0.55);">
-            Searching providers...
+            Searching @(_selectedProvider == "wikidata" ? "Wikidata" : "providers")...
         </MudText>
     }
 
@@ -131,13 +137,159 @@
         <MudAlert Severity="Severity.Error" Class="mb-4" Variant="Variant.Outlined">@_error</MudAlert>
     }
 
-    @* ── Results ── *@
+    @* ── Wikidata Results ── *@
+    @if (_universeResults is { Count: > 0 })
+    {
+        <div class="d-flex align-center gap-4 mb-4" style="color: rgba(248,248,248,0.55);">
+            <MudText Typo="Typo.body2">
+                <strong style="color: #F8F8F8;">@_universeResults.Count</strong> Wikidata result@(_universeResults.Count == 1 ? "" : "s")
+            </MudText>
+            @if (_searchDuration > TimeSpan.Zero)
+            {
+                <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.3);">
+                    @_searchDuration.TotalMilliseconds.ToString("F0")ms
+                </MudText>
+            }
+        </div>
+
+        <MudPaper Elevation="0" Class="pa-0 mb-4"
+                  Style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden;">
+            <div class="pa-3 d-flex align-center gap-2"
+                 style="background: #33996618; border-bottom: 1px solid rgba(255,255,255,0.06);">
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: #339966;"></span>
+                <MudText Typo="Typo.subtitle2" Style="color: #F8F8F8; font-weight: 600;">Wikidata</MudText>
+                <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.4);">
+                    @_universeResults.Count result@(_universeResults.Count == 1 ? "" : "s")
+                </MudText>
+            </div>
+
+            @foreach (var result in _universeResults)
+            {
+                var isExpanded = _expandedUniverseResult == result.Qid;
+                <div class="pt-result-row @(isExpanded ? "pt-result-expanded" : "")"
+                     @onclick="() => ToggleUniverseExpand(result.Qid)">
+                    <div class="d-flex gap-3 pa-3" style="cursor: pointer;">
+                        <div style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.04);">
+                            @if (!string.IsNullOrEmpty(result.CoverUrl))
+                            {
+                                <img src="@result.CoverUrl" alt="" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="d-flex align-center justify-center" style="width: 100%; height: 100%;">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 24px; color: rgba(255,255,255,0.1);" />
+                                </div>
+                            }
+                        </div>
+                        <div style="flex: 1; min-width: 0;">
+                            <MudText Typo="Typo.subtitle1" Style="color: #F8F8F8; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                                @result.Label
+                            </MudText>
+                            <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.6);">
+                                @result.Description
+                            </MudText>
+                        </div>
+                        <div class="d-flex flex-column align-end" style="flex-shrink: 0;">
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@GetScoreColor(result.Confidence)"
+                                     Variant="Variant.Outlined"
+                                     Style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;">
+                                @result.Confidence.ToString("F2")
+                            </MudChip>
+                            <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.25); margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;">
+                                @result.Qid
+                            </MudText>
+                        </div>
+                    </div>
+
+                    @* ── Expanded details ── *@
+                    @if (isExpanded)
+                    {
+                        <div class="px-3 pb-3" style="padding-left: 75px;" @onclick:stopPropagation="true">
+                            @if (!string.IsNullOrEmpty(result.WikipediaExtract))
+                            {
+                                <MudText Typo="Typo.body2" Class="mb-2" Style="color: rgba(248,248,248,0.55); font-size: 0.8rem; line-height: 1.5;">
+                                    @(result.WikipediaExtract.Length > 500 ? result.WikipediaExtract[..497] + "..." : result.WikipediaExtract)
+                                </MudText>
+                            }
+                            <div class="d-flex flex-wrap gap-3 mb-2">
+                                @if (!string.IsNullOrEmpty(result.Author))
+                                {
+                                    <span style="font-size: 0.75rem;">
+                                        <span style="color: rgba(248,248,248,0.35);">Author:</span>
+                                        <span style="color: rgba(248,248,248,0.7);">@result.Author</span>
+                                    </span>
+                                }
+                                @if (!string.IsNullOrEmpty(result.Director))
+                                {
+                                    <span style="font-size: 0.75rem;">
+                                        <span style="color: rgba(248,248,248,0.35);">Director:</span>
+                                        <span style="color: rgba(248,248,248,0.7);">@result.Director</span>
+                                    </span>
+                                }
+                                @if (!string.IsNullOrEmpty(result.Year))
+                                {
+                                    <span style="font-size: 0.75rem;">
+                                        <span style="color: rgba(248,248,248,0.35);">Year:</span>
+                                        <span style="color: rgba(248,248,248,0.7);">@result.Year</span>
+                                    </span>
+                                }
+                                @if (!string.IsNullOrEmpty(result.ResolutionTier))
+                                {
+                                    <span style="font-size: 0.75rem;">
+                                        <span style="color: rgba(248,248,248,0.35);">Resolution:</span>
+                                        <span style="color: rgba(248,248,248,0.7);">@result.ResolutionTier</span>
+                                    </span>
+                                }
+                            </div>
+                            @if (result.BridgeIds.Count > 0)
+                            {
+                                <div class="d-flex flex-wrap gap-1 mb-2">
+                                    @foreach (var (key, val) in result.BridgeIds)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                                 Style="font-size: 0.65rem; height: 20px; color: rgba(248,248,248,0.5); border-color: rgba(255,255,255,0.1);"
+                                                 title="@val">
+                                            @VaultHelpers.FormatClaimKey(key)
+                                        </MudChip>
+                                    }
+                                </div>
+                            }
+                            @if (result.MatchScores is not null)
+                            {
+                                <div class="d-flex flex-wrap gap-3">
+                                    <span style="font-size: 0.7rem;">
+                                        <span style="color: rgba(248,248,248,0.3);">Title:</span>
+                                        <span style="color: rgba(248,248,248,0.55);">@result.MatchScores.TitleScore.ToString("F2")</span>
+                                    </span>
+                                    <span style="font-size: 0.7rem;">
+                                        <span style="color: rgba(248,248,248,0.3);">Author:</span>
+                                        <span style="color: rgba(248,248,248,0.55);">@result.MatchScores.AuthorScore.ToString("F2")</span>
+                                    </span>
+                                    <span style="font-size: 0.7rem;">
+                                        <span style="color: rgba(248,248,248,0.3);">Year:</span>
+                                        <span style="color: rgba(248,248,248,0.55);">@result.MatchScores.YearScore.ToString("F2")</span>
+                                    </span>
+                                    <span style="font-size: 0.7rem;">
+                                        <span style="color: rgba(248,248,248,0.3);">Composite:</span>
+                                        <span style="color: rgba(248,248,248,0.55);">@result.MatchScores.CompositeScore.ToString("F2")</span>
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </MudPaper>
+    }
+
+    @* ── Retail Results ── *@
     @if (_results is { Count: > 0 })
     {
         @* Stats bar *@
         <div class="d-flex align-center gap-4 mb-4" style="color: rgba(248,248,248,0.55);">
             <MudText Typo="Typo.body2">
-                <strong style="color: #F8F8F8;">@_results.Count</strong> result@(_results.Count == 1 ? "" : "s")
+                <strong style="color: #F8F8F8;">@_results.Count</strong> retail result@(_results.Count == 1 ? "" : "s")
                 from <strong style="color: #F8F8F8;">@_results.Select(r => r.ProviderName).Distinct().Count()</strong> provider@(_results.Select(r => r.ProviderName).Distinct().Count() == 1 ? "" : "s")
             </MudText>
             @if (_searchDuration > TimeSpan.Zero)
@@ -172,9 +324,14 @@
                 @* Result rows *@
                 @foreach (var result in providerGroup.OrderByDescending(r => r.CompositeScore))
                 {
-                    <div class="pt-result-row">
+                    var resultKey = $"{result.ProviderName}:{result.ProviderItemId ?? result.Title}";
+                    var isExpanded = _expandedResult == resultKey;
+
+                    <div class="pt-result-row @(isExpanded ? "pt-result-expanded" : "")"
+                         @onclick="() => ToggleExpand(resultKey)">
+
                         @* Cover + main info *@
-                        <div class="d-flex gap-3 pa-3">
+                        <div class="d-flex gap-3 pa-3" style="cursor: pointer;">
                             @* Cover thumbnail *@
                             <div style="width: 60px; height: 60px; border-radius: 8px; overflow: hidden; flex-shrink: 0; background: rgba(255,255,255,0.04);">
                                 @if (!string.IsNullOrEmpty(result.CoverUrl))
@@ -204,20 +361,20 @@
                                         @subline
                                         @if (!string.IsNullOrEmpty(subline) && !string.IsNullOrEmpty(tertiary))
                                         {
-                                            <span style="color: rgba(255,255,255,0.2); margin: 0 6px;">·</span>
+                                            <span style="color: rgba(255,255,255,0.2); margin: 0 6px;">&middot;</span>
                                         }
                                         @tertiary
                                     </MudText>
                                 }
-                                @if (!string.IsNullOrEmpty(result.Description))
+                                @if (!isExpanded && !string.IsNullOrEmpty(result.Description))
                                 {
                                     <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.35); margin-top: 2px;">
-                                        @(result.Description.Length > 200 ? result.Description[..197] + "…" : result.Description)
+                                        @(result.Description.Length > 150 ? result.Description[..147] + "..." : result.Description)
                                     </MudText>
                                 }
                             </div>
 
-                            @* Score badge *@
+                            @* Score badges *@
                             <div class="d-flex flex-column align-end" style="flex-shrink: 0;">
                                 <MudChip T="string"
                                          Size="Size.Small"
@@ -226,71 +383,169 @@
                                          Style="font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;">
                                     @result.CompositeScore.ToString("F2")
                                 </MudChip>
-                                @if (!string.IsNullOrEmpty(result.ProviderItemId))
+                                @if (result.Confidence > 0 && Math.Abs(result.Confidence - result.CompositeScore) > 0.01)
                                 {
-                                    <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.25); margin-top: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;">
-                                        @(result.ProviderItemId.Length > 20 ? result.ProviderItemId[..17] + "…" : result.ProviderItemId)
+                                    <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.25); margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem;"
+                                             title="Raw provider confidence score">
+                                        raw: @result.Confidence.ToString("F2")
                                     </MudText>
                                 }
+                                @if (!string.IsNullOrEmpty(result.ProviderItemId))
+                                {
+                                    <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.25); margin-top: 2px; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem;">
+                                        @(result.ProviderItemId.Length > 20 ? result.ProviderItemId[..17] + "..." : result.ProviderItemId)
+                                    </MudText>
+                                }
+                                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                                         Size="Size.Small" Style="color: rgba(255,255,255,0.2); margin-top: 2px;" />
                             </div>
                         </div>
 
-                        @* Detail fields + extra fields *@
-                        @{
-                            var details = GetDetailFields(result);
-                            var bridges = GetBridgeFields(result);
-                        }
-                        @if (details.Count > 0 || bridges.Count > 0)
+                        @* ── Expanded detail panel ── *@
+                        @if (isExpanded)
                         {
-                            <div class="px-3 pb-3" style="padding-left: 75px;">
-                                @* Detail fields row *@
-                                @if (details.Count > 0)
+                            <div class="pt-detail-panel" @onclick:stopPropagation="true">
+                                @* Full description *@
+                                @if (!string.IsNullOrEmpty(result.Description))
                                 {
-                                    <div class="d-flex flex-wrap gap-3 mb-1">
-                                        @foreach (var (label, val) in details)
+                                    <div class="mb-3">
+                                        <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.3); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
+                                            Description
+                                        </MudText>
+                                        <MudText Typo="Typo.body2" Style="color: rgba(248,248,248,0.6); font-size: 0.8rem; line-height: 1.5;">
+                                            @result.Description
+                                        </MudText>
+                                    </div>
+                                }
+
+                                @* Scores breakdown *@
+                                <div class="mb-3">
+                                    <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.3); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
+                                        Scores
+                                    </MudText>
+                                    <div class="d-flex flex-wrap gap-3">
+                                        <span style="font-size: 0.75rem;">
+                                            <span style="color: rgba(248,248,248,0.35);">Composite:</span>
+                                            <span style="color: @GetScoreHex(result.CompositeScore); font-family: 'JetBrains Mono', monospace;">@result.CompositeScore.ToString("F3")</span>
+                                        </span>
+                                        <span style="font-size: 0.75rem;">
+                                            <span style="color: rgba(248,248,248,0.35);">Provider confidence:</span>
+                                            <span style="color: @GetScoreHex(result.Confidence); font-family: 'JetBrains Mono', monospace;">@result.Confidence.ToString("F3")</span>
+                                        </span>
+                                        @if (result.DescriptionMatchScore > 0)
                                         {
                                             <span style="font-size: 0.75rem;">
-                                                <span style="color: rgba(248,248,248,0.35);">@label:</span>
-                                                <span style="color: rgba(248,248,248,0.7);">@val</span>
+                                                <span style="color: rgba(248,248,248,0.35);">Description match:</span>
+                                                <span style="color: @GetScoreHex(result.DescriptionMatchScore); font-family: 'JetBrains Mono', monospace;">@result.DescriptionMatchScore.ToString("F3")</span>
                                             </span>
                                         }
                                     </div>
-                                }
-                                @* Bridge ID chips *@
-                                @if (bridges.Count > 0)
-                                {
-                                    <div class="d-flex flex-wrap gap-1">
-                                        @foreach (var (label, val) in bridges)
-                                        {
-                                            <MudChip T="string"
-                                                     Size="Size.Small"
-                                                     Variant="Variant.Outlined"
-                                                     Style="font-size: 0.65rem; height: 20px; color: rgba(248,248,248,0.5); border-color: rgba(255,255,255,0.1);"
-                                                     title="@val">
-                                                @label
-                                            </MudChip>
-                                        }
-                                    </div>
-                                }
-                            </div>
-                        }
-
-                        @* Extra fields (all remaining data from provider) *@
-                        @if (result.ExtraFields.Count > 0)
-                        {
-                            <div class="px-3 pb-3" style="padding-left: 75px;">
-                                <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.25); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
-                                    Extra Fields
-                                </MudText>
-                                <div class="d-flex flex-wrap gap-3">
-                                    @foreach (var (key, val) in result.ExtraFields.OrderBy(kv => kv.Key))
+                                    @if (result.MatchScores is not null)
                                     {
-                                        <span style="font-size: 0.7rem;">
-                                            <span style="color: rgba(248,248,248,0.3);">@VaultHelpers.FormatClaimKey(key):</span>
-                                            <span style="color: rgba(248,248,248,0.55);">@(val.Length > 80 ? val[..77] + "…" : val)</span>
-                                        </span>
+                                        <div class="d-flex flex-wrap gap-3 mt-1">
+                                            <span style="font-size: 0.7rem;">
+                                                <span style="color: rgba(248,248,248,0.3);">Title:</span>
+                                                <span style="color: rgba(248,248,248,0.55); font-family: 'JetBrains Mono', monospace;">@result.MatchScores.TitleScore.ToString("F2")</span>
+                                            </span>
+                                            <span style="font-size: 0.7rem;">
+                                                <span style="color: rgba(248,248,248,0.3);">Author:</span>
+                                                <span style="color: rgba(248,248,248,0.55); font-family: 'JetBrains Mono', monospace;">@result.MatchScores.AuthorScore.ToString("F2")</span>
+                                            </span>
+                                            <span style="font-size: 0.7rem;">
+                                                <span style="color: rgba(248,248,248,0.3);">Year:</span>
+                                                <span style="color: rgba(248,248,248,0.55); font-family: 'JetBrains Mono', monospace;">@result.MatchScores.YearScore.ToString("F2")</span>
+                                            </span>
+                                        </div>
                                     }
                                 </div>
+
+                                @* Detail fields *@
+                                @{
+                                    var details = GetDetailFields(result);
+                                }
+                                @if (details.Count > 0)
+                                {
+                                    <div class="mb-3">
+                                        <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.3); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
+                                            Metadata
+                                        </MudText>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            @foreach (var (label, val) in details)
+                                            {
+                                                <span style="font-size: 0.75rem;">
+                                                    <span style="color: rgba(248,248,248,0.35);">@label:</span>
+                                                    <span style="color: rgba(248,248,248,0.7);">@val</span>
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                @* Bridge IDs *@
+                                @{
+                                    var bridges = GetBridgeFields(result);
+                                }
+                                @if (bridges.Count > 0)
+                                {
+                                    <div class="mb-3">
+                                        <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.3); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
+                                            Bridge IDs
+                                        </MudText>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach (var (label, val) in bridges)
+                                            {
+                                                <MudChip T="string"
+                                                         Size="Size.Small"
+                                                         Variant="Variant.Outlined"
+                                                         Style="font-size: 0.65rem; height: 22px; color: rgba(248,248,248,0.6); border-color: rgba(255,255,255,0.12);"
+                                                         title="@val">
+                                                    @label: @(val.Length > 30 ? val[..27] + "..." : val)
+                                                </MudChip>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                @* Extra fields *@
+                                @if (result.ExtraFields.Count > 0)
+                                {
+                                    <div class="mb-2">
+                                        <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.3); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
+                                            Extra Fields
+                                        </MudText>
+                                        <div class="d-flex flex-wrap gap-3">
+                                            @foreach (var (key, val) in result.ExtraFields.OrderBy(kv => kv.Key))
+                                            {
+                                                <span style="font-size: 0.7rem;">
+                                                    <span style="color: rgba(248,248,248,0.3);">@VaultHelpers.FormatClaimKey(key):</span>
+                                                    <span style="color: rgba(248,248,248,0.55);">@(val.Length > 120 ? val[..117] + "..." : val)</span>
+                                                </span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+
+                                @* Description field matches *@
+                                @if (result.DescriptionFieldMatches is { Count: > 0 })
+                                {
+                                    <div>
+                                        <MudText Typo="Typo.caption" Style="color: rgba(248,248,248,0.3); text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.6rem; margin-bottom: 4px;">
+                                            Description Field Matches
+                                        </MudText>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            @foreach (var fm in result.DescriptionFieldMatches)
+                                            {
+                                                <MudChip T="string"
+                                                         Size="Size.Small"
+                                                         Variant="Variant.Outlined"
+                                                         Style="@($"font-size: 0.65rem; height: 22px; color: {(fm.Matched ? "#4CAF50" : "rgba(248,248,248,0.35)")}; border-color: {(fm.Matched ? "rgba(76,175,80,0.3)" : "rgba(255,255,255,0.08)")};")">
+                                                    @VaultHelpers.FormatClaimKey(fm.FieldKey)
+                                                    @(fm.Matched ? " \u2713" : " \u2717")
+                                                </MudChip>
+                                            }
+                                        </div>
+                                    </div>
+                                }
                             </div>
                         }
                     </div>
@@ -298,7 +553,7 @@
             </MudPaper>
         }
     }
-    else if (!_loading && _hasSearched)
+    else if (!_loading && _hasSearched && _universeResults is not { Count: > 0 })
     {
         <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
             No results found. Try broadening your search or changing the media type.
@@ -310,12 +565,21 @@
 <style>
     .pt-result-row {
         border-bottom: 1px solid rgba(255,255,255,0.04);
+        transition: background 0.15s ease;
     }
     .pt-result-row:last-child {
         border-bottom: none;
     }
     .pt-result-row:hover {
         background: rgba(255,255,255,0.02);
+    }
+    .pt-result-expanded {
+        background: rgba(255,255,255,0.03);
+    }
+    .pt-detail-panel {
+        padding: 0 16px 16px;
+        padding-left: 75px;
+        border-top: 1px solid rgba(255,255,255,0.04);
     }
 </style>
 
@@ -329,12 +593,15 @@
     private bool _hasSearched;
     private string? _error;
     private TimeSpan _searchDuration;
+    private string? _expandedResult;
+    private string? _expandedUniverseResult;
 
     private IReadOnlyList<SearchableField> _searchableFields = [];
     private readonly HashSet<string> _activeFields = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _fieldValues = new(StringComparer.OrdinalIgnoreCase);
 
     private List<RetailCandidateDto> _results = [];
+    private List<UniverseCandidateDto> _universeResults = [];
     private IReadOnlyList<ProviderCatalogueDto> _filteredProviders = [];
 
     private static readonly string[] _mediaTypes =
@@ -358,8 +625,11 @@
         RefreshProviderList();
         RefreshSearchableFields();
         _results = [];
+        _universeResults = [];
         _hasSearched = false;
         _error = null;
+        _expandedResult = null;
+        _expandedUniverseResult = null;
     }
 
     private void RefreshProviderList()
@@ -369,7 +639,8 @@
             .Where(p => p.MediaTypes.Any(mt =>
                 string.Equals(mt, _selectedMediaType, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(mt, MapMediaTypeAlias(_selectedMediaType), StringComparison.OrdinalIgnoreCase)))
-            .Where(p => p.HydrationStages.Contains(1)) // Stage 1 retail providers only
+            .Where(p => !string.Equals(p.Name, "wikidata_reconciliation", StringComparison.OrdinalIgnoreCase)
+                     && !string.Equals(p.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
             .OrderBy(p => p.DisplayName)
             .ToList();
     }
@@ -419,6 +690,18 @@
             await RunSearch();
     }
 
+    // ── Expand/Collapse ─────────────────────────────────────────────────────
+
+    private void ToggleExpand(string resultKey)
+    {
+        _expandedResult = _expandedResult == resultKey ? null : resultKey;
+    }
+
+    private void ToggleUniverseExpand(string qid)
+    {
+        _expandedUniverseResult = _expandedUniverseResult == qid ? null : qid;
+    }
+
     // ── Search ───────────────────────────────────────────────────────────────
 
     private async Task RunSearch()
@@ -428,7 +711,10 @@
         _loading = true;
         _error = null;
         _results = [];
+        _universeResults = [];
         _hasSearched = true;
+        _expandedResult = null;
+        _expandedUniverseResult = null;
         StateHasChanged();
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -446,22 +732,46 @@
             // Build combined query for providers that need a single string
             var combinedQuery = string.Join(" ", searchFields.Values);
 
-            var response = await ApiClient.SearchRetailAsync(
-                combinedQuery,
-                _selectedMediaType,
-                maxCandidates: 25,
-                searchFields: searchFields);
+            var isWikidataOnly = _selectedProvider == "wikidata";
 
-            if (response?.Candidates is not null)
+            // Always run retail search unless Wikidata-only
+            if (!isWikidataOnly)
             {
-                _results = response.Candidates;
+                var response = await ApiClient.SearchRetailAsync(
+                    combinedQuery,
+                    _selectedMediaType,
+                    maxCandidates: 25,
+                    searchFields: searchFields);
 
-                // Client-side provider filter
-                if (_selectedProvider != "all")
+                if (response?.Candidates is not null)
                 {
-                    _results = _results
-                        .Where(r => string.Equals(r.ProviderName, _selectedProvider, StringComparison.OrdinalIgnoreCase))
-                        .ToList();
+                    _results = response.Candidates;
+
+                    // Client-side provider filter
+                    if (_selectedProvider != "all" && _selectedProvider != "wikidata")
+                    {
+                        _results = _results
+                            .Where(r => string.Equals(r.ProviderName, _selectedProvider, StringComparison.OrdinalIgnoreCase))
+                            .ToList();
+                    }
+                }
+            }
+
+            // Run Wikidata search if "all" or "wikidata" is selected
+            if (_selectedProvider == "all" || isWikidataOnly)
+            {
+                searchFields.TryGetValue("author", out var author);
+                if (author is null) searchFields.TryGetValue("artist", out author);
+
+                var universeResponse = await ApiClient.SearchUniverseAsync(
+                    combinedQuery,
+                    _selectedMediaType,
+                    maxCandidates: 10,
+                    localAuthor: author);
+
+                if (universeResponse?.Candidates is not null)
+                {
+                    _universeResults = universeResponse.Candidates;
                 }
             }
         }
@@ -502,7 +812,7 @@
         {
             if (key == display.Subline || key == display.Tertiary) continue;
             if (allFields.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
-                details.Add((VaultHelpers.FormatClaimKey(key), val.Length > 80 ? val[..77] + "…" : val));
+                details.Add((VaultHelpers.FormatClaimKey(key), val.Length > 80 ? val[..77] + "\u2026" : val));
         }
         return details;
     }
@@ -556,6 +866,13 @@
         >= 0.85 => Color.Success,
         >= 0.60 => Color.Warning,
         _ => Color.Default,
+    };
+
+    private static string GetScoreHex(double score) => score switch
+    {
+        >= 0.85 => "#4CAF50",
+        >= 0.60 => "#EF9F27",
+        _ => "rgba(248,248,248,0.55)",
     };
 
     // FormatClaimKey is shared via VaultHelpers.FormatClaimKey()

@@ -102,6 +102,17 @@
             }
         </div>
 
+        @* ── Provider Tester ── *@
+        <div class="sidebar-item @(IsActive("/provider-tester", "provider-tester") ? "sidebar-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/provider-tester"))"
+             title="@(Collapsed ? "Provider Tester" : null)">
+            <MudIcon Icon="@Icons.Material.Outlined.Science" Size="Size.Medium" Class="sidebar-item-icon" />
+            @if (!Collapsed)
+            {
+                <span class="sidebar-label">Provider Tester</span>
+            }
+        </div>
+
         @* ── Divider above Settings ── *@
         <div class="sidebar-divider"></div>
 
