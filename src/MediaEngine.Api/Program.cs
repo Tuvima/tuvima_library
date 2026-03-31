@@ -539,6 +539,38 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         // to fail silently. Setting to 0 disables the maxlag check — acceptable for
         // a single-user personal tool making infrequent requests.
         MaxLag    = 0,
+        // P279 subclass walking: depth 3 matches our former custom walk. The library's
+        // internal BFS walker with ConcurrentDictionary cache replaces our _learnedClasses.
+        TypeHierarchyDepth = 3,
+        // Include Wikipedia sitelink titles in the label scoring pool so common names
+        // like "Frankenstein" score higher than the formal label.
+        IncludeSitelinkLabels = true,
+        // Add ISBN properties to the unique ID set so reconciliation scores 100 on exact
+        // ISBN match — replaces our manual +100 ISBN scoring in FilterByMediaTypeAsync.
+        UniqueIdProperties = new HashSet<string>
+        {
+            "P213",  // ISNI
+            "P214",  // VIAF ID
+            "P227",  // GND ID
+            "P244",  // Library of Congress authority ID
+            "P268",  // BnF ID
+            "P269",  // IdRef ID
+            "P349",  // National Diet Library ID
+            "P496",  // ORCID iD
+            "P906",  // SELIBR ID
+            "P1006", // NTA ID (Netherlands)
+            "P1015", // NORAF ID
+            "P1566", // GeoNames ID
+            "P2427", // GRID ID
+            // Media-specific identifiers for Tuvima Library
+            "P212",  // ISBN-13
+            "P957",  // ISBN-10
+            "P345",  // IMDb ID
+            "P4947", // TMDB movie ID
+            "P5749", // Amazon Standard Identification Number (ASIN)
+            "P434",  // MusicBrainz artist ID
+            "P436",  // MusicBrainz release group ID
+        },
     };
 
     builder.Services.AddHttpClient("WikidataReconciliation", client =>

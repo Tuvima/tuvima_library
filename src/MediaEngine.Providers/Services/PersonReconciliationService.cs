@@ -72,11 +72,16 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         var language = _configLoader.LoadCore().Language.Metadata ?? "en";
 
         // Step 1: Search Wikidata for person candidates.
+        // Type = "Q5" filters for humans at search time (TypeHierarchyDepth = 1 catches
+        // subclasses such as fictional humans). DiacriticInsensitive handles accented names.
         var request = new ReconciliationRequest
         {
             Query = name,
             Limit = 10,
             Language = language,
+            Type = HumanClassQid,
+            TypeHierarchyDepth = 1,
+            DiacriticInsensitive = true,
         };
 
         IReadOnlyList<ReconciliationResult> candidates;
@@ -97,14 +102,16 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
             return null;
         }
 
-        // Step 2: Fetch P31 (instance_of), P106 (occupation), P800 (notable_work) for all candidates.
+        // Step 2: Fetch P106 (occupation) and P800 (notable_work) for all candidates.
+        // resolveEntityLabels: true populates EntityLabel on entity-valued claims so we can
+        // match against human-readable labels rather than relying on RawValue alone.
+        // P31 is omitted — type filtering is now handled at search time via Type = "Q5".
         var candidateQids = candidates.Select(c => c.Id).Distinct().ToList();
-        IReadOnlyList<string> propertiesToFetch = ["P31", "P106", "P800"];
 
-        IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> properties;
+        IReadOnlyDictionary<string, WikidataEntityInfo> entityInfos;
         try
         {
-            properties = await _reconciler.GetPropertiesAsync(candidateQids, propertiesToFetch, language, ct)
+            entityInfos = await _reconciler.GetEntitiesAsync(candidateQids, resolveEntityLabels: true, language, ct)
                 .ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
@@ -119,12 +126,10 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
 
         foreach (var candidate in candidates)
         {
-            if (!properties.TryGetValue(candidate.Id, out var props))
+            if (!entityInfos.TryGetValue(candidate.Id, out var entityInfo))
                 continue;
 
-            // Filter: must be Q5 (human).
-            if (!IsHuman(props))
-                continue;
+            var props = entityInfo.Claims;
 
             // Base score from reconciliation (0-100 → 0.0-1.0), weighted at 0.50.
             double baseScore = (candidate.Score / 100.0) * 0.50;
@@ -167,16 +172,6 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
 
     // ── Private helpers ─────────────────────────────────────────────────────
 
-    /// <summary>Returns true if the entity's P31 (instance_of) includes Q5 (human).</summary>
-    private static bool IsHuman(IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> props)
-    {
-        if (!props.TryGetValue("P31", out var p31Claims))
-            return false;
-
-        return p31Claims.Any(c =>
-            string.Equals(c.Value?.EntityId, HumanClassQid, StringComparison.OrdinalIgnoreCase));
-    }
-
     /// <summary>Returns true if P106 (occupation) contains a label matching the expected role.</summary>
     private static bool HasMatchingOccupation(
         IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> props,
@@ -190,7 +185,9 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
 
         return p106Claims.Any(c =>
         {
-            var label = c.Value?.RawValue;
+            // Prefer EntityLabel (resolved human-readable label from v0.6.0 resolveEntityLabels),
+            // fall back to RawValue for backwards compatibility.
+            var label = c.Value?.EntityLabel ?? c.Value?.RawValue;
             return !string.IsNullOrWhiteSpace(label) && expectedOccupations.Contains(label);
         });
     }
@@ -207,7 +204,9 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
 
         return p800Claims.Any(c =>
         {
-            var label = c.Value?.RawValue;
+            // Prefer EntityLabel (resolved human-readable label from v0.6.0 resolveEntityLabels),
+            // fall back to RawValue for backwards compatibility.
+            var label = c.Value?.EntityLabel ?? c.Value?.RawValue;
             if (string.IsNullOrWhiteSpace(label))
                 return false;
 

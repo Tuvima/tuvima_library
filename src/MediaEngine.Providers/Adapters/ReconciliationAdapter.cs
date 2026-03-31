@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -49,9 +48,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
     // Parsed once at construction.
     private readonly Guid _providerId;
-
-    // Runtime-learned P279 class→media type mappings (in-memory, not persisted).
-    private readonly ConcurrentDictionary<string, LearnedClassEntry> _learnedClasses = new();
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -152,9 +148,35 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         try
         {
+            // Build type-filtered reconciliation for better recall
+            IReadOnlyList<string>? typeQids = null;
+            if (request.MediaType != MediaType.Unknown)
+            {
+                var mediaTypeKey = request.MediaType.ToString();
+                if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+                    typeQids = classes;
+            }
+
             var constraints = BuildTitleSearchConstraints(request);
-            var candidates  = await ReconcileAsync(
-                request.Title, constraints, ct).ConfigureAwait(false);
+            var metaLang = _configLoader?.LoadCore().Language.Metadata ?? "en";
+
+            // Build a library request with type filtering for CirrusSearch
+            var reconRequest = new ReconciliationRequest
+            {
+                Query = request.Title,
+                Limit = _config.Reconciliation.MaxCandidates,
+                Language = metaLang,
+                DiacriticInsensitive = true,
+                Cleaners = QueryCleaners.All(),
+                Types = typeQids,
+                TypeHierarchyDepth = 3,
+                Properties = constraints?.Select(kvp =>
+                    new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
+            };
+
+            var candidates = _reconciler is not null
+                ? await _reconciler.ReconcileAsync(reconRequest, ct).ConfigureAwait(false)
+                : (IReadOnlyList<ReconciliationResult>)[];
 
             _logger.LogInformation(
                 "{Provider}: SearchAsync '{Query}' ({MediaType}) — {Count} reconciliation candidate(s)",
@@ -191,11 +213,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 candidates = filtered;
             }
 
-            // Resolve display-friendly titles: prefer matching Wikidata alias (e.g. "1984"
-            // for "Nineteen Eighty-Four"), then fall back to Wikipedia sitelink title
-            // (e.g. "Frankenstein" for "Frankenstein; or, The Modern Prometheus").
-            candidates = await ResolveDisplayLabelsAsync(candidates, request.Title, ct)
-                .ConfigureAwait(false);
+            // Display-friendly titles: the library's MatchedLabel on each ReconciliationResult
+            // already contains the alias or sitelink that matched — no additional call needed.
 
             // For audiobook searches: discover audiobook editions via P747 for work-level results.
             // Edition results go first (they're more specific), work fallbacks come after.
@@ -308,6 +327,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             Query = query,
             Limit = _config.Reconciliation.MaxCandidates,
             Language = language,
+            DiacriticInsensitive = true,
+            Cleaners = QueryCleaners.All(),
             Properties = propertyConstraints?.Select(kvp =>
                 new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
         };
@@ -325,9 +346,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Reconciles an entity name against Wikidata, searching in multiple languages.
+    /// Reconciles an entity name against Wikidata, searching in multiple languages concurrently.
     /// When <paramref name="fileLanguage"/> differs from the configured metadata language,
-    /// searches in both languages and deduplicates by QID, keeping the highest-scoring result.
+    /// uses the library's <c>Languages</c> parameter for concurrent multi-language search
+    /// with built-in deduplication.
     /// </summary>
     public async Task<IReadOnlyList<ReconciliationResult>> ReconcileMultiLanguageAsync(
         string query,
@@ -342,50 +364,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         var fileLang = fileLanguage?.Split('-', '_')[0].ToLowerInvariant().Trim();
         var metaLang = metadataLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
 
-        // Search in file's language first (highest match probability for embedded titles)
-        var primaryResults = await ReconcileInLanguageAsync(query, fileLang ?? metaLang, propertyConstraints, ct)
-            .ConfigureAwait(false);
-
-        // If file language differs from metadata language, also search in metadata language
-        if (!string.IsNullOrEmpty(fileLang)
-            && !string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
-        {
-            var secondaryResults = await ReconcileInLanguageAsync(query, metaLang, propertyConstraints, ct)
-                .ConfigureAwait(false);
-
-            // Deduplicate by QID, keeping the highest-scoring result
-            var merged = new Dictionary<string, ReconciliationResult>(StringComparer.OrdinalIgnoreCase);
-            foreach (var r in primaryResults)
-            {
-                if (!string.IsNullOrEmpty(r.Id))
-                    merged[r.Id] = r;
-            }
-            foreach (var r in secondaryResults)
-            {
-                if (!string.IsNullOrEmpty(r.Id) && (!merged.ContainsKey(r.Id) || r.Score > merged[r.Id].Score))
-                    merged[r.Id] = r;
-            }
-
-            return merged.Values.OrderByDescending(r => r.Score).ToList();
-        }
-
-        return primaryResults;
-    }
-
-    private async Task<IReadOnlyList<ReconciliationResult>> ReconcileInLanguageAsync(
-        string query,
-        string language,
-        Dictionary<string, string>? propertyConstraints,
-        CancellationToken ct)
-    {
-        if (_reconciler is null)
-            return [];
+        // Build language list: file language first, then metadata language
+        var languages = new List<string>();
+        if (!string.IsNullOrEmpty(fileLang))
+            languages.Add(fileLang);
+        if (!string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
+            languages.Add(metaLang);
 
         var request = new ReconciliationRequest
         {
             Query = query,
             Limit = _config.Reconciliation.MaxCandidates,
-            Language = language,
+            Languages = languages.Count > 1 ? languages : null,
+            Language = languages.Count <= 1 ? (fileLang ?? metaLang) : null,
+            DiacriticInsensitive = true,
             Properties = propertyConstraints?.Select(kvp =>
                 new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
         };
@@ -397,14 +389,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "{Provider}: ReconcileInLanguageAsync failed for query '{Query}' in language '{Lang}'",
-                Name, query, language);
+            _logger.LogWarning(ex, "{Provider}: ReconcileMultiLanguageAsync failed for query '{Query}'", Name, query);
             return [];
         }
     }
 
     /// <summary>
-    /// Reconciles multiple entities. Each request is executed independently.
+    /// Reconciles multiple entities in parallel using the library's batch method.
     /// </summary>
     /// <param name="requests">List of (QueryId, Query, PropertyConstraints) tuples.</param>
     /// <param name="ct">Cancellation token.</param>
@@ -414,13 +405,31 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         CancellationToken ct = default)
     {
         var result = new Dictionary<string, IReadOnlyList<ReconciliationResult>>(StringComparer.Ordinal);
-
-        if (requests.Count == 0)
+        if (requests.Count == 0 || _reconciler is null)
             return result;
 
-        foreach (var (queryId, query, constraints) in requests)
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+        var libRequests = requests.Select(r => new ReconciliationRequest
         {
-            result[queryId] = await ReconcileAsync(query, constraints, ct).ConfigureAwait(false);
+            Query = r.Query,
+            Limit = _config.Reconciliation.MaxCandidates,
+            Language = language,
+            DiacriticInsensitive = true,
+            Cleaners = QueryCleaners.All(),
+            Properties = r.PropertyConstraints?.Select(kvp =>
+                new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
+        }).ToList();
+
+        try
+        {
+            var batchResults = await _reconciler.ReconcileBatchAsync(libRequests, ct).ConfigureAwait(false);
+            for (int i = 0; i < requests.Count && i < batchResults.Count; i++)
+                result[requests[i].QueryId] = batchResults[i];
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Provider}: ReconcileBatchAsync failed", Name);
         }
 
         return result;
@@ -496,241 +505,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             _logger.LogWarning(ex, "{Provider}: GetPropertiesAsync failed for {Count} QIDs",
                 Name, qids.Count);
             return new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>>(StringComparer.OrdinalIgnoreCase);
-        }
-    }
-
-    /// <summary>
-    /// Resolves display-friendly labels for reconciliation candidates by fetching
-    /// Wikipedia sitelink titles via the Wikibase API. The Reconciliation API's <c>name</c>
-    /// field contains the full Wikidata entity label (e.g. "Frankenstein; or, The Modern
-    /// Prometheus"), while the Wikipedia sitelink title is the common-usage display name
-    /// (e.g. "Frankenstein"). When a sitelink exists, the candidate's label is replaced.
-    /// </summary>
-    private async Task<IReadOnlyList<ReconciliationResult>> ResolveDisplayLabelsAsync(
-        IReadOnlyList<ReconciliationResult> candidates,
-        string? originalQuery,
-        CancellationToken ct)
-    {
-        if (candidates.Count == 0 || _reconciler is null)
-            return candidates;
-
-        try
-        {
-            var qids = candidates.Select(c => c.Id).Distinct().ToList();
-            var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
-
-            // Step 1: Resolve common names from aliases (e.g. "1984" for "Nineteen Eighty-Four").
-            // Aliases are checked first because they represent the most natural/common name
-            // when the original query matches an alias exactly.
-            var aliasMap = new Dictionary<string, string>(StringComparer.Ordinal);
-            if (!string.IsNullOrWhiteSpace(originalQuery))
-            {
-                try
-                {
-                    var entities = await _reconciler.GetEntitiesAsync(qids, language, ct)
-                        .ConfigureAwait(false);
-
-                    foreach (var (qid, entity) in entities)
-                    {
-                        if (entity.Aliases is null || entity.Aliases.Count == 0)
-                            continue;
-
-                        // If the label already matches the query, no alias substitution needed.
-                        if (string.Equals(entity.Label, originalQuery, StringComparison.OrdinalIgnoreCase))
-                            continue;
-
-                        var matchingAlias = entity.Aliases.FirstOrDefault(a =>
-                            string.Equals(a, originalQuery, StringComparison.OrdinalIgnoreCase));
-
-                        if (matchingAlias is not null)
-                            aliasMap[qid] = matchingAlias;
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Propagate cancellation — don't swallow timeouts.
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex,
-                        "{Provider}: alias resolution in display labels failed", Name);
-                }
-            }
-
-            // Step 2: Resolve Wikipedia sitelink titles as fallback display names.
-            var sitelinkMap = new Dictionary<string, string>(StringComparer.Ordinal);
-            var wikiUrls = await _reconciler.GetWikipediaUrlsAsync(qids, language, ct)
-                .ConfigureAwait(false);
-
-            foreach (var (qid, url) in wikiUrls)
-            {
-                if (!string.IsNullOrWhiteSpace(url))
-                {
-                    var lastSlash = url.LastIndexOf('/');
-                    if (lastSlash >= 0 && lastSlash < url.Length - 1)
-                    {
-                        var articleTitle = Uri.UnescapeDataString(url[(lastSlash + 1)..]).Replace('_', ' ');
-                        if (!string.IsNullOrWhiteSpace(articleTitle))
-                            sitelinkMap[qid] = articleTitle;
-                    }
-                }
-            }
-
-            // Step 3: Build final display names. Alias match wins over sitelink title.
-            return candidates.Select(c =>
-            {
-                string? displayTitle = null;
-                if (aliasMap.TryGetValue(c.Id, out var alias))
-                    displayTitle = alias;
-                else if (sitelinkMap.TryGetValue(c.Id, out var sitelink))
-                    displayTitle = sitelink;
-
-                return displayTitle is not null
-                    ? new ReconciliationResult
-                      {
-                          Id          = c.Id,
-                          Name        = displayTitle,
-                          Description = c.Description,
-                          Score       = c.Score,
-                          Match       = c.Match,
-                          Types       = c.Types,
-                      }
-                    : c;
-            }).ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "{Provider}: display label resolution failed, using raw labels", Name);
-            return candidates;
-        }
-    }
-
-    /// <summary>
-    /// Resolves the common name for a Wikidata entity by checking its aliases against the
-    /// original search query. When the query matches an alias that differs from the primary
-    /// label, the alias IS the common name (e.g. "1984" is a Wikidata alias for Q208460,
-    /// whose primary English label is "Nineteen Eighty-Four").
-    /// </summary>
-    /// <param name="qid">The resolved Wikidata QID.</param>
-    /// <param name="originalQuery">The original search query (from embedded metadata).</param>
-    /// <param name="language">BCP-47 language code for label resolution.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The common name alias if found, or <c>null</c> to fall back to the label.</returns>
-    private async Task<string?> ResolveCommonNameAsync(
-        string qid,
-        string originalQuery,
-        string language,
-        CancellationToken ct)
-    {
-        if (_reconciler is null || string.IsNullOrWhiteSpace(originalQuery))
-            return null;
-
-        try
-        {
-            var entities = await _reconciler.GetEntitiesAsync([qid], language, ct)
-                .ConfigureAwait(false);
-
-            if (!entities.TryGetValue(qid, out var entity))
-                return null;
-
-            var label = entity.Label;
-            var aliases = entity.Aliases;
-
-            if (aliases is null || aliases.Count == 0)
-                return null;
-
-            // If the primary label already matches the query, no alias needed.
-            if (string.Equals(label, originalQuery, StringComparison.OrdinalIgnoreCase))
-                return null;
-
-            // Check aliases for an exact case-insensitive match against the original query.
-            var matchingAlias = aliases.FirstOrDefault(a =>
-                string.Equals(a, originalQuery, StringComparison.OrdinalIgnoreCase));
-
-            if (matchingAlias is not null)
-            {
-                _logger.LogDebug(
-                    "{Provider}: common name alias '{Alias}' matches query '{Query}' for {QID} " +
-                    "(primary label: '{Label}')",
-                    Name, matchingAlias, originalQuery, qid, label);
-                return matchingAlias;
-            }
-
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex,
-                "{Provider}: common name alias resolution failed for {QID}, using label",
-                Name, qid);
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Resolves common names for multiple reconciliation candidates by checking Wikidata
-    /// aliases against the original search query. Updates candidate Names in-place when
-    /// a matching alias is found.
-    /// </summary>
-    private async Task<IReadOnlyList<ReconciliationResult>> ResolveCommonNamesAsync(
-        IReadOnlyList<ReconciliationResult> candidates,
-        string originalQuery,
-        string language,
-        CancellationToken ct)
-    {
-        if (_reconciler is null || candidates.Count == 0 || string.IsNullOrWhiteSpace(originalQuery))
-            return candidates;
-
-        try
-        {
-            var qids = candidates.Select(c => c.Id).Distinct().ToList();
-            var entities = await _reconciler.GetEntitiesAsync(qids, language, ct)
-                .ConfigureAwait(false);
-
-            if (entities.Count == 0)
-                return candidates;
-
-            return candidates.Select(c =>
-            {
-                if (!entities.TryGetValue(c.Id, out var entity))
-                    return c;
-
-                var aliases = entity.Aliases;
-                if (aliases is null || aliases.Count == 0)
-                    return c;
-
-                // If the label already matches the query, keep it.
-                if (string.Equals(entity.Label, originalQuery, StringComparison.OrdinalIgnoreCase))
-                    return c;
-
-                // Check for an alias that exactly matches the query.
-                var matchingAlias = aliases.FirstOrDefault(a =>
-                    string.Equals(a, originalQuery, StringComparison.OrdinalIgnoreCase));
-
-                if (matchingAlias is null)
-                    return c;
-
-                _logger.LogDebug(
-                    "{Provider}: display alias '{Alias}' for candidate {QID} (label: '{Label}')",
-                    Name, matchingAlias, c.Id, entity.Label);
-
-                return new ReconciliationResult
-                {
-                    Id          = c.Id,
-                    Name        = matchingAlias,
-                    Description = c.Description,
-                    Score       = c.Score,
-                    Match       = c.Match,
-                    Types       = c.Types,
-                };
-            }).ToList();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex,
-                "{Provider}: batch common name resolution failed, using original labels", Name);
-            return candidates;
         }
     }
 
@@ -1086,103 +860,75 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         string? narratorHint = null,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(masterWorkQid))
+        if (string.IsNullOrWhiteSpace(masterWorkQid) || _reconciler is null)
             return null;
 
         try
         {
-            // Step 2a: Fetch P747 (has_edition_or_translation) from the master work.
-            var workExtensions = await ExtendAsync([masterWorkQid], ["P747"], ct).ConfigureAwait(false);
-            workExtensions.TryGetValue(masterWorkQid, out var workProps);
-
-            if (workProps is null
-                || !workProps.TryGetValue("P747", out var editionValues)
-                || editionValues.Count == 0)
-            {
-                _logger.LogDebug("{Provider}: no P747 editions found on master work {QID} — audiobook pivot skipped",
-                    Name, masterWorkQid);
-                return null;
-            }
-
-            var editionQids = editionValues
-                .Where(c => c.Value?.EntityId is not null)
-                .Select(c => c.Value!.EntityId!)
-                .Distinct()
-                .ToList();
-
-            if (editionQids.Count == 0)
-                return null;
-
-            _logger.LogDebug("{Provider}: master work {QID} has {Count} edition(s) — filtering for audiobook class",
-                Name, masterWorkQid, editionQids.Count);
-
-            // Step 2b: Extend all editions with P31 + P175 (narrator) for filtering and ranking.
-            var editionExtMap = await ExtendAsync(editionQids, ["P31", "P175"], ct).ConfigureAwait(false);
-
-            // Audiobook class QIDs from config (Q122731938 = audiobook, Q106833962 = audiobook edition).
             var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
-                ? new HashSet<string>(classes, StringComparer.OrdinalIgnoreCase)
-                : new HashSet<string>(["Q122731938", "Q106833962"], StringComparer.OrdinalIgnoreCase);
+                ? classes
+                : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
 
-            // Collect audiobook editions with optional narrator for ranking.
-            var audiobookEditions = new List<(string QID, string? Narrator)>();
-            foreach (var (edQid, edProps) in editionExtMap)
+            var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+            var editions = await _reconciler.GetEditionsAsync(
+                masterWorkQid, audiobookClasses, language, ct).ConfigureAwait(false);
+
+            if (editions.Count == 0)
             {
-                if (!edProps.TryGetValue("P31", out var p31Values))
-                    continue;
-
-                var isAudiobook = p31Values.Any(c =>
-                    c.Value?.EntityId is not null && audiobookClasses.Contains(c.Value.EntityId!));
-
-                if (!isAudiobook)
-                    continue;
-
-                var narrator = GetFirstLabel(edProps, "P175");
-                audiobookEditions.Add((edQid, narrator));
-            }
-
-            if (audiobookEditions.Count == 0)
-            {
-                _logger.LogDebug("{Provider}: no audiobook-class editions found for master work {QID}",
-                    Name, masterWorkQid);
+                _logger.LogDebug("{Provider}: no audiobook editions found for master work {QID}", Name, masterWorkQid);
                 return null;
             }
 
-            // Step 2c: If narrator hint provided and multiple editions exist, rank by narrator match.
-            string selectedQid;
-            if (!string.IsNullOrWhiteSpace(narratorHint) && audiobookEditions.Count > 1)
+            // If narrator hint provided and multiple editions, rank by narrator match
+            if (!string.IsNullOrWhiteSpace(narratorHint) && editions.Count > 1)
             {
-                selectedQid = audiobookEditions
-                    .OrderByDescending(e => _fuzzy.ComputeTokenSetRatio(narratorHint, e.Narrator ?? ""))
-                    .First()
-                    .QID;
+                var ranked = editions
+                    .Select(e =>
+                    {
+                        var narrator = GetEditionNarrator(e);
+                        var score = _fuzzy.ComputeTokenSetRatio(narratorHint, narrator ?? "");
+                        return (Edition: e, Score: score);
+                    })
+                    .OrderByDescending(x => x.Score)
+                    .First();
 
                 _logger.LogInformation(
-                    "{Provider}: audiobook pivot — selected edition {QID} for master work {MasterQID} " +
-                    "(narrator hint: '{Narrator}', {Count} candidates ranked)",
-                    Name, selectedQid, masterWorkQid, narratorHint, audiobookEditions.Count);
-            }
-            else
-            {
-                selectedQid = audiobookEditions[0].QID;
-                _logger.LogInformation(
-                    "{Provider}: audiobook pivot — resolved edition {QID} for master work {MasterQID}",
-                    Name, selectedQid, masterWorkQid);
+                    "{Provider}: audiobook pivot — selected edition {QID} for master work {MasterQID} (narrator hint: '{Narrator}', {Count} candidates ranked)",
+                    Name, ranked.Edition.EntityId, masterWorkQid, narratorHint, editions.Count);
+                return ranked.Edition.EntityId;
             }
 
-            return selectedQid;
+            _logger.LogInformation("{Provider}: audiobook pivot — resolved edition {QID} for master work {MasterQID}",
+                Name, editions[0].EntityId, masterWorkQid);
+            return editions[0].EntityId;
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "{Provider}: ResolveAudiobookEditionQidAsync failed for master work {QID}",
-                Name, masterWorkQid);
+            _logger.LogWarning(ex, "{Provider}: ResolveAudiobookEditionQidAsync failed for master work {QID}", Name, masterWorkQid);
             return null;
         }
+    }
+
+    private static string? GetEditionNarrator(EditionInfo edition)
+    {
+        if (!edition.Claims.TryGetValue("P175", out var narratorClaims) || narratorClaims.Count == 0)
+            return null;
+        return narratorClaims[0].Value?.EntityLabel ?? narratorClaims[0].Value?.RawValue ?? narratorClaims[0].Value?.EntityId;
+    }
+
+    private static string? GetEditionClaimValue(EditionInfo edition, string propertyId)
+    {
+        if (!edition.Claims.TryGetValue(propertyId, out var claims) || claims.Count == 0)
+            return null;
+        return claims[0].Value?.RawValue;
+    }
+
+    private static string? GetEditionClaimLabel(EditionInfo edition, string propertyId)
+    {
+        if (!edition.Claims.TryGetValue(propertyId, out var claims) || claims.Count == 0)
+            return null;
+        return claims[0].Value?.EntityLabel ?? claims[0].Value?.RawValue ?? claims[0].Value?.EntityId;
     }
 
     /// <summary>
@@ -1199,75 +945,42 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         string? narratorHint = null,
         CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(workQid))
+        if (string.IsNullOrWhiteSpace(workQid) || _reconciler is null)
             return [];
 
         try
         {
-            // Extend the work with P747 to get edition QIDs.
-            var workExtensions = await ExtendAsync([workQid], ["P747"], ct).ConfigureAwait(false);
-            workExtensions.TryGetValue(workQid, out var workData);
-
-            if (workData is null
-                || !workData.TryGetValue("P747", out var editionValues)
-                || editionValues.Count == 0)
-                return [];
-
-            var editionQids = editionValues
-                .Where(c => c.Value?.EntityId is not null)
-                .Select(c => c.Value!.EntityId!)
-                .ToList();
-
-            if (editionQids.Count == 0)
-                return [];
-
-            // Extend editions with audiobook-relevant properties.
-            var audiobookProps = _config.DataExtension.AudiobookEditionProperties;
-            if (audiobookProps.Count == 0)
-                audiobookProps = ["P175", "P2047", "P5749", "P123", "P31"];
-
-            var editionExtensions = await ExtendAsync(editionQids, [.. audiobookProps, "P31"], ct)
-                .ConfigureAwait(false);
-
-            // Filter to audiobook-class editions only.
             var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
-                ? new HashSet<string>(classes, StringComparer.OrdinalIgnoreCase)
-                : new HashSet<string>(["Q122731938", "Q106833962"], StringComparer.OrdinalIgnoreCase);
+                ? classes
+                : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
 
-            var results = new List<AudiobookEditionData>();
-            foreach (var (edQid, edProps) in editionExtensions)
+            var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+            var editions = await _reconciler.GetEditionsAsync(
+                workQid, audiobookClasses, language, ct).ConfigureAwait(false);
+
+            if (editions.Count == 0)
+                return [];
+
+            var results = editions.Select(e =>
             {
-                if (!edProps.TryGetValue("P31", out var p31)
-                    || !p31.Any(c => c.Value?.EntityId is not null && audiobookClasses.Contains(c.Value.EntityId!)))
-                    continue;
+                var narrator  = GetEditionNarrator(e);
+                var duration  = GetEditionClaimValue(e, "P2047");
+                var asin      = GetEditionClaimValue(e, "P5749");
+                var publisher = GetEditionClaimLabel(e, "P123");
+                return new AudiobookEditionData(e.EntityId, e.Label, narrator, duration, asin, publisher);
+            }).ToList();
 
-                // Extract audiobook edition metadata.
-                var narrator  = GetFirstLabel(edProps, "P175");
-                var duration  = GetFirstStr(edProps, "P2047");
-                var asin      = GetFirstStr(edProps, "P5749");
-                var publisher = GetFirstLabel(edProps, "P123");
-
-                results.Add(new AudiobookEditionData(edQid, null, narrator, duration, asin, publisher));
-            }
-
-            // Rank editions by narrator match if hint available.
             if (!string.IsNullOrWhiteSpace(narratorHint) && results.Count > 1)
             {
                 results = results
-                    .OrderByDescending(e => _fuzzy.ComputeTokenSetRatio(
-                        narratorHint, e.Narrator ?? ""))
+                    .OrderByDescending(e => _fuzzy.ComputeTokenSetRatio(narratorHint, e.Narrator ?? ""))
                     .ToList();
             }
 
-            _logger.LogDebug("{Provider}: discovered {Count} audiobook edition(s) for {QID}",
-                Name, results.Count, workQid);
-
+            _logger.LogDebug("{Provider}: discovered {Count} audiobook edition(s) for {QID}", Name, results.Count, workQid);
             return results;
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "{Provider}: DiscoverAudiobookEditionsAsync failed for {QID}", Name, workQid);
@@ -1542,37 +1255,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (string.IsNullOrWhiteSpace(request.Title))
                 return [];
 
-            // Clean titles before reconciliation:
-            // - Audiobooks: strip "(Unabridged)", ": A Novel", etc.
-            // - All types: strip trailing "(YYYY)" year suffixes and "SxxExx" episode designators
-            var searchTitle = request.MediaType == MediaType.Audiobooks
-                ? CleanAudiobookTitle(request.Title)
-                : request.Title;
-            searchTitle = CleanTitleForReconciliation(searchTitle);
+            // The library's Cleaners = QueryCleaners.All() and DiacriticInsensitive = true
+            // handle title cleaning and diacritics normalization automatically.
+            var searchTitle = request.Title;
 
             var candidates = await ReconcileAsync(searchTitle, null, ct).ConfigureAwait(false);
-
-            // When the original query has diacritics (e.g. "Shōgun"), also try the
-            // ASCII-normalised form ("Shogun") to catch Wikidata entities whose primary
-            // label/alias is stored without the diacritic. Results are merged and
-            // deduplicated by QID, keeping the highest-scoring entry.
-            var strippedTitle = StripDiacritics(searchTitle);
-            if (!string.Equals(strippedTitle, searchTitle, StringComparison.OrdinalIgnoreCase))
-            {
-                var strippedCandidates = await ReconcileAsync(strippedTitle, null, ct).ConfigureAwait(false);
-                if (strippedCandidates.Count > 0)
-                {
-                    var merged = new Dictionary<string, ReconciliationResult>(StringComparer.OrdinalIgnoreCase);
-                    foreach (var c in candidates)
-                        if (!string.IsNullOrEmpty(c.Id)) merged[c.Id] = c;
-                    foreach (var c in strippedCandidates)
-                        if (!string.IsNullOrEmpty(c.Id) && (!merged.ContainsKey(c.Id) || c.Score > merged[c.Id].Score))
-                            merged[c.Id] = c;
-                    candidates = merged.Values.OrderByDescending(r => r.Score).ToList();
-                    _logger.LogDebug("{Provider}: diacritic-stripped fallback search '{Stripped}' merged {Count} candidates",
-                        Name, strippedTitle, candidates.Count);
-                }
-            }
 
             if (candidates.Count == 0)
             {
@@ -1650,16 +1337,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // A score >= review_threshold is sufficient to accept the candidate.
 
             qid = top.Id;
-            reconciliationLabel = top.Name;
-
-            // Resolve the common name from Wikidata aliases. When the query matches an
-            // alias that differs from the primary label (e.g. "1984" is an alias for
-            // "Nineteen Eighty-Four"), prefer the alias as the display and search title.
-            var lang = _configLoader?.LoadCore().Language.Metadata ?? "en";
-            var commonName = await ResolveCommonNameAsync(qid, searchTitle, lang, ct)
-                .ConfigureAwait(false);
-            if (commonName is not null)
-                reconciliationLabel = commonName;
+            // Use MatchedLabel from the library if available (alias or sitelink that matched).
+            reconciliationLabel = top.MatchedLabel ?? top.Name;
         }
 
         // ── Step 2 & 3: Audiobook Edition Pivot ──────────────────────────────────
@@ -1799,147 +1478,68 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // not necessarily the configured language. Re-fetch labels for person entities.
         claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
 
-        // ── Pen name detection via P50 + P742 ────────────────────────────────
+        // ── Pen name detection via GetAuthorPseudonymsAsync ──────────────────
         // When Wikidata P50 lists 2+ authors (e.g. Daniel Abraham + Ty Franck for
-        // "The Expanse"), their individual real names become the author claims. But if
-        // all those authors share a common pen name (P742), the work was *published*
-        // under that pen name. Emit a high-confidence pen name claim (0.95) so it
-        // beats the individual real-name claims (0.90) in the scoring election.
-        //
-        // Wikidata P742 (pseudonym) is stored as an item reference (entity link),
-        // not a plain string. The pen name entity has its own QID (e.g. Q18614905
-        // for "James S. A. Corey"). We match shared pen names by QID to avoid
-        // language/label mismatches, then resolve the display label for the claim.
+        // "The Expanse"), use the library's GetAuthorPseudonymsAsync to check if
+        // all co-authors share a common pen name, and emit it as the canonical author.
         if (extProps is not null
             && extProps.TryGetValue("P50", out var authorRefs)
-            && authorRefs.Count >= 2)
+            && authorRefs.Count >= 2
+            && _reconciler is not null)
         {
             try
             {
-                var authorQids = authorRefs
-                    .Where(c => c.Value?.EntityId is not null)
-                    .Select(c => c.Value!.EntityId!)
-                    .Distinct()
-                    .ToList();
+                var pseudonyms = await _reconciler.GetAuthorPseudonymsAsync(masterWorkQid, language, ct)
+                    .ConfigureAwait(false);
 
-                if (authorQids.Count >= 2)
+                // Find a shared pseudonym (all co-authors have the same pen name)
+                if (pseudonyms.Count >= 2)
                 {
-                    // Fetch P742 (pseudonym/pen name) for each co-author.
-                    var penNameExtensions = await ExtendAsync(authorQids, ["P742"], ct)
-                        .ConfigureAwait(false);
-
-                    // Collect all P742 values per author, keyed by their canonical identifier.
-                    // P742 values are Wikidata item references (EntityId/RawValue), not plain strings.
-                    // We use a (key → display label) map: key is the EntityId when available so that
-                    // the intersection is stable regardless of label language; display label is
-                    // the human-readable pen name string used for the final claim value.
-                    var penNamesByAuthor = penNameExtensions
-                        .Where(kvp => kvp.Value.TryGetValue("P742", out var vals) && vals.Count > 0)
-                        .ToDictionary(
-                            kvp => kvp.Key,
-                            kvp => kvp.Value["P742"]
-                                .Where(c => c.Value?.RawValue is not null || c.Value?.EntityId is not null)
-                                .Select(c =>
-                                {
-                                    // Use EntityId as the canonical key for intersection; prefer RawValue as display name.
-                                    var key = c.Value?.EntityId ?? c.Value?.RawValue!;
-                                    var display = c.Value?.RawValue ?? c.Value?.EntityId!;
-                                    return (key, display);
-                                })
-                                .DistinctBy(t => t.key, StringComparer.OrdinalIgnoreCase)
-                                .ToList(),
-                            StringComparer.OrdinalIgnoreCase);
-
-                    if (penNamesByAuthor.Count >= 2)
+                    var allPenNames = pseudonyms.Select(p => p.Pseudonyms).ToList();
+                    if (allPenNames.All(p => p.Count > 0))
                     {
-                        // Find pen name keys shared by all co-authors.
-                        var firstAuthorKeys = new HashSet<string>(
-                            penNamesByAuthor.Values.First().Select(t => t.key),
-                            StringComparer.OrdinalIgnoreCase);
+                        var sharedPenNames = new HashSet<string>(allPenNames[0], StringComparer.OrdinalIgnoreCase);
+                        foreach (var penNames in allPenNames.Skip(1))
+                            sharedPenNames.IntersectWith(penNames);
 
-                        var sharedKeys = penNamesByAuthor.Values
-                            .Skip(1)
-                            .Aggregate(
-                                firstAuthorKeys,
-                                (acc, next) =>
-                                {
-                                    acc.IntersectWith(next.Select(t => t.key));
-                                    return acc;
-                                });
-
-                        if (sharedKeys.Count > 0)
+                        if (sharedPenNames.Count > 0)
                         {
-                            var sharedKey = sharedKeys.First();
-                            // Resolve the display label from the first author's pen name list.
-                            var penName = penNamesByAuthor.Values.First()
-                                .FirstOrDefault(t => string.Equals(t.key, sharedKey, StringComparison.OrdinalIgnoreCase))
-                                .display ?? sharedKey;
+                            var penName = sharedPenNames.First();
 
-                            // Re-key existing P50-derived author and author_qid claims so the
-                            // pen name wins as canonical author.  The real-name claims move to
-                            // author_real_name / author_real_name_qid — they are NOT displayed
-                            // and feed only the collective_members_qid enrichment path below.
+                            // Re-key existing P50-derived author and author_qid claims
                             for (int i = 0; i < claims.Count; i++)
                             {
                                 if (string.Equals(claims[i].Key, "author_qid", StringComparison.OrdinalIgnoreCase))
-                                {
                                     claims[i] = new ProviderClaim("author_real_name_qid", claims[i].Value, claims[i].Confidence);
-                                }
                                 else if (string.Equals(claims[i].Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
-                                {
                                     claims[i] = new ProviderClaim("author_real_name", claims[i].Value, claims[i].Confidence);
-                                }
                             }
 
-                            // Higher confidence than the individual real-name claims (0.90) so the pen name wins.
                             claims.Add(new ProviderClaim(MetadataFieldConstants.Author, penName, ClaimConfidence.PenName));
-
-                            // Signal to the pipeline that this is a collective pseudonym so person
-                            // enrichment skips Wikidata lookup (which would return a co-author, not the pen name).
                             claims.Add(new ProviderClaim("author_is_collective_pseudonym", "true", ClaimConfidence.CollectivePseudonym));
 
-                            // Resolve the pen name's own QID. P742 returns string values (not entity refs),
-                            // so we need a Reconciliation lookup for the pen name to get its QID.
-                            // IMPORTANT: the Reconciliation API may return one of the co-authors instead
-                            // of the pen name entity — we must reject any QID that matches a known co-author.
-                            string? penNameQid = sharedKey.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
-                                ? sharedKey : null;
-
-                            if (penNameQid is null)
+                            // Resolve pen name QID
+                            string? penNameQid = null;
+                            try
                             {
-                                try
-                                {
-                                    var penNameCandidates = await ReconcileAsync(penName, null, ct).ConfigureAwait(false);
-                                    // Reject only the real co-authors (the ones that have P742),
-                                    // NOT the pen name entity itself which may also appear in P50.
-                                    var realCoAuthorQids = penNamesByAuthor.Keys;
-                                    var bestMatch = penNameCandidates
-                                        .Where(c => (c.Match || c.Score >= 80)
-                                                    && !realCoAuthorQids.Contains(c.Id))
-                                        .OrderByDescending(c => c.Score)
-                                        .FirstOrDefault();
-
-                                    if (bestMatch is not null)
-                                        penNameQid = bestMatch.Id;
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogDebug("{Provider}: pen name QID lookup failed for \"{PenName}\": {Message}",
-                                        Name, penName, ex.Message);
-                                }
+                                var penNameCandidates = await ReconcileAsync(penName, null, ct).ConfigureAwait(false);
+                                var authorQids = new HashSet<string>(pseudonyms.Select(p => p.AuthorEntityId), StringComparer.OrdinalIgnoreCase);
+                                var bestMatch = penNameCandidates
+                                    .Where(c => (c.Match || c.Score >= 80) && !authorQids.Contains(c.Id))
+                                    .OrderByDescending(c => c.Score)
+                                    .FirstOrDefault();
+                                if (bestMatch is not null)
+                                    penNameQid = bestMatch.Id;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogDebug("{Provider}: pen name QID lookup failed for \"{PenName}\": {Message}",
+                                    Name, penName, ex.Message);
                             }
 
-                            // Only emit author_qid if we found a genuine pen name entity QID.
-                            // If not, the person record will be created by name only — safe from
-                            // being enriched with the wrong co-author's data.
                             if (penNameQid is not null)
-                            {
                                 claims.Add(new ProviderClaim("author_qid", $"{penNameQid}::{penName}", ClaimConfidence.PenName));
-                            }
 
-                            // Emit the real co-authors as collective_members_qid so the pipeline
-                            // creates Person records for them with normal (non-pseudonym) enrichment.
-                            // The re-keyed author_real_name_qid claims carry the QID::Label format.
                             var memberClaims = claims
                                 .Where(c => string.Equals(c.Key, "author_real_name_qid", StringComparison.OrdinalIgnoreCase)
                                              && !string.IsNullOrWhiteSpace(c.Value))
@@ -1949,7 +1549,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                             _logger.LogInformation(
                                 "{Provider}: pen name detected for QID {QID} — {AuthorCount} co-authors share pen name \"{PenName}\" (QID: {PenNameQid})",
-                                Name, masterWorkQid, authorQids.Count, penName, penNameQid ?? "none");
+                                Name, masterWorkQid, pseudonyms.Count, penName, penNameQid ?? "none");
                         }
                     }
                 }
@@ -2343,8 +1943,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
     /// <summary>
     /// Fetches a rich Wikipedia description for the given Wikidata QID.
-    /// Returns up to two claims: "description" (confidence 0.90) and "wikipedia_url" (1.0).
-    /// Attempts the requested language first; falls back to English if no sitelink exists.
+    /// Returns up to three claims: "description" (confidence 0.90), "wikipedia_url" (1.0),
+    /// and optionally "plot_summary". Uses language fallback built into the library.
     /// Always returns an empty list on failure — never throws.
     /// </summary>
     private async Task<IReadOnlyList<ProviderClaim>> FetchWikipediaDescriptionAsync(
@@ -2359,55 +1959,30 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             var lang = NormalizeLang(language);
 
-            // Resolve the Wikipedia article URL for the given QID via WikidataReconciler.
-            var urls = await _reconciler.GetWikipediaUrlsAsync([qid], lang, ct).ConfigureAwait(false);
+            // Use language fallback: try requested language, then English
+            var fallbackLangs = string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : (IReadOnlyList<string>)["en"];
 
-            string? articleUrl  = null;
-            string  resolvedLang = lang;
-
-            if (urls.TryGetValue(qid, out var url) && !string.IsNullOrWhiteSpace(url))
-            {
-                articleUrl = url;
-            }
-            else if (!string.Equals(lang, "en", StringComparison.OrdinalIgnoreCase))
-            {
-                // Fall back to English if no sitelink exists for the requested language.
-                _logger.LogDebug("{Provider}: no {Lang}wiki sitelink for {Qid}, trying enwiki",
-                    Name, lang, qid);
-                var enUrls = await _reconciler.GetWikipediaUrlsAsync([qid], "en", ct).ConfigureAwait(false);
-                if (enUrls.TryGetValue(qid, out var enUrl) && !string.IsNullOrWhiteSpace(enUrl))
-                {
-                    articleUrl   = enUrl;
-                    resolvedLang = "en";
-                }
-            }
-
-            if (articleUrl is null)
-            {
-                _logger.LogDebug("{Provider}: no Wikipedia sitelink found for {Qid}", Name, qid);
-                return [];
-            }
-
-            // GetWikipediaSummariesAsync resolves the article title from the URL
-            // internally and fetches the extract. Returns a list of WikipediaSummary.
-            var summaries = await _reconciler.GetWikipediaSummariesAsync([qid], resolvedLang, ct)
-                .ConfigureAwait(false);
+            var summaries = await _reconciler.GetWikipediaSummariesAsync(
+                [qid], lang, fallbackLangs, ct).ConfigureAwait(false);
 
             var summary = summaries?.FirstOrDefault();
             if (summary is null || string.IsNullOrWhiteSpace(summary.Extract))
             {
-                _logger.LogDebug("{Provider}: Wikipedia summary empty for {Qid} ({Lang})", Name, qid, resolvedLang);
+                _logger.LogDebug("{Provider}: Wikipedia summary empty for {Qid}", Name, qid);
                 return [];
             }
 
-            _logger.LogInformation(
-                "{Provider}: Wikipedia description for {Qid} ({Lang}): {Len} chars",
+            var resolvedLang = summary.Language ?? lang;
+
+            _logger.LogInformation("{Provider}: Wikipedia description for {Qid} ({Lang}): {Len} chars",
                 Name, qid, resolvedLang, summary.Extract.Length);
 
             var resultClaims = new List<ProviderClaim>
             {
-                new(MetadataFieldConstants.Description,   summary.Extract, ClaimConfidence.Description),
-                new("wikipedia_url", articleUrl,      1.0),
+                new(MetadataFieldConstants.Description, summary.Extract, ClaimConfidence.Description),
+                new("wikipedia_url", summary.ArticleUrl ?? "", 1.0),
             };
 
             // Fetch Wikipedia Plot/Synopsis section for richer LLM analysis.
@@ -2418,7 +1993,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                 if (sections is not null && sections.TryGetValue(qid, out var toc) && toc is not null)
                 {
-                    // Find the plot/synopsis section (try multiple common names).
                     var plotSectionNames = new[] { "Plot", "Synopsis", "Plot summary", "Summary", "Premise", "Overview" };
                     var plotSection = toc.FirstOrDefault(s =>
                         plotSectionNames.Any(name => string.Equals(s.Title, name, StringComparison.OrdinalIgnoreCase)));
@@ -2440,20 +2014,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogDebug(ex, "{Provider}: Wikipedia plot section fetch failed for {Qid} — continuing", Name, qid);
+                _logger.LogDebug(ex, "{Provider}: Wikipedia plot section fetch failed for {Qid}", Name, qid);
             }
 
             return resultClaims;
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
+        catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
-                "{Provider}: Wikipedia description fetch failed for {Qid}; continuing without description",
-                Name, qid);
+                "{Provider}: Wikipedia description fetch failed for {Qid}", Name, qid);
             return [];
         }
     }
@@ -2636,10 +2206,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 // Emit individual companion _qid claim per entity value.
-                // Use the human-readable RawValue when available; fall back to EntityId.
+                // Prefer EntityLabel (populated by library v0.6.0), then RawValue, then EntityId.
                 if (claim.Value?.EntityId is not null)
                 {
-                    var label = claim.Value.RawValue ?? claim.Value.EntityId;
+                    var label = claim.Value.EntityLabel ?? claim.Value.RawValue ?? claim.Value.EntityId;
                     yield return new ProviderClaim($"{claimKey}_qid", $"{claim.Value.EntityId}::{label}", ClaimConfidence.EntityQidReference);
                 }
 
@@ -2677,10 +2247,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // FetchWorkAsync re-keys P50 real-name claims when a mismatch is detected —
             // this reduced confidence acts as a second safety net for that same scenario.
             if (string.Equals(pCode, "P50", StringComparison.OrdinalIgnoreCase))
-                return (val.RawValue ?? val.EntityId, ClaimConfidence.WikidataAuthorRaw);
+                return (val.EntityLabel ?? val.RawValue ?? val.EntityId, ClaimConfidence.WikidataAuthorRaw);
 
-            // For other entity references (series, director, etc.) prefer the RawValue (label).
-            return (val.RawValue ?? val.EntityId, ClaimConfidence.WikidataProperty);
+            // For other entity references (series, director, etc.) prefer EntityLabel, then RawValue.
+            return (val.EntityLabel ?? val.RawValue ?? val.EntityId, ClaimConfidence.WikidataProperty);
         }
 
         // Quantity values.
@@ -2709,78 +2279,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         _       => false,
     };
 
-    /// <summary>
-    /// Strips common audiobook title suffixes that interfere with Wikidata reconciliation.
-    /// Examples: "(Unabridged)", ": A Novel", "- A Memoir", "(Audiobook)", etc.
-    /// </summary>
-    /// <summary>
-    /// Strips trailing "(YYYY)" year suffixes and "SxxExx" episode designators from titles.
-    /// Applied to ALL media types before Wikidata reconciliation.
-    /// </summary>
-    private static string CleanTitleForReconciliation(string title)
-    {
-        // Strip trailing "(YYYY)" year pattern — e.g. "Blade Runner 2049 (2017)" → "Blade Runner 2049"
-        var cleaned = System.Text.RegularExpressions.Regex.Replace(
-            title, @"\s*\(\d{4}\)\s*$", string.Empty).Trim();
-
-        // Strip trailing "SxxExx" episode designator — e.g. "Shogun S01E01" → "Shogun"
-        cleaned = System.Text.RegularExpressions.Regex.Replace(
-            cleaned, @"\s*S\d{1,2}E\d{1,2}\s*$", string.Empty,
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
-
-        return string.IsNullOrWhiteSpace(cleaned) ? title : cleaned;
-    }
-
-    private static string CleanAudiobookTitle(string title)
-    {
-        // Remove parenthesized/bracketed suffixes: (Unabridged), [Abridged], (Audiobook), etc.
-        var cleaned = System.Text.RegularExpressions.Regex.Replace(
-            title,
-            @"\s*[\(\[]\s*(?:Unabridged|Abridged|Audiobook|Audio\s*Edition|Narrated)\s*[\)\]]",
-            "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
-
-        // Remove trailing subtitle patterns: ": A Novel", "- A Memoir", ": A Thriller", etc.
-        cleaned = System.Text.RegularExpressions.Regex.Replace(
-            cleaned,
-            @"\s*[:\-–—]\s*A\s+(?:Novel|Memoir|Thriller|Mystery|Romance|Story|Tale|Novella|Biography|History)\s*$",
-            "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
-
-        // Remove trailing "A Novel" etc. without separator
-        cleaned = System.Text.RegularExpressions.Regex.Replace(
-            cleaned,
-            @"\s+A\s+(?:Novel|Memoir)\s*$",
-            "",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase).Trim();
-
-        return string.IsNullOrWhiteSpace(cleaned) ? title : cleaned;
-    }
-
-    /// <summary>
-    /// Strips diacritical marks (accent characters) from a string, returning an ASCII-normalised
-    /// version. For example: "Shōgun" → "Shogun", "Naïve" → "Naive".
-    /// Uses Unicode canonical decomposition (NFD) to separate base characters from combining marks,
-    /// then removes the combining mark code points (Unicode category Mn).
-    /// </summary>
-    private static string StripDiacritics(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return text;
-
-        var normalised = text.Normalize(System.Text.NormalizationForm.FormD);
-        var sb = new System.Text.StringBuilder(normalised.Length);
-        foreach (var ch in normalised)
-        {
-            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(ch)
-                != System.Globalization.UnicodeCategory.NonSpacingMark)
-            {
-                sb.Append(ch);
-            }
-        }
-        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
-    }
-
     private static string? ExtractYear(string isoDate)
     {
         if (string.IsNullOrWhiteSpace(isoDate))
@@ -2792,54 +2290,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return year.ToString();
 
         return null;
-    }
-
-    // ── Private: P279 subclass walk ───────────────────────────────────────────
-
-    private async Task<bool> WalkSubclassAsync(
-        string classQid,
-        HashSet<string> expectedClasses,
-        string mediaTypeKey,
-        int maxDepth,
-        CancellationToken ct)
-    {
-        if (maxDepth <= 0)
-            return false;
-
-        // Check learned classes first.
-        if (_learnedClasses.TryGetValue(classQid, out var learned))
-            return string.Equals(learned.MediaType, mediaTypeKey, StringComparison.OrdinalIgnoreCase);
-
-        var extensions = await ExtendAsync([classQid], ["P279"], ct).ConfigureAwait(false);
-        extensions.TryGetValue(classQid, out var classProps);
-
-        if (classProps is null
-            || !classProps.TryGetValue("P279", out var parentValues)
-            || parentValues.Count == 0)
-            return false;
-
-        foreach (var parentClaim in parentValues.Where(c => c.Value?.EntityId is not null))
-        {
-            var parentQid = parentClaim.Value!.EntityId!;
-
-            if (expectedClasses.Contains(parentQid))
-            {
-                // Learned: classQid maps to mediaTypeKey via parentQid.
-                _learnedClasses.TryAdd(classQid,
-                    new LearnedClassEntry(classQid, mediaTypeKey, parentQid, DateTime.UtcNow));
-                return true;
-            }
-
-            if (await WalkSubclassAsync(parentQid, expectedClasses, mediaTypeKey, maxDepth - 1, ct)
-                    .ConfigureAwait(false))
-            {
-                _learnedClasses.TryAdd(classQid,
-                    new LearnedClassEntry(classQid, mediaTypeKey, parentQid, DateTime.UtcNow));
-                return true;
-            }
-        }
-
-        return false;
     }
 
     // ── Private: Extension helpers ────────────────────────────────────────────
@@ -2873,6 +2323,52 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    // ── Public: Entity staleness check ───────────────────────────────────────
+
+    /// <summary>
+    /// Lightweight staleness check: compares stored revision IDs against current Wikidata
+    /// revision IDs. Returns only QIDs that have changed since the stored revision.
+    /// Used by the 30-day refresh cycle to skip expensive re-fetches for unchanged entities.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> CheckEntityStalenessAsync(
+        IReadOnlyDictionary<string, long> storedRevisions,
+        CancellationToken ct = default)
+    {
+        if (_reconciler is null || storedRevisions.Count == 0)
+            return [];
+
+        try
+        {
+            var qids = storedRevisions.Keys.ToList();
+            var currentRevisions = await _reconciler.GetRevisionIdsAsync(qids, ct).ConfigureAwait(false);
+
+            var staleQids = new List<string>();
+            foreach (var (qid, storedRevId) in storedRevisions)
+            {
+                if (!currentRevisions.TryGetValue(qid, out var current))
+                {
+                    // Entity not found — treat as stale (may have been deleted/merged)
+                    staleQids.Add(qid);
+                    continue;
+                }
+
+                if (current.RevisionId != storedRevId)
+                    staleQids.Add(qid);
+            }
+
+            _logger.LogDebug("{Provider}: staleness check — {Stale}/{Total} entities have changed",
+                Name, staleQids.Count, storedRevisions.Count);
+
+            return staleQids;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Provider}: staleness check failed — treating all as stale", Name);
+            return storedRevisions.Keys.ToList();
+        }
     }
 
     // ── Private: Entity reference label language correction ──────────────────
@@ -2922,100 +2418,35 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 qidsToResolve.Add(qid);
         }
 
-        if (qidsToResolve.Count == 0)
+        if (qidsToResolve.Count == 0 || _reconciler is null)
             return claims;
 
-        // PRIMARY: use wbgetentities as the authoritative label source.
-        // reconci.link L{lang} pseudo-properties are not reliable — they sometimes return
-        // labels in the wrong language or return empty for valid entities (e.g. Q18590295 "Andy Weir").
-        // wbgetentities is the canonical Wikidata API and always returns the correct label.
         var resolvedLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        if (_reconciler is not null)
+        try
         {
-            // Build a language chain: configured language → "mul" → "en" (last resort).
-            var langChain = new List<string> { language };
-            if (!string.Equals(language, "mul", StringComparison.OrdinalIgnoreCase))
-                langChain.Add("mul");
-            if (!string.Equals(language, "en", StringComparison.OrdinalIgnoreCase))
-                langChain.Add("en");
+            var entities = await _reconciler.GetEntitiesAsync(
+                qidsToResolve.ToList(), resolveEntityLabels: false, language, ct).ConfigureAwait(false);
 
-            var stillUnresolved = qidsToResolve.ToList();
-            foreach (var lang in langChain)
+            foreach (var (qid, entity) in entities)
             {
-                if (stillUnresolved.Count == 0) break;
-
-                try
-                {
-                    var entitiesDict = await _reconciler
-                        .GetEntitiesAsync(stillUnresolved, lang, ct)
-                        .ConfigureAwait(false);
-
-                    var resolvedThisRound = new List<string>();
-                    foreach (var (qid, entity) in entitiesDict)
-                    {
-                        if (!string.IsNullOrWhiteSpace(entity.Label))
-                        {
-                            resolvedLabels[qid] = entity.Label;
-                            resolvedThisRound.Add(qid);
-                        }
-                    }
-
-                    stillUnresolved = stillUnresolved
-                        .Where(q => !resolvedThisRound.Any(r =>
-                            string.Equals(r, q, StringComparison.OrdinalIgnoreCase)))
-                        .ToList();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex,
-                        "{Provider}: GetEntitiesAsync label fetch failed for lang='{Lang}'",
-                        Name, lang);
-                    break;
-                }
+                if (!string.IsNullOrWhiteSpace(entity.Label))
+                    resolvedLabels[qid] = entity.Label;
             }
 
-            _logger.LogDebug(
-                "{Provider}: resolved {Count}/{Total} entity labels via GetEntitiesAsync " +
-                "(primary: {Lang}, fallback: mul, en)",
+            _logger.LogDebug("{Provider}: resolved {Count}/{Total} entity labels in '{Lang}'",
                 Name, resolvedLabels.Count, qidsToResolve.Count, language);
         }
-        else
+        catch (Exception ex)
         {
-            // No WikidataReconciler available (test environments) — ExtendAsync will return empty.
-            _logger.LogDebug(
-                "{Provider}: WikidataReconciler not available — entity label resolution skipped for lang='{Lang}'",
-                Name, language);
-
-            var extensions = await ExtendAsync(
-                qidsToResolve.ToList(), [$"L{language}"], ct).ConfigureAwait(false);
-
-            foreach (var (qid, props) in extensions)
-            {
-                if (props.TryGetValue($"L{language}", out var langClaims) && langClaims.Count > 0)
-                {
-                    var label = langClaims[0].Value?.RawValue;
-                    if (!string.IsNullOrWhiteSpace(label))
-                        resolvedLabels[qid] = label;
-                }
-            }
-
-            _logger.LogDebug(
-                "{Provider}: resolved {Count}/{Total} entity labels in language '{Lang}'",
-                Name, resolvedLabels.Count, qidsToResolve.Count, language);
+            _logger.LogDebug(ex, "{Provider}: entity label resolution failed", Name);
+            return claims;
         }
 
         // Replace labels in ALL claims.
-        // - QIDs with a resolved label: update label to the L{lang} value (99% case).
-        // - QIDs NOT in resolvedLabels (no label in configured language — rare):
-        //     _qid companion → keep original label from Data Extension (still Wikidata data)
-        //     primary label claim → keep as-is (still Wikidata data, just possibly different language)
-        //   We never drop Wikidata claims. File metadata is irrelevant after QID resolution.
         var result = new List<ProviderClaim>(claims.Count);
         foreach (var claim in claims)
         {
             // Fix companion _qid claims: "Q123::OldLabel" → "Q123::NewLabel"
-            // When no L{lang} label exists, keep the original claim unchanged.
             if (claim.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase))
             {
                 var colonIdx = claim.Value.IndexOf("::", StringComparison.Ordinal);
@@ -3024,21 +2455,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     var qid = claim.Value[..colonIdx].Trim();
                     if (resolvedLabels.TryGetValue(qid, out var newLabel))
                     {
-                        // Language-correct label found — update to resolved label.
                         result.Add(new ProviderClaim(claim.Key, $"{qid}::{newLabel}", claim.Confidence));
                         continue;
                     }
-
-                    // No L{lang} label for this QID. Keep the original claim as-is.
-                    // The original label is still from Wikidata — it's just possibly in a
-                    // different language. Keeping it is better than losing the data.
                 }
                 result.Add(claim);
                 continue;
             }
 
             // Fix primary label claims for entity-valued properties.
-            // Match by index: the Nth label claim for a key corresponds to the Nth _qid companion claim.
             var qidKey = $"{claim.Key}_qid";
             var hasCompanion = claims.Any(c =>
                 string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase));
@@ -3062,13 +2487,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         var qid = companionValue[..cIdx].Trim();
                         if (resolvedLabels.TryGetValue(qid, out var newLabel))
                         {
-                            // Language-correct label found — update primary claim to resolved label.
                             result.Add(new ProviderClaim(claim.Key, newLabel, claim.Confidence));
                             continue;
                         }
 
-                        // No L{lang} label for this QID. Keep the primary claim unchanged.
-                        // The original value is still from Wikidata and should not be discarded.
                         _logger.LogDebug(
                             "{Provider}: no '{Lang}' label for QID {QID} on claim '{Key}' — keeping original Wikidata value",
                             Name, language, qid, claim.Key);
