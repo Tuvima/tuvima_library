@@ -1,0 +1,14 @@
+{
+  "name": "local_filesystem",
+  "version": "1.0",
+  "enabled": true,
+  "weight": 1.0,
+  "domain": "Universal",
+  "capability_tags": [],
+  "field_weights": {},
+  "endpoints": {},
+  "throttle_ms": 0,
+  "max_concurrency": 1,
+
+  "adapter_type": "coded"
+}

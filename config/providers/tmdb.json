@@ -1,13 +1,12 @@
 {
   "name": "tmdb",
-  "version": "1.1",
-  "enabled": false,
-  "language_strategy": "localized",
+  "version": "1.0",
+  "enabled": true,
   "weight": 0.8,
   "domain": "Video",
   "icon": "images/providers/tmdb.svg",
-  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "cover", "backdrop", "tmdb_id", "imdb_id", "rating", "runtime", "language", "tagline", "original_title", "popularity", "vote_count", "origin_country"],
-  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "cover", "backdrop", "tmdb_id", "imdb_id", "rating", "runtime", "language", "tagline", "original_title", "popularity", "vote_count", "origin_country"],
+  "capability_tags": ["title", "director", "cast_member", "year", "genre", "description", "cover", "tmdb_id", "imdb_id", "rating"],
+  "available_fields": ["title", "director", "cast_member", "year", "genre", "description", "cover", "tmdb_id", "imdb_id", "rating", "runtime", "language", "tagline"],
   "field_weights": {
     "title": 0.85,
     "director": 0.9,
@@ -21,8 +20,7 @@
     "rating": 0.8,
     "runtime": 0.9,
     "language": 0.85,
-    "tagline": 0.7,
-    "backdrop": 0.9
+    "tagline": 0.7
   },
   "endpoints": {
     "api": "https://api.themoviedb.org/3"
@@ -30,7 +28,6 @@
   "throttle_ms": 250,
   "max_concurrency": 2,
   "hydration_stages": [1],
-  "cache_ttl_hours": 168,
 
   "adapter_type": "config_driven",
   "provider_id": "b7000007-0000-4000-8000-000000000008",
@@ -50,16 +47,6 @@
   },
 
   "search_strategies": [
-    {
-      "name": "tv_show_name_search",
-      "priority": 0,
-      "required_fields": ["show_name"],
-      "url_template": "{base_url}/search/tv?query={show_name}&first_air_date_year={year}&include_adult=false&language={lang}-{country}&page=1",
-      "results_path": "results",
-      "result_index": 0,
-      "tolerate_404": false,
-      "media_types": ["TV"]
-    },
     {
       "name": "movie_search",
       "priority": 1,
@@ -89,31 +76,9 @@
     { "claim_key": "year",          "json_path": "release_date",             "confidence": 0.9,  "transform": "first_n_chars", "transform_args": "4", "media_types": ["Movies"] },
     { "claim_key": "year",          "json_path": "first_air_date",           "confidence": 0.9,  "transform": "first_n_chars", "transform_args": "4", "media_types": ["TV"] },
     { "claim_key": "cover",         "json_path": "poster_path",              "confidence": 0.9,  "transform": "url_template", "transform_args": "https://image.tmdb.org/t/p/w500{value}" },
-    { "claim_key": "backdrop",      "json_path": "backdrop_path",            "confidence": 0.9,  "transform": "url_template", "transform_args": "https://image.tmdb.org/t/p/w1280{value}" },
     { "claim_key": "tmdb_id",       "json_path": "id",                       "confidence": 1.0,  "transform": "to_string" },
     { "claim_key": "rating",        "json_path": "vote_average",             "confidence": 0.8,  "transform": "to_string" },
     { "claim_key": "language",      "json_path": "original_language",        "confidence": 0.85 },
-    { "claim_key": "genre",         "json_path": "genre_ids",                "confidence": 0.85, "transform": "array_join" },
-    { "claim_key": "runtime",        "json_path": "runtime",                  "confidence": 0.9,  "transform": "to_string", "media_types": ["Movies"] },
-    { "claim_key": "imdb_id",        "json_path": "imdb_id",                  "confidence": 0.95, "media_types": ["Movies"] },
-    { "claim_key": "tagline",        "json_path": "tagline",                  "confidence": 0.7,  "media_types": ["Movies"] },
-    { "claim_key": "original_title", "json_path": "original_title",           "confidence": 0.85, "media_types": ["Movies"] },
-    { "claim_key": "original_title", "json_path": "original_name",            "confidence": 0.85, "media_types": ["TV"] }
-  ],
-  "ui_metadata": {
-    "accent_color": "#01B4E4",
-    "material_icon": "Movie",
-    "external_url_template": "https://www.themoviedb.org/{media_type}/{tmdb_id}",
-    "category": "Retail",
-    "requires_key": true,
-    "auth_type": "bearer",
-    "search_chips": {
-      "Movies": ["Title", "Year"],
-      "TV": ["Title", "Year"]
-    },
-    "ranking_chips": {
-      "Movies": ["Director"],
-      "TV": []
-    }
-  }
+    { "claim_key": "genre",         "json_path": "genre_ids",                "confidence": 0.85, "transform": "array_join" }
+  ]
 }

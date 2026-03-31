@@ -3,7 +3,5 @@
   "conflict_threshold": 0.6,
   "conflict_epsilon": 0.05,
   "stale_claim_decay_days": 90,
-  "stale_claim_decay_factor": 0.8,
-  "confidence_display_high": 0.85,
-  "confidence_display_medium": 0.60
+  "stale_claim_decay_factor": 0.8
 }

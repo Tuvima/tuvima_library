@@ -567,7 +567,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     private static ReconciliationAdapter BuildReconciliationAdapter()
     {
         var root   = FindRepoRoot();
-        var path   = Path.Combine(root, "config.example", "providers", "wikidata_reconciliation.json");
+        var path   = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
         var json   = File.ReadAllText(path);
         var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOptions)
                      ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");
@@ -587,8 +587,8 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     {
         // Use apple_api.json if present (renamed from apple_books.json), fall back to apple_books.json.
         var root     = FindRepoRoot();
-        var apiPath  = Path.Combine(root, "config.example", "providers", "apple_api.json");
-        var fallback = Path.Combine(root, "config.example", "providers", "apple_books.json");
+        var apiPath  = Path.Combine(root, "config", "providers", "apple_api.json");
+        var fallback = Path.Combine(root, "config", "providers", "apple_books.json");
         var path     = File.Exists(apiPath) ? apiPath : fallback;
         var json     = File.ReadAllText(path);
         var config   = JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)

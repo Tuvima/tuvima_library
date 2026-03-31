@@ -9,8 +9,10 @@
     ],
     "pages_disabled": ["server_settings"],
     "allow_text_input": false,
-    "min_touch_target_px": 80
+    "min_touch_target_px": 80,
+    "force_dark_mode": true
   },
+  "dark_mode": true,
   "content_padding": "pa-4",
   "content_max_width": "Full",
   "border_radius": 32,
@@ -18,10 +20,7 @@
     "appbar_style": "minimal",
     "logo_variant": "icon-large",
     "intent_dock_items": ["Hubs", "Listen"],
-    "intent_dock_style": "oversized",
-    "top_bar_visible": true,
-    "top_bar_style": "minimal",
-    "dock_visible": false
+    "intent_dock_style": "oversized"
   },
   "pages": {
     "home": {
@@ -30,7 +29,6 @@
       "progress_cards_layout": "single",
       "bento_columns": 1,
       "bento_tile_style": "audio-only",
-      "swimlane_card_width": 200,
       "pending_files_display": "hidden"
     },
     "preferences": {

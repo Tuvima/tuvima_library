@@ -357,7 +357,10 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     public ProviderConfiguration? LoadProvider(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return LoadFile<ProviderConfiguration>(Path.Combine(ProvidersSubdir, $"{name}.json"));
+        var config = LoadFile<ProviderConfiguration>(Path.Combine(ProvidersSubdir, $"{name}.json"));
+        if (config is not null)
+            ApplySecrets(config, name);
+        return config;
     }
 
     /// <inheritdoc/>
@@ -384,9 +387,60 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         {
             var config = TryDeserializeFile<ProviderConfiguration>(file);
             if (config is not null)
+            {
+                ApplySecrets(config, Path.GetFileNameWithoutExtension(file));
                 results.Add(config);
+            }
         }
         return results;
+    }
+
+    /// <summary>
+    /// Overlays secrets from <c>config/secrets/{providerName}.json</c> onto a loaded
+    /// provider configuration. Secrets files contain flat JSON objects with keys like
+    /// <c>api_key</c>, <c>username</c>, <c>password</c> that are merged into the
+    /// provider's <see cref="HttpClientConfig"/>.
+    /// </summary>
+    private void ApplySecrets(ProviderConfiguration config, string providerName)
+    {
+        var secretsPath = Path.Combine(_configDir, "secrets", $"{providerName}.json");
+        if (!File.Exists(secretsPath))
+            return;
+
+        try
+        {
+            var json = File.ReadAllText(secretsPath);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.ValueKind != JsonValueKind.Object)
+                return;
+
+            // Ensure HttpClient exists if secrets reference it
+            if (config.HttpClient is null)
+            {
+                var hasHttpField = root.TryGetProperty("api_key", out _)
+                    || root.TryGetProperty("username", out _)
+                    || root.TryGetProperty("password", out _);
+
+                if (hasHttpField)
+                    config.HttpClient = new HttpClientConfig();
+            }
+
+            if (config.HttpClient is not null)
+            {
+                if (root.TryGetProperty("api_key", out var apiKey) && apiKey.ValueKind == JsonValueKind.String)
+                    config.HttpClient.ApiKey = apiKey.GetString();
+                if (root.TryGetProperty("username", out var user) && user.ValueKind == JsonValueKind.String)
+                    config.HttpClient.Username = user.GetString();
+                if (root.TryGetProperty("password", out var pass) && pass.ValueKind == JsonValueKind.String)
+                    config.HttpClient.Password = pass.GetString();
+            }
+        }
+        catch
+        {
+            // Silently skip malformed secrets files
+        }
     }
 
     /// <summary>

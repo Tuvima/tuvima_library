@@ -91,7 +91,7 @@ jobs:
             The installer will:
             - Install the Engine and Dashboard as Windows services
             - Create data folders in `C:\ProgramData\Tuvima\`
-            - Seed default configuration from `config.example\`
+            - Seed default configuration from `config\`
             - Add a desktop shortcut that opens the Dashboard in your browser
 
             **Requirements:** Windows 10/11 (64-bit), administrator privileges.

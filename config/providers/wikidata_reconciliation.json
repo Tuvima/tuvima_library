@@ -3,7 +3,6 @@
   "provider_id": "b3000003-d000-4000-8000-000000000004",
   "adapter_type": "reconciliation",
   "enabled": true,
-  "language_strategy": "both",
   "hydration_stages": [2],
   "endpoints": {
     "wikibase_api": "https://www.wikidata.org/w/api.php",
@@ -20,15 +19,15 @@
     "person_property_constraints": {
       "P800": "notable_work_title",
       "P106": "occupation"
-    },
-    "cast_member_limit": 20
+    }
   },
   "instance_of_classes": {
     "Books": ["Q7725634", "Q571", "Q8261", "Q47461344", "Q277759", "Q1238720", "Q3331189", "Q149537", "Q12308", "Q35760", "Q386724", "Q17518461"],
     "Audiobooks": ["Q122731938", "Q106833962", "Q7725634", "Q571", "Q8261", "Q47461344", "Q277759", "Q1238720", "Q3331189", "Q149537", "Q12308", "Q35760", "Q386724", "Q17518461"],
     "Movies": ["Q11424", "Q24869", "Q24862"],
     "TV": ["Q5398426", "Q581714", "Q21191270", "Q93204", "Q17299659", "Q1261214", "Q15416", "Q7884789"],
-    "Music": ["Q482994", "Q134556", "Q208569"],
+    "Music": ["Q105543609", "Q7302866", "Q482994", "Q134556", "Q55850643"],
+    "MusicAlbum": ["Q482994", "Q208569", "Q222910"],
     "Comics": ["Q1004", "Q838795", "Q21198342", "Q14406742"],
     "Podcasts": ["Q24634210"]
   },
@@ -40,28 +39,18 @@
   },
   "data_extension": {
     "work_properties": {
-      "core": ["P31", "P50", "P57", "P58", "P86", "P110", "P161", "P577", "P1476", "P136", "P179", "P1545"],
-      "bridges": ["P212", "P957", "P5749", "P4947", "P345", "P6395", "P5905", "P434", "P436", "P5842", "P2969", "P648"],
-      "editions": ["P747"]
+      "core": ["P31", "P50", "P577", "P1476", "P136", "P179", "P1545"],
+      "bridges": ["P212", "P957", "P5749", "P4947", "P4983", "P345", "P3861", "P5905", "P1190", "P434", "P436", "P966", "P4857", "P5842", "P2969", "P648"],
+      "editions": ["P747"],
+      "lore": ["P451", "P69", "P945", "P39", "P607"]
     },
     "person_properties": {
       "core": ["P31", "P18", "P569", "P570", "P19", "P20", "P27", "P106"],
       "social": ["P2002", "P2003", "P7085", "P4033", "P856"],
-      "pen_names": ["P742", "P527", "P1773"]
+      "pen_names": ["P742", "P527", "P1773"],
+      "group": ["P527", "P463"]
     },
     "audiobook_edition_properties": ["P175", "P2047", "P5749", "P123"],
-    "character_properties": {
-      "core": ["P31", "P18", "P21", "P22", "P25", "P26", "P40", "P3373", "P451", "P1344", "P1066", "P463", "P945", "P551", "P69", "P131", "P361", "P170", "P39", "P607", "P175", "P3342", "P1416"],
-      "bridges": []
-    },
-    "location_properties": {
-      "core": ["P31", "P18", "P131", "P527", "P361", "P17", "P625"],
-      "bridges": []
-    },
-    "organization_properties": {
-      "core": ["P31", "P18", "P154", "P169", "P749", "P527", "P361", "P463", "P159"],
-      "bridges": []
-    },
     "property_labels": {
       "P31": "instance_of",
       "P50": "author",
@@ -78,10 +67,16 @@
       "P5749": "asin",
       "P4947": "tmdb_movie_id",
       "P345": "imdb_id",
-      "P6395": "apple_books_id",
+      "P3861": "apple_books_id",
       "P5905": "comic_vine_id",
+      "P1190": "gcd_id",
+      "P4983": "tmdb_tv_id",
       "P434": "musicbrainz_artist_id",
-      "P436": "musicbrainz_release_id",
+      "P436": "musicbrainz_release_group_id",
+      "P966": "musicbrainz_recording_id",
+      "P4857": "apple_music_id",
+      "P463": "member_of",
+      "P1243": "isrc",
       "P5842": "apple_podcasts_id",
       "P747": "has_edition_or_translation",
       "P2969": "goodreads_id",
@@ -103,49 +98,11 @@
       "P2047": "duration",
       "P123": "publisher",
       "P800": "notable_work",
-      "P58": "screenwriter",
-      "P86": "composer",
-      "P110": "illustrator",
-      "P161": "cast_member",
-      "P453": "character_role",
-      "P144": "based_on",
-      "P941": "inspired_by",
-      "P4969": "derivative_work",
-      "P21": "sex_or_gender",
-      "P22": "father",
-      "P25": "mother",
-      "P26": "spouse",
-      "P40": "child",
-      "P3373": "sibling",
       "P451": "partner",
-      "P1344": "opponent",
-      "P1066": "student_of",
-      "P463": "member_of",
-      "P945": "allegiance",
-      "P551": "residence",
       "P69": "educated_at",
-      "P361": "part_of",
-      "P170": "creator",
+      "P945": "allegiance",
       "P39": "position_held",
-      "P607": "conflict",
-      "P3342": "significant_person",
-      "P1416": "affiliation",
-      "P154": "logo_image",
-      "P169": "head_of",
-      "P749": "parent_organization",
-      "P159": "headquarters_location",
-      "P17": "country",
-      "P625": "coordinate_location"
+      "P607": "conflict"
     }
-  },
-  "ui_metadata": {
-    "accent_color": "#339966",
-    "material_icon": "Hub",
-    "external_url_template": "https://www.wikidata.org/wiki/{wikidata_qid}",
-    "category": "Open",
-    "requires_key": false,
-    "auth_type": "none",
-    "search_chips": {},
-    "ranking_chips": {}
   }
 }

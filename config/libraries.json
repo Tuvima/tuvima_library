@@ -4,8 +4,8 @@
     {
       "category": "Books",
       "media_types": ["Books", "Audiobooks"],
-      "source_path": "",
-      "library_root": "",
+      "source_path": "C:\\temp\\tuvima-watch\\books",
+      "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": true,
       "notes": "Watch folder for Books and Audiobooks. Subdirectories are watched to support series folder layouts."
@@ -13,8 +13,8 @@
     {
       "category": "TV",
       "media_types": ["TV"],
-      "source_path": "",
-      "library_root": "",
+      "source_path": "C:\\temp\\tuvima-watch\\tv",
+      "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": true,
       "notes": "Watch folder for TV series. include_subdirectories true to pick up season subfolders."
@@ -22,8 +22,8 @@
     {
       "category": "Movies",
       "media_types": ["Movies"],
-      "source_path": "",
-      "library_root": "",
+      "source_path": "C:\\temp\\tuvima-watch\\movies",
+      "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": false,
       "notes": "Watch folder for movie files."
@@ -31,8 +31,8 @@
     {
       "category": "Music",
       "media_types": ["Music"],
-      "source_path": "",
-      "library_root": "",
+      "source_path": "C:\\temp\\tuvima-watch\\music",
+      "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": true,
       "notes": "Watch folder for music. include_subdirectories true to support album folder layouts."
@@ -40,8 +40,8 @@
     {
       "category": "Comics",
       "media_types": ["Comics"],
-      "source_path": "",
-      "library_root": "",
+      "source_path": "C:\\temp\\tuvima-watch\\comics",
+      "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": true,
       "notes": "Watch folder for comics and manga."
@@ -49,8 +49,8 @@
     {
       "category": "Podcasts",
       "media_types": ["Podcasts"],
-      "source_path": "",
-      "library_root": "",
+      "source_path": "C:\\temp\\tuvima-watch\\podcasts",
+      "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": true,
       "notes": "Watch folder for podcast series and episodes."
@@ -58,11 +58,11 @@
     {
       "category": "General",
       "media_types": [],
-      "source_path": "",
-      "library_root": "",
+      "source_path": "C:\\temp\\tuvima-watch",
+      "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": false,
-      "notes": "General drop zone. No media type prior — classification via AI and heuristics only. Files dropped here go to Needs Review if confidence is low. include_subdirectories false to avoid double-processing the typed subfolders above. This entry must remain last in the array."
+      "notes": "General drop zone. No media type prior — classification via AI and heuristics only. Files dropped here go to Needs Review if confidence is low. include_subdirectories false to avoid double-processing the typed subfolders above."
     }
   ]
 }

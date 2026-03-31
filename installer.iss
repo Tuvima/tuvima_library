@@ -42,7 +42,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 [Files]
 Source: "dist\win\engine\*";                DestDir: "{app}\engine";                      Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\win\dashboard\*";             DestDir: "{app}\dashboard";                   Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "config.example\*";                 DestDir: "{tmp}\tuvima-config-example";       Flags: ignoreversion recursesubdirs createallsubdirs deleteafterinstall
+Source: "config\*";                          DestDir: "{tmp}\tuvima-config-default";        Flags: ignoreversion recursesubdirs createallsubdirs deleteafterinstall
 
 [Dirs]
 Name: "{commonappdata}\Tuvima\config";  Permissions: everyone-modify
@@ -93,14 +93,14 @@ begin
   Sleep(1000);
 end;
 
-{ ── Copy config.example → ProgramData\Tuvima\config on first install ─────── }
+{ ── Copy config → ProgramData\Tuvima\config on first install ─────── }
 procedure SeedConfig;
 var
   ResultCode: Integer;
   SrcDir, DstDir: string;
 begin
   DstDir := ExpandConstant('{commonappdata}\Tuvima\config');
-  SrcDir := ExpandConstant('{tmp}\tuvima-config-example');
+  SrcDir := ExpandConstant('{tmp}\tuvima-config-default');
   if (not FileExists(DstDir + '\library.json')) and DirExists(SrcDir) then
     Exec(ExpandConstant('{sys}\xcopy.exe'),
          '/E /I /Y "' + SrcDir + '" "' + DstDir + '"',

@@ -23,7 +23,7 @@ public class IngestionPipelineTests
     public void AllExampleConfigs_Deserialize_Successfully()
     {
         var root = FindRepoRoot();
-        var configDir = Path.Combine(root, "config.example", "providers");
+        var configDir = Path.Combine(root, "config", "providers");
         var files = Directory.GetFiles(configDir, "*.json");
 
         Assert.NotEmpty(files);
@@ -46,7 +46,7 @@ public class IngestionPipelineTests
     public void ConfigDrivenAdapter_SearchStrategy_BuildsValidUrls()
     {
         var root = FindRepoRoot();
-        var path = Path.Combine(root, "config.example", "providers", "apple_api.json");
+        var path = Path.Combine(root, "config", "providers", "apple_api.json");
         var json = File.ReadAllText(path);
         var config = JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)!;
 
@@ -101,7 +101,7 @@ public class IngestionPipelineTests
     public void AllExampleConfigs_HaveValidFieldWeights()
     {
         var root = FindRepoRoot();
-        var configDir = Path.Combine(root, "config.example", "providers");
+        var configDir = Path.Combine(root, "config", "providers");
 
         foreach (var file in Directory.GetFiles(configDir, "*.json"))
         {

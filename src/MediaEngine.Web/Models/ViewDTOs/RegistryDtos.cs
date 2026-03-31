@@ -98,6 +98,18 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("episode_number")]
     public string? Episode { get; set; }
 
+    [JsonPropertyName("duration")]
+    public string? Duration { get; set; }
+
+    [JsonPropertyName("disc_number")]
+    public string? DiscNumber { get; set; }
+
+    [JsonPropertyName("show_name")]
+    public string? ShowName { get; set; }
+
+    [JsonPropertyName("track_count")]
+    public string? TrackCount { get; set; }
+
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; set; }
 

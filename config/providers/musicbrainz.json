@@ -1,12 +1,12 @@
 {
   "name": "musicbrainz",
   "version": "2.0",
-  "enabled": true,
+  "enabled": false,
   "weight": 0.7,
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
-  "capability_tags": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "album", "track_number"],
-  "available_fields": ["title", "author", "album", "year", "track_number", "musicbrainz_id", "cover", "isrc", "duration", "barcode", "artist", "genre", "status", "country", "disambiguation"],
+  "capability_tags": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "track_number"],
+  "available_fields": ["title", "author", "year", "genre", "cover", "musicbrainz_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album", "track_number"],
   "field_weights": {
     "title": 0.8,
     "author": 0.8,
@@ -16,9 +16,7 @@
     "musicbrainz_id": 1.0,
     "isrc": 0.9,
     "album": 0.75,
-    "track_number": 0.8,
-    "duration": 0.8,
-    "barcode": 0.85
+    "track_number": 0.8
   },
   "endpoints": {
     "api": "https://musicbrainz.org/ws/2"
@@ -40,13 +38,12 @@
   },
 
   "can_handle": {
-    "media_types": ["Music", "Audiobooks"],
+    "media_types": ["Music"],
     "entity_types": ["Work", "MediaAsset"]
   },
 
   "preferred_bridge_ids": {
-    "Music": ["musicbrainz_id", "isrc"],
-    "Audiobooks": ["musicbrainz_id"]
+    "Music": ["musicbrainz_release_group_id", "musicbrainz_recording_id", "musicbrainz_id", "isrc"]
   },
 
   "search_strategies": [
@@ -94,11 +91,10 @@
     { "claim_key": "year",           "json_path": "date",                      "confidence": 0.85, "source": "release",   "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "track_number",   "json_path": "track-count",               "confidence": 0.8,  "source": "release" },
     { "claim_key": "musicbrainz_id", "json_path": "id",                        "confidence": 1.0,  "source": "release" },
+    { "claim_key": "musicbrainz_recording_id", "json_path": "id",               "confidence": 1.0, "source": "recording" },
+    { "claim_key": "musicbrainz_release_group_id", "json_path": "release-group.id", "confidence": 1.0, "source": "release" },
     { "claim_key": "cover",          "json_path": "id",                        "confidence": 0.7,  "source": "release",   "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-250",
       "condition": { "path": "cover-art-archive.artwork", "equals": true }
-    },
-    { "claim_key": "isrc",           "json_path": "isrcs[0]",                 "confidence": 0.9,  "source": "recording" },
-    { "claim_key": "duration",       "json_path": "length",                   "confidence": 0.8,  "source": "recording", "transform": "to_string" },
-    { "claim_key": "barcode",        "json_path": "barcode",                  "confidence": 0.85, "source": "release" }
+    }
   ]
 }

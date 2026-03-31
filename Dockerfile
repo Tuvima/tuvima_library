@@ -32,9 +32,9 @@ COPY src/MediaEngine.AI/MediaEngine.AI.csproj                 src/MediaEngine.AI
 RUN dotnet restore src/MediaEngine.Api/MediaEngine.Api.csproj
 RUN dotnet restore src/MediaEngine.Web/MediaEngine.Web.csproj
 
-# Copy remaining source and publish both projects.
+# Copy remaining source and config, then publish both projects.
 COPY src/ src/
-COPY config.example/ config.example/
+COPY config/ config/
 
 RUN dotnet publish src/MediaEngine.Api/MediaEngine.Api.csproj \
     --configuration Release \
@@ -59,8 +59,8 @@ RUN apt-get update \
 COPY --from=build /app/engine    ./engine
 COPY --from=build /app/dashboard ./dashboard
 
-# Copy example configs — the entrypoint seeds /config from these on first run.
-COPY --from=build /src/config.example/ ./engine/config.example/
+# Copy committed configs — the entrypoint seeds /config from these on first run.
+COPY --from=build /src/config/ ./engine/config/
 
 # Create named mount points so docker-compose volume declarations work.
 RUN mkdir -p /watch /library /config /db /models

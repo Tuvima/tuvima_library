@@ -1,7 +1,7 @@
 {
   "field_overrides": {
     "description": {
-      "priority": ["apple_books", "open_library", "tmdb", "wikipedia"],
+      "priority": ["apple_books", "google_books", "open_library", "tmdb", "wikipedia"],
       "note": "Retail provider descriptions are edition-specific; Wikipedia is work-level fallback"
     },
     "biography": {
@@ -9,7 +9,7 @@
       "note": "Rich Wikipedia bios for persons"
     },
     "cover": {
-      "priority": ["apple_books", "tmdb", "open_library", "comic_vine", "musicbrainz"],
+      "priority": ["apple_books", "tmdb", "open_library", "google_books", "comic_vine", "musicbrainz"],
       "note": "Retail providers have edition-specific high-res cover art"
     },
     "rating": {

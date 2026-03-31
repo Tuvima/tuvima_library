@@ -20,7 +20,7 @@
 
 -
 
-### Configuration (`config.example/`)
+### Configuration (`config/`)
 
 -
 
@@ -36,6 +36,6 @@
 - [ ] `dotnet test` passes — all tests green
 - [ ] Docker build succeeds (`docker build -t test .`)
 - [ ] New dependencies are AGPLv3-compatible (see `CLAUDE.md` §5.1)
-- [ ] Documentation updated if needed (`README.md`, `CLAUDE.md`, `config.example/`)
+- [ ] Documentation updated if needed (`README.md`, `CLAUDE.md`, `config/`)
 - [ ] No secrets, API keys, or local paths committed
 - [ ] Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `docs:`, `chore:`)

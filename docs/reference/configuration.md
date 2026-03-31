@@ -12,7 +12,7 @@ tags:
 
 # Configuration Reference
 
-All configuration lives in the `config/` directory as individual JSON files grouped by concern. Live config files are gitignored; committed examples live in `config.example/`. Adding a new REST+JSON provider requires only a config file â€” no code changes.
+All configuration lives in the `config/` directory as individual JSON files grouped by concern. Config files are committed to git. Provider secrets (API keys, passwords) go in `config/secrets/` (gitignored). Adding a new REST+JSON provider requires only a config file â€” no code changes.
 
 ---
 
@@ -184,7 +184,7 @@ Controls how resolved metadata is written back into file tags.
 
 ## config/providers/
 
-One JSON file per metadata provider. All provider files are self-contained â€” adding a new REST+JSON provider requires only dropping a config file and restarting. Provider files are gitignored; examples are in `config.example/providers/`.
+One JSON file per metadata provider. All provider files are self-contained â€” adding a new REST+JSON provider requires only dropping a config file and restarting. Provider secrets go in `config/secrets/` (gitignored).
 
 | File | Provider | Stage | Language Strategy |
 |---|---|---|---|

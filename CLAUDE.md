@@ -222,7 +222,7 @@ Two-stage enrichment runs after ingestion. Cover art from providers is written t
 ### 3.8 — Configuration Architecture
 **Detail:** [`docs/architecture/hydration-and-providers.md`](docs/architecture/hydration-and-providers.md) (provider config section)
 
-All settings live in `config/` directory as individual JSON files grouped by concern. One concern per file. Provider files are self-contained. Universe files hold the knowledge model. Example files committed in `config.example/`; live files gitignored. Adding a new REST+JSON provider is a zero-code operation: drop a config file, restart.
+All settings live in `config/` directory as individual JSON files grouped by concern. One concern per file. Provider files are self-contained. Universe files hold the knowledge model. All config files committed directly in `config/`. Provider secrets (API keys, passwords) go in `config/secrets/` (gitignored). Adding a new REST+JSON provider is a zero-code operation: drop a config file, restart.
 
 **Provider Catalogue Centralisation (implemented):** Provider UI metadata (display names, icons, accent colours, supported media types, language strategy) is centralised in provider config JSON files and exposed via `GET /providers/catalogue`. `ProviderCatalogueService` in the Dashboard caches the catalogue at startup. `ProviderAccentMap` provides static fallbacks during boot. See [`docs/reference/providers.md`](docs/reference/providers.md) for the complete provider reference.
 

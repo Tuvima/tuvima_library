@@ -111,7 +111,7 @@ $repoMap = [ordered]@{
         "global.json",
         "Directory.Build.props",
         "Directory.Packages.props",
-        "config.example/",
+        "config/",
         "mkdocs.yml",
         "requirements-docs.txt"
     )
@@ -125,7 +125,7 @@ $repoMap = [ordered]@{
         "CLAUDE.md",
         ".agent/",
         "docs/",
-        "config.example/"
+        "config/"
     )
 }
 
@@ -172,7 +172,7 @@ $overview += @(
     '',
     '## Refresh Rule',
     '',
-    '- Regenerate this folder after changes to docs, README, CLAUDE, .agent, config.example, or workflow files.'
+    '- Regenerate this folder after changes to docs, README, CLAUDE, .agent, config, or workflow files.'
 )
 
 $refresh = [ordered]@{

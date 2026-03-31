@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0",
-  "database_path": ".data/database/library.db",
+  "database_path": "library.db",
   "data_root": "",
-  "watch_directory": "",
-  "library_root": "",
+  "watch_directory": "C:\\temp\\tuvima-watch\\books",
+  "library_root": "C:\\temp\\tuvima-library",
   "organization_template": "{Category}/{Title} ({Qid})/{Title}{Ext}",
   "organization_templates": {
     "default":    "{Category}/{Title} ({Qid})/{Title}{Ext}",
@@ -11,23 +11,13 @@
     "Audiobooks": "Audiobooks/{Title} ({Qid})/{Title}{Ext}",
     "Movies":     "Movies/{Title} ({Qid})/{Title}{Ext}",
     "TV":         "TV/{Series} ({Qid})/Season {Season}/S{Season}E{Episode} - {Title}{Ext}",
-    "Comics":     "Comics/{Title} ({Qid})/{Title}{Ext}",
+    "Comic":      "Comics/{Title} ({Qid})/{Title}{Ext}",
     "Music":      "Music/{Artist}/{Album} ({Qid})/{TrackNumber} - {Title}{Ext}",
     "Podcasts":   "Podcasts/{Title} ({Qid})/{Title}{Ext}"
   },
   "server_name": "Tuvima Library",
-  "language": {
-    "display": "en",
-    "metadata": "en",
-    "additional": [],
-    "accept_any": true
-  },
+  "language": "en",
   "country": "US",
   "date_format": "system",
-  "time_format": "system",
-  "rate_limiting": {
-    "key_generation": { "permit_limit": 5,   "window_minutes": 1 },
-    "streaming":      { "permit_limit": 100, "window_minutes": 1 },
-    "general":        { "permit_limit": 60,  "window_minutes": 1 }
-  }
+  "time_format": "system"
 }

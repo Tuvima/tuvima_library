@@ -17,7 +17,7 @@ namespace MediaEngine.Providers.Tests;
 /// Verifies that all external metadata adapters degrade gracefully:
 /// they return an empty claim list on network failure rather than throwing.
 ///
-/// Config-driven adapters are loaded from <c>config.example/providers/</c> and
+/// Config-driven adapters are loaded from <c>config/providers/</c> and
 /// wired to stub HTTP handlers that inject predetermined responses (error status,
 /// empty body, or timeout) without touching the network.
 ///
@@ -72,7 +72,7 @@ public sealed class AdapterFallbackTests
     private static ProviderConfiguration LoadExampleConfig(string providerName)
     {
         var root = FindRepoRoot();
-        var path = Path.Combine(root, "config.example", "providers", $"{providerName}.json");
+        var path = Path.Combine(root, "config", "providers", $"{providerName}.json");
         var json = File.ReadAllText(path);
         return JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)
             ?? throw new InvalidOperationException($"Failed to deserialize config: {providerName}");

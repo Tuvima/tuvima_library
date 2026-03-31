@@ -71,14 +71,14 @@
     }
   },
   "Podcasts": {
-    "strategy": "Cascade",
+    "strategy": "Waterfall",
     "providers": [
-      { "rank": 1, "name": "apple_podcasts" },
-      { "rank": 2, "name": "podcast_index" }
+      { "rank": 1, "name": "apple_api" }
     ],
     "field_priorities": {
-      "cover": ["apple_podcasts", "podcast_index"],
-      "description": ["apple_podcasts", "podcast_index"]
+      "cover": ["apple_api"],
+      "description": ["apple_api"],
+      "feed_url": ["apple_api"]
     }
   }
 }

@@ -293,13 +293,13 @@ public sealed class ReconciliationAdapterTests : IDisposable
     };
 
     /// <summary>
-    /// Loads <c>config.example/providers/wikidata_reconciliation.json</c> and
+    /// Loads <c>config/providers/wikidata_reconciliation.json</c> and
     /// creates a <see cref="ReconciliationAdapter"/> with a real HTTP client factory.
     /// </summary>
     private static ReconciliationAdapter BuildAdapter()
     {
         var root     = FindRepoRoot();
-        var path     = Path.Combine(root, "config.example", "providers", "wikidata_reconciliation.json");
+        var path     = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
         var json     = File.ReadAllText(path);
         var config   = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOptions)
                        ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");

@@ -32,6 +32,10 @@ public sealed class VaultItemViewModel
     public string? TrackNumber { get; init; }
     public string? Season { get; init; }
     public string? Episode { get; init; }
+    public string? Duration { get; init; }
+    public string? DiscNumber { get; init; }
+    public string? ShowName { get; init; }
+    public string? TrackCount { get; init; }
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }
@@ -98,6 +102,10 @@ public sealed class VaultItemViewModel
         TrackNumber = r.TrackNumber,
         Season = r.Season,
         Episode = r.Episode,
+        Duration = r.Duration,
+        DiscNumber = r.DiscNumber,
+        ShowName = r.ShowName,
+        TrackCount = r.TrackCount,
         Year = r.Year,
         MediaType = r.MediaType,
         CoverUrl = r.CoverUrl,

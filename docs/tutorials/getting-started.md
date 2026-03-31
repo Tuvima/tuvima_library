@@ -41,13 +41,14 @@ cd tuvima-library
 
 ## Step 2 â€” Create your local configuration
 
-The repository includes example configuration files but not your actual configuration (which contains paths specific to your machine). Copy the examples to create your own:
+The repository includes all configuration files directly in the `config/` directory. You only need to add secret files for any providers that require API keys:
 
 ```bash
-cp -r config.example config
+# Create secret files for any providers that require API keys
+# e.g. config/secrets/tmdb.json with {"api_key": "your-key"}
 ```
 
-This creates a `config/` directory with all the configuration files you need. Your `config/` directory is never committed to version control, so your settings stay private.
+Provider secrets go in `config/secrets/` which is never committed to version control, so your keys stay private.
 
 ---
 

@@ -1,5 +1,5 @@
 {
-  "version": "1.1",
+  "version": "1.0",
   "description": "Master dictionary mapping canonical claim keys to human-readable display names. Providers reference these keys in their available_fields arrays.",
   "fields": {
     "title":            { "display_name": "Title",            "category": "Core" },
@@ -33,11 +33,6 @@
     "musicbrainz_id":   { "display_name": "MusicBrainz ID",   "category": "Bridge" },
     "spotify_id":       { "display_name": "Spotify ID",       "category": "Bridge" },
     "comicvine_id":     { "display_name": "ComicVine ID",     "category": "Bridge" },
-    "isrc":             { "display_name": "ISRC",             "category": "Bridge" },
-    "upc_ean":          { "display_name": "UPC/EAN",          "category": "Bridge" },
-    "isan":             { "display_name": "ISAN",             "category": "Bridge" },
-    "eidr":             { "display_name": "EIDR",             "category": "Bridge" },
-    "doi":              { "display_name": "DOI",              "category": "Bridge" },
     "publisher":        { "display_name": "Publisher",        "category": "Core" },
     "page_count":       { "display_name": "Page Count",       "category": "Core" },
     "genre":            { "display_name": "Genre",            "category": "Core" },

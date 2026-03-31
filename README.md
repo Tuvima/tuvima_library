@@ -95,7 +95,9 @@ Four local AI models (~9 GB total) handle filename parsing, media classification
 ```bash
 git clone https://github.com/Tuvima/tuvima_library.git
 cd tuvima-library
-cp -r config.example config
+# config/ is already in the repo — just add your API keys
+# Create secret files for any providers that require API keys
+# e.g. config/secrets/tmdb.json with {"api_key": "your-key"}
 ```
 
 Edit `config/core.json` to set your paths, then:

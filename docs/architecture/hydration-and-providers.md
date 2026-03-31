@@ -506,7 +506,7 @@ In Sequential mode, `PriorProviderBridgeIds` on `ProviderLookupRequest` carries 
 - `src/MediaEngine.Domain/Constants/MediaTypeFieldRegistry.cs` — Fields, search display, searchable fields per media type
 - `src/MediaEngine.Providers/Services/HydrationPipelineService.cs` — Strategy execution loop
 - `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs` — Tier B reads per-media-type field priorities
-- `config.example/pipelines.json` — Example configuration
+- `config/pipelines.json` — Pipeline configuration
 
 ---
 

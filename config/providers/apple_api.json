@@ -1,0 +1,440 @@
+{
+  "name": "apple_api",
+  "version": "2.0",
+  "enabled": true,
+  "weight": 0.7,
+  "domain": "Universal",
+  "icon": "images/providers/apple_books.svg",
+  "capability_tags": ["cover", "title", "author", "description", "genre", "year", "album", "track_number", "apple_music_id", "show_name", "episode_number", "feed_url", "apple_podcasts_id"],
+  "available_fields": ["title", "author", "cover", "description", "genre", "rating", "year", "apple_books_id", "apple_music_id", "apple_music_collection_id", "apple_artist_id", "album", "track_number", "disc_number", "disc_count", "track_count", "duration", "show_name", "episode_number", "feed_url", "apple_podcasts_id", "explicit", "language"],
+  "field_weights": {
+    "cover": 0.85,
+    "title": 0.7,
+    "author": 0.7,
+    "description": 0.85,
+    "genre": 0.7,
+    "rating": 0.7,
+    "year": 0.8,
+    "apple_music_id": 0.95,
+    "album": 0.85,
+    "track_number": 0.9,
+    "duration": 0.9,
+    "feed_url": 0.95,
+    "show_name": 0.8,
+    "episode_number": 0.7,
+    "apple_podcasts_id": 0.95
+  },
+  "endpoints": {
+    "api": "https://itunes.apple.com"
+  },
+  "throttle_ms": 300,
+  "max_concurrency": 1,
+  "hydration_stages": [1],
+  "cache_ttl_hours": null,
+  "adapter_type": "config_driven",
+  "provider_id": "b1000001-e000-4000-8000-000000000001",
+  "display_name": "Apple API",
+  "http_client": {
+    "timeout_seconds": 10,
+    "user_agent": "Tuvima Library/1.0",
+    "api_key": null,
+    "api_key_delivery": null,
+    "api_key_param_name": null
+  },
+  "can_handle": {
+    "media_types": [
+      "Books",
+      "Audiobooks",
+      "Music",
+      "Podcasts"
+    ],
+    "entity_types": [
+      "Work",
+      "MediaAsset"
+    ]
+  },
+  "search_strategies": [
+    {
+      "name": "isbn_lookup",
+      "priority": 0,
+      "required_fields": ["isbn"],
+      "url_template": "{base_url}/lookup?isbn={isbn}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": true,
+      "fetch_limit": 1,
+      "max_results": 1,
+      "media_types": ["Books"]
+    },
+    {
+      "name": "apple_id_lookup",
+      "priority": 1,
+      "required_fields": ["apple_books_id"],
+      "url_template": "{base_url}/lookup?id={apple_books_id}\u0026country={country}\u0026lang={lang}_{country}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": true,
+      "fetch_limit": 1,
+      "max_results": 1
+    },
+    {
+      "name": "ebook_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}\u0026entity=ebook\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
+      "query_template": "{title}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 25,
+      "fetch_limit": 5,
+      "media_types": ["Books"]
+    },
+    {
+      "name": "audiobook_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}\u0026entity=audiobook\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
+      "query_template": "{title}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 25,
+      "fetch_limit": 5,
+      "media_types": ["Audiobooks"]
+    },
+    {
+      "name": "music_search",
+      "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}\u0026entity=musicTrack\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
+      "query_template": "{title} {author}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 25,
+      "fetch_limit": 5,
+      "media_types": ["Music"]
+    },
+    {
+      "name": "music_album_lookup",
+      "priority": 3,
+      "required_fields": ["apple_music_collection_id"],
+      "url_template": "{base_url}/lookup?id={apple_music_collection_id}\u0026entity=song\u0026country={country}\u0026lang={lang}_{country}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": true,
+      "fetch_limit": 1,
+      "max_results": 100,
+      "media_types": ["Music"]
+    },
+    {
+      "name": "podcast_search",
+      "priority": 4,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}\u0026media=podcast\u0026entity=podcast\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
+      "query_template": "{title} {author}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 25,
+      "fetch_limit": 5,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "name": "podcast_episode_search",
+      "priority": 5,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}\u0026media=podcast\u0026entity=podcastEpisode\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
+      "query_template": "{title}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 25,
+      "fetch_limit": 5,
+      "media_types": ["Podcasts"]
+    }
+  ],
+  "field_mappings": [
+    {
+      "claim_key": "title",
+      "json_path": "trackName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Books"]
+    },
+    {
+      "claim_key": "title",
+      "json_path": "collectionName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Audiobooks"]
+    },
+    {
+      "claim_key": "author",
+      "json_path": "artistName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": null
+    },
+    {
+      "claim_key": "cover",
+      "json_path": "artworkUrl100",
+      "confidence": 0.85,
+      "transform": "regex_replace",
+      "transform_args": "\\d\u002Bx\\d\u002Bbb\\.jpg|9999x9999bb.jpg",
+      "media_types": ["Books", "Audiobooks"]
+    },
+    {
+      "claim_key": "description",
+      "json_path": "description",
+      "confidence": 0.85,
+      "transform": "strip_html",
+      "transform_args": null,
+      "media_types": null
+    },
+    {
+      "claim_key": "year",
+      "json_path": "releaseDate",
+      "confidence": 0.8,
+      "transform": "first_n_chars",
+      "transform_args": "4",
+      "media_types": null
+    },
+    {
+      "claim_key": "genre",
+      "json_path": "genres",
+      "confidence": 0.7,
+      "transform": "array_join",
+      "transform_args": ", ",
+      "media_types": ["Books"]
+    },
+    {
+      "claim_key": "genre",
+      "json_path": "primaryGenreName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Audiobooks"]
+    },
+    {
+      "claim_key": "rating",
+      "json_path": "averageUserRating",
+      "confidence": 0.7,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": [
+        "Books"
+      ]
+    },
+    {
+      "claim_key": "apple_books_id",
+      "json_path": "trackId",
+      "confidence": 0.95,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": [
+        "Books"
+      ]
+    },
+    {
+      "claim_key": "apple_books_id",
+      "json_path": "collectionId",
+      "confidence": 0.95,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": [
+        "Audiobooks"
+      ]
+    },
+    {
+      "claim_key": "title",
+      "json_path": "trackName",
+      "confidence": 0.8,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "author",
+      "json_path": "artistName",
+      "confidence": 0.8,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "album",
+      "json_path": "collectionName",
+      "confidence": 0.85,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "apple_music_id",
+      "json_path": "trackId",
+      "confidence": 0.95,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "apple_music_collection_id",
+      "json_path": "collectionId",
+      "confidence": 0.95,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "apple_artist_id",
+      "json_path": "artistId",
+      "confidence": 0.90,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "track_number",
+      "json_path": "trackNumber",
+      "confidence": 0.9,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "disc_number",
+      "json_path": "discNumber",
+      "confidence": 0.9,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "disc_count",
+      "json_path": "discCount",
+      "confidence": 0.9,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "track_count",
+      "json_path": "trackCount",
+      "confidence": 0.9,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "duration",
+      "json_path": "trackTimeMillis",
+      "confidence": 0.9,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "genre",
+      "json_path": "primaryGenreName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "cover",
+      "json_path": "artworkUrl100",
+      "confidence": 0.90,
+      "transform": "regex_replace",
+      "transform_args": "\\d+x\\d+bb\\.jpg|600x600bb.jpg",
+      "media_types": ["Music"]
+    },
+    {
+      "claim_key": "show_name",
+      "json_path": "collectionName",
+      "confidence": 0.8,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "title",
+      "json_path": "trackName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "author",
+      "json_path": "artistName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "cover",
+      "json_path": "artworkUrl100",
+      "confidence": 0.85,
+      "transform": "regex_replace",
+      "transform_args": "\\d+x\\d+bb\\.jpg|9999x9999bb.jpg",
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "description",
+      "json_path": "description",
+      "confidence": 0.85,
+      "transform": "strip_html",
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "year",
+      "json_path": "releaseDate",
+      "confidence": 0.8,
+      "transform": "first_n_chars",
+      "transform_args": "4",
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "genre",
+      "json_path": "primaryGenreName",
+      "confidence": 0.7,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "feed_url",
+      "json_path": "feedUrl",
+      "confidence": 0.95,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "apple_podcasts_id",
+      "json_path": "collectionId",
+      "confidence": 0.95,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    },
+    {
+      "claim_key": "episode_number",
+      "json_path": "trackNumber",
+      "confidence": 0.7,
+      "transform": "to_string",
+      "transform_args": null,
+      "media_types": ["Podcasts"]
+    }
+  ],
+  "requires_api_key": false,
+  "custom_icon_name": null
+}

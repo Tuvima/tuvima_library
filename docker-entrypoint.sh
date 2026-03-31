@@ -10,10 +10,10 @@ set -euo pipefail
 
 # ── First-run: seed default config into the mounted /config volume ────────────
 # If /config is empty (a fresh install or a brand-new volume mount), copy the
-# example configs in so the Engine can start without manual setup.
-if [ -d "/app/engine/config.example" ] && [ -z "$(ls -A /config 2>/dev/null)" ]; then
-    echo "[Tuvima] /config is empty — seeding default configs from config.example/ ..."
-    cp -r /app/engine/config.example/. /config/
+# committed configs so the Engine can start without manual setup.
+if [ -z "$(ls -A /config 2>/dev/null)" ]; then
+    echo "[Tuvima] /config is empty — seeding default configs ..."
+    cp -r /app/engine/config/. /config/
 fi
 
 # ── Resolve paths (env vars > defaults) ─────────────────────────────────────

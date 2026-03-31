@@ -246,7 +246,7 @@ All provider configs live in `config/providers/` as individual JSON files. Each 
 }
 ```
 
-See `config.example/providers/` for complete examples of each provider.
+See `config/providers/` for complete examples of each provider.
 
 ## Related
 

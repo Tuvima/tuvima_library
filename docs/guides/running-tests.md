@@ -246,7 +246,7 @@ To observe events during a seeded test run:
 ## 8. Configuration for development
 
 All config files live in `config/`. They are JSON files with one concern per file.
-Example files (safe to commit) are in `config.example/`. Live files are gitignored.
+Config files are committed in `config/`. Provider secrets go in `config/secrets/` (gitignored).
 
 Key files for development:
 

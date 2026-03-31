@@ -1,11 +1,12 @@
-﻿{
+{
   "device_class": "mobile",
   "display_name": "Mobile",
   "constraints": {
-    "features_disabled": ["view_toggle", "property_mapper", "matching_pipeline", "universe_schema_editing", "chronicle_explorer"],
+    "features_disabled": ["view_toggle"],
     "pages_disabled": [],
     "allow_text_input": true,
-    "min_touch_target_px": 48
+    "min_touch_target_px": 48,
+    "force_dark_mode": false
   },
   "content_padding": "pa-2",
   "content_max_width": "Full",
@@ -13,19 +14,15 @@
     "appbar_style": "compact",
     "logo_variant": "icon",
     "intent_dock_items": ["Hubs", "Watch", "Read", "Listen"],
-    "intent_dock_style": "normal",
-    "top_bar_visible": true,
-    "top_bar_style": "mobile",
-    "dock_visible": false
+    "intent_dock_style": "normal"
   },
   "pages": {
     "home": {
       "hub_hero_enabled": true,
-      "hub_hero_layout": "cinematic",
+      "hub_hero_layout": "stacked",
       "progress_cards_layout": "stacked",
       "bento_columns": 1,
       "bento_tile_style": "normal",
-      "swimlane_card_width": 90,
       "pending_files_display": "badge"
     },
     "preferences": {
@@ -42,4 +39,3 @@
     }
   }
 }
-

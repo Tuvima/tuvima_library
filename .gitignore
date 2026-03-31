@@ -54,8 +54,13 @@ desktop.ini
 *.sqlite
 *.sqlite3
 
-# Live configuration directory — copy config.example/ to config/ and edit locally
-config/
+# Provider secrets — API keys, passwords, tokens (never commit these)
+config/secrets/
+!config/secrets/.gitkeep
+
+# Build-output config copies (projects that copy config/ to output directory)
+src/*/config/
+src/*/*/config/
 
 # FFmpeg binaries — large platform-specific executables, downloaded by setup script.
 # See tools/Download-FFmpeg.ps1 or place ffmpeg.exe + ffprobe.exe in tools/ffmpeg/ manually.

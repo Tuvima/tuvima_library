@@ -6,7 +6,7 @@
   "domain": "Comic",
   "icon": "images/providers/metron.svg",
   "capability_tags": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "comic_vine_id", "gcd_id", "isbn"],
-  "available_fields": ["title", "issue_number", "description", "cover", "year", "publisher", "series", "series_position", "author", "comic_vine_id", "gcd_id", "isbn", "upc", "illustrator", "page_count", "rating", "store_date", "credits", "characters", "arcs"],
+  "available_fields": ["title", "author", "cover", "year", "description", "publisher", "genre", "series", "series_position", "issue_number", "comic_vine_id", "gcd_id", "isbn", "upc"],
   "field_weights": {
     "title": 0.85,
     "author": 0.8,
@@ -21,8 +21,7 @@
     "comic_vine_id": 0.95,
     "gcd_id": 0.95,
     "isbn": 0.95,
-    "upc": 0.9,
-    "illustrator": 0.75
+    "upc": 0.9
   },
   "endpoints": {
     "api": "https://metron.cloud/api"
@@ -103,21 +102,6 @@
     { "claim_key": "comic_vine_id",   "json_path": "cv_id",                    "confidence": 0.95, "transform": "to_string" },
     { "claim_key": "gcd_id",          "json_path": "gcd_id",                   "confidence": 0.95, "transform": "to_string" },
     { "claim_key": "isbn",            "json_path": "isbn",                     "confidence": 0.95 },
-    { "claim_key": "upc",             "json_path": "upc",                      "confidence": 0.9 },
-    { "claim_key": "illustrator",   "json_path": "credits[*].creator",      "confidence": 0.75, "transform": "array_join" }
-  ],
-  "ui_metadata": {
-    "accent_color": "#E91E63",
-    "material_icon": "AutoStories",
-    "external_url_template": "",
-    "category": "Open",
-    "requires_key": true,
-    "auth_type": "basic",
-    "search_chips": {
-      "Comics": ["Title", "ISBN"]
-    },
-    "ranking_chips": {
-      "Comics": ["Author", "Year"]
-    }
-  }
+    { "claim_key": "upc",             "json_path": "upc",                      "confidence": 0.9 }
+  ]
 }

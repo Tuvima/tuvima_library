@@ -35,6 +35,18 @@
                         {
                             <p class="event-detail">@evt.Body</p>
                         }
+                        @if (evt.ExpandableFields is { Count: > 0 })
+                        {
+                            <details class="timeline-fields-details">
+                                <summary class="timeline-fields-summary">Show extracted fields</summary>
+                                <ul class="timeline-fields-list">
+                                    @foreach (var field in evt.ExpandableFields)
+                                    {
+                                        <li>@field</li>
+                                    }
+                                </ul>
+                            </details>
+                        }
                     </div>
                 </div>
             }
@@ -66,7 +78,7 @@
         StateHasChanged();
     }
 
-    private sealed record TimelineEntry(string Headline, string? Body, string Time, string StageClass, string TintClass);
+    private sealed record TimelineEntry(string Headline, string? Body, string Time, string StageClass, string TintClass, List<string>? ExpandableFields = null);
 
     /// <summary>
     /// Merge raw engine events into a human-readable narrative.
@@ -78,7 +90,8 @@
 
         foreach (var evt in events)
         {
-            var (headline, body, stageClass, tint) = MapEvent(evt);
+            var normalized = NormalizeEventType(evt.EventType);
+            var (headline, body, stageClass, tint, expandableFields) = MapEvent(normalized, evt.Detail);
             if (headline is null) continue; // Skip noise events
 
             entries.Add(new TimelineEntry(
@@ -86,191 +99,274 @@
                 body,
                 FormatTime(evt.OccurredAt),
                 stageClass,
-                tint
+                tint,
+                expandableFields
             ));
         }
 
         return entries;
     }
 
-    private static (string? Headline, string? Body, string StageClass, string Tint) MapEvent(RegistryItemHistoryDto evt)
+    /// <summary>
+    /// Converts PascalCase event types to snake_case for uniform matching.
+    /// "FileDetected" becomes "file_detected", already-snake_case passes through unchanged.
+    /// </summary>
+    private static string NormalizeEventType(string eventType)
     {
-        var detail = evt.Detail;
-        return evt.EventType switch
+        if (string.IsNullOrEmpty(eventType)) return eventType;
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < eventType.Length; i++)
         {
-            // ── File stage ──────────────────────────────────────────
-            "file_scanned" or "file_detected" =>
-                ("File received", detail, "stage-file", ""),
+            if (i > 0 && char.IsUpper(eventType[i]) && !char.IsUpper(eventType[i - 1]))
+                sb.Append('_');
+            else if (i > 0 && char.IsUpper(eventType[i]) && i + 1 < eventType.Length && !char.IsUpper(eventType[i + 1]))
+                sb.Append('_');
+            sb.Append(char.ToLowerInvariant(eventType[i]));
+        }
+        return sb.ToString();
+    }
 
-            "metadata_extracted" =>
-                ("Metadata read from file",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-file", ""),
+    // Set of event types that are engine internals — hidden from the user timeline.
+    private static readonly HashSet<string> HiddenEvents = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "file_scored", "confidence_scored",
+        "entity_chain_created", "entity_chain", "entity_chain_linked",
+        "review_item_created", "hydration_enqueued",
+        "file_hashed", "duplicate_skipped",
+        "cover_art_saved", "hero_banner_generated",
+        "hub_created", "hub_assigned", "hub_merged",
+        "server_started", "server_stopped",
+        "crawl_started", "crawl_finished",
+        "activity_pruned", "sidecar_updated",
+        "bridge_sync_updated",
+        "batch_created", "batch_completed", "batch_failed",
+        "staged_file_cleaned", "orphan_cleaned",
+        "reconciliation_missing", "reconciliation_completed",
+        "folder_cleaned", "person_folder_renamed", "person_merged",
+        "narrative_root_resolved", "lore_delta_checked", "canon_discrepancy_detected",
+        "universe_xml_updated",
+        "character_enriched", "location_enriched", "organization_enriched", "relationship_discovered",
+    };
 
-            "file_scored" or "confidence_scored" =>
-                ("Confidence assessed",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-file", ""),
+    private static (string? Headline, string? Body, string StageClass, string Tint, List<string>? ExpandableFields) MapEvent(string eventType, string? detail)
+    {
+        // Hidden engine internals — skip entirely
+        if (HiddenEvents.Contains(eventType))
+            return (null, null, "", "", null);
 
-            "entity_chain" or "entity_chain_created" =>
-                ("Work record created",
-                 string.IsNullOrEmpty(detail) ? "A new entry was created in your library for this file." : detail,
-                 "stage-file", ""),
+        return eventType switch
+        {
+            // ── File stage (white dots) ────────────────────────────
+            "file_detected" or "file_scanned" =>
+                ("File discovered",
+                 "We found a new file in your library folder.",
+                 "stage-file", "", null),
 
-            "entity_chain_linked" =>
-                ("Linked to existing work",
-                 string.IsNullOrEmpty(detail) ? "This file was recognised as another edition of a work already in your library." : detail,
-                 "stage-file", ""),
+            "metadata_extracted" or "file_processed" =>
+                ("Reading file tags",
+                 "We read the title, author, and other details embedded in the file.",
+                 "stage-file", "", ParseFields(detail)),
 
-            "staged" or "moved_to_staging" =>
-                ("File received",
-                 "Queued for identification.",
-                 "stage-file", ""),
-
-            "promoted" or "moved_to_library" =>
-                ("Added to library",
-                 string.IsNullOrEmpty(detail) ? "Identification complete — file organised into your library." : detail,
-                 "stage-file", ""),
+            "moved_to_staging" or "staged" =>
+                ("Queued for identification",
+                 "The file is staged and ready for provider matching.",
+                 "stage-file", "", null),
 
             "media_type_classified" or "ai_classified" =>
                 ("Media type identified",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-file", ""),
+                 string.IsNullOrEmpty(detail) ? "We determined what type of media this is." : detail,
+                 "stage-file", "", null),
 
-            // ── Retail stage ────────────────────────────────────────
+            "promoted" or "moved_to_library" =>
+                ("Added to your library",
+                 string.IsNullOrEmpty(detail) ? "Identification complete — the file has been organised into your library." : detail,
+                 "stage-file", "", null),
+
+            "file_ingested" =>
+                ("Processing complete",
+                 "The file has been fully processed and is part of your library.",
+                 "stage-file", "", null),
+
+            // ── Retail stage (amber dots) ──────────────────────────
             "retail_matched" =>
                 ("Provider match found",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-retail", ""),
+                 string.IsNullOrEmpty(detail) ? "A retail provider confirmed the identity of this item." : detail,
+                 "stage-retail", "", null),
 
             "retail_no_match" =>
                 ("No provider match",
-                 string.IsNullOrEmpty(detail) ? "No retail provider could identify this item." : detail,
-                 "stage-retail", "event-warning"),
+                 string.IsNullOrEmpty(detail) ? "None of the configured providers could identify this item." : detail,
+                 "stage-retail", "event-warning", null),
 
             "retail_manual_approved" =>
-                ("Match confirmed by you",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-retail", ""),
+                ("Match confirmed by user",
+                 string.IsNullOrEmpty(detail) ? "A user manually confirmed the provider match." : detail,
+                 "stage-retail", "", null),
 
             "retail_manual_dismissed" =>
-                ("Match rejected by you",
+                ("Match rejected by user",
                  string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-retail", "event-warning"),
+                 "stage-retail", "event-warning", null),
 
             "retail_rematched" =>
-                ("Re-matched to a different provider result",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-retail", ""),
+                ("Re-matched to different result",
+                 string.IsNullOrEmpty(detail) ? "The item was matched to a different provider result." : detail,
+                 "stage-retail", "", null),
 
             "retail_ai_classified" =>
-                ("AI helped classify this item",
+                ("AI assisted classification",
                  string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-retail", ""),
+                 "stage-retail", "", null),
 
-            "stage1_refresh" =>
+            "stage1_refresh" or "hydration_stage1_completed" or "hydration_stage3_completed" =>
                 ("Provider data refreshed",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-retail", ""),
+                 string.IsNullOrEmpty(detail) ? "The latest information was fetched from retail providers." : detail,
+                 "stage-retail", "", null),
 
-            // ── Wikidata stage ──────────────────────────────────────
+            // ── Wikidata stage (purple dots) ───────────────────────
             "wikidata_bridge_resolved" =>
                 ("Linked to Wikidata",
                  string.IsNullOrEmpty(detail) ? "Identity confirmed using a bridge ID from the retail provider." : detail,
-                 "stage-wikidata", ""),
+                 "stage-wikidata", "", null),
 
             "wikidata_title_resolved" =>
-                ("Found on Wikidata by title",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-wikidata", ""),
+                ("Found on Wikidata",
+                 string.IsNullOrEmpty(detail) ? "Identity confirmed by searching Wikidata by title." : detail,
+                 "stage-wikidata", "", null),
 
             "wikidata_ai_disambiguated" =>
-                ("AI helped identify the correct Wikidata entry",
+                ("AI helped identify Wikidata entry",
                  string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-wikidata", ""),
+                 "stage-wikidata", "", null),
 
             "wikidata_pre_resolved" =>
                 ("Wikidata identity already known",
-                 string.IsNullOrEmpty(detail) ? "This item matched a Wikidata entry that was already in your library." : detail,
-                 "stage-wikidata", ""),
+                 string.IsNullOrEmpty(detail) ? "This item matched a Wikidata entry already in your library." : detail,
+                 "stage-wikidata", "", null),
 
             "wikidata_manual_resolved" =>
-                ("Wikidata link set by you",
+                ("Wikidata link set by user",
                  string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-wikidata", ""),
+                 "stage-wikidata", "", null),
 
             "wikidata_no_match" =>
-                ("No Wikidata match found",
-                 string.IsNullOrEmpty(detail) ? "The Engine couldn't find a matching entry on Wikidata." : detail,
-                 "stage-wikidata", "event-warning"),
+                ("No Wikidata match",
+                 string.IsNullOrEmpty(detail) ? "No matching entry was found on Wikidata." : detail,
+                 "stage-wikidata", "event-warning", null),
 
-            "stage2_refresh" =>
+            "stage2_refresh" or "hydration_stage2_completed" =>
                 ("Wikidata data refreshed",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-wikidata", ""),
+                 string.IsNullOrEmpty(detail) ? "The latest information was fetched from Wikidata." : detail,
+                 "stage-wikidata", "", null),
 
-            // ── Universe stage ──────────────────────────────────────
-            "universe_grouped" =>
-                ("Assigned to a universe",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-universe", ""),
+            "metadata_hydrated" =>
+                ("Rich data loaded",
+                 string.IsNullOrEmpty(detail) ? "Detailed metadata was loaded from Wikidata." : detail,
+                 "stage-wikidata", "", null),
 
-            "universe_pending" =>
-                ("Universe assignment pending",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-universe", "event-warning"),
-
-            "universe_refreshed" =>
-                ("Universe data refreshed",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-universe", ""),
-
-            "stage3_refresh" =>
-                ("Universe enrichment refreshed",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-universe", ""),
-
-            // ── User actions ────────────────────────────────────────
-            "user_field_edit" =>
-                ("You edited a field",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-user", ""),
-
-            "user_lock" =>
-                ("You locked a field",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-user", ""),
-
-            "sync_writeback" =>
-                ("Metadata written back to file",
-                 string.IsNullOrEmpty(detail) ? "Updated the file's embedded tags with the resolved metadata." : detail,
-                 "stage-user", ""),
-
-            "sync_reverted" =>
-                ("File metadata reverted",
-                 string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-user", "event-warning"),
-
-            // ── People / enrichment ─────────────────────────────────
             "person_enriched" =>
-                ("Person details enriched",
+                ("Person details loaded",
                  string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-wikidata", ""),
+                 "stage-wikidata", "", null),
 
             "person_refreshed" =>
                 ("Person data refreshed",
                  string.IsNullOrEmpty(detail) ? null : detail,
-                 "stage-wikidata", ""),
+                 "stage-wikidata", "", null),
 
-            // ── Catch-all ───────────────────────────────────────────
-            _ => (FormatFallback(evt.EventType), detail, "stage-other", ""),
+            // ── Universe stage (teal dots) ─────────────────────────
+            "universe_grouped" =>
+                ("Assigned to a universe",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-universe", "", null),
+
+            "universe_pending" =>
+                ("Universe assignment pending",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-universe", "event-warning", null),
+
+            "universe_refreshed" or "stage3_refresh" or "universe_match_recovered" =>
+                ("Universe data refreshed",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-universe", "", null),
+
+            // ── User actions (blue dots) ───────────────────────────
+            "user_field_edit" or "metadata_manual_override" =>
+                ("Field edited by user",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-user", "", null),
+
+            "user_lock" =>
+                ("Field locked by user",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-user", "", null),
+
+            "sync_writeback" or "metadata_written_to_file" or "metadata_tags_written" =>
+                ("Written back to file",
+                 string.IsNullOrEmpty(detail) ? "The resolved metadata was written into the file's embedded tags." : detail,
+                 "stage-user", "", null),
+
+            "sync_reverted" =>
+                ("File metadata reverted",
+                 string.IsNullOrEmpty(detail) ? null : detail,
+                 "stage-user", "event-warning", null),
+
+            // ── Catch-all ──────────────────────────────────────────
+            _ => ("Activity recorded",
+                  string.IsNullOrEmpty(detail) ? null : detail,
+                  "stage-other", "", null),
         };
     }
 
-    private static string FormatFallback(string eventType)
+    /// <summary>
+    /// Parses a detail string containing field names into a formatted list.
+    /// Returns null if the detail is empty or doesn't look like a field list.
+    /// </summary>
+    private static List<string>? ParseFields(string? detail)
     {
-        // Convert snake_case to "Title Case Words"
-        var words = eventType.Split('_', StringSplitOptions.RemoveEmptyEntries);
+        if (string.IsNullOrWhiteSpace(detail)) return null;
+
+        // Split on commas, semicolons, or pipes — common separators in detail strings
+        var raw = detail.Split(new[] { ',', ';', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (raw.Length < 2) return null; // Not a field list if fewer than 2 items
+
+        var fields = new List<string>();
+        foreach (var field in raw)
+        {
+            fields.Add(FormatFieldName(field));
+        }
+        return fields.Count > 0 ? fields : null;
+    }
+
+    /// <summary>
+    /// Converts a snake_case field name to a human-readable title.
+    /// Special cases: "isbn_13" → "ISBN-13", "tmdb_id" → "TMDB ID".
+    /// </summary>
+    private static string FormatFieldName(string field)
+    {
+        var lower = field.Trim().ToLowerInvariant();
+        return lower switch
+        {
+            "isbn" => "ISBN",
+            "isbn_10" => "ISBN-10",
+            "isbn_13" => "ISBN-13",
+            "isrc" => "ISRC",
+            "asin" => "ASIN",
+            "tmdb_id" => "TMDB ID",
+            "imdb_id" => "IMDb ID",
+            "tvdb_id" => "TVDB ID",
+            "apple_music_id" => "Apple Music ID",
+            "apple_music_collection_id" => "Apple Music Collection ID",
+            "apple_artist_id" => "Apple Artist ID",
+            "wikidata_qid" => "Wikidata QID",
+            "tl_dr" or "tldr" => "TL;DR",
+            _ => FormatSnakeCaseToTitle(lower),
+        };
+    }
+
+    private static string FormatSnakeCaseToTitle(string snake)
+    {
+        var words = snake.Split('_', StringSplitOptions.RemoveEmptyEntries);
         return string.Join(' ', words.Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
     }
 
@@ -306,4 +402,12 @@
     /* Event row tints for warning states */
     .timeline-event.event-warning .event-dot   { background: #EF9F27; }
     .timeline-event.event-warning .event-type  { color: rgba(239,159,39,0.8); }
+
+    /* Expandable extracted fields */
+    .timeline-fields-details { margin-top: 4px; }
+    .timeline-fields-summary { font-size: 10px; color: rgba(255,255,255,0.35); cursor: pointer; }
+    .timeline-fields-summary:hover { color: rgba(255,255,255,0.5); }
+    .timeline-fields-list { list-style: none; padding: 0; margin: 4px 0 0 0; }
+    .timeline-fields-list li { font-size: 10px; color: rgba(255,255,255,0.4); padding: 1px 0; }
+    .timeline-fields-list li::before { content: "\00B7"; margin-right: 6px; color: rgba(255,255,255,0.2); }
 </style>

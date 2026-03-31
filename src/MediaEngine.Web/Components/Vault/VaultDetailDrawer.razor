@@ -172,9 +172,9 @@
             }
 
             @* ── Pipeline (circles + File/Retail/Wikidata tabs) ── *@
-            <DrawerSection Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
+            <DrawerSection @key="@($"pipeline-{MediaItem.EntityId}")" Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
                            HasProblem="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))"
-                           DefaultOpen="true">
+                           DefaultOpen="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))">
 
                 @* Pipeline stage circles *@
                 <div class="vdd-pipeline-circles-wrap">
@@ -186,23 +186,7 @@
                         @bind-SelectedStage="_selectedStage" />
                 </div>
 
-                @* Tab bar *@
-                <div class="vdd-stage-tabs">
-                    <button class="vdd-stage-tab @(ActiveTab == 0 ? "vdd-stage-tab--active" : "")" @onclick="() => SetActiveTab(0)">
-                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px;" />
-                        File
-                    </button>
-                    <button class="vdd-stage-tab @(ActiveTab == 1 ? "vdd-stage-tab--active" : "")" @onclick="() => SetActiveTab(1)">
-                        <MudIcon Icon="@Icons.Material.Outlined.Store" Style="font-size: 14px;" />
-                        Retail
-                    </button>
-                    <button class="vdd-stage-tab @(ActiveTab == 2 ? "vdd-stage-tab--active" : "")" @onclick="() => SetActiveTab(2)">
-                        <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 14px;" />
-                        Wikidata
-                    </button>
-                </div>
-
-                @* ── Tab content ── *@
+                @* ── Tab content (selected via pipeline circles) ── *@
                 @{
                     var hasRetail = IsRealRetailMatch(MediaItem.RetailMatch);
                     var hasWikidata = IsWikidataMatched(MediaItem.WikidataQid);
@@ -281,7 +265,7 @@
                                 var isManualMatch = MediaItem.RetailMatch?.Equals("user_manual", StringComparison.OrdinalIgnoreCase) == true;
                                 <div class="vdd-match-status vdd-match-status--ok">
                                     <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                    <span>@(isManualMatch ? "Matched manually" : $"Matched via {retailDisplayName}")</span>
+                                    <span>@(isManualMatch ? "Manually matched by user" : $"Matched automatically via {retailDisplayName}")</span>
                                 </div>
                                 @if (GetRetailProviderUrl() is { } retailUrl)
                                 {
@@ -306,60 +290,105 @@
                                     </div>
                                 }
                             }
-                            else
-                            {
-                                <div class="vdd-match-status vdd-match-status--warn">
-                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
-                                    <span>Unmatched — no retail provider confirmed this item</span>
-                                </div>
-                            }
-
-                            @* Always-visible multi-field search *@
+                            @* Always-visible filter-based search *@
                             <div class="vdd-tab-search">
-                                <div class="vdd-search-header">
-                                    <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
-                                        <option value="Books">Books</option>
-                                        <option value="Audiobooks">Audiobooks</option>
-                                        <option value="Movies">Movies</option>
-                                        <option value="TV">TV</option>
-                                        <option value="Music">Music</option>
-                                        <option value="Comics">Comics</option>
-                                        <option value="Podcasts">Podcasts</option>
-                                    </select>
-                                    <button class="vdd-search-btn" @onclick="RunRetailSearch"
-                                            disabled="@(!HasAnySearchFieldValue())">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
-                                    </button>
-                                </div>
-                                <div class="vdd-field-chips">
-                                    @{
-                                        var searchableFields = GetSearchableFieldsForCurrentType();
-                                    }
-                                    @foreach (var field in searchableFields)
-                                    {
-                                        var f = field;
-                                        <button class="vdd-field-chip @(_activeSearchFields.Contains(f.FieldKey) ? "vdd-field-chip--active" : "")"
-                                                @onclick="() => ToggleSearchField(f.FieldKey)">
-                                            @f.DisplayLabel
-                                        </button>
-                                    }
-                                </div>
-                                @foreach (var field in searchableFields)
-                                {
-                                    if (!_activeSearchFields.Contains(field.FieldKey)) continue;
-                                    var f = field;
-                                    <div class="vdd-field-row">
-                                        <label class="vdd-field-label">@f.DisplayLabel</label>
-                                        <input type="text" class="vdd-search-input vdd-field-input"
-                                               placeholder="@f.DisplayLabel..."
-                                               value="@GetSearchFieldValue(f.FieldKey)"
-                                               @oninput="(e) => SetSearchFieldValue(f.FieldKey, e.Value?.ToString())"
-                                               @onkeydown="OnRetailSearchKeyDown" />
-                                        <button class="vdd-field-remove" @onclick="() => ToggleSearchField(f.FieldKey)">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 12px;" />
+                                <div class="vdd-search-bar-wrap">
+                                    @* Media type row *@
+                                    <div class="vdd-search-type-row">
+                                        <span class="vdd-search-type-label">Type:</span>
+                                        <div class="vdd-dropdown-wrap">
+                                            <button class="vdd-dropdown-btn" @onclick="() => _showMediaTypeDropdown = !_showMediaTypeDropdown">
+                                                @_searchMediaType <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
+                                            </button>
+                                            @if (_showMediaTypeDropdown)
+                                            {
+                                                <div class="vdd-dropdown-menu">
+                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" })
+                                                    {
+                                                        <div class="vdd-dropdown-item" @onclick="() => SetRetailMediaType(mt)">@mt</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @* Main search row *@
+                                    <div class="vdd-search-main-row">
+                                        <div class="vdd-search-input-group">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
+
+                                            @* Primary field selector *@
+                                            <div class="vdd-dropdown-wrap">
+                                                <button class="vdd-primary-field-btn" @onclick="() => _showPrimaryDropdown = !_showPrimaryDropdown">
+                                                    @FormatClaimKey(_primarySearchField)
+                                                    <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 12px;" />
+                                                </button>
+                                                @if (_showPrimaryDropdown)
+                                                {
+                                                    <div class="vdd-dropdown-menu">
+                                                        @foreach (var f in GetSearchableFieldsForCurrentType())
+                                                        {
+                                                            <div class="vdd-dropdown-item" @onclick="() => SetPrimaryField(f.FieldKey)">@f.DisplayLabel</div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <input type="text" class="vdd-search-primary-input"
+                                                   placeholder="@($"Search {FormatClaimKey(_primarySearchField).ToLower()}...")"
+                                                   @bind="_primarySearchValue" @bind:event="oninput"
+                                                   @onkeydown="OnRetailSearchKeyDown" />
+
+                                            @* Add Filter button *@
+                                            <div class="vdd-dropdown-wrap">
+                                                <button class="vdd-add-filter-btn" @onclick="() => _showFilterDropdown = !_showFilterDropdown">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 14px;" />
+                                                    Add Filter
+                                                </button>
+                                                @if (_showFilterDropdown)
+                                                {
+                                                    <div class="vdd-dropdown-menu">
+                                                        @foreach (var f in GetSearchableFieldsForCurrentType())
+                                                        {
+                                                            if (f.FieldKey == _primarySearchField) continue;
+                                                            if (_searchFilters.Any(sf => sf.FieldKey == f.FieldKey)) continue;
+                                                            <div class="vdd-dropdown-item" @onclick="() => AddSearchFilter(f.FieldKey)">@f.DisplayLabel</div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <button class="vdd-search-execute-btn" @onclick="RunRetailSearch"
+                                                disabled="@(!HasAnySearchFieldValue())">
+                                            Search
                                         </button>
                                     </div>
-                                }
+
+                                    @* Filter pills *@
+                                    @if (_searchFilters.Count > 0)
+                                    {
+                                        <div class="vdd-filter-pills">
+                                            @for (int i = 0; i < _searchFilters.Count; i++)
+                                            {
+                                                var idx = i;
+                                                var filter = _searchFilters[idx];
+                                                <div class="vdd-filter-pill">
+                                                    <span class="vdd-filter-pill-label">@FormatClaimKey(filter.FieldKey):</span>
+                                                    <input type="text" class="vdd-filter-pill-input"
+                                                           value="@filter.Value"
+                                                           placeholder="..."
+                                                           @oninput="(e) => UpdateFilter(idx, e.Value?.ToString())"
+                                                           @onkeydown="OnRetailSearchKeyDown" />
+                                                    <button class="vdd-filter-pill-remove" @onclick="() => RemoveFilter(idx)">
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 14px;" />
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
                                 @if (hasRetail && HasAnySearchFieldValue())
                                 {
                                     <p class="vdd-rematch-warning">
@@ -502,41 +531,38 @@
                                     </div>
                                 }
                             }
-                            else
-                            {
-                                <div class="vdd-match-status @(hasRetailForWiki ? "vdd-match-status--warn" : "vdd-match-status--fail")">
-                                    <span class="vdd-pipeline-dot @(hasRetailForWiki ? "vdd-pipeline-dot--warn" : "vdd-pipeline-dot--fail")"></span>
-                                    <span>@(hasRetailForWiki ? "Awaiting Wikidata lookup" : "No identity confirmed")</span>
-                                </div>
-                                @if (!hasRetailForWiki)
-                                {
-                                    <p class="vdd-stage-hint">A retail match is needed first so the Engine has a bridge ID (like an ISBN or TMDB ID) to look up on Wikidata.</p>
-                                }
-                                else
-                                {
-                                    <p class="vdd-stage-hint">A retail match was found but the Wikidata lookup hasn't completed yet, or no matching entry was found.</p>
-                                }
-                            }
-
                             @* Always-visible Wikidata search *@
                             <div class="vdd-tab-search">
-                                <div class="vdd-search-row">
-                                    <input type="text" class="vdd-search-input"
-                                           placeholder="@(hasWikidata ? "Search to relink..." : "Search Wikidata by title or QID...")"
-                                           @bind="_wikidataSearchQuery" @bind:event="oninput" @onkeydown="OnWikidataSearchKeyDown" />
-                                    <select class="vdd-type-dropdown" value="@_searchMediaType" @onchange="OnSearchTypeChanged">
-                                        <option value="Books">Books</option>
-                                        <option value="Audiobooks">Audiobooks</option>
-                                        <option value="Movies">Movies</option>
-                                        <option value="TV">TV</option>
-                                        <option value="Music">Music</option>
-                                        <option value="Comics">Comics</option>
-                                        <option value="Podcasts">Podcasts</option>
-                                    </select>
-                                    <button class="vdd-search-btn" @onclick="RunWikidataSearch"
-                                            disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery))">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 14px;" />
-                                    </button>
+                                <div class="vdd-search-bar-wrap">
+                                    <div class="vdd-search-type-row">
+                                        <span class="vdd-search-type-label">Type:</span>
+                                        <div class="vdd-dropdown-wrap">
+                                            <button class="vdd-dropdown-btn" @onclick="() => _showWikiMediaTypeDropdown = !_showWikiMediaTypeDropdown">
+                                                @_searchMediaType <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
+                                            </button>
+                                            @if (_showWikiMediaTypeDropdown)
+                                            {
+                                                <div class="vdd-dropdown-menu">
+                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" })
+                                                    {
+                                                        <div class="vdd-dropdown-item" @onclick="() => SetWikiMediaType(mt)">@mt</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="vdd-search-main-row">
+                                        <div class="vdd-search-input-group">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
+                                            <input type="text" class="vdd-search-primary-input"
+                                                   placeholder="@(hasWikidata ? "Search to relink..." : "Search by title or enter QID...")"
+                                                   @bind="_wikidataSearchQuery" @bind:event="oninput" @onkeydown="OnWikidataSearchKeyDown" />
+                                        </div>
+                                        <button class="vdd-search-execute-btn" @onclick="RunWikidataSearch"
+                                                disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery))">
+                                            Search
+                                        </button>
+                                    </div>
                                 </div>
                                 @if (hasWikidata && !string.IsNullOrWhiteSpace(_wikidataSearchQuery))
                                 {
@@ -619,14 +645,43 @@
                             }
                         </div>
                         break;
+
+                    case 3:
+                        @* ── UNIVERSE TAB ── *@
+                        <div class="vdd-tab-content">
+                            @if (!string.IsNullOrEmpty(MediaItem.UniverseName))
+                            {
+                                <div class="vdd-match-status vdd-match-status--ok">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                    <span>Assigned to universe: @MediaItem.UniverseName</span>
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(MediaItem.WikidataQid) && !MediaItem.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <div class="vdd-match-status vdd-match-status--warn">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--warn"></span>
+                                    <span>Wikidata linked but universe assignment pending</span>
+                                </div>
+                                <p class="vdd-stage-hint">The Engine will automatically assign a universe once enrichment completes.</p>
+                            }
+                            else
+                            {
+                                <div class="vdd-match-status vdd-match-status--fail">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
+                                    <span>No universe assigned</span>
+                                </div>
+                                <p class="vdd-stage-hint">A Wikidata identity is needed before the Engine can determine universe membership.</p>
+                            }
+                        </div>
+                        break;
                 }
             </DrawerSection>
 
-            <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
+            <DrawerSection @key="@($"history-{MediaItem.EntityId}")" Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
                 <VaultTimeline EntityId="@MediaItem.EntityId" />
             </DrawerSection>
 
-            <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+            <DrawerSection @key="@($"assets-{MediaItem.EntityId}")" Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
                 <div class="vdd-assets">
                     @* Cover Art *@
                     <div class="vdd-asset-row">
@@ -887,7 +942,6 @@
     private bool _confirmPurge;
     private int _selectedStage = 0;
     private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
-    // _manualSearchQuery removed — replaced by _searchFieldValues multi-field system
     private bool _searching;
     private bool _hasSearched;
     private List<RegistryItemViewModel> _searchResults = [];
@@ -896,8 +950,14 @@
     private RegistryItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
     private string _searchMediaType = "";
-    private HashSet<string> _activeSearchFields = new(StringComparer.OrdinalIgnoreCase) { "title" };
-    private Dictionary<string, string> _searchFieldValues = new(StringComparer.OrdinalIgnoreCase);
+    // New filter-based search state (replaces _activeSearchFields + _searchFieldValues)
+    private string _primarySearchField = "title";
+    private string _primarySearchValue = "";
+    private List<(string FieldKey, string Value)> _searchFilters = [];
+    private bool _showFilterDropdown;
+    private bool _showPrimaryDropdown;
+    private bool _showMediaTypeDropdown;
+    private bool _showWikiMediaTypeDropdown;
     private List<RetailCandidateDto> _retailSearchResults = [];
     private RetailCandidateDto? _pendingRetailMatch;
     private bool _confirmingRetailMatch;
@@ -907,7 +967,6 @@
     private bool _confirmingWikidataMatch;
     private string _wikidataSearchQuery = "";
     private bool _hasSearchedWikidata;
-    // _metadataTab removed — Metadata section split into File Info + Provider Claims
     private List<ClaimHistoryDto> _claims = [];
     private bool _claimsLoading;
 
@@ -916,8 +975,9 @@
         _searchMediaType = e.Value?.ToString() ?? "";
         _retailSearchResults = [];
         _pendingRetailMatch = null;
-        _activeSearchFields = new(StringComparer.OrdinalIgnoreCase) { "title" };
-        _searchFieldValues.Clear();
+        _primarySearchField = "title";
+        _primarySearchValue = "";
+        _searchFilters = [];
     }
 
     // Universe data
@@ -941,8 +1001,7 @@
     private static bool IsWikidataMatched(string? qid) =>
         !string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
 
-    private int ActiveTab => Math.Min(_selectedStage, 2);
-    private void SetActiveTab(int tab) { _selectedStage = tab; }
+    private int ActiveTab => _selectedStage;  // 0=File, 1=Retail, 2=Wikidata, 3=Universe
 
     private void NavigateToCreatorPerson(string creatorName)
     {
@@ -954,7 +1013,6 @@
     {
         _confirmPurge = false;
         _selectedStage = 0;
-        _searchFieldValues.Clear();
         _searchResults = [];
         _aliases = null;
         _personWorks = null;
@@ -965,8 +1023,13 @@
         _confirmingRetailMatch = false;
         _selectedMediaType = MediaItem?.MediaType ?? "";
         _searchMediaType = MediaItem?.MediaType ?? "";
-        _activeSearchFields = new(StringComparer.OrdinalIgnoreCase) { "title" };
-        _searchFieldValues.Clear();
+        _primarySearchField = "title";
+        _primarySearchValue = "";
+        _searchFilters = [];
+        _showFilterDropdown = false;
+        _showPrimaryDropdown = false;
+        _showMediaTypeDropdown = false;
+        _showWikiMediaTypeDropdown = false;
         _retailSearchResults = [];
         _searchingWikidata = false;
         _wikidataSearchResults = [];
@@ -1024,22 +1087,25 @@
 
     private async Task RunRetailSearch()
     {
-        if (!HasAnySearchFieldValue() || string.IsNullOrWhiteSpace(_searchMediaType)) return;
+        var hasQuery = !string.IsNullOrWhiteSpace(_primarySearchValue)
+                       || _searchFilters.Any(f => !string.IsNullOrWhiteSpace(f.Value));
+        if (!hasQuery || string.IsNullOrWhiteSpace(_searchMediaType)) return;
+
         _searching = true;
         _retailSearchResults = [];
         _pendingRetailMatch = null;
         _confirmingRetailMatch = false;
         StateHasChanged();
 
-        // Build structured search fields from active field inputs
         var searchFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in _activeSearchFields)
+        if (!string.IsNullOrWhiteSpace(_primarySearchValue))
+            searchFields[_primarySearchField] = _primarySearchValue.Trim();
+        foreach (var (key, val) in _searchFilters)
         {
-            if (_searchFieldValues.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
+            if (!string.IsNullOrWhiteSpace(val))
                 searchFields[key] = val.Trim();
         }
 
-        // Build a combined query string for providers that need it
         var queryParts = searchFields.Values.ToList();
         var combinedQuery = string.Join(" ", queryParts);
 
@@ -1108,6 +1174,43 @@
         if (!string.IsNullOrEmpty(MediaItem.Series))
             rows.Add(("Series", MediaItem.Series + (!string.IsNullOrEmpty(MediaItem.SeriesPosition) ? $" #{MediaItem.SeriesPosition}" : "")));
         if (!string.IsNullOrEmpty(MediaItem.UniverseName)) rows.Add(("Universe", MediaItem.UniverseName));
+
+        // Music-specific
+        if (MediaItem.MediaType == "Music")
+        {
+            if (!string.IsNullOrEmpty(MediaItem.Album)) rows.Add(("Album", MediaItem.Album));
+            if (!string.IsNullOrEmpty(MediaItem.TrackNumber))
+            {
+                var trackDisplay = MediaItem.TrackNumber;
+                if (!string.IsNullOrEmpty(MediaItem.TrackCount))
+                    trackDisplay += $" of {MediaItem.TrackCount}";
+                rows.Add(("Track", trackDisplay));
+            }
+            if (!string.IsNullOrEmpty(MediaItem.DiscNumber)) rows.Add(("Disc", MediaItem.DiscNumber));
+            if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
+        }
+
+        // TV-specific
+        if (MediaItem.MediaType == "TV")
+        {
+            if (!string.IsNullOrEmpty(MediaItem.ShowName)) rows.Add(("Show", MediaItem.ShowName));
+            if (!string.IsNullOrEmpty(MediaItem.Season)) rows.Add(("Season", MediaItem.Season));
+            if (!string.IsNullOrEmpty(MediaItem.Episode)) rows.Add(("Episode", MediaItem.Episode));
+            if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Runtime", FormatDuration(MediaItem.Duration)));
+        }
+
+        // Audiobooks
+        if (MediaItem.MediaType == "Audiobooks" && !string.IsNullOrEmpty(MediaItem.Duration))
+            rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
+
+        // Podcasts
+        if (MediaItem.MediaType == "Podcasts")
+        {
+            if (!string.IsNullOrEmpty(MediaItem.ShowName)) rows.Add(("Podcast", MediaItem.ShowName));
+            if (!string.IsNullOrEmpty(MediaItem.Episode)) rows.Add(("Episode", MediaItem.Episode));
+            if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
+        }
+
         if (!string.IsNullOrEmpty(MediaItem.FileName)) rows.Add(("File", MediaItem.FileName));
         if (MediaItem.FileSizeBytes.HasValue && MediaItem.FileSizeBytes.Value > 0)
             rows.Add(("Size", VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)));
@@ -1203,27 +1306,46 @@
         return MediaTypeFieldRegistry.GetSearchableFields(MediaEngine.Domain.Enums.MediaType.Books);
     }
 
-    private void ToggleSearchField(string fieldKey)
+    private void AddSearchFilter(string fieldKey)
     {
-        if (_activeSearchFields.Contains(fieldKey))
-        {
-            _activeSearchFields.Remove(fieldKey);
-            _searchFieldValues.Remove(fieldKey);
-        }
-        else
-        {
-            _activeSearchFields.Add(fieldKey);
-        }
+        _searchFilters.Add((fieldKey, ""));
+        _showFilterDropdown = false;
     }
 
-    private string GetSearchFieldValue(string fieldKey) =>
-        _searchFieldValues.TryGetValue(fieldKey, out var val) ? val : "";
+    private void SetPrimaryField(string fieldKey)
+    {
+        _primarySearchField = fieldKey;
+        _showPrimaryDropdown = false;
+    }
 
-    private void SetSearchFieldValue(string fieldKey, string? value) =>
-        _searchFieldValues[fieldKey] = value ?? "";
+    private void SetRetailMediaType(string mt)
+    {
+        _searchMediaType = mt;
+        _showMediaTypeDropdown = false;
+        _searchFilters.Clear();
+    }
+
+    private void SetWikiMediaType(string mt)
+    {
+        _searchMediaType = mt;
+        _showWikiMediaTypeDropdown = false;
+    }
+
+    private void UpdateFilter(int index, string? value)
+    {
+        if (index >= 0 && index < _searchFilters.Count)
+            _searchFilters[index] = (_searchFilters[index].FieldKey, value ?? "");
+    }
+
+    private void RemoveFilter(int index)
+    {
+        if (index >= 0 && index < _searchFilters.Count)
+            _searchFilters.RemoveAt(index);
+    }
 
     private bool HasAnySearchFieldValue() =>
-        _searchFieldValues.Any(kv => _activeSearchFields.Contains(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value));
+        !string.IsNullOrWhiteSpace(_primarySearchValue)
+        || _searchFilters.Any(f => !string.IsNullOrWhiteSpace(f.Value));
 
     private void SelectRetailResult(RetailCandidateDto result)
     {
@@ -1251,7 +1373,8 @@
 
         _pendingRetailMatch = null;
         _retailSearchResults = [];
-        _searchFieldValues.Clear();
+        _primarySearchValue = "";
+        _searchFilters = [];
         _confirmingRetailMatch = false;
         _hasSearched = false;
 
@@ -1312,7 +1435,8 @@
     {
         _pendingMatch = null;
         _searchResults = [];
-        _searchFieldValues.Clear();
+        _primarySearchValue = "";
+        _searchFilters = [];
         await OnApplyMatch.InvokeAsync(entityId);
     }
 
@@ -1331,6 +1455,20 @@
 
     /// <summary>Formats a claim key — delegates to shared VaultHelpers.</summary>
     private static string FormatClaimKey(string key) => VaultHelpers.FormatClaimKey(key);
+
+    private static string FormatDuration(string? duration)
+    {
+        if (string.IsNullOrEmpty(duration)) return "";
+        // Try to parse as milliseconds (common from providers)
+        if (long.TryParse(duration, out var ms))
+        {
+            var ts = TimeSpan.FromMilliseconds(ms);
+            return ts.TotalHours >= 1
+                ? $"{(int)ts.TotalHours}h {ts.Minutes:D2}m"
+                : $"{ts.Minutes}m {ts.Seconds:D2}s";
+        }
+        return duration; // Return as-is if not numeric
+    }
 
     /// <summary>
     /// Builds the best available external URL for the current item's retail provider match,
@@ -1691,13 +1829,6 @@
         word-break: break-all;
         margin: 0;
         font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-    }
-
-    .vdd-field-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
     }
 
     .vdd-field-label {
@@ -2807,81 +2938,77 @@
         min-width: 100px;
     }
 
-    /* ── Field picker chips ── */
-    .vdd-field-chips {
-        display: flex;
-        gap: 4px;
-        flex-wrap: wrap;
-        margin-top: 6px;
+    /* ── Filter-based search UI ── */
+    .vdd-search-bar-wrap { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .vdd-search-type-row { display: flex; align-items: center; gap: 8px; }
+    .vdd-search-type-label { font-size: 11px; color: rgba(255,255,255,0.4); }
+    .vdd-search-main-row { display: flex; gap: 8px; align-items: stretch; }
+    .vdd-search-input-group {
+        flex: 1; display: flex; align-items: center; gap: 8px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px; padding: 8px 12px;
     }
-
-    .vdd-field-chip {
-        font-size: 10px;
-        padding: 3px 8px;
-        border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.1);
-        background: transparent;
-        color: rgba(255,255,255,0.4);
+    .vdd-search-primary-input {
+        flex: 1; background: transparent; border: none; outline: none;
+        color: rgba(255,255,255,0.9); font-size: 13px; font-family: inherit;
+    }
+    .vdd-search-primary-input::placeholder { color: rgba(255,255,255,0.25); }
+    .vdd-primary-field-btn {
+        display: flex; align-items: center; gap: 2px;
+        font-size: 11px; color: rgba(255,255,255,0.6);
+        background: rgba(255,255,255,0.06); border: none;
+        padding: 3px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .vdd-primary-field-btn:hover { background: rgba(255,255,255,0.1); }
+    .vdd-add-filter-btn {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 11px; color: rgba(255,255,255,0.5);
+        background: none; border: 1px solid rgba(255,255,255,0.08);
+        padding: 3px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .vdd-add-filter-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+    .vdd-search-execute-btn {
+        padding: 8px 20px; font-size: 13px; border-radius: 12px;
+        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.7); cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .vdd-search-execute-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); }
+    .vdd-search-execute-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .vdd-dropdown-wrap { position: relative; }
+    .vdd-dropdown-btn {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 13px; color: rgba(255,255,255,0.8);
+        background: none; border: 1px solid rgba(255,255,255,0.1);
+        padding: 4px 12px; border-radius: 10px; cursor: pointer; font-family: inherit;
+    }
+    .vdd-dropdown-btn:hover { background: rgba(255,255,255,0.06); }
+    .vdd-dropdown-menu {
+        position: absolute; left: 0; top: calc(100% + 4px); z-index: 10;
+        min-width: 160px; background: #121826; border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); overflow: hidden;
+    }
+    .vdd-dropdown-item {
+        padding: 8px 14px; font-size: 13px; color: rgba(255,255,255,0.7);
         cursor: pointer;
-        transition: all 0.15s;
     }
-
-    .vdd-field-chip:hover {
-        border-color: rgba(255,255,255,0.2);
-        color: rgba(255,255,255,0.6);
+    .vdd-dropdown-item:hover { background: rgba(255,255,255,0.06); }
+    .vdd-filter-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .vdd-filter-pill {
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px; padding: 6px 10px;
     }
-
-    .vdd-field-chip--active {
-        border-color: #C9922E;
-        background: rgba(201,146,46,0.12);
-        color: #C9922E;
+    .vdd-filter-pill-label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+    .vdd-filter-pill-input {
+        background: transparent; border: none; outline: none;
+        color: rgba(255,255,255,0.8); font-size: 12px; width: 100px; font-family: inherit;
     }
-
-    /* ── Multi-field search rows ── */
-    .vdd-search-header {
-        display: flex;
-        gap: 8px;
-        align-items: center;
+    .vdd-filter-pill-input::placeholder { color: rgba(255,255,255,0.2); }
+    .vdd-filter-pill-remove {
+        background: none; border: none; color: rgba(255,255,255,0.3);
+        cursor: pointer; padding: 0; display: flex;
     }
-
-    .vdd-search-header .vdd-type-dropdown {
-        flex: 1;
-        min-width: 100px;
-    }
-
-    .vdd-field-row {
-        display: flex;
-        gap: 6px;
-        align-items: center;
-        margin-top: 4px;
-    }
-
-    .vdd-field-label {
-        font-size: 10px;
-        color: rgba(255,255,255,0.5);
-        min-width: 60px;
-        text-align: right;
-        flex-shrink: 0;
-    }
-
-    .vdd-field-input {
-        flex: 1;
-    }
-
-    .vdd-field-remove {
-        background: transparent;
-        border: none;
-        color: rgba(255,255,255,0.3);
-        cursor: pointer;
-        padding: 2px;
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
-    }
-
-    .vdd-field-remove:hover {
-        color: rgba(255,255,255,0.6);
-    }
+    .vdd-filter-pill-remove:hover { color: rgba(255,255,255,0.6); }
 
     /* ── Result detail below (not beside) ── */
     .vdd-search-result-detail-below {
@@ -3173,42 +3300,6 @@
         text-transform: uppercase;
         letter-spacing: 0.06em;
         color: rgba(255, 255, 255, 0.3);
-    }
-
-    /* ── Stage Tabs ── */
-    .vdd-stage-tabs {
-        display: flex;
-        gap: 0;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-        margin: 0 -4px;
-    }
-
-    .vdd-stage-tab {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        padding: 10px 0;
-        background: transparent;
-        border: none;
-        color: rgba(255,255,255,0.4);
-        font-size: 12px;
-        font-weight: 500;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        cursor: pointer;
-        transition: color 0.2s, border-color 0.2s;
-        border-bottom: 2px solid transparent;
-    }
-
-    .vdd-stage-tab--active {
-        color: rgba(255,255,255,0.9);
-        border-bottom-color: #C9922E;
-    }
-
-    .vdd-stage-tab:hover {
-        color: rgba(255,255,255,0.7);
     }
 
     /* ── Tab Content ── */

@@ -121,7 +121,6 @@
     .pipeline-circle.selected {
         border-width: 3px;
         transform: scale(1.1);
-        box-shadow: 0 0 12px rgba(255,255,255,0.15);
     }
 
     .pipeline-circle.state-completed { border-color: #5DCAA5; }
@@ -129,10 +128,10 @@
     .pipeline-circle.state-failed    { border-color: #A05050; }
     .pipeline-circle.state-pending   { border-color: rgba(255,255,255,0.12); }
 
-    .pipeline-circle.state-completed.selected { background: rgba(93,202,165,0.15); }
-    .pipeline-circle.state-warning.selected   { background: rgba(239,159,39,0.15); }
-    .pipeline-circle.state-failed.selected    { background: rgba(160,80,80,0.15); }
-    .pipeline-circle.state-pending.selected   { background: rgba(255,255,255,0.08); }
+    .pipeline-circle.state-completed.selected { background: rgba(93,202,165,0.15); box-shadow: 0 0 20px rgba(93,202,165,0.4); }
+    .pipeline-circle.state-warning.selected   { background: rgba(239,159,39,0.15); box-shadow: 0 0 20px rgba(239,159,39,0.4); }
+    .pipeline-circle.state-failed.selected    { background: rgba(160,80,80,0.15); box-shadow: 0 0 20px rgba(160,80,80,0.4); }
+    .pipeline-circle.state-pending.selected   { background: rgba(255,255,255,0.08); box-shadow: 0 0 20px rgba(255,255,255,0.15); }
 
     .circle-icon { font-size: 20px; line-height: 1; }
 
@@ -145,8 +144,8 @@
     }
 
     .circle-label.selected {
-        color: rgba(255,255,255,0.9);
-        font-weight: 600;
+        color: rgba(255,255,255,1.0);
+        font-weight: 700;
     }
 
     .pipeline-connector {

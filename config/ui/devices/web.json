@@ -5,12 +5,7 @@
     "features_disabled": [],
     "pages_disabled": [],
     "allow_text_input": true,
-    "min_touch_target_px": 48
-  },
-  "content_max_width": "Full",
-  "shell": {
-    "top_bar_visible": true,
-    "top_bar_style": "full",
-    "dock_visible": true
+    "min_touch_target_px": 48,
+    "force_dark_mode": false
   }
 }

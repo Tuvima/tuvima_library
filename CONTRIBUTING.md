@@ -111,8 +111,9 @@ All of these must pass before merge:
 ### First-Time Setup
 
 ```bash
-# Copy example config to live config
-cp -r config.example config
+# config/ is already in the repo — just add your API keys
+# Create secret files for any providers that require API keys
+# e.g. config/secrets/tmdb.json with {"api_key": "your-key"}
 
 # Restore and build
 dotnet restore

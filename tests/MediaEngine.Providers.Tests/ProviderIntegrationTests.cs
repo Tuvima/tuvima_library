@@ -21,7 +21,7 @@ namespace MediaEngine.Providers.Tests;
 /// Test data: "The Fellowship of the Ring" by J.R.R. Tolkien (ISBN: 9780547928210)
 /// Each test validates that the adapter returns at least one claim from the live API.
 ///
-/// Config-driven adapters are loaded from <c>config.example/providers/</c> to verify
+/// Config-driven adapters are loaded from <c>config/providers/</c> to verify
 /// that the JSON config files correctly drive the universal adapter against live APIs.
 ///
 /// Wikidata remains a coded adapter (SPARQL cannot be expressed as URL templates).
@@ -280,7 +280,7 @@ public sealed class ProviderIntegrationTests
     };
 
     /// <summary>
-    /// Loads a <see cref="ProviderConfiguration"/> from <c>config.example/providers/{name}.json</c>
+    /// Loads a <see cref="ProviderConfiguration"/> from <c>config/providers/{name}.json</c>
     /// and creates a <see cref="ConfigDrivenAdapter"/> with a real HTTP client factory.
     /// Proves that the JSON config files correctly drive the universal adapter.
     /// </summary>
@@ -297,7 +297,7 @@ public sealed class ProviderIntegrationTests
     private static ProviderConfiguration LoadExampleConfig(string providerName)
     {
         var root = FindRepoRoot();
-        var path = Path.Combine(root, "config.example", "providers", $"{providerName}.json");
+        var path = Path.Combine(root, "config", "providers", $"{providerName}.json");
         var json = File.ReadAllText(path);
         return JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)
             ?? throw new InvalidOperationException($"Failed to deserialize config: {providerName}");

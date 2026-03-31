@@ -55,17 +55,13 @@ The solution is split into focused projects under `src/` and `tests/`. Each proj
 | `src/MediaEngine.Web` | Blazor Server host. Dashboard UI â€” components, pages, services. |
 | `tests/` | xUnit test projects, one per domain area. |
 
-The `config/` directory holds all runtime configuration as individual JSON files (gitignored â€” copy from `config.example/`). The `.data/` directory holds the SQLite database, cover art images, and staging files (gitignored).
+The `config/` directory holds all runtime configuration as individual JSON files (committed to git; provider secrets in `config/secrets/`, gitignored). The `.data/` directory holds the SQLite database, cover art images, and staging files (gitignored).
 
 ---
 
 ## Step 3 â€” Configuration
 
-Copy the example configuration:
-
-```bash
-cp -r config.example config
-```
+Configuration files are already in the repository. Add secret files for any providers that require API keys (e.g. `config/secrets/tmdb.json` with `{"api_key": "your-key"}`).
 
 The key file is `config/core.json`. The defaults work without modification for local development:
 

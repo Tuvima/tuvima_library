@@ -119,7 +119,7 @@ config/ui/
     {profile-id}.json
 ```
 
-Example files live in `config.example/ui/`. Live files in `config/ui/` are gitignored.
+Configuration files live in `config/ui/` (committed to git).
 
 ### Device Classes
 
