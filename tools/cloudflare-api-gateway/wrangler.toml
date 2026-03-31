@@ -1,0 +1,12 @@
+name = "tuvima-api-gateway"
+main = "src/index.js"
+compatibility_date = "2026-03-29"
+
+# Worker secrets (set via `npx wrangler secret put [NAME]`):
+# APP_PROXY_SECRET   — shared secret the Engine sends in x-proxy-secret header
+# APPLE_PRIVATE_KEY  — Apple MusicKit .p8 private key
+# APPLE_KEY_ID       — Apple MusicKit Key ID
+# APPLE_TEAM_ID      — Apple Developer Team ID
+# TMDB_API_TOKEN     — TMDB v4 bearer token
+# GOOGLE_API_KEY     — Google Books API key
+# FANART_TV_API_KEY  — Fanart.tv API key

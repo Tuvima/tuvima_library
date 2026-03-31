@@ -89,3 +89,7 @@ engine.log
 # Integration test HTML reports
 tools/reports/*.html
 src/MediaEngine.Api/DevSupport/integration-test-report.html
+
+# Cloudflare Worker — Node dependencies and local dev secrets
+tools/cloudflare-api-gateway/node_modules/
+tools/cloudflare-api-gateway/.dev.vars
