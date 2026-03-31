@@ -434,10 +434,19 @@ public sealed class SearchService : ISearchService
 
     private IReadOnlyList<IExternalMetadataProvider> GetRetailProviders(MediaType mediaType)
     {
+        var allConfigs = _configLoader.LoadAllProviders();
+
         return _providers
-            .Where(p => !ExcludedFromRetail.Contains(p.Name)
-                     && p.CanHandle(mediaType)
-                     && p.CanHandle(EntityType.Work))
+            .Where(p =>
+            {
+                if (ExcludedFromRetail.Contains(p.Name)) return false;
+                if (!p.CanHandle(mediaType) || !p.CanHandle(EntityType.Work)) return false;
+
+                // Respect the enabled flag from provider configuration
+                var cfg = allConfigs.FirstOrDefault(c =>
+                    string.Equals(c.Name, p.Name, StringComparison.OrdinalIgnoreCase));
+                return cfg is null || cfg.Enabled;
+            })
             .ToList();
     }
 
