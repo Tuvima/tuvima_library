@@ -39,7 +39,7 @@
   },
   "data_extension": {
     "work_properties": {
-      "core": ["P31", "P50", "P577", "P1476", "P136", "P179", "P1545"],
+      "core": ["P31", "P50", "P57", "P58", "P86", "P110", "P161", "P175", "P577", "P1476", "P136", "P179", "P1545"],
       "bridges": ["P212", "P957", "P5749", "P4947", "P4983", "P345", "P3861", "P5905", "P1190", "P434", "P436", "P966", "P4857", "P5842", "P2969", "P648"],
       "editions": ["P747"],
       "lore": ["P451", "P69", "P945", "P39", "P607"]
@@ -55,6 +55,10 @@
       "P31": "instance_of",
       "P50": "author",
       "P57": "director",
+      "P58": "screenwriter",
+      "P86": "composer",
+      "P110": "illustrator",
+      "P161": "cast_member",
       "P175": "performer",
       "P577": "release_year",
       "P1476": "title",

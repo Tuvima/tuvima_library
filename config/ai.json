@@ -1,5 +1,5 @@
 {
-  "dev_skip_download": false,
+  "dev_skip_download": true,
   "models_directory": "C:/temp/tuvima-models",
   "idle_unload_seconds": 300,
   "inference_timeout_seconds": 60,
@@ -13,8 +13,10 @@
       "context_length": 2048,
       "max_tokens": 256,
       "temperature": 0.1,
-      "gpu_layers": 999,
-      "threads": 4
+      "gpu_layers": 0,
+      "threads": 4,
+      "language": null,
+      "translate": false
     },
     "text_quality": {
       "description": "Batch/scheduled tasks (ingestion manifest, vibe tags, disambiguation)",
@@ -25,11 +27,13 @@
       "context_length": 4096,
       "max_tokens": 512,
       "temperature": 0.1,
-      "gpu_layers": 999,
-      "threads": 4
+      "gpu_layers": 0,
+      "threads": 4,
+      "language": null,
+      "translate": false
     },
     "text_scholar": {
-      "description": "Deep enrichment (description intelligence, complex analysis) \u00e2\u20ac\u201d scheduled/overnight",
+      "description": "Deep enrichment (description intelligence, complex analysis) \u00E2\u20AC\u201D scheduled/overnight",
       "file": "Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
       "download_url": "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
       "sha256": "",
@@ -37,8 +41,10 @@
       "context_length": 8192,
       "max_tokens": 1024,
       "temperature": 0.1,
-      "gpu_layers": 999,
-      "threads": 4
+      "gpu_layers": 0,
+      "threads": 4,
+      "language": null,
+      "translate": false
     },
     "audio": {
       "description": "Whisper transcription and language detection",
@@ -46,28 +52,46 @@
       "download_url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
       "sha256": "",
       "size_mb": 1500,
+      "context_length": 2048,
+      "max_tokens": 256,
+      "temperature": 0.1,
+      "gpu_layers": 0,
+      "threads": 4,
       "language": "en",
+      "translate": false
+    },
+    "text_cjk": {
+      "description": "Multilingual model with strong CJK support for Chinese, Japanese, and Korean content analysis",
+      "file": "qwen2.5-3b-instruct-q4_k_m.gguf",
+      "download_url": "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+      "sha256": null,
+      "size_mb": 2048,
+      "context_length": 8192,
+      "max_tokens": 512,
+      "temperature": 0.1,
+      "gpu_layers": 0,
+      "threads": 4,
+      "language": null,
       "translate": false
     }
   },
-  "enrichment_batch_size": 10,
   "features": {
-    "smart_labeling": true,
-    "type_logic": true,
-    "audio_language_detection": true,
-    "qid_disambiguation": true,
-    "series_alignment": true,
-    "watching_order": true,
-    "vibe_tags": true,
-    "tldr": true,
-    "cover_art_validation": true,
-    "whisper_alignment": true,
-    "subtitle_sync": true,
-    "taste_profiling": true,
-    "why_factor": true,
-    "intent_search": true,
-    "url_paste": true,
-    "description_intelligence": true
+    "smart_labeling": false,
+    "type_logic": false,
+    "audio_language_detection": false,
+    "qid_disambiguation": false,
+    "series_alignment": false,
+    "watching_order": false,
+    "vibe_tags": false,
+    "tldr": false,
+    "cover_art_validation": false,
+    "whisper_alignment": false,
+    "subtitle_sync": false,
+    "taste_profiling": false,
+    "why_factor": false,
+    "intent_search": false,
+    "url_paste": false,
+    "description_intelligence": false
   },
   "vibe_vocabulary": {
     "books": [
@@ -230,12 +254,13 @@
     "taste_profile_update_cron": "0 5 * * 0",
     "description_intelligence": "*/15 * * * *"
   },
+  "enrichment_batch_size": 10,
   "hardware_profile": {
-    "tier": "auto",
-    "backend": "auto",
-    "gpu_name": null,
+    "tier": "low",
+    "backend": "cuda",
+    "gpu_name": "NVIDIA GeForce RTX 5080",
     "tokens_per_second": 0,
-    "available_ram_mb": 0,
-    "benchmarked_at": null
+    "available_ram_mb": 31863,
+    "benchmarked_at": "2026-03-31T21:35:03.2981979Z"
   }
 }

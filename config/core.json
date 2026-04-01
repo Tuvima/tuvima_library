@@ -2,7 +2,7 @@
   "schema_version": "2.0",
   "database_path": "library.db",
   "data_root": "",
-  "watch_directory": "C:\\temp\\tuvima-watch\\books",
+  "watch_directory": "C:\\temp\\tuvima-watch",
   "library_root": "C:\\temp\\tuvima-library",
   "organization_template": "{Category}/{Title} ({Qid})/{Title}{Ext}",
   "organization_templates": {
