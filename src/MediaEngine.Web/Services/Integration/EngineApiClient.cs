@@ -3489,6 +3489,26 @@ public sealed class EngineApiClient : IEngineApiClient
         [JsonPropertyName("is_preferred")]    public bool    IsPreferred    { get; set; }
         [JsonPropertyName("source_provider")] public string? SourceProvider { get; set; }
     }
+
+    // ── Vault Preferences ─────────────────────────────────────────────────────
+
+    public async Task<VaultPreferencesSettings?> GetVaultPreferencesAsync()
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<VaultPreferencesSettings>("settings/ui/vault-preferences");
+        }
+        catch { return null; }
+    }
+
+    public async Task SaveVaultPreferencesAsync(VaultPreferencesSettings settings)
+    {
+        try
+        {
+            await _http.PutAsJsonAsync("settings/ui/vault-preferences", settings);
+        }
+        catch { /* swallow — preferences are non-critical */ }
+    }
 }
 
 

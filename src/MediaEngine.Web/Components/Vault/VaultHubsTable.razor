@@ -105,60 +105,75 @@ else
                         <td colspan="6">
                             <span class="vht-group-label">CONTENT GROUPS</span>
                             <span class="vht-group-count">@ContentGroups.Count</span>
+                            <p class="vht-content-subtitle">These groups power the container views in your media tabs</p>
                         </td>
                     </tr>
 
-                    @foreach (var group in ContentGroups)
+                    @foreach (var typeGroup in ContentGroups
+                        .GroupBy(g => g.PrimaryMediaType, StringComparer.OrdinalIgnoreCase)
+                        .OrderBy(g => GetMediaTypeOrder(g.Key)))
                     {
-                        var mediaIcon = GetContentGroupIcon(group);
-                        <tr class="vht-row" @onclick="() => OnContentGroupClicked.InvokeAsync(group.HubId)">
-                            <td class="vht-td vht-td--icon">
-                                @if (!string.IsNullOrWhiteSpace(group.CoverUrl))
-                                {
-                                    <div class="vht-cover-wrap">
-                                        <img src="@group.CoverUrl" alt="@group.DisplayName"
-                                             class="vht-cover-img"
-                                             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                                        <div class="vht-icon-wrap" style="display: none;">
-                                            <MudIcon Icon="@mediaIcon" Style="@($"font-size: 18px; color: {group.MediaTypeColor}; opacity: 0.75;")" />
-                                        </div>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="vht-icon-wrap">
-                                        <MudIcon Icon="@mediaIcon" Style="@($"font-size: 18px; color: {group.MediaTypeColor}; opacity: 0.75;")" />
-                                    </div>
-                                }
-                            </td>
-                            <td class="vht-td" style="padding-left: 0;">
-                                <div class="vht-name-cell">
-                                    <span class="vht-name">@group.DisplayName</span>
-                                    @if (!string.IsNullOrWhiteSpace(group.Creator))
-                                    {
-                                        <span class="vht-description">@group.Creator</span>
-                                    }
+                        <tr class="vht-content-type-header-row">
+                            <td colspan="6">
+                                <div class="vht-content-type-header">
+                                    <span class="vht-content-type-label">@GetContentGroupTypeLabel(typeGroup.Key)</span>
+                                    <span class="vht-content-type-count">@typeGroup.Count()</span>
                                 </div>
                             </td>
-                            <td class="vht-td vht-col-type">
-                                <span class="vht-type-chip"
-                                      style="@($"color: {group.MediaTypeColor}; border-color: {group.MediaTypeColor}33; background: {group.MediaTypeColor}0D;")">
-                                    @group.PrimaryMediaType
-                                </span>
-                            </td>
-                            <td class="vht-td vht-col-scope">
-                                <span class="vht-scope">Library</span>
-                            </td>
-                            <td class="vht-td vht-td--center">
-                                <span class="vht-items">@group.WorkCount</span>
-                            </td>
-                            <td class="vht-td vht-td--center" style="padding-right: 24px;">
-                                <span class="vht-status-pill"
-                                      style="color: #5DCAA5; border-color: #5DCAA533; background: #5DCAA50D;">
-                                    Active
-                                </span>
-                            </td>
                         </tr>
+
+                        @foreach (var group in typeGroup.OrderBy(g => g.DisplayName))
+                        {
+                            var mediaIcon = GetContentGroupIcon(group);
+                            <tr class="vht-row" @onclick="() => OnContentGroupClicked.InvokeAsync(group.HubId)">
+                                <td class="vht-td vht-td--icon">
+                                    @if (!string.IsNullOrWhiteSpace(group.CoverUrl))
+                                    {
+                                        <div class="vht-cover-wrap">
+                                            <img src="@group.CoverUrl" alt="@group.DisplayName"
+                                                 class="vht-cover-img"
+                                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                            <div class="vht-icon-wrap" style="display: none;">
+                                                <MudIcon Icon="@mediaIcon" Style="@($"font-size: 18px; color: {group.MediaTypeColor}; opacity: 0.75;")" />
+                                            </div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="vht-icon-wrap">
+                                            <MudIcon Icon="@mediaIcon" Style="@($"font-size: 18px; color: {group.MediaTypeColor}; opacity: 0.75;")" />
+                                        </div>
+                                    }
+                                </td>
+                                <td class="vht-td" style="padding-left: 0;">
+                                    <div class="vht-name-cell">
+                                        <span class="vht-name">@group.DisplayName</span>
+                                        @if (!string.IsNullOrWhiteSpace(group.Creator))
+                                        {
+                                            <span class="vht-description">@group.Creator</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="vht-td vht-col-type">
+                                    <span class="vht-type-chip"
+                                          style="@($"color: {group.MediaTypeColor}; border-color: {group.MediaTypeColor}33; background: {group.MediaTypeColor}0D;")">
+                                        @GetContentGroupTypeLabel(group.PrimaryMediaType)
+                                    </span>
+                                </td>
+                                <td class="vht-td vht-col-scope">
+                                    <span class="vht-scope">Library</span>
+                                </td>
+                                <td class="vht-td vht-td--center">
+                                    <span class="vht-items">@group.WorkCount</span>
+                                </td>
+                                <td class="vht-td vht-td--center" style="padding-right: 24px;">
+                                    <span class="vht-status-pill"
+                                          style="color: #5DCAA5; border-color: #5DCAA533; background: #5DCAA50D;">
+                                        Active
+                                    </span>
+                                </td>
+                            </tr>
+                        }
                     }
                 }
             </tbody>
@@ -212,6 +227,30 @@ else
         };
     }
 
+    private static int GetMediaTypeOrder(string mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "tv"          => 0,
+        "music"       => 1,
+        "movies"      => 2,
+        "books"       => 3,
+        "audiobooks"  => 4,
+        "podcasts"    => 5,
+        "comics"      => 6,
+        _             => 99,
+    };
+
+    private static string GetContentGroupTypeLabel(string mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "tv"          => "TV Shows",
+        "music"       => "Music Albums",
+        "movies"      => "Movie Series",
+        "books"       => "Book Series",
+        "audiobooks"  => "Audiobook Series",
+        "podcasts"    => "Podcast Shows",
+        "comics"      => "Comic Series",
+        _             => mediaType ?? "Other",
+    };
+
     private static string GetContentGroupIcon(ContentGroupViewModel group)
     {
         return group.MediaTypeIcon switch
@@ -256,7 +295,7 @@ else
     }
 
     .vht-th {
-        padding: 10px 12px;
+        padding: 6px 12px;
         font-size: 9px;
         font-weight: 900;
         color: rgba(255, 255, 255, 0.3);
@@ -305,7 +344,7 @@ else
     .vht-row:hover { background: rgba(96, 165, 250, 0.02); }
 
     .vht-td {
-        padding: 10px 12px;
+        padding: 6px 12px;
         vertical-align: middle;
     }
 
@@ -434,6 +473,47 @@ else
 
     .vht-loading { padding: 32px; }
 
+    /* ── Content group subtitle ── */
+    .vht-content-subtitle {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.25);
+        margin: 4px 0 0 0;
+        font-style: italic;
+    }
+
+    /* ── Content type sub-headers ── */
+    .vht-content-type-header-row td {
+        padding: 0;
+        background: transparent;
+        border-top: none;
+        border-bottom: none;
+    }
+
+    .vht-content-type-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 32px;
+        margin-bottom: 0;
+    }
+
+    .vht-content-type-label {
+        font-size: 10px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .vht-content-type-count {
+        font-size: 9px;
+        font-weight: 700;
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.25);
+        border-radius: 8px;
+        padding: 1px 6px;
+    }
+
     /* ── Mobile ── */
     @@media (max-width: 768px) {
         .vht-col-type,
@@ -451,7 +531,7 @@ else
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            padding: 12px 16px;
+            padding: 8px 16px;
             gap: 10px;
         }
 

@@ -176,6 +176,28 @@ public static class UISettingsEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
+        // ── Vault Preferences ──────────────────────────────────────────────
+        grp.MapGet("/vault-preferences", (IConfigurationLoader configLoader) =>
+        {
+            var prefs = configLoader.LoadConfig<VaultPreferencesSettings>("ui", "vault-preferences")
+                        ?? new VaultPreferencesSettings();
+            return Results.Ok(prefs);
+        })
+        .WithName("GetVaultPreferences")
+        .WithSummary("Returns the current vault display preferences (view modes, show unowned).")
+        .Produces<VaultPreferencesSettings>(StatusCodes.Status200OK);
+
+        grp.MapPut("/vault-preferences", (
+            VaultPreferencesSettings settings,
+            IConfigurationLoader configLoader) =>
+        {
+            configLoader.SaveConfig("ui", "vault-preferences", settings);
+            return Results.Ok(settings);
+        })
+        .WithName("UpdateVaultPreferences")
+        .WithSummary("Saves vault display preferences (view modes, show unowned).")
+        .Produces<VaultPreferencesSettings>(StatusCodes.Status200OK);
+
         return app;
     }
 }

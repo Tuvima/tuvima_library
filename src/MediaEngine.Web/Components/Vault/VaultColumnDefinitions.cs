@@ -68,6 +68,8 @@ public enum ColumnRenderType
     MediaBreakdown,
     /// <summary>Colored media type chip (e.g. "Book", "Movie").</summary>
     TypeBadge,
+    /// <summary>Container cell: thumbnail + name + creator subtitle (for content group rows).</summary>
+    ContainerCell,
 }
 
 /// <summary>Provides default column definitions per media type and tab.</summary>
@@ -272,6 +274,19 @@ public static class VaultColumnDefinitions
             _            => NewTabColumns(),
         };
 
+    /// <summary>Resolves columns by tab ID and view mode.</summary>
+    public static List<VaultColumnDef> GetColumnsByTab(string tabId, string viewMode)
+    {
+        if (tabId == "music" && viewMode == "albums")
+            return MusicAlbumContainerColumns();
+
+        return viewMode switch
+        {
+            "series" or "shows" or "artists" or "albums" => GetContainerColumnsByTab(tabId),
+            _ => GetColumnsByTab(tabId), // flat view uses existing V2 columns
+        };
+    }
+
     // ── New (recently added) ─────────────────────────────────────────────
 
     private static List<VaultColumnDef> NewTabColumns() =>
@@ -365,5 +380,104 @@ public static class VaultColumnDefinitions
         new() { Key = "series", Label = "Series",         Width = "auto", Sortable = true, SortKey = "series", RenderType = ColumnRenderType.Text, PropertyName = "Series" },
         new() { Key = "year",   Label = "Year",           Width = "80px", Sortable = true, SortKey = "year",   RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },
         new() { Key = "format", Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text,  PropertyName = "ResolutionSummary" },
+    ];
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // V3 — Container-level columns (for grouped/container views)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// <summary>Resolves container-level columns by tab ID.</summary>
+    public static List<VaultColumnDef> GetContainerColumnsByTab(string tabId) =>
+        tabId switch
+        {
+            "movies"     => MovieSeriesContainerColumns(),
+            "tv"         => TvShowContainerColumns(),
+            "music"      => MusicArtistContainerColumns(),
+            "books"      => BookSeriesContainerColumns(),
+            "audiobooks" => AudiobookSeriesContainerColumns(),
+            "podcasts"   => PodcastShowContainerColumns(),
+            "comics"     => ComicSeriesContainerColumns(),
+            _            => [],
+        };
+
+    /// <summary>Resolves container-level columns for album view in Music tab.</summary>
+    public static List<VaultColumnDef> MusicAlbumContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container", Label = "Album",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "artist",    Label = "Artist",   Width = "auto", Sortable = true, SortKey = "creator",    RenderType = ColumnRenderType.Text, PropertyName = "Creator" },
+        new() { Key = "tracks",    Label = "Tracks",   Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
+        new() { Key = "year",      Label = "Year",     Width = "80px", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Year" },
+    ];
+
+    // ── Movie Series containers ──────────────────────────────────────────
+
+    private static List<VaultColumnDef> MovieSeriesContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container", Label = "Series",    Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "films",     Label = "Films",      Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
+        new() { Key = "year",      Label = "Year Range", Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Year" },
+    ];
+
+    // ── TV Show containers ───────────────────────────────────────────────
+
+    private static List<VaultColumnDef> TvShowContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container", Label = "Show",     Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "seasons",   Label = "Seasons",   Width = "80px", Align = "center", RenderType = ColumnRenderType.Count, PropertyName = "SeasonCount" },
+        new() { Key = "episodes",  Label = "Episodes",  Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
+        new() { Key = "year",      Label = "Year",      Width = "80px", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Year" },
+    ];
+
+    // ── Music Artist containers ──────────────────────────────────────────
+
+    private static List<VaultColumnDef> MusicArtistContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container", Label = "Artist",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "albums",    Label = "Albums",    Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
+        new() { Key = "tracks",    Label = "Tracks",    Width = "80px", Align = "center", RenderType = ColumnRenderType.Count, PropertyName = "TrackCount" },
+    ];
+
+    // ── Book Series containers ───────────────────────────────────────────
+
+    private static List<VaultColumnDef> BookSeriesContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container", Label = "Series",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "author",    Label = "Author",    Width = "auto", Sortable = true, SortKey = "creator",    RenderType = ColumnRenderType.Text, PropertyName = "Creator" },
+        new() { Key = "books",     Label = "Books",     Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
+    ];
+
+    // ── Audiobook Series containers ──────────────────────────────────────
+
+    private static List<VaultColumnDef> AudiobookSeriesContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container",  Label = "Series",     Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "author",     Label = "Author",      Width = "auto", Sortable = true, SortKey = "creator",    RenderType = ColumnRenderType.Text, PropertyName = "Creator" },
+        new() { Key = "audiobooks", Label = "Audiobooks",  Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
+    ];
+
+    // ── Podcast Show containers ──────────────────────────────────────────
+
+    private static List<VaultColumnDef> PodcastShowContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container", Label = "Podcast",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "episodes",  Label = "Episodes",   Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
+        new() { Key = "genre",     Label = "Genre",      Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Genre" },
+    ];
+
+    // ── Comic Series containers ──────────────────────────────────────────
+
+    private static List<VaultColumnDef> ComicSeriesContainerColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "container", Label = "Series",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "writer",    Label = "Writer",    Width = "auto", Sortable = true, SortKey = "creator",    RenderType = ColumnRenderType.Text, PropertyName = "Creator" },
+        new() { Key = "issues",    Label = "Issues",    Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
     ];
 }

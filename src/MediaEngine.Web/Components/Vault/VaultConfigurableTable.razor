@@ -19,7 +19,7 @@ else
             @foreach (var group in GetGroups())
             {
                 <div class="vmt-group">
-                    <div class="vmt-group-header @(group.Key == "__needs_review__" ? "vmt-group-header--review" : "")" @onclick="() => ToggleGroup(group.Key)">
+                    <div class="vmt-group-header" @onclick="() => ToggleGroup(group.Key)">
                         <MudIcon Icon="@(IsGroupExpanded(group.Key) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
                                  Style="font-size: 14px; opacity: 0.4;" />
                         @{
@@ -42,11 +42,6 @@ else
                     }
                 </div>
             }
-        }
-        else if (PinNeedsReview)
-        {
-            @* When no grouping but NeedsReview pinning is active, split items manually *@
-            @RenderUngroupedWithNeedsReviewPin()
         }
         else
         {
@@ -90,10 +85,6 @@ else
     [Parameter] public string? ActiveSortKey { get; set; }
     [Parameter] public bool SortAscending { get; set; } = true;
     [Parameter] public EventCallback<(string sortKey, bool ascending)> OnSortRequested { get; set; }
-
-    // Needs Review pinning
-    [Parameter] public bool PinNeedsReview { get; set; } = true;
-    [Parameter] public bool ExpandNeedsReview { get; set; } = true;
 
     // Drillable row indicator
     [Parameter] public Func<VaultItemViewModel, bool>? IsDrillable { get; set; }
@@ -197,49 +188,6 @@ else
         var ascending = ActiveSortKey == sortKey ? !SortAscending : true;
         await OnSortRequested.InvokeAsync((sortKey, ascending));
     }
-
-    private RenderFragment RenderUngroupedWithNeedsReviewPin() => __builder =>
-    {
-        var reviewItems = Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
-        var restItems   = Items.Where(i => i.VaultDisplayStatus != VaultStatus.NeedsReview).ToList();
-        const string nrKey = "__needs_review__";
-
-        if (reviewItems.Count > 0)
-        {
-            var nrAllSelected = reviewItems.All(i => SelectedItems.Contains(i.EntityId));
-            var nrExpanded = IsGroupExpanded(nrKey);
-            <div class="vmt-group">
-                <div class="vmt-group-header vmt-group-header--review" @onclick="() => ToggleGroup(nrKey)">
-                    <MudIcon Icon="@(nrExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                             Style="font-size: 14px; opacity: 0.4;" />
-                    @{
-                        var nrGroupAllSelected = reviewItems.Count > 0 && reviewItems.All(i => SelectedItems.Contains(i.EntityId));
-                    }
-                    <input type="checkbox"
-                           class="vct-checkbox"
-                           checked="@nrGroupAllSelected"
-                           @onclick:stopPropagation="true"
-                           @onchange="() => ToggleGroupSelection(reviewItems)" />
-                    <span class="vmt-group-label">Needs Review</span>
-                    <div class="vmt-group-line"></div>
-                    <span class="vmt-group-count">@reviewItems.Count items</span>
-                </div>
-                @if (nrExpanded)
-                {
-                    <div class="vmt-table-wrap">
-                        @RenderTable(reviewItems)
-                    </div>
-                }
-            </div>
-        }
-
-        if (restItems.Count > 0)
-        {
-            <div class="vmt-table-wrap">
-                @RenderTable(restItems)
-            </div>
-        }
-    };
 
     private RenderFragment RenderTable(List<VaultItemViewModel> items) => __builder =>
     {
@@ -458,37 +406,13 @@ else
     private bool IsGroupExpanded(string key)
     {
         if (_expandedGroups.TryGetValue(key, out var val)) return val;
-        // Default: Needs Review pinned group follows the ExpandNeedsReview parameter; all others expanded
-        if (key == "__needs_review__") return ExpandNeedsReview;
         return true;
     }
 
     private void ToggleGroup(string key) =>
         _expandedGroups[key] = !IsGroupExpanded(key);
 
-    private List<TableGroup> GetGroups()
-    {
-        var raw = GetGroupsCore();
-        if (!PinNeedsReview) return raw;
-
-        // Extract needs-review items from all groups and pin as a separate group at top
-        var reviewItems = new List<VaultItemViewModel>();
-        var filtered = new List<TableGroup>();
-        foreach (var group in raw)
-        {
-            var review = group.Items.Where(i => i.VaultDisplayStatus == VaultStatus.NeedsReview).ToList();
-            var rest = group.Items.Where(i => i.VaultDisplayStatus != VaultStatus.NeedsReview).ToList();
-            reviewItems.AddRange(review);
-            if (rest.Count > 0)
-                filtered.Add(group with { Items = rest });
-        }
-
-        var result = new List<TableGroup>();
-        if (reviewItems.Count > 0)
-            result.Add(new TableGroup("__needs_review__", "Needs Review", reviewItems));
-        result.AddRange(filtered);
-        return result;
-    }
+    private List<TableGroup> GetGroups() => GetGroupsCore();
 
     private List<TableGroup> GetGroupsCore()
     {
@@ -701,7 +625,7 @@ else
     }
 
     .vmt-th {
-        padding: 16px;
+        padding: 8px 16px;
         font-size: 10px;
         font-weight: 800;
         color: rgba(255, 255, 255, 0.25);
@@ -730,7 +654,7 @@ else
     }
 
     .vmt-td {
-        padding: 16px;
+        padding: 8px 16px;
         vertical-align: middle;
         overflow: visible;
     }
@@ -976,21 +900,6 @@ else
         text-decoration-color: rgba(255, 255, 255, 0.3);
     }
 
-    /* ── Needs Review pinned group ── */
-    .vmt-group-header--review {
-        background: rgba(239, 159, 39, 0.08);
-        border: 1px solid rgba(239, 159, 39, 0.2);
-        border-left: 3px solid #EF9F27;
-    }
-
-    .vmt-group-header--review .vmt-group-label {
-        color: #EF9F27;
-    }
-
-    .vmt-group-header--review .vmt-group-count {
-        color: rgba(239, 159, 39, 0.7);
-    }
-
     @@media (max-width: 768px) {
         .vmt-table-wrap {
             border-radius: 12px;
@@ -1004,7 +913,7 @@ else
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            padding: 12px 16px;
+            padding: 6px 12px;
             gap: 8px;
         }
 

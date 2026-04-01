@@ -47,11 +47,15 @@ public sealed class HubGroupDetailViewModel
     public List<HubGroupWorkViewModel> Works { get; set; } = [];
 }
 
-/// <summary>A single TV season within a group detail view.</summary>
+/// <summary>A single TV season (or album within an artist view) within a group detail view.</summary>
 public sealed class HubGroupSeasonViewModel
 {
     [JsonPropertyName("season_number")]
     public int SeasonNumber { get; set; }
+
+    /// <summary>Optional display label for the section (e.g. album title when GroupType is "artist").</summary>
+    [JsonPropertyName("season_label")]
+    public string? SeasonLabel { get; set; }
 
     [JsonPropertyName("episodes")]
     public List<HubGroupWorkViewModel> Episodes { get; set; } = [];

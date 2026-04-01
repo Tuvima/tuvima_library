@@ -659,6 +659,14 @@ public interface IEngineApiClient
 
     /// <summary>PUT /hubs/{id}/featured — toggle hub featured state.</summary>
     Task<bool> UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default);
+
+    // ── Vault Preferences (/settings/ui/vault-preferences) ──────────────────
+
+    /// <summary>GET /settings/ui/vault-preferences — vault display preferences (view modes, show unowned).</summary>
+    Task<VaultPreferencesSettings?> GetVaultPreferencesAsync();
+
+    /// <summary>PUT /settings/ui/vault-preferences — save vault display preferences.</summary>
+    Task SaveVaultPreferencesAsync(VaultPreferencesSettings settings);
 }
 
 

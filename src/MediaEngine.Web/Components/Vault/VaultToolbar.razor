@@ -23,6 +23,26 @@
                @oninput="OnSearchInput" />
     </div>
 
+    @* ── View Mode Switcher ── *@
+    @{
+        var viewModes = GetViewModeOptions();
+    }
+    @if (viewModes.Count > 1)
+    {
+        <div class="vault-view-modes">
+            @foreach (var mode in viewModes)
+            {
+                var isActive = ViewMode == mode.Value;
+                <button class="vault-view-mode-btn @(isActive ? "vault-view-mode-btn--active" : "")"
+                        title="@mode.Label"
+                        @onclick="() => ViewModeChanged.InvokeAsync(mode.Value)">
+                    <MudIcon Icon="@mode.Icon" Style="font-size: 14px;" />
+                    <span>@mode.Label</span>
+                </button>
+            }
+        </div>
+    }
+
     @* ── Sort / Group controls ── *@
     <div class="vault-controls">
         @* Sort *@
@@ -146,6 +166,12 @@
     /// <summary>Fires when the column picker icon button is clicked.</summary>
     [Parameter] public EventCallback OnColumnPickerRequested { get; set; }
 
+    /// <summary>Current view mode for the active tab (e.g. "all", "shows", "artists", "albums", "series").</summary>
+    [Parameter] public string ViewMode { get; set; } = "all";
+
+    /// <summary>Fires when the user switches view mode.</summary>
+    [Parameter] public EventCallback<string> ViewModeChanged { get; set; }
+
     // ── Computed helpers ──
 
     /// <summary>Resolved tab ID: TabId if set, otherwise fall back to ActiveTab.</summary>
@@ -167,6 +193,20 @@
         _debounceTimer.AutoReset = false;
         _debounceTimer.Start();
     }
+
+    private record ViewModeOption(string Label, string Value, string Icon);
+
+    private List<ViewModeOption> GetViewModeOptions() => ResolvedTabId switch
+    {
+        "movies"     => [new("All Movies", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
+        "tv"         => [new("By Show", "shows", Icons.Material.Outlined.Folder), new("All Episodes", "all", Icons.Material.Outlined.ViewList)],
+        "music"      => [new("By Artist", "artists", Icons.Material.Outlined.Person), new("By Album", "albums", Icons.Material.Outlined.Album), new("All Songs", "all", Icons.Material.Outlined.ViewList)],
+        "books"      => [new("All Books", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
+        "audiobooks" => [new("All Audiobooks", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
+        "podcasts"   => [new("By Show", "shows", Icons.Material.Outlined.Folder), new("All Episodes", "all", Icons.Material.Outlined.ViewList)],
+        "comics"     => [new("By Series", "series", Icons.Material.Outlined.Folder), new("All Issues", "all", Icons.Material.Outlined.ViewList)],
+        _ => [],
+    };
 
     private record SortOption(string Label, string Value, string ReverseValue);
     private record SelectOption(string Label, string Value);
@@ -505,5 +545,52 @@
         .vault-controls::-webkit-scrollbar {
             display: none;
         }
+
+        .vault-view-modes {
+            order: -1;
+            flex: 1 1 100%;
+            justify-content: center;
+        }
+    }
+
+    /* ── View Mode Switcher ── */
+    .vault-view-modes {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 3px;
+        flex-shrink: 0;
+    }
+
+    .vault-view-mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 5px 10px;
+        border-radius: 7px;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+
+    .vault-view-mode-btn:hover {
+        color: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .vault-view-mode-btn--active {
+        color: rgba(96, 165, 250, 0.9);
+        background: rgba(96, 165, 250, 0.08);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
     }
 </style>

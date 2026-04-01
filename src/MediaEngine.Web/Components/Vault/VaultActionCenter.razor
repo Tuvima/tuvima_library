@@ -10,12 +10,12 @@
                     <MudIcon Icon="@Icons.Material.Outlined.ReportProblem" Size="Size.Small" />
                 </div>
                 <span class="vac-label">
-                    Action Center: @TotalCount @(TotalCount == 1 ? "Conflict" : "Conflicts") Detected
+                    @TotalCount @(TotalCount == 1 ? "Item Requires" : "Items Require") Review
                 </span>
             </div>
             <button class="vac-toggle @(HasQuarantined ? "vac-toggle--severe" : "vac-toggle--warn")"
                     @onclick="ToggleExpanded">
-                @(IsExpanded ? "HIDE ACTION CENTER" : "MANAGE ISSUES")
+                @(IsExpanded ? "HIDE" : "REVIEW ITEMS")
                 <MudIcon Icon="@(IsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
                          Size="Size.Small" />
             </button>
@@ -28,8 +28,14 @@
                     @foreach (var item in ConflictItems)
                     {
                         var isQuarantined = item.VaultDisplayStatus == VaultStatus.Quarantined;
-                        <div class="vac-row">
+                        var isChecked = _selectedIds.Contains(item.EntityId);
+                        <div class="vac-row @(isChecked ? "vac-row--selected" : "")">
                             <div class="vac-row-left">
+                                <input type="checkbox"
+                                       class="vac-checkbox"
+                                       checked="@isChecked"
+                                       @onclick:stopPropagation="true"
+                                       @onchange="() => ToggleSelection(item.EntityId)" />
                                 <div class="vac-severity-dot @(isQuarantined ? "vac-dot--severe" : "vac-dot--warn")" />
                                 <div class="vac-row-info">
                                     <span class="vac-row-title">@item.Title</span>
@@ -40,8 +46,8 @@
                                 <span class="vac-status-badge @(isQuarantined ? "vac-badge--quarantine" : "vac-badge--warning")">
                                     @(isQuarantined ? "QUARANTINED" : "NEEDS REVIEW")
                                 </span>
-                                <button class="vac-action-btn" title="Retry" @onclick="() => OnRetryClicked.InvokeAsync(item.EntityId)" @onclick:stopPropagation>
-                                    <MudIcon Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" />
+                                <button class="vac-action-btn" title="Edit" @onclick="() => OnItemEditClicked.InvokeAsync(item.EntityId)" @onclick:stopPropagation>
+                                    <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
                                 </button>
                                 <button class="vac-action-btn vac-action-btn--danger" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)" @onclick:stopPropagation>
                                     <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
@@ -50,6 +56,17 @@
                         </div>
                     }
                 </div>
+
+                @if (_selectedIds.Count > 0)
+                {
+                    <div class="vac-bulk-bar">
+                        <span class="vac-bulk-count">@_selectedIds.Count selected</span>
+                        <button class="vac-bulk-delete" @onclick="OnBulkDelete">
+                            <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
+                            Delete Selected
+                        </button>
+                    </div>
+                }
             </div>
         }
     </section>
@@ -63,8 +80,11 @@
     [Parameter] public EventCallback<bool> IsExpandedChanged { get; set; }
     [Parameter] public List<VaultItemViewModel>? ConflictItems { get; set; }
     [Parameter] public EventCallback<string> OnFilterActivated { get; set; }
-    [Parameter] public EventCallback<Guid> OnRetryClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnItemEditClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
+    [Parameter] public EventCallback<HashSet<Guid>> OnBulkDeleteClicked { get; set; }
+
+    private HashSet<Guid> _selectedIds = [];
 
     private int TotalCount => NeedsReviewCount + QuarantinedCount + WaitingForProviderCount;
     private bool HasQuarantined => QuarantinedCount > 0;
@@ -73,6 +93,21 @@
     {
         IsExpanded = !IsExpanded;
         await IsExpandedChanged.InvokeAsync(IsExpanded);
+    }
+
+    private void ToggleSelection(Guid entityId)
+    {
+        if (_selectedIds.Contains(entityId))
+            _selectedIds.Remove(entityId);
+        else
+            _selectedIds.Add(entityId);
+    }
+
+    private async Task OnBulkDelete()
+    {
+        if (_selectedIds.Count == 0) return;
+        await OnBulkDeleteClicked.InvokeAsync(new HashSet<Guid>(_selectedIds));
+        _selectedIds.Clear();
     }
 }
 
@@ -312,5 +347,52 @@
     .vac-action-btn--danger:hover {
         background: rgba(244, 63, 94, 0.1);
         color: rgba(244, 63, 94, 0.8);
+    }
+
+    .vac-checkbox {
+        width: 14px;
+        height: 14px;
+        accent-color: rgba(96, 165, 250, 0.8);
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+    .vac-row--selected {
+        background: rgba(96, 165, 250, 0.04);
+    }
+
+    .vac-bulk-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px;
+        background: rgba(96, 165, 250, 0.06);
+        border-top: 1px solid rgba(96, 165, 250, 0.1);
+        border-radius: 0 0 10px 10px;
+    }
+
+    .vac-bulk-count {
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(96, 165, 250, 0.8);
+    }
+
+    .vac-bulk-delete {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 6px;
+        border: 1px solid rgba(244, 63, 94, 0.3);
+        background: rgba(244, 63, 94, 0.08);
+        color: rgba(244, 63, 94, 0.9);
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vac-bulk-delete:hover {
+        background: rgba(244, 63, 94, 0.15);
     }
 </style>

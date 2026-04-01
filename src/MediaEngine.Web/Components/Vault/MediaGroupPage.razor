@@ -73,37 +73,50 @@ else
                     <MudIcon Icon="@Icons.Material.Outlined.Sync" Style="font-size: 16px;" />
                     Sync All
                 </button>
+                <button class="mgp-action-btn mgp-action-btn--toggle @(ShowUnowned ? "mgp-action-btn--toggle-on" : "")"
+                        @onclick="ToggleShowUnowned">
+                    <MudIcon Icon="@(ShowUnowned ? Icons.Material.Outlined.Visibility : Icons.Material.Outlined.VisibilityOff)" Style="font-size: 16px;" />
+                    @(ShowUnowned ? "Showing All" : "Owned Only")
+                </button>
             </div>
         </div>
     </div>
 
     @* ── ITEM LIST ── *@
     <div class="mgp-content">
-        @if (GroupType == "tv-show" && _detail.Seasons.Count > 0)
+        @if ((GroupType == "tv-show" || GroupType == "artist") && _detail.Seasons.Count > 0)
         {
-            @* TV: season accordion sections *@
+            @* TV: season accordion sections — also used for artist → albums *@
             @foreach (var season in _detail.Seasons)
             {
                 var seasonNum = season.SeasonNumber;
+                var sectionLabel = GroupType == "artist"
+                    ? (season.SeasonLabel ?? $"Album {seasonNum}")
+                    : $"Season {seasonNum}";
+                var itemWord = GroupType == "artist"
+                    ? (season.Episodes.Count == 1 ? "track" : "tracks")
+                    : (season.Episodes.Count == 1 ? "episode" : "episodes");
                 <div class="mgp-season">
                     <button class="mgp-season-header" @onclick="() => ToggleSeason(seasonNum)">
                         <MudIcon Icon="@(IsSeasonExpanded(seasonNum) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
                                  Style="font-size: 16px; opacity: 0.4;" />
-                        <span class="mgp-season-label">Season @seasonNum</span>
-                        <span class="mgp-season-count">@season.Episodes.Count @(season.Episodes.Count == 1 ? "episode" : "episodes")</span>
+                        <span class="mgp-season-label">@sectionLabel</span>
+                        <span class="mgp-season-count">@season.Episodes.Count @itemWord</span>
                     </button>
                     @if (IsSeasonExpanded(seasonNum))
                     {
-                        @RenderWorkList(season.Episodes, showEpisodeNumber: true)
+                        @RenderWorkList(season.Episodes,
+                            showEpisodeNumber: GroupType == "tv-show",
+                            showTrackNumber: GroupType == "artist")
                     }
                 </div>
             }
         }
         else
         {
-            @* Music / Books / Movies: flat sorted list *@
+            @* Music / Books / Movies / Podcasts / Comics: flat sorted list *@
             @RenderWorkList(_detail.Works,
-                showTrackNumber: GroupType == "album",
+                showTrackNumber: GroupType is "album" or "artist",
                 showSequence: GroupType is "book-series" or "movie-series")
         }
     </div>
@@ -118,7 +131,7 @@ else
 @code {
     // ── Parameters ──────────────────────────────────────────────────────────────
 
-    /// <summary>Discriminator: "tv-show" | "album" | "book-series" | "movie-series"</summary>
+    /// <summary>Discriminator: "tv-show" | "album" | "book-series" | "movie-series" | "artist" | "podcast-show" | "comic-series"</summary>
     [Parameter] public string GroupType { get; set; } = "";
 
     [Parameter] public Guid GroupId { get; set; }
@@ -134,6 +147,15 @@ else
 
     /// <summary>Fired when batch Sync Now is requested from the floating bar.</summary>
     [Parameter] public EventCallback OnBatchSync { get; set; }
+
+    /// <summary>Whether to show unowned items (grayed out). Default: true.</summary>
+    [Parameter] public bool ShowUnowned { get; set; } = true;
+
+    /// <summary>Fires when the show-unowned toggle changes.</summary>
+    [Parameter] public EventCallback<bool> ShowUnownedChanged { get; set; }
+
+    /// <summary>Fires when the edit button on a row is clicked. Opens the detail drawer.</summary>
+    [Parameter] public EventCallback<Guid> OnItemEditClicked { get; set; }
 
     // ── Private state ────────────────────────────────────────────────────────────
 
@@ -197,33 +219,49 @@ else
         return OnBatchSync.InvokeAsync();
     }
 
+    // ── Toggle show-unowned ──────────────────────────────────────────────────────
+
+    private async Task ToggleShowUnowned()
+    {
+        await ShowUnownedChanged.InvokeAsync(!ShowUnowned);
+    }
+
     // ── Label helpers ────────────────────────────────────────────────────────────
 
     private string GetGroupTypeLabel() => GroupType switch
     {
-        "tv-show"      => "TV Show",
-        "album"        => "Album",
-        "book-series"  => "Book Series",
-        "movie-series" => "Movie Series",
-        _              => "Group"
+        "tv-show"       => "TV Show",
+        "album"         => "Album",
+        "book-series"   => "Book Series",
+        "movie-series"  => "Movie Series",
+        "artist"        => "Artist",
+        "podcast-show"  => "Podcast",
+        "comic-series"  => "Comic Series",
+        _               => "Group"
     };
 
     private string GetItemLabel() => GroupType switch
     {
-        "tv-show"      => "episodes",
-        "album"        => "tracks",
-        "book-series"  => "books",
-        "movie-series" => "films",
-        _              => "items"
+        "tv-show"       => "episodes",
+        "album"         => "tracks",
+        "book-series"   => "books",
+        "movie-series"  => "films",
+        "artist"        => "tracks",
+        "podcast-show"  => "episodes",
+        "comic-series"  => "issues",
+        _               => "items"
     };
 
     private string GetMediaTypeIcon() => GroupType switch
     {
-        "tv-show"      => Icons.Material.Outlined.LiveTv,
-        "album"        => Icons.Material.Outlined.Album,
-        "book-series"  => Icons.Material.Outlined.MenuBook,
-        "movie-series" => Icons.Material.Outlined.VideoLibrary,
-        _              => Icons.Material.Outlined.Folder
+        "tv-show"       => Icons.Material.Outlined.LiveTv,
+        "album"         => Icons.Material.Outlined.Album,
+        "book-series"   => Icons.Material.Outlined.MenuBook,
+        "movie-series"  => Icons.Material.Outlined.VideoLibrary,
+        "artist"        => Icons.Material.Outlined.Person,
+        "podcast-show"  => Icons.Material.Outlined.Mic,
+        "comic-series"  => Icons.Material.Outlined.AutoStories,
+        _               => Icons.Material.Outlined.Folder
     };
 
     // ── Render helpers ───────────────────────────────────────────────────────────
@@ -243,9 +281,13 @@ else
         {
             var workId = item.WorkId;
             var isSelected = _selectedItems.Contains(workId);
+            // All items treated as owned for now; class scaffold is ready for future ownership data.
+            var isOwned = true;
+
+            var rowClass = $"mgp-track-row{(isSelected ? " mgp-track-row--selected" : "")}{(!isOwned ? " mgp-track-row--unowned" : "")}";
 
             builder.OpenElement(seq++, "tr");
-            builder.AddAttribute(seq++, "class", $"mgp-track-row{(isSelected ? " mgp-track-row--selected" : "")}");
+            builder.AddAttribute(seq++, "class", rowClass);
             builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnItemClicked.InvokeAsync(workId)));
 
             // Checkbox cell
@@ -291,6 +333,21 @@ else
             builder.OpenElement(seq++, "td");
             builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--duration");
             builder.AddContent(seq++, item.Duration ?? "—");
+            builder.CloseElement(); // td
+
+            // Actions cell (edit button)
+            builder.OpenElement(seq++, "td");
+            builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--actions");
+            builder.OpenElement(seq++, "button");
+            builder.AddAttribute(seq++, "class", "mgp-edit-btn");
+            builder.AddAttribute(seq++, "title", "Edit");
+            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => OnItemEditClicked.InvokeAsync(workId)));
+            builder.AddEventStopPropagationAttribute(seq++, "onclick", true);
+            builder.OpenComponent<MudIcon>(seq++);
+            builder.AddComponentParameter(seq++, "Icon", Icons.Material.Outlined.Edit);
+            builder.AddComponentParameter(seq++, "Size", Size.Small);
+            builder.CloseComponent(); // MudIcon
+            builder.CloseElement(); // button
             builder.CloseElement(); // td
 
             builder.CloseElement(); // tr
@@ -448,12 +505,25 @@ else
         background: rgba(96, 165, 250, 0.2);
     }
 
+    /* Toggle button */
+    .mgp-action-btn--toggle {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .mgp-action-btn--toggle-on {
+        background: rgba(96, 165, 250, 0.06);
+        border-color: rgba(96, 165, 250, 0.15);
+        color: rgba(96, 165, 250, 0.8);
+    }
+
     /* ── Content ──────────────────────────────────────────────────────────────── */
     .mgp-content {
         padding: 0 32px 32px;
     }
 
-    /* ── Season sections (TV) ─────────────────────────────────────────────────── */
+    /* ── Season sections (TV / Artist) ───────────────────────────────────────── */
     .mgp-season {
         margin-bottom: 8px;
     }
@@ -509,6 +579,12 @@ else
         background: rgba(96, 165, 250, 0.06);
     }
 
+    /* Unowned row styling */
+    .mgp-track-row--unowned .mgp-track-title,
+    .mgp-track-row--unowned .mgp-track-td {
+        color: rgba(255, 255, 255, 0.25);
+    }
+
     .mgp-track-td {
         padding: 10px 12px;
         vertical-align: middle;
@@ -556,6 +632,37 @@ else
         font-size: 12px;
         color: rgba(255, 255, 255, 0.3);
         font-variant-numeric: tabular-nums;
+    }
+
+    /* Edit button */
+    .mgp-edit-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.15);
+        cursor: pointer;
+        transition: all 0.15s;
+        padding: 0;
+        opacity: 0;
+    }
+
+    .mgp-track-row:hover .mgp-edit-btn {
+        opacity: 1;
+    }
+
+    .mgp-edit-btn:hover {
+        color: rgba(96, 165, 250, 0.9);
+        background: rgba(96, 165, 250, 0.08);
+    }
+
+    .mgp-track-td--actions {
+        width: 40px;
+        text-align: center;
     }
 
     /* ── Responsive ───────────────────────────────────────────────────────────── */

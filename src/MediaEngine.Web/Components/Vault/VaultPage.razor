@@ -1,5 +1,6 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Vault
+@using MediaEngine.Storage.Models
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
@@ -75,6 +76,8 @@
                       SortBy="@_sortBy"
                       GroupBy="@_groupBy"
                       PosterSize="@_posterSize"
+                      ViewMode="@_viewMode"
+                      ViewModeChanged="OnViewModeChanged"
                       SearchTextChanged="OnSearchChanged"
                       SortByChanged="OnSortChanged"
                       GroupByChanged="OnGroupChanged"
@@ -93,8 +96,9 @@
                        IsExpanded="@_actionCenterExpanded"
                        IsExpandedChanged="v => _actionCenterExpanded = v"
                        ConflictItems="@_conflictItems"
-                       OnRetryClicked="OnActionCenterRetry"
-                       OnDeleteClicked="OnActionCenterDelete" />
+                       OnItemEditClicked="OnActionCenterEdit"
+                       OnDeleteClicked="OnActionCenterDelete"
+                       OnBulkDeleteClicked="OnActionCenterBulkDelete" />
 
     @* ── 5. BODY (full-width content) ── *@
     <div class="vault-body">
@@ -104,8 +108,11 @@
                 @* ── Group drill-down sub-page ── *@
                 <MediaGroupPage GroupType="@_activeGroupType"
                                 GroupId="@_activeGroupId.Value"
+                                ShowUnowned="@_vaultPrefs.ShowUnowned"
+                                ShowUnownedChanged="OnShowUnownedChanged"
                                 OnBack="NavigateBackFromGroup"
                                 OnItemClicked="OpenDetailDrawerFromGroup"
+                                OnItemEditClicked="OpenDetailDrawerFromGroup"
                                 OnBatchDelete="OnBatchDelete"
                                 OnBatchSync="OnBatchSync" />
             }
@@ -118,8 +125,28 @@
                                     Loading="@_loading"
                                     OnCardClicked="OnMediaRowClicked" />
                 }
+                else if (IsContainerView)
+                {
+                    @* Container view: show content groups (shows, albums, series, artists) *@
+                    <VaultConfigurableTable @ref="_configurableTableRef"
+                                             Columns="@VaultColumnDefinitions.GetColumnsByTab(_activeTab, _viewMode)"
+                                             VisibleColumnKeys="@_visibleColumnKeys"
+                                             Items="@_containerDisplayItems"
+                                             GroupBy="@_groupBy"
+                                             Loading="@_loading"
+                                             PosterSize="@_posterSize"
+                                             OnRowClicked="OnContainerRowClicked"
+                                             OnAuthorClicked="OnAuthorLinkClicked"
+                                             SelectedItems="@_selectedItems"
+                                             SelectedItemsChanged="OnSelectionChanged"
+                                             ActiveSortKey="@_activeSortKey"
+                                             SortAscending="@_sortAscending"
+                                             OnSortRequested="OnColumnSortRequested"
+                                             IsDrillable="@((VaultItemViewModel _) => true)" />
+                }
                 else
                 {
+                    @* Flat view: show individual items *@
                     <VaultConfigurableTable @ref="_configurableTableRef"
                                              Columns="@VaultColumnDefinitions.GetColumnsByTab(_activeTab)"
                                              VisibleColumnKeys="@_visibleColumnKeys"
@@ -133,9 +160,7 @@
                                              SelectedItemsChanged="OnSelectionChanged"
                                              ActiveSortKey="@_activeSortKey"
                                              SortAscending="@_sortAscending"
-                                             OnSortRequested="OnColumnSortRequested"
-                                             ExpandNeedsReview="@(_activeTab == "new")"
-                                             IsDrillable="@((VaultItemViewModel item) => (_activeTab == "tv" && !string.IsNullOrEmpty(item.ShowName)) || (_activeTab == "music" && !string.IsNullOrEmpty(item.Album)))" />
+                                             OnSortRequested="OnColumnSortRequested" />
                 }
                 @if (_hasMore)
                 {
@@ -227,7 +252,7 @@
     @* ── 9. COLUMN PICKER ── *@
     @if (_showColumnPicker)
     {
-        <VaultColumnPicker AllColumns="@VaultColumnDefinitions.GetColumnsByTab(_activeTab)"
+        <VaultColumnPicker AllColumns="@(IsContainerView ? VaultColumnDefinitions.GetColumnsByTab(_activeTab, _viewMode) : VaultColumnDefinitions.GetColumnsByTab(_activeTab))"
                            VisibleKeys="@_visibleColumnKeys"
                            VisibleKeysChanged="OnColumnVisibilityChanged"
                            ViewKey="@_activeTab"
@@ -246,10 +271,16 @@
     private string? _activeSortKey;
     private bool _sortAscending = true;
     private string _searchText = "";
+    private string _viewMode = "all";
     private bool _loading;
     private bool _loadingPeople;
     private bool _loadingUniverses;
     private Dictionary<Guid, int>? _universePeopleCounts;
+
+    // ── View mode + preferences ──
+    private VaultPreferencesSettings _vaultPrefs = new();
+    private List<ContentGroupViewModel> _tabContentGroups = [];
+    private List<VaultItemViewModel> _containerDisplayItems = [];
 
     // ── Filter state ──
     private bool _filterReview;
@@ -368,6 +399,34 @@
         _            => null, // "new" tab — no type filter
     };
 
+    /// <summary>True when the current tab + view mode is showing containers (not individual files).</summary>
+    private bool IsContainerView => _viewMode is "shows" or "artists" or "albums" or "series";
+
+    /// <summary>Returns the default view mode for a given tab (from saved preferences or built-in defaults).</summary>
+    private string GetDefaultViewMode(string tabId) =>
+        _vaultPrefs.ViewModes.TryGetValue(tabId, out var saved) ? saved : tabId switch
+        {
+            "tv" => "shows",
+            "music" => "artists",
+            "podcasts" => "shows",
+            "comics" => "series",
+            _ => "all",
+        };
+
+    /// <summary>Maps a view mode to the content group type for drill-down.</summary>
+    private string? GetGroupTypeForContainerTab(string tabId) => tabId switch
+    {
+        "movies" => "movie-series",
+        "tv" => "tv-show",
+        "music" when _viewMode == "artists" => "artist",
+        "music" when _viewMode == "albums" => "album",
+        "books" => "book-series",
+        "audiobooks" => "book-series",
+        "podcasts" => "podcast-show",
+        "comics" => "comic-series",
+        _ => null,
+    };
+
     private int GetTabBadgeCount(string tabId) => tabId switch
     {
         "movies"     => _mediaTypeCounts.GetValueOrDefault("Movies", 0),
@@ -392,7 +451,14 @@
         Nav.LocationChanged += OnLocationChanged;
         StateContainer.OnStateChanged += OnBatchProgressChanged;
 
+        // Load vault preferences (view modes, show unowned)
+        _vaultPrefs = await ApiClient.GetVaultPreferencesAsync() ?? new VaultPreferencesSettings();
+
         ReadUrlState();
+
+        // Set view mode from preferences if not overridden by URL
+        if (_viewMode == "all" && IsMediaTab(_activeTab))
+            _viewMode = GetDefaultViewMode(_activeTab);
 
         await LoadCounts();
         _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
@@ -401,6 +467,7 @@
         if (_activeTab == "people") await LoadPeople();
         else if (_activeTab == "universes") await LoadUniverses();
         else if (_activeTab == "hubs") await LoadManagedHubs();
+        else if (IsContainerView) await LoadContainerItems();
         else await LoadMediaItems();
 
         if (_pendingItemId.HasValue)
@@ -439,7 +506,11 @@
             await LoadCounts();
             _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
             await LoadConflictItems();
-            if (IsMediaTab(_activeTab)) await LoadMediaItems();
+            if (IsMediaTab(_activeTab))
+            {
+                if (IsContainerView) await LoadContainerItems();
+                else await LoadMediaItems();
+            }
             StateHasChanged();
         });
     }
@@ -488,7 +559,73 @@
 
     private async Task LoadMore()
     {
+        if (IsContainerView)
+            return; // Containers don't paginate for now
         await LoadMediaItems(append: true);
+    }
+
+    /// <summary>Loads content groups for the current tab's container view and converts to display items.</summary>
+    private async Task LoadContainerItems()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        // Load all content groups if not already loaded
+        if (_contentGroups.Count == 0)
+            _contentGroups = await ApiClient.GetContentGroupsAsync();
+
+        var mediaType = GetMediaTypeForTab(_activeTab);
+
+        if (_viewMode == "artists" && _activeTab == "music")
+        {
+            // Group albums by artist to create artist-level containers
+            var musicGroups = _contentGroups
+                .Where(g => string.Equals(g.PrimaryMediaType, "Music", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(g => g.Creator ?? "Unknown Artist", StringComparer.OrdinalIgnoreCase)
+                .Select(g => new VaultItemViewModel
+                {
+                    EntityId = g.First().HubId,
+                    Title = g.Key,
+                    MediaType = "Music",
+                    CoverUrl = g.First().CoverUrl,
+                    Album = $"{g.Count()} albums",
+                    TrackCount = g.Sum(a => a.WorkCount).ToString(),
+                })
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(_searchText))
+                musicGroups = musicGroups.Where(i =>
+                    i.Title.Contains(_searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            _containerDisplayItems = musicGroups;
+        }
+        else
+        {
+            // Filter content groups by media type
+            _tabContentGroups = mediaType is not null
+                ? _contentGroups.Where(g =>
+                    string.Equals(g.PrimaryMediaType, mediaType, StringComparison.OrdinalIgnoreCase)).ToList()
+                : _contentGroups;
+
+            if (!string.IsNullOrWhiteSpace(_searchText))
+                _tabContentGroups = _tabContentGroups.Where(g =>
+                    g.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            // Convert content groups to VaultItemViewModel for display in VaultConfigurableTable
+            _containerDisplayItems = _tabContentGroups.Select(g => new VaultItemViewModel
+            {
+                EntityId = g.HubId,
+                Title = g.DisplayName,
+                MediaType = g.PrimaryMediaType,
+                CoverUrl = g.CoverUrl,
+                Author = g.Creator,
+                Year = null, // Content groups don't have year yet
+                TrackCount = g.WorkCount.ToString(),
+            }).ToList();
+        }
+
+        _hasMore = false; // Containers don't paginate
+        _loading = false;
     }
 
     private async Task LoadPeople()
@@ -562,13 +699,53 @@
 
     // ── Action Center handlers ──
 
-    private async Task OnActionCenterRetry(Guid entityId)
+    private async Task OnActionCenterEdit(Guid entityId)
     {
-        await ApiClient.TriggerHydrationAsync(entityId);
-        Snackbar.Add("Item queued for re-identification", Severity.Info);
+        // Open the detail drawer for this conflict item
+        var item = _conflictItems?.FirstOrDefault(i => i.EntityId == entityId);
+        if (item is null)
+        {
+            var detail = await ApiClient.GetRegistryItemDetailAsync(entityId);
+            if (detail is not null)
+            {
+                _selectedMedia = new VaultItemViewModel
+                {
+                    EntityId    = detail.EntityId,
+                    Title       = detail.Title,
+                    Author      = detail.Author,
+                    Director    = detail.Director,
+                    Year        = detail.Year,
+                    MediaType   = detail.MediaType,
+                    CoverUrl    = detail.CoverUrl,
+                    Status      = detail.Status,
+                    WikidataQid = detail.WikidataQid,
+                    Confidence  = detail.Confidence,
+                    FileName    = detail.FileName,
+                };
+            }
+        }
+        else
+        {
+            _selectedMedia = item;
+        }
+        _selectedPerson = null;
+        _selectedUniverse = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnActionCenterBulkDelete(HashSet<Guid> entityIds)
+    {
+        if (entityIds.Count == 0) return;
+        await ApiClient.BatchDeleteRegistryItemsAsync(entityIds.ToArray());
+        Snackbar.Add($"{entityIds.Count} items deleted", Severity.Info);
         await LoadCounts();
         await LoadConflictItems();
-        if (IsMediaTab(_activeTab)) await LoadMediaItems();
+        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        if (IsMediaTab(_activeTab))
+        {
+            if (IsContainerView) await LoadContainerItems();
+            else await LoadMediaItems();
+        }
     }
 
     private async Task OnActionCenterDelete(Guid entityId)
@@ -578,7 +755,11 @@
         await LoadCounts();
         await LoadConflictItems();
         _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
-        if (IsMediaTab(_activeTab)) await LoadMediaItems();
+        if (IsMediaTab(_activeTab))
+        {
+            if (IsContainerView) await LoadContainerItems();
+            else await LoadMediaItems();
+        }
     }
 
     // ── Tab switching ──
@@ -593,6 +774,9 @@
         _activeGroupId = null;
         _selectedItems.Clear();
         ClearStatusFilters();
+
+        // Set view mode from saved preferences
+        _viewMode = IsMediaTab(tabId) ? GetDefaultViewMode(tabId) : "all";
 
         if (tabId == "people")
         {
@@ -611,7 +795,10 @@
         else
         {
             _sortBy = tabId == "new" ? "newest" : "title";
-            await LoadMediaItems();
+            if (IsContainerView)
+                await LoadContainerItems();
+            else
+                await LoadMediaItems();
         }
 
         UpdateUrl();
@@ -623,7 +810,10 @@
     {
         _searchText = text;
         if (IsMediaTab(_activeTab))
-            await LoadMediaItems();
+        {
+            if (IsContainerView) await LoadContainerItems();
+            else await LoadMediaItems();
+        }
         if (_activeTab == "people")
             _peopleDisplayCount = PeoplePageSize;
         StateHasChanged();
@@ -638,7 +828,10 @@
         if (_activeTab == "people")
             StateHasChanged();
         else if (IsMediaTab(_activeTab))
-            await LoadMediaItems();
+        {
+            if (IsContainerView) await LoadContainerItems();
+            else await LoadMediaItems();
+        }
         UpdateUrl();
     }
 
@@ -647,7 +840,50 @@
         _activeSortKey = sort.sortKey;
         _sortAscending = sort.ascending;
         _sortBy = sort.ascending ? sort.sortKey : $"{sort.sortKey}-desc";
-        await LoadMediaItems();
+        if (IsContainerView) await LoadContainerItems();
+        else await LoadMediaItems();
+    }
+
+    // ── View mode handler ──
+
+    private async Task OnViewModeChanged(string newMode)
+    {
+        if (_viewMode == newMode) return;
+        _viewMode = newMode;
+        _selectedItems.Clear();
+
+        // Save preference
+        _vaultPrefs.ViewModes[_activeTab] = newMode;
+        _ = ApiClient.SaveVaultPreferencesAsync(_vaultPrefs); // fire-and-forget
+
+        if (IsContainerView)
+            await LoadContainerItems();
+        else
+            await LoadMediaItems();
+
+        UpdateUrl();
+    }
+
+    // ── Container row click handler ──
+
+    private void OnContainerRowClicked(Guid hubId)
+    {
+        var groupType = GetGroupTypeForContainerTab(_activeTab);
+        if (groupType is null) return;
+
+        // For artist view, we need to resolve the artist name to find their albums
+        if (_viewMode == "artists" && _activeTab == "music")
+        {
+            var artist = _containerDisplayItems.FirstOrDefault(i => i.EntityId == hubId);
+            if (artist is not null)
+            {
+                // Navigate using the first album hub ID, with artist as the group type
+                NavigateToGroup("artist", hubId);
+                return;
+            }
+        }
+
+        NavigateToGroup(groupType, hubId);
     }
 
     private Task OnGroupChanged(string group)
@@ -731,29 +967,7 @@
         var item = _mediaItems.FirstOrDefault(i => i.EntityId == entityId);
         if (item is null) return;
 
-        // TV tab: drill into the show's content group
-        if (_activeTab == "tv" && !string.IsNullOrEmpty(item.ShowName))
-        {
-            var groupId = await TryResolveContentGroup(item.ShowName, "TV");
-            if (groupId.HasValue)
-            {
-                NavigateToGroup("tv-show", groupId.Value);
-                return;
-            }
-        }
-
-        // Music tab: drill into the album's content group
-        if (_activeTab == "music" && !string.IsNullOrEmpty(item.Album))
-        {
-            var groupId = await TryResolveContentGroup(item.Album, "Music");
-            if (groupId.HasValue)
-            {
-                NavigateToGroup("album", groupId.Value);
-                return;
-            }
-        }
-
-        // Default: open detail drawer
+        // In flat view, open detail drawer directly
         _selectedMedia = item;
         _selectedPerson = null;
         _selectedUniverse = null;
@@ -893,6 +1107,15 @@
     private void OnContentGroupClicked(Guid hubId)
     {
         NavigateToGroup("ContentGroup", hubId);
+    }
+
+    // ── Show unowned toggle handler ──
+
+    private async Task OnShowUnownedChanged(bool showUnowned)
+    {
+        _vaultPrefs.ShowUnowned = showUnowned;
+        _ = ApiClient.SaveVaultPreferencesAsync(_vaultPrefs); // fire-and-forget
+        await InvokeAsync(StateHasChanged);
     }
 
     // ── Group drill-down navigation ──
@@ -1141,7 +1364,11 @@
             if (_activeTab == "people") await LoadPeople();
             else if (_activeTab == "universes") await LoadUniverses();
             else if (_activeTab == "hubs") await LoadManagedHubs();
-            else if (IsMediaTab(_activeTab)) await LoadMediaItems();
+            else if (IsMediaTab(_activeTab))
+            {
+                if (IsContainerView) await LoadContainerItems();
+                else await LoadMediaItems();
+            }
             StateHasChanged();
         });
     }
