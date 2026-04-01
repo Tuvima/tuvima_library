@@ -1,0 +1,316 @@
+@namespace MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (TotalCount > 0)
+{
+    <section class="vac @(HasQuarantined ? "vac--severe" : "vac--warn")">
+        <div class="vac-summary">
+            <div class="vac-summary-left">
+                <div class="vac-icon @(HasQuarantined ? "vac-icon--severe" : "vac-icon--warn")">
+                    <MudIcon Icon="@Icons.Material.Outlined.ReportProblem" Size="Size.Small" />
+                </div>
+                <span class="vac-label">
+                    Action Center: @TotalCount @(TotalCount == 1 ? "Conflict" : "Conflicts") Detected
+                </span>
+            </div>
+            <button class="vac-toggle @(HasQuarantined ? "vac-toggle--severe" : "vac-toggle--warn")"
+                    @onclick="ToggleExpanded">
+                @(IsExpanded ? "HIDE ACTION CENTER" : "MANAGE ISSUES")
+                <MudIcon Icon="@(IsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
+                         Size="Size.Small" />
+            </button>
+        </div>
+
+        @if (IsExpanded && ConflictItems is { Count: > 0 })
+        {
+            <div class="vac-list">
+                <div class="vac-list-inner">
+                    @foreach (var item in ConflictItems)
+                    {
+                        var isQuarantined = item.VaultDisplayStatus == VaultStatus.Quarantined;
+                        <div class="vac-row">
+                            <div class="vac-row-left">
+                                <div class="vac-severity-dot @(isQuarantined ? "vac-dot--severe" : "vac-dot--warn")" />
+                                <div class="vac-row-info">
+                                    <span class="vac-row-title">@item.Title</span>
+                                    <span class="vac-row-issue">@VaultHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</span>
+                                </div>
+                            </div>
+                            <div class="vac-row-right">
+                                <span class="vac-status-badge @(isQuarantined ? "vac-badge--quarantine" : "vac-badge--warning")">
+                                    @(isQuarantined ? "QUARANTINED" : "NEEDS REVIEW")
+                                </span>
+                                <button class="vac-action-btn" title="Retry" @onclick="() => OnRetryClicked.InvokeAsync(item.EntityId)" @onclick:stopPropagation>
+                                    <MudIcon Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" />
+                                </button>
+                                <button class="vac-action-btn vac-action-btn--danger" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)" @onclick:stopPropagation>
+                                    <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </section>
+}
+
+@code {
+    [Parameter] public int NeedsReviewCount { get; set; }
+    [Parameter] public int QuarantinedCount { get; set; }
+    [Parameter] public int WaitingForProviderCount { get; set; }
+    [Parameter] public bool IsExpanded { get; set; }
+    [Parameter] public EventCallback<bool> IsExpandedChanged { get; set; }
+    [Parameter] public List<VaultItemViewModel>? ConflictItems { get; set; }
+    [Parameter] public EventCallback<string> OnFilterActivated { get; set; }
+    [Parameter] public EventCallback<Guid> OnRetryClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
+
+    private int TotalCount => NeedsReviewCount + QuarantinedCount + WaitingForProviderCount;
+    private bool HasQuarantined => QuarantinedCount > 0;
+
+    private async Task ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
+        await IsExpandedChanged.InvokeAsync(IsExpanded);
+    }
+}
+
+<style>
+    .vac {
+        border-bottom: 1px solid;
+        transition: all 0.3s ease;
+    }
+
+    .vac--warn {
+        background: rgba(245, 158, 11, 0.04);
+        border-color: rgba(245, 158, 11, 0.10);
+    }
+
+    .vac--severe {
+        background: rgba(244, 63, 94, 0.04);
+        border-color: rgba(244, 63, 94, 0.10);
+    }
+
+    .vac-summary {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 10px 24px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .vac-summary-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .vac-icon {
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .vac-icon--warn {
+        background: rgba(245, 158, 11, 0.8);
+        color: #080a0f;
+    }
+
+    .vac-icon--severe {
+        background: rgba(244, 63, 94, 0.8);
+        color: #080a0f;
+    }
+
+    .vac-label {
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+    }
+
+    .vac--warn .vac-label {
+        color: rgba(245, 158, 11, 0.8);
+    }
+
+    .vac--severe .vac-label {
+        color: rgba(244, 63, 94, 0.8);
+    }
+
+    .vac-toggle {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        padding: 4px 12px;
+        border-radius: 4px;
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+    }
+
+    .vac-toggle--warn {
+        color: rgba(245, 158, 11, 0.8);
+        background: rgba(245, 158, 11, 0.08);
+    }
+
+    .vac-toggle--warn:hover {
+        background: rgba(245, 158, 11, 0.15);
+    }
+
+    .vac-toggle--severe {
+        color: rgba(244, 63, 94, 0.8);
+        background: rgba(244, 63, 94, 0.08);
+    }
+
+    .vac-toggle--severe:hover {
+        background: rgba(244, 63, 94, 0.15);
+    }
+
+    .vac-list {
+        max-width: 1600px;
+        margin: 0 auto;
+        padding: 0 24px 16px;
+    }
+
+    .vac-list-inner {
+        background: rgba(15, 23, 42, 0.6);
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .vac--warn .vac-list-inner {
+        border: 1px solid rgba(245, 158, 11, 0.12);
+    }
+
+    .vac--severe .vac-list-inner {
+        border: 1px solid rgba(244, 63, 94, 0.12);
+    }
+
+    .vac-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        transition: background 0.15s ease;
+    }
+
+    .vac-row:not(:last-child) {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vac-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .vac-row-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .vac-severity-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .vac-dot--severe {
+        background: #f43f5e;
+        box-shadow: 0 0 8px rgba(244, 63, 94, 0.5);
+    }
+
+    .vac-dot--warn {
+        background: #f59e0b;
+    }
+
+    .vac-row-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .vac-row-title {
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .vac-row:hover .vac-row-title {
+        color: rgba(244, 63, 94, 0.9);
+    }
+
+    .vac--warn .vac-row:hover .vac-row-title {
+        color: rgba(245, 158, 11, 0.9);
+    }
+
+    .vac-row-issue {
+        font-size: 10px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vac-row-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .vac-status-badge {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .vac-badge--warning {
+        color: rgba(245, 158, 11, 0.8);
+        background: rgba(245, 158, 11, 0.08);
+        border-color: rgba(245, 158, 11, 0.15);
+    }
+
+    .vac-badge--quarantine {
+        color: rgba(244, 63, 94, 0.8);
+        background: rgba(244, 63, 94, 0.08);
+        border-color: rgba(244, 63, 94, 0.15);
+    }
+
+    .vac-action-btn {
+        padding: 4px;
+        border-radius: 4px;
+        border: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        transition: all 0.15s ease;
+    }
+
+    .vac-action-btn:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .vac-action-btn--danger:hover {
+        background: rgba(244, 63, 94, 0.1);
+        color: rgba(244, 63, 94, 0.8);
+    }
+</style>

@@ -19,60 +19,27 @@
             <h1 class="vault-title">@L["Vault_Title"]</h1>
         </div>
 
-        @* ── 2. TAB ROW (tabs left, alert filters right) ── *@
+        @* ── 2. TAB ROW (tabs left, Add Media button right) ── *@
         <div class="vault-tab-row">
             <div class="vault-tab-bar">
                 @foreach (var tab in _tabs)
                 {
+                    var count = GetTabBadgeCount(tab.Id);
                     <button class="vault-tab @(_activeTab == tab.Id ? "vault-tab--active" : "")"
                             @onclick="() => SwitchTab(tab.Id)">
                         <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
                         <span>@tab.Label</span>
+                        @if (count > 0)
+                        {
+                            <span class="vault-tab-badge">@(count >= 1000 ? $"{count/1000.0:0.#}k" : count)</span>
+                        }
                     </button>
                 }
             </div>
-            <div class="vault-alert-filters">
-                @if (_needsReviewCount > 0)
-                {
-                    <button class="vault-alert vault-alert--amber @(_filterReview ? "vault-alert--on" : "")"
-                            @onclick="ToggleReviewFilter">
-                        <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" Style="font-size: 16px;" />
-                        <span>Need Review (@_needsReviewCount)</span>
-                    </button>
-                }
-                @if (_provisionalCount > 0)
-                {
-                    <button class="vault-alert vault-alert--amber @(_filterProvisional ? "vault-alert--on" : "")"
-                            @onclick="ToggleProvisionalFilter">
-                        <MudIcon Icon="@Icons.Material.Outlined.FactCheck" Style="font-size: 16px;" />
-                        <span>Provisional (@_provisionalCount)</span>
-                    </button>
-                }
-                @if (_quarantinedCount > 0)
-                {
-                    <button class="vault-alert vault-alert--red @(_filterQuarantine ? "vault-alert--on" : "")"
-                            @onclick="ToggleQuarantineFilter">
-                        <MudIcon Icon="@Icons.Material.Outlined.Block" Style="font-size: 16px;" />
-                        <span>Quarantined (@_quarantinedCount)</span>
-                    </button>
-                }
-                @if (_waitingForProviderCount > 0)
-                {
-                    <button class="vault-alert vault-alert--blue @(_filterWaitingForProvider ? "vault-alert--on" : "")"
-                            @onclick="ToggleWaitingForProviderFilter">
-                        <MudIcon Icon="@Icons.Material.Outlined.Schedule" Style="font-size: 16px;" />
-                        <span>@L["Vault_WaitingForProvider"] (@_waitingForProviderCount)</span>
-                    </button>
-                }
-                @if (_staleUniverseCount > 0)
-                {
-                    <div class="vault-alert vault-alert--amber"
-                         title="@L["Vault_StaleUniversesHint"]">
-                        <MudIcon Icon="@Icons.Material.Outlined.Update" Style="font-size: 16px;" />
-                        <span>@string.Format(L["Vault_StaleUniverses"], _staleUniverseCount)</span>
-                    </div>
-                }
-            </div>
+            <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
+                <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
+                <span>@L["Vault_AddMedia"]</span>
+            </button>
         </div>
 
         @if (StateContainer.BatchProgress is { IsComplete: false } bp)
@@ -98,14 +65,12 @@
                 }
             </div>
         }
-
-        @* ── 3. STATS BAR (card-based filters) ── *@
-        <VaultStatsBar Cards="@_statsCards" OnCardToggled="OnStatCardToggled" />
     </div>
 
-    @* ── 4. TOOLBAR ROW ── *@
+    @* ── 3. TOOLBAR ROW ── *@
     <div class="vault-toolbar-row">
         <VaultToolbar ActiveTab="@_activeTab"
+                      TabId="@_activeTab"
                       SearchText="@_searchText"
                       SortBy="@_sortBy"
                       GroupBy="@_groupBy"
@@ -114,26 +79,25 @@
                       SortByChanged="OnSortChanged"
                       GroupByChanged="OnGroupChanged"
                       PosterSizeChanged="OnPosterSizeChanged"
+                      ShowBackButton="@(_activeGroupId.HasValue)"
+                      OnBack="NavigateBackFromGroup"
+                      OnColumnPickerRequested="() => _showColumnPicker = true"
                       OnExpandAll="() => _configurableTableRef?.ExpandAll()"
                       OnCollapseAll="() => _configurableTableRef?.CollapseAll()" />
-        <button class="vault-mobile-filter-btn" @onclick="() => _mobileDrawerOpen = true">
-            <MudIcon Icon="@Icons.Material.Outlined.FilterList" Style="font-size: 18px;" />
-        </button>
-        <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
-            <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
-            <span>@L["Vault_AddMedia"]</span>
-        </button>
     </div>
 
-    @* ── 5. BODY (sidebar + content) ── *@
-    <div class="vault-body">
-        <VaultSidebar ActiveTab="@_activeTab"
-                      SelectedMediaType="@GetSidebarMediaType()"
-                      ActiveView="@_activeView"
-                      ActiveViewChanged="OnViewChanged"
-                      TvShows="@_tvShows"
-                      OnColumnPickerRequested="() => _showColumnPicker = true" />
+    @* ── ACTION CENTER ── *@
+    <VaultActionCenter NeedsReviewCount="@_needsReviewCount"
+                       QuarantinedCount="@_quarantinedCount"
+                       WaitingForProviderCount="@_waitingForProviderCount"
+                       IsExpanded="@_actionCenterExpanded"
+                       IsExpandedChanged="v => _actionCenterExpanded = v"
+                       ConflictItems="@_conflictItems"
+                       OnRetryClicked="OnActionCenterRetry"
+                       OnDeleteClicked="OnActionCenterDelete" />
 
+    @* ── 5. BODY (full-width content) ── *@
+    <div class="vault-body">
         <div class="vault-content">
             @if (_activeGroupId.HasValue && !string.IsNullOrEmpty(_activeGroupType))
             {
@@ -145,30 +109,34 @@
                                 OnBatchDelete="OnBatchDelete"
                                 OnBatchSync="OnBatchSync" />
             }
-            else if (_activeTab == "media" && _activeView == "albums")
+            else if (IsMediaTab(_activeTab))
             {
-                <VaultMusicGrid Items="@_mediaItems"
-                                CardSize="@_posterSize"
-                                Loading="@_loading"
-                                OnCardClicked="OnMediaRowClicked" />
-            }
-            else if (_activeTab == "media")
-            {
-                <VaultConfigurableTable @ref="_configurableTableRef"
-                                         Columns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
-                                         VisibleColumnKeys="@_visibleColumnKeys"
-                                         Items="@_mediaItems"
-                                         GroupBy="@_groupBy"
-                                         Loading="@_loading"
-                                         PosterSize="@_posterSize"
-                                         OnRowClicked="OnMediaRowClicked"
-                                         OnAuthorClicked="OnAuthorLinkClicked"
-                                         SelectedItems="@_selectedItems"
-                                         SelectedItemsChanged="OnSelectionChanged"
-                                         ActiveSortKey="@_activeSortKey"
-                                         SortAscending="@_sortAscending"
-                                         OnSortRequested="OnColumnSortRequested"
-                                         ExpandNeedsReview="@(_filterMediaType == null || _filterMediaType == "")" />
+                @if (_activeTab == "music" && _groupBy == "albums")
+                {
+                    <VaultMusicGrid Items="@_mediaItems"
+                                    CardSize="@_posterSize"
+                                    Loading="@_loading"
+                                    OnCardClicked="OnMediaRowClicked" />
+                }
+                else
+                {
+                    <VaultConfigurableTable @ref="_configurableTableRef"
+                                             Columns="@VaultColumnDefinitions.GetColumnsByTab(_activeTab)"
+                                             VisibleColumnKeys="@_visibleColumnKeys"
+                                             Items="@_mediaItems"
+                                             GroupBy="@_groupBy"
+                                             Loading="@_loading"
+                                             PosterSize="@_posterSize"
+                                             OnRowClicked="OnMediaRowClicked"
+                                             OnAuthorClicked="OnAuthorLinkClicked"
+                                             SelectedItems="@_selectedItems"
+                                             SelectedItemsChanged="OnSelectionChanged"
+                                             ActiveSortKey="@_activeSortKey"
+                                             SortAscending="@_sortAscending"
+                                             OnSortRequested="OnColumnSortRequested"
+                                             ExpandNeedsReview="@(_activeTab == "new")"
+                                             IsDrillable="@((VaultItemViewModel item) => (_activeTab == "tv" && !string.IsNullOrEmpty(item.ShowName)) || (_activeTab == "music" && !string.IsNullOrEmpty(item.Album)))" />
+                }
                 @if (_hasMore)
                 {
                     <div class="vault-load-more">
@@ -259,20 +227,12 @@
     @* ── 9. COLUMN PICKER ── *@
     @if (_showColumnPicker)
     {
-        <VaultColumnPicker AllColumns="@VaultColumnDefinitions.GetMediaColumns(GetSidebarMediaType())"
+        <VaultColumnPicker AllColumns="@VaultColumnDefinitions.GetColumnsByTab(_activeTab)"
                            VisibleKeys="@_visibleColumnKeys"
                            VisibleKeysChanged="OnColumnVisibilityChanged"
-                           ViewKey="@GetColumnViewKey()"
+                           ViewKey="@_activeTab"
                            OnClose="() => _showColumnPicker = false" />
     }
-
-    @* ── 10. MOBILE SIDEBAR DRAWER ── *@
-    <VaultMobileSidebarDrawer IsOpen="@_mobileDrawerOpen"
-                               IsOpenChanged="(v) => _mobileDrawerOpen = v"
-                               ActiveTab="@_activeTab"
-                               SelectedMediaType="@GetSidebarMediaType()"
-                               ActiveView="@_activeView"
-                               ActiveViewChanged="OnViewChanged" />
 </div>
 
 @code {
@@ -280,7 +240,7 @@
     [Parameter] public string? Tab { get; set; }
 
     // ── State ──
-    private string _activeTab = "media";
+    private string _activeTab = "new";
     private string _groupBy = "none";
     private string _sortBy = "newest";
     private string? _activeSortKey;
@@ -291,17 +251,11 @@
     private bool _loadingUniverses;
     private Dictionary<Guid, int>? _universePeopleCounts;
 
-    // ── Filter state (driven by alert badges + stats bar) ──
+    // ── Filter state ──
     private bool _filterReview;
     private bool _filterQuarantine;
     private bool _filterProvisional;
     private bool _filterWaitingForProvider;
-
-    /// <summary>Derived from _enabledMediaTypes: when all 6 are active, null (no filter).
-    /// When fewer are active, pass as comma-separated types for client-side filtering.</summary>
-    private string? _filterMediaType => _enabledMediaTypes.Count < 6
-        ? string.Join(",", _enabledMediaTypes)
-        : null;
 
     // ── Data ──
     private List<VaultItemViewModel> _mediaItems = [];
@@ -332,13 +286,10 @@
     /// </summary>
     private int _staleUniverseCount;
 
-    // ── Stats bar state ──
-    private HashSet<string> _enabledMediaTypes = new(["Movies", "Books", "Audiobooks", "TV", "Music", "Podcasts"]);
+    // ── Hub type filter ──
     private HashSet<string> _enabledHubTypes = new(["Smart", "System", "Mix", "Playlist", "ContentGroups"]);
 
     // ── People state ──
-    private Dictionary<string, int> _allRoleCounts = new();
-    private HashSet<string> _enabledRoles = new();
     private Dictionary<string, Dictionary<string, int>> _personPresence = new();
     private int _peopleDisplayCount = 50;
     private const int PeoplePageSize = 50;
@@ -352,9 +303,6 @@
     // ── Add media drawer ──
     private bool _addMediaOpen;
 
-    // ── Sidebar view state ──
-    private string _activeView = "recent";
-
     // ── Batch selection state ──
     private HashSet<Guid> _selectedItems = [];
 
@@ -362,18 +310,12 @@
     private bool _showColumnPicker;
     private List<string> _visibleColumnKeys = [];
 
-    // ── Mobile sidebar drawer state ──
-    private bool _mobileDrawerOpen;
-
     // ── Table ref for expand/collapse all ──
     private VaultConfigurableTable? _configurableTableRef;
 
     // ── Group drill-down sub-page state ──
     private string? _activeGroupType;
     private Guid? _activeGroupId;
-
-    // ── TV sidebar data ──
-    private List<VaultSidebar.TvShowSidebarItem>? _tvShows;
 
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
@@ -385,98 +327,61 @@
     private string _deleteItemTitle = "";
     private bool _showBatchDeleteConfirm;
 
+    // ── Action Center state ──
+    private bool _actionCenterExpanded;
+    private List<VaultItemViewModel>? _conflictItems;
+
+    // ── Hub counts (used by LoadManagedHubs) ──
+    private Dictionary<string, int> _hubCounts = new();
+
     // ── Tab definitions ──
     private static readonly (string Id, string Label, string Icon)[] _tabs =
     [
-        ("media", "Media", Icons.Material.Outlined.VideoLibrary),
-        ("people", "People", Icons.Material.Outlined.People),
-        ("universes", "Universes", Icons.Material.Outlined.Public),
-        ("hubs", "Hubs", Icons.Material.Outlined.AutoAwesome),
+        ("new",        "New",        Icons.Material.Outlined.NewReleases),
+        ("movies",     "Movies",     Icons.Material.Outlined.VideoLibrary),
+        ("tv",         "TV",         Icons.Material.Outlined.LiveTv),
+        ("music",      "Music",      Icons.Material.Outlined.MusicNote),
+        ("books",      "Books",      Icons.Material.Outlined.MenuBook),
+        ("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
+        ("podcasts",   "Podcasts",   Icons.Material.Outlined.Mic),
+        ("comics",     "Comics",     Icons.Material.Outlined.AutoStories),
+        ("people",     "People",     Icons.Material.Outlined.People),
+        ("universes",  "Universes",  Icons.Material.Outlined.Public),
+        ("hubs",       "Hubs",       Icons.Material.Outlined.AutoAwesome),
     ];
 
-    // ── Stats bar computation ──
-    private List<StatCardModel> _statsCards => _activeTab switch
+    // ── Tab helpers ──
+
+    private static readonly string[] _mediaTabIds = ["new", "movies", "tv", "music", "books", "audiobooks", "podcasts", "comics"];
+
+    private static bool IsMediaTab(string tabId) => _mediaTabIds.Contains(tabId);
+
+    private static string? GetMediaTypeForTab(string tabId) => tabId switch
     {
-        "media" => new List<StatCardModel>
-        {
-            new() { Id = "Total", Icon = Icons.Material.Outlined.LocalLibrary, Count = _mediaTypeCounts.Values.Sum(), Label = "LIBRARY", Color = "#C9922E", IsActive = _enabledMediaTypes.Count == _allMediaTypeIds.Length },
-            new() { Id = "Movies", Icon = Icons.Material.Outlined.VideoLibrary, Count = _mediaTypeCounts.GetValueOrDefault("Movies", 0), Label = "MOVIES", Color = "#60A5FA", IsActive = _enabledMediaTypes.Contains("Movies") },
-            new() { Id = "Books", Icon = Icons.Material.Outlined.MenuBook, Count = _mediaTypeCounts.GetValueOrDefault("Books", 0), Label = "BOOKS", Color = "#5DCAA5", IsActive = _enabledMediaTypes.Contains("Books") },
-            new() { Id = "Audiobooks", Icon = Icons.Material.Outlined.Headphones, Count = _mediaTypeCounts.GetValueOrDefault("Audiobooks", 0), Label = "AUDIOBOOKS", Color = "#A78BFA", IsActive = _enabledMediaTypes.Contains("Audiobooks") },
-            new() { Id = "TV", Icon = Icons.Material.Outlined.LiveTv, Count = _mediaTypeCounts.GetValueOrDefault("TV", 0), Label = "TV", Color = "#FBBF24", IsActive = _enabledMediaTypes.Contains("TV") },
-            new() { Id = "Music", Icon = Icons.Material.Outlined.MusicNote, Count = _mediaTypeCounts.GetValueOrDefault("Music", 0), Label = "MUSIC", Color = "#22D3EE", IsActive = _enabledMediaTypes.Contains("Music") },
-            new() { Id = "Podcasts", Icon = Icons.Material.Outlined.Mic, Count = _mediaTypeCounts.GetValueOrDefault("Podcasts", 0), Label = "PODCASTS", Color = "#FB923C", IsActive = _enabledMediaTypes.Contains("Podcasts") },
-        },
-        "people" => BuildPeopleStatsCards(),
-        "universes" => new List<StatCardModel>
-        {
-            new() { Id = "Universes", Icon = Icons.Material.Outlined.Public, Count = _universes.Count, Label = "UNIVERSES", Color = "#A78BFA" },
-            new() { Id = "Series", Icon = Icons.Material.Outlined.Layers, Count = _universes.Sum(u => u.ChildHubCount), Label = "SERIES", Color = "#60A5FA" },
-        },
-        "hubs" => new List<StatCardModel>
-        {
-            new() { Id = "Smart", Icon = Icons.Material.Outlined.AutoAwesome, Count = _hubCounts.GetValueOrDefault("Smart", 0), Label = "SMART HUBS", Color = "#60A5FA", IsActive = _enabledHubTypes.Contains("Smart") },
-            new() { Id = "System", Icon = Icons.Material.Outlined.Bookmarks, Count = _hubCounts.GetValueOrDefault("System", 0), Label = "SYSTEM LISTS", Color = "#5DCAA5", IsActive = _enabledHubTypes.Contains("System") },
-            new() { Id = "Mix", Icon = Icons.Material.Outlined.AutoAwesome, Count = _hubCounts.GetValueOrDefault("Mix", 0), Label = "PERSONALIZED MIXES", Color = "#A78BFA", IsActive = _enabledHubTypes.Contains("Mix") },
-            new() { Id = "Playlist", Icon = Icons.Material.Outlined.QueueMusic, Count = _hubCounts.GetValueOrDefault("Playlist", 0), Label = "PLAYLISTS", Color = "#C9922E", IsActive = _enabledHubTypes.Contains("Playlist") },
-            new() { Id = "ContentGroups", Icon = Icons.Material.Outlined.FolderSpecial, Count = _contentGroups.Count, Label = "CONTENT GROUPS", Color = "#F472B6", IsActive = _enabledHubTypes.Contains("ContentGroups") },
-        },
-        _ => []
+        "movies"     => "Movies",
+        "tv"         => "TV",
+        "music"      => "Music",
+        "books"      => "Books",
+        "audiobooks" => "Audiobooks",
+        "podcasts"   => "Podcasts",
+        "comics"     => "Comics",
+        _            => null, // "new" tab — no type filter
     };
 
-    private Dictionary<string, int> _hubCounts = new();
-
-    private static readonly string[] _allMediaTypeIds = ["Movies", "Books", "Audiobooks", "TV", "Music", "Podcasts"];
-
-    private async Task OnStatCardToggled(string cardId)
+    private int GetTabBadgeCount(string tabId) => tabId switch
     {
-        if (_activeTab == "media")
-        {
-            if (cardId == "Total")
-            {
-                // Total always resets to all
-                _enabledMediaTypes = new HashSet<string>(_allMediaTypeIds);
-            }
-            else
-            {
-                // Radio behavior: if this is the only active card, deselect it → show all
-                // Otherwise, select only this card
-                if (_enabledMediaTypes.Count == 1 && _enabledMediaTypes.Contains(cardId))
-                    _enabledMediaTypes = new HashSet<string>(_allMediaTypeIds);
-                else
-                    _enabledMediaTypes = new HashSet<string> { cardId };
-            }
-            await LoadMediaItems();
-            await LoadTvShowsForSidebar();
-            UpdateUrl();
-        }
-        else if (_activeTab == "people")
-        {
-            if (cardId == "AllPeople")
-            {
-                _enabledRoles = new HashSet<string>();
-                StateHasChanged();
-                UpdateUrl();
-                return;
-            }
-            // Radio behavior: selecting a role shows only that role;
-            // selecting the already-active role resets to show all.
-            if (_enabledRoles.Count == 1 && _enabledRoles.Contains(cardId))
-                _enabledRoles = new HashSet<string>();
-            else
-                _enabledRoles = new HashSet<string> { cardId };
-            StateHasChanged();
-            UpdateUrl();
-        }
-        else if (_activeTab == "hubs")
-        {
-            if (_enabledHubTypes.Contains(cardId))
-                _enabledHubTypes.Remove(cardId);
-            else
-                _enabledHubTypes.Add(cardId);
-            StateHasChanged();
-        }
-    }
+        "movies"     => _mediaTypeCounts.GetValueOrDefault("Movies", 0),
+        "tv"         => _mediaTypeCounts.GetValueOrDefault("TV", 0),
+        "music"      => _mediaTypeCounts.GetValueOrDefault("Music", 0),
+        "books"      => _mediaTypeCounts.GetValueOrDefault("Books", 0),
+        "audiobooks" => _mediaTypeCounts.GetValueOrDefault("Audiobooks", 0),
+        "podcasts"   => _mediaTypeCounts.GetValueOrDefault("Podcasts", 0),
+        "comics"     => _mediaTypeCounts.GetValueOrDefault("Comics", 0),
+        "people"     => _people.Count,
+        "universes"  => _universes.Count,
+        "hubs"       => _managedHubs.Count + _contentGroups.Count,
+        _            => 0,
+    };
 
     // ── Lifecycle ──
 
@@ -491,18 +396,13 @@
 
         await LoadCounts();
         _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        await LoadConflictItems();
 
-        // Load tab data based on URL state
         if (_activeTab == "people") await LoadPeople();
         else if (_activeTab == "universes") await LoadUniverses();
         else if (_activeTab == "hubs") await LoadManagedHubs();
-        else
-        {
-            await LoadMediaItems();
-            await LoadTvShowsForSidebar();
-        }
+        else await LoadMediaItems();
 
-        // Open drawer if URL had ?item=
         if (_pendingItemId.HasValue)
         {
             await OpenItemFromUrl(_pendingItemId.Value);
@@ -520,7 +420,6 @@
 
     private void OnLoreDeltaDiscovered(string universeQid, int changedCount)
     {
-        // Each LoreDeltaDiscovered event represents one universe — accumulate the total.
         InvokeAsync(() =>
         {
             _staleUniverseCount++;
@@ -539,7 +438,8 @@
         {
             await LoadCounts();
             _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
-            await LoadMediaItems();
+            await LoadConflictItems();
+            if (IsMediaTab(_activeTab)) await LoadMediaItems();
             StateHasChanged();
         });
     }
@@ -557,35 +457,22 @@
         if (!append) _loading = true;
         StateHasChanged();
 
-        // If all media type filters are off, show nothing
-        if (_enabledMediaTypes.Count == 0)
-        {
-            _mediaItems = [];
-            _hasMore = false;
-            _loadedCount = 0;
-            _loading = false;
-            return;
-        }
-
-        // Build the status filter from toggle state
         string? statusFilter = null;
-        if (_filterReview)
-            statusFilter = "InReview";
-        else if (_filterProvisional)
-            statusFilter = "Provisional";
-        else if (_filterQuarantine)
-            statusFilter = "Rejected";
-        else if (_filterWaitingForProvider)
-            statusFilter = "WaitingForProvider";
+        if (_filterReview) statusFilter = "InReview";
+        else if (_filterProvisional) statusFilter = "Provisional";
+        else if (_filterQuarantine) statusFilter = "Rejected";
+        else if (_filterWaitingForProvider) statusFilter = "WaitingForProvider";
 
         var offset = append ? _loadedCount : 0;
+        var isNewTab = _activeTab == "new";
 
         var response = await ApiClient.GetRegistryItemsAsync(
             offset: offset, limit: 50,
             search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
-            type: _filterMediaType,
+            type: GetMediaTypeForTab(_activeTab),
             status: statusFilter,
-            sort: VaultHelpers.GetSortParam(_sortBy));
+            sort: isNewTab && _sortBy == "newest" ? "-created_at" : VaultHelpers.GetSortParam(_sortBy),
+            maxDays: isNewTab ? 30 : null);
 
         var items = response?.Items?.Select(VaultItemViewModel.From).ToList() ?? [];
 
@@ -604,30 +491,6 @@
         await LoadMediaItems(append: true);
     }
 
-    /// <summary>Load TV show content groups for the sidebar when TV media type is selected.</summary>
-    private async Task LoadTvShowsForSidebar()
-    {
-        var sidebarType = GetSidebarMediaType();
-        if (sidebarType != "TV")
-        {
-            _tvShows = null;
-            return;
-        }
-
-        try
-        {
-            var groups = await ApiClient.GetContentGroupsAsync();
-            _tvShows = groups?
-                .Where(g => string.Equals(g.PrimaryMediaType, "TV", StringComparison.OrdinalIgnoreCase))
-                .Select(g => new VaultSidebar.TvShowSidebarItem(g.DisplayName, g.WorkCount, g.HubId.ToString()))
-                .ToList();
-        }
-        catch
-        {
-            _tvShows = null;
-        }
-    }
-
     private async Task LoadPeople()
     {
         _loadingPeople = true;
@@ -635,13 +498,7 @@
 
         var result = await ApiClient.GetPersonsAsync(limit: 500);
         _people = result?.ToList() ?? [];
-        _allRoleCounts = await ApiClient.GetPersonRoleCountsAsync();
 
-        // Initialize enabled roles to all if empty
-        if (_enabledRoles.Count == 0)
-            _enabledRoles = new HashSet<string>(_allRoleCounts.Keys);
-
-        // Load presence data for all people
         if (_people.Count > 0)
         {
             _personPresence = await ApiClient.GetPersonPresenceAsync(_people.Select(p => p.Id));
@@ -658,7 +515,6 @@
 
         _universes = await ApiClient.GetParentHubsAsync() ?? [];
 
-        // Load people counts per universe (non-blocking — show "—" until loaded).
         if (_universes.Count > 0)
         {
             var counts = new Dictionary<Guid, int>();
@@ -691,19 +547,73 @@
         _loadingHubs   = false;
     }
 
+    private async Task LoadConflictItems()
+    {
+        var response = await ApiClient.GetRegistryItemsAsync(
+            offset: 0, limit: 20, status: "InReview");
+        var reviewItems = response?.Items?.Select(VaultItemViewModel.From).ToList() ?? [];
+
+        var rejectedResponse = await ApiClient.GetRegistryItemsAsync(
+            offset: 0, limit: 20, status: "Rejected");
+        var rejectedItems = rejectedResponse?.Items?.Select(VaultItemViewModel.From).ToList() ?? [];
+
+        _conflictItems = [.. reviewItems, .. rejectedItems];
+    }
+
+    // ── Action Center handlers ──
+
+    private async Task OnActionCenterRetry(Guid entityId)
+    {
+        await ApiClient.TriggerHydrationAsync(entityId);
+        Snackbar.Add("Item queued for re-identification", Severity.Info);
+        await LoadCounts();
+        await LoadConflictItems();
+        if (IsMediaTab(_activeTab)) await LoadMediaItems();
+    }
+
+    private async Task OnActionCenterDelete(Guid entityId)
+    {
+        await ApiClient.BatchDeleteRegistryItemsAsync([entityId]);
+        Snackbar.Add("Item deleted", Severity.Info);
+        await LoadCounts();
+        await LoadConflictItems();
+        _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+        if (IsMediaTab(_activeTab)) await LoadMediaItems();
+    }
+
     // ── Tab switching ──
 
     private async Task SwitchTab(string tabId)
     {
+        if (_activeTab == tabId) return; // already on this tab
         _activeTab = tabId;
+        _searchText = "";
+        _groupBy = "none";
+        _activeGroupType = null;
+        _activeGroupId = null;
+        _selectedItems.Clear();
+        ClearStatusFilters();
+
         if (tabId == "people")
         {
-            if (_sortBy == "newest") _sortBy = "name"; // Default people to alphabetical
+            _sortBy = "name";
             _peopleDisplayCount = PeoplePageSize;
             await LoadPeople();
         }
-        else if (tabId == "universes") await LoadUniverses();
-        else if (tabId == "hubs") await LoadManagedHubs();
+        else if (tabId == "universes")
+        {
+            await LoadUniverses();
+        }
+        else if (tabId == "hubs")
+        {
+            await LoadManagedHubs();
+        }
+        else
+        {
+            _sortBy = tabId == "new" ? "newest" : "title";
+            await LoadMediaItems();
+        }
+
         UpdateUrl();
     }
 
@@ -712,11 +622,10 @@
     private async Task OnSearchChanged(string text)
     {
         _searchText = text;
-        if (_activeTab == "media")
+        if (IsMediaTab(_activeTab))
             await LoadMediaItems();
         if (_activeTab == "people")
             _peopleDisplayCount = PeoplePageSize;
-        // People and universes are filtered client-side via FilteredPeople/FilteredUniverses
         StateHasChanged();
         UpdateUrl();
     }
@@ -724,11 +633,11 @@
     private async Task OnSortChanged(string sort)
     {
         _sortBy = sort;
-        _activeSortKey = null; // reset column sort when toolbar sort changes
+        _activeSortKey = null;
         _sortAscending = true;
         if (_activeTab == "people")
-            StateHasChanged(); // People sorting is client-side
-        else
+            StateHasChanged();
+        else if (IsMediaTab(_activeTab))
             await LoadMediaItems();
         UpdateUrl();
     }
@@ -758,7 +667,6 @@
 
     private async Task OnAuthorLinkClicked(string authorName)
     {
-        // Load people if not yet loaded
         if (_people.Count == 0) await LoadPeople();
 
         var person = _people.FirstOrDefault(p =>
@@ -820,11 +728,49 @@
 
     private async Task OnMediaRowClicked(Guid entityId)
     {
-        _selectedMedia = _mediaItems.FirstOrDefault(i => i.EntityId == entityId);
+        var item = _mediaItems.FirstOrDefault(i => i.EntityId == entityId);
+        if (item is null) return;
+
+        // TV tab: drill into the show's content group
+        if (_activeTab == "tv" && !string.IsNullOrEmpty(item.ShowName))
+        {
+            var groupId = await TryResolveContentGroup(item.ShowName, "TV");
+            if (groupId.HasValue)
+            {
+                NavigateToGroup("tv-show", groupId.Value);
+                return;
+            }
+        }
+
+        // Music tab: drill into the album's content group
+        if (_activeTab == "music" && !string.IsNullOrEmpty(item.Album))
+        {
+            var groupId = await TryResolveContentGroup(item.Album, "Music");
+            if (groupId.HasValue)
+            {
+                NavigateToGroup("album", groupId.Value);
+                return;
+            }
+        }
+
+        // Default: open detail drawer
+        _selectedMedia = item;
         _selectedPerson = null;
         _selectedUniverse = null;
         UpdateUrl();
         await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task<Guid?> TryResolveContentGroup(string name, string mediaType)
+    {
+        if (_contentGroups.Count == 0)
+        {
+            _contentGroups = await ApiClient.GetContentGroupsAsync();
+        }
+        var group = _contentGroups.FirstOrDefault(g =>
+            string.Equals(g.DisplayName, name, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(g.PrimaryMediaType, mediaType, StringComparison.OrdinalIgnoreCase));
+        return group?.HubId;
     }
 
     private async Task OnPersonRowClicked(Guid personId)
@@ -881,7 +827,6 @@
         Snackbar.Add("Match applied — re-identifying item...", Severity.Info);
         await LoadCounts();
 
-        // If the active status filter now has 0 items, auto-clear it
         if (_filterReview && _counts.InReview == 0)
             _filterReview = false;
         else if (_filterProvisional && _counts.Provisional == 0)
@@ -947,13 +892,11 @@
 
     private void OnContentGroupClicked(Guid hubId)
     {
-        // Navigate into the content group drill-down view.
         NavigateToGroup("ContentGroup", hubId);
     }
 
     // ── Group drill-down navigation ──
 
-    /// <summary>Navigate into a content group sub-page (album, TV show, book series, movie series).</summary>
     public void NavigateToGroup(string groupType, Guid groupId)
     {
         _activeGroupType = groupType;
@@ -970,14 +913,12 @@
 
     private async Task OpenDetailDrawerFromGroup(Guid workId)
     {
-        // Ensure the media items list has the clicked item; if not, fetch it individually.
         var item = _mediaItems.FirstOrDefault(i => i.EntityId == workId);
         if (item is null)
         {
             var detail = await ApiClient.GetRegistryItemDetailAsync(workId);
             if (detail is not null)
             {
-                // Build a minimal VaultItemViewModel from RegistryItemDetailViewModel
                 _selectedMedia = new VaultItemViewModel
                 {
                     EntityId    = detail.EntityId,
@@ -1025,85 +966,6 @@
             _selectedHub.IsFeatured = args.Featured;
     }
 
-    // ── Sidebar helpers ──
-
-    private async Task OnViewChanged(string view)
-    {
-        _activeView = view;
-
-        // Map view key to filter/group/sort behaviour
-        switch (view)
-        {
-            case "recent":
-                _sortBy = "newest";
-                _groupBy = "none";
-                ClearStatusFilters();
-                break;
-            case "needs-review":
-                _filterReview = true;
-                _filterProvisional = false;
-                _filterQuarantine = false;
-                _filterWaitingForProvider = false;
-                break;
-            case "quarantined":
-                _filterQuarantine = true;
-                _filterReview = false;
-                _filterProvisional = false;
-                _filterWaitingForProvider = false;
-                break;
-            case "all":
-                _groupBy = "none";
-                ClearStatusFilters();
-                break;
-            case "series":
-                _groupBy = "universe";
-                ClearStatusFilters();
-                break;
-            case "authors":
-            case "narrators":
-            case "directors":
-                _groupBy = "author";
-                ClearStatusFilters();
-                break;
-            case "decades":
-                _groupBy = "decade";
-                ClearStatusFilters();
-                break;
-            case "albums":
-                _groupBy = "none";
-                ClearStatusFilters();
-                break;
-            case "artists":
-                _groupBy = "artist";
-                ClearStatusFilters();
-                break;
-            case "genres":
-                _groupBy = "genre";
-                ClearStatusFilters();
-                break;
-            default:
-                // TV show views (tv-show-{hubId}) navigate to group drill-down
-                if (view.StartsWith("tv-show-", StringComparison.Ordinal))
-                {
-                    var showId = view.Substring("tv-show-".Length);
-                    if (Guid.TryParse(showId, out var hubId))
-                    {
-                        NavigateToGroup("tv-show", hubId);
-                        return;
-                    }
-                }
-                // TV season views (tv-season-{showId}-{seasonNum}) and other media-specific views
-                ClearStatusFilters();
-                break;
-        }
-
-        if (_activeTab == "media")
-            await LoadMediaItems();
-
-        StateHasChanged();
-        UpdateUrl();
-    }
-
     private void ClearStatusFilters()
     {
         _filterReview = false;
@@ -1111,15 +973,6 @@
         _filterQuarantine = false;
         _filterWaitingForProvider = false;
     }
-
-    private string? GetSidebarMediaType()
-    {
-        if (_enabledMediaTypes.Count == 1)
-            return _enabledMediaTypes.First();
-        return null;
-    }
-
-    private string GetColumnViewKey() => GetSidebarMediaType()?.ToLowerInvariant() ?? "all";
 
     // ── Delete confirm ──
 
@@ -1170,7 +1023,6 @@
     private async Task OnBatchSync()
     {
         if (_selectedItems.Count == 0) return;
-        // Trigger re-hydration for selected items (resets 30-day sync timer)
         foreach (var id in _selectedItems)
         {
             await ApiClient.TriggerHydrationAsync(id);
@@ -1196,47 +1048,30 @@
         var path = $"/vault/{tab}";
         var queryParts = new List<string>();
 
-        // Item (drawer open)
         var selectedId = _activeTab switch
         {
-            "media" => _selectedMedia?.EntityId,
-            "people" => _selectedPerson?.Id,
+            "people"    => _selectedPerson?.Id,
             "universes" => _selectedUniverse?.Id,
-            "hubs" => _selectedHub?.Id,
+            "hubs"      => _selectedHub?.Id,
+            _ when IsMediaTab(_activeTab) => _selectedMedia?.EntityId,
             _ => null
         };
         if (selectedId.HasValue)
             queryParts.Add($"item={selectedId.Value}");
 
-        // Filters
         if (_filterReview) queryParts.Add("filter=review");
         else if (_filterQuarantine) queryParts.Add("filter=quarantine");
         else if (_filterProvisional) queryParts.Add("filter=provisional");
         else if (_filterWaitingForProvider) queryParts.Add("filter=waiting");
 
-        // Search
         if (!string.IsNullOrWhiteSpace(_searchText))
             queryParts.Add($"search={Uri.EscapeDataString(_searchText)}");
 
-        // Sort
-        if (_sortBy != "newest")
+        if (_sortBy != "newest" && _sortBy != "title" && _sortBy != "name")
             queryParts.Add($"sort={_sortBy}");
 
-        // Group
         if (_groupBy != "none")
             queryParts.Add($"group={_groupBy}");
-
-        // Media type filter
-        if (_activeTab == "media" && _enabledMediaTypes.Count < 6)
-            queryParts.Add($"type={string.Join(",", _enabledMediaTypes)}");
-
-        // People role filter
-        if (_activeTab == "people" && _enabledRoles.Count < _allRoleCounts.Count && _enabledRoles.Count > 0)
-            queryParts.Add($"role={string.Join(",", _enabledRoles)}");
-
-        // Sidebar view
-        if (_activeView != "recent")
-            queryParts.Add($"view={_activeView}");
 
         var query = queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "";
         Nav.NavigateTo(path + query, replace: replace);
@@ -1246,11 +1081,15 @@
     {
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
 
-        // Tab from route parameter
-        if (!string.IsNullOrEmpty(Tab) && _tabs.Any(t => t.Id == Tab.ToLowerInvariant()))
-            _activeTab = Tab.ToLowerInvariant();
+        if (!string.IsNullOrEmpty(Tab))
+        {
+            var tabLower = Tab.ToLowerInvariant();
+            // Redirect old "media" tab to "new"
+            if (tabLower == "media") tabLower = "new";
+            if (_tabs.Any(t => t.Id == tabLower))
+                _activeTab = tabLower;
+        }
 
-        // Query parameters
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 
         var filter = query["filter"];
@@ -1268,30 +1107,17 @@
         if (query["group"] is string group && !string.IsNullOrEmpty(group))
             _groupBy = group;
 
-        if (query["type"] is string types && !string.IsNullOrEmpty(types))
-        {
-            _enabledMediaTypes = new HashSet<string>(types.Split(','));
-        }
-
-        if (query["role"] is string roles && !string.IsNullOrEmpty(roles))
-        {
-            _enabledRoles = new HashSet<string>(roles.Split(','));
-        }
-
-        if (query["view"] is string view && !string.IsNullOrEmpty(view))
-            _activeView = view;
-
-        // Item ID for opening drawer — deferred to after data loads
         _pendingItemId = query["item"] is string itemStr && Guid.TryParse(itemStr, out var itemId) ? itemId : null;
     }
 
     private async Task OpenItemFromUrl(Guid itemId)
     {
-        switch (_activeTab)
+        if (IsMediaTab(_activeTab))
         {
-            case "media":
-                _selectedMedia = _mediaItems.FirstOrDefault(i => i.EntityId == itemId);
-                break;
+            _selectedMedia = _mediaItems.FirstOrDefault(i => i.EntityId == itemId);
+        }
+        else switch (_activeTab)
+        {
             case "people":
                 _selectedPerson = _people.FirstOrDefault(p => p.Id == itemId);
                 break;
@@ -1308,7 +1134,6 @@
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        // Only react to popstate (back/forward), not programmatic navigation
         if (!e.IsNavigationIntercepted) return;
         ReadUrlState();
         _ = InvokeAsync(async () =>
@@ -1316,67 +1141,9 @@
             if (_activeTab == "people") await LoadPeople();
             else if (_activeTab == "universes") await LoadUniverses();
             else if (_activeTab == "hubs") await LoadManagedHubs();
-            else await LoadMediaItems();
+            else if (IsMediaTab(_activeTab)) await LoadMediaItems();
             StateHasChanged();
         });
-    }
-
-    // ── People stats bar ──
-
-    private List<StatCardModel> BuildPeopleStatsCards()
-    {
-        var cards = new List<StatCardModel>
-        {
-            new() { Id = "AllPeople", Icon = Icons.Material.Outlined.People, Count = _people.Count, Label = "PEOPLE", Color = "#C9922E", IsActive = _enabledRoles.Count == 0 }
-        };
-
-        // Role icons mapping
-        var roleIcons = new Dictionary<string, string>
-        {
-            ["Author"] = Icons.Material.Outlined.Edit,
-            ["Narrator"] = Icons.Material.Outlined.RecordVoiceOver,
-            ["Director"] = Icons.Material.Outlined.Movie,
-            ["Illustrator"] = Icons.Material.Outlined.Brush,
-            ["Actor"] = Icons.Material.Outlined.TheaterComedy,
-            ["Voice Actor"] = Icons.Material.Outlined.Mic,
-            ["Screenwriter"] = Icons.Material.Outlined.Description,
-            ["Composer"] = Icons.Material.Outlined.MusicNote,
-            ["Translator"] = Icons.Material.Outlined.Translate,
-            ["Editor"] = Icons.Material.Outlined.ContentCut,
-            ["Host"] = Icons.Material.Outlined.Podcasts,
-            ["Producer"] = Icons.Material.Outlined.AccountTree,
-        };
-
-        var roleColors = new Dictionary<string, string>
-        {
-            ["Author"] = "#5DCAA5",
-            ["Narrator"] = "#A78BFA",
-            ["Director"] = "#60A5FA",
-            ["Illustrator"] = "#7C4DFF",
-            ["Actor"] = "#FBBF24",
-            ["Voice Actor"] = "#22D3EE",
-            ["Screenwriter"] = "#FB923C",
-            ["Composer"] = "#EC4899",
-            ["Translator"] = "#34D399",
-            ["Editor"] = "#F87171",
-            ["Host"] = "#FB923C",
-            ["Producer"] = "#818CF8",
-        };
-
-        foreach (var kvp in _allRoleCounts.OrderByDescending(k => k.Value))
-        {
-            cards.Add(new StatCardModel
-            {
-                Id = kvp.Key,
-                Icon = roleIcons.GetValueOrDefault(kvp.Key, Icons.Material.Outlined.Person),
-                Count = kvp.Value,
-                Label = kvp.Key.ToUpperInvariant(),
-                Color = roleColors.GetValueOrDefault(kvp.Key, "#60A5FA"),
-                IsActive = _enabledRoles.Count == 1 && _enabledRoles.Contains(kvp.Key),
-            });
-        }
-
-        return cards;
     }
 
     private List<PersonListItemDto> FilteredPeople
@@ -1385,15 +1152,9 @@
         {
             IEnumerable<PersonListItemDto> result = _people;
 
-            // Role filter
-            if (_enabledRoles.Count > 0 && _enabledRoles.Count < _allRoleCounts.Count)
-                result = result.Where(p => p.Roles.Any(r => _enabledRoles.Contains(r)));
-
-            // Search filter
             if (!string.IsNullOrWhiteSpace(_searchText))
                 result = result.Where(p => p.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
 
-            // Sort — default to alphabetical (name ascending)
             result = _sortBy switch
             {
                 "name_desc" => result.OrderByDescending(p => p.Name, StringComparer.OrdinalIgnoreCase),
@@ -1401,7 +1162,7 @@
                 "oldest" => result.OrderBy(p => p.Id),
                 "presence_asc" => result.OrderBy(p => GetPersonPresenceTotal(p)),
                 "presence" => result.OrderByDescending(p => GetPersonPresenceTotal(p)),
-                _ => result.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase), // default: name A-Z
+                _ => result.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase),
             };
 
             return result.Take(_peopleDisplayCount).ToList();
@@ -1413,8 +1174,6 @@
         get
         {
             IEnumerable<PersonListItemDto> result = _people;
-            if (_enabledRoles.Count > 0 && _enabledRoles.Count < _allRoleCounts.Count)
-                result = result.Where(p => p.Roles.Any(r => _enabledRoles.Contains(r)));
             if (!string.IsNullOrWhiteSpace(_searchText))
                 result = result.Where(p => p.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
             return result.Count();
@@ -1465,12 +1224,7 @@
         align-items: center;
         padding: 0 24px;
         margin-bottom: 16px;
-    }
-
-    .vault-alert-filters {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        gap: 12px;
     }
 
     .vault-title {
@@ -1490,6 +1244,14 @@
         border-radius: 12px;
         padding: 4px;
         gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .vault-tab-bar::-webkit-scrollbar {
+        display: none;
     }
 
     .vault-tab {
@@ -1518,55 +1280,22 @@
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     }
 
-    /* ── Alert badges (inline with title) ── */
-    .vault-alert {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
+    /* ── Tab badges ── */
+    .vault-tab-badge {
+        font-size: 9px;
+        font-weight: 800;
+        background: rgba(255, 255, 255, 0.06);
         border-radius: 8px;
-        font-size: 12px;
-        font-weight: 700;
-        cursor: pointer;
-        user-select: none;
-        transition: all 0.15s;
-        white-space: nowrap;
+        padding: 1px 6px;
+        color: rgba(255, 255, 255, 0.3);
+        min-width: 18px;
+        text-align: center;
+        line-height: 1.4;
     }
 
-    .vault-alert--amber {
-        background: rgba(239, 159, 39, 0.1);
-        border: 1px solid rgba(239, 159, 39, 0.2);
-        color: #EF9F27;
-    }
-
-    .vault-alert--amber.vault-alert--on {
-        background: rgba(239, 159, 39, 0.2);
-        border-color: rgba(239, 159, 39, 0.5);
-        box-shadow: 0 0 12px rgba(239, 159, 39, 0.15);
-    }
-
-    .vault-alert--red {
-        background: rgba(226, 75, 74, 0.1);
-        border: 1px solid rgba(226, 75, 74, 0.2);
-        color: rgba(226, 75, 74, 0.8);
-    }
-
-    .vault-alert--red.vault-alert--on {
-        background: rgba(226, 75, 74, 0.2);
-        border-color: rgba(226, 75, 74, 0.5);
-        box-shadow: 0 0 12px rgba(226, 75, 74, 0.15);
-    }
-
-    .vault-alert--blue {
-        background: rgba(56, 189, 248, 0.1);
-        border: 1px solid rgba(56, 189, 248, 0.2);
-        color: rgba(56, 189, 248, 0.8);
-    }
-
-    .vault-alert--blue.vault-alert--on {
-        background: rgba(56, 189, 248, 0.2);
-        border-color: rgba(56, 189, 248, 0.5);
-        box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+    .vault-tab--active .vault-tab-badge {
+        background: rgba(96, 165, 250, 0.12);
+        color: rgba(96, 165, 250, 0.7);
     }
 
     /* ── Toolbar row ── */
@@ -1577,26 +1306,6 @@
         padding: 16px 24px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         flex-shrink: 0;
-    }
-
-    /* ── Mobile filter button (hidden on desktop) ── */
-    .vault-mobile-filter-btn {
-        display: none;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
-        color: rgba(255, 255, 255, 0.4);
-        cursor: pointer;
-        flex-shrink: 0;
-    }
-
-    .vault-mobile-filter-btn:hover {
-        background: rgba(255, 255, 255, 0.06);
-        color: rgba(255, 255, 255, 0.7);
     }
 
     /* ── Add button ── */
@@ -1624,7 +1333,7 @@
         background: rgba(96, 165, 250, 1);
     }
 
-    /* ── Body (sidebar + content) ── */
+    /* ── Body (full-width content) ── */
     .vault-body {
         display: flex;
         flex: 1;
@@ -1654,17 +1363,11 @@
         .vault-tab-row {
             flex-direction: column;
             align-items: flex-start;
-            gap: 12px;
         }
 
         .vault-tab-bar {
             width: 100%;
-            justify-content: center;
-        }
-
-        .vault-alert-filters {
-            width: 100%;
-            justify-content: flex-end;
+            flex-wrap: nowrap;
         }
 
         .vault-title {
@@ -1674,14 +1377,6 @@
         .vault-toolbar-row {
             padding: 12px 16px;
             flex-wrap: wrap;
-        }
-
-        .vault-add-btn {
-            display: none;
-        }
-
-        .vault-mobile-filter-btn {
-            display: flex;
         }
 
         .vault-body {

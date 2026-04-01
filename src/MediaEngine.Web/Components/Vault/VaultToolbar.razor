@@ -3,6 +3,15 @@
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="vault-toolbar">
+    @* ── Back Button (drill-down mode) ── *@
+    @if (ShowBackButton)
+    {
+        <button class="vault-back-btn" @onclick="() => OnBack.InvokeAsync()">
+            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Style="font-size: 16px;" />
+            <span>Back to @ResolvedTabId</span>
+        </button>
+    }
+
     @* ── Search ── *@
     <div class="vault-search-wrap">
         <MudIcon Icon="@Icons.Material.Outlined.Search"
@@ -34,22 +43,38 @@
             }
         </div>
 
-        @if (ActiveTab == "media")
+        @* ── Contextual filter dropdown ── *@
+        @{
+            var filterOpts = GetFilterOptions();
+        }
+        @if (filterOpts.Count > 0)
+        {
+            <div class="vault-control-divider"></div>
+            <div class="vault-control-group">
+                <select class="vault-select" value="@(FilterValue ?? filterOpts[0].Value)"
+                        @onchange="OnFilterChanged">
+                    @foreach (var opt in filterOpts)
+                    {
+                        <option value="@opt.Value">@opt.Label</option>
+                    }
+                </select>
+            </div>
+        }
+
+        @* ── Group-by dropdown ── *@
+        @{
+            var groupOpts = GetGroupOptions();
+        }
+        @if (groupOpts.Count > 0 && (ResolvedTabId == "media" || IsTabWithGrouping(ResolvedTabId)))
         {
             <div class="vault-control-divider"></div>
 
-            @* Group *@
             <div class="vault-control-group">
                 <select class="vault-select" value="@GroupBy" @onchange="OnGroupChanged">
-                    <option value="none">@L["VaultToolbar_GroupNone"]</option>
-                    <option value="type">@L["VaultToolbar_GroupType"]</option>
-                    <option value="status">@L["VaultToolbar_GroupStatus"]</option>
-                    <option value="letter">@L["VaultToolbar_GroupLetter"]</option>
-                    <option value="universe">Universe / Series</option>
-                    <option value="author">Author / Director</option>
-                    <option value="artist">Artist</option>
-                    <option value="genre">Genre</option>
-                    <option value="decade">Decade</option>
+                    @foreach (var opt in groupOpts)
+                    {
+                        <option value="@opt.Value">@opt.Label</option>
+                    }
                 </select>
                 @if (GroupBy != "none")
                 {
@@ -61,7 +86,10 @@
                     </button>
                 }
             </div>
+        }
 
+        @if (ResolvedTabId == "media" || ResolvedTabId == "music")
+        {
             <div class="vault-control-divider"></div>
 
             @* Poster Size *@
@@ -73,9 +101,16 @@
             </div>
         }
     </div>
+
+    @* ── Column Picker button ── *@
+    <button class="vault-column-picker-btn" title="Choose columns"
+            @onclick="() => OnColumnPickerRequested.InvokeAsync()">
+        <MudIcon Icon="@Icons.Material.Outlined.ViewColumn" Style="font-size: 16px;" />
+    </button>
 </div>
 
 @code {
+    // ── Existing parameters (unchanged, preserved for backward compat) ──
     [Parameter] public string ActiveTab { get; set; } = "media";
     [Parameter] public string SearchText { get; set; } = "";
     [Parameter] public string SortBy { get; set; } = "newest";
@@ -84,12 +119,37 @@
     [Parameter] public int PosterSize { get; set; } = 48;
     [Parameter] public EventCallback<int> PosterSizeChanged { get; set; }
 
-    // Callbacks
     [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
     [Parameter] public EventCallback<string> SortByChanged { get; set; }
     [Parameter] public EventCallback<string> GroupByChanged { get; set; }
     [Parameter] public EventCallback OnExpandAll { get; set; }
     [Parameter] public EventCallback OnCollapseAll { get; set; }
+
+    // ── New parameters ──
+
+    /// <summary>Active tab identifier for per-tab contextual controls.
+    /// Takes precedence over <see cref="ActiveTab"/> when set.</summary>
+    [Parameter] public string? TabId { get; set; }
+
+    /// <summary>Show a back button (drill-down mode).</summary>
+    [Parameter] public bool ShowBackButton { get; set; }
+
+    /// <summary>Fires when the back button is clicked.</summary>
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    /// <summary>Currently selected value for the contextual filter dropdown.</summary>
+    [Parameter] public string? FilterValue { get; set; }
+
+    /// <summary>Fires when the contextual filter selection changes.</summary>
+    [Parameter] public EventCallback<string?> FilterValueChanged { get; set; }
+
+    /// <summary>Fires when the column picker icon button is clicked.</summary>
+    [Parameter] public EventCallback OnColumnPickerRequested { get; set; }
+
+    // ── Computed helpers ──
+
+    /// <summary>Resolved tab ID: TabId if set, otherwise fall back to ActiveTab.</summary>
+    private string ResolvedTabId => TabId ?? ActiveTab;
 
     private System.Timers.Timer? _debounceTimer;
 
@@ -109,8 +169,9 @@
     }
 
     private record SortOption(string Label, string Value, string ReverseValue);
+    private record SelectOption(string Label, string Value);
 
-    private List<SortOption> GetSortOptions() => ActiveTab switch
+    private List<SortOption> GetSortOptions() => ResolvedTabId switch
     {
         "people" =>
         [
@@ -125,15 +186,62 @@
         ],
     };
 
+    /// <summary>Returns contextual filter options for the resolved tab.
+    /// Returns an empty list for tabs that should not show the filter dropdown.</summary>
+    private List<SelectOption> GetFilterOptions() => ResolvedTabId switch
+    {
+        "movies"     => [new("All Qualities", ""), new("4K", "4k"), new("1080p", "1080p"), new("HD", "hd")],
+        "tv"         => [new("All", ""), new("Complete", "complete"), new("Active", "active"), new("Ended", "ended")],
+        "music"      => [new("All Formats", ""), new("FLAC", "flac"), new("ALAC", "alac"), new("MP3", "mp3")],
+        "books"      => [new("All Formats", ""), new("EPUB", "epub"), new("PDF", "pdf")],
+        "audiobooks" => [new("All Formats", ""), new("M4B", "m4b"), new("AAX", "aax"), new("MP3", "mp3")],
+        "podcasts"   => [new("All", ""), new("Active", "active"), new("Ended", "ended")],
+        "comics"     => [new("All Formats", ""), new("CBZ", "cbz"), new("CBR", "cbr"), new("PDF", "pdf")],
+        // new, people, universes, hubs — no filter dropdown
+        _ => [],
+    };
+
+    /// <summary>Returns group-by options for the resolved tab.
+    /// Returns an empty list for tabs where the group dropdown should be hidden.</summary>
+    private List<SelectOption> GetGroupOptions() => ResolvedTabId switch
+    {
+        "movies"     => [new("None", "none"), new("Director", "director"), new("Year", "year"), new("Decade", "decade")],
+        "tv"         => [new("None", "none"), new("Show", "show"), new("Season", "season")],
+        "music"      => [new("None", "none"), new("Artist", "artist"), new("Album", "album"), new("Genre", "genre")],
+        "books"      => [new("None", "none"), new("Author", "author"), new("Series", "series")],
+        "audiobooks" => [new("None", "none"), new("Author", "author"), new("Narrator", "narrator")],
+        "podcasts"   => [new("None", "none"), new("Show", "show")],
+        "comics"     => [new("None", "none"), new("Series", "series"), new("Year", "year")],
+        "media"      => [new("None", "none"), new("Type", "type"), new("Status", "status"), new("Letter", "letter"), new("Universe / Series", "universe"), new("Author / Director", "author"), new("Artist", "artist"), new("Genre", "genre"), new("Decade", "decade")],
+        "new"        => [new("None", "none"), new("Type", "type")],
+        "people"     => [new("None", "none"), new("Role", "role")],
+        // universes, hubs — hide group dropdown
+        _ => [],
+    };
+
+    /// <summary>Returns true for tabs that should display the group-by dropdown
+    /// (all named tabs except universes and hubs).</summary>
+    private static bool IsTabWithGrouping(string tabId) => tabId switch
+    {
+        "universes" or "hubs" => false,
+        _ => true,
+    };
+
     private async Task ToggleSort(string value, string reverseValue)
     {
-        // If already on this sort, toggle direction; otherwise set to default direction
         var newSort = SortBy == value ? reverseValue : (SortBy == reverseValue ? value : value);
         await SortByChanged.InvokeAsync(newSort);
     }
 
     private async Task OnGroupChanged(ChangeEventArgs e) =>
         await GroupByChanged.InvokeAsync(e.Value?.ToString() ?? "none");
+
+    private async Task OnFilterChanged(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        // Normalise empty string → null so callers can do a simple null check
+        await FilterValueChanged.InvokeAsync(string.IsNullOrEmpty(val) ? null : val);
+    }
 
     private async Task OnPosterSizeInput(ChangeEventArgs e)
     {
@@ -154,6 +262,32 @@
         gap: 12px;
         align-items: center;
         flex: 1;
+    }
+
+    /* ── Back button ── */
+    .vault-back-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        border-radius: 10px;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.075em;
+        padding: 6px 12px 6px 8px;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .vault-back-btn:hover {
+        color: rgba(255, 255, 255, 0.85);
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
     }
 
     /* ── Search ── */
@@ -325,6 +459,29 @@
     .vault-sort-btn--active {
         color: rgba(96, 165, 250, 0.9);
         background: rgba(96, 165, 250, 0.08);
+    }
+
+    /* ── Column Picker button ── */
+    .vault-column-picker-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(255, 255, 255, 0.3);
+        cursor: pointer;
+        transition: all 0.15s;
+        padding: 0;
+        flex-shrink: 0;
+    }
+
+    .vault-column-picker-btn:hover {
+        color: rgba(255, 255, 255, 0.75);
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
     }
 
     /* ── Mobile ── */

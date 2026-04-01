@@ -15,10 +15,11 @@ else
         <table class="vut-table">
             <thead>
                 <tr class="vut-thead-row">
-                    <th class="vut-th" style="width: 40%;">@L["VaultUniverses_ColUniverse"]</th>
-                    <th class="vut-th vut-th--center vut-col-series" style="width: 15%;">@L["VaultUniverses_ColSeries"]</th>
-                    <th class="vut-th vut-th--center" style="width: 25%;">@L["VaultUniverses_ColMediaAssets"]</th>
-                    <th class="vut-th vut-th--center vut-col-people" style="width: 15%;">@L["VaultUniverses_ColPeople"]</th>
+                    <th class="vut-th" style="width: 42%;">@L["VaultUniverses_ColUniverse"]</th>
+                    <th class="vut-th vut-th--center vut-col-series" style="width: 13%;">@L["VaultUniverses_ColSeries"]</th>
+                    <th class="vut-th" style="width: 25%;">@L["VaultUniverses_ColMediaAssets"]</th>
+                    <th class="vut-th vut-th--center vut-col-people" style="width: 12%;">@L["VaultUniverses_ColPeople"]</th>
+                    <th class="vut-th" style="width: 8%;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -26,12 +27,12 @@ else
                 {
                     <tr class="vut-row" @onclick="() => OnRowClicked.InvokeAsync(u.Id)">
                         <td class="vut-td">
-                            <div style="display: flex; align-items: center; gap: 12px;">
+                            <div class="vut-name-cell">
                                 <div class="vut-icon-box">
                                     <MudIcon Icon="@Icons.Material.Outlined.Public"
-                                             Style="font-size: 18px; color: rgba(167,139,250,0.7);" />
+                                             Style="font-size: 16px; color: rgba(167,139,250,0.7);" />
                                 </div>
-                                <div style="min-width: 0;">
+                                <div style="min-width: 0; flex: 1;">
                                     <span class="vut-name">@u.DisplayName</span>
                                     @if (!string.IsNullOrWhiteSpace(u.Description))
                                     {
@@ -43,14 +44,14 @@ else
                         <td class="vut-td vut-td--center vut-col-series">
                             <span class="vut-count">@(u.IsParentHub ? u.ChildHubCount : u.WorkCount)</span>
                         </td>
-                        <td class="vut-td vut-td--center">
+                        <td class="vut-td">
                             @if (!string.IsNullOrWhiteSpace(u.MediaTypes))
                             {
                                 <span class="vut-media-text">@u.MediaTypes</span>
                             }
                             else
                             {
-                                <span class="vut-media-text">—</span>
+                                <span class="vut-media-text vut-media-text--empty">—</span>
                             }
                         </td>
                         <td class="vut-td vut-td--center vut-col-people">
@@ -60,8 +61,10 @@ else
                             }
                             else
                             {
-                                <span class="vut-count" style="color: rgba(255,255,255,0.4);">—</span>
+                                <span class="vut-count vut-count--muted">—</span>
                             }
+                        </td>
+                        <td class="vut-td vut-td--right">
                         </td>
                     </tr>
                 }
@@ -87,56 +90,74 @@ else
 }
 
 <style>
+    /* ── Container ── */
     .vut-table-wrap {
-        background: rgba(255, 255, 255, 0.01);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 16px;
+        background: rgba(17, 20, 25, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        border-radius: 2rem;
         overflow: hidden;
+        backdrop-filter: blur(8px);
     }
 
     .vut-table {
         width: 100%;
         border-collapse: collapse;
         text-align: left;
+        table-layout: fixed;
     }
 
+    /* ── Header ── */
     .vut-thead-row {
-        background: rgba(255, 255, 255, 0.02);
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: rgba(15, 23, 42, 0.6);
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
 
     .vut-th {
-        padding: 12px 16px;
+        padding: 10px 12px;
         font-size: 9px;
-        font-weight: 800;
+        font-weight: 900;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.25);
+        letter-spacing: 0.15em;
+        color: rgba(255, 255, 255, 0.3);
     }
 
     .vut-th--center { text-align: center; }
 
+    /* ── Body rows ── */
     .vut-row {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         transition: background 0.15s ease;
         cursor: pointer;
     }
 
     .vut-row:last-child { border-bottom: none; }
 
-    .vut-row:hover { background: rgba(167, 139, 250, 0.04); }
+    .vut-row:hover { background: rgba(255, 255, 255, 0.02); }
 
     .vut-td {
-        padding: 12px 16px;
+        padding: 10px 12px;
         vertical-align: middle;
+        overflow: hidden;
     }
 
     .vut-td--center { text-align: center; }
+    .vut-td--right  { text-align: right; }
 
+    /* ── Name cell ── */
+    .vut-name-cell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    /* ── Icon box ── */
     .vut-icon-box {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
         background: rgba(167, 139, 250, 0.08);
         border: 1px solid rgba(167, 139, 250, 0.15);
         display: flex;
@@ -145,40 +166,53 @@ else
         flex-shrink: 0;
     }
 
+    /* ── Text ── */
     .vut-name {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 700;
         color: white;
         display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.15s;
     }
 
     .vut-row:hover .vut-name { color: #A78BFA; }
 
     .vut-description {
-        font-size: 11px;
+        font-size: 10px;
         font-style: italic;
-        color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.35);
         display: block;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 300px;
     }
 
     .vut-count {
-        font-size: 14px;
-        font-weight: 800;
-        color: white;
+        font-size: 12px;
+        font-weight: 900;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .vut-count--muted {
+        color: rgba(255, 255, 255, 0.25);
+        font-weight: 700;
     }
 
     .vut-media-text {
-        font-size: 11px;
-        font-weight: 700;
-        color: rgba(255, 255, 255, 0.5);
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.45);
+        font-style: italic;
     }
 
+    .vut-media-text--empty {
+        color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* ── Loading / empty ── */
     .vut-empty {
         display: flex;
         flex-direction: column;
@@ -200,10 +234,6 @@ else
 
         .vut-td {
             padding: 10px 12px;
-        }
-
-        .vut-description {
-            max-width: 180px;
         }
     }
 </style>

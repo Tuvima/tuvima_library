@@ -95,6 +95,9 @@ else
     [Parameter] public bool PinNeedsReview { get; set; } = true;
     [Parameter] public bool ExpandNeedsReview { get; set; } = true;
 
+    // Drillable row indicator
+    [Parameter] public Func<VaultItemViewModel, bool>? IsDrillable { get; set; }
+
     private readonly Dictionary<string, bool> _expandedGroups = new();
 
     public void ExpandAll()
@@ -292,7 +295,8 @@ else
                 {
                     var isQuarantined = item.VaultDisplayStatus == VaultStatus.Quarantined;
                     var isSelected = SelectedItems.Contains(item.EntityId);
-                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "")"
+                    var isDrillable = IsDrillable?.Invoke(item) == true;
+                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") @(isDrillable ? "vmt-row--drillable" : "")"
                         style="cursor: pointer;"
                         @onclick="() => OnRowClicked.InvokeAsync(item.EntityId)">
                         @foreach (var col in cols)
@@ -417,6 +421,12 @@ else
                                         <span class="vct-text-cell">—</span>
                                         break;
 
+                                    case ColumnRenderType.TypeBadge:
+                                        <span class="vault-type-badge" style="@GetTypeBadgeStyle(GetPropertyValue(item, col.PropertyName))">
+                                            @VaultHelpers.FormatMediaType(GetPropertyValue(item, col.PropertyName) ?? "")
+                                        </span>
+                                        break;
+
                                     case ColumnRenderType.Text:
                                         <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
                                         break;
@@ -425,6 +435,14 @@ else
                                         <span class="vct-text-cell">—</span>
                                         break;
                                 }
+                            </td>
+                        }
+                        @if (isDrillable)
+                        {
+                            <td class="vmt-td" style="width: 32px; padding-right: 16px;">
+                                <div class="vmt-drill-chevron">
+                                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Style="font-size: 18px;" />
+                                </div>
                             </td>
                         }
                     </tr>
@@ -579,9 +597,24 @@ else
         _        => item.Author,
     };
 
+    private static string? GetPropertyValue(VaultItemViewModel item, string? propertyName) =>
+        propertyName switch
+        {
+            "MediaType"      => item.MediaType,
+            "ParentContext"  => item.ShowName ?? item.Series ?? item.Album,
+            _               => null,
+        };
+
+    private static string GetTypeBadgeStyle(string? mediaType)
+    {
+        var color = VaultHelpers.GetMediaTypeColor(mediaType ?? "");
+        return $"color: {color}; background: {VaultHelpers.HexToRgba(color, 0.12)}; border-color: {VaultHelpers.HexToRgba(color, 0.2)};";
+    }
+
     private static string GetTextValue(VaultItemViewModel item, string? propertyName) =>
         propertyName switch
         {
+            "ParentContext"  => item.ShowName ?? item.Series ?? item.Album ?? "—",
             "Author"        => item.Author ?? "—",
             "Director"      => item.Director ?? "—",
             "Artist"        => item.Artist ?? "—",
@@ -997,5 +1030,31 @@ else
             width: 40px;
             min-height: 40px;
         }
+    }
+
+    /* ── TypeBadge column chip ── */
+    .vault-type-badge {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+        white-space: nowrap;
+    }
+
+    /* ── Drillable row indicator ── */
+    .vmt-row--drillable:hover .vmt-drill-chevron {
+        opacity: 0.6;
+    }
+
+    .vmt-drill-chevron {
+        opacity: 0;
+        transition: opacity 0.15s;
+        color: rgba(255, 255, 255, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
     }
 </style>

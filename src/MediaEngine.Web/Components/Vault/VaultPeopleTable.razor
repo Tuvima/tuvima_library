@@ -15,27 +15,34 @@ else
         <table class="vpt-table">
             <thead>
                 <tr class="vpt-thead-row">
-                    <th class="vpt-th" style="width: 60%;">
+                    <th class="vpt-th" style="width: 36%;">
                         <button class="vpt-sort-header" @onclick="SortByName">
                             @L["VaultPeople_ColName"]
                             <MudIcon Icon="@(_activeSortKey == "name" ? (_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward) : Icons.Material.Filled.UnfoldMore)"
-                                     Style="@($"font-size: 12px; margin-left: 4px; opacity: {(_activeSortKey == "name" ? "0.7" : "0.25")};")" />
+                                     Style="@($"font-size: 11px; margin-left: 4px; opacity: {(_activeSortKey == "name" ? "0.7" : "0.25")};")" />
                         </button>
                     </th>
-                    <th class="vpt-th vpt-th--right" style="width: 30%;">
-                        <button class="vpt-sort-header vpt-sort-header--right" @onclick="SortByPresence">
-                            @L["VaultPeople_ColPresence"]
+                    <th class="vpt-th" style="width: 16%;">@L["VaultPeople_ColPresence"]</th>
+                    <th class="vpt-th vpt-th--center" style="width: 10%;">
+                        <button class="vpt-sort-header vpt-sort-header--center" @onclick="SortByPresence">
+                            Works
                             <MudIcon Icon="@(_activeSortKey == "presence" ? (_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward) : Icons.Material.Filled.UnfoldMore)"
-                                     Style="@($"font-size: 12px; margin-left: 4px; opacity: {(_activeSortKey == "presence" ? "0.7" : "0.25")};")" />
+                                     Style="@($"font-size: 11px; margin-left: 4px; opacity: {(_activeSortKey == "presence" ? "0.7" : "0.25")};")" />
                         </button>
                     </th>
+                    <th class="vpt-th" style="width: 28%;">Types</th>
+                    <th class="vpt-th vpt-th--right" style="width: 10%;"></th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var person in SortedPeople)
                 {
+                    var pid = person.Id.ToString();
+                    var hasCounts = Presence.TryGetValue(pid, out var counts) && counts.Count > 0;
+                    var total = hasCounts ? counts!.Values.Sum() : 0;
+                    var primaryRole = person.Roles.FirstOrDefault() ?? string.Empty;
                     <tr class="vpt-row" @onclick="() => OnRowClicked.InvokeAsync(person.Id)">
-                        <td class="vpt-td vpt-td--person" style="width: 60%;">
+                        <td class="vpt-td vpt-td--person">
                             <div class="vpt-avatar">
                                 @if (!string.IsNullOrEmpty(person.HeadshotUrl))
                                 {
@@ -44,7 +51,7 @@ else
                                 else
                                 {
                                     <MudIcon Icon="@Icons.Material.Outlined.Person"
-                                             Style="font-size: 18px; color: rgba(255,255,255,0.25);" />
+                                             Style="font-size: 16px; color: rgba(255,255,255,0.25);" />
                                 }
                             </div>
                             <div class="vpt-person-info">
@@ -52,51 +59,56 @@ else
                                     @if (person.IsGroup)
                                     {
                                         <MudIcon Icon="@Icons.Material.Filled.Groups"
-                                                 Style="font-size: 14px; color: rgba(255,255,255,0.35); margin-right: 4px; vertical-align: middle;" />
+                                                 Style="font-size: 12px; color: rgba(255,255,255,0.35); margin-right: 4px; vertical-align: middle;" />
                                     }
                                     @person.Name
                                 </span>
-                            @if (!string.IsNullOrWhiteSpace(person.Biography))
-                            {
-                                <span class="vpt-description">@person.Biography</span>
-                            }
-                            @if (person.Roles.Count > 0)
-                            {
-                                <div class="vpt-roles">
-                                    @foreach (var role in person.Roles)
-                                    {
-                                        <span class="vpt-role-chip">@role</span>
-                                    }
-                                </div>
-                            }
+                                @if (!string.IsNullOrWhiteSpace(person.Biography))
+                                {
+                                    <span class="vpt-description">@person.Biography</span>
+                                }
                             </div>
                         </td>
-                        <td class="vpt-td vpt-td--right">
-                            @{
-                                var pid = person.Id.ToString();
-                                var hasCounts = Presence.TryGetValue(pid, out var counts) && counts.Count > 0;
-                                var total = hasCounts ? counts!.Values.Sum() : 0;
+                        <td class="vpt-td">
+                            @if (!string.IsNullOrWhiteSpace(primaryRole))
+                            {
+                                <span class="vpt-role-chip vpt-role-chip--@primaryRole.ToLowerInvariant()">@primaryRole</span>
                             }
+                            @if (person.Roles.Count > 1)
+                            {
+                                <span class="vpt-role-more">+@(person.Roles.Count - 1)</span>
+                            }
+                        </td>
+                        <td class="vpt-td vpt-td--center">
                             @if (hasCounts)
                             {
-                                <div class="vpt-presence">
-                                    <span class="vpt-presence-total">@total</span>
-                                    <div class="vpt-presence-pills">
-                                        @foreach (var kvp in counts!.OrderByDescending(c => c.Value))
-                                        {
-                                            <span class="vpt-presence-pill" style="color: @VaultHelpers.GetMediaTypeColor(kvp.Key);"
-                                                  title="@kvp.Key">
-                                                <MudIcon Icon="@GetMediaTypeIcon(kvp.Key)" Style="font-size: 12px;" />
-                                                <span>@kvp.Value</span>
-                                            </span>
-                                        }
-                                    </div>
+                                <span class="vpt-count">@total</span>
+                            }
+                            else
+                            {
+                                <span class="vpt-count vpt-count--muted">—</span>
+                            }
+                        </td>
+                        <td class="vpt-td">
+                            @if (hasCounts)
+                            {
+                                <div class="vpt-presence-pills">
+                                    @foreach (var kvp in counts!.OrderByDescending(c => c.Value))
+                                    {
+                                        <span class="vpt-presence-pill" style="color: @VaultHelpers.GetMediaTypeColor(kvp.Key);"
+                                              title="@kvp.Key">
+                                            <MudIcon Icon="@GetMediaTypeIcon(kvp.Key)" Style="font-size: 11px;" />
+                                            <span>@kvp.Value</span>
+                                        </span>
+                                    }
                                 </div>
                             }
                             else
                             {
-                                <span class="vpt-presence-text">—</span>
+                                <span class="vpt-muted">—</span>
                             }
+                        </td>
+                        <td class="vpt-td vpt-td--right">
                         </td>
                     </tr>
                 }
@@ -155,57 +167,65 @@ else
 
     private static string GetMediaTypeIcon(string mediaType) => mediaType switch
     {
-        "Movies" => Icons.Material.Outlined.VideoLibrary,
-        "Books" => Icons.Material.Outlined.MenuBook,
+        "Movies"     => Icons.Material.Outlined.VideoLibrary,
+        "Books"      => Icons.Material.Outlined.MenuBook,
         "Audiobooks" => Icons.Material.Outlined.Headphones,
-        "TV" => Icons.Material.Outlined.LiveTv,
-        "Music" => Icons.Material.Outlined.MusicNote,
-        "Podcasts" => Icons.Material.Outlined.Mic,
-        "Comics" => Icons.Material.Outlined.AutoStories,
-        _ => Icons.Material.Outlined.Inventory2,
+        "TV"         => Icons.Material.Outlined.LiveTv,
+        "Music"      => Icons.Material.Outlined.MusicNote,
+        "Podcasts"   => Icons.Material.Outlined.Mic,
+        "Comics"     => Icons.Material.Outlined.AutoStories,
+        _            => Icons.Material.Outlined.Inventory2,
     };
 }
 
 <style>
+    /* ── Container ── */
     .vpt-table-wrap {
-        background: rgba(255, 255, 255, 0.01);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 16px;
-        overflow: visible;
+        background: rgba(17, 20, 25, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.03);
+        border-radius: 2rem;
+        overflow: hidden;
+        backdrop-filter: blur(8px);
     }
 
     .vpt-table {
         width: 100%;
         border-collapse: collapse;
         text-align: left;
+        table-layout: fixed;
     }
 
+    /* ── Header ── */
     .vpt-thead-row {
-        background: rgba(255, 255, 255, 0.02);
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: rgba(15, 23, 42, 0.6);
+        position: sticky;
+        top: 0;
+        z-index: 10;
     }
 
     .vpt-th {
-        padding: 10px 14px;
+        padding: 10px 12px;
         font-size: 9px;
-        font-weight: 800;
+        font-weight: 900;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: rgba(255, 255, 255, 0.25);
+        letter-spacing: 0.15em;
+        color: rgba(255, 255, 255, 0.3);
     }
 
-    .vpt-th--right { text-align: right; }
+    .vpt-th--right  { text-align: right; }
+    .vpt-th--center { text-align: center; }
 
     .vpt-sort-header {
         display: inline-flex;
         align-items: center;
         background: none;
         border: none;
-        color: rgba(255, 255, 255, 0.25);
+        color: rgba(255, 255, 255, 0.3);
         font-size: 9px;
-        font-weight: 800;
+        font-weight: 900;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.15em;
         cursor: pointer;
         padding: 0;
         transition: color 0.15s;
@@ -213,30 +233,29 @@ else
 
     .vpt-sort-header:hover {
         color: rgba(255, 255, 255, 0.8);
-        text-decoration: underline;
-        text-decoration-color: rgba(255, 255, 255, 0.3);
     }
 
-    .vpt-sort-header--right {
-        margin-left: auto;
+    .vpt-sort-header--center {
         display: flex;
-        justify-content: flex-end;
+        justify-content: center;
+        width: 100%;
     }
 
+    /* ── Body rows ── */
     .vpt-row {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         transition: background 0.15s ease;
         cursor: pointer;
     }
 
     .vpt-row:last-child { border-bottom: none; }
 
-    .vpt-row:hover { background: rgba(59, 130, 246, 0.04); }
+    .vpt-row:hover { background: rgba(255, 255, 255, 0.02); }
 
     .vpt-td {
-        padding: 8px 14px;
+        padding: 10px 12px;
         vertical-align: middle;
-        overflow: visible;
+        overflow: hidden;
     }
 
     .vpt-td--person {
@@ -245,11 +264,10 @@ else
         gap: 10px;
     }
 
-    .vpt-person-info {
-        flex: 1;
-        min-width: 0;
-    }
+    .vpt-td--center { text-align: center; }
+    .vpt-td--right  { text-align: right; }
 
+    /* ── Avatar ── */
     .vpt-avatar {
         width: 36px;
         height: 36px;
@@ -261,101 +279,97 @@ else
         justify-content: center;
         overflow: hidden;
         flex-shrink: 0;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        z-index: 1;
-        position: relative;
-    }
-
-    .vpt-avatar:hover {
-        transform: scale(2.8);
-        z-index: 50;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
     }
 
     .vpt-avatar img {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        opacity: 0.6;
+        opacity: 0.75;
         transition: opacity 0.15s;
     }
 
-    .vpt-avatar:hover img {
+    .vpt-row:hover .vpt-avatar img {
         opacity: 1;
     }
 
+    /* ── Person info ── */
+    .vpt-person-info {
+        flex: 1;
+        min-width: 0;
+    }
+
     .vpt-name {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: 700;
         color: white;
         display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: color 0.15s;
     }
 
     .vpt-row:hover .vpt-name { color: #60A5FA; }
 
     .vpt-description {
-        font-size: 11px;
+        font-size: 10px;
         font-style: italic;
-        color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.35);
         display: block;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        max-width: 300px;
     }
 
-    .vpt-roles {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 4px;
-        margin-top: 5px;
-    }
-
+    /* ── Role chip ── */
     .vpt-role-chip {
-        font-size: 8px;
-        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        font-size: 9px;
+        font-weight: 900;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 2px 8px;
+        letter-spacing: 0.05em;
+        padding: 2px 7px;
         border-radius: 4px;
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.5);
+        color: rgba(255, 255, 255, 0.45);
         white-space: nowrap;
     }
 
-    .vpt-td--right {
-        text-align: right;
-        vertical-align: middle;
+    .vpt-role-chip--author    { color: #60A5FA; border-color: #60A5FA33; background: #60A5FA0D; }
+    .vpt-role-chip--director  { color: #F472B6; border-color: #F472B633; background: #F472B60D; }
+    .vpt-role-chip--narrator  { color: #34D399; border-color: #34D39933; background: #34D3990D; }
+    .vpt-role-chip--composer  { color: #FBBF24; border-color: #FBBF2433; background: #FBBF240D; }
+    .vpt-role-chip--performer { color: #A78BFA; border-color: #A78BFA33; background: #A78BFA0D; }
+    .vpt-role-chip--artist    { color: #A78BFA; border-color: #A78BFA33; background: #A78BFA0D; }
+    .vpt-role-chip--cast      { color: #FB923C; border-color: #FB923C33; background: #FB923C0D; }
+
+    .vpt-role-more {
+        font-size: 9px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.25);
+        margin-left: 4px;
     }
 
-    .vpt-presence-text {
-        font-size: 10px;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.5);
-        text-align: right;
-    }
-
-    .vpt-presence {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 10px;
-    }
-
-    .vpt-presence-total {
-        font-size: 16px;
+    /* ── Count ── */
+    .vpt-count {
+        font-size: 12px;
         font-weight: 900;
-        color: rgba(255, 255, 255, 0.7);
-        min-width: 24px;
-        text-align: right;
+        color: rgba(255, 255, 255, 0.85);
     }
 
+    .vpt-count--muted {
+        color: rgba(255, 255, 255, 0.25);
+        font-weight: 700;
+    }
+
+    /* ── Presence pills ── */
     .vpt-presence-pills {
         display: flex;
-        gap: 6px;
+        gap: 8px;
         flex-wrap: wrap;
-        justify-content: flex-end;
     }
 
     .vpt-presence-pill {
@@ -365,12 +379,18 @@ else
         font-size: 10px;
         font-weight: 700;
         opacity: 0.7;
+        transition: opacity 0.15s;
     }
 
-    .vpt-presence-pill:hover {
-        opacity: 1;
+    .vpt-presence-pill:hover { opacity: 1; }
+
+    .vpt-muted {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.25);
+        font-style: italic;
     }
 
+    /* ── Loading / empty ── */
     .vpt-empty {
         display: flex;
         flex-direction: column;
@@ -392,11 +412,7 @@ else
         }
 
         .vpt-description {
-            max-width: 180px;
-        }
-
-        .vpt-presence-text {
-            font-size: 9px;
+            max-width: 160px;
         }
     }
 </style>
