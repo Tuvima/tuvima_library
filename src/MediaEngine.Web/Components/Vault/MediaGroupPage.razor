@@ -157,6 +157,9 @@ else
     /// <summary>Fires when the edit button on a row is clicked. Opens the detail drawer.</summary>
     [Parameter] public EventCallback<Guid> OnItemEditClicked { get; set; }
 
+    /// <summary>For artist view: list of album hub IDs to combine into a multi-album view.</summary>
+    [Parameter] public List<Guid>? ArtistAlbumHubIds { get; set; }
+
     // ── Private state ────────────────────────────────────────────────────────────
 
     private HubGroupDetailViewModel? _detail;
@@ -173,7 +176,14 @@ else
         _loading = true;
         StateHasChanged();
 
-        _detail = await ApiClient.GetHubGroupDetailAsync(GroupId);
+        if (GroupType == "artist" && ArtistAlbumHubIds is { Count: > 0 })
+        {
+            _detail = await ApiClient.GetArtistGroupDetailAsync(ArtistAlbumHubIds);
+        }
+        else
+        {
+            _detail = await ApiClient.GetHubGroupDetailAsync(GroupId);
+        }
 
         _loading = false;
         StateHasChanged();

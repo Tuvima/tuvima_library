@@ -205,6 +205,7 @@ public sealed class VideoProcessor : IMediaProcessor
             if (seriesTitle is not null && seasonNum.HasValue)
             {
                 claims.Add(Claim("title", seriesTitle, 0.55));
+                claims.Add(Claim("show_name", seriesTitle, 0.55));
                 claims.Add(Claim("season_number", seasonNum.Value.ToString(), 0.55));
                 if (episodeNum.HasValue)
                     claims.Add(Claim("episode_number", episodeNum.Value.ToString(), 0.55));

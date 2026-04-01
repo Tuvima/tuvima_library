@@ -56,6 +56,9 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("file_size_bytes")]
     public long? FileSizeBytes { get; set; }
 
+    [JsonPropertyName("file_path")]
+    public string? FilePath { get; set; }
+
     [JsonPropertyName("author")]
     public string? Author { get; set; }
 

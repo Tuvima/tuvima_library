@@ -687,6 +687,18 @@
                 }
             </DrawerSection>
 
+            <DrawerSection @key="@($"fileinfo-{MediaItem.EntityId}")" Title="File Information" Icon="@Icons.Material.Outlined.InsertDriveFile" DefaultOpen="false">
+                <div class="vdd-file-info">
+                    @foreach (var row in GetFileInfoRows())
+                    {
+                        <div class="vdd-file-info-row">
+                            <span class="vdd-file-info-label">@row.Label</span>
+                            <span class="vdd-file-info-value">@row.Value</span>
+                        </div>
+                    }
+                </div>
+            </DrawerSection>
+
             <DrawerSection @key="@($"history-{MediaItem.EntityId}")" Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
                 <VaultTimeline EntityId="@MediaItem.EntityId" />
             </DrawerSection>
@@ -1247,6 +1259,83 @@
             rows.Add(("Size", VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)));
 
         return rows;
+    }
+
+    /// <summary>Returns rows for the File Information drawer section.</summary>
+    private List<(string Label, string Value)> GetFileInfoRows()
+    {
+        var rows = new List<(string Label, string Value)>();
+        if (MediaItem is null) return rows;
+
+        if (!string.IsNullOrEmpty(MediaItem.FileName))
+            rows.Add(("File Name", MediaItem.FileName));
+
+        if (!string.IsNullOrEmpty(MediaItem.FilePath))
+        {
+            var folder = MediaItem.FilePath;
+            // Show the folder path (strip the filename if it's at the end)
+            if (!string.IsNullOrEmpty(MediaItem.FileName) && folder.EndsWith(MediaItem.FileName, StringComparison.OrdinalIgnoreCase))
+                folder = folder[..^MediaItem.FileName.Length].TrimEnd('/', '\\');
+            if (!string.IsNullOrEmpty(folder))
+                rows.Add(("Folder", folder));
+        }
+
+        if (MediaItem.FileSizeBytes.HasValue && MediaItem.FileSizeBytes.Value > 0)
+            rows.Add(("Size", VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)));
+
+        // Format: derive from file extension
+        if (!string.IsNullOrEmpty(MediaItem.FileName))
+        {
+            var ext = System.IO.Path.GetExtension(MediaItem.FileName)?.TrimStart('.').ToUpperInvariant();
+            if (!string.IsNullOrEmpty(ext))
+                rows.Add(("Format", ext));
+        }
+
+        // Movies: show quality info from resolution summary or filename patterns
+        if (MediaItem.MediaType is "Movies" or "TV")
+        {
+            var quality = DetectVideoQuality(MediaItem.FileName, MediaItem.ResolutionSummary);
+            if (!string.IsNullOrEmpty(quality))
+                rows.Add(("Quality", quality));
+        }
+
+        if (!string.IsNullOrEmpty(MediaItem.Duration))
+            rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
+
+        return rows;
+    }
+
+    /// <summary>Detect video quality from filename patterns (REMUX, 4K, 1080p, etc.).</summary>
+    private static string? DetectVideoQuality(string? fileName, string? resolutionSummary)
+    {
+        if (string.IsNullOrEmpty(fileName)) return null;
+        var parts = new List<string>();
+        var upper = fileName.ToUpperInvariant();
+
+        if (upper.Contains("2160P") || upper.Contains("4K") || upper.Contains("UHD"))
+            parts.Add("4K");
+        else if (upper.Contains("1080P"))
+            parts.Add("1080p");
+        else if (upper.Contains("720P"))
+            parts.Add("720p");
+
+        if (upper.Contains("REMUX"))
+            parts.Add("REMUX");
+        else if (upper.Contains("BLURAY") || upper.Contains("BLU-RAY"))
+            parts.Add("Blu-ray");
+        else if (upper.Contains("WEBDL") || upper.Contains("WEB-DL"))
+            parts.Add("WEB-DL");
+        else if (upper.Contains("WEBRIP") || upper.Contains("WEB-RIP"))
+            parts.Add("WEBRip");
+
+        if (upper.Contains("HDR10+"))
+            parts.Add("HDR10+");
+        else if (upper.Contains("HDR"))
+            parts.Add("HDR");
+        else if (upper.Contains("DOLBY VISION") || upper.Contains("DV"))
+            parts.Add("DV");
+
+        return parts.Count > 0 ? string.Join(" · ", parts) : null;
     }
 
     /// <summary>Returns a display name for the retail provider that matched this item.</summary>
@@ -3430,5 +3519,43 @@
         font-size: 11px;
         color: #EF9F27;
         margin-top: 6px;
+    }
+
+    /* ── File Information section ── */
+    .vdd-file-info {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-file-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-file-info-row:last-child {
+        border-bottom: none;
+    }
+
+    .vdd-file-info-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.4);
+        flex-shrink: 0;
+        min-width: 80px;
+    }
+
+    .vdd-file-info-value {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.75);
+        text-align: right;
+        word-break: break-all;
+        max-width: 240px;
     }
 </style>

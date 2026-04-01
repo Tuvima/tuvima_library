@@ -210,6 +210,41 @@ public sealed class EpubProcessor : IMediaProcessor
             if (!string.IsNullOrWhiteSpace(date))
                 claims.Add(Claim("date", date));
 
+            // Series — look for calibre:series and calibre:series_index in <meta> elements.
+            // EPUB 2: <meta name="calibre:series" content="Dune Chronicles"/>
+            // EPUB 3: <meta property="belongs-to-collection">Dune Chronicles</meta>
+            if (meta.MetaItems is { Count: > 0 })
+            {
+                foreach (var metaItem in meta.MetaItems)
+                {
+                    // EPUB 2 calibre:series
+                    if (string.Equals(metaItem.Name, "calibre:series", StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(metaItem.Content))
+                    {
+                        claims.Add(Claim(MetadataFieldConstants.Series, metaItem.Content));
+                    }
+                    else if (string.Equals(metaItem.Name, "calibre:series_index", StringComparison.OrdinalIgnoreCase)
+                             && !string.IsNullOrWhiteSpace(metaItem.Content))
+                    {
+                        claims.Add(Claim(MetadataFieldConstants.SeriesPosition, metaItem.Content));
+                    }
+                    // EPUB 3 belongs-to-collection
+                    else if (string.Equals(metaItem.Property, "belongs-to-collection", StringComparison.OrdinalIgnoreCase)
+                             && !string.IsNullOrWhiteSpace(metaItem.Content))
+                    {
+                        // Only add if we haven't already found a calibre:series
+                        if (!claims.Any(c => c.Key == MetadataFieldConstants.Series))
+                            claims.Add(Claim(MetadataFieldConstants.Series, metaItem.Content));
+                    }
+                    else if (string.Equals(metaItem.Property, "group-position", StringComparison.OrdinalIgnoreCase)
+                             && !string.IsNullOrWhiteSpace(metaItem.Content))
+                    {
+                        if (!claims.Any(c => c.Key == MetadataFieldConstants.SeriesPosition))
+                            claims.Add(Claim(MetadataFieldConstants.SeriesPosition, metaItem.Content));
+                    }
+                }
+            }
+
             // ISBN — look for dc:identifier with ISBN scheme
             if (meta.Identifiers is { Count: > 0 })
             {

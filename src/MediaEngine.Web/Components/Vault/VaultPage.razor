@@ -20,6 +20,17 @@
             <h1 class="vault-title">@L["Vault_Title"]</h1>
         </div>
 
+        @* ── ACTION CENTER (below title, above tabs) ── *@
+        <VaultActionCenter NeedsReviewCount="@_needsReviewCount"
+                           QuarantinedCount="@_quarantinedCount"
+                           WaitingForProviderCount="@_waitingForProviderCount"
+                           IsExpanded="@_actionCenterExpanded"
+                           IsExpandedChanged="v => _actionCenterExpanded = v"
+                           ConflictItems="@_conflictItems"
+                           OnItemEditClicked="OnActionCenterEdit"
+                           OnDeleteClicked="OnActionCenterDelete"
+                           OnBulkDeleteClicked="OnActionCenterBulkDelete" />
+
         @* ── 2. TAB ROW (tabs left, Add Media button right) ── *@
         <div class="vault-tab-row">
             <div class="vault-tab-bar">
@@ -89,17 +100,6 @@
                       OnCollapseAll="() => _configurableTableRef?.CollapseAll()" />
     </div>
 
-    @* ── ACTION CENTER ── *@
-    <VaultActionCenter NeedsReviewCount="@_needsReviewCount"
-                       QuarantinedCount="@_quarantinedCount"
-                       WaitingForProviderCount="@_waitingForProviderCount"
-                       IsExpanded="@_actionCenterExpanded"
-                       IsExpandedChanged="v => _actionCenterExpanded = v"
-                       ConflictItems="@_conflictItems"
-                       OnItemEditClicked="OnActionCenterEdit"
-                       OnDeleteClicked="OnActionCenterDelete"
-                       OnBulkDeleteClicked="OnActionCenterBulkDelete" />
-
     @* ── 5. BODY (full-width content) ── *@
     <div class="vault-body">
         <div class="vault-content">
@@ -108,6 +108,7 @@
                 @* ── Group drill-down sub-page ── *@
                 <MediaGroupPage GroupType="@_activeGroupType"
                                 GroupId="@_activeGroupId.Value"
+                                ArtistAlbumHubIds="@_artistAlbumHubIds"
                                 ShowUnowned="@_vaultPrefs.ShowUnowned"
                                 ShowUnownedChanged="OnShowUnownedChanged"
                                 OnBack="NavigateBackFromGroup"
@@ -142,7 +143,9 @@
                                              ActiveSortKey="@_activeSortKey"
                                              SortAscending="@_sortAscending"
                                              OnSortRequested="OnColumnSortRequested"
-                                             IsDrillable="@((VaultItemViewModel _) => true)" />
+                                             IsDrillable="@((VaultItemViewModel _) => true)"
+                                             OnEditClicked="OnManageEdit"
+                                             OnDeleteClicked="OnManageDelete" />
                 }
                 else
                 {
@@ -160,7 +163,9 @@
                                              SelectedItemsChanged="OnSelectionChanged"
                                              ActiveSortKey="@_activeSortKey"
                                              SortAscending="@_sortAscending"
-                                             OnSortRequested="OnColumnSortRequested" />
+                                             OnSortRequested="OnColumnSortRequested"
+                                             OnEditClicked="OnManageEdit"
+                                             OnDeleteClicked="OnManageDelete" />
                 }
                 @if (_hasMore)
                 {
@@ -347,6 +352,7 @@
     // ── Group drill-down sub-page state ──
     private string? _activeGroupType;
     private Guid? _activeGroupId;
+    private List<Guid>? _artistAlbumHubIds;
 
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
@@ -733,6 +739,31 @@
         await InvokeAsync(StateHasChanged);
     }
 
+    private async Task OnManageEdit(Guid entityId)
+    {
+        var item = _mediaItems.FirstOrDefault(m => m.EntityId == entityId)
+                   ?? _containerDisplayItems.FirstOrDefault(m => m.EntityId == entityId);
+        if (item is not null)
+        {
+            _selectedMedia = item;
+            _selectedPerson = null;
+            _selectedUniverse = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void OnManageDelete(Guid entityId)
+    {
+        var item = _mediaItems.FirstOrDefault(m => m.EntityId == entityId)
+                   ?? _containerDisplayItems.FirstOrDefault(m => m.EntityId == entityId);
+        if (item is not null)
+        {
+            _deleteItemId = entityId;
+            _deleteItemTitle = item.Title;
+            StateHasChanged();
+        }
+    }
+
     private async Task OnActionCenterBulkDelete(HashSet<Guid> entityIds)
     {
         if (entityIds.Count == 0) return;
@@ -871,13 +902,19 @@
         var groupType = GetGroupTypeForContainerTab(_activeTab);
         if (groupType is null) return;
 
-        // For artist view, we need to resolve the artist name to find their albums
+        // For artist view, we need to collect all album hub IDs for this artist
         if (_viewMode == "artists" && _activeTab == "music")
         {
             var artist = _containerDisplayItems.FirstOrDefault(i => i.EntityId == hubId);
             if (artist is not null)
             {
-                // Navigate using the first album hub ID, with artist as the group type
+                // Collect all album hub IDs for this artist
+                var artistName = artist.Title;
+                _artistAlbumHubIds = _contentGroups
+                    .Where(g => string.Equals(g.PrimaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
+                             && string.Equals(g.Creator, artistName, StringComparison.OrdinalIgnoreCase))
+                    .Select(g => g.HubId)
+                    .ToList();
                 NavigateToGroup("artist", hubId);
                 return;
             }
@@ -909,11 +946,9 @@
             string.Equals(p.Name, authorName, StringComparison.OrdinalIgnoreCase));
         if (person is not null)
         {
-            _activeTab = "people";
             _selectedPerson = person;
             _selectedMedia = null;
             _selectedUniverse = null;
-            UpdateUrl();
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -1124,6 +1159,7 @@
     {
         _activeGroupType = groupType;
         _activeGroupId = groupId;
+        if (groupType != "artist") _artistAlbumHubIds = null;
         StateHasChanged();
     }
 

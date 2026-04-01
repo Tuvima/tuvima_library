@@ -74,7 +74,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     ) AS author,
                     MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS director,
                     MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
-                    MAX(CASE WHEN cv.key = 'series_name' THEN cv.value END) AS series,
+                    MAX(CASE WHEN cv.key = 'series' THEN cv.value END) AS series,
                     MAX(CASE WHEN cv.key = 'series_position' THEN cv.value END) AS series_position,
                     MAX(CASE WHEN cv.key = 'narrator' THEN cv.value END) AS narrator,
                     MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
@@ -84,6 +84,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
                     MAX(CASE WHEN cv.key = 'season_number' THEN cv.value END) AS season_number,
                     MAX(CASE WHEN cv.key = 'episode_number' THEN cv.value END) AS episode_number,
+                    MAX(CASE WHEN cv.key = 'show_name' THEN cv.value END) AS show_name,
+                    MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                     (SELECT pr.name || ': ' || mc_rt.claim_value
                      FROM metadata_claims mc_rt
                      INNER JOIN media_assets ma_rt ON ma_rt.id = mc_rt.entity_id
@@ -195,6 +197,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.track_number,
                     wd.season_number,
                     wd.episode_number,
+                    wd.show_name,
+                    wd.duration,
                     wd.retail_match_detail,
                     wd.file_name,
                     wd.title_provider_id AS match_source,
@@ -227,7 +231,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         ELSE 'Registered'
                     END AS status,
                     CASE WHEN ad.asset_status = 'Conflicted' THEN 1 ELSE 0 END AS has_duplicate,
-                    ad.file_path_root,
+                    ad.file_path_root AS file_path,
                     wd.wikidata_status,
                     CASE
                         WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'matched'
@@ -330,12 +334,13 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.entity_id, fd.title, fd.year, fd.media_type, fd.cover_url,
                 fd.match_source, fd.confidence, fd.status, fd.has_duplicate,
                 fd.review_id, fd.review_trigger, fd.has_user_locks,
-                fd.file_name, fd.author, fd.file_path_root, fd.wikidata_status,
+                fd.file_name, fd.author, fd.file_path, fd.wikidata_status,
                 fd.wikidata_match, fd.retail_match, fd.wikidata_qid, fd.hero_url,
                 fd.created_at, fd.director, fd.artist, fd.retail_match_detail,
                 fd.series, fd.series_position, fd.narrator, fd.genre,
                 fd.runtime, fd.rating, fd.album, fd.track_number,
-                fd.season_number, fd.episode_number
+                fd.season_number, fd.episode_number,
+                fd.show_name, fd.duration
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -365,6 +370,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 HasUserLocks  = reader.GetInt32(11) == 1,
                 FileName      = reader.IsDBNull(12) ? null : reader.GetString(12),
                 Author        = reader.IsDBNull(13) ? null : reader.GetString(13),
+                FilePath      = reader.IsDBNull(14) ? null : reader.GetString(14),
                 WikidataStatus = reader.IsDBNull(15) ? null : reader.GetString(15),
                 WikidataMatch  = reader.IsDBNull(16) ? "none" : reader.GetString(16),
                 RetailMatch    = reader.IsDBNull(17) ? "none" : reader.GetString(17),
@@ -387,6 +393,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 TrackNumber       = reader.IsDBNull(31) ? null : reader.GetString(31),
                 SeasonNumber      = reader.IsDBNull(32) ? null : reader.GetString(32),
                 EpisodeNumber     = reader.IsDBNull(33) ? null : reader.GetString(33),
+                ShowName          = reader.IsDBNull(34) ? null : reader.GetString(34),
+                Duration          = reader.IsDBNull(35) ? null : reader.GetString(35),
             });
         }
 

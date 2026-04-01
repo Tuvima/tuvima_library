@@ -50,6 +50,7 @@ public sealed class VaultItemViewModel
     public string WikidataMatch { get; init; } = "none";
     public DateTimeOffset CreatedAt { get; init; }
     public string? FileName { get; init; }
+    public string? FilePath { get; init; }
     public long? FileSizeBytes { get; init; }
     public Guid? ReviewItemId { get; init; }
     public bool HasUserLocks { get; init; }
@@ -122,6 +123,7 @@ public sealed class VaultItemViewModel
         WikidataMatch = r.WikidataMatch,
         CreatedAt = r.CreatedAt,
         FileName = r.FileName,
+        FilePath = r.FilePath,
         FileSizeBytes = r.FileSizeBytes,
         ReviewItemId = r.ReviewItemId,
         HasUserLocks = r.HasUserLocks,

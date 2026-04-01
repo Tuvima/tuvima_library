@@ -76,6 +76,8 @@ else
     [Parameter] public int PosterSize { get; set; } = 48;
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
     [Parameter] public EventCallback<string> OnAuthorClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnEditClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
 
     // Batch selection
     [Parameter] public HashSet<Guid> SelectedItems { get; set; } = [];
@@ -245,8 +247,8 @@ else
                     var isSelected = SelectedItems.Contains(item.EntityId);
                     var isDrillable = IsDrillable?.Invoke(item) == true;
                     <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") @(isDrillable ? "vmt-row--drillable" : "")"
-                        style="cursor: pointer;"
-                        @onclick="() => OnRowClicked.InvokeAsync(item.EntityId)">
+                        style="@(isDrillable ? "cursor: pointer;" : "")"
+                        @onclick="() => { if (isDrillable) OnRowClicked.InvokeAsync(item.EntityId); }">
                         @foreach (var col in cols)
                         {
                             var tdAlignClass = col.Align switch
@@ -377,6 +379,17 @@ else
 
                                     case ColumnRenderType.Text:
                                         <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
+                                        break;
+
+                                    case ColumnRenderType.ManageActions:
+                                        <div class="vmt-manage-actions" @onclick:stopPropagation="true">
+                                            <button class="vmt-manage-btn vmt-manage-btn--edit" title="Edit" @onclick="() => OnEditClicked.InvokeAsync(item.EntityId)">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Edit" Style="font-size: 14px;" />
+                                            </button>
+                                            <button class="vmt-manage-btn vmt-manage-btn--delete" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
+                                            </button>
+                                        </div>
                                         break;
 
                                     default:
@@ -965,5 +978,44 @@ else
         display: flex;
         align-items: center;
         justify-content: flex-end;
+    }
+
+    /* ── Manage actions ── */
+    .vmt-manage-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+
+    .vmt-row:hover .vmt-manage-actions {
+        opacity: 1;
+    }
+
+    .vmt-manage-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vmt-manage-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vmt-manage-btn--delete:hover {
+        background: rgba(239, 68, 68, 0.15);
+        color: #EF4444;
+        border-color: rgba(239, 68, 68, 0.3);
     }
 </style>

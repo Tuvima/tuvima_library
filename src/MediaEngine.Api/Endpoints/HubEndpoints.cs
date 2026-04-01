@@ -457,9 +457,11 @@ public static class HubEndpoints
                 _ => $"{years[0]}–{years[^1]}",
             };
 
-            // Build the response — TV uses seasons grouping, others use flat works list.
+            // Build the response — TV uses seasons grouping, Music uses album grouping, others use flat works list.
             List<HubGroupSeasonDto> seasons = [];
             List<HubGroupWorkDto>   flatWorks = [];
+
+            bool isMusic = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase);
 
             if (isTv)
             {
@@ -469,8 +471,16 @@ public static class HubEndpoints
                     .Select(g => new HubGroupSeasonDto
                     {
                         SeasonNumber = g.Key,
+                        SeasonLabel  = $"Season {g.Key}",
                         Episodes     = g.OrderBy(e => int.TryParse(e.Episode, out var en) ? en : e.SequenceIndex ?? int.MaxValue).ToList(),
                     })
+                    .ToList();
+            }
+            else if (isMusic && workDtos.Count > 1)
+            {
+                // Music: tracks are already within one album hub, show as flat list with track ordering
+                flatWorks = workDtos
+                    .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : w.SequenceIndex ?? int.MaxValue)
                     .ToList();
             }
             else
@@ -499,6 +509,118 @@ public static class HubEndpoints
         .WithSummary("Returns hub header metadata and child works sorted by sequence for sub-page rendering. TV works are grouped by season.")
         .Produces<HubGroupDetailDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        // GET /hubs/artist-group-detail?hub_ids=id1,id2,... — combined multi-hub detail for artist-level drill-down.
+        group.MapGet("/artist-group-detail", async (
+            [Microsoft.AspNetCore.Mvc.FromQuery(Name = "hub_ids")] string hubIdsParam,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(hubIdsParam))
+                return Results.BadRequest("hub_ids parameter is required");
+
+            var hubIds = hubIdsParam.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(s => Guid.TryParse(s, out var id) ? id : (Guid?)null)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+
+            if (hubIds.Count == 0)
+                return Results.BadRequest("No valid hub IDs provided");
+
+            // Load all hubs and build album-based seasons
+            var allSeasons = new List<HubGroupSeasonDto>();
+            string? combinedCreator = null;
+            string? combinedCover = null;
+            string? combinedGenre = null;
+            int totalItems = 0;
+            var allYears = new List<string>();
+
+            int albumIndex = 0;
+            foreach (var hubId in hubIds)
+            {
+                var hub = await hubRepo.GetHubWithWorksAsync(hubId, ct);
+                if (hub is null) continue;
+
+                var workDtos = hub.Works
+                    .OrderBy(w => w.SequenceIndex ?? int.MaxValue)
+                    .ThenBy(w => w.Id)
+                    .Select(w =>
+                    {
+                        var wDto = WorkDto.FromDomain(w);
+                        return new HubGroupWorkDto
+                        {
+                            WorkId        = w.Id,
+                            Title         = GetCanonical(wDto, "title") ?? $"Track {w.Id.ToString("N")[..8]}",
+                            SequenceIndex = w.SequenceIndex,
+                            Year          = GetCanonical(wDto, "release_year") ?? GetCanonical(wDto, "year"),
+                            Duration      = GetCanonical(wDto, "duration") ?? GetCanonical(wDto, "runtime"),
+                            CoverUrl      = GetCanonical(wDto, "cover"),
+                            WikidataQid   = w.WikidataQid,
+                            TrackNumber   = GetCanonical(wDto, "track_number"),
+                            Status        = w.WikidataStatus switch
+                            {
+                                "confirmed" => "Verified",
+                                "skipped"   => "Unlinked",
+                                _           => "Provisional",
+                            },
+                        };
+                    })
+                    .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : w.SequenceIndex ?? int.MaxValue)
+                    .ToList();
+
+                if (workDtos.Count > 0)
+                {
+                    var firstWorkDto = WorkDto.FromDomain(hub.Works[0]);
+                    combinedCreator ??= GetCanonical(firstWorkDto, "artist")
+                                       ?? GetCanonical(firstWorkDto, "author");
+                    combinedCover ??= GetCanonical(firstWorkDto, "cover");
+                    combinedGenre ??= GetCanonical(firstWorkDto, "genre");
+
+                    var yearValues = workDtos.Where(w => !string.IsNullOrWhiteSpace(w.Year)).Select(w => w.Year!);
+                    allYears.AddRange(yearValues);
+                }
+
+                allSeasons.Add(new HubGroupSeasonDto
+                {
+                    SeasonNumber = albumIndex,
+                    SeasonLabel  = hub.DisplayName ?? $"Album {albumIndex + 1}",
+                    Episodes     = workDtos,
+                });
+
+                totalItems += workDtos.Count;
+                albumIndex++;
+            }
+
+            var years = allYears.Distinct().OrderBy(y => y).ToList();
+            string? yearRange = years.Count switch
+            {
+                0 => null,
+                1 => years[0],
+                _ => $"{years[0]}–{years[^1]}",
+            };
+
+            var response = new HubGroupDetailDto
+            {
+                HubId            = hubIds[0],
+                DisplayName      = combinedCreator ?? "Unknown Artist",
+                PrimaryMediaType = "Music",
+                CoverUrl         = combinedCover,
+                Creator          = combinedCreator,
+                YearRange        = yearRange,
+                Genre            = combinedGenre,
+                TotalItems       = totalItems,
+                Seasons          = allSeasons,
+                Works            = [],
+            };
+
+            return Results.Ok(response);
+        })
+        .WithName("GetArtistGroupDetail")
+        .WithSummary("Returns combined multi-hub detail for artist-level drill-down in the Music tab. Each hub becomes an album 'season'.")
+        .Produces<HubGroupDetailDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
         // ── Content Groups ───────────────────────────────────────────────────────

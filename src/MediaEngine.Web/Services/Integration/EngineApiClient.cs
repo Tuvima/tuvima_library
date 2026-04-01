@@ -3145,6 +3145,23 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<HubGroupDetailViewModel?> GetArtistGroupDetailAsync(IEnumerable<Guid> hubIds, CancellationToken ct = default)
+    {
+        try
+        {
+            var idsParam = string.Join(",", hubIds);
+            return await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
+                $"/hubs/artist-group-detail?hub_ids={idsParam}", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/artist-group-detail failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
 
     public async Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default)

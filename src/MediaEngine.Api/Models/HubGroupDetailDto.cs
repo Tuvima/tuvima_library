@@ -50,6 +50,9 @@ public sealed class HubGroupSeasonDto
     [JsonPropertyName("season_number")]
     public int SeasonNumber { get; init; }
 
+    [JsonPropertyName("season_label")]
+    public string? SeasonLabel { get; init; }
+
     [JsonPropertyName("episodes")]
     public List<HubGroupWorkDto> Episodes { get; init; } = [];
 }
