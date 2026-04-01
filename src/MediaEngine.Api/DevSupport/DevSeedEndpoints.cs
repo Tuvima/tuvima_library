@@ -653,7 +653,7 @@ public static class DevSeedEndpoints
             .WithSummary("Wipe database, library root, and watch folder — then reinitialize a fresh DB");
 
         group.MapPost("/full-test", FullTestAsync)
-            .WithSummary("Wipe everything → seed test files → return per-type summary (?types= to filter)");
+            .WithSummary("Wipe everything → seed test files → return per-type summary (?types= to filter; ?wipe=false to skip wipe and add files to existing DB)");
     }
 
     // ── GET /dev/check-keys ─────────────────────────────────────────────────
@@ -1062,19 +1062,31 @@ public static class DevSeedEndpoints
         IOptions<IngestionOptions> options,
         Storage.Contracts.IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        bool wipe = true)
     {
-        logger.LogInformation("[FullTest] Starting full ingestion test: wipe → seed → scan → start");
+        logger.LogInformation("[FullTest] Starting full ingestion test: {Mode}",
+            wipe ? "wipe → seed → scan → start" : "seed → scan → start (no wipe)");
 
-        // ── Step 1: Wipe (engine NOT restarted yet) ───────────────────────────
-        // Keeping the FSW stopped during seeding prevents the FileSystemWatcher
-        // from firing "Created" events on seed files. Those FSW events would enter
-        // the 30-second quiet-period buffer and later attempt to re-process files
-        // that ScanDirectory has already enqueued. By deferring the engine start
-        // until after seeding, every file is ingested exactly once via the direct
-        // ScanDirectory path, giving deterministic, race-free behaviour.
-        var wipeResult = await WipeAsync(db, options, configLoader, ingestionEngine, logger,
-            startEngineAfterWipe: false);
+        // ── Step 1: Wipe (optional, default true) ────────────────────────────
+        // Pass wipe=false from the batch files when the batch file has already
+        // called POST /dev/wipe as a visible first step, so the coordinated
+        // PauseWatcher → wipe → seed → scan → ResumeWatcher sequence still works
+        // but the wipe step is explicit and auditable in the batch output.
+        //
+        // When wipe=true (default), the full sequence runs atomically here.
+        // Either way, the FSW is paused before seeding so no spurious events fire.
+        IResult? wipeResult = null;
+        if (wipe)
+        {
+            wipeResult = await WipeAsync(db, options, configLoader, ingestionEngine, logger,
+                startEngineAfterWipe: false);
+        }
+        else
+        {
+            // Caller already wiped and left the FSW paused — nothing to do here.
+            logger.LogInformation("[FullTest] Wipe skipped (wipe=false) — assuming FSW already paused by caller");
+        }
 
         // ── Step 2: Seed files (FSW is NOT watching — no spurious events) ─────
         var seedResult = await SeedLibraryAsync(context, options, configLoader, logger);
@@ -1123,9 +1135,10 @@ public static class DevSeedEndpoints
 
         return Results.Ok(new
         {
-            message = "Full test initiated: database wiped, library cleared, seed files enqueued " +
-                      "directly into the pipeline (race-free), FSW started. " +
-                      "Monitor via GET /ingestion/batches and SignalR intercom.",
+            message = wipe
+                ? "Full test initiated: database wiped, library cleared, seed files enqueued directly into the pipeline (race-free), FSW started."
+                : "Full test initiated (no wipe): seed files enqueued directly into the pipeline (race-free), FSW started.",
+            wipe_performed = wipe,
             wipe = wipeResult,
             seed = seedResult,
             scanned_directories = scannedPaths,

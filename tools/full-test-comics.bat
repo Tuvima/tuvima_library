@@ -1,7 +1,7 @@
 @echo off
 :: ─────────────────────────────────────────────────────────────────────────────
 :: full-test-comics.bat
-:: Wipes the database, clears the watch folder, seeds COMICS only,
+:: Wipes the database + ALL library files, seeds COMICS only,
 :: and kicks off the ingestion pipeline.
 ::
 :: Usage:  full-test-comics.bat
@@ -9,14 +9,22 @@
 
 set ENGINE_URL=http://localhost:61495
 set TYPES=comics
+set LABEL=COMICS
 
 echo.
-echo  FULL TEST — COMICS ONLY
+echo  FULL TEST — %LABEL%
 echo  Engine: %ENGINE_URL%
 echo ─────────────────────────────────────────────────────────────────────────────
 echo.
+echo  [!] WARNING: This will PERMANENTLY DELETE:
+echo        - The entire database (all library records)
+echo        - All files in the library root and watch folders
+echo.
+echo  Press Ctrl+C NOW to cancel, or any other key to continue...
+pause >nul
+echo.
 
-echo [1/2] Checking engine is reachable...
+echo [1/3] Checking engine is reachable...
 curl -sf "%ENGINE_URL%/system/status" >nul 2>&1
 if errorlevel 1 (
     echo  ERROR: Engine not responding at %ENGINE_URL%
@@ -28,9 +36,15 @@ if errorlevel 1 (
 echo  OK
 
 echo.
-echo [2/2] Running full test (wipe + seed comics + scan)...
+echo [2/3] Wiping database and library files...
+curl -s -X POST "%ENGINE_URL%/dev/wipe" ^
+     -H "Accept: application/json" ^
+     | powershell -NoProfile -Command "$r = $input | ConvertFrom-Json; Write-Host '  '$r.message; $r.details | ForEach-Object { Write-Host '   ·' $_ }"
 echo.
-curl -s -X POST "%ENGINE_URL%/dev/full-test?types=%TYPES%" ^
+
+echo [3/3] Seeding %LABEL% + scanning into pipeline...
+echo.
+curl -s -X POST "%ENGINE_URL%/dev/full-test?types=%TYPES%&wipe=false" ^
      -H "Accept: application/json" ^
      | powershell -NoProfile -Command "$input | ConvertFrom-Json | ConvertTo-Json -Depth 5"
 

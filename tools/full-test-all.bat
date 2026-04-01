@@ -1,7 +1,7 @@
 @echo off
 :: ─────────────────────────────────────────────────────────────────────────────
 :: full-test-all.bat
-:: Wipes the database, clears the watch folder, seeds ALL test media types,
+:: Wipes the database + ALL library files, seeds ALL test media types,
 :: and kicks off the full ingestion pipeline.
 ::
 :: Usage:  full-test-all.bat
@@ -21,8 +21,15 @@ echo  FULL TEST — ALL MEDIA TYPES
 echo  Engine: %ENGINE_URL%
 echo ─────────────────────────────────────────────────────────────────────────────
 echo.
+echo  [!] WARNING: This will PERMANENTLY DELETE:
+echo        - The entire database (all library records)
+echo        - All files in the library root and watch folders
+echo.
+echo  Press Ctrl+C NOW to cancel, or any other key to continue...
+pause >nul
+echo.
 
-echo [1/2] Checking engine is reachable...
+echo [1/3] Checking engine is reachable...
 curl -sf "%ENGINE_URL%/system/status" >nul 2>&1
 if errorlevel 1 (
     echo  ERROR: Engine not responding at %ENGINE_URL%
@@ -34,10 +41,16 @@ if errorlevel 1 (
 echo  OK
 
 echo.
-echo [2/2] Running full test (wipe + seed all types + scan)...
-echo  This triggers:  books, audiobooks, movies, tv, music, comics
+echo [2/3] Wiping database and library files...
+curl -s -X POST "%ENGINE_URL%/dev/wipe" ^
+     -H "Accept: application/json" ^
+     | powershell -NoProfile -Command "$r = $input | ConvertFrom-Json; Write-Host '  '$r.message; $r.details | ForEach-Object { Write-Host '   ·' $_ }"
 echo.
-curl -s -X POST "%ENGINE_URL%/dev/full-test" ^
+
+echo [3/3] Seeding ALL types + scanning into pipeline...
+echo  Types: books, audiobooks, movies, tv, music, comics
+echo.
+curl -s -X POST "%ENGINE_URL%/dev/full-test?wipe=false" ^
      -H "Accept: application/json" ^
      | powershell -NoProfile -Command "$input | ConvertFrom-Json | ConvertTo-Json -Depth 5"
 
