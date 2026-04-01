@@ -16,7 +16,7 @@ else
         {
             @foreach (var group in GetGroups())
             {
-                <div class="vmt-group">
+                <div class="vmt-group @(group.Key == "review" ? "vmt-group--review" : group.Key == "quarantined" ? "vmt-group--quarantined" : "")">
                     <div class="vmt-group-header" @onclick="() => ToggleGroup(group.Key)">
                         <MudIcon Icon="@(IsGroupExpanded(group.Key) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
                                  Style="font-size: 14px; opacity: 0.4;" />
@@ -545,6 +545,25 @@ else
         font-weight: 700;
         color: rgba(255, 255, 255, 0.2);
         white-space: nowrap;
+    }
+
+    /* ── Review & Quarantined group containers ── */
+    .vmt-group--review .vmt-table-wrap {
+        background: rgba(239, 159, 39, 0.04);
+        border: 1px solid rgba(239, 159, 39, 0.15);
+    }
+
+    .vmt-group--review .vmt-group-label {
+        color: #EF9F27;
+    }
+
+    .vmt-group--quarantined .vmt-table-wrap {
+        background: rgba(239, 68, 68, 0.03);
+        border: 1px solid rgba(239, 68, 68, 0.1);
+    }
+
+    .vmt-group--quarantined .vmt-group-label {
+        color: rgba(239, 68, 68, 0.6);
     }
 
     /* ── Empty / Loading ── */

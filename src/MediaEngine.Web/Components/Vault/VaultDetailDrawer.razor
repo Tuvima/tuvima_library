@@ -48,10 +48,13 @@
                                 <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
                                 @MediaItem.WikidataQid
                             </a>
-                            <a href="https://www.wikidata.org/wiki/Special:GoToLinkedPage/@(MediaItem.WikidataQid)/enwiki" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
-                                <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
-                                Wikipedia
-                            </a>
+                            @if (GetWikipediaUrl() is string mediaWikiUrl)
+                            {
+                                <a href="@mediaWikiUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                    Wikipedia
+                                </a>
+                            }
                         }
                     </div>
                     <h2 class="vdd-title">@MediaItem.Title</h2>
@@ -110,6 +113,13 @@
                                 <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
                                 @Person.WikidataQid
                             </a>
+                            @if (GetWikipediaUrl() is string personWikiUrl)
+                            {
+                                <a href="@personWikiUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                    Wikipedia
+                                </a>
+                            }
                         }
                     </div>
                     <h2 class="vdd-title">@Person.Name</h2>
@@ -188,7 +198,7 @@
 
                 @* ── Tab content (selected via pipeline circles) ── *@
                 @{
-                    var hasRetail = IsRealRetailMatch(MediaItem.RetailMatch);
+                    var hasRetail = IsRealRetailMatch(MediaItem?.RetailMatch) || IsRealRetailMatch(MediaItem?.RetailMatchDetail);
                     var hasWikidata = IsWikidataMatched(MediaItem.WikidataQid);
                     var hasRetailForWiki = hasRetail;
                     var retailClaims = _claims.Where(c =>
@@ -246,7 +256,7 @@
                                                 var bestClaim = group.OrderByDescending(c => c.Confidence).First();
                                                 <div class="vdd-claim-row">
                                                     <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                                    <span class="vdd-field-value">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
+                                                    <span class="vdd-field-value">@bestClaim.ClaimValue</span>
                                                 </div>
                                             }
                                         }
@@ -284,7 +294,7 @@
                                             var bestClaim = group.OrderByDescending(c => c.Confidence).First();
                                             <div class="vdd-claim-row">
                                                 <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                                <span class="vdd-field-value">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
+                                                <span class="vdd-field-value">@bestClaim.ClaimValue</span>
                                             </div>
                                         }
                                     </div>
@@ -525,7 +535,7 @@
                                             var bestClaim = group.OrderByDescending(c => c.Confidence).First();
                                             <div class="vdd-claim-row">
                                                 <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                                <span class="vdd-field-value">@(bestClaim.ClaimValue.Length > 80 ? bestClaim.ClaimValue[..80] + "\u2026" : bestClaim.ClaimValue)</span>
+                                                <span class="vdd-field-value">@bestClaim.ClaimValue</span>
                                             </div>
                                         }
                                     </div>
@@ -629,7 +639,7 @@
                                                                 </span>
                                                             }
                                                             <span class="vdd-confirm-prompt">Are you sure?</span>
-                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmWikidataMatch(result.Qid)">
+                                                            <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true" @onclick="() => ConfirmWikidataMatch(result.Qid)">
                                                                 Yes
                                                             </button>
                                                             <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
@@ -938,6 +948,7 @@
     [Parameter] public EventCallback<Guid> OnPurge { get; set; }
     [Parameter] public EventCallback<Guid> OnApplyMatch { get; set; }
     [Parameter] public EventCallback<Guid> OnPersonAliasClicked { get; set; }
+    [Parameter] public EventCallback<string> OnCreatorClicked { get; set; }
 
     private bool _confirmPurge;
     private int _selectedStage = 0;
@@ -1001,12 +1012,32 @@
     private static bool IsWikidataMatched(string? qid) =>
         !string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Looks up the Wikipedia URL from claims, falling back to GoToLinkedPage for persons without claims.</summary>
+    private string? GetWikipediaUrl()
+    {
+        // Try claims first — stored wikipedia_url from Wikidata provider
+        if (_claims is not null && _claims.Count > 0)
+        {
+            var wikiClaim = _claims.FirstOrDefault(c =>
+                c.ClaimKey.Equals("wikipedia_url", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(c.ClaimValue)
+                && Uri.IsWellFormedUriString(c.ClaimValue, UriKind.Absolute));
+            if (wikiClaim is not null) return wikiClaim.ClaimValue;
+        }
+
+        // Fallback: construct from QID (media item or person)
+        var qid = MediaItem?.WikidataQid ?? Person?.WikidataQid;
+        if (!string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            return $"https://www.wikidata.org/wiki/Special:GoToLinkedPage/{qid}/enwiki";
+
+        return null;
+    }
+
     private int ActiveTab => _selectedStage;  // 0=File, 1=Retail, 2=Wikidata, 3=Universe
 
-    private void NavigateToCreatorPerson(string creatorName)
+    private async Task NavigateToCreatorPerson(string creatorName)
     {
-        // TODO: Look up person by name and open person drawer
-        // For now, this is a placeholder that will be wired to the person detail drawer
+        await OnCreatorClicked.InvokeAsync(creatorName);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -1409,20 +1440,27 @@
     private async Task ConfirmWikidataMatch(string qid)
     {
         if (MediaItem is null || string.IsNullOrWhiteSpace(qid)) return;
+        try
+        {
+            var request = new ApplyMatchRequestDto { Qid = qid };
+            await ApiClient.ApplyRegistryMatchAsync(MediaItem.EntityId, request);
 
-        var request = new ApplyMatchRequestDto { Qid = qid };
-        await ApiClient.ApplyRegistryMatchAsync(MediaItem.EntityId, request);
+            _pendingWikidataMatch = null;
+            _wikidataSearchResults = [];
+            _confirmingWikidataMatch = false;
+            _wikidataSearchQuery = "";
+            _hasSearchedWikidata = false;
 
-        _pendingWikidataMatch = null;
-        _wikidataSearchResults = [];
-        _confirmingWikidataMatch = false;
-        _wikidataSearchQuery = "";
-        _hasSearchedWikidata = false;
+            _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
+            StateHasChanged();
 
-        // Reload claims to reflect the new Wikidata link
-        _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
-
-        await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
+            await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
+        }
+        catch (Exception)
+        {
+            _confirmingWikidataMatch = false;
+            StateHasChanged();
+        }
     }
 
     private void SelectSearchResult(RegistryItemViewModel result)
@@ -1502,6 +1540,7 @@
 
         return null;
     }
+
 }
 
 <style>
@@ -3128,9 +3167,7 @@
 
     .vdd-claim-row .vdd-field-value {
         flex: 1;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        word-break: break-word;
     }
 
     .vdd-claim-confidence {

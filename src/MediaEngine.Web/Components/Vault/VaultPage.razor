@@ -184,6 +184,14 @@
                                   Presence="@_personPresence"
                                   Loading="@_loadingPeople"
                                   OnRowClicked="OnPersonRowClicked" />
+                @if (HasMorePeople)
+                {
+                    <div class="vault-load-more">
+                        <button class="vault-load-more-btn" @onclick="LoadMorePeople">
+                            @L["Vault_LoadMore"]
+                        </button>
+                    </div>
+                }
             }
             else if (_activeTab == "universes")
             {
@@ -223,7 +231,8 @@
                            OnClose="CloseDetailDrawer"
                            OnPurge="OnPurgeItem"
                            OnApplyMatch="OnApplyMatchClicked"
-                           OnPersonAliasClicked="OnPersonAliasClicked" />
+                           OnPersonAliasClicked="OnPersonAliasClicked"
+                           OnCreatorClicked="OnCreatorNameClicked" />
     }
 
     @* ── 6. ADD MEDIA DRAWER ── *@
@@ -331,6 +340,8 @@
     private Dictionary<string, int> _allRoleCounts = new();
     private HashSet<string> _enabledRoles = new();
     private Dictionary<string, Dictionary<string, int>> _personPresence = new();
+    private int _peopleDisplayCount = 50;
+    private const int PeoplePageSize = 50;
 
     // ── URL state ──
     private Guid? _pendingItemId;
@@ -685,7 +696,12 @@
     private async Task SwitchTab(string tabId)
     {
         _activeTab = tabId;
-        if (tabId == "people") await LoadPeople();
+        if (tabId == "people")
+        {
+            if (_sortBy == "newest") _sortBy = "name"; // Default people to alphabetical
+            _peopleDisplayCount = PeoplePageSize;
+            await LoadPeople();
+        }
         else if (tabId == "universes") await LoadUniverses();
         else if (tabId == "hubs") await LoadManagedHubs();
         UpdateUrl();
@@ -698,6 +714,8 @@
         _searchText = text;
         if (_activeTab == "media")
             await LoadMediaItems();
+        if (_activeTab == "people")
+            _peopleDisplayCount = PeoplePageSize;
         // People and universes are filtered client-side via FilteredPeople/FilteredUniverses
         StateHasChanged();
         UpdateUrl();
@@ -890,6 +908,21 @@
             _selectedUniverse = null;
             UpdateUrl();
             await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task OnCreatorNameClicked(string creatorName)
+    {
+        if (_people.Count == 0) await LoadPeople();
+
+        var person = _people.FirstOrDefault(p =>
+            string.Equals(p.Name, creatorName, StringComparison.OrdinalIgnoreCase));
+        if (person is not null)
+        {
+            _selectedPerson = person;
+            _selectedMedia = null;
+            _selectedUniverse = null;
+            StateHasChanged();
         }
     }
 
@@ -1304,7 +1337,7 @@
             ["Narrator"] = Icons.Material.Outlined.RecordVoiceOver,
             ["Director"] = Icons.Material.Outlined.Movie,
             ["Illustrator"] = Icons.Material.Outlined.Brush,
-            ["Cast Member"] = Icons.Material.Outlined.TheaterComedy,
+            ["Actor"] = Icons.Material.Outlined.TheaterComedy,
             ["Voice Actor"] = Icons.Material.Outlined.Mic,
             ["Screenwriter"] = Icons.Material.Outlined.Description,
             ["Composer"] = Icons.Material.Outlined.MusicNote,
@@ -1320,7 +1353,7 @@
             ["Narrator"] = "#A78BFA",
             ["Director"] = "#60A5FA",
             ["Illustrator"] = "#7C4DFF",
-            ["Cast Member"] = "#FBBF24",
+            ["Actor"] = "#FBBF24",
             ["Voice Actor"] = "#22D3EE",
             ["Screenwriter"] = "#FB923C",
             ["Composer"] = "#EC4899",
@@ -1360,19 +1393,40 @@
             if (!string.IsNullOrWhiteSpace(_searchText))
                 result = result.Where(p => p.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
 
-            // Sort
+            // Sort — default to alphabetical (name ascending)
             result = _sortBy switch
             {
-                "name" => result.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase),
                 "name_desc" => result.OrderByDescending(p => p.Name, StringComparer.OrdinalIgnoreCase),
-                "newest" => result.OrderByDescending(p => p.Id), // Guid-based, approximation
+                "newest" => result.OrderByDescending(p => p.Id),
                 "oldest" => result.OrderBy(p => p.Id),
                 "presence_asc" => result.OrderBy(p => GetPersonPresenceTotal(p)),
-                _ => result.OrderByDescending(p => GetPersonPresenceTotal(p)), // "presence" default
+                "presence" => result.OrderByDescending(p => GetPersonPresenceTotal(p)),
+                _ => result.OrderBy(p => p.Name, StringComparer.OrdinalIgnoreCase), // default: name A-Z
             };
 
-            return result.ToList();
+            return result.Take(_peopleDisplayCount).ToList();
         }
+    }
+
+    private int FilteredPeopleTotal
+    {
+        get
+        {
+            IEnumerable<PersonListItemDto> result = _people;
+            if (_enabledRoles.Count > 0 && _enabledRoles.Count < _allRoleCounts.Count)
+                result = result.Where(p => p.Roles.Any(r => _enabledRoles.Contains(r)));
+            if (!string.IsNullOrWhiteSpace(_searchText))
+                result = result.Where(p => p.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+            return result.Count();
+        }
+    }
+
+    private bool HasMorePeople => FilteredPeopleTotal > _peopleDisplayCount;
+
+    private void LoadMorePeople()
+    {
+        _peopleDisplayCount += PeoplePageSize;
+        StateHasChanged();
     }
 
     private int GetPersonPresenceTotal(PersonListItemDto p)

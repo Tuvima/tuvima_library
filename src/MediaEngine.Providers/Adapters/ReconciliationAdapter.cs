@@ -148,35 +148,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         try
         {
-            // Build type-filtered reconciliation for better recall
-            IReadOnlyList<string>? typeQids = null;
-            if (request.MediaType != MediaType.Unknown)
-            {
-                var mediaTypeKey = request.MediaType.ToString();
-                if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
-                    typeQids = classes;
-            }
-
             var constraints = BuildTitleSearchConstraints(request);
-            var metaLang = _configLoader?.LoadCore().Language.Metadata ?? "en";
 
-            // Build a library request with type filtering for CirrusSearch
-            var reconRequest = new ReconciliationRequest
-            {
-                Query = request.Title,
-                Limit = _config.Reconciliation.MaxCandidates,
-                Language = metaLang,
-                DiacriticInsensitive = true,
-                Cleaners = QueryCleaners.All(),
-                Types = typeQids,
-                TypeHierarchyDepth = 3,
-                Properties = constraints?.Select(kvp =>
-                    new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
-            };
-
-            var candidates = _reconciler is not null
-                ? await _reconciler.ReconcileAsync(reconRequest, ct).ConfigureAwait(false)
-                : (IReadOnlyList<ReconciliationResult>)[];
+            // Use the shared ReconcileAsync which applies type filtering via CirrusSearch
+            var candidates = await ReconcileAsync(
+                request.Title, constraints, ct, request.MediaType).ConfigureAwait(false);
 
             _logger.LogInformation(
                 "{Provider}: SearchAsync '{Query}' ({MediaType}) — {Count} reconciliation candidate(s)",
@@ -308,19 +284,33 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <summary>
     /// Reconciles a single query string to Wikidata candidates.
     /// Returns up to <c>config.reconciliation.max_candidates</c> results.
+    /// When <paramref name="mediaType"/> is specified, CirrusSearch pre-filters by
+    /// the configured <c>instance_of_classes</c> for that media type — the same logic
+    /// used by <see cref="SearchAsync"/> for manual searches.
     /// </summary>
     /// <param name="query">The entity name to reconcile (e.g. "Dune", "Frank Herbert").</param>
     /// <param name="propertyConstraints">Optional P-code → value constraints to narrow the search.</param>
     /// <param name="ct">Cancellation token.</param>
+    /// <param name="mediaType">Media type for CirrusSearch type pre-filtering (default: Unknown = no filter).</param>
     public async Task<IReadOnlyList<ReconciliationResult>> ReconcileAsync(
         string query,
         Dictionary<string, string>? propertyConstraints = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        MediaType mediaType = MediaType.Unknown)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
             return [];
 
         var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+
+        // Build type filter from instance_of_classes config (same as SearchAsync)
+        IReadOnlyList<string>? typeQids = null;
+        if (mediaType != MediaType.Unknown)
+        {
+            var mediaTypeKey = mediaType.ToString();
+            if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+                typeQids = classes;
+        }
 
         var request = new ReconciliationRequest
         {
@@ -329,6 +319,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             Language = language,
             DiacriticInsensitive = true,
             Cleaners = QueryCleaners.All(),
+            Types = typeQids,
+            TypeHierarchyDepth = 1,
             Properties = propertyConstraints?.Select(kvp =>
                 new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
         };
@@ -350,12 +342,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// When <paramref name="fileLanguage"/> differs from the configured metadata language,
     /// uses the library's <c>Languages</c> parameter for concurrent multi-language search
     /// with built-in deduplication.
+    /// When <paramref name="mediaType"/> is specified, CirrusSearch pre-filters by
+    /// the configured <c>instance_of_classes</c> for that media type.
     /// </summary>
     public async Task<IReadOnlyList<ReconciliationResult>> ReconcileMultiLanguageAsync(
         string query,
         string? fileLanguage,
         Dictionary<string, string>? propertyConstraints = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        MediaType mediaType = MediaType.Unknown)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
             return [];
@@ -371,6 +366,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (!string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
             languages.Add(metaLang);
 
+        // Build type filter from instance_of_classes config (same as ReconcileAsync)
+        IReadOnlyList<string>? typeQids = null;
+        if (mediaType != MediaType.Unknown)
+        {
+            var mediaTypeKey = mediaType.ToString();
+            if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+                typeQids = classes;
+        }
+
         var request = new ReconciliationRequest
         {
             Query = query,
@@ -378,6 +382,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             Languages = languages.Count > 1 ? languages : null,
             Language = languages.Count <= 1 ? (fileLang ?? metaLang) : null,
             DiacriticInsensitive = true,
+            Types = typeQids,
+            TypeHierarchyDepth = 1,
             Properties = propertyConstraints?.Select(kvp =>
                 new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
         };
@@ -1377,7 +1383,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // handle title cleaning and diacritics normalization automatically.
             var searchTitle = request.Title;
 
-            var candidates = await ReconcileAsync(searchTitle, null, ct).ConfigureAwait(false);
+            var candidates = await ReconcileAsync(searchTitle, null, ct, request.MediaType).ConfigureAwait(false);
 
             if (candidates.Count == 0)
             {
@@ -1418,7 +1424,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                             Name, candidates.Count, request.Title, request.MediaType);
 
                         var retryQuery = $"{searchTitle} {typeHint}";
-                        var retryCandidates = await ReconcileAsync(retryQuery, null, ct).ConfigureAwait(false);
+                        var retryCandidates = await ReconcileAsync(retryQuery, null, ct, request.MediaType).ConfigureAwait(false);
 
                         if (retryCandidates.Count > 0)
                         {

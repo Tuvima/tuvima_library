@@ -358,7 +358,7 @@ public static class VaultHelpers
         "media_type"                => "Media Type",
         "illustrator"               => "Illustrator",
         "screenwriter"              => "Screenwriter",
-        "cast_member"               => "Cast",
+        "cast_member"               => "Actor",
         _                           => string.Join(' ', key.Split('_').Select(w =>
                                            w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w)),
     };

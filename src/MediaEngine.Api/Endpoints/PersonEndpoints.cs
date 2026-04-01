@@ -359,6 +359,27 @@ public static class PersonEndpoints
                 hubIds.Add(Guid.Parse(reader.GetString(0)));
 
             if (hubIds.Count == 0)
+            {
+                // Fallback: match by canonical author/narrator/director name
+                using var fallbackCmd = conn.CreateCommand();
+                fallbackCmd.CommandText = """
+                    SELECT DISTINCT w.hub_id
+                    FROM canonical_values cv
+                    JOIN media_assets ma ON ma.id = cv.entity_id
+                    JOIN editions e      ON e.id  = ma.edition_id
+                    JOIN works w         ON w.id  = e.work_id
+                    WHERE cv.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
+                      AND cv.value = @personName
+                      AND w.hub_id IS NOT NULL;
+                    """;
+                fallbackCmd.Parameters.AddWithValue("@personName", person.Name);
+
+                using var fallbackReader = fallbackCmd.ExecuteReader();
+                while (fallbackReader.Read())
+                    hubIds.Add(Guid.Parse(fallbackReader.GetString(0)));
+            }
+
+            if (hubIds.Count == 0)
                 return Results.Ok(Array.Empty<MediaEngine.Api.Models.HubDto>());
 
             // Load full hub data and filter to matching IDs.
@@ -384,10 +405,61 @@ public static class PersonEndpoints
         .WithSummary("Count of persons per role.");
 
         // GET /persons/presence?ids=guid1,guid2,... — media type counts per person.
-        group.MapGet("/presence", async (string ids, IPersonRepository personRepo, CancellationToken ct) =>
+        group.MapGet("/presence", async (string ids, IPersonRepository personRepo, IDatabaseConnection db, CancellationToken ct) =>
         {
             var personIds = ids.Split(',').Select(Guid.Parse).ToList();
+
+            // Primary path: person_media_links
             var presence = await personRepo.GetPresenceBatchAsync(personIds, ct);
+
+            // Fallback: if person_media_links is empty for ALL persons,
+            // match by canonical author/narrator/director values
+            if (presence.Values.All(d => d.Count == 0))
+            {
+                var persons = new Dictionary<Guid, string>();
+                foreach (var pid in personIds)
+                {
+                    var person = await personRepo.FindByIdAsync(pid, ct);
+                    if (person is not null)
+                        persons[pid] = person.Name;
+                }
+
+                using var conn = db.CreateConnection();
+                var fallbackPresence = new Dictionary<Guid, Dictionary<string, int>>();
+                foreach (var (pid, name) in persons)
+                {
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = """
+                        SELECT cv2.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+                        FROM canonical_values cv
+                        JOIN media_assets ma ON ma.id = cv.entity_id
+                        JOIN editions e ON e.id = ma.edition_id
+                        JOIN works w ON w.id = e.work_id
+                        JOIN canonical_values cv2 ON cv2.entity_id = ma.id AND cv2.key = 'media_type'
+                        WHERE cv.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
+                          AND cv.value = @name
+                        GROUP BY cv2.value;
+                        """;
+                    cmd.Parameters.AddWithValue("@name", name);
+
+                    var mediaTypeCounts = new Dictionary<string, int>();
+                    using var reader = cmd.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        var mediaType = reader.GetString(0);
+                        var count = reader.GetInt32(1);
+                        mediaTypeCounts[mediaType] = count;
+                    }
+
+                    if (mediaTypeCounts.Count > 0)
+                        fallbackPresence[pid] = mediaTypeCounts;
+                }
+
+                return Results.Ok(fallbackPresence.ToDictionary(
+                    kv => kv.Key.ToString(),
+                    kv => kv.Value));
+            }
+
             return Results.Ok(presence.ToDictionary(
                 kv => kv.Key.ToString(),
                 kv => kv.Value));
