@@ -227,19 +227,8 @@
     };
 
     /// <summary>Returns contextual filter options for the resolved tab.
-    /// Returns an empty list for tabs that should not show the filter dropdown.</summary>
-    private List<SelectOption> GetFilterOptions() => ResolvedTabId switch
-    {
-        "movies"     => [new("All Qualities", ""), new("4K", "4k"), new("1080p", "1080p"), new("HD", "hd")],
-        "tv"         => [new("All", ""), new("Complete", "complete"), new("Active", "active"), new("Ended", "ended")],
-        "music"      => [new("All Formats", ""), new("FLAC", "flac"), new("ALAC", "alac"), new("MP3", "mp3")],
-        "books"      => [new("All Formats", ""), new("EPUB", "epub"), new("PDF", "pdf")],
-        "audiobooks" => [new("All Formats", ""), new("M4B", "m4b"), new("AAX", "aax"), new("MP3", "mp3")],
-        "podcasts"   => [new("All", ""), new("Active", "active"), new("Ended", "ended")],
-        "comics"     => [new("All Formats", ""), new("CBZ", "cbz"), new("CBR", "cbr"), new("PDF", "pdf")],
-        // new, people, universes, hubs — no filter dropdown
-        _ => [],
-    };
+    /// Filter dropdown is disabled for all tabs.</summary>
+    private List<SelectOption> GetFilterOptions() => [];
 
     /// <summary>Returns group-by options for the resolved tab.
     /// Returns an empty list for tabs where the group dropdown should be hidden.</summary>

@@ -72,6 +72,8 @@ public enum ColumnRenderType
     ContainerCell,
     /// <summary>Edit + Delete action buttons for row management.</summary>
     ManageActions,
+    /// <summary>Compact cell: small icon + title only, for dense list views (Apple Music style).</summary>
+    CompactCell,
 }
 
 /// <summary>Provides default column definitions per media type and tab.</summary>
@@ -176,7 +178,7 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> MoviesColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",    Label = "Media Identity", Width = "30%",  Sortable = true, SortKey = "title",    RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "media",    Label = "Title",           Width = "30%",  Sortable = true, SortKey = "title",    RenderType = ColumnRenderType.MediaCell },
         new() { Key = "director", Label = "Director",       Width = "auto", Sortable = true, SortKey = "director", RenderType = ColumnRenderType.Text, PropertyName = "Director" },
         new() { Key = "series",   Label = "Series",         Width = "auto", Sortable = true, SortKey = "series",   RenderType = ColumnRenderType.Text, PropertyName = "Series" },
         new() { Key = "year",     Label = "Year",           Width = "80px", Sortable = true, SortKey = "year",     RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },
@@ -190,11 +192,11 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> TvColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",   Label = "Media Identity", Width = "35%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
-        new() { Key = "show",    Label = "Show",           Width = "auto", Sortable = true, SortKey = "show",    RenderType = ColumnRenderType.Text, PropertyName = "ShowName" },
-        new() { Key = "season",  Label = "Season",         Width = "80px", Sortable = true, SortKey = "season",  RenderType = ColumnRenderType.Text, PropertyName = "Season",  Align = "center" },
-        new() { Key = "episode", Label = "Episode",        Width = "80px", Sortable = true, SortKey = "episode", RenderType = ColumnRenderType.Text, PropertyName = "Episode", Align = "center" },
-        new() { Key = "quality", Label = "Quality",        Width = "auto", RenderType = ColumnRenderType.Text,   PropertyName = "ResolutionSummary" },
+        new() { Key = "media",   Label = "Episode", Width = "35%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.CompactCell },
+        new() { Key = "show",    Label = "Show",     Width = "auto", Sortable = true, SortKey = "show",    RenderType = ColumnRenderType.Text, PropertyName = "ShowName" },
+        new() { Key = "season",  Label = "Season",   Width = "80px", Sortable = true, SortKey = "season",  RenderType = ColumnRenderType.Text, PropertyName = "Season",  Align = "center" },
+        new() { Key = "episode", Label = "Episode",  Width = "80px", Sortable = true, SortKey = "episode", RenderType = ColumnRenderType.Text, PropertyName = "Episode", Align = "center" },
+        new() { Key = "quality", Label = "Quality",  Width = "auto", RenderType = ColumnRenderType.Text,   PropertyName = "ResolutionSummary" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
@@ -203,11 +205,11 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> MusicColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",   Label = "Media Identity", Width = "30%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.MediaCell },
-        new() { Key = "artist",  Label = "Artist",         Width = "auto", Sortable = true, SortKey = "artist", RenderType = ColumnRenderType.Text, PropertyName = "Artist" },
-        new() { Key = "album",   Label = "Album",          Width = "20%",  Sortable = true, SortKey = "album",  RenderType = ColumnRenderType.Text, PropertyName = "Album" },
-        new() { Key = "bitrate", Label = "Bitrate",        Width = "auto", RenderType = ColumnRenderType.Text,  PropertyName = "ResolutionSummary" },
-        new() { Key = "size",    Label = "Size",           Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
+        new() { Key = "media",   Label = "Song",   Width = "25%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.CompactCell },
+        new() { Key = "artist",  Label = "Artist",  Width = "auto", Sortable = true, SortKey = "artist", RenderType = ColumnRenderType.Text, PropertyName = "Artist" },
+        new() { Key = "album",   Label = "Album",   Width = "25%",  Sortable = true, SortKey = "album",  RenderType = ColumnRenderType.Text, PropertyName = "Album" },
+        new() { Key = "genre",   Label = "Genre",   Width = "auto", RenderType = ColumnRenderType.Text,  PropertyName = "Genre" },
+        new() { Key = "size",    Label = "Size",    Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
@@ -216,7 +218,7 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> BooksColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",  Label = "Media Identity", Width = "35%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "media",  Label = "Title",           Width = "35%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.MediaCell },
         new() { Key = "author", Label = "Author",         Width = "auto", Sortable = true, SortKey = "author", RenderType = ColumnRenderType.Text, PropertyName = "Author" },
         new() { Key = "series", Label = "Series",         Width = "auto", Sortable = true, SortKey = "series", RenderType = ColumnRenderType.Text, PropertyName = "Series" },
         new() { Key = "year",   Label = "Year",           Width = "80px", Sortable = true, SortKey = "year",   RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },
@@ -229,7 +231,7 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> AudiobooksColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",    Label = "Media Identity", Width = "30%",  Sortable = true, SortKey = "title",    RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "media",    Label = "Title",           Width = "30%",  Sortable = true, SortKey = "title",    RenderType = ColumnRenderType.MediaCell },
         new() { Key = "author",   Label = "Author",         Width = "auto", Sortable = true, SortKey = "author",   RenderType = ColumnRenderType.Text, PropertyName = "Author" },
         new() { Key = "narrator", Label = "Narrator",       Width = "auto", Sortable = true, SortKey = "narrator", RenderType = ColumnRenderType.Text, PropertyName = "Narrator" },
         new() { Key = "duration", Label = "Length",         Width = "auto", RenderType = ColumnRenderType.Duration },
@@ -242,7 +244,7 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> PodcastsColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",    Label = "Media Identity", Width = "35%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "media",    Label = "Episode",         Width = "35%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
         new() { Key = "show",     Label = "Publisher",      Width = "auto", Sortable = true, SortKey = "podcast", RenderType = ColumnRenderType.Text, PropertyName = "ShowName" },
         new() { Key = "episode",  Label = "Episodes",       Width = "80px", RenderType = ColumnRenderType.Text,   PropertyName = "Episode", Align = "center" },
         new() { Key = "duration", Label = "Duration",       Width = "auto", RenderType = ColumnRenderType.Duration },
@@ -255,7 +257,7 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> ComicsColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",  Label = "Media Identity", Width = "35%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "media",  Label = "Title",           Width = "35%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.MediaCell },
         new() { Key = "author", Label = "Writer",         Width = "auto", Sortable = true, SortKey = "author", RenderType = ColumnRenderType.Text, PropertyName = "Author" },
         new() { Key = "series", Label = "Series",         Width = "auto", Sortable = true, SortKey = "series", RenderType = ColumnRenderType.Text, PropertyName = "Series" },
         new() { Key = "year",   Label = "Year",           Width = "80px", Sortable = true, SortKey = "year",   RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },

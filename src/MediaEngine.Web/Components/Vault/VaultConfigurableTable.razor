@@ -423,6 +423,14 @@ else
                                         </div>
                                         break;
 
+                                    case ColumnRenderType.CompactCell:
+                                        <div class="vmt-compact-cell">
+                                            <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)"
+                                                     Style="font-size: 14px; opacity: 0.3; flex-shrink: 0;" />
+                                            <span class="vmt-compact-title">@item.Title</span>
+                                        </div>
+                                        break;
+
                                     default:
                                         <span class="vct-text-cell">—</span>
                                         break;
@@ -586,7 +594,7 @@ else
             "Author"        => item.Author ?? "—",
             "Director"      => item.Director ?? "—",
             "Artist"        => item.Artist ?? "—",
-            "Year"          => item.Year ?? "—",
+            "Year"          => FormatYear(item.Year),
             "Series"         => item.Series ?? item.UniverseName ?? "—",
             "SeriesPosition" => item.SeriesPosition ?? "—",
             "Narrator"       => item.Narrator ?? item.Author ?? "—",
@@ -611,6 +619,19 @@ else
             "Creator"       => item.Author ?? "—",     // container: creator
             _ => "—",
         };
+
+    private static string FormatYear(string? year)
+    {
+        if (string.IsNullOrEmpty(year)) return "—";
+        // If it looks like a date (YYYY-MM-DD or longer), extract just the year.
+        if (year.Length >= 4 && char.IsDigit(year[0]) && char.IsDigit(year[1])
+            && char.IsDigit(year[2]) && char.IsDigit(year[3])
+            && (year.Length == 4 || year[4] == '-'))
+        {
+            return year[..4];
+        }
+        return year;
+    }
 
     private static string FormatRelativeTime(DateTimeOffset dt)
     {
@@ -703,7 +724,10 @@ else
     .vmt-td {
         padding: 8px 16px;
         vertical-align: middle;
-        overflow: visible;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 0;
     }
 
     .vmt-td--center { text-align: center; }
@@ -713,6 +737,28 @@ else
         display: flex;
         align-items: center;
         gap: 16px;
+    }
+
+    /* ── Compact cell (dense list rows — Apple Music style) ── */
+    .vmt-compact-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 20px;
+        padding: 2px 0;
+    }
+
+    .vmt-compact-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vmt-row .vmt-compact-cell ~ .vct-text-cell {
+        font-size: 12px;
     }
 
     .vmt-poster-wrap {
