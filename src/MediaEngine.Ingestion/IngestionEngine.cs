@@ -115,6 +115,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Config-driven thresholds — replaces hardcoded 0.85 literals.
     private readonly ScoringConfiguration _scoringConfig;
 
+    // Ingestion batch tracking — creates batch records and emits BatchProgress events.
+    private readonly IIngestionBatchRepository _batchRepo;
+
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -154,9 +157,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IIngestionLogRepository    ingestionLog,
         ISmartLabeler             smartLabeler,
         IMediaTypeAdvisor         typeAdvisor,
-        IEntityTimelineRepository timelineRepo,
-        ScoringConfiguration      scoringConfig,
-        ImagePathService?         imagePathService = null)
+        IEntityTimelineRepository  timelineRepo,
+        ScoringConfiguration       scoringConfig,
+        IIngestionBatchRepository  batchRepo,
+        ImagePathService?          imagePathService = null)
     {
         _watcher          = watcher;
         _debounce         = debounce;
@@ -185,6 +189,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _typeAdvisor       = typeAdvisor;
         _timelineRepo      = timelineRepo;
         _scoringConfig     = scoringConfig;
+        _batchRepo         = batchRepo;
         _imagePathService  = imagePathService;
     }
 
@@ -1263,6 +1268,25 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             resolvedMediaType.ToString(),
             DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
 
+        // Emit incremental ingestion progress so the Dashboard can show a live counter.
+        // Fetch the batch total from the repository; fall back to 0 if not available.
+        if (candidate.BatchId.HasValue)
+        {
+            try
+            {
+                var batchSnap = await _batchRepo.GetByIdAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
+                await SafePublishAsync(SignalREvents.IngestionProgress, new IngestionProgressEvent(
+                    Path.GetFileName(candidate.Path),
+                    batchSnap?.FilesProcessed ?? 0,
+                    batchSnap?.FilesTotal ?? 0,
+                    "Processing"), ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "IngestionProgress publish failed — pipeline continues");
+            }
+        }
+
         // Foreign-language metadata check removed — handled by LanguageMismatch trigger
         // in HydrationPipelineService (runs after Stage 1 with more context).
 
@@ -1864,9 +1888,28 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 skipped, directory);
 
         if (count > 0)
+        {
             _logger.LogInformation(
                 "Initial scan: enqueued {Count} existing file(s) from {Dir}",
                 count, directory);
+
+            // Persist a batch record now that we know the exact file count.
+            try
+            {
+                _batchRepo.CreateAsync(new IngestionBatch
+                {
+                    Id          = batchId,
+                    Status      = "running",
+                    SourcePath  = directory,
+                    FilesTotal  = count,
+                    StartedAt   = DateTimeOffset.UtcNow,
+                }).GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Batch record creation failed for scan batchId {BatchId} — pipeline continues", batchId);
+            }
+        }
 
     }
 
@@ -2764,6 +2807,23 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         var batchId = Guid.NewGuid();
+
+        // Persist a batch record with the exact file count before any file is processed.
+        try
+        {
+            await _batchRepo.CreateAsync(new IngestionBatch
+            {
+                Id          = batchId,
+                Status      = "running",
+                SourcePath  = _options.WatchDirectory,
+                FilesTotal  = snapshot.Count,
+                StartedAt   = DateTimeOffset.UtcNow,
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Batch record creation failed for FSW flush batchId {BatchId} — pipeline continues", batchId);
+        }
 
         // Stamp and enqueue all events.
         foreach (var evt in snapshot)

@@ -267,6 +267,14 @@
       "media_types": ["Music"]
     },
     {
+      "claim_key": "artist",
+      "json_path": "artistName",
+      "confidence": 0.8,
+      "transform": null,
+      "transform_args": null,
+      "media_types": ["Music"]
+    },
+    {
       "claim_key": "album",
       "json_path": "collectionName",
       "confidence": 0.85,

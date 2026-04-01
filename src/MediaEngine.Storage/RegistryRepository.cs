@@ -257,12 +257,14 @@ public sealed class RegistryRepository : IRegistryRepository
                 LEFT JOIN user_lock_data ul ON ul.entity_id = ad.asset_id
                 LEFT JOIN ingest_date_data idd ON idd.work_id = wd.entity_id
                 WHERE (
-                    -- Items are only visible in the Registry when they have a confirmed
-                    -- identity (QID), a pending review, or a curator-created provisional entry.
-                    -- Unidentified items awaiting hydration stay hidden.
+                    -- Items are only visible in the Vault when they have a confirmed
+                    -- identity (QID), a pending review, or an explicit curator state
+                    -- (provisional = user-created, rejected = quarantined).
+                    -- Items with curator_state='registered' that are still mid-pipeline
+                    -- (no QID, no review entry) stay hidden until enrichment completes.
                     (wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%')
                     OR rd.review_id IS NOT NULL
-                    OR wd.curator_state IS NOT NULL
+                    OR wd.curator_state IN ('provisional', 'rejected')
                 )
             )
             """;

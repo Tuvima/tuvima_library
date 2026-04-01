@@ -23,4 +23,23 @@ public interface IPersonReconciliationService
         string expectedRole,
         string? workTitle = null,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Reconciles multiple person names in a single batch operation.
+    /// Deduplicates by name (case-insensitive) before issuing any Wikidata calls —
+    /// 30 tracks by the same artist cost one API round-trip instead of 30.
+    /// </summary>
+    /// <param name="requests">
+    /// Sequence of (Name, Role, WorkTitle) tuples.
+    /// Duplicate names are collapsed; the first occurrence's Role and WorkTitle win.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// Dictionary keyed by name (lower-cased) → <see cref="PersonSearchResult"/> if a
+    /// confident match was found, or <c>null</c> if no candidate met the auto-accept
+    /// threshold (mirrors the <c>null</c> contract of <see cref="SearchPersonAsync"/>).
+    /// </returns>
+    Task<IReadOnlyDictionary<string, PersonSearchResult?>> SearchPersonsBatchAsync(
+        IReadOnlyList<(string Name, string Role, string? WorkTitle)> requests,
+        CancellationToken ct = default);
 }

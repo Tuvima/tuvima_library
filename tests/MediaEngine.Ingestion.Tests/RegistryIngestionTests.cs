@@ -137,7 +137,8 @@ public sealed class RegistryIngestionTests : IDisposable
             new MediaEngine.Ingestion.Tests.Helpers.StubSmartLabeler(),
             new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
             new MediaEngine.Ingestion.Tests.Helpers.StubEntityTimelineRepository(),
-            new MediaEngine.Intelligence.Models.ScoringConfiguration());
+            new MediaEngine.Intelligence.Models.ScoringConfiguration(),
+            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository());
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

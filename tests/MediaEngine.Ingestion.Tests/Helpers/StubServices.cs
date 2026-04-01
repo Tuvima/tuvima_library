@@ -286,6 +286,20 @@ internal sealed class StubMediaTypeAdvisor : IMediaTypeAdvisor
         });
 }
 
+// ── IngestionBatchRepository Stub ────────────────────────────────────────────
+
+/// <summary>No-op ingestion batch repository for tests — all writes are silently discarded.</summary>
+internal sealed class StubIngestionBatchRepository : IIngestionBatchRepository
+{
+    public Task CreateAsync(MediaEngine.Domain.Entities.IngestionBatch batch, CancellationToken ct = default) => Task.CompletedTask;
+    public Task UpdateCountsAsync(Guid id, int filesTotal, int filesProcessed, int filesIdentified, int filesReview, int filesNoMatch, int filesFailed, CancellationToken ct = default) => Task.CompletedTask;
+    public Task CompleteAsync(Guid id, string status, CancellationToken ct = default) => Task.CompletedTask;
+    public Task<MediaEngine.Domain.Entities.IngestionBatch?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<MediaEngine.Domain.Entities.IngestionBatch?>(null);
+    public Task<IReadOnlyList<MediaEngine.Domain.Entities.IngestionBatch>> GetRecentAsync(int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MediaEngine.Domain.Entities.IngestionBatch>>([]);
+    public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default) => Task.FromResult(0);
+    public Task<int> AbandonRunningAsync(CancellationToken ct = default) => Task.FromResult(0);
+}
+
 // ── EntityTimelineRepository Stub ────────────────────────────────────────────
 
 /// <summary>

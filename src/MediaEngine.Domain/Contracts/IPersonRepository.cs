@@ -62,12 +62,14 @@ public interface IPersonRepository
     /// <param name="wikidataQid">The Wikidata Q-identifier (e.g. <c>"Q42"</c>), or <c>null</c> to clear.</param>
     /// <param name="headshotUrl">The Wikimedia Commons image URL, or <c>null</c> to clear.</param>
     /// <param name="biography">The Wikidata entity description, or <c>null</c> to clear.</param>
+    /// <param name="name">The resolved display name from Wikidata, or <c>null</c> to leave unchanged.</param>
     /// <param name="ct">Cancellation token.</param>
     Task UpdateEnrichmentAsync(
         Guid personId,
         string? wikidataQid,
         string? headshotUrl,
         string? biography,
+        string? name,
         CancellationToken ct = default);
 
     /// <summary>

@@ -236,6 +236,11 @@ public sealed partial class AudioProcessor : IMediaProcessor
         if (!string.IsNullOrWhiteSpace(narrator))
             claims.Add(Claim("narrator", narrator, 0.7));
 
+        // Artist — for music files: use FirstPerformer (TPE1), fall back to FirstAlbumArtist (TPE2)
+        var artist = tagFile?.Tag.FirstPerformer ?? tagFile?.Tag.FirstAlbumArtist;
+        if (!string.IsNullOrWhiteSpace(artist))
+            claims.Add(Claim("artist", artist, 0.7));
+
         // Album
         if (!string.IsNullOrWhiteSpace(tagFile?.Tag.Album))
             claims.Add(Claim("album", tagFile!.Tag.Album, 0.7));

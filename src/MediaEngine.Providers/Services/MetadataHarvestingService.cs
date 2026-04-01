@@ -461,8 +461,9 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         var qid         = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid)?.Value;
         var headshotUrl = claims.FirstOrDefault(c => c.Key == "headshot_url")?.Value;
         var biography   = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
+        var name        = claims.FirstOrDefault(c => c.Key == "name")?.Value;
 
-        if (qid is null && headshotUrl is null && biography is null)
+        if (qid is null && headshotUrl is null && biography is null && name is null)
             return;
 
         // ── Pseudonym detection from current claims ───────────────────────────
@@ -596,7 +597,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             }
         }
 
-        await _personRepo.UpdateEnrichmentAsync(request.EntityId, qid, headshotUrl, biography, ct)
+        await _personRepo.UpdateEnrichmentAsync(request.EntityId, qid, headshotUrl, biography, name, ct)
             .ConfigureAwait(false);
 
         // Persist biographical fields from Wikidata claims.

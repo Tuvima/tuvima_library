@@ -216,6 +216,183 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         return bestMatch;
     }
 
+    /// <summary>
+    /// Reconciles multiple person names in a single batch operation.
+    /// Deduplicates by name (case-insensitive) before issuing any Wikidata calls,
+    /// so 30 tracks by the same artist cost one API round-trip instead of 30.
+    ///
+    /// Uses <c>WikidataReconciler.ReconcileBatchAsync</c> when available for a true
+    /// single-request batch; falls back to sequential <c>ReconcileAsync</c> calls
+    /// (which still benefits from deduplication).
+    ///
+    /// The returned dictionary is keyed by the lower-cased name. Callers that
+    /// previously looped over <see cref="SearchPersonAsync"/> can warm a local
+    /// name→result cache from this method and fall back to <see cref="SearchPersonAsync"/>
+    /// only for cache misses.
+    /// </summary>
+    /// <param name="requests">
+    /// Sequence of (Name, Role, WorkTitle) tuples — one per person reference.
+    /// Duplicate names are collapsed; the first occurrence's Role and WorkTitle win.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// Dictionary keyed by name (lower-cased) → <see cref="PersonSearchResult"/> if a
+    /// confident match was found, or <c>null</c> if no candidate met the auto-accept
+    /// threshold (mirrors the <c>null</c> contract of <see cref="SearchPersonAsync"/>).
+    /// </returns>
+    public async Task<IReadOnlyDictionary<string, PersonSearchResult?>> SearchPersonsBatchAsync(
+        IReadOnlyList<(string Name, string Role, string? WorkTitle)> requests,
+        CancellationToken ct = default)
+    {
+        var results = new Dictionary<string, PersonSearchResult?>(StringComparer.OrdinalIgnoreCase);
+
+        if (_reconciler is null || requests.Count == 0)
+            return results;
+
+        var language = _configLoader.LoadCore().Language.Metadata ?? "en";
+
+        // ── Deduplicate by name (case-insensitive), keeping first occurrence ──
+        var seen = new Dictionary<string, (string Name, string Role, string? WorkTitle)>(
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var req in requests)
+        {
+            if (!string.IsNullOrWhiteSpace(req.Name) && !seen.ContainsKey(req.Name))
+                seen[req.Name] = req;
+        }
+
+        var unique = seen.Values.ToList();
+        if (unique.Count == 0)
+            return results;
+
+        // ── Build one ReconciliationRequest per unique name ───────────────────
+        // For music roles we need separate group-type searches; the batch path
+        // issues the primary human (Q5) requests in one call, then falls back
+        // per-name for any music role that returned zero candidates.
+        var batchRequests = unique
+            .Select(u => new ReconciliationRequest
+            {
+                Query               = u.Name,
+                Limit               = 10,
+                Language            = language,
+                Type                = HumanClassQid,
+                TypeHierarchyDepth  = 1,
+                DiacriticInsensitive = true,
+            })
+            .ToList();
+
+        // ── Issue all primary (Q5) reconciliation calls in one batch ──────────
+        IReadOnlyList<IReadOnlyList<ReconciliationResult>> batchCandidates;
+        try
+        {
+            batchCandidates = await _reconciler.ReconcileBatchAsync(batchRequests, ct)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Person batch reconciliation failed — falling back to sequential");
+            // Sequential fallback: still benefits from deduplication.
+            foreach (var u in unique)
+            {
+                var r = await SearchPersonAsync(u.Name, u.Role, u.WorkTitle, ct).ConfigureAwait(false);
+                results[u.Name.ToLowerInvariant()] = r;
+            }
+            return results;
+        }
+
+        // ── Collect all candidate QIDs for a single GetEntitiesAsync call ─────
+        var allQids = batchCandidates
+            .SelectMany(list => list.Select(c => c.Id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        IReadOnlyDictionary<string, WikidataEntityInfo> entityInfos;
+        try
+        {
+            entityInfos = allQids.Count > 0
+                ? await _reconciler.GetEntitiesAsync(allQids, resolveEntityLabels: true, language, ct)
+                    .ConfigureAwait(false)
+                : new Dictionary<string, WikidataEntityInfo>();
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Person batch property fetch failed — falling back to sequential");
+            foreach (var u in unique)
+            {
+                var r = await SearchPersonAsync(u.Name, u.Role, u.WorkTitle, ct).ConfigureAwait(false);
+                results[u.Name.ToLowerInvariant()] = r;
+            }
+            return results;
+        }
+
+        // ── Score each person using the shared helpers ────────────────────────
+        for (int i = 0; i < unique.Count; i++)
+        {
+            var (personName, role, workTitle) = unique[i];
+            var candidates = i < batchCandidates.Count ? batchCandidates[i] : Array.Empty<ReconciliationResult>();
+            bool isMusicRole = MusicRoles.Contains(role);
+
+            // For music roles with zero Q5 hits, fall back to individual group searches.
+            if (isMusicRole && candidates.Count == 0)
+            {
+                var fallback = await SearchPersonAsync(personName, role, workTitle, ct)
+                    .ConfigureAwait(false);
+                results[personName.ToLowerInvariant()] = fallback;
+                continue;
+            }
+
+            if (candidates.Count == 0)
+            {
+                _logger.LogDebug("No Wikidata candidates found for person '{Name}' ({Role}) in batch", personName, role);
+                results[personName.ToLowerInvariant()] = null;
+                continue;
+            }
+
+            PersonSearchResult? best = null;
+            foreach (var candidate in candidates)
+            {
+                if (!entityInfos.TryGetValue(candidate.Id, out var entityInfo))
+                    continue;
+
+                var props = entityInfo.Claims;
+                double baseScore       = (candidate.Score / 100.0) * 0.50;
+                double occupationScore = HasMatchingOccupation(props, role) ? OccupationBoost : 0.0;
+                double notableWorkScore = 0.0;
+                if (!string.IsNullOrWhiteSpace(workTitle))
+                    notableWorkScore = HasMatchingNotableWork(props, workTitle) ? NotableWorkBoost : 0.0;
+
+                double totalScore = baseScore + occupationScore + notableWorkScore;
+
+                _logger.LogDebug(
+                    "Batch person candidate {QID} '{CandidateName}' for '{SearchName}' ({Role}): " +
+                    "base={Base:F2}, occupation={Occ:F2}, notable={Notable:F2}, total={Total:F2}",
+                    candidate.Id, candidate.Name, personName, role,
+                    baseScore, occupationScore, notableWorkScore, totalScore);
+
+                if (totalScore >= AutoAcceptThreshold && (best is null || totalScore > best.Score))
+                    best = new PersonSearchResult(candidate.Id, candidate.Name, totalScore);
+            }
+
+            if (best is not null)
+            {
+                _logger.LogInformation(
+                    "Person batch reconciliation auto-accepted: '{Name}' ({Role}) → {QID} '{WikiName}' (score={Score:F2})",
+                    personName, role, best.WikidataQid, best.Name, best.Score);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Person batch reconciliation auto-skipped: '{Name}' ({Role}) — no candidate met threshold {Threshold:F2}",
+                    personName, role, AutoAcceptThreshold);
+            }
+
+            results[personName.ToLowerInvariant()] = best;
+        }
+
+        return results;
+    }
+
     // ── Private helpers ─────────────────────────────────────────────────────
 
     /// <summary>Returns true if P106 (occupation) contains a label matching the expected role.</summary>

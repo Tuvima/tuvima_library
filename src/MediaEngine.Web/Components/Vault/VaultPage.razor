@@ -75,6 +75,30 @@
             </div>
         </div>
 
+        @if (StateContainer.BatchProgress is { IsComplete: false } bp)
+        {
+            <div class="vault-progress-banner">
+                <div class="vault-progress-info">
+                    @if (!string.IsNullOrEmpty(bp.CurrentStage))
+                    {
+                        <span class="vault-progress-stage">@bp.CurrentStage</span>
+                    }
+                    <span class="vault-progress-count">@bp.FilesProcessed of @bp.FilesTotal files</span>
+                    @if (bp.EstimatedSecondsRemaining.HasValue)
+                    {
+                        <span class="vault-progress-eta">~@(bp.EstimatedSecondsRemaining.Value)s remaining</span>
+                    }
+                </div>
+                <div class="vault-progress-bar-track">
+                    <div class="vault-progress-bar-fill" style="width: @(bp.FilesTotal > 0 ? bp.ProgressPercent : 0)%"></div>
+                </div>
+                @if (bp.RecentTitles?.Count > 0)
+                {
+                    <div class="vault-progress-recent">@string.Join(" · ", bp.RecentTitles.Take(3))</div>
+                }
+            </div>
+        }
+
         @* ── 3. STATS BAR (card-based filters) ── *@
         <VaultStatsBar Cards="@_statsCards" OnCardToggled="OnStatCardToggled" />
     </div>
@@ -417,11 +441,19 @@
         }
         else if (_activeTab == "people")
         {
-            if (cardId == "AllPeople") return; // Keep people summary as-is for now
-            if (_enabledRoles.Contains(cardId))
-                _enabledRoles.Remove(cardId);
+            if (cardId == "AllPeople")
+            {
+                _enabledRoles = new HashSet<string>();
+                StateHasChanged();
+                UpdateUrl();
+                return;
+            }
+            // Radio behavior: selecting a role shows only that role;
+            // selecting the already-active role resets to show all.
+            if (_enabledRoles.Count == 1 && _enabledRoles.Contains(cardId))
+                _enabledRoles = new HashSet<string>();
             else
-                _enabledRoles.Add(cardId);
+                _enabledRoles = new HashSet<string> { cardId };
             StateHasChanged();
             UpdateUrl();
         }
@@ -442,6 +474,7 @@
         Orchestrator.OnActivityChanged += OnActivityChanged;
         Orchestrator.OnLoreDeltaDiscovered += OnLoreDeltaDiscovered;
         Nav.LocationChanged += OnLocationChanged;
+        StateContainer.OnStateChanged += OnBatchProgressChanged;
 
         ReadUrlState();
 
@@ -471,6 +504,7 @@
         Orchestrator.OnActivityChanged -= OnActivityChanged;
         Orchestrator.OnLoreDeltaDiscovered -= OnLoreDeltaDiscovered;
         Nav.LocationChanged -= OnLocationChanged;
+        StateContainer.OnStateChanged -= OnBatchProgressChanged;
     }
 
     private void OnLoreDeltaDiscovered(string universeQid, int changedCount)
@@ -481,6 +515,11 @@
             _staleUniverseCount++;
             StateHasChanged();
         });
+    }
+
+    private void OnBatchProgressChanged()
+    {
+        InvokeAsync(StateHasChanged);
     }
 
     private async void OnActivityChanged()
@@ -1255,7 +1294,7 @@
     {
         var cards = new List<StatCardModel>
         {
-            new() { Id = "AllPeople", Icon = Icons.Material.Outlined.People, Count = _people.Count, Label = "PEOPLE", Color = "#C9922E" }
+            new() { Id = "AllPeople", Icon = Icons.Material.Outlined.People, Count = _people.Count, Label = "PEOPLE", Color = "#C9922E", IsActive = _enabledRoles.Count == 0 }
         };
 
         // Role icons mapping
@@ -1300,7 +1339,7 @@
                 Count = kvp.Value,
                 Label = kvp.Key.ToUpperInvariant(),
                 Color = roleColors.GetValueOrDefault(kvp.Key, "#60A5FA"),
-                IsActive = _enabledRoles.Contains(kvp.Key),
+                IsActive = _enabledRoles.Count == 1 && _enabledRoles.Contains(kvp.Key),
             });
         }
 
@@ -1621,5 +1660,55 @@
     .vault-load-more-btn:hover {
         background: rgba(255, 255, 255, 0.05);
         color: rgba(255, 255, 255, 0.8);
+    }
+
+    /* ── Ingestion progress banner ── */
+    .vault-progress-banner {
+        padding: 10px 20px;
+        background: rgba(201, 146, 46, 0.08);
+        border: 1px solid rgba(201, 146, 46, 0.2);
+        border-radius: 10px;
+        margin: 0 0 12px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .vault-progress-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 12px;
+    }
+    .vault-progress-stage {
+        font-weight: 700;
+        color: rgba(201, 146, 46, 0.9);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    .vault-progress-count {
+        color: rgba(255, 255, 255, 0.6);
+    }
+    .vault-progress-eta {
+        color: rgba(255, 255, 255, 0.35);
+        margin-left: auto;
+    }
+    .vault-progress-bar-track {
+        height: 3px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+    .vault-progress-bar-fill {
+        height: 100%;
+        background: #C9922E;
+        border-radius: 2px;
+        transition: width 0.5s ease;
+    }
+    .vault-progress-recent {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.25);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 </style>

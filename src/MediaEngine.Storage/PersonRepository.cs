@@ -171,12 +171,14 @@ public sealed class PersonRepository : IPersonRepository
         string? wikidataQid,
         string? headshotUrl,
         string? biography,
+        string? name,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
+        p.Add("name",        name);
         p.Add("wikidataQid", wikidataQid);
         p.Add("headshotUrl", headshotUrl);
         p.Add("biography",   biography);
@@ -184,7 +186,8 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("id",          personId.ToString());
         conn.Execute("""
             UPDATE persons
-            SET    wikidata_qid = @wikidataQid,
+            SET    name         = COALESCE(@name, name),
+                   wikidata_qid = @wikidataQid,
                    headshot_url = @headshotUrl,
                    biography    = @biography,
                    enriched_at  = @enrichedAt

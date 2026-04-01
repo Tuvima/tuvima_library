@@ -144,7 +144,8 @@ public sealed class EndToEndIngestionTests : IDisposable
             new MediaEngine.Ingestion.Tests.Helpers.StubSmartLabeler(),
             new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
             new MediaEngine.Ingestion.Tests.Helpers.StubEntityTimelineRepository(),
-            new MediaEngine.Intelligence.Models.ScoringConfiguration());
+            new MediaEngine.Intelligence.Models.ScoringConfiguration(),
+            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository());
 
         // Run the engine with a timeout. The engine will:
         // 1. Run reconciliation (stub — no-op)

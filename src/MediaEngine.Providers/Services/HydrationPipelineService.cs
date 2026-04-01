@@ -4,6 +4,7 @@ using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Events;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -4877,6 +4878,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 batch.FilesNoMatch,
                 batch.FilesFailed,
                 ct).ConfigureAwait(false);
+
+            await EmitBatchProgressAsync(batchId.Value, isComplete: false, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -4905,10 +4908,60 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 batch.FilesNoMatch,
                 batch.FilesFailed,
                 ct).ConfigureAwait(false);
+
+            await EmitBatchProgressAsync(batchId.Value, isComplete: false, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogDebug(ex, "Batch resolve adjustment (review→identified) failed for {BatchId}", batchId);
+        }
+    }
+
+    // ── Batch Progress Signalling ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Fetches the current batch counters and broadcasts a <c>"BatchProgress"</c> SignalR event.
+    /// Best-effort — never throws; the pipeline continues if the publish fails.
+    /// </summary>
+    private async Task EmitBatchProgressAsync(Guid batchId, bool isComplete, CancellationToken ct)
+    {
+        try
+        {
+            var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
+            if (batch is null) return;
+
+            var processed = batch.FilesProcessed;
+            var total     = batch.FilesTotal;
+            var pct       = total > 0 ? (int)Math.Round(processed * 100.0 / total) : 0;
+
+            int? etaSecs = null;
+            if (processed > 0 && total > processed)
+            {
+                var elapsed = (DateTimeOffset.UtcNow - batch.StartedAt).TotalSeconds;
+                var rate    = elapsed > 0 ? processed / elapsed : 0;
+                if (rate > 0) etaSecs = (int)Math.Round((total - processed) / rate);
+            }
+
+            await _eventPublisher.PublishAsync(
+                SignalREvents.BatchProgress,
+                new BatchProgressEvent(
+                    batch.Id,
+                    total,
+                    processed,
+                    batch.FilesIdentified,
+                    batch.FilesReview,
+                    batch.FilesNoMatch,
+                    batch.FilesFailed,
+                    pct,
+                    etaSecs,
+                    isComplete,
+                    null,   // RecentTitles
+                    null),  // CurrentStage
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "BatchProgress publish failed for {BatchId} — pipeline continues", batchId);
         }
     }
 

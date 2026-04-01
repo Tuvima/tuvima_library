@@ -176,7 +176,7 @@ public static class VaultColumnDefinitions
         Checkbox(),
         new() { Key = "media",       Label = "Title",      Width = "30%", Sortable = true, SortKey = "title",           RenderType = ColumnRenderType.MediaCell },
         new() { Key = "artist",      Label = "Artist",     Width = "auto", Sortable = true, SortKey = "artist",          RenderType = ColumnRenderType.Text, PropertyName = "Artist" },
-        new() { Key = "album",       Label = "Album",      Width = "auto", Sortable = true, SortKey = "album",           RenderType = ColumnRenderType.Text, PropertyName = "Album" },
+        new() { Key = "album",       Label = "Album",      Width = "20%", Sortable = true, SortKey = "album",           RenderType = ColumnRenderType.Text, PropertyName = "Album" },
         new() { Key = "tracknumber", Label = "Track #",    Width = "60px", RenderType = ColumnRenderType.Text,            PropertyName = "TrackNumber", Align = "center" },
         new() { Key = "duration",    Label = "Duration",   Width = "80px", RenderType = ColumnRenderType.Duration },
         new() { Key = "pipeline",    Label = "Pipeline",   Width = "10%",  Sortable = false, Align = "center",           RenderType = ColumnRenderType.Pipeline },
