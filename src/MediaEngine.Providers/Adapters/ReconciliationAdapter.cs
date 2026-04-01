@@ -1104,10 +1104,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (string.IsNullOrWhiteSpace(resolvedQid))
         {
             // ── Fallback: text-based reconciliation with type filtering ───────
-            // Two-pass approach: (1) type-constrained search using instance_of_classes
-            // from config, then (2) unconstrained search if pass 1 scores below
-            // threshold. This handles cases where Wikidata classifies an entity
-            // under a P31 class not in our config (e.g. Q55850643 before it was added).
+            // Type-constrained search using instance_of_classes from config.
+            // Only fires when all bridge ID lookups have been exhausted.
             var mediaTypeKey = mediaType.ToString();
             var hasTypeClasses = _config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var typeClasses)
                 && typeClasses.Count > 0;
@@ -1122,7 +1120,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                 try
                 {
-                    // Pass 1: type-constrained reconciliation (when classes configured).
+                    // Type-constrained reconciliation (only runs when classes are configured).
                     if (hasTypeClasses)
                     {
                         _logger.LogInformation(
@@ -1164,48 +1162,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         }
                     }
 
-                    // Pass 2: unconstrained reconciliation (no type filter).
-                    // Fires when pass 1 scored below threshold or had no candidates,
-                    // or when no type classes are configured for this media type.
-                    if (string.IsNullOrWhiteSpace(resolvedQid))
-                    {
-                        _logger.LogInformation(
-                            "{Provider}: ResolveBridgeAsync — pass 2: unconstrained text reconciliation " +
-                            "for '{Query}' ({MediaType})",
-                            Name, fallbackQuery, mediaType);
-
-                        var unconstrainedRequest = new ReconciliationRequest
-                        {
-                            Query = fallbackQuery,
-                            Limit = 5,
-                            Language = language,
-                            DiacriticInsensitive = true,
-                            Cleaners = QueryCleaners.All(),
-                        };
-
-                        var pass2Candidates = await _reconciler.ReconcileAsync(unconstrainedRequest, ct)
-                            .ConfigureAwait(false);
-
-                        if (pass2Candidates.Count > 0)
-                        {
-                            var topCandidate = pass2Candidates[0];
-                            if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
-                            {
-                                resolvedQid = topCandidate.Id;
-                                _logger.LogInformation(
-                                    "{Provider}: ResolveBridgeAsync — unconstrained reconciliation matched " +
-                                    "'{Query}' to {QID} '{Label}' (score={Score})",
-                                    Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
-                            }
-                            else
-                            {
-                                _logger.LogDebug(
-                                    "{Provider}: ResolveBridgeAsync — unconstrained reconciliation top candidate " +
-                                    "'{Label}' ({QID}) score {Score} below threshold",
-                                    Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
-                            }
-                        }
-                    }
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
@@ -1216,7 +1172,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
             }
 
-            // If still no match after both passes, give up.
+            // If no match after type-constrained reconciliation, give up.
             if (string.IsNullOrWhiteSpace(resolvedQid))
                 return BridgeResolutionResult.NotFound;
         }

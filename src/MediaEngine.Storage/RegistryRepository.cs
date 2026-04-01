@@ -298,6 +298,13 @@ public sealed class RegistryRepository : IRegistryRepository
             else
                 conditions.Add("fd.status = @status");
         }
+        else
+        {
+            // Default: exclude items that belong in the Action Centre.
+            // InReview and Rejected items are only shown when explicitly
+            // requested via the Action Centre's status filters.
+            conditions.Add("fd.status NOT IN ('InReview', 'Rejected')");
+        }
         if (query.MinConfidence.HasValue)
             conditions.Add("fd.confidence >= @minConfidence");
         if (!string.IsNullOrWhiteSpace(query.MatchSource))

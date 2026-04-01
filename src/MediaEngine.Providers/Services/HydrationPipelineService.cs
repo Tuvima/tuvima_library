@@ -1181,6 +1181,13 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         request.EntityId);
                 }
             }
+
+            // Download cover art from retail provider URL — makes covers available
+            // immediately after Stage 1 rather than waiting for Stage 2.
+            if (request.EntityType == EntityType.MediaAsset)
+            {
+                await PersistCoverFromUrlAsync(request.EntityId, ct).ConfigureAwait(false);
+            }
         }
         else if (stage1Providers.Count > 0)
         {

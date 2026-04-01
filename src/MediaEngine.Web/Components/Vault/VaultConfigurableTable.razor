@@ -381,6 +381,37 @@ else
                                         <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
                                         break;
 
+                                    case ColumnRenderType.ContainerCell:
+                                        <div class="vmt-media-cell">
+                                            <div class="vmt-poster-wrap">
+                                                <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
+                                                     @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
+                                                     @onmouseleave="HideHover">
+                                                    @if (!string.IsNullOrEmpty(item.CoverUrl))
+                                                    {
+                                                        <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)"
+                                                                 Style="font-size: 20px; opacity: 0.25;" />
+                                                    }
+                                                </div>
+                                            </div>
+                                            <div class="vmt-media-info">
+                                                <p class="vmt-title">@item.Title</p>
+                                                @if (!string.IsNullOrEmpty(item.Author))
+                                                {
+                                                    <p class="vmt-subtitle">@item.Author</p>
+                                                }
+                                            </div>
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.Count:
+                                        <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
+                                        break;
+
                                     case ColumnRenderType.ManageActions:
                                         <div class="vmt-manage-actions" @onclick:stopPropagation="true">
                                             <button class="vmt-manage-btn vmt-manage-btn--edit" title="Edit" @onclick="() => OnEditClicked.InvokeAsync(item.EntityId)">
@@ -575,6 +606,9 @@ else
             "PeopleCount"   => "—",                   // Universes tab
             "ItemCount"     => "—",                   // Hubs tab
             "Featured"      => "—",                   // Hubs tab
+            "WorkCount"     => item.TrackCount ?? "—", // container: work count
+            "SeasonCount"   => item.Season ?? "—",     // container: season count
+            "Creator"       => item.Author ?? "—",     // container: creator
             _ => "—",
         };
 
