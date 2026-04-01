@@ -663,6 +663,21 @@ public interface IEngineApiClient
     /// <summary>PUT /hubs/{id}/featured — toggle hub featured state.</summary>
     Task<bool> UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default);
 
+    /// <summary>POST /hubs/preview — evaluate rules without saving.</summary>
+    Task<HubPreviewResult?> PreviewHubRulesAsync(List<HubRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default);
+
+    /// <summary>POST /hubs — create a new hub.</summary>
+    Task<bool> CreateHubAsync(string name, List<HubRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, CancellationToken ct = default);
+
+    /// <summary>PUT /hubs/{id} — update a hub.</summary>
+    Task<bool> UpdateHubAsync(Guid hubId, string? name, List<HubRulePredicateViewModel>? rules, string? matchMode, bool? isEnabled, bool? isFeatured, CancellationToken ct = default);
+
+    /// <summary>DELETE /hubs/{id} — soft delete.</summary>
+    Task<bool> DeleteHubAsync(Guid hubId, CancellationToken ct = default);
+
+    /// <summary>GET /hubs/resolve/{id} — evaluate hub rules and return items.</summary>
+    Task<List<HubResolvedItemViewModel>> ResolveHubAsync(Guid hubId, int? limit = null, CancellationToken ct = default);
+
     // ── Vault Preferences (/settings/ui/vault-preferences) ──────────────────
 
     /// <summary>GET /settings/ui/vault-preferences — vault display preferences (view modes, show unowned).</summary>

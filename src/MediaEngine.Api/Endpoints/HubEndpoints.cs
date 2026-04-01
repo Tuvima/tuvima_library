@@ -2,6 +2,9 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -809,6 +812,323 @@ public static class HubEndpoints
         .WithSummary("Toggle a hub's featured state.")
         .RequireAnyRole();
 
+        // ── Parameterized Hub endpoints ─────────────────────────────────────────
+
+        // GET /hubs/resolve/{id}?limit= — evaluate hub rules, return items
+        group.MapGet("/resolve/{id:guid}", async (
+            Guid id,
+            int? limit,
+            IHubRepository hubRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var hub = await hubRepo.GetByIdAsync(id, ct);
+            if (hub is null) return Results.NotFound();
+
+            // For materialized hubs, return works directly
+            if (hub.Resolution == "materialized")
+            {
+                var hubWithWorks = await hubRepo.GetHubWithWorksAsync(id, ct);
+                if (hubWithWorks is null) return Results.NotFound();
+
+                var take = limit ?? 0;
+                var works = take > 0 ? hubWithWorks.Works.Take(take).ToList() : hubWithWorks.Works;
+                var items = works.Select(w =>
+                {
+                    var dto = WorkDto.FromDomain(w);
+                    return new HubResolvedItemDto
+                    {
+                        EntityId = w.Id,
+                        Title = GetCanonical(dto, "title") ?? $"Work {w.Id.ToString("N")[..8]}",
+                        Creator = GetCanonical(dto, "author") ?? GetCanonical(dto, "director") ?? GetCanonical(dto, "artist"),
+                        MediaType = w.MediaType.ToString(),
+                        CoverUrl = GetCanonical(dto, "cover"),
+                        Year = GetCanonical(dto, "year"),
+                    };
+                }).ToList();
+
+                return Results.Ok(items);
+            }
+
+            // For query-resolved hubs, evaluate rules
+            var predicates = HubRuleEvaluator.ParseRules(hub.RuleJson);
+            if (predicates.Count == 0) return Results.Ok(new List<HubResolvedItemDto>());
+
+            var evaluator = new HubRuleEvaluator(db);
+            var entityIds = evaluator.Evaluate(predicates, hub.MatchMode, hub.SortField, hub.SortDirection, limit ?? 0);
+
+            var resolved = ResolveEntityMetadata(db, entityIds);
+            return Results.Ok(resolved);
+        })
+        .WithName("ResolveHub")
+        .WithSummary("Evaluate a hub's rules and return matching items.")
+        .Produces<List<HubResolvedItemDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        // GET /hubs/by-location/{location} — hubs placed at a location
+        group.MapGet("/by-location/{location}", async (
+            string location,
+            IHubPlacementRepository placementRepo,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            var placements = await placementRepo.GetByLocationAsync(location, ct);
+            var result = new List<object>();
+
+            foreach (var p in placements)
+            {
+                var hub = await hubRepo.GetByIdAsync(p.HubId, ct);
+                if (hub is null || !hub.IsEnabled) continue;
+
+                result.Add(new
+                {
+                    hub_id = hub.Id,
+                    name = hub.DisplayName ?? $"Hub {hub.Id.ToString("N")[..8]}",
+                    hub_type = hub.HubType,
+                    icon_name = hub.IconName,
+                    location = p.Location,
+                    position = p.Position,
+                    display_limit = p.DisplayLimit,
+                    display_mode = p.DisplayMode,
+                });
+            }
+
+            return Results.Ok(result);
+        })
+        .WithName("GetHubsByLocation")
+        .WithSummary("Returns all hubs placed at a specific UI location, ordered by position.")
+        .RequireAnyRole();
+
+        // POST /hubs/preview — evaluate rules without saving
+        group.MapPost("/preview", (
+            HubPreviewRequest body,
+            IDatabaseConnection db) =>
+        {
+            if (body.Rules.Count == 0) return Results.Ok(new { count = 0, items = new List<HubResolvedItemDto>() });
+
+            var evaluator = new HubRuleEvaluator(db);
+            var entityIds = evaluator.Evaluate(body.Rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
+
+            var resolved = ResolveEntityMetadata(db, entityIds);
+            return Results.Ok(new { count = entityIds.Count, items = resolved });
+        })
+        .WithName("PreviewHub")
+        .WithSummary("Evaluate hub rules and return matching items without saving.")
+        .RequireAnyRole();
+
+        // POST /hubs — create a new hub
+        group.MapPost("/", async (
+            HubCreateRequest body,
+            IHubRepository hubRepo,
+            IHubPlacementRepository placementRepo,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Name))
+                return Results.BadRequest("Hub name is required.");
+
+            var ruleJson = body.Rules.Count > 0
+                ? System.Text.Json.JsonSerializer.Serialize(body.Rules)
+                : null;
+
+            var ruleHash = body.Rules.Count > 0
+                ? HubRuleEvaluator.ComputeRuleHash(body.Rules)
+                : null;
+
+            var resolution = body.HubType is "Playlist" or "System" or "Mix"
+                ? "materialized" : "query";
+
+            var hub = new Hub
+            {
+                Id = Guid.NewGuid(),
+                DisplayName = body.Name,
+                Description = body.Description,
+                IconName = body.IconName,
+                HubType = body.HubType,
+                Scope = body.HubType is "Playlist" or "Custom" ? "user" : "library",
+                IsEnabled = true,
+                MinItems = 0,
+                RuleJson = ruleJson,
+                Resolution = resolution,
+                RuleHash = ruleHash,
+                MatchMode = body.MatchMode,
+                SortField = body.SortField,
+                SortDirection = body.SortDirection,
+                LiveUpdating = body.LiveUpdating,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+
+            await hubRepo.UpsertAsync(hub, ct);
+
+            // Create placements
+            if (body.Placements is { Count: > 0 })
+            {
+                foreach (var p in body.Placements)
+                {
+                    await placementRepo.UpsertAsync(new HubPlacement
+                    {
+                        Id = Guid.NewGuid(),
+                        HubId = hub.Id,
+                        Location = p.Location,
+                        Position = p.Position,
+                        DisplayLimit = p.DisplayLimit,
+                        DisplayMode = p.DisplayMode,
+                        IsVisible = true,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                    }, ct);
+                }
+            }
+
+            return Results.Created($"/hubs/{hub.Id}", new { id = hub.Id, name = hub.DisplayName });
+        })
+        .WithName("CreateHub")
+        .WithSummary("Create a new hub with rules and optional placements.")
+        .RequireAnyRole();
+
+        // PUT /hubs/{id} — update hub
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            HubUpdateRequest body,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            var hub = await hubRepo.GetByIdAsync(id, ct);
+            if (hub is null) return Results.NotFound();
+
+            if (body.Name is not null) hub.DisplayName = body.Name;
+            if (body.Description is not null) hub.Description = body.Description;
+            if (body.IconName is not null) hub.IconName = body.IconName;
+            if (body.MatchMode is not null) hub.MatchMode = body.MatchMode;
+            if (body.SortField is not null) hub.SortField = body.SortField;
+            if (body.SortDirection is not null) hub.SortDirection = body.SortDirection;
+            if (body.LiveUpdating.HasValue) hub.LiveUpdating = body.LiveUpdating.Value;
+            if (body.IsEnabled.HasValue) hub.IsEnabled = body.IsEnabled.Value;
+            if (body.IsFeatured.HasValue) hub.IsFeatured = body.IsFeatured.Value;
+
+            if (body.Rules is { Count: > 0 })
+            {
+                hub.RuleJson = System.Text.Json.JsonSerializer.Serialize(body.Rules);
+                hub.RuleHash = HubRuleEvaluator.ComputeRuleHash(body.Rules);
+            }
+
+            hub.ModifiedAt = DateTimeOffset.UtcNow;
+            await hubRepo.UpsertAsync(hub, ct);
+            return Results.Ok();
+        })
+        .WithName("UpdateHub")
+        .WithSummary("Update a hub's rules, settings, or metadata.")
+        .RequireAnyRole();
+
+        // DELETE /hubs/{id} — soft delete (disable)
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            var hub = await hubRepo.GetByIdAsync(id, ct);
+            if (hub is null) return Results.NotFound();
+            if (hub.HubType == "System") return Results.BadRequest("System hubs cannot be deleted.");
+
+            await hubRepo.UpdateHubEnabledAsync(id, false, ct);
+            return Results.Ok();
+        })
+        .WithName("DeleteHub")
+        .WithSummary("Soft-delete a hub by disabling it.")
+        .RequireAnyRole();
+
+        // GET /hubs/field-values/{field} — distinct values for autocomplete
+        group.MapGet("/field-values/{field}", (
+            string field,
+            int? limit,
+            IDatabaseConnection db) =>
+        {
+            int take = limit ?? 50;
+            using var conn = db.CreateConnection();
+            using var cmd = conn.CreateCommand();
+
+            if (field == "media_type")
+            {
+                cmd.CommandText = "SELECT DISTINCT media_type FROM works WHERE status NOT IN ('InReview','Rejected') ORDER BY media_type LIMIT @Limit";
+            }
+            else
+            {
+                cmd.CommandText = """
+                    SELECT DISTINCT field_value FROM canonical_values
+                    WHERE field_key = @Field AND field_value IS NOT NULL AND field_value != ''
+                    ORDER BY field_value
+                    LIMIT @Limit
+                    """;
+                var fp = cmd.CreateParameter();
+                fp.ParameterName = "@Field";
+                fp.Value = field;
+                cmd.Parameters.Add(fp);
+            }
+
+            var lp = cmd.CreateParameter();
+            lp.ParameterName = "@Limit";
+            lp.Value = take;
+            cmd.Parameters.Add(lp);
+
+            var values = new List<string>();
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                values.Add(reader.GetString(0));
+
+            return Results.Ok(values);
+        })
+        .WithName("GetFieldValues")
+        .WithSummary("Returns distinct values for a metadata field (used for hub builder autocomplete).")
+        .RequireAnyRole();
+
+        // GET /hubs/{id}/placements
+        group.MapGet("/{id:guid}/placements", async (
+            Guid id,
+            IHubPlacementRepository placementRepo,
+            CancellationToken ct) =>
+        {
+            var placements = await placementRepo.GetByHubIdAsync(id, ct);
+            return Results.Ok(placements.Select(p => new
+            {
+                id = p.Id,
+                location = p.Location,
+                position = p.Position,
+                display_limit = p.DisplayLimit,
+                display_mode = p.DisplayMode,
+                is_visible = p.IsVisible,
+            }));
+        })
+        .WithName("GetHubPlacements")
+        .WithSummary("Returns placements for a hub.")
+        .RequireAnyRole();
+
+        // PUT /hubs/{id}/placements — replace all placements
+        group.MapPut("/{id:guid}/placements", async (
+            Guid id,
+            List<PlacementRequest> body,
+            IHubPlacementRepository placementRepo,
+            CancellationToken ct) =>
+        {
+            await placementRepo.DeleteByHubIdAsync(id, ct);
+            foreach (var p in body)
+            {
+                await placementRepo.UpsertAsync(new HubPlacement
+                {
+                    Id = Guid.NewGuid(),
+                    HubId = id,
+                    Location = p.Location,
+                    Position = p.Position,
+                    DisplayLimit = p.DisplayLimit,
+                    DisplayMode = p.DisplayMode,
+                    IsVisible = true,
+                    CreatedAt = DateTimeOffset.UtcNow,
+                }, ct);
+            }
+            return Results.Ok();
+        })
+        .WithName("UpdateHubPlacements")
+        .WithSummary("Replace all placements for a hub.")
+        .RequireAnyRole();
+
         return app;
     }
 
@@ -833,5 +1153,61 @@ public static class HubEndpoints
         if (raw is not null && raw.Contains("|||", StringComparison.Ordinal) && !MultiValuedKeys.Contains(key))
             return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         return raw;
+    }
+
+    private static List<HubResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)
+    {
+        if (entityIds.Count == 0) return [];
+
+        using var conn = db.CreateConnection();
+        var result = new List<HubResolvedItemDto>();
+
+        foreach (var entityId in entityIds)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                SELECT cv.field_key, cv.field_value
+                FROM canonical_values cv
+                WHERE cv.entity_id = @EntityId
+                  AND cv.field_key IN ('title', 'author', 'director', 'artist', 'cover', 'year')
+                UNION ALL
+                SELECT 'media_type', w.media_type
+                FROM works w WHERE w.entity_id = @EntityId
+                """;
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@EntityId";
+            p.Value = entityId.ToString();
+            cmd.Parameters.Add(p);
+
+            string? title = null, creator = null, mediaType = null, cover = null, year = null;
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var key = reader.GetString(0);
+                var val = reader.GetString(1);
+                switch (key)
+                {
+                    case "title": title = val; break;
+                    case "author" when creator is null: creator = val; break;
+                    case "director" when creator is null: creator = val; break;
+                    case "artist" when creator is null: creator = val; break;
+                    case "cover": cover = val; break;
+                    case "year": year = val; break;
+                    case "media_type": mediaType = val; break;
+                }
+            }
+
+            result.Add(new HubResolvedItemDto
+            {
+                EntityId = entityId,
+                Title = title ?? "Unknown",
+                Creator = creator,
+                MediaType = mediaType ?? "Unknown",
+                CoverUrl = cover,
+                Year = year,
+            });
+        }
+
+        return result;
     }
 }

@@ -1358,6 +1358,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // person_group_members junction table, Performer/Artist roles.
         MigrateMusicGroupSupport(conn);
 
+        // Migration M-070: Universal Hub System — new columns on hubs, hub_placements table.
+        MigrateUniversalHubSystem(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2275,6 +2278,87 @@ public sealed class DatabaseConnection : IDatabaseConnection
         }
 
         System.Diagnostics.Debug.WriteLine("M-069: Music group support — is_group, person_group_members, expanded roles");
+    }
+
+    /// <summary>
+    /// Migration M-070: Universal Hub System — new columns on hubs, hub_placements table.
+    /// <list type="bullet">
+    ///   <item>Adds resolution, rule_hash, group_by_field, match_mode, sort_field, sort_direction, live_updating to hubs.</item>
+    ///   <item>Creates hub_placements table for mapping hubs to UI locations.</item>
+    ///   <item>Backfills existing Universe hubs with works to ContentGroup type + materialized resolution.</item>
+    /// </list>
+    /// Idempotent: checks for <c>resolution</c> column before running.
+    /// </summary>
+    private static void MigrateUniversalHubSystem(SqliteConnection conn)
+    {
+        // Check if resolution column already exists on hubs.
+        bool resolutionExists = false;
+        using (var infoCmd = conn.CreateCommand())
+        {
+            infoCmd.CommandText = "PRAGMA table_info(hubs);";
+            using var reader = infoCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (string.Equals(reader.GetString(1), "resolution", StringComparison.OrdinalIgnoreCase))
+                {
+                    resolutionExists = true;
+                    break;
+                }
+            }
+        }
+
+        if (!resolutionExists)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                ALTER TABLE hubs ADD COLUMN resolution TEXT NOT NULL DEFAULT 'query';
+                ALTER TABLE hubs ADD COLUMN rule_hash TEXT;
+                ALTER TABLE hubs ADD COLUMN group_by_field TEXT;
+                ALTER TABLE hubs ADD COLUMN match_mode TEXT NOT NULL DEFAULT 'all';
+                ALTER TABLE hubs ADD COLUMN sort_field TEXT;
+                ALTER TABLE hubs ADD COLUMN sort_direction TEXT NOT NULL DEFAULT 'desc';
+                ALTER TABLE hubs ADD COLUMN live_updating INTEGER NOT NULL DEFAULT 1;
+
+                CREATE INDEX IF NOT EXISTS idx_hubs_rule_hash ON hubs (rule_hash);
+                CREATE INDEX IF NOT EXISTS idx_hubs_hub_type ON hubs (hub_type);
+                CREATE INDEX IF NOT EXISTS idx_hubs_resolution ON hubs (resolution);
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        // Create hub_placements table
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS hub_placements (
+                    id            TEXT PRIMARY KEY,
+                    hub_id        TEXT NOT NULL REFERENCES hubs(id) ON DELETE CASCADE,
+                    location      TEXT NOT NULL,
+                    position      INTEGER NOT NULL DEFAULT 0,
+                    display_limit INTEGER NOT NULL DEFAULT 0,
+                    display_mode  TEXT NOT NULL DEFAULT 'swimlane',
+                    is_visible    INTEGER NOT NULL DEFAULT 1,
+                    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_hub_placements_hub_id ON hub_placements (hub_id);
+                CREATE INDEX IF NOT EXISTS idx_hub_placements_location ON hub_placements (location);
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        // Backfill: set existing Universe hubs with assigned works to ContentGroup type + materialized resolution
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                UPDATE hubs SET hub_type = 'ContentGroup', resolution = 'materialized'
+                WHERE hub_type = 'Universe'
+                  AND id IN (SELECT DISTINCT hub_id FROM works WHERE hub_id IS NOT NULL);
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        System.Diagnostics.Debug.WriteLine("M-070: Universal Hub System — hub columns, hub_placements, backfill");
     }
 
     /// <summary>

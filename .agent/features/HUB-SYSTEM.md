@@ -1,8 +1,8 @@
-# Feature: Grouping Model — Universes & Series (Domain Model & Library Structure)
+# Feature: Universal Parameterized Hub System & Grouping Model
 
-> **Mirrors:** `CLAUDE.md` §1 (Grouping Model) — keep both in sync per `.agent/SYNC-MAP.md`
+> **Mirrors:** `CLAUDE.md` §1 (Grouping Model), §3.13 (Universal Parameterized Hub System) — keep both in sync per `.agent/SYNC-MAP.md`
 
-> Last audited: 2026-03-26 | Auditor: Claude (Product-Led Architect)
+> Last audited: 2026-04-01 | Auditor: Claude (Product-Led Architect)
 
 > **Terminology:** User-facing names differ from internal code names. See table below.
 
@@ -23,21 +23,45 @@
 
 ---
 
-## User Experience
+## Universal Hub Model
 
-The Universe and Series concepts are central to Tuvima Library. Instead of browsing by file type (all my books, all my movies), you browse by *story*. A single Universe — say "Dune" — contains every version of that story in your collection, organised into Series: Dune Novels, Dune Films, Dune Audiobooks.
+Every collection in Tuvima Library is a **hub** — a parameterized query container. Albums, TV shows, genre categories, user playlists, and AI recommendations all use the same mechanism: normalized filter predicates evaluated against library metadata.
 
-### What the user sees today
+### Hub Rules
 
-- **Home page** — A grid of Series tiles, each showing a name, work count, and media-type icons.
-- **Hero tile** — The selected Series is highlighted with artwork and progress indicators.
-- **Search** — The Command Palette finds Series and Works by keyword.
+Rules are JSON arrays of `{field, op, value}` predicates:
+```json
+[
+  { "field": "media_type", "op": "eq", "value": "Movie" },
+  { "field": "genre", "op": "eq", "value": "Horror" }
+]
+```
 
-### What the user cannot do yet
+Operators: eq, neq, contains, gt, lt, between, in, like. Match mode: ALL (AND) or ANY (OR).
 
-- **Browse inside a Series** — There is no Series/Universe detail page. You can see the list of Series but cannot drill into one to see its Works, Editions, or individual files.
-- **Manually create or merge Series** — Series creation is automatic (during ingestion). There is no UI to create, rename, merge, or split Series.
-- **See Universe groupings** — The Universe concept (grouping related Series, like "Marvel Cinematic Universe") exists in the domain but is never shown in the Dashboard.
+### Hub Types (Presentation Hints)
+
+| Type | Created by | Resolution | Editable |
+|------|-----------|------------|----------|
+| **ContentGroup** | Engine (during ingestion) | Materialized | Read-only, drillable |
+| **Smart** | Engine (auto-generated) | Query-resolved | Disable/enable, feature |
+| **System** | System (pre-created) | Materialized | Add/remove/reorder |
+| **Mix** | Engine + AI | Materialized | Enable/disable |
+| **Playlist** | User | Materialized | Full CRUD |
+| **Custom** | User (hub builder) | Query-resolved | Full CRUD + edit rules |
+
+### Hybrid Resolution
+
+- **Query-resolved** (Smart, Custom): predicates evaluated at display time, always fresh
+- **Materialized** (ContentGroup, System, Playlist, Mix): items explicitly linked in `hub_works`
+
+### Content Groups
+
+Created during ingestion by `MediaEntityChainFactory` — albums, TV shows, book series work immediately when files are scanned, not waiting for Wikidata. Power the container views in Vault media tabs.
+
+### Hub Placements
+
+`hub_placements` table maps hubs to UI locations (home, media lanes, vault, hubs page) with display limits and position. Location is a data-driven display constraint.
 
 ---
 
@@ -52,12 +76,43 @@ Library   (your entire collection)
                           └── Media Asset   (e.g., the actual MKV file on disk)
 ```
 
-- **Library** — Your entire media collection.
-- **Universe** — A creative world containing related Series. Optional. Not yet surfaced in UI. Internal code: `ParentHub`.
-- **Series** — The story grouping. One Series per intellectual property sub-grouping. Internal code: `Hub`.
-- **Work** — A single title within that Series (could be a book, a film, an episode).
-- **Edition** — A specific physical version of that Work.
-- **Media Asset** — The actual file on disk, identified by its SHA-256 fingerprint.
+---
+
+## Collections Page (`/hubs`)
+
+Dedicated page for browsing, creating, and managing all hub types. Replaces the former Vault Hubs tab. Features:
+- Type filter chips (All, Content Groups, Smart, System Lists, Mixes, Playlists, Custom)
+- Grid/list view toggle
+- Hub builder for creating Custom collections (Apple Music Smart Playlist-style filter rows)
+- Live preview powered by `POST /hubs/preview`
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/MediaEngine.Domain/Models/HubRulePredicate.cs` | Predicate model |
+| `src/MediaEngine.Domain/Entities/HubPlacement.cs` | Placement entity |
+| `src/MediaEngine.Storage/HubRuleEvaluator.cs` | Rule-to-SQL translator |
+| `src/MediaEngine.Storage/HubPlacementRepository.cs` | Placement persistence |
+| `src/MediaEngine.Web/Components/Hubs/HubsPage.razor` | Collections page |
+| `src/MediaEngine.Web/Components/Hubs/HubBuilder.razor` | Filter builder UI |
+
+Migration: M-070 (hub columns + hub_placements table + backfill)
+
+---
+
+## API Endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /hubs/resolve/{id}` | Evaluate rules, return items |
+| `POST /hubs/preview` | Evaluate rules without saving |
+| `GET /hubs/by-location/{location}` | Hubs at a UI location |
+| `GET /hubs/field-values/{field}` | Autocomplete for builder |
+| `POST/PUT/DELETE /hubs` | Full CRUD |
+| `GET/PUT /hubs/{id}/placements` | Placement management |
 
 ---
 
@@ -69,35 +124,13 @@ Library   (your entire collection)
 | HBR-02 | A Work must always belong to a Series (Hub). If a Series is deleted, the Work's link is set to null (unassigned). | Schema (ON DELETE SET NULL on works.hub_id) |
 | HBR-03 | Metadata Claims are append-only — historical claims are never deleted. | Domain convention + repository design |
 | HBR-04 | Canonical Values are the scored winners — one per field per entity. | CanonicalValueRepository (composite PK) |
-| HBR-05 | Conflicted assets (scoring too close to call) are not auto-assigned to a Series. | ScoringEngine (AssetStatus.Conflicted) |
-| HBR-06 | Orphaned assets (file deleted from disk) should be flagged with AssetStatus.Orphaned. | Domain design (not yet implemented) |
-| HBR-07 | The seed Owner profile cannot be deleted, and the last Administrator cannot be deleted. | ProfileService |
+| HBR-05 | Content groups are created at ingestion time, not deferred to enrichment. | MediaEntityChainFactory |
+| HBR-06 | Hub rules use normalized JSON predicates — no raw SQL in rule definitions. | HubRulePredicate model |
+| HBR-07 | Only user-created hubs (Playlist, Custom) can be deleted. System, Smart, Mix, and ContentGroup are managed by the Engine. | Hub CRUD endpoints |
 | HBR-08 | Person records are linked to Media Assets via a many-to-many join (idempotent). | PersonRepository (INSERT OR IGNORE) |
-
----
-
-## Platform Health
-
-| Area | Status | Notes |
-|------|--------|-------|
-| Hub aggregate (domain) | **PASS** | Clean POCO with Works collection and DisplayName. Internal name: `Hub` (user-facing: Series). |
-| Work aggregate (domain) | **PASS** | MediaType, SequenceIndex for series, Claims + CanonicalValues. |
-| Edition aggregate (domain) | **PASS** | FormatLabel, child MediaAssets, own Claims + CanonicalValues. |
-| MediaAsset (domain) | **PASS** | ContentHash as identity anchor, Status enum (Normal/Conflicted/Orphaned). |
-| Person entity (domain) | **PASS** | Name, Role, Wikidata enrichment fields. |
-| Hub repository | **PASS** | Two-query loading (no N+1), case-insensitive DisplayName search, idempotent upsert. |
-| Hub API (listing) | **PASS** | `GET /hubs` returns all Series with works and canonical values. |
-| Hub API (search) | **WARN** | Brute-force in-memory search over all Series. Will not scale to very large libraries. |
-| Series detail page | **FAIL** | **Does not exist.** No `/universe/{id}` route. The Command Palette and search link to it but land on 404. |
-| Series management UI | **FAIL** | No UI to create, rename, merge, or split Series. All Series creation is automatic. |
-| Hub repository FindByIdAsync | **FAIL** | Method does not exist — cannot efficiently load a single Series for a detail page. |
-| Work/Edition repositories | **FAIL** | `IWorkRepository` and `IEditionRepository` do not exist. Cannot query Works or Editions independently. |
-| Universe surfacing | **WARN** | ParentHub entity exists in domain but is never shown in the Dashboard as Universe groupings. |
-| Orphan detection | **FAIL** | Deleted files are logged but assets are never marked as Orphaned in the database. |
-| Work proliferation | **WARN** | Each ingested file creates a new Work + Edition chain, even if the same Work already exists under the same Series. May produce redundant records over time. |
 
 ---
 
 ## PO Summary
 
-The grouping model is well-designed at the domain level — the hierarchy of Library → Universe → Series → Work → Edition → Media Asset is clean and complete. Series creation, scoring, and organisation all work automatically. **The biggest gap is the absence of a Universe/Series detail page — users can see their Series in the grid but cannot drill into one to see its contents. Supporting infrastructure is also missing: no Work/Edition repositories, no Series management UI, and no orphan detection for deleted files.**
+The hub system has been unified into a single universal model. Every collection — whether an auto-detected album, a genre category, or a user playlist — uses the same rule-based mechanism. Content groups (albums, TV shows, series) are created the moment files are scanned, so they work immediately. A dedicated Collections page replaces the old Vault Hubs tab for managing all collection types. Users can create their own smart collections using an intuitive filter builder inspired by Apple Music's Smart Playlist interface.

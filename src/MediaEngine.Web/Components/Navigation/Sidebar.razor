@@ -102,6 +102,17 @@
             }
         </div>
 
+        @* ── Collections (Hub management) ── *@
+        <div class="sidebar-item @(IsActive("/hubs", "hubs") ? "sidebar-item-active" : "")"
+             @onclick="@(() => Nav.NavigateTo("/hubs"))"
+             title="@(Collapsed ? "Collections" : null)">
+            <MudIcon Icon="@Icons.Material.Outlined.Collections" Size="Size.Medium" Class="sidebar-item-icon" />
+            @if (!Collapsed)
+            {
+                <span class="sidebar-label">Collections</span>
+            }
+        </div>
+
         @* ── Provider Tester ── *@
         <div class="sidebar-item @(IsActive("/provider-tester", "provider-tester") ? "sidebar-item-active" : "")"
              @onclick="@(() => Nav.NavigateTo("/provider-tester"))"

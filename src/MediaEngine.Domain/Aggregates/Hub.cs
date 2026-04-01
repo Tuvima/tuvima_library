@@ -95,6 +95,27 @@ public sealed class Hub
     /// <summary>JSON rule definition for smart hubs (e.g. genre filter, vibe filter).</summary>
     public string? RuleJson { get; set; }
 
+    /// <summary>How items are resolved: "query" (evaluate rules at display time) or "materialized" (pre-assigned).</summary>
+    public string Resolution { get; set; } = "query";
+
+    /// <summary>SHA-256 hash of normalized RuleJson for deduplication.</summary>
+    public string? RuleHash { get; set; }
+
+    /// <summary>For content groups: field to group results by (e.g. "season", "album").</summary>
+    public string? GroupByField { get; set; }
+
+    /// <summary>Rule match mode: "all" (AND) or "any" (OR).</summary>
+    public string MatchMode { get; set; } = "all";
+
+    /// <summary>Default sort field for hub results.</summary>
+    public string? SortField { get; set; }
+
+    /// <summary>Sort direction: "asc" or "desc".</summary>
+    public string SortDirection { get; set; } = "desc";
+
+    /// <summary>Whether query-resolved results auto-refresh when library changes.</summary>
+    public bool LiveUpdating { get; set; } = true;
+
     /// <summary>Cron expression or descriptive schedule for mix refresh.</summary>
     public string? RefreshSchedule { get; set; }
 

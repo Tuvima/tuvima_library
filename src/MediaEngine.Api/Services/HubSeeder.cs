@@ -76,20 +76,20 @@ public static class HubSeeder
         // ── Sample Smart Hubs ───────────────────────────────────────────────
         var smartHubs = new[]
         {
-            ("By Genre: Science Fiction", "Genre: Science Fiction, Min 3 items, Any media", "Label",    128, """{"genre":"Science Fiction","min":3,"media":"Any"}"""),
-            ("By Genre: Mystery",         "Genre: Mystery, Min 3 items, Any media",         "Label",     64, """{"genre":"Mystery","min":3,"media":"Any"}"""),
-            ("By Genre: Biography",       "Genre: Biography, Min 3 items, Any media",       "Label",     22, """{"genre":"Biography","min":3,"media":"Any"}"""),
-            ("By Vibe: Atmospheric",      "Vibe: atmospheric, Min 5 items, Any media",      "Waves",     43, """{"vibe":"atmospheric","min":5,"media":"Any"}"""),
-            ("By Vibe: Cozy",             "Vibe: cozy, Min 5 items, Any media",             "Waves",     18, """{"vibe":"cozy","min":5,"media":"Any"}"""),
-            ("By Vibe: Cerebral",         "Vibe: cerebral, Min 5 items, Any media",         "Waves",     31, """{"vibe":"cerebral","min":5,"media":"Any"}"""),
-            ("By Author: Frank Herbert",  "Author role, Min 3 works",                       "Person",    12, """{"person":"Frank Herbert","role":"Author","min":3}"""),
-            ("By Director: Denis Villeneuve", "Director role, Min 3 works",                 "Person",     7, """{"person":"Denis Villeneuve","role":"Director","min":3}"""),
-            ("By Narrator: Steven Pacey", "Narrator role, Min 3 works",                     "Person",     9, """{"person":"Steven Pacey","role":"Narrator","min":3}"""),
-            ("By Decade: 1980s",          "Published/released 1980-1989, Min 5 items",      "Calendar",  56, """{"decade":"1980s","min":5}"""),
-            ("By Decade: 2010s",          "Published/released 2010-2019, Min 5 items",      "Calendar", 203, """{"decade":"2010s","min":5}"""),
-            ("Recently Added",            "Added in last 30 days",                           "Clock",     34, """{"recency_days":30}"""),
-            ("Highest Rated",             "Rating 4+ from providers",                        "Star",      89, """{"min_rating":4}"""),
-            ("Unrated",                   "No user rating",                                  "RadioButton",412, """{"unrated":true}"""),
+            ("By Genre: Science Fiction", "Genre: Science Fiction, Min 3 items, Any media", "Label",    128, """[{"field":"genre","op":"eq","value":"Science Fiction"}]"""),
+            ("By Genre: Mystery",         "Genre: Mystery, Min 3 items, Any media",         "Label",     64, """[{"field":"genre","op":"eq","value":"Mystery"}]"""),
+            ("By Genre: Biography",       "Genre: Biography, Min 3 items, Any media",       "Label",     22, """[{"field":"genre","op":"eq","value":"Biography"}]"""),
+            ("By Vibe: Atmospheric",      "Vibe: atmospheric, Min 5 items, Any media",      "Waves",     43, """[{"field":"vibe","op":"eq","value":"atmospheric"}]"""),
+            ("By Vibe: Cozy",             "Vibe: cozy, Min 5 items, Any media",             "Waves",     18, """[{"field":"vibe","op":"eq","value":"cozy"}]"""),
+            ("By Vibe: Cerebral",         "Vibe: cerebral, Min 5 items, Any media",         "Waves",     31, """[{"field":"vibe","op":"eq","value":"cerebral"}]"""),
+            ("By Author: Frank Herbert",  "Author role, Min 3 works",                       "Person",    12, """[{"field":"author","op":"eq","value":"Frank Herbert"}]"""),
+            ("By Director: Denis Villeneuve", "Director role, Min 3 works",                 "Person",     7, """[{"field":"director","op":"eq","value":"Denis Villeneuve"}]"""),
+            ("By Narrator: Steven Pacey", "Narrator role, Min 3 works",                     "Person",     9, """[{"field":"narrator","op":"eq","value":"Steven Pacey"}]"""),
+            ("By Decade: 1980s",          "Published/released 1980-1989, Min 5 items",      "Calendar",  56, """[{"field":"decade","op":"eq","value":"1980s"}]"""),
+            ("By Decade: 2010s",          "Published/released 2010-2019, Min 5 items",      "Calendar", 203, """[{"field":"decade","op":"eq","value":"2010s"}]"""),
+            ("Recently Added",            "Added in last 30 days",                           "Clock",     34, """[{"field":"added_within_days","op":"lte","value":"30"}]"""),
+            ("Highest Rated",             "Rating 4+ from providers",                        "Star",      89, """[{"field":"provider_rating","op":"gte","value":"4"}]"""),
+            ("Unrated",                   "No user rating",                                  "RadioButton",412, """[{"field":"user_rating","op":"eq","value":"unrated"}]"""),
         };
 
         foreach (var (name, desc, icon, mockCount, ruleJson) in smartHubs)

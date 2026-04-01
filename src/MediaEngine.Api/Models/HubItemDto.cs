@@ -29,3 +29,25 @@ public sealed class HubItemDto
     [JsonPropertyName("sort_order")]
     public int SortOrder { get; init; }
 }
+
+/// <summary>DTO for a resolved hub item (from rule evaluation).</summary>
+public sealed class HubResolvedItemDto
+{
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; init; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; init; } = "";
+
+    [JsonPropertyName("creator")]
+    public string? Creator { get; init; }
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; init; } = "";
+
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; init; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; init; }
+}

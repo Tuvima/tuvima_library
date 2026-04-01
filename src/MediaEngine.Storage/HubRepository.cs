@@ -37,6 +37,13 @@ public sealed class HubRepository : IHubRepository
         is_featured       AS IsFeatured,
         min_items         AS MinItems,
         rule_json         AS RuleJson,
+        resolution        AS Resolution,
+        rule_hash         AS RuleHash,
+        group_by_field    AS GroupByField,
+        match_mode        AS MatchMode,
+        sort_field        AS SortField,
+        sort_direction    AS SortDirection,
+        live_updating     AS LiveUpdating,
         refresh_schedule  AS RefreshSchedule,
         last_refreshed_at AS LastRefreshedAt,
         modified_at       AS ModifiedAt
@@ -437,10 +444,22 @@ public sealed class HubRepository : IHubRepository
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
-            INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at, universe_status, wikidata_qid, hub_type)
-                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht);
+            INSERT OR IGNORE INTO hubs(id, universe_id, parent_hub_id, display_name, created_at,
+                universe_status, wikidata_qid, hub_type, description, icon_name, scope, profile_id,
+                is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
+                group_by_field, match_mode, sort_field, sort_direction, live_updating)
+                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon, @scope, @pid,
+                    @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
+                    @groupByField, @matchMode, @sortField, @sortDirection, @liveUpdating);
             UPDATE hubs SET display_name = @dn, universe_status = @us, parent_hub_id = @phid,
-                            wikidata_qid = @wqid, hub_type = @ht WHERE id = @id;
+                            wikidata_qid = @wqid, hub_type = @ht, description = @desc,
+                            icon_name = @icon, scope = @scope, profile_id = @pid,
+                            is_enabled = @enabled, is_featured = @featured, min_items = @minItems,
+                            rule_json = @ruleJson, resolution = @resolution, rule_hash = @ruleHash,
+                            group_by_field = @groupByField, match_mode = @matchMode,
+                            sort_field = @sortField, sort_direction = @sortDirection,
+                            live_updating = @liveUpdating
+                    WHERE id = @id;
             """,
             new
             {
@@ -452,6 +471,21 @@ public sealed class HubRepository : IHubRepository
                 us   = hub.UniverseStatus ?? "Unknown",
                 wqid = hub.WikidataQid,
                 ht   = hub.HubType ?? "Universe",
+                desc = hub.Description,
+                icon = hub.IconName,
+                scope = hub.Scope ?? "library",
+                pid  = hub.ProfileId.HasValue ? hub.ProfileId.Value.ToString() : null,
+                enabled = hub.IsEnabled ? 1 : 0,
+                featured = hub.IsFeatured ? 1 : 0,
+                minItems = hub.MinItems,
+                ruleJson = hub.RuleJson,
+                resolution = hub.Resolution ?? "query",
+                ruleHash = hub.RuleHash,
+                groupByField = hub.GroupByField,
+                matchMode = hub.MatchMode ?? "all",
+                sortField = hub.SortField,
+                sortDirection = hub.SortDirection ?? "desc",
+                liveUpdating = hub.LiveUpdating ? 1 : 0,
             });
 
         return Task.FromResult(hub.Id);
@@ -913,7 +947,7 @@ public sealed class HubRepository : IHubRepository
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
                 FROM   hubs h
                 INNER JOIN works w ON w.hub_id = h.id
-                WHERE  h.hub_type = 'Universe'
+                WHERE  h.hub_type IN ('ContentGroup', 'Universe')
                 ORDER  BY h.display_name, h.created_at, w.sequence_index, w.id;
                 """;
 
@@ -1145,5 +1179,26 @@ public sealed class HubRepository : IHubRepository
 
         if (raw is null) return Task.FromResult<Guid?>(null);
         return Task.FromResult<Guid?>(Guid.Parse(raw));
+    }
+
+    /// <inheritdoc/>
+    public async Task<Hub?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var hub = await conn.QueryFirstOrDefaultAsync<Hub>(
+            $"SELECT {HubSelectColumns} FROM hubs WHERE rule_hash = @Hash LIMIT 1",
+            new { Hash = ruleHash });
+        return hub is null ? null : NormalizeHub(hub);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IReadOnlyList<Hub>> GetAllHubsForLocationAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var hubs = await conn.QueryAsync<Hub>(
+            $"SELECT {HubSelectColumns} FROM hubs WHERE is_enabled = 1 ORDER BY display_name");
+        return hubs.Select(NormalizeHub).ToList();
     }
 }

@@ -67,7 +67,7 @@ public sealed class RegistryIngestionTests : IDisposable
         _reviewRepo = new ReviewQueueRepository(db);
         _activityRepo = new SystemActivityRepository(db);
         _ingestionLog = new IngestionLogRepository(db);
-        _chainFactory = new MediaEntityChainFactory(db, new WorkRepository(db));
+        _chainFactory = new MediaEntityChainFactory(db, new WorkRepository(db), new HubRepository(db));
         _registryRepo = new RegistryRepository(db);
 
         // Priority cascade engine — Wikidata wins, then highest-confidence retail.

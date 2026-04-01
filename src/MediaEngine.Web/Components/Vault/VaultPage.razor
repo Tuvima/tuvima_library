@@ -198,15 +198,6 @@
                                      PeopleCount="@_universePeopleCounts"
                                      OnRowClicked="OnUniverseRowClicked" />
             }
-            else if (_activeTab == "hubs")
-            {
-                <VaultHubsTable Hubs="@_managedHubs"
-                                ContentGroups="@_contentGroups"
-                                Loading="@_loadingHubs"
-                                EnabledTypes="@_enabledHubTypes"
-                                OnHubClicked="OnHubClicked"
-                                OnContentGroupClicked="OnContentGroupClicked" />
-            }
         </div>
     </div>
 
@@ -303,8 +294,6 @@
     private Dictionary<string, int> _mediaTypeCounts = new();
     private bool _hasMore;
     private int _loadedCount;
-    private bool _loadingHubs;
-
     // ── Hub drawer state ──
     private ManagedHubViewModel? _selectedHub;
     private List<HubItemViewModel> _selectedHubItems = [];
@@ -384,7 +373,6 @@
         ("comics",     "Comics",     Icons.Material.Outlined.AutoStories),
         ("people",     "People",     Icons.Material.Outlined.People),
         ("universes",  "Universes",  Icons.Material.Outlined.Public),
-        ("hubs",       "Hubs",       Icons.Material.Outlined.AutoAwesome),
     ];
 
     // ── Tab helpers ──
@@ -444,7 +432,6 @@
         "comics"     => _mediaTypeCounts.GetValueOrDefault("Comics", 0),
         "people"     => _people.Count,
         "universes"  => _universes.Count,
-        "hubs"       => _managedHubs.Count + _contentGroups.Count,
         _            => 0,
     };
 
@@ -472,7 +459,6 @@
 
         if (_activeTab == "people") await LoadPeople();
         else if (_activeTab == "universes") await LoadUniverses();
-        else if (_activeTab == "hubs") await LoadManagedHubs();
         else if (IsContainerView) await LoadContainerItems();
         else await LoadMediaItems();
 
@@ -675,7 +661,6 @@
     private async Task LoadManagedHubs()
     {
         if (_managedHubs.Count > 0) return; // already loaded
-        _loadingHubs = true;
         StateHasChanged();
 
         var hubsTask   = ApiClient.GetManagedHubsAsync();
@@ -687,7 +672,6 @@
         _managedHubs   = hubsTask.Result;
         _hubCounts     = countsTask.Result;
         _contentGroups = groupsTask.Result;
-        _loadingHubs   = false;
     }
 
     private async Task LoadConflictItems()
@@ -818,10 +802,6 @@
         else if (tabId == "universes")
         {
             await LoadUniverses();
-        }
-        else if (tabId == "hubs")
-        {
-            await LoadManagedHubs();
         }
         else
         {
@@ -1311,7 +1291,6 @@
         {
             "people"    => _selectedPerson?.Id,
             "universes" => _selectedUniverse?.Id,
-            "hubs"      => _selectedHub?.Id,
             _ when IsMediaTab(_activeTab) => _selectedMedia?.EntityId,
             _ => null
         };
@@ -1383,11 +1362,6 @@
             case "universes":
                 _selectedUniverse = _universes.FirstOrDefault(u => u.Id == itemId);
                 break;
-            case "hubs":
-                _selectedHub = _managedHubs.FirstOrDefault(h => h.Id == itemId);
-                if (_selectedHub is not null)
-                    _selectedHubItems = await ApiClient.GetHubItemsAsync(itemId, 20);
-                break;
         }
     }
 
@@ -1399,7 +1373,6 @@
         {
             if (_activeTab == "people") await LoadPeople();
             else if (_activeTab == "universes") await LoadUniverses();
-            else if (_activeTab == "hubs") await LoadManagedHubs();
             else if (IsMediaTab(_activeTab))
             {
                 if (IsContainerView) await LoadContainerItems();

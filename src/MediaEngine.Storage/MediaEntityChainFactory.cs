@@ -1,5 +1,8 @@
+using System.Text.Json;
+using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -25,17 +28,21 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
 {
     private readonly IDatabaseConnection _db;
     private readonly IWorkRepository _works;
+    private readonly IHubRepository _hubs;
     private readonly ILogger<MediaEntityChainFactory>? _logger;
 
     public MediaEntityChainFactory(
         IDatabaseConnection db,
         IWorkRepository works,
+        IHubRepository hubs,
         ILogger<MediaEntityChainFactory>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(works);
+        ArgumentNullException.ThrowIfNull(hubs);
         _db     = db;
         _works  = works;
+        _hubs   = hubs;
         _logger = logger;
     }
 
@@ -78,6 +85,9 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
             workId = CreateWork(mediaType);
         }
 
+        // ── 1b. Ensure content group hub ────────────────────────────────
+        await EnsureContentGroupAsync(workId, mediaType, metadata, ct).ConfigureAwait(false);
+
         // ── 2. Create Edition under the resolved Work ─────────────────────
         string? formatLabel = null;
         metadata?.TryGetValue("format", out formatLabel);
@@ -100,6 +110,93 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private async Task EnsureContentGroupAsync(
+        Guid workId, MediaType mediaType,
+        IReadOnlyDictionary<string, string>? metadata,
+        CancellationToken ct)
+    {
+        if (metadata is null) return;
+
+        // Determine grouping field based on media type
+        string? groupField = mediaType switch
+        {
+            MediaType.Music => "album",
+            MediaType.TV => "show_name",
+            MediaType.Books or MediaType.Comics => "series",
+            MediaType.Audiobooks => "series",
+            MediaType.Podcasts => "show_name",
+            _ => null,
+        };
+
+        if (groupField is null) return;
+
+        // Check if the metadata has the grouping value
+        if (!metadata.TryGetValue(groupField, out var groupValue) || string.IsNullOrWhiteSpace(groupValue))
+            return;
+
+        // Build predicates for this content group
+        var predicates = new List<HubRulePredicate>
+        {
+            new() { Field = "media_type", Op = "eq", Value = mediaType.ToString() },
+            new() { Field = groupField, Op = "eq", Value = groupValue },
+        };
+
+        // Add artist for music albums to distinguish same-named albums
+        if (mediaType == MediaType.Music && metadata.TryGetValue("artist", out var artist) && !string.IsNullOrWhiteSpace(artist))
+        {
+            predicates.Add(new() { Field = "artist", Op = "eq", Value = artist });
+        }
+
+        var ruleHash = HubRuleEvaluator.ComputeRuleHash(predicates);
+
+        // Check if content group already exists
+        var existing = await _hubs.FindByRuleHashAsync(ruleHash, ct).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            // Assign work to existing hub
+            await _hubs.AssignWorkToHubAsync(workId, existing.Id, ct).ConfigureAwait(false);
+            return;
+        }
+
+        // Create new content group hub
+        var displayName = mediaType switch
+        {
+            MediaType.Music => metadata.TryGetValue("artist", out var a) && !string.IsNullOrWhiteSpace(a)
+                ? $"{groupValue} — {a}" : groupValue,
+            _ => groupValue,
+        };
+
+        var hubId = Guid.NewGuid();
+        var ruleJson = JsonSerializer.Serialize(predicates);
+
+        await _hubs.UpsertAsync(new Hub
+        {
+            Id = hubId,
+            DisplayName = displayName,
+            HubType = "ContentGroup",
+            Description = $"{mediaType} content group: {groupValue}",
+            Scope = "library",
+            IsEnabled = true,
+            MinItems = 0,
+            RuleJson = ruleJson,
+            Resolution = "materialized",
+            RuleHash = ruleHash,
+            GroupByField = groupField,
+            MatchMode = "all",
+            SortField = mediaType == MediaType.Music ? "track_number" : mediaType == MediaType.TV ? "episode" : "title",
+            SortDirection = "asc",
+            LiveUpdating = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        }, ct).ConfigureAwait(false);
+
+        // Assign work to the new hub
+        await _hubs.AssignWorkToHubAsync(workId, hubId, ct).ConfigureAwait(false);
+
+        _logger?.LogInformation(
+            "Created ContentGroup hub {HubId} ({DisplayName}) for {MediaType} work {WorkId}",
+            hubId, displayName, mediaType, workId);
+    }
 
     private Guid CreateWork(MediaType mediaType)
     {

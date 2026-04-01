@@ -3255,6 +3255,106 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<HubPreviewResult?> PreviewHubRulesAsync(
+        List<HubRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { rules = rules.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(), match_mode = matchMode, limit };
+            var response = await _http.PostAsJsonAsync("/hubs/preview", body, ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<HubPreviewResult>(cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /hubs/preview failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
+    public async Task<bool> CreateHubAsync(
+        string name, List<HubRulePredicateViewModel> rules, string matchMode,
+        string? sortField, string sortDirection, bool liveUpdating, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new
+            {
+                name,
+                hub_type = "Custom",
+                rules = rules.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(),
+                match_mode = matchMode,
+                sort_field = sortField,
+                sort_direction = sortDirection,
+                live_updating = liveUpdating,
+            };
+            var response = await _http.PostAsJsonAsync("/hubs", body, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /hubs failed");
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> UpdateHubAsync(
+        Guid hubId, string? name, List<HubRulePredicateViewModel>? rules,
+        string? matchMode, bool? isEnabled, bool? isFeatured, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new
+            {
+                name,
+                rules = rules?.Select(r => new { field = r.Field, op = r.Op, value = r.Value }).ToList(),
+                match_mode = matchMode,
+                is_enabled = isEnabled,
+                is_featured = isFeatured,
+            };
+            var response = await _http.PutAsJsonAsync($"/hubs/{hubId}", body, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /hubs/{HubId} failed", hubId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteHubAsync(Guid hubId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.DeleteAsync($"/hubs/{hubId}", ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /hubs/{HubId} failed", hubId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<List<HubResolvedItemViewModel>> ResolveHubAsync(Guid hubId, int? limit = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = limit.HasValue ? $"/hubs/resolve/{hubId}?limit={limit}" : $"/hubs/resolve/{hubId}";
+            return await _http.GetFromJsonAsync<List<HubResolvedItemViewModel>>(url, ct) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/resolve/{HubId} failed", hubId);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     // ── Universe health + character data ─────────────────────────────────────
 
     public async Task<UniverseHealthDto?> GetUniverseHealthAsync(string qid, CancellationToken ct = default)

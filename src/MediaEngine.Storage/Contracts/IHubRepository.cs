@@ -182,4 +182,10 @@ public interface IHubRepository
     /// Used by the Universe Enrichment service for hub-level group refresh.
     /// </summary>
     Task<Guid?> GetHubIdByWorkIdAsync(Guid workId, CancellationToken ct = default);
+
+    /// <summary>Finds a hub by its rule hash for deduplication.</summary>
+    Task<Hub?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default);
+
+    /// <summary>Returns all enabled hubs for placement resolution.</summary>
+    Task<IReadOnlyList<Hub>> GetAllHubsForLocationAsync(CancellationToken ct = default);
 }

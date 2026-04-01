@@ -42,6 +42,24 @@ public sealed class ManagedHubDto
     [JsonPropertyName("rule_json")]
     public string? RuleJson { get; init; }
 
+    [JsonPropertyName("resolution")]
+    public string Resolution { get; init; } = "query";
+
+    [JsonPropertyName("rule_hash")]
+    public string? RuleHash { get; init; }
+
+    [JsonPropertyName("match_mode")]
+    public string MatchMode { get; init; } = "all";
+
+    [JsonPropertyName("sort_field")]
+    public string? SortField { get; init; }
+
+    [JsonPropertyName("sort_direction")]
+    public string SortDirection { get; init; } = "desc";
+
+    [JsonPropertyName("live_updating")]
+    public bool LiveUpdating { get; init; } = true;
+
     [JsonPropertyName("refresh_schedule")]
     public string? RefreshSchedule { get; init; }
 
@@ -70,6 +88,12 @@ public sealed class ManagedHubDto
         IsFeatured      = hub.IsFeatured,
         MinItems        = hub.MinItems,
         RuleJson        = hub.RuleJson,
+        Resolution      = hub.Resolution,
+        RuleHash        = hub.RuleHash,
+        MatchMode       = hub.MatchMode,
+        SortField       = hub.SortField,
+        SortDirection   = hub.SortDirection,
+        LiveUpdating    = hub.LiveUpdating,
         RefreshSchedule = hub.RefreshSchedule,
         ItemCount       = itemCount,
         Status          = !hub.IsEnabled ? "Disabled" : itemCount == 0 ? "Empty" : "Active",
