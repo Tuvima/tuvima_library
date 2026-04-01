@@ -38,7 +38,8 @@
     "timeout_seconds": 10,
     "user_agent": "Tuvima Library/1.0",
     "api_key": "",
-    "api_key_delivery": "bearer"
+    "api_key_delivery": "query",
+    "api_key_param_name": "api_key"
   },
 
   "can_handle": {
@@ -51,7 +52,7 @@
       "name": "movie_search",
       "priority": 1,
       "required_fields": ["title"],
-      "url_template": "{base_url}/search/movie?query={title}&year={year}&include_adult=false&language={lang}-{country}&page=1",
+      "url_template": "{base_url}/search/movie?query={title}&year={year}&include_adult=false&language={lang}-{country}&page=1&api_key={api_key}",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,
@@ -61,7 +62,7 @@
       "name": "tv_search",
       "priority": 1,
       "required_fields": ["title"],
-      "url_template": "{base_url}/search/tv?query={title}&first_air_date_year={year}&include_adult=false&language={lang}-{country}&page=1",
+      "url_template": "{base_url}/search/tv?query={title}&first_air_date_year={year}&include_adult=false&language={lang}-{country}&page=1&api_key={api_key}",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,

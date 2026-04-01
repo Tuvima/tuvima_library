@@ -519,34 +519,69 @@ public static class DevSeedEndpoints
 
     /// <summary>
     /// Probe each provider's API endpoint in parallel. Returns a dictionary of
-    /// provider name → (healthy, reason). Timeout: 5 seconds per provider.
+    /// provider name → (healthy, reason). Timeout: 8 seconds per provider.
+    /// Credentials are read from the loaded provider config (secrets applied) so no
+    /// credentials are ever hardcoded here. A 2xx response is required — 401 is
+    /// treated as "key missing or invalid", not as "healthy".
     /// </summary>
     private static async Task<Dictionary<string, (bool Healthy, string Reason)>> CheckProviderHealthAsync(
-        ILogger logger)
+        ILogger logger,
+        Storage.Contracts.IConfigurationLoader configLoader)
     {
         var results = new Dictionary<string, (bool, string)>(StringComparer.OrdinalIgnoreCase);
-        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
         httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("TuvimaLibrary/1.0 (integration-test)");
 
         var tasks = ProviderHealthUrls.Select(async kvp =>
         {
             try
             {
-                // Metron requires Basic auth for any request
-                if (kvp.Key.Equals("metron", StringComparison.OrdinalIgnoreCase))
+                // Load provider config — secrets (api_key, username, password) are applied
+                // automatically by ConfigurationDirectoryLoader.ApplySecrets().
+                var providerConfig = configLoader.LoadProvider(kvp.Key);
+                var http = providerConfig?.HttpClient;
+                var delivery = http?.ApiKeyDelivery?.ToLowerInvariant() ?? "";
+
+                // Resolve the effective health-check URL.
+                // For query-param delivery, append the key directly to the URL.
+                string healthUrl = kvp.Value;
+                if (!string.IsNullOrWhiteSpace(http?.ApiKey) && delivery is "query" or "query_param")
                 {
-                    var creds = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Shyatic:fgn4vfg*wqx_MZK@cup"));
-                    httpClient.DefaultRequestHeaders.Authorization =
-                        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+                    var paramName = string.IsNullOrWhiteSpace(http.ApiKeyParamName) ? "api_key" : http.ApiKeyParamName;
+                    var separator = healthUrl.Contains('?') ? "&" : "?";
+                    healthUrl = healthUrl + separator + paramName + "=" + Uri.EscapeDataString(http.ApiKey);
                 }
 
-                using var response = await httpClient.GetAsync(kvp.Value);
-                bool ok = response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
-                return (kvp.Key, Healthy: ok, Reason: ok ? "OK" : $"HTTP {(int)response.StatusCode}");
+                // Build a per-request message so auth headers don't bleed across providers.
+                using var req = new HttpRequestMessage(HttpMethod.Get, healthUrl);
+
+                if (http is not null)
+                {
+                    if (!string.IsNullOrWhiteSpace(http.ApiKey) && delivery == "bearer")
+                    {
+                        req.Headers.Authorization =
+                            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", http.ApiKey);
+                    }
+                    else if (!string.IsNullOrWhiteSpace(http.Username) && !string.IsNullOrWhiteSpace(http.Password))
+                    {
+                        var creds = Convert.ToBase64String(
+                            System.Text.Encoding.UTF8.GetBytes($"{http.Username}:{http.Password}"));
+                        req.Headers.Authorization =
+                            new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
+                    }
+                }
+
+                using var response = await httpClient.SendAsync(req);
+
+                // A 2xx response confirms the endpoint is reachable AND the credentials work.
+                // 401 → key missing or invalid; treat as unhealthy so the seed skips that type.
+                bool ok = response.IsSuccessStatusCode;
+                string reason = ok ? $"HTTP {(int)response.StatusCode}" : $"HTTP {(int)response.StatusCode} — key missing or invalid";
+                return (kvp.Key, Healthy: ok, Reason: reason);
             }
             catch (Exception ex)
             {
-                return (kvp.Key, Healthy: false, Reason: ex.GetType().Name);
+                return (kvp.Key, Healthy: false, Reason: $"{ex.GetType().Name}: {ex.Message}");
             }
         });
 
@@ -608,6 +643,9 @@ public static class DevSeedEndpoints
         RouteGroupBuilder group = app.MapGroup("/dev")
             .WithTags("Development");
 
+        group.MapGet("/check-keys", CheckKeysAsync)
+            .WithSummary("Probe each configured provider with real credentials — confirms all API keys are valid before seeding");
+
         group.MapPost("/seed-library", SeedLibraryAsync)
             .WithSummary($"Drop up to {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length} test files into Watch Folders (?types=books,comics,… to filter; providers health-checked automatically)");
 
@@ -616,6 +654,39 @@ public static class DevSeedEndpoints
 
         group.MapPost("/full-test", FullTestAsync)
             .WithSummary("Wipe everything → seed test files → return per-type summary (?types= to filter)");
+    }
+
+    // ── GET /dev/check-keys ─────────────────────────────────────────────────
+
+    private static async Task<IResult> CheckKeysAsync(
+        Storage.Contracts.IConfigurationLoader configLoader,
+        ILogger<Program> logger)
+    {
+        logger.LogInformation("[CheckKeys] Probing all configured provider API keys");
+
+        var health = await CheckProviderHealthAsync(logger, configLoader);
+
+        // Summarise per-provider with a human-readable diagnosis.
+        var summary = health.ToDictionary(
+            kvp => kvp.Key,
+            kvp => new
+            {
+                status   = kvp.Value.Healthy ? "OK" : "FAIL",
+                reason   = kvp.Value.Reason,
+                affects  = ProviderToTypes.TryGetValue(kvp.Key, out var types) ? types : Array.Empty<string>(),
+            });
+
+        bool allHealthy = health.Values.All(v => v.Healthy);
+        string verdict = allHealthy
+            ? "All provider keys verified — ready to seed."
+            : "One or more providers failed. Fill in the missing keys in config/secrets/ before seeding.";
+
+        return Results.Ok(new
+        {
+            verdict,
+            all_healthy = allHealthy,
+            providers = summary,
+        });
     }
 
     // ── POST /dev/seed-library ───────────────────────────────────────────────
@@ -627,7 +698,7 @@ public static class DevSeedEndpoints
         ILogger<Program> logger)
     {
         var requestedTypes = ParseTypes(context);
-        var health = await CheckProviderHealthAsync(logger);
+        var health = await CheckProviderHealthAsync(logger, configLoader);
         var (activeTypes, skipReasons) = ResolveActiveTypes(requestedTypes, health);
 
         var created = new List<string>();
@@ -807,15 +878,21 @@ public static class DevSeedEndpoints
     {
         var wiped = new List<string>();
 
-        // 1. Stop the ingestion engine so it doesn't try to process files during wipe.
+        // 1. Pause the FSW so no new OS events fire during the wipe.
+        //    PauseWatcher() stops the FileSystemWatcher and clears the FSW event
+        //    buffer WITHOUT calling _debounce.Complete() — the consumer loop stays
+        //    alive and can immediately process events queued by ScanDirectory after
+        //    the wipe.  StopAsync() must NOT be used here because it completes the
+        //    debounce channel, making subsequent ScanDirectory calls silently drop
+        //    every event (ChannelClosedException swallowed in PromoteAsync).
         try
         {
-            await ingestionEngine.StopAsync(CancellationToken.None);
-            logger.LogInformation("[Wipe] Ingestion engine stopped");
+            ingestionEngine.PauseWatcher();
+            logger.LogInformation("[Wipe] Ingestion engine FSW paused");
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "[Wipe] Failed to stop ingestion engine — continuing");
+            logger.LogWarning(ex, "[Wipe] Failed to pause ingestion engine — continuing");
         }
 
         // 2. Wipe the library root (organized files + .staging/).
@@ -946,26 +1023,26 @@ public static class DevSeedEndpoints
             logger.LogError(ex, "[Wipe] Failed to wipe database");
         }
 
-        // 5. Restart the ingestion engine (conditionally — FullTestAsync defers this
-        //    until after seeding so the FSW cannot fire on newly-written seed files
-        //    before ScanDirectory has a chance to enqueue them directly).
+        // 5. Resume the FSW (conditionally — FullTestAsync defers this until after
+        //    seeding so the FSW cannot fire on newly-written seed files before
+        //    ScanDirectory has a chance to enqueue them directly).
         if (startEngineAfterWipe)
         {
             try
             {
-                ingestionEngine.Start();
-                logger.LogInformation("[Wipe] Ingestion engine restarted");
-                wiped.Add("Ingestion engine: restarted");
+                ingestionEngine.ResumeWatcher();
+                logger.LogInformation("[Wipe] Ingestion engine FSW resumed");
+                wiped.Add("Ingestion engine: FSW resumed");
             }
             catch (Exception ex)
             {
-                wiped.Add($"Ingestion engine restart: FAILED — {ex.Message}");
-                logger.LogWarning(ex, "[Wipe] Failed to restart ingestion engine");
+                wiped.Add($"Ingestion engine resume: FAILED — {ex.Message}");
+                logger.LogWarning(ex, "[Wipe] Failed to resume ingestion engine");
             }
         }
         else
         {
-            wiped.Add("Ingestion engine: restart deferred (caller will start after seeding)");
+            wiped.Add("Ingestion engine: FSW resume deferred (caller will resume after seeding)");
         }
 
         return Results.Ok(new
@@ -1027,19 +1104,21 @@ public static class DevSeedEndpoints
             logger.LogInformation("[FullTest] ScanDirectory triggered for legacy watch folder {Path}", watchDir);
         }
 
-        // ── Step 4: Start the FSW watcher AFTER all files are enqueued ─────────
+        // ── Step 4: Resume the FSW AFTER all files are enqueued ─────────────────
         // Now that every seed file is already queued in the pipeline, the watcher
         // can safely observe new arrivals. Any FSW events for the already-queued
         // files are harmless: the hash-based duplicate check inside
         // ProcessCandidateAsync short-circuits them instantly.
+        // ResumeWatcher() is used (not Start()) because the consumer loop was never
+        // stopped — only the FSW was paused by PauseWatcher() in WipeAsync.
         try
         {
-            ingestionEngine.Start();
-            logger.LogInformation("[FullTest] Ingestion engine started — FSW active");
+            ingestionEngine.ResumeWatcher();
+            logger.LogInformation("[FullTest] Ingestion engine FSW resumed — ready for live events");
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "[FullTest] Failed to start ingestion engine after seeding");
+            logger.LogWarning(ex, "[FullTest] Failed to resume ingestion engine after seeding");
         }
 
         return Results.Ok(new

@@ -339,6 +339,44 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         => ScanExistingFiles(directory, includeSubdirectories);
 
     /// <inheritdoc/>
+    void IIngestionEngine.PauseWatcher()
+    {
+        // Stop the FSW so no new OS events are delivered while the wipe runs.
+        _watcher.Stop();
+
+        // Discard every pending FSW event and clear the dedup sets so that
+        // files written after the wipe are not silently dropped as duplicates.
+        // The debounce channel and its consumer loop are deliberately left alive.
+        lock (_fswBufferLock)
+        {
+            _fswFlushTimer?.Dispose();
+            _fswFlushTimer = null;
+            _fswBuffer.Clear();
+            _fswBufferedPaths.Clear();
+            _enqueuedPaths.Clear();
+        }
+
+        _logger.LogInformation("IngestionEngine: FSW paused (watcher stopped, event buffer cleared).");
+    }
+
+    /// <inheritdoc/>
+    void IIngestionEngine.ResumeWatcher()
+    {
+        // Clear dedup state so files that were seen before the wipe (and whose
+        // paths are now back on disk after re-seeding) can be enqueued again.
+        lock (_fswBufferLock)
+        {
+            _enqueuedPaths.Clear();
+            _fswBufferedPaths.Clear();
+        }
+
+        // Restart the FSW — new OS events will flow into BufferFswEvent again.
+        _watcher.Start();
+
+        _logger.LogInformation("IngestionEngine: FSW resumed (watcher restarted, dedup state cleared).");
+    }
+
+    /// <inheritdoc/>
     public async Task<IReadOnlyList<PendingOperation>> DryRunAsync(
         string rootPath, CancellationToken ct = default)
     {

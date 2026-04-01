@@ -33,6 +33,22 @@ public interface IIngestionEngine
     /// Duplicates are harmless — the hash-based duplicate check short-circuits them.
     /// </summary>
     void ScanDirectory(string directory, bool includeSubdirectories = true);
+
+    /// <summary>
+    /// Stops the FileSystemWatcher and clears the FSW event buffer without
+    /// touching the debounce queue or its consumer loop.
+    /// Used by the dev wipe operation so that seed files written immediately
+    /// after the wipe are not detected as spurious FSW events — they are
+    /// instead enqueued deterministically via <see cref="ScanDirectory"/>.
+    /// </summary>
+    void PauseWatcher();
+
+    /// <summary>
+    /// Restarts the FileSystemWatcher after a <see cref="PauseWatcher"/> call.
+    /// Clears the per-path dedup tracking so that previously-seen file paths
+    /// (wiped and re-seeded) can be enqueued again.
+    /// </summary>
+    void ResumeWatcher();
 }
 
 /// <summary>
