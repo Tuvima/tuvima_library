@@ -2297,8 +2297,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 // Determine confidence and string value.
-                // As of v0.7, GetPropertiesAsync populates EntityLabel for entity references,
-                // so strVal contains the human-readable label (not a raw QID).
+                // GetPropertiesAsync populates EntityLabel for some entity references (P50)
+                // but not all (P179, P136). ResolveEntityLabelsInLanguageAsync fixes the rest.
                 (string? strVal, double confidence) = ExtractValueAndConfidence(claim, pCode);
 
                 // P179 (part_of_the_series): skip award lists, polls, and rankings.
