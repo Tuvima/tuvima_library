@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -477,13 +478,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 var deserialized = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, List<WikidataClaim>>>>(cached.ResponseJson, JsonOpts);
                 if (deserialized is not null)
                 {
-                    return deserialized.ToDictionary(
+                    var result = deserialized.ToDictionary(
                         kvp => kvp.Key,
                         kvp => (IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>)kvp.Value.ToDictionary(
                             p => p.Key,
                             p => (IReadOnlyList<WikidataClaim>)p.Value,
                             StringComparer.OrdinalIgnoreCase),
                         StringComparer.OrdinalIgnoreCase);
+
+                    // WikidataValue.EntityLabel has internal set — System.Text.Json
+                    // cannot deserialize it from a different assembly. Re-resolve labels
+                    // for any entity references that lost their labels during round-trip.
+                    await RehydrateEntityLabelsAsync(result, language, ct).ConfigureAwait(false);
+                    return result;
                 }
             }
         }
@@ -1318,9 +1325,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (isEdition && !string.IsNullOrWhiteSpace(editionQid))
             claims.Add(new ProviderClaim("edition_qid", editionQid, 1.0));
 
-        // Fix entity reference labels to configured language.
-        claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
-
         _logger.LogInformation(
             "{Provider}: ResolveBridgeAsync — resolved QID {QID} (isEdition={IsEdition}, " +
             "workQid={WorkQid}, {ClaimCount} claims, {BridgeCount} bridge IDs collected)",
@@ -1578,11 +1582,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     Name, qid, extensions.Count);
             }
         }
-
-        // Fix entity reference labels that may be in wrong language.
-        // The Data Extension API returns entity names in Wikidata's "best" language,
-        // not necessarily the configured language. Re-fetch labels for person entities.
-        claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
 
         // ── Pen name detection via GetAuthorPseudonymsAsync ──────────────────
         // When Wikidata P50 lists 2+ authors (e.g. Daniel Abraham + Ty Franck for
@@ -2029,9 +2028,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (extPersonProps is not null)
             claims.AddRange(ExtensionToClaims(qid, extPersonProps, _config.DataExtension.PropertyLabels, isWork: false, castMemberLimit: 0, metadataLanguage: language));
 
-        // Fix entity reference labels that may be in wrong language.
-        claims = await ResolveEntityLabelsInLanguageAsync(claims, language, ct).ConfigureAwait(false);
-
         // ── Wikipedia description ─────────────────────────────────────────────
         // Fetch a rich Wikipedia description for this person using the resolved QID.
         // Failures never block — an empty list is returned and execution continues.
@@ -2297,8 +2293,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 // Determine confidence and string value.
-                // GetPropertiesAsync populates EntityLabel for some entity references (P50)
-                // but not all (P179, P136). ResolveEntityLabelsInLanguageAsync fixes the rest.
+                // GetPropertiesAsync (v0.8+) calls ResolveClaimsEntityLabelsAsync internally,
+                // populating EntityLabel for all entity references. On cache hits, EntityLabel
+                // is lost (internal set); RehydrateEntityLabelsAsync patches RawValue instead.
                 (string? strVal, double confidence) = ExtractValueAndConfidence(claim, pCode);
 
                 // P179 (part_of_the_series): skip award lists, polls, and rankings.
@@ -2322,7 +2319,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 // Emit individual companion _qid claim per entity value.
-                // Prefer EntityLabel (populated by library v0.6.0), then RawValue, then EntityId.
+                // Prefer EntityLabel (populated by library v0.8.0), then RawValue, then EntityId.
                 if (claim.Value?.EntityId is not null)
                 {
                     var label = claim.Value.EntityLabel ?? claim.Value.RawValue ?? claim.Value.EntityId;
@@ -2503,154 +2500,79 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
     }
 
-    // ── Private: Entity reference label language correction ──────────────────
-
     /// <summary>
-    /// Re-fetches entity labels for ALL entity-valued claims in the configured language.
-    /// The Data Extension API's entity reference "name" field does not respect uselang —
-    /// it returns Wikidata's default label, which may be in any language.
-    ///
+    /// Re-resolves entity labels for claims deserialized from the response cache.
     /// <para>
-    /// Once a QID is resolved, Wikidata IS the authority — including for entity reference
-    /// labels (author names, series names, genre names). File metadata is only relevant
-    /// BEFORE identity is confirmed. After QID resolution, we never fall back to file data.
-    /// </para>
-    ///
-    /// <para>
-    /// For entities where a label in the configured language IS found:
-    /// - The <c>_qid</c> companion claim is updated to <c>"Q123::NewLabel"</c>.
-    /// - The primary label claim is updated to the resolved label.
-    /// </para>
-    ///
-    /// <para>
-    /// For entities where NO label exists in the configured language (rare):
-    /// - The <c>_qid</c> companion claim retains its ORIGINAL label from the Data Extension
-    ///   response (still Wikidata data — just possibly in a different language).
-    /// - The primary label claim is kept with its original value. We never drop Wikidata data.
+    /// <c>WikidataValue.EntityLabel</c> has <c>internal set</c> in the library, so
+    /// <c>System.Text.Json</c> cannot populate it during deserialization from a different
+    /// assembly. For entity references, the deserialized <c>RawValue</c> contains the
+    /// raw QID (e.g. "Q44413"), not a human-readable label. This method batch-resolves
+    /// labels via <c>GetEntitiesAsync</c> and patches <c>RawValue</c> via reflection so
+    /// that <c>ExtractValueAndConfidence</c> (which reads <c>EntityLabel ?? RawValue ??
+    /// EntityId</c>) returns the correct label.
     /// </para>
     /// </summary>
-    private async Task<List<ProviderClaim>> ResolveEntityLabelsInLanguageAsync(
-        List<ProviderClaim> claims,
+    private async Task RehydrateEntityLabelsAsync(
+        Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> result,
         string language,
         CancellationToken ct)
     {
-        // Collect ALL entity QIDs from companion _qid claims.
-        // Format: "Q123::Label" or "Q123::Q123"
+        if (_reconciler is null) return;
+
+        // Collect entity QIDs that have null EntityLabel (i.e. lost during deserialization).
         var qidsToResolve = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var claim in claims)
+        foreach (var entityProps in result.Values)
         {
-            if (!claim.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var colonIdx = claim.Value.IndexOf("::", StringComparison.Ordinal);
-            if (colonIdx <= 0) continue;
-
-            var qid = claim.Value[..colonIdx].Trim();
-            if (qid.StartsWith('Q') && qid.Length > 1 && char.IsDigit(qid[1]))
-                qidsToResolve.Add(qid);
+            foreach (var claims in entityProps.Values)
+            {
+                foreach (var claim in claims)
+                {
+                    if (claim.Value is { Kind: WikidataValueKind.EntityId, EntityId: not null, EntityLabel: null })
+                        qidsToResolve.Add(claim.Value.EntityId);
+                }
+            }
         }
 
-        if (qidsToResolve.Count == 0 || _reconciler is null)
-            return claims;
+        if (qidsToResolve.Count == 0) return;
 
-        var resolvedLabels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         try
         {
             var entities = await _reconciler.GetEntitiesAsync(
                 qidsToResolve.ToList(), resolveEntityLabels: false, language, ct).ConfigureAwait(false);
 
+            var labelMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var (qid, entity) in entities)
             {
                 if (!string.IsNullOrWhiteSpace(entity.Label))
-                    resolvedLabels[qid] = entity.Label;
+                    labelMap[qid] = entity.Label;
             }
 
-            _logger.LogDebug("{Provider}: resolved {Count}/{Total} entity labels in '{Lang}'",
-                Name, resolvedLabels.Count, qidsToResolve.Count, language);
+            // Patch RawValue via reflection — both EntityLabel (internal set) and
+            // RawValue (init) are inaccessible from external assemblies at compile time,
+            // but reflection bypasses these accessibility checks at runtime.
+            var rawValueProp = typeof(WikidataValue).GetProperty(nameof(WikidataValue.RawValue))!;
+            foreach (var entityProps in result.Values)
+            {
+                foreach (var claims in entityProps.Values)
+                {
+                    foreach (var claim in claims)
+                    {
+                        if (claim.Value is { Kind: WikidataValueKind.EntityId, EntityId: not null, EntityLabel: null }
+                            && labelMap.TryGetValue(claim.Value.EntityId, out var label))
+                        {
+                            rawValueProp.SetValue(claim.Value, label);
+                        }
+                    }
+                }
+            }
+
+            _logger.LogDebug("{Provider}: rehydrated {Count}/{Total} entity labels from cache",
+                Name, labelMap.Count, qidsToResolve.Count);
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "{Provider}: entity label resolution failed", Name);
-            return claims;
+            _logger.LogDebug(ex, "{Provider}: entity label rehydration from cache failed", Name);
         }
-
-        // Replace labels in ALL claims.
-        var result = new List<ProviderClaim>(claims.Count);
-        foreach (var claim in claims)
-        {
-            // Fix companion _qid claims: "Q123::OldLabel" → "Q123::NewLabel"
-            if (claim.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase))
-            {
-                var colonIdx = claim.Value.IndexOf("::", StringComparison.Ordinal);
-                if (colonIdx > 0)
-                {
-                    var qid = claim.Value[..colonIdx].Trim();
-                    if (resolvedLabels.TryGetValue(qid, out var newLabel))
-                    {
-                        result.Add(new ProviderClaim(claim.Key, $"{qid}::{newLabel}", claim.Confidence));
-                        continue;
-                    }
-                }
-                result.Add(claim);
-                continue;
-            }
-
-            // Fix primary label claims for entity-valued properties.
-            var qidKey = $"{claim.Key}_qid";
-            var hasCompanion = claims.Any(c =>
-                string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase));
-
-            if (hasCompanion)
-            {
-                var companions = claims
-                    .Where(c => string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-                var labelClaims = claims
-                    .Where(c => string.Equals(c.Key, claim.Key, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                var idx = labelClaims.IndexOf(claim);
-                if (idx >= 0 && idx < companions.Count)
-                {
-                    var companionValue = companions[idx].Value;
-                    var cIdx = companionValue.IndexOf("::", StringComparison.Ordinal);
-                    if (cIdx > 0)
-                    {
-                        var qid = companionValue[..cIdx].Trim();
-                        if (resolvedLabels.TryGetValue(qid, out var newLabel))
-                        {
-                            result.Add(new ProviderClaim(claim.Key, newLabel, claim.Confidence));
-                            continue;
-                        }
-
-                        _logger.LogDebug(
-                            "{Provider}: no '{Lang}' label for QID {QID} on claim '{Key}' — keeping original Wikidata value",
-                            Name, language, qid, claim.Key);
-                    }
-                }
-            }
-
-            result.Add(claim);
-        }
-
-        // ── Post-resolution filter: remove series claims matching award-list patterns ──
-        // P179 entity references may arrive with EntityLabel=null from the Data Extension
-        // API. ResolveEntityLabelsInLanguageAsync re-fetches labels via GetEntitiesAsync,
-        // so by this point the "series" claim value should be a human-readable label.
-        // This is the definitive filter — the check in ExtensionToClaims is a fast-path
-        // optimisation for when EntityLabel is already populated by the library.
-        result.RemoveAll(c =>
-            string.Equals(c.Key, "series", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(c.Value)
-            && IsLikelyAwardList(c.Value));
-        result.RemoveAll(c =>
-            string.Equals(c.Key, "series_qid", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(c.Value)
-            && c.Value.IndexOf("::", StringComparison.Ordinal) is var sep && sep > 0
-            && IsLikelyAwardList(c.Value[(sep + 2)..]));
-
-        return result;
     }
-
 
 }
