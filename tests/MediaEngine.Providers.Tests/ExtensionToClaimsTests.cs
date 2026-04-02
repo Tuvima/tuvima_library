@@ -60,7 +60,8 @@ public sealed class ExtensionToClaimsTests
         Dictionary<string, string> propertyLabels,
         bool isWork = true)
     {
-        var result = ExtensionToClaimsMethod.Invoke(null, [entityQid, properties, propertyLabels, isWork]);
+        // ExtensionToClaims(entityQid, properties, propertyLabels, isWork, castMemberLimit, metadataLanguage)
+        var result = ExtensionToClaimsMethod.Invoke(null, [entityQid, properties, propertyLabels, isWork, 20, (string?)null]);
         return ((IEnumerable<ProviderClaim>)result!).ToList();
     }
 
@@ -204,6 +205,42 @@ public sealed class ExtensionToClaimsTests
         Assert.NotNull(headshotClaim);
         Assert.Contains("commons.wikimedia.org", headshotClaim.Value);
         Assert.Contains("Frank_Herbert.jpg", headshotClaim.Value);
+    }
+
+    // ── P179 award list filtering ────────────────────────────────────────
+
+    [Fact]
+    public void P179Series_AwardListPattern_Filtered()
+    {
+        // P179 pointing to "BBC's 100 Greatest Films of the 21st Century" should be filtered out.
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
+        {
+            ["P179"] = [EntityClaim("P179", "Q123456", "BBC's 100 Greatest Films of the 21st Century")],
+        };
+        var labels = new Dictionary<string, string> { ["P179"] = "series" };
+
+        var claims = ConvertToClaims("Q155653", properties, labels);
+
+        // Award list patterns are suppressed — no series claim emitted.
+        Assert.DoesNotContain(claims, c => c.Key == "series");
+        Assert.DoesNotContain(claims, c => c.Key == "series_qid");
+    }
+
+    [Fact]
+    public void P179Series_NarrativeSeries_NotFiltered()
+    {
+        // P179 pointing to "Studio Ghibli Feature Films" should NOT be filtered — it's a real series.
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
+        {
+            ["P179"] = [EntityClaim("P179", "Q842256", "Studio Ghibli Feature Films")],
+        };
+        var labels = new Dictionary<string, string> { ["P179"] = "series" };
+
+        var claims = ConvertToClaims("Q155653", properties, labels);
+
+        // Narrative series should pass through.
+        Assert.Contains(claims, c => c.Key == "series" && c.Value == "Studio Ghibli Feature Films");
+        Assert.Contains(claims, c => c.Key == "series_qid");
     }
 
     // ── Unknown property code → no claim emitted ─────────────────────────────

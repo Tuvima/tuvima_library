@@ -3,15 +3,6 @@
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="vault-toolbar">
-    @* ── Back Button (drill-down mode) ── *@
-    @if (ShowBackButton)
-    {
-        <button class="vault-back-btn" @onclick="() => OnBack.InvokeAsync()">
-            <MudIcon Icon="@Icons.Material.Filled.ArrowBack" Style="font-size: 16px;" />
-            <span>Back to @ResolvedTabId</span>
-        </button>
-    }
-
     @* ── Search ── *@
     <div class="vault-search-wrap">
         <MudIcon Icon="@Icons.Material.Outlined.Search"
@@ -81,18 +72,6 @@
             </div>
         }
 
-        @if (ResolvedTabId == "media" || ResolvedTabId == "music")
-        {
-            <div class="vault-control-divider"></div>
-
-            @* Poster Size *@
-            <div class="vault-control-group vault-poster-slider">
-                <MudIcon Icon="@Icons.Material.Outlined.PhotoSizeSelectLarge"
-                         Style="font-size: 14px; color: rgba(255,255,255,0.3);" />
-                <input type="range" class="vault-range" min="40" max="72" step="4"
-                       value="@PosterSize" @oninput="OnPosterSizeInput" />
-            </div>
-        }
     </div>
 
     @* ── Column Picker button ── *@
@@ -167,7 +146,7 @@
     private List<ViewModeOption> GetViewModeOptions() => ResolvedTabId switch
     {
         "movies"     => [new("All Movies", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
-        "tv"         => [new("By Show", "shows", Icons.Material.Outlined.Folder), new("All Episodes", "all", Icons.Material.Outlined.ViewList)],
+        "tv"         => [new("By Show", "shows", Icons.Material.Outlined.Folder)],
         "music"      => [new("By Artist", "artists", Icons.Material.Outlined.Person), new("By Album", "albums", Icons.Material.Outlined.Album), new("All Songs", "all", Icons.Material.Outlined.ViewList)],
         "books"      => [new("All Books", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
         "audiobooks" => [new("All Audiobooks", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
@@ -211,11 +190,6 @@
         await FilterValueChanged.InvokeAsync(string.IsNullOrEmpty(val) ? null : val);
     }
 
-    private async Task OnPosterSizeInput(ChangeEventArgs e)
-    {
-        if (int.TryParse(e.Value?.ToString(), out var val))
-            await PosterSizeChanged.InvokeAsync(val);
-    }
 
     public void Dispose()
     {
@@ -230,32 +204,6 @@
         gap: 12px;
         align-items: center;
         flex: 1;
-    }
-
-    /* ── Back button ── */
-    .vault-back-btn {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.07);
-        border-radius: 10px;
-        color: rgba(255, 255, 255, 0.5);
-        font-size: 10px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.075em;
-        padding: 6px 12px 6px 8px;
-        cursor: pointer;
-        transition: all 0.15s;
-        white-space: nowrap;
-        flex-shrink: 0;
-    }
-
-    .vault-back-btn:hover {
-        color: rgba(255, 255, 255, 0.85);
-        background: rgba(255, 255, 255, 0.06);
-        border-color: rgba(255, 255, 255, 0.12);
     }
 
     /* ── Search ── */
@@ -339,45 +287,6 @@
         width: 1px;
         height: 24px;
         background: rgba(255, 255, 255, 0.06);
-    }
-
-    /* ── Poster Size Slider ── */
-    .vault-poster-slider {
-        min-width: 80px;
-    }
-
-    .vault-range {
-        -webkit-appearance: none;
-        appearance: none;
-        width: 60px;
-        height: 4px;
-        border-radius: 2px;
-        background: rgba(255, 255, 255, 0.1);
-        outline: none;
-        cursor: pointer;
-    }
-
-    .vault-range::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.5);
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .vault-range::-webkit-slider-thumb:hover {
-        background: rgba(96, 165, 250, 0.8);
-    }
-
-    .vault-range::-moz-range-thumb {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.5);
-        border: none;
-        cursor: pointer;
     }
 
     /* ── Sort toggle buttons ── */

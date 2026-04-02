@@ -20,14 +20,12 @@ else if (_detail is null)
 }
 else
 {
-    @* ── BACK BUTTON + BREADCRUMB ── *@
+    @* ── BACK BUTTON ── *@
     <div class="mgp-breadcrumb">
         <button class="mgp-back-btn" @onclick="() => OnBack.InvokeAsync()">
             <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
-            <span>Back to Vault</span>
+            <span>Back to @GetParentTabLabel()</span>
         </button>
-        <span class="mgp-breadcrumb-sep">·</span>
-        <span class="mgp-breadcrumb-label">@GetGroupTypeLabel()</span>
     </div>
 
     @* ── HEADER ── *@
@@ -160,6 +158,9 @@ else
     /// <summary>For artist view: list of album hub IDs to combine into a multi-album view.</summary>
     [Parameter] public List<Guid>? ArtistAlbumHubIds { get; set; }
 
+    /// <summary>For artist view with system hubs: the artist name to query by when album hub IDs are unavailable.</summary>
+    [Parameter] public string? ArtistName { get; set; }
+
     // ── Private state ────────────────────────────────────────────────────────────
 
     private HubGroupDetailViewModel? _detail;
@@ -179,6 +180,11 @@ else
         if (GroupType == "artist" && ArtistAlbumHubIds is { Count: > 0 })
         {
             _detail = await ApiClient.GetArtistGroupDetailAsync(ArtistAlbumHubIds);
+        }
+        else if (GroupType == "artist" && !string.IsNullOrWhiteSpace(ArtistName))
+        {
+            // System-view mode: no ContentGroup hub IDs available, query by artist name directly
+            _detail = await ApiClient.GetArtistDetailByNameAsync(ArtistName);
         }
         else
         {
@@ -248,6 +254,18 @@ else
         "podcast-show"  => "Podcast",
         "comic-series"  => "Comic Series",
         _               => "Group"
+    };
+
+    private string GetParentTabLabel() => GroupType switch
+    {
+        "tv-show"       => "TV",
+        "album"         => "Music",
+        "artist"        => "Music",
+        "book-series"   => "Books",
+        "movie-series"  => "Movies",
+        "podcast-show"  => "Podcasts",
+        "comic-series"  => "Comics",
+        _               => "Vault"
     };
 
     private string GetItemLabel() => GroupType switch

@@ -304,8 +304,13 @@ else
                                                 @if (!string.IsNullOrEmpty(creatorName))
                                                 {
                                                     var creators = creatorName.Split(new[] { " and ", " & ", ", " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                                                    @foreach (var creator in creators)
+                                                    @for (var ci = 0; ci < creators.Length; ci++)
                                                     {
+                                                        var creator = creators[ci];
+                                                        @if (ci > 0)
+                                                        {
+                                                            <span class="vmt-creator-sep">, </span>
+                                                        }
                                                         <button class="vmt-creator-link" @onclick:stopPropagation="true"
                                                                 @onclick="() => OnAuthorClicked.InvokeAsync(creator.Trim())">
                                                             @creator.Trim().ToUpperInvariant()
@@ -881,6 +886,11 @@ else
         color: #60A5FA;
         text-decoration: underline;
         text-underline-offset: 2px;
+    }
+
+    .vmt-creator-sep {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.25);
     }
 
     .vmt-review-reason {

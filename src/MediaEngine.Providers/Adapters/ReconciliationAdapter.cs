@@ -1144,23 +1144,38 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         var fallbackCandidates = await _reconciler.ReconcileAsync(reconRequest, ct)
                             .ConfigureAwait(false);
 
+                        // Apply the same P31/exclude_classes filtering used in FetchWorkAsync
+                        // to prevent cross-type mismatches (e.g. book → video game).
                         if (fallbackCandidates.Count > 0)
                         {
-                            var topCandidate = fallbackCandidates[0];
-                            if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
+                            var filteredCandidates = await FilterByMediaTypeAsync(
+                                fallbackCandidates, mediaType, ct,
+                                fallbackTitle, fallbackAuthor, null).ConfigureAwait(false);
+
+                            if (filteredCandidates.Count > 0)
                             {
-                                resolvedQid = topCandidate.Id;
-                                _logger.LogInformation(
-                                    "{Provider}: ResolveBridgeAsync — text reconciliation matched '{Query}' to " +
-                                    "{QID} '{Label}' (score={Score})",
-                                    Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
+                                var topCandidate = filteredCandidates[0];
+                                if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
+                                {
+                                    resolvedQid = topCandidate.Id;
+                                    _logger.LogInformation(
+                                        "{Provider}: ResolveBridgeAsync — text reconciliation matched '{Query}' to " +
+                                        "{QID} '{Label}' (score={Score}, after P31 filtering)",
+                                        Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
+                                }
+                                else
+                                {
+                                    _logger.LogDebug(
+                                        "{Provider}: ResolveBridgeAsync — text reconciliation top candidate " +
+                                        "'{Label}' ({QID}) score {Score} below threshold",
+                                        Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
+                                }
                             }
                             else
                             {
                                 _logger.LogDebug(
-                                    "{Provider}: ResolveBridgeAsync — text reconciliation top candidate " +
-                                    "'{Label}' ({QID}) score {Score} below threshold",
-                                    Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
+                                    "{Provider}: ResolveBridgeAsync — all {Count} candidates filtered out by P31",
+                                    Name, fallbackCandidates.Count);
                             }
                         }
                     }
@@ -2282,7 +2297,17 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 // Determine confidence and string value.
+                // As of v0.7, GetPropertiesAsync populates EntityLabel for entity references,
+                // so strVal contains the human-readable label (not a raw QID).
                 (string? strVal, double confidence) = ExtractValueAndConfidence(claim, pCode);
+
+                // P179 (part_of_the_series): skip award lists, polls, and rankings.
+                if (string.Equals(pCode, "P179", StringComparison.OrdinalIgnoreCase))
+                {
+                    var seriesLabel = strVal ?? claim.Value?.EntityLabel ?? claim.Value?.RawValue;
+                    if (!string.IsNullOrWhiteSpace(seriesLabel) && IsLikelyAwardList(seriesLabel))
+                        continue;
+                }
 
                 if (!string.IsNullOrWhiteSpace(strVal))
                 {
@@ -2369,6 +2394,22 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P5842" => true, // apple_podcasts_id
         _       => false,
     };
+
+    /// <summary>
+    /// Returns true when a P179 series label looks like an award list, poll, or ranking
+    /// rather than a narrative series. These should not be emitted as "series" claims.
+    /// </summary>
+    private static bool IsLikelyAwardList(string label)
+    {
+        var lower = label.ToLowerInvariant();
+        string[] skipPatterns =
+        [
+            "greatest", "best of", "top ", "100 ", " 100", "poll", "ranking",
+            "award", "bfi", "sight & sound", "sight and sound", "afi",
+            "all-time", "all time", "most influential", "canonical"
+        ];
+        return skipPatterns.Any(p => lower.Contains(p));
+    }
 
     private static string? ExtractYear(string isoDate)
     {
@@ -2591,6 +2632,22 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             result.Add(claim);
         }
+
+        // ── Post-resolution filter: remove series claims matching award-list patterns ──
+        // P179 entity references may arrive with EntityLabel=null from the Data Extension
+        // API. ResolveEntityLabelsInLanguageAsync re-fetches labels via GetEntitiesAsync,
+        // so by this point the "series" claim value should be a human-readable label.
+        // This is the definitive filter — the check in ExtensionToClaims is a fast-path
+        // optimisation for when EntityLabel is already populated by the library.
+        result.RemoveAll(c =>
+            string.Equals(c.Key, "series", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(c.Value)
+            && IsLikelyAwardList(c.Value));
+        result.RemoveAll(c =>
+            string.Equals(c.Key, "series_qid", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(c.Value)
+            && c.Value.IndexOf("::", StringComparison.Ordinal) is var sep && sep > 0
+            && IsLikelyAwardList(c.Value[(sep + 2)..]));
 
         return result;
     }

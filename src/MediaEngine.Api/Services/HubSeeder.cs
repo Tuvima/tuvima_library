@@ -205,12 +205,34 @@ public static class HubSeeder
                 "AutoStories",
                 [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
                 null, "title"),
+
+            ("Books by Series", "Books grouped by series",
+                "LibraryBooks",
+                [new() { Field = "media_type", Op = "eq", Value = "Books" }],
+                "series", "title"),
+
+            ("Audiobooks by Series", "Audiobooks grouped by series",
+                "Headphones",
+                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
+                "series", "title"),
+
+            ("Comics by Series", "Comics grouped by series",
+                "AutoStories",
+                [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
+                "series", "title"),
         };
 
         foreach (var (name, desc, icon, rules, groupBy, sort) in viewHubs)
         {
             var ruleJson = JsonSerializer.Serialize(rules);
-            var ruleHash = HubRuleEvaluator.ComputeRuleHash(rules);
+            // Include group_by_field in the hash so that hubs with identical rules
+            // but different grouping (e.g. "All Books" vs "Books by Series") get
+            // distinct hashes and are both seeded.
+            var baseHash = HubRuleEvaluator.ComputeRuleHash(rules);
+            var ruleHash = string.IsNullOrWhiteSpace(groupBy)
+                ? baseHash
+                : HubRuleEvaluator.ComputeRuleHash(
+                    [..rules, new HubRulePredicate { Field = "_group_by", Op = "eq", Value = groupBy }]);
 
             // Skip if a hub with the same rule_hash already exists
             var existing = await hubRepo.FindByRuleHashAsync(ruleHash, ct);

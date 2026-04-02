@@ -71,6 +71,7 @@ public sealed class PersonRepository : IPersonRepository
         public string? PlaceOfDeath { get; init; }
         public string? Nationality { get; init; }
         public int IsPseudonym { get; init; }
+        public int IsGroup { get; init; }
         public string? RolesCsv { get; init; }
     }
 
@@ -206,6 +207,7 @@ public sealed class PersonRepository : IPersonRepository
         string? placeOfDeath,
         string? nationality,
         bool isPseudonym,
+        bool isGroup = false,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
@@ -218,6 +220,7 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("placeOfDeath", placeOfDeath);
         p.Add("nationality",  nationality);
         p.Add("isPseudonym",  isPseudonym ? 1 : 0);
+        p.Add("isGroup",      isGroup ? 1 : 0);
         p.Add("id",           personId.ToString());
         conn.Execute("""
             UPDATE persons
@@ -226,7 +229,8 @@ public sealed class PersonRepository : IPersonRepository
                    place_of_birth = @placeOfBirth,
                    place_of_death = @placeOfDeath,
                    nationality    = @nationality,
-                   is_pseudonym   = @isPseudonym
+                   is_pseudonym   = @isPseudonym,
+                   is_group       = @isGroup
             WHERE  id = @id;
             """, p);
 
@@ -327,6 +331,7 @@ public sealed class PersonRepository : IPersonRepository
                    p.place_of_death      AS PlaceOfDeath,
                    p.nationality         AS Nationality,
                    p.is_pseudonym        AS IsPseudonym,
+                   p.is_group            AS IsGroup,
                    GROUP_CONCAT(pr.role, ',') AS RolesCsv
             FROM   persons p
             JOIN   person_media_links l ON l.person_id = p.id
@@ -410,6 +415,7 @@ public sealed class PersonRepository : IPersonRepository
                    p.place_of_death      AS PlaceOfDeath,
                    p.nationality         AS Nationality,
                    p.is_pseudonym        AS IsPseudonym,
+                   p.is_group            AS IsGroup,
                    GROUP_CONCAT(pr.role, ',') AS RolesCsv
             FROM   persons p
             LEFT JOIN person_roles pr ON pr.person_id = p.id
@@ -677,6 +683,7 @@ public sealed class PersonRepository : IPersonRepository
                    p.place_of_death      AS PlaceOfDeath,
                    p.nationality         AS Nationality,
                    p.is_pseudonym        AS IsPseudonym,
+                   p.is_group            AS IsGroup,
                    GROUP_CONCAT(pr.role, ',') AS RolesCsv
             FROM   persons p
             LEFT JOIN person_roles pr ON pr.person_id = p.id
@@ -903,6 +910,7 @@ public sealed class PersonRepository : IPersonRepository
             PlaceOfDeath     = row.PlaceOfDeath,
             Nationality      = row.Nationality,
             IsPseudonym      = row.IsPseudonym != 0,
+            IsGroup          = row.IsGroup != 0,
         };
     }
 }

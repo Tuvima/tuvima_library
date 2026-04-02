@@ -120,6 +120,7 @@
                 <MediaGroupPage GroupType="@_activeGroupType"
                                 GroupId="@_activeGroupId.Value"
                                 ArtistAlbumHubIds="@_artistAlbumHubIds"
+                                ArtistName="@_activeArtistName"
                                 ShowUnowned="@_vaultPrefs.ShowUnowned"
                                 ShowUnownedChanged="OnShowUnownedChanged"
                                 OnBack="NavigateBackFromGroup"
@@ -364,6 +365,7 @@
     private string? _activeGroupType;
     private Guid? _activeGroupId;
     private List<Guid>? _artistAlbumHubIds;
+    private string? _activeArtistName;
 
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
@@ -629,6 +631,9 @@
         ("podcasts", "shows")   => "show_name",
         ("music", "artists")    => "artist",
         ("music", "albums")     => "album",
+        ("books", "series")     => "series",
+        ("audiobooks", "series") => "series",
+        ("comics", "series")    => "series",
         _                       => null,
     };
 
@@ -988,13 +993,18 @@
             var artist = _containerDisplayItems.FirstOrDefault(i => i.EntityId == hubId);
             if (artist is not null)
             {
-                // Collect all album hub IDs for this artist
                 var artistName = artist.Title;
+
+                // Try ContentGroup hubs first (legacy path)
                 _artistAlbumHubIds = _contentGroups
                     .Where(g => string.Equals(g.PrimaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
                              && string.Equals(g.Creator, artistName, StringComparison.OrdinalIgnoreCase))
                     .Select(g => g.HubId)
                     .ToList();
+
+                // Store artist name for system-view fallback (when no ContentGroup hubs exist)
+                _activeArtistName = artistName;
+
                 NavigateToGroup("artist", hubId);
                 return;
             }
@@ -1160,7 +1170,18 @@
 
         await LoadMediaItems();
         _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
+
+        // Refresh the detail drawer with updated data so Wikidata info appears
+        // immediately after confirming a match — without this, the drawer shows stale data.
+        if (_selectedMedia is not null)
+        {
+            var refreshed = _mediaItems.FirstOrDefault(m => m.EntityId == matchEntityId);
+            if (refreshed is not null)
+                _selectedMedia = refreshed;
+        }
+
         UpdateUrl();
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task OnPersonAliasClicked(Guid aliasPersonId)
@@ -1233,7 +1254,7 @@
     {
         _activeGroupType = groupType;
         _activeGroupId = groupId;
-        if (groupType != "artist") _artistAlbumHubIds = null;
+        if (groupType != "artist") { _artistAlbumHubIds = null; _activeArtistName = null; }
         StateHasChanged();
     }
 

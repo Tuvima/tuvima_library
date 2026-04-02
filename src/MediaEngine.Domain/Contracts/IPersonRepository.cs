@@ -165,6 +165,7 @@ public interface IPersonRepository
         string? placeOfDeath,
         string? nationality,
         bool isPseudonym,
+        bool isGroup = false,
         CancellationToken ct = default);
 
     /// <summary>

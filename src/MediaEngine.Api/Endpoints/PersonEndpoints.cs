@@ -396,10 +396,15 @@ public static class PersonEndpoints
         .Produces<List<MediaEngine.Api.Models.HubDto>>(StatusCodes.Status200OK);
 
         // GET /persons/role-counts — count of persons per role.
+        // Excludes Composer (absorbed into Artist/Performer in the UI).
         group.MapGet("/role-counts", async (IPersonRepository personRepo, CancellationToken ct) =>
         {
             var counts = await personRepo.GetRoleCountsAsync(ct);
-            return Results.Ok(counts);
+            // Remove Composer — not a UI-visible role
+            var filtered = counts
+                .Where(kvp => !kvp.Key.Equals("Composer", StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+            return Results.Ok(filtered);
         })
         .WithName("GetPersonRoleCounts")
         .WithSummary("Count of persons per role.");
@@ -475,7 +480,19 @@ public static class PersonEndpoints
             CancellationToken ct) =>
         {
             var all = await personRepo.ListAllAsync(ct);
-            IEnumerable<MediaEngine.Domain.Entities.Person> filtered = all;
+
+            // Filter out Composer role and fix groups incorrectly tagged as Narrator
+            IEnumerable<MediaEngine.Domain.Entities.Person> filtered = all
+                .Select(p =>
+                {
+                    var cleanedRoles = p.Roles
+                        .Where(r => !r.Equals("Composer", StringComparison.OrdinalIgnoreCase))
+                        .Where(r => !(p.IsGroup && r.Equals("Narrator", StringComparison.OrdinalIgnoreCase)))
+                        .ToList();
+                    p.Roles = cleanedRoles;
+                    return p;
+                })
+                .Where(p => p.Roles.Count > 0); // Exclude persons with no remaining roles
 
             if (!string.IsNullOrEmpty(role))
                 filtered = filtered.Where(p => p.Roles.Any(r => r.Equals(role, StringComparison.OrdinalIgnoreCase)));

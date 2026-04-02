@@ -3,6 +3,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -365,5 +366,68 @@ public sealed class RepositoryTests : IDisposable
         cmd.CommandText = $"INSERT INTO provider_registry (id, name, version) VALUES ('{providerId}', 'test-provider-{providerId:N}', '1.0')";
         await cmd.ExecuteNonQueryAsync();
         return providerId;
+    }
+}
+
+/// <summary>
+/// Tests for <see cref="HubRuleEvaluator.ComputeRuleHash"/> — verifies that
+/// the discriminator predicate technique produces distinct hashes for hubs
+/// with identical rules but different group_by_field values.
+/// </summary>
+public sealed class HubRuleEvaluatorHashTests
+{
+    [Fact]
+    public void SameRules_SameHash()
+    {
+        var rules1 = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
+        var rules2 = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
+
+        var hash1 = HubRuleEvaluator.ComputeRuleHash(rules1);
+        var hash2 = HubRuleEvaluator.ComputeRuleHash(rules2);
+
+        Assert.Equal(hash1, hash2);
+    }
+
+    [Fact]
+    public void SameRules_DifferentGroupBy_DifferentHash()
+    {
+        // "All Books" (no group_by) and "Books by Series" (group_by=series)
+        // should produce different hashes when a _group_by discriminator is added.
+        var baseRules = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
+
+        var hashFlat = HubRuleEvaluator.ComputeRuleHash(baseRules);
+        var hashGrouped = HubRuleEvaluator.ComputeRuleHash(
+            [..baseRules, new HubRulePredicate { Field = "_group_by", Op = "eq", Value = "series" }]);
+
+        Assert.NotEqual(hashFlat, hashGrouped);
+    }
+
+    [Fact]
+    public void DifferentGroupByFields_DifferentHashes()
+    {
+        // "Music by Artist" and "Music by Album" should produce different hashes.
+        var baseRules = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Music" } };
+
+        var hashArtist = HubRuleEvaluator.ComputeRuleHash(
+            [..baseRules, new HubRulePredicate { Field = "_group_by", Op = "eq", Value = "artist" }]);
+        var hashAlbum = HubRuleEvaluator.ComputeRuleHash(
+            [..baseRules, new HubRulePredicate { Field = "_group_by", Op = "eq", Value = "album" }]);
+
+        Assert.NotEqual(hashArtist, hashAlbum);
+    }
+
+    [Fact]
+    public void SameGroupBy_SameHash_Idempotent()
+    {
+        var rules = new HubRulePredicate[]
+        {
+            new() { Field = "media_type", Op = "eq", Value = "Books" },
+            new() { Field = "_group_by", Op = "eq", Value = "series" },
+        };
+
+        var hash1 = HubRuleEvaluator.ComputeRuleHash(rules);
+        var hash2 = HubRuleEvaluator.ComputeRuleHash(rules);
+
+        Assert.Equal(hash1, hash2);
     }
 }

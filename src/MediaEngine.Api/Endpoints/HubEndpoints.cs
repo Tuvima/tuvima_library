@@ -626,6 +626,147 @@ public static class HubEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
+        // GET /hubs/artist-detail-by-name?artistName=X — Artist drill-down for system-view mode.
+        // Queries works directly from canonical_values, grouped by album, returning the same HubGroupDetailDto shape.
+        group.MapGet("/artist-detail-by-name", async (
+            [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(artistName))
+                return Results.BadRequest("artistName parameter is required");
+
+            using var conn = db.CreateConnection();
+            using var cmd = conn.CreateCommand();
+
+            // Find all works whose artist canonical value matches, grouped by album
+            cmd.CommandText = """
+                WITH artist_works AS (
+                    SELECT DISTINCT e.work_id
+                    FROM canonical_values cv
+                    INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                    INNER JOIN editions e ON e.id = ma.edition_id
+                    WHERE cv.key = 'artist' AND cv.value = @ArtistName COLLATE NOCASE
+                ),
+                work_data AS (
+                    SELECT
+                        aw.work_id,
+                        MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
+                        MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
+                        MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
+                        MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
+                        MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS release_year,
+                        MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
+                        MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
+                        MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
+                        MAX(CASE WHEN cv.key = 'cover' THEN cv.value END) AS cover,
+                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre
+                    FROM artist_works aw
+                    INNER JOIN editions e ON e.work_id = aw.work_id
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                    GROUP BY aw.work_id
+                )
+                SELECT * FROM work_data ORDER BY album, CAST(track_number AS INTEGER), title
+                """;
+
+            var ap = cmd.CreateParameter();
+            ap.ParameterName = "@ArtistName";
+            ap.Value = artistName;
+            cmd.Parameters.Add(ap);
+
+            using var reader = cmd.ExecuteReader();
+            var albumMap = new Dictionary<string, List<HubGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
+            var albumCovers = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            string? combinedCreator = null;
+            string? combinedCover = null;
+            string? combinedGenre = null;
+            var allYears = new List<string>();
+            int totalItems = 0;
+
+            while (reader.Read())
+            {
+                var workId = reader.GetGuid(reader.GetOrdinal("work_id"));
+                var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
+                var album = reader.IsDBNull(reader.GetOrdinal("album")) ? null : reader.GetString(reader.GetOrdinal("album"));
+                var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
+                var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
+                var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
+                var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
+                var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
+                var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
+                var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
+                var artistVal = reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
+
+                combinedCreator ??= artistVal;
+                combinedCover ??= cover;
+                combinedGenre ??= genre;
+
+                var year = releaseYear ?? yearVal;
+                if (!string.IsNullOrWhiteSpace(year)) allYears.Add(year);
+
+                var albumKey = album ?? "Unknown Album";
+                if (!albumMap.TryGetValue(albumKey, out var tracks))
+                {
+                    tracks = [];
+                    albumMap[albumKey] = tracks;
+                }
+                if (!albumCovers.ContainsKey(albumKey))
+                    albumCovers[albumKey] = cover;
+
+                tracks.Add(new HubGroupWorkDto
+                {
+                    WorkId      = workId,
+                    Title       = title ?? $"Track {workId.ToString("N")[..8]}",
+                    Year        = year,
+                    Duration    = duration ?? runtime,
+                    CoverUrl    = cover,
+                    TrackNumber = trackNum,
+                    Status      = "Provisional",
+                });
+
+                totalItems++;
+            }
+
+            var years = allYears.Distinct().OrderBy(y => y).ToList();
+            string? yearRange = years.Count switch
+            {
+                0 => null,
+                1 => years[0],
+                _ => $"{years[0]}–{years[^1]}",
+            };
+
+            var seasons = albumMap.Select((kvp, idx) => new HubGroupSeasonDto
+            {
+                SeasonNumber = idx,
+                SeasonLabel  = kvp.Key,
+                Episodes     = kvp.Value
+                    .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : int.MaxValue)
+                    .ToList(),
+            }).ToList();
+
+            var response = new HubGroupDetailDto
+            {
+                HubId            = Guid.Empty,
+                DisplayName      = artistName,
+                PrimaryMediaType = "Music",
+                CoverUrl         = combinedCover,
+                Creator          = combinedCreator,
+                YearRange        = yearRange,
+                Genre            = combinedGenre,
+                TotalItems       = totalItems,
+                Seasons          = seasons,
+                Works            = [],
+            };
+
+            return Results.Ok(response);
+        })
+        .WithName("GetArtistDetailByName")
+        .WithSummary("Returns artist drill-down detail by artist name, querying directly from canonical values. Used when system-view hubs are active and ContentGroup hubs are unavailable.")
+        .Produces<HubGroupDetailDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAnyRole();
+
         // ── Content Groups ───────────────────────────────────────────────────────
 
         // GET /hubs/content-groups — Universe hubs that have child works (albums, TV series, book series, movie series).

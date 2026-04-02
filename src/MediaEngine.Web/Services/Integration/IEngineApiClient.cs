@@ -645,6 +645,9 @@ public interface IEngineApiClient
     /// <summary>GET /hubs/artist-group-detail?hub_ids=... — combined multi-hub detail for artist drill-down.</summary>
     Task<HubGroupDetailViewModel?> GetArtistGroupDetailAsync(IEnumerable<Guid> hubIds, CancellationToken ct = default);
 
+    /// <summary>GET /hubs/artist-detail-by-name?artistName=X — artist drill-down by name (system-view mode).</summary>
+    Task<HubGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default);
+
     /// <summary>GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.</summary>
     Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default);
 

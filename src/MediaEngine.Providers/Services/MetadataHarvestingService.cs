@@ -609,11 +609,11 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         // isPseudonym was computed from claims before the dedup block above.
 
         if (dateOfBirth is not null || dateOfDeath is not null || placeOfBirth is not null ||
-            placeOfDeath is not null || nationality is not null || isPseudonym)
+            placeOfDeath is not null || nationality is not null || isPseudonym || isGroup)
         {
             await _personRepo.UpdateBiographicalFieldsAsync(
                 request.EntityId, dateOfBirth, dateOfDeath,
-                placeOfBirth, placeOfDeath, nationality, isPseudonym, ct)
+                placeOfBirth, placeOfDeath, nationality, isPseudonym, isGroup, ct)
                 .ConfigureAwait(false);
         }
 
