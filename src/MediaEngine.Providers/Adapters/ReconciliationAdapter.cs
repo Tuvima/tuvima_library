@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -478,19 +477,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 var deserialized = JsonSerializer.Deserialize<Dictionary<string, Dictionary<string, List<WikidataClaim>>>>(cached.ResponseJson, JsonOpts);
                 if (deserialized is not null)
                 {
-                    var result = deserialized.ToDictionary(
+                    return deserialized.ToDictionary(
                         kvp => kvp.Key,
                         kvp => (IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>)kvp.Value.ToDictionary(
                             p => p.Key,
                             p => (IReadOnlyList<WikidataClaim>)p.Value,
                             StringComparer.OrdinalIgnoreCase),
                         StringComparer.OrdinalIgnoreCase);
-
-                    // WikidataValue.EntityLabel has internal set — System.Text.Json
-                    // cannot deserialize it from a different assembly. Re-resolve labels
-                    // for any entity references that lost their labels during round-trip.
-                    await RehydrateEntityLabelsAsync(result, language, ct).ConfigureAwait(false);
-                    return result;
                 }
             }
         }
@@ -2294,8 +2287,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                 // Determine confidence and string value.
                 // GetPropertiesAsync (v0.8+) calls ResolveClaimsEntityLabelsAsync internally,
-                // populating EntityLabel for all entity references. On cache hits, EntityLabel
-                // is lost (internal set); RehydrateEntityLabelsAsync patches RawValue instead.
+                // populating EntityLabel for all entity references. v0.9+ made EntityLabel
+                // publicly settable, so JSON cache round-trips preserve labels correctly.
                 (string? strVal, double confidence) = ExtractValueAndConfidence(claim, pCode);
 
                 // P179 (part_of_the_series): skip award lists, polls, and rankings.
@@ -2497,81 +2490,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             _logger.LogWarning(ex, "{Provider}: staleness check failed — treating all as stale", Name);
             return storedRevisions.Keys.ToList();
-        }
-    }
-
-    /// <summary>
-    /// Re-resolves entity labels for claims deserialized from the response cache.
-    /// <para>
-    /// <c>WikidataValue.EntityLabel</c> has <c>internal set</c> in the library, so
-    /// <c>System.Text.Json</c> cannot populate it during deserialization from a different
-    /// assembly. For entity references, the deserialized <c>RawValue</c> contains the
-    /// raw QID (e.g. "Q44413"), not a human-readable label. This method batch-resolves
-    /// labels via <c>GetEntitiesAsync</c> and patches <c>RawValue</c> via reflection so
-    /// that <c>ExtractValueAndConfidence</c> (which reads <c>EntityLabel ?? RawValue ??
-    /// EntityId</c>) returns the correct label.
-    /// </para>
-    /// </summary>
-    private async Task RehydrateEntityLabelsAsync(
-        Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> result,
-        string language,
-        CancellationToken ct)
-    {
-        if (_reconciler is null) return;
-
-        // Collect entity QIDs that have null EntityLabel (i.e. lost during deserialization).
-        var qidsToResolve = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entityProps in result.Values)
-        {
-            foreach (var claims in entityProps.Values)
-            {
-                foreach (var claim in claims)
-                {
-                    if (claim.Value is { Kind: WikidataValueKind.EntityId, EntityId: not null, EntityLabel: null })
-                        qidsToResolve.Add(claim.Value.EntityId);
-                }
-            }
-        }
-
-        if (qidsToResolve.Count == 0) return;
-
-        try
-        {
-            var entities = await _reconciler.GetEntitiesAsync(
-                qidsToResolve.ToList(), resolveEntityLabels: false, language, ct).ConfigureAwait(false);
-
-            var labelMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (qid, entity) in entities)
-            {
-                if (!string.IsNullOrWhiteSpace(entity.Label))
-                    labelMap[qid] = entity.Label;
-            }
-
-            // Patch RawValue via reflection — both EntityLabel (internal set) and
-            // RawValue (init) are inaccessible from external assemblies at compile time,
-            // but reflection bypasses these accessibility checks at runtime.
-            var rawValueProp = typeof(WikidataValue).GetProperty(nameof(WikidataValue.RawValue))!;
-            foreach (var entityProps in result.Values)
-            {
-                foreach (var claims in entityProps.Values)
-                {
-                    foreach (var claim in claims)
-                    {
-                        if (claim.Value is { Kind: WikidataValueKind.EntityId, EntityId: not null, EntityLabel: null }
-                            && labelMap.TryGetValue(claim.Value.EntityId, out var label))
-                        {
-                            rawValueProp.SetValue(claim.Value, label);
-                        }
-                    }
-                }
-            }
-
-            _logger.LogDebug("{Provider}: rehydrated {Count}/{Total} entity labels from cache",
-                Name, labelMap.Count, qidsToResolve.Count);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "{Provider}: entity label rehydration from cache failed", Name);
         }
     }
 
