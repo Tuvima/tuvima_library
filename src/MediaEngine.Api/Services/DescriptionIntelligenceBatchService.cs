@@ -295,8 +295,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                     "Director"     => "director_qid",
                                     "Screenwriter" => "screenwriter_qid",
                                     "Composer"     => "composer_qid",
-                                    "Cast Member"  => "cast_member_qid",
-                                    "Illustrator"  => "illustrator_qid",
+                                    "Actor"        => "cast_member_qid",
                                     _              => null,
                                 };
 
@@ -371,8 +370,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                             "director"     => "Director",
                                             "screenwriter" => "Screenwriter",
                                             "composer"     => "Composer",
-                                            "cast_member"  => "Cast Member",
-                                            "illustrator"  => "Illustrator",
+                                            "cast_member"  => "Actor",
                                             _              => "Author",
                                         };
                                         return new PersonReference(role, name, qid);
@@ -448,8 +446,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             "director" or "filmmaker"                               => "Director",
             "screenwriter" or "screenplay" or "writer (screenplay)" => "Screenwriter",
             "composer" or "music" or "score"                        => "Composer",
-            "actor" or "actress" or "cast" or "cast member" or "star" => "Cast Member",
-            "illustrator" or "artist" or "cover artist"             => "Illustrator",
+            "actor" or "actress" or "cast" or "cast member" or "star" => "Actor",
             _                                                        => null,
         };
     }

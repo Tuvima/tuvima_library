@@ -815,117 +815,21 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     }
 
     /// <summary>
-    /// Resolves group membership after a Person entity is enriched from Wikidata.
+    /// Group membership resolution via P527 (has part) and P463 (member of) is
+    /// intentionally disabled. Musical groups are stored as a single Person record
+    /// with <c>IsGroup = true</c>; individual members are not fetched or linked.
     ///
-    /// If the person is a group (P31 = Q215380/Q5741069), uses P527 (has part)
-    /// to discover and link member persons.
-    /// If the person is an individual, uses P463 (member of) to discover and
-    /// link group entities.
-    ///
-    /// Follows the same pattern as <see cref="ResolvePseudonymsAsync"/> for
-    /// pseudonym/pen name resolution.
+    /// The method is kept as a no-op so call sites do not need to change.
+    /// Re-enable by restoring the expansion logic if member-level data is required.
     /// </summary>
-    private async Task ResolveGroupMembersAsync(
+    private static Task ResolveGroupMembersAsync(
         Guid personId,
         IReadOnlyList<ProviderClaim> claims,
         bool isGroup,
         CancellationToken ct)
     {
-        try
-        {
-            if (isGroup)
-            {
-                // P527 (has_parts): members of this group.
-                // e.g. Metallica (Q15920) → P527 → James Hetfield, Lars Ulrich, etc.
-                var memberQids = claims
-                    .Where(c => c.Key == "has_parts_qid")
-                    .Select(c => c.Value)
-                    .Where(v => !string.IsNullOrWhiteSpace(v))
-                    .ToList();
-
-                foreach (var memberQidRaw in memberQids)
-                {
-                    var qids = memberQidRaw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    foreach (var rawQid in qids)
-                    {
-                        var memberQid = rawQid.Split("::")[0];
-                        var memberPerson = await _personRepo.FindByQidAsync(memberQid, ct)
-                            .ConfigureAwait(false);
-
-                        if (memberPerson is not null)
-                        {
-                            await _personRepo.LinkGroupMemberAsync(personId, memberPerson.Id, ct)
-                                .ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            // Create a stub person for the member, then link.
-                            var stubId = Guid.NewGuid();
-                            var stub = new Person
-                            {
-                                Id = stubId,
-                                Name = $"Unknown Person ({memberQid})",
-                                Roles = ["Performer"],
-                                WikidataQid = memberQid,
-                                CreatedAt = DateTimeOffset.UtcNow,
-                            };
-                            await _personRepo.CreateAsync(stub, ct).ConfigureAwait(false);
-                            await _personRepo.LinkGroupMemberAsync(personId, stubId, ct)
-                                .ConfigureAwait(false);
-                        }
-                    }
-                }
-            }
-            else
-            {
-                // P463 (member_of): groups this individual belongs to.
-                // e.g. James Hetfield → P463 → Metallica.
-                var groupQids = claims
-                    .Where(c => c.Key == "member_of_qid")
-                    .Select(c => c.Value)
-                    .Where(v => !string.IsNullOrWhiteSpace(v))
-                    .ToList();
-
-                foreach (var groupQidRaw in groupQids)
-                {
-                    var qids = groupQidRaw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    foreach (var rawQid in qids)
-                    {
-                        var groupQid = rawQid.Split("::")[0];
-                        var groupPerson = await _personRepo.FindByQidAsync(groupQid, ct)
-                            .ConfigureAwait(false);
-
-                        if (groupPerson is not null)
-                        {
-                            await _personRepo.LinkGroupMemberAsync(groupPerson.Id, personId, ct)
-                                .ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            // Create a stub group entity, then link.
-                            var stubId = Guid.NewGuid();
-                            var stub = new Person
-                            {
-                                Id = stubId,
-                                Name = $"Unknown Group ({groupQid})",
-                                Roles = ["Artist"],
-                                WikidataQid = groupQid,
-                                CreatedAt = DateTimeOffset.UtcNow,
-                                IsGroup = true,
-                            };
-                            await _personRepo.CreateAsync(stub, ct).ConfigureAwait(false);
-                            await _personRepo.LinkGroupMemberAsync(stubId, personId, ct)
-                                .ConfigureAwait(false);
-                        }
-                    }
-                }
-            }
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogWarning(ex,
-                "Group membership resolution failed for person {Id}; continuing", personId);
-        }
+        // Member expansion disabled — groups are stored as-is (IsGroup = true).
+        return Task.CompletedTask;
     }
 
     private async Task CreateAndLinkStubPersonAsync(

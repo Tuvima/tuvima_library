@@ -228,7 +228,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 """);
 
         // Migration M-009: Expand persons role CHECK constraint.
-        // Adds Illustrator, Cast Member, Voice Actor, Screenwriter, Composer.
+        // Adds Actor, Voice Actor, Composer.
         // SQLite doesn't support ALTER TABLE to modify CHECK constraints,
         // so we recreate the table with the expanded constraint.
         // Foreign keys must be disabled during the table swap.
@@ -668,7 +668,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         // Migration M-032: Multi-valued canonical field storage.
         // Replaces |||‑separated strings for fields like genre, characters,
-        // cast_member with individual rows carrying ordinals and optional QIDs.
+        // actor (cast_member) with individual rows carrying ordinals and optional QIDs.
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "canonical_value_arrays",
@@ -1333,7 +1333,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         // Migration M-064: Multi-role persons with QID-first identity.
         // Migrates from single-role persons.role column to a person_roles junction table
-        // so one person can have multiple roles (e.g. Clint Eastwood = Director + Cast Member).
+        // so one person can have multiple roles (e.g. Clint Eastwood = Director + Actor).
         // Also adds a UNIQUE index on wikidata_qid for QID-first lookups.
         MigratePersonMultiRole(conn);
 
@@ -1515,7 +1515,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
     /// <summary>
     /// Migration M-009: Recreate the <c>persons</c> table with an expanded role CHECK.
-    /// Adds: Illustrator, Cast Member, Voice Actor, Screenwriter, Composer.
+    /// Adds: Actor, Voice Actor, Composer.
     ///
     /// SQLite does not support <c>ALTER TABLE</c> to modify CHECK constraints.
     /// This migration:
@@ -1532,7 +1532,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
     private static void MigrateExpandPersonRoles(SqliteConnection conn)
     {
         // Check if the persons table already has the expanded role set.
-        // We look for 'Illustrator' in the CREATE TABLE SQL to detect whether
+        // We look for 'Voice Actor' in the CREATE TABLE SQL to detect whether
         // the migration has already been applied.
         bool alreadyExpanded = false;
         using (var sqlCmd = conn.CreateCommand())
@@ -1540,7 +1540,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             sqlCmd.CommandText =
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='persons';";
             var sql = sqlCmd.ExecuteScalar() as string;
-            if (sql is not null && sql.Contains("Illustrator", StringComparison.OrdinalIgnoreCase))
+            if (sql is not null && sql.Contains("Voice Actor", StringComparison.OrdinalIgnoreCase))
                 alreadyExpanded = true;
             // If the table doesn't exist yet (fresh install), schema.sql handles it.
             if (sql is null)
@@ -1564,8 +1564,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 name         TEXT NOT NULL,
                 role         TEXT NOT NULL CHECK (role IN (
                     'Author','Narrator','Director',
-                    'Illustrator','Cast Member','Voice Actor',
-                    'Screenwriter','Composer')),
+                    'Actor','Voice Actor',
+                    'Composer')),
                 wikidata_qid TEXT,
                 headshot_url TEXT,
                 biography    TEXT,
@@ -1608,7 +1608,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             sqlCmd.CommandText =
                 "SELECT sql FROM sqlite_master WHERE type='table' AND name='persons';";
             var sql = sqlCmd.ExecuteScalar() as string;
-            if (sql is null || sql.Contains("Translator", StringComparison.OrdinalIgnoreCase))
+            if (sql is null || sql.Contains("Translator", StringComparison.OrdinalIgnoreCase) || !sql.Contains("role", StringComparison.OrdinalIgnoreCase))
                 alreadyExpanded = true;
             // If the 'role' column no longer exists (fresh schema without it), skip.
             if (sql is not null && !sql.Contains("role", StringComparison.OrdinalIgnoreCase))
@@ -1629,9 +1629,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 name              TEXT NOT NULL,
                 role              TEXT NOT NULL CHECK (role IN (
                     'Author','Narrator','Director',
-                    'Illustrator','Cast Member','Voice Actor',
-                    'Screenwriter','Composer',
-                    'Translator','Editor','Host','Producer')),
+                    'Actor','Voice Actor','Composer',
+                    'Artist','Performer')),
                 wikidata_qid      TEXT,
                 headshot_url      TEXT,
                 biography         TEXT,
@@ -1708,9 +1707,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
                     role      TEXT NOT NULL CHECK (role IN (
                                   'Author','Narrator','Director',
-                                  'Illustrator','Cast Member','Voice Actor',
-                                  'Screenwriter','Composer',
-                                  'Translator','Editor','Host','Producer')),
+                                  'Actor','Voice Actor','Composer',
+                                  'Artist','Performer')),
                     PRIMARY KEY (person_id, role)
                 );
 
@@ -2258,10 +2256,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
                     role      TEXT NOT NULL CHECK (role IN (
                                   'Author','Narrator','Director',
-                                  'Illustrator','Cast Member','Voice Actor',
-                                  'Screenwriter','Composer',
-                                  'Translator','Editor','Host','Producer',
-                                  'Performer','Artist')),
+                                  'Actor','Voice Actor','Composer',
+                                  'Artist','Performer')),
                     PRIMARY KEY (person_id, role)
                 );
 

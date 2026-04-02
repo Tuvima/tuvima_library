@@ -486,10 +486,9 @@ public static class DebugEndpoints
                         "author_qid"       => "Author",
                         "narrator_qid"     => "Narrator",
                         "director_qid"     => "Director",
-                        "cast_qid"         => "Cast Member",
+                        "cast_qid"         => "Actor",
                         "screenwriter_qid" => "Screenwriter",
                         "composer_qid"     => "Composer",
-                        "illustrator_qid"  => "Illustrator",
                         _                  => "Author",
                     };
 

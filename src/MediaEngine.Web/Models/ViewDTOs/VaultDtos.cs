@@ -84,6 +84,12 @@ public sealed class VaultItemViewModel
     /// </summary>
     public string? ResolutionSummary => ComputeResolutionSummary();
 
+    /// <summary>
+    /// Human-readable format specs: "4K REMUX" for video, "FLAC 24-bit" for audio,
+    /// "EPUB" for books, etc. Computed from media type and available metadata.
+    /// </summary>
+    public string? Specs => ComputeSpecs();
+
     /// <summary>Factory: convert a RegistryItemViewModel to VaultItemViewModel.</summary>
     public static VaultItemViewModel From(RegistryItemViewModel r) => new()
     {
@@ -200,6 +206,132 @@ public sealed class VaultItemViewModel
         }
 
         return null;
+    }
+
+    private string? ComputeSpecs()
+    {
+        var type = MediaType?.ToLowerInvariant();
+
+        switch (type)
+        {
+            case "movies" or "tv":
+                if (!string.IsNullOrEmpty(FileName))
+                {
+                    var fn = FileName.ToUpperInvariant();
+                    var parts = new List<string>();
+
+                    // Resolution
+                    if (fn.Contains("2160P") || fn.Contains("4K") || fn.Contains("UHD"))
+                        parts.Add("4K");
+                    else if (fn.Contains("1080P") || fn.Contains("1080I"))
+                        parts.Add("1080p");
+                    else if (fn.Contains("720P"))
+                        parts.Add("720p");
+                    else if (fn.Contains("480P") || fn.Contains("SD"))
+                        parts.Add("SD");
+
+                    // Source/quality
+                    if (fn.Contains("REMUX"))
+                        parts.Add("REMUX");
+                    else if (fn.Contains("BLURAY") || fn.Contains("BLU-RAY"))
+                        parts.Add("Blu-ray");
+                    else if (fn.Contains("WEBDL") || fn.Contains("WEB-DL"))
+                        parts.Add("WEB-DL");
+                    else if (fn.Contains("WEBRIP") || fn.Contains("WEB-RIP"))
+                        parts.Add("WEBRip");
+                    else if (fn.Contains("HDTV"))
+                        parts.Add("HDTV");
+
+                    // Codec
+                    if (fn.Contains("HEVC") || fn.Contains("X265") || fn.Contains("H265") || fn.Contains("H.265"))
+                        parts.Add("HEVC");
+                    else if (fn.Contains("X264") || fn.Contains("H264") || fn.Contains("H.264") || fn.Contains("AVC"))
+                        parts.Add("H.264");
+
+                    if (parts.Count > 0)
+                        return string.Join(" ", parts);
+                }
+                return null;
+
+            case "music":
+                if (!string.IsNullOrEmpty(FileName))
+                {
+                    var ext = Path.GetExtension(FileName).ToUpperInvariant();
+                    return ext switch
+                    {
+                        ".FLAC" => "FLAC",
+                        ".ALAC" or ".M4A" => "ALAC",
+                        ".MP3" => "MP3",
+                        ".WAV" => "WAV",
+                        ".OGG" => "OGG",
+                        ".AAC" => "AAC",
+                        ".OPUS" => "Opus",
+                        _ => ext.TrimStart('.'),
+                    };
+                }
+                return null;
+
+            case "audiobooks":
+                if (!string.IsNullOrEmpty(FileName))
+                {
+                    var ext = Path.GetExtension(FileName).ToUpperInvariant();
+                    return ext switch
+                    {
+                        ".M4B" => "M4B",
+                        ".MP3" => "MP3",
+                        ".M4A" => "M4A",
+                        _ => ext.TrimStart('.'),
+                    };
+                }
+                return null;
+
+            case "books":
+                if (!string.IsNullOrEmpty(FileName))
+                {
+                    var ext = Path.GetExtension(FileName).ToUpperInvariant();
+                    return ext switch
+                    {
+                        ".EPUB" => "EPUB",
+                        ".PDF" => "PDF",
+                        ".MOBI" => "MOBI",
+                        ".AZW3" => "AZW3",
+                        ".CBZ" => "CBZ",
+                        _ => ext.TrimStart('.'),
+                    };
+                }
+                return null;
+
+            case "comics":
+                if (!string.IsNullOrEmpty(FileName))
+                {
+                    var ext = Path.GetExtension(FileName).ToUpperInvariant();
+                    return ext switch
+                    {
+                        ".CBZ" => "CBZ",
+                        ".CBR" => "CBR",
+                        ".PDF" => "PDF",
+                        _ => ext.TrimStart('.'),
+                    };
+                }
+                return null;
+
+            case "podcasts":
+                if (!string.IsNullOrEmpty(FileName))
+                {
+                    var ext = Path.GetExtension(FileName).ToUpperInvariant();
+                    return ext switch
+                    {
+                        ".MP3" => "MP3",
+                        ".M4A" => "AAC",
+                        ".OGG" => "OGG",
+                        _ => ext.TrimStart('.'),
+                    };
+                }
+                return null;
+
+            default:
+                return null;
+        }
     }
 
     private VaultPipelineStage ComputeRetailStage()

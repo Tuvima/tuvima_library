@@ -679,6 +679,128 @@ public static class HubEndpoints
         .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
+        // GET /hubs/system-views?mediaType=&groupField= — System view hubs resolved as content groups.
+        // Used by Vault container views (By Show, By Artist, By Album) that are driven by System hubs
+        // rather than ContentGroup hubs.
+        group.MapGet("/system-views", async (
+            string? mediaType,
+            string? groupField,
+            IHubRepository hubRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            // Load all System hubs that have a group_by_field (these are the view hubs seeded by HubSeeder)
+            var systemHubs = await hubRepo.GetByTypeAsync("System", ct);
+            var viewHubs = systemHubs
+                .Where(h => !string.IsNullOrWhiteSpace(h.GroupByField) && h.Resolution == "query")
+                .ToList();
+
+            // Filter by mediaType and groupField if provided
+            if (!string.IsNullOrWhiteSpace(mediaType))
+            {
+                viewHubs = viewHubs.Where(h =>
+                {
+                    var predicates = HubRuleEvaluator.ParseRules(h.RuleJson);
+                    return predicates.Any(p =>
+                        p.Field.Equals("media_type", StringComparison.OrdinalIgnoreCase) &&
+                        p.Value?.Equals(mediaType, StringComparison.OrdinalIgnoreCase) == true);
+                }).ToList();
+            }
+
+            if (!string.IsNullOrWhiteSpace(groupField))
+            {
+                viewHubs = viewHubs
+                    .Where(h => h.GroupByField!.Equals(groupField, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+            }
+
+            if (viewHubs.Count == 0)
+                return Results.Ok(new List<ContentGroupDto>());
+
+            var evaluator = new HubRuleEvaluator(db);
+            var result = new List<ContentGroupDto>();
+
+            using var conn = db.CreateConnection();
+
+            foreach (var hub in viewHubs)
+            {
+                var predicates = HubRuleEvaluator.ParseRules(hub.RuleJson);
+                if (predicates.Count == 0) continue;
+
+                // Evaluate hub rules to get entity_ids
+                var entityIds = evaluator.Evaluate(predicates, hub.MatchMode, hub.SortField, hub.SortDirection);
+                if (entityIds.Count == 0) continue;
+
+                var groupByField = hub.GroupByField!;
+
+                // Determine primary media type from the hub's media_type predicate
+                var primaryMediaType = predicates
+                    .FirstOrDefault(p => p.Field.Equals("media_type", StringComparison.OrdinalIgnoreCase))
+                    ?.Value ?? "Unknown";
+
+                // Build IN clause for entity IDs
+                var idList = string.Join(",", entityIds.Select(id => $"'{id}'"));
+
+                // Group entity_ids by the group_by_field from canonical_values
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = $"""
+                    SELECT
+                        cv_group.field_value                                        AS group_name,
+                        COUNT(DISTINCT cv_group.entity_id)                          AS work_count,
+                        (
+                            SELECT cv_cover.field_value
+                            FROM canonical_values cv_cover
+                            WHERE cv_cover.entity_id = MIN(cv_group.entity_id)
+                              AND cv_cover.field_key = 'cover'
+                            LIMIT 1
+                        )                                                           AS cover_url,
+                        (
+                            SELECT cv_creator.field_value
+                            FROM canonical_values cv_creator
+                            WHERE cv_creator.entity_id = MIN(cv_group.entity_id)
+                              AND cv_creator.field_key IN ('artist','author','director')
+                            LIMIT 1
+                        )                                                           AS creator
+                    FROM canonical_values cv_group
+                    WHERE cv_group.entity_id IN ({idList})
+                      AND cv_group.field_key = @GroupField
+                    GROUP BY cv_group.field_value
+                    ORDER BY cv_group.field_value
+                    """;
+
+                var gp = cmd.CreateParameter();
+                gp.ParameterName = "@GroupField";
+                gp.Value = groupByField;
+                cmd.Parameters.Add(gp);
+
+                using var reader = cmd.ExecuteReader();
+                while (reader.Read())
+                {
+                    var groupName = reader.IsDBNull(0) ? null : reader.GetString(0);
+                    if (string.IsNullOrWhiteSpace(groupName)) continue;
+
+                    result.Add(new ContentGroupDto
+                    {
+                        HubId            = hub.Id,
+                        DisplayName      = groupName,
+                        WikidataQid      = null,
+                        PrimaryMediaType = primaryMediaType,
+                        WorkCount        = reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
+                        CoverUrl         = reader.IsDBNull(2) ? null : reader.GetString(2),
+                        Creator          = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        UniverseStatus   = "Complete",
+                        CreatedAt        = hub.CreatedAt,
+                    });
+                }
+            }
+
+            return Results.Ok(result.OrderBy(r => r.DisplayName).ToList());
+        })
+        .WithName("GetSystemViewGroups")
+        .WithSummary("Resolves System view hubs (By Show, By Artist, By Album) as content groups for the Vault container views.")
+        .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
         // ── Managed Hub endpoints (Vault Hubs tab) ──────────────────────────────
 
         // GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.

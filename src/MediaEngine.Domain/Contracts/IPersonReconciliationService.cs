@@ -15,7 +15,7 @@ public interface IPersonReconciliationService
     /// Returns <c>null</c> if no confident match is found (auto-skip for 30-day retry).
     /// </summary>
     /// <param name="name">The person's name to search for.</param>
-    /// <param name="expectedRole">Expected role: Author, Narrator, Director, Screenwriter, Composer, Cast Member, Illustrator.</param>
+    /// <param name="expectedRole">Expected role: Author, Narrator, Director, Composer, Actor, Performer, Artist.</param>
     /// <param name="workTitle">Optional work title for notable-work matching boost.</param>
     /// <param name="ct">Cancellation token.</param>
     Task<PersonSearchResult?> SearchPersonAsync(

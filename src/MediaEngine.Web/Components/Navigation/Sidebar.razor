@@ -102,14 +102,14 @@
             }
         </div>
 
-        @* ── Collections (Hub management) ── *@
+        @* ── Hubs (Hub management) ── *@
         <div class="sidebar-item @(IsActive("/hubs", "hubs") ? "sidebar-item-active" : "")"
              @onclick="@(() => Nav.NavigateTo("/hubs"))"
-             title="@(Collapsed ? "Collections" : null)">
+             title="@(Collapsed ? "Hubs" : null)">
             <MudIcon Icon="@Icons.Material.Outlined.Collections" Size="Size.Medium" Class="sidebar-item-icon" />
             @if (!Collapsed)
             {
-                <span class="sidebar-label">Collections</span>
+                <span class="sidebar-label">Hubs</span>
             }
         </div>
 

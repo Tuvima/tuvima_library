@@ -1,4 +1,7 @@
+using System.Text.Json;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Models;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -6,13 +9,19 @@ namespace MediaEngine.Api.Services;
 /// <summary>
 /// Seeds default managed hubs (System Lists, Personalized Mixes, and sample Smart Hubs)
 /// on first run when no non-Universe hubs exist. Called during application startup.
+/// Also seeds system view hubs (idempotent) that drive all Vault views.
 /// </summary>
 public static class HubSeeder
 {
     public static async Task SeedManagedHubsAsync(IHubRepository hubRepo, CancellationToken ct = default)
     {
+        // Always seed system view hubs (idempotent — checks by rule_hash)
+        await SeedSystemViewHubsAsync(hubRepo, ct);
+
         var counts = await hubRepo.GetCountsByTypeAsync(ct);
-        if (counts.Count > 0)
+        // System hubs now always exist; check for non-System types
+        var nonSystemCount = counts.Where(c => c.Key != "System").Sum(c => c.Value);
+        if (nonSystemCount > 0)
             return; // Already seeded
 
         var now = DateTimeOffset.UtcNow;
@@ -130,6 +139,101 @@ public static class HubSeeder
                 IsEnabled   = true,
                 MinItems    = 0,
                 CreatedAt   = now,
+            }, ct);
+        }
+    }
+
+    /// <summary>
+    /// Seeds permanent, non-editable System view hubs that drive all Vault views.
+    /// Idempotent — checks by rule_hash before creating. These hubs are query-resolved
+    /// (evaluated at display time via HubRuleEvaluator) and cannot be deleted or edited.
+    /// </summary>
+    private static async Task SeedSystemViewHubsAsync(IHubRepository hubRepo, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        // Each entry: (display_name, description, icon, rule predicates, group_by_field, sort_field)
+        var viewHubs = new (string Name, string Desc, string Icon, HubRulePredicate[] Rules, string? GroupBy, string? Sort)[]
+        {
+            // ── Media views ──────────────────────────────────────────
+            ("Recently Added", "Items added in the last 30 days",
+                "NewReleases",
+                [new() { Field = "added_within_days", Op = "lte", Value = "30" }],
+                null, "newest"),
+
+            ("All Movies", "Every movie in your library",
+                "VideoLibrary",
+                [new() { Field = "media_type", Op = "eq", Value = "Movies" }],
+                null, "title"),
+
+            ("TV by Show", "TV episodes grouped by show",
+                "LiveTv",
+                [new() { Field = "media_type", Op = "eq", Value = "TV" }],
+                "show_name", "newest"),
+
+            ("Music by Artist", "Music grouped by artist",
+                "MusicNote",
+                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
+                "artist", "title"),
+
+            ("Music by Album", "Music grouped by album",
+                "Album",
+                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
+                "album", "title"),
+
+            ("All Songs", "Every song in your library",
+                "QueueMusic",
+                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
+                null, "title"),
+
+            ("All Books", "Every book in your library",
+                "MenuBook",
+                [new() { Field = "media_type", Op = "eq", Value = "Books" }],
+                null, "title"),
+
+            ("All Audiobooks", "Every audiobook in your library",
+                "Headphones",
+                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
+                null, "title"),
+
+            ("Podcasts by Show", "Podcast episodes grouped by show",
+                "Mic",
+                [new() { Field = "media_type", Op = "eq", Value = "Podcasts" }],
+                "show_name", "newest"),
+
+            ("All Comics", "Every comic in your library",
+                "AutoStories",
+                [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
+                null, "title"),
+        };
+
+        foreach (var (name, desc, icon, rules, groupBy, sort) in viewHubs)
+        {
+            var ruleJson = JsonSerializer.Serialize(rules);
+            var ruleHash = HubRuleEvaluator.ComputeRuleHash(rules);
+
+            // Skip if a hub with the same rule_hash already exists
+            var existing = await hubRepo.FindByRuleHashAsync(ruleHash, ct);
+            if (existing is not null) continue;
+
+            await hubRepo.UpsertAsync(new Hub
+            {
+                Id            = Guid.NewGuid(),
+                DisplayName   = name,
+                HubType       = "System",
+                Description   = desc,
+                IconName      = icon,
+                Scope         = "library",
+                IsEnabled     = true,
+                MinItems      = 0,
+                RuleJson      = ruleJson,
+                RuleHash      = ruleHash,
+                Resolution    = "query",
+                GroupByField  = groupBy,
+                SortField     = sort,
+                SortDirection = sort == "newest" ? "desc" : "asc",
+                LiveUpdating  = true,
+                CreatedAt     = now,
             }, ct);
         }
     }

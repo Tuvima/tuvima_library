@@ -166,10 +166,11 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> NewTabColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",   Label = "Media Identity", Width = "35%", Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
-        new() { Key = "type",    Label = "Type",           Width = "auto", RenderType = ColumnRenderType.TypeBadge, PropertyName = "MediaType" },
-        new() { Key = "added",   Label = "Added",          Width = "auto", Sortable = true, SortKey = "newest",  RenderType = ColumnRenderType.Date, PropertyName = "CreatedAt" },
-        new() { Key = "parent",  Label = "Parent Context", Width = "auto", RenderType = ColumnRenderType.Text,   PropertyName = "ParentContext" },
+        new() { Key = "media",  Label = "Media Identity", Width = "35%", Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "type",   Label = "Type",           Width = "auto", RenderType = ColumnRenderType.TypeBadge, PropertyName = "MediaType" },
+        new() { Key = "added",  Label = "Added",          Width = "auto", Sortable = true, SortKey = "newest",  RenderType = ColumnRenderType.Date, PropertyName = "CreatedAt" },
+        new() { Key = "specs",  Label = "Specs",          Width = "auto", Sortable = true, SortKey = "specs",   RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
+        new() { Key = "size",   Label = "Size",           Width = "80px", Sortable = true, SortKey = "size",    RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
@@ -182,7 +183,7 @@ public static class VaultColumnDefinitions
         new() { Key = "director", Label = "Director",       Width = "auto", Sortable = true, SortKey = "director", RenderType = ColumnRenderType.Text, PropertyName = "Director" },
         new() { Key = "series",   Label = "Series",         Width = "auto", Sortable = true, SortKey = "series",   RenderType = ColumnRenderType.Text, PropertyName = "Series" },
         new() { Key = "year",     Label = "Year",           Width = "80px", Sortable = true, SortKey = "year",     RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },
-        new() { Key = "format",   Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text,    PropertyName = "ResolutionSummary" },
+        new() { Key = "format",   Label = "Format",         Width = "auto", Sortable = true, SortKey = "specs", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
         new() { Key = "size",     Label = "Size",           Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
@@ -196,7 +197,7 @@ public static class VaultColumnDefinitions
         new() { Key = "show",    Label = "Show",     Width = "auto", Sortable = true, SortKey = "show",    RenderType = ColumnRenderType.Text, PropertyName = "ShowName" },
         new() { Key = "season",  Label = "Season",   Width = "80px", Sortable = true, SortKey = "season",  RenderType = ColumnRenderType.Text, PropertyName = "Season",  Align = "center" },
         new() { Key = "episode", Label = "Episode",  Width = "80px", Sortable = true, SortKey = "episode", RenderType = ColumnRenderType.Text, PropertyName = "Episode", Align = "center" },
-        new() { Key = "quality", Label = "Quality",  Width = "auto", RenderType = ColumnRenderType.Text,   PropertyName = "ResolutionSummary" },
+        new() { Key = "quality", Label = "Quality",  Width = "auto", Sortable = true, SortKey = "specs", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
@@ -222,7 +223,7 @@ public static class VaultColumnDefinitions
         new() { Key = "author", Label = "Author",         Width = "auto", Sortable = true, SortKey = "author", RenderType = ColumnRenderType.Text, PropertyName = "Author" },
         new() { Key = "series", Label = "Series",         Width = "auto", Sortable = true, SortKey = "series", RenderType = ColumnRenderType.Text, PropertyName = "Series" },
         new() { Key = "year",   Label = "Year",           Width = "80px", Sortable = true, SortKey = "year",   RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },
-        new() { Key = "format", Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text,  PropertyName = "ResolutionSummary" },
+        new() { Key = "format", Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
@@ -235,7 +236,7 @@ public static class VaultColumnDefinitions
         new() { Key = "author",   Label = "Author",         Width = "auto", Sortable = true, SortKey = "author",   RenderType = ColumnRenderType.Text, PropertyName = "Author" },
         new() { Key = "narrator", Label = "Narrator",       Width = "auto", Sortable = true, SortKey = "narrator", RenderType = ColumnRenderType.Text, PropertyName = "Narrator" },
         new() { Key = "duration", Label = "Length",         Width = "auto", RenderType = ColumnRenderType.Duration },
-        new() { Key = "format",   Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text,    PropertyName = "ResolutionSummary" },
+        new() { Key = "format",   Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
@@ -261,7 +262,7 @@ public static class VaultColumnDefinitions
         new() { Key = "author", Label = "Writer",         Width = "auto", Sortable = true, SortKey = "author", RenderType = ColumnRenderType.Text, PropertyName = "Author" },
         new() { Key = "series", Label = "Series",         Width = "auto", Sortable = true, SortKey = "series", RenderType = ColumnRenderType.Text, PropertyName = "Series" },
         new() { Key = "year",   Label = "Year",           Width = "80px", Sortable = true, SortKey = "year",   RenderType = ColumnRenderType.Text, PropertyName = "Year", Align = "center" },
-        new() { Key = "format", Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text,  PropertyName = "ResolutionSummary" },
+        new() { Key = "format", Label = "Format",         Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 

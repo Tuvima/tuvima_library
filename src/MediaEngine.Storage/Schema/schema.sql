@@ -253,15 +253,13 @@ CREATE TABLE IF NOT EXISTS persons (
 );
 
 -- Junction table for person roles (multi-role support).
--- A single person can have multiple roles (e.g. Clint Eastwood = Director + Cast Member).
+-- A single person can have multiple roles (e.g. Clint Eastwood = Director + Actor).
 CREATE TABLE IF NOT EXISTS person_roles (
     person_id TEXT NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
     role      TEXT NOT NULL CHECK (role IN (
                   'Author','Narrator','Director',
-                  'Illustrator','Cast Member','Voice Actor',
-                  'Screenwriter','Composer',
-                  'Translator','Editor','Host','Producer',
-                  'Performer','Artist')),
+                  'Actor','Voice Actor','Composer',
+                  'Artist','Performer')),
     PRIMARY KEY (person_id, role)
 );
 

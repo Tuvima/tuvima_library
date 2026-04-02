@@ -654,6 +654,9 @@ public interface IEngineApiClient
     /// <summary>GET /hubs/content-groups — Universe-type hubs (albums, TV series, book series, movie series) for the Content Groups section.</summary>
     Task<List<ContentGroupViewModel>> GetContentGroupsAsync(CancellationToken ct = default);
 
+    /// <summary>GET /hubs/system-views?mediaType=&amp;groupField= — System view hubs resolved as grouped content groups (By Show, By Artist, By Album).</summary>
+    Task<List<ContentGroupViewModel>> GetSystemViewGroupsAsync(string? mediaType = null, string? groupField = null, CancellationToken ct = default);
+
     /// <summary>GET /hubs/{id}/items?limit= — curated items for a hub.</summary>
     Task<List<HubItemViewModel>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);
 

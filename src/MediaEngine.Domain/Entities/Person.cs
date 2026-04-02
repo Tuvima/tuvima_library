@@ -23,7 +23,7 @@ public sealed class Person
     /// <summary>
     /// The roles this person plays across associated media assets.
     /// Populated from the <c>person_roles</c> junction table.
-    /// Examples: "Author", "Director", "Cast Member".
+    /// Examples: "Author", "Director", "Actor".
     /// </summary>
     public List<string> Roles { get; set; } = [];
 
@@ -115,8 +115,8 @@ public sealed class Person
 
     /// <summary>
     /// Whether this person record represents a musical group, band, or ensemble
-    /// rather than an individual. When <c>true</c>, the <c>person_group_members</c>
-    /// table links this record to its constituent member persons via P527/P463.
+    /// rather than an individual. Stored but member expansion is not performed —
+    /// the group is stored as a single Person record.
     /// Determined by Wikidata P31 = Q215380 (musical group) or Q5741069 (musical ensemble).
     /// </summary>
     public bool IsGroup { get; set; }

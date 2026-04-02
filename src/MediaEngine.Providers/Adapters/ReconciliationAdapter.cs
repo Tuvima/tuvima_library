@@ -689,7 +689,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             .Select(s =>
             {
                 var compositeNorm = Math.Min(100.0, s.Score * normFactor);
-                var blended = Math.Max(s.Candidate.Score, compositeNorm);
+                // Weighted blend: 70% composite (type-aware), 30% original API score.
+                // This ensures type filtering and title/author matching have real influence
+                // rather than being overridden by the raw Wikidata label-match score.
+                var blended = (compositeNorm * 0.7) + (s.Candidate.Score * 0.3);
                 return new ReconciliationResult
                 {
                     Id          = s.Candidate.Id,
@@ -1339,6 +1342,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // handle title cleaning and diacritics normalization automatically.
             var searchTitle = request.Title;
 
+            // Guard: do not attempt reconciliation when media type is unknown.
+            // Unknown media type means P31 filtering cannot be applied, leading to
+            // misidentification (e.g. novels matching video games or sculptures).
+            // The item will be routed to the review queue by the caller.
+            if (request.MediaType == MediaType.Unknown)
+            {
+                _logger.LogInformation(
+                    "{Provider}: skipping reconciliation for '{Title}' — media type is Unknown, item requires manual classification",
+                    Name, request.Title);
+                return [];
+            }
+
             var candidates = await ReconcileAsync(searchTitle, null, ct, request.MediaType).ConfigureAwait(false);
 
             if (candidates.Count == 0)
@@ -1348,56 +1363,52 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 return [];
             }
 
-            // Filter by media type, then score by title + author + ISBN similarity.
-            IReadOnlyList<ReconciliationResult> filtered = candidates;
-            if (request.MediaType != MediaType.Unknown)
-            {
-                filtered = await FilterByMediaTypeAsync(
+            // Always apply P31 type filtering (Unknown media type already returned above).
+            var filtered = await FilterByMediaTypeAsync(
                     candidates, request.MediaType, ct,
                     request.Title, request.Author, request.Isbn)
                     .ConfigureAwait(false);
+            if (filtered.Count == 0)
+            {
+                // Type-constrained retry: append media type hint to query so that
+                // Wikidata surfaces the correct entity type (e.g. "Shogun television series"
+                // finds Q56276181 instead of the novel Q131767 dominating the plain search).
+                var typeHint = request.MediaType switch
+                {
+                    MediaType.Books      => "novel book",
+                    MediaType.Audiobooks => "audiobook",
+                    MediaType.Movies     => "film movie",
+                    MediaType.TV         => "television series",
+                    MediaType.Music      => "song music",
+                    MediaType.Comics     => "comic manga",
+                    MediaType.Podcasts   => "podcast",
+                    _                    => null
+                };
+
+                if (typeHint is not null)
+                {
+                    _logger.LogDebug(
+                        "{Provider}: P31 filter eliminated all {Count} candidates for '{Title}' ({MediaType}), retrying with type hint",
+                        Name, candidates.Count, request.Title, request.MediaType);
+
+                    var retryQuery = $"{searchTitle} {typeHint}";
+                    var retryCandidates = await ReconcileAsync(retryQuery, null, ct, request.MediaType).ConfigureAwait(false);
+
+                    if (retryCandidates.Count > 0)
+                    {
+                        filtered = await FilterByMediaTypeAsync(
+                            retryCandidates, request.MediaType, ct,
+                            request.Title, request.Author, request.Isbn)
+                            .ConfigureAwait(false);
+                    }
+                }
+
                 if (filtered.Count == 0)
                 {
-                    // Type-constrained retry: append media type hint to query so that
-                    // Wikidata surfaces the correct entity type (e.g. "Shogun television series"
-                    // finds Q56276181 instead of the novel Q131767 dominating the plain search).
-                    var typeHint = request.MediaType switch
-                    {
-                        MediaType.Books      => "novel book",
-                        MediaType.Audiobooks => "audiobook",
-                        MediaType.Movies     => "film movie",
-                        MediaType.TV         => "television series",
-                        MediaType.Music      => "song music",
-                        MediaType.Comics     => "comic manga",
-                        MediaType.Podcasts   => "podcast",
-                        _                    => null
-                    };
-
-                    if (typeHint is not null)
-                    {
-                        _logger.LogDebug(
-                            "{Provider}: P31 filter eliminated all {Count} candidates for '{Title}' ({MediaType}), retrying with type hint",
-                            Name, candidates.Count, request.Title, request.MediaType);
-
-                        var retryQuery = $"{searchTitle} {typeHint}";
-                        var retryCandidates = await ReconcileAsync(retryQuery, null, ct, request.MediaType).ConfigureAwait(false);
-
-                        if (retryCandidates.Count > 0)
-                        {
-                            filtered = await FilterByMediaTypeAsync(
-                                retryCandidates, request.MediaType, ct,
-                                request.Title, request.Author, request.Isbn)
-                                .ConfigureAwait(false);
-                        }
-                    }
-
-                    if (filtered.Count == 0)
-                    {
-                        _logger.LogInformation(
-                            "{Provider}: no candidates survived P31 filter for '{Title}' ({MediaType}), sending to review",
-                            Name, request.Title, request.MediaType);
-                        return [];
-                    }
+                    _logger.LogInformation(
+                        "{Provider}: no candidates survived P31 filter for '{Title}' ({MediaType}), sending to review",
+                        Name, request.Title, request.MediaType);
+                    return [];
                 }
             }
 

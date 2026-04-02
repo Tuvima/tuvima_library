@@ -116,9 +116,6 @@ else
                         </td>
                         <td class="vpt-td vpt-td--right">
                             <div class="vpt-manage-actions" @onclick:stopPropagation="true">
-                                <button class="vpt-manage-btn" title="Details" @onclick="() => OnRowClicked.InvokeAsync(person.Id)">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Edit" Style="font-size: 14px;" />
-                                </button>
                                 <button class="vpt-manage-btn vpt-manage-btn--delete" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(person.Id)">
                                     <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
                                 </button>

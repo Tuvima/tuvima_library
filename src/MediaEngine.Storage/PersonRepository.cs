@@ -553,6 +553,8 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
         p.Add("PersonIds", idList);
+
+        // Primary path: persons linked via person_media_links (populated during Wikidata Stage 2).
         var rows = conn.Query<PresenceRow>("""
             SELECT p.id AS PersonId, cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
             FROM persons p
@@ -565,6 +567,41 @@ public sealed class PersonRepository : IPersonRepository
             GROUP BY p.id, cv.value;
             """, p).AsList();
 
+        // For persons with no media links, fall back to matching by name in canonical_values
+        // (covers single-valued author/narrator/director fields stored during ingestion).
+        var linkedPersonIds = rows.Select(r => r.PersonId).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var unlinkedIds = idList.Where(id => !linkedPersonIds.Contains(id)).ToList();
+
+        if (unlinkedIds.Count > 0)
+        {
+            var fallbackParams = new DynamicParameters();
+            fallbackParams.Add("UnlinkedIds", unlinkedIds);
+            var fallbackRows = conn.Query<PresenceRow>("""
+                SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+                FROM persons p
+                JOIN canonical_values cva ON cva.value = p.name
+                    AND cva.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
+                JOIN media_assets ma ON ma.id = cva.entity_id
+                JOIN editions e ON e.id = ma.edition_id
+                JOIN works w ON w.id = e.work_id
+                JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
+                WHERE p.id IN @UnlinkedIds
+                GROUP BY p.id, cvmt.value
+                UNION ALL
+                SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+                FROM persons p
+                JOIN canonical_value_arrays cvaa ON cvaa.value = p.name
+                    AND cvaa.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
+                JOIN media_assets ma ON ma.id = cvaa.entity_id
+                JOIN editions e ON e.id = ma.edition_id
+                JOIN works w ON w.id = e.work_id
+                JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
+                WHERE p.id IN @UnlinkedIds
+                GROUP BY p.id, cvmt.value;
+                """, fallbackParams).AsList();
+            rows.AddRange(fallbackRows);
+        }
+
         var result = new Dictionary<Guid, Dictionary<string, int>>();
         foreach (var row in rows)
         {
@@ -574,7 +611,8 @@ public sealed class PersonRepository : IPersonRepository
                 mediaMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 result[personId] = mediaMap;
             }
-            mediaMap[row.MediaType] = row.Count;
+            // Use max rather than overwrite to handle UNION ALL duplicates from fallback
+            mediaMap[row.MediaType] = Math.Max(mediaMap.GetValueOrDefault(row.MediaType), row.Count);
         }
 
         return Task.FromResult(result);

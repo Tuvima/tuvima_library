@@ -246,9 +246,9 @@ else
                     var isQuarantined = item.VaultDisplayStatus == VaultStatus.Quarantined;
                     var isSelected = SelectedItems.Contains(item.EntityId);
                     var isDrillable = IsDrillable?.Invoke(item) == true;
-                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") @(isDrillable ? "vmt-row--drillable" : "")"
-                        style="@(isDrillable ? "cursor: pointer;" : "")"
-                        @onclick="() => { if (isDrillable) OnRowClicked.InvokeAsync(item.EntityId); }">
+                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") vmt-row--drillable"
+                        style="cursor: pointer;"
+                        @onclick="() => OnRowClicked.InvokeAsync(item.EntityId)">
                         @foreach (var col in cols)
                         {
                             var tdAlignClass = col.Align switch
@@ -303,10 +303,14 @@ else
                                                 }
                                                 @if (!string.IsNullOrEmpty(creatorName))
                                                 {
-                                                    <button class="vmt-creator-link" @onclick:stopPropagation="true"
-                                                            @onclick="() => OnAuthorClicked.InvokeAsync(creatorName)">
-                                                        @creatorName.ToUpperInvariant()
-                                                    </button>
+                                                    var creators = creatorName.Split(new[] { " and ", " & ", ", " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                                                    @foreach (var creator in creators)
+                                                    {
+                                                        <button class="vmt-creator-link" @onclick:stopPropagation="true"
+                                                                @onclick="() => OnAuthorClicked.InvokeAsync(creator.Trim())">
+                                                            @creator.Trim().ToUpperInvariant()
+                                                        </button>
+                                                    }
                                                 }
                                                 @if (item.VaultDisplayStatus == VaultStatus.NeedsReview && !string.IsNullOrEmpty(item.ReviewTrigger))
                                                 {
@@ -414,9 +418,6 @@ else
 
                                     case ColumnRenderType.ManageActions:
                                         <div class="vmt-manage-actions" @onclick:stopPropagation="true">
-                                            <button class="vmt-manage-btn vmt-manage-btn--edit" title="Edit" @onclick="() => OnEditClicked.InvokeAsync(item.EntityId)">
-                                                <MudIcon Icon="@Icons.Material.Outlined.Edit" Style="font-size: 14px;" />
-                                            </button>
                                             <button class="vmt-manage-btn vmt-manage-btn--delete" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)">
                                                 <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
                                             </button>
@@ -435,14 +436,6 @@ else
                                         <span class="vct-text-cell">—</span>
                                         break;
                                 }
-                            </td>
-                        }
-                        @if (isDrillable)
-                        {
-                            <td class="vmt-td" style="width: 32px; padding-right: 16px;">
-                                <div class="vmt-drill-chevron">
-                                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Style="font-size: 18px;" />
-                                </div>
                             </td>
                         }
                     </tr>
@@ -689,7 +682,10 @@ else
 
     .vmt-thead-row {
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        background: rgba(255, 255, 255, 0.015);
+        background: rgb(18, 18, 18);
+        position: sticky;
+        top: 0;
+        z-index: 2;
     }
 
     .vmt-th {

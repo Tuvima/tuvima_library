@@ -3209,6 +3209,27 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<ContentGroupViewModel>> GetSystemViewGroupsAsync(string? mediaType = null, string? groupField = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var queryParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(mediaType))
+                queryParts.Add($"mediaType={Uri.EscapeDataString(mediaType)}");
+            if (!string.IsNullOrWhiteSpace(groupField))
+                queryParts.Add($"groupField={Uri.EscapeDataString(groupField)}");
+            var url = "/hubs/system-views" + (queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "");
+            return await _http.GetFromJsonAsync<List<ContentGroupViewModel>>(url, ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/system-views failed");
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     public async Task<List<HubItemViewModel>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default)
     {
         try

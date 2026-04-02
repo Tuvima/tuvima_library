@@ -42,15 +42,15 @@ public sealed class PersonViewModel
     /// <summary>Formatted role labels.</summary>
     public List<string> RoleLabels => Roles.Select(r => r switch
     {
-        "Author"       => "Author",
-        "Narrator"     => "Narrator",
-        "Director"     => "Director",
-        "Illustrator"  => "Illustrator",
-        "Cast Member"  => "Cast",
-        "Voice Actor"  => "Voice Actor",
-        "Screenwriter" => "Screenwriter",
-        "Composer"     => "Composer",
-        _              => r,
+        "Author"      => "Author",
+        "Narrator"    => "Narrator",
+        "Director"    => "Director",
+        "Actor"       => "Actor",
+        "Voice Actor" => "Voice Actor",
+        "Composer"    => "Composer",
+        "Performer"   => "Performer",
+        "Artist"      => "Artist",
+        _             => r,
     }).ToList();
 
     /// <summary>Primary role label for backward-compatible display.</summary>

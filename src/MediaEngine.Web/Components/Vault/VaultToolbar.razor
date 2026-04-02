@@ -81,33 +81,6 @@
             </div>
         }
 
-        @* ── Group-by dropdown ── *@
-        @{
-            var groupOpts = GetGroupOptions();
-        }
-        @if (groupOpts.Count > 0 && (ResolvedTabId == "media" || IsTabWithGrouping(ResolvedTabId)))
-        {
-            <div class="vault-control-divider"></div>
-
-            <div class="vault-control-group">
-                <select class="vault-select" value="@GroupBy" @onchange="OnGroupChanged">
-                    @foreach (var opt in groupOpts)
-                    {
-                        <option value="@opt.Value">@opt.Label</option>
-                    }
-                </select>
-                @if (GroupBy != "none")
-                {
-                    <button class="vault-group-action-btn" title="Expand all" @onclick="() => OnExpandAll.InvokeAsync()">
-                        <MudIcon Icon="@Icons.Material.Filled.UnfoldMore" Style="font-size: 16px;" />
-                    </button>
-                    <button class="vault-group-action-btn" title="Collapse all" @onclick="() => OnCollapseAll.InvokeAsync()">
-                        <MudIcon Icon="@Icons.Material.Filled.UnfoldLess" Style="font-size: 16px;" />
-                    </button>
-                }
-            </div>
-        }
-
         @if (ResolvedTabId == "media" || ResolvedTabId == "music")
         {
             <div class="vault-control-divider"></div>
@@ -134,16 +107,11 @@
     [Parameter] public string ActiveTab { get; set; } = "media";
     [Parameter] public string SearchText { get; set; } = "";
     [Parameter] public string SortBy { get; set; } = "newest";
-    [Parameter] public string GroupBy { get; set; } = "none";
-
     [Parameter] public int PosterSize { get; set; } = 48;
     [Parameter] public EventCallback<int> PosterSizeChanged { get; set; }
 
     [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
     [Parameter] public EventCallback<string> SortByChanged { get; set; }
-    [Parameter] public EventCallback<string> GroupByChanged { get; set; }
-    [Parameter] public EventCallback OnExpandAll { get; set; }
-    [Parameter] public EventCallback OnCollapseAll { get; set; }
 
     // ── New parameters ──
 
@@ -230,40 +198,11 @@
     /// Filter dropdown is disabled for all tabs.</summary>
     private List<SelectOption> GetFilterOptions() => [];
 
-    /// <summary>Returns group-by options for the resolved tab.
-    /// Returns an empty list for tabs where the group dropdown should be hidden.</summary>
-    private List<SelectOption> GetGroupOptions() => ResolvedTabId switch
-    {
-        "movies"     => [new("None", "none"), new("Director", "director"), new("Year", "year"), new("Decade", "decade")],
-        "tv"         => [new("None", "none"), new("Show", "show"), new("Season", "season")],
-        "music"      => [new("None", "none"), new("Artist", "artist"), new("Album", "album"), new("Genre", "genre")],
-        "books"      => [new("None", "none"), new("Author", "author"), new("Series", "series")],
-        "audiobooks" => [new("None", "none"), new("Author", "author"), new("Narrator", "narrator")],
-        "podcasts"   => [new("None", "none"), new("Show", "show")],
-        "comics"     => [new("None", "none"), new("Series", "series"), new("Year", "year")],
-        "media"      => [new("None", "none"), new("Type", "type"), new("Status", "status"), new("Letter", "letter"), new("Universe / Series", "universe"), new("Author / Director", "author"), new("Artist", "artist"), new("Genre", "genre"), new("Decade", "decade")],
-        "new"        => [new("None", "none"), new("Type", "type")],
-        "people"     => [new("None", "none"), new("Role", "role")],
-        // universes, hubs — hide group dropdown
-        _ => [],
-    };
-
-    /// <summary>Returns true for tabs that should display the group-by dropdown
-    /// (all named tabs except universes and hubs).</summary>
-    private static bool IsTabWithGrouping(string tabId) => tabId switch
-    {
-        "universes" or "hubs" => false,
-        _ => true,
-    };
-
     private async Task ToggleSort(string value, string reverseValue)
     {
         var newSort = SortBy == value ? reverseValue : (SortBy == reverseValue ? value : value);
         await SortByChanged.InvokeAsync(newSort);
     }
-
-    private async Task OnGroupChanged(ChangeEventArgs e) =>
-        await GroupByChanged.InvokeAsync(e.Value?.ToString() ?? "none");
 
     private async Task OnFilterChanged(ChangeEventArgs e)
     {
@@ -399,26 +338,6 @@
     .vault-control-divider {
         width: 1px;
         height: 24px;
-        background: rgba(255, 255, 255, 0.06);
-    }
-
-    .vault-group-action-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 6px;
-        border: none;
-        background: transparent;
-        color: rgba(255, 255, 255, 0.3);
-        cursor: pointer;
-        transition: all 0.15s;
-        padding: 0;
-    }
-
-    .vault-group-action-btn:hover {
-        color: rgba(255, 255, 255, 0.7);
         background: rgba(255, 255, 255, 0.06);
     }
 

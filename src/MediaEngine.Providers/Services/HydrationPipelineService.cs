@@ -1000,8 +1000,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                         "Director"     => "director_qid",
                                         "Screenwriter" => "screenwriter_qid",
                                         "Composer"     => "composer_qid",
-                                        "Cast Member"  => "cast_member_qid",
-                                        "Illustrator"  => "illustrator_qid",
+                                        "Actor"        => "cast_member_qid",
                                         _              => null,
                                     };
 
@@ -3612,7 +3611,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     var actorLabel = claim.Value?.RawValue ?? actorQid;
                     var personRefs = new List<PersonReference>
                     {
-                        new("Cast Member", actorLabel, actorQid)
+                        new("Actor", actorLabel, actorQid)
                     };
                     var actorRequests = await _identity.EnrichAsync(mediaAssetId, personRefs, ct)
                         .ConfigureAwait(false);
@@ -3839,7 +3838,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// </summary>
     private static readonly HashSet<string> PersonLabelKeys = new(StringComparer.OrdinalIgnoreCase)
     {
-        MetadataFieldConstants.Author, MetadataFieldConstants.Narrator, MetadataFieldConstants.Director, MetadataFieldConstants.Illustrator, "voice_actor", "performer",
+        MetadataFieldConstants.Author, MetadataFieldConstants.Narrator, MetadataFieldConstants.Director, "voice_actor", "performer",
     };
 
     /// <summary>
@@ -3916,8 +3915,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         AddPersonRefsFromLists(refs, "Director", byKey, "director",  "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",     "composer_qid");
-        AddPersonRefsFromLists(refs, "Cast Member",  byKey, "cast_member",  "cast_member_qid");
-        AddPersonRefsFromLists(refs, "Illustrator",  byKey, "illustrator",  "illustrator_qid");
+        AddPersonRefsFromLists(refs, "Actor",         byKey, "cast_member",  "cast_member_qid");
 
         // Mark author refs as collective pseudonyms when the adapter flagged it.
         // This prevents person enrichment from looking up the pen name on Wikidata
@@ -3998,8 +3996,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         AddPersonRefsFromLists(refs, "Director",     byKey, "director",     "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",     "composer_qid");
-        AddPersonRefsFromLists(refs, "Cast Member",  byKey, "cast_member",  "cast_member_qid");
-        AddPersonRefsFromLists(refs, "Illustrator",  byKey, "illustrator",  "illustrator_qid");
+        AddPersonRefsFromLists(refs, "Actor",         byKey, "cast_member",  "cast_member_qid");
 
         // Return only references WITHOUT a QID — inverse of the main method's filter.
         // Deduplicate by role+name (case-insensitive).
@@ -4067,8 +4064,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         AddPersonRefs(refs, "Director", canonicals, "director", "director_qid");
         AddPersonRefs(refs, "Screenwriter", canonicals, "screenwriter", "screenwriter_qid");
         AddPersonRefs(refs, "Composer",     canonicals, "composer",     "composer_qid");
-        AddPersonRefs(refs, "Cast Member",  canonicals, "cast_member",  "cast_member_qid");
-        AddPersonRefs(refs, "Illustrator",  canonicals, "illustrator",  "illustrator_qid");
+        AddPersonRefs(refs, "Actor",         canonicals, "cast_member",  "cast_member_qid");
 
         // Collective pseudonym constituent members: the author audit query
         // deposits QID::Label pairs for the real people behind a collective
@@ -4622,8 +4618,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
             if (string.IsNullOrEmpty(fileDir)) return;
 
-            var core = _configLoader.LoadCore();
-
             // 2. Check for a cover URL in canonical values.
             //    Prefer cover_url over cover — user-locked selections are written
             //    to cover_url, so it must take priority over retail provider covers.
@@ -4663,6 +4657,17 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             else
             {
                 coverPath = Path.Combine(fileDir, "cover.jpg");
+            }
+
+            // 2b. Skip download if cover already exists on disk — avoids redundant
+            //     HTTP calls when PersistCoverFromUrlAsync is called multiple times
+            //     (after Stage 1, after Stage 2, and after auto-organize).
+            if (File.Exists(coverPath))
+            {
+                _logger.LogDebug(
+                    "Cover art already exists for asset {Id} at {Path} — skipping download",
+                    assetId, coverPath);
+                return;
             }
 
             // 3a. Capture the embedded cover's pHash before overwriting cover.jpg.

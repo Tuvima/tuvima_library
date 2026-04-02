@@ -47,15 +47,13 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
     private static readonly Dictionary<string, HashSet<string>> OccupationsByRole =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["Author"]       = new(StringComparer.OrdinalIgnoreCase) { "writer", "author", "novelist", "poet", "playwright", "essayist", "journalist" },
-            ["Narrator"]     = new(StringComparer.OrdinalIgnoreCase) { "narrator", "voice actor", "actor", "actress", "audiobook narrator" },
-            ["Director"]     = new(StringComparer.OrdinalIgnoreCase) { "film director", "television director", "director", "film producer" },
-            ["Screenwriter"] = new(StringComparer.OrdinalIgnoreCase) { "screenwriter", "playwright", "television writer", "writer" },
-            ["Composer"]     = new(StringComparer.OrdinalIgnoreCase) { "composer", "film score composer", "musician", "songwriter" },
-            ["Cast Member"]  = new(StringComparer.OrdinalIgnoreCase) { "actor", "actress", "film actor", "television actor", "voice actor" },
-            ["Illustrator"]  = new(StringComparer.OrdinalIgnoreCase) { "illustrator", "comics artist", "mangaka", "graphic artist", "artist" },
-            ["Performer"]    = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "vocalist", "guitarist", "drummer", "bassist", "pianist", "DJ", "band", "musical group" },
-            ["Artist"]       = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "band", "musical group", "recording artist", "songwriter", "performer" },
+            ["Author"]    = new(StringComparer.OrdinalIgnoreCase) { "writer", "author", "novelist", "poet", "playwright", "essayist", "journalist" },
+            ["Narrator"]  = new(StringComparer.OrdinalIgnoreCase) { "narrator", "voice actor", "actor", "actress", "audiobook narrator" },
+            ["Director"]  = new(StringComparer.OrdinalIgnoreCase) { "film director", "television director", "director", "film producer" },
+            ["Composer"]  = new(StringComparer.OrdinalIgnoreCase) { "composer", "film score composer", "musician", "songwriter" },
+            ["Actor"]     = new(StringComparer.OrdinalIgnoreCase) { "actor", "actress", "film actor", "television actor", "voice actor" },
+            ["Performer"] = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "vocalist", "guitarist", "drummer", "bassist", "pianist", "DJ", "band", "musical group" },
+            ["Artist"]    = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "band", "musical group", "recording artist", "songwriter", "performer" },
         };
 
     public PersonReconciliationService(

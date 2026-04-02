@@ -57,6 +57,7 @@ public static class MetadataFieldConstants
     public const string Director        = "director";
     public const string Genre           = "genre";
     public const string Illustrator     = "illustrator";
+    /// <summary>Metadata field key for cast/actor entries. Display role name is "Actor".</summary>
     public const string CastMember      = "cast_member";
     public const string Composer        = "composer";
     public const string Screenwriter    = "screenwriter";

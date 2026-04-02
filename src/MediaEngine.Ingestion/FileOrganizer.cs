@@ -185,7 +185,22 @@ public sealed class FileOrganizer : IFileOrganizer
         if (!string.IsNullOrEmpty(destDir))
             Directory.CreateDirectory(destDir);
 
-        // Resolve collision: if destination exists, find a free name.
+        // Same-content check: if the destination already exists with the same
+        // file size as the source, the file is already organized — skip the move.
+        if (File.Exists(destinationPath))
+        {
+            var sourceInfo = new FileInfo(sourcePath);
+            var destInfo   = new FileInfo(destinationPath);
+            if (sourceInfo.Length == destInfo.Length)
+            {
+                _logger.LogInformation(
+                    "Move skipped — destination already contains identical content (same size {Bytes} bytes): {Destination}",
+                    destInfo.Length, destinationPath);
+                return true;
+            }
+        }
+
+        // Resolve collision: if destination exists with different content, find a free name.
         string finalDest = ResolveCollision(destinationPath);
 
         var delay = InitialRetryDelay;
@@ -296,7 +311,9 @@ public sealed class FileOrganizer : IFileOrganizer
             ["MediaType"] = candidate.DetectedMediaType?.ToString() ?? "Unknown",
             ["Extension"] = ext.TrimStart('.'),
             ["Ext"]       = ext,     // includes the dot — e.g. ".epub"
-            ["Series"]    = meta.GetValueOrDefault(MetadataFieldConstants.Series,    "Unknown"),
+            ["Series"]    = meta.GetValueOrDefault(MetadataFieldConstants.Series,    "") is { Length: > 0 } sv
+                              ? sv
+                              : meta.GetValueOrDefault("show_name", "Unknown"),
             ["Publisher"] = meta.GetValueOrDefault(MetadataFieldConstants.PublisherField, "Unknown"),
             // ── Hub-First template tokens ────────────────────────────────────────
             ["Category"]  = ResolveCategoryFromMediaType(candidate.DetectedMediaType),
@@ -308,8 +325,8 @@ public sealed class FileOrganizer : IFileOrganizer
             ["Artist"]      = meta.GetValueOrDefault(MetadataFieldConstants.Artist,       meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown")),
             ["Album"]       = meta.GetValueOrDefault(MetadataFieldConstants.Album,        "Unknown"),
             ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault(MetadataFieldConstants.TrackNumber, string.Empty)),
-            ["Season"]      = PadNumeric(meta.GetValueOrDefault("season",       string.Empty)),
-            ["Episode"]     = PadNumeric(meta.GetValueOrDefault("episode",      string.Empty)),
+            ["Season"]      = PadNumeric(meta.GetValueOrDefault("season",  "") is { Length: > 0 } sn ? sn : meta.GetValueOrDefault("season_number",  string.Empty)),
+            ["Episode"]     = PadNumeric(meta.GetValueOrDefault("episode", "") is { Length: > 0 } ep ? ep : meta.GetValueOrDefault("episode_number", string.Empty)),
             // ── Content hash token for collision avoidance ──────────────────────
             ["Hash6"]       = meta.TryGetValue("content_hash", out var hash) && hash.Length >= 6
                                   ? hash[..6]
