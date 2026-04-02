@@ -3178,6 +3178,24 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<HubGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"/hubs/system-view-detail?groupField={Uri.EscapeDataString(groupField)}&groupValue={Uri.EscapeDataString(groupValue)}";
+            if (!string.IsNullOrWhiteSpace(mediaType))
+                url += $"&mediaType={Uri.EscapeDataString(mediaType)}";
+            return await _http.GetFromJsonAsync<HubGroupDetailViewModel>(url, ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/system-view-detail failed for {GroupField}={GroupValue}", groupField, groupValue);
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
 
     public async Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default)

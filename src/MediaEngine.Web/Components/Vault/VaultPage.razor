@@ -31,16 +31,16 @@
                         <span>@tab.Label</span>
                     </button>
                 }
+                @if (_actionCenterTotal > 0)
+                {
+                    <button class="vault-tab vault-tab--action-center @(_primaryTab == "action_center" ? "vault-tab--active" : "") vault-tab--alert"
+                            @onclick='() => SwitchPrimaryTab("action_center")'>
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 16px;" />
+                        <span>Action Center</span>
+                        <span class="vault-tab-badge vault-tab-badge--alert">@_actionCenterTotal</span>
+                    </button>
+                }
             </div>
-            @if (_actionCenterTotal > 0)
-            {
-                <button class="vault-tab vault-tab--action-center @(_primaryTab == "action_center" ? "vault-tab--active" : "") vault-tab--alert"
-                        @onclick='() => SwitchPrimaryTab("action_center")'>
-                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 16px;" />
-                    <span>Action Center</span>
-                    <span class="vault-tab-badge vault-tab-badge--alert">@_actionCenterTotal</span>
-                </button>
-            }
             <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
                 <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
                 <span>@L["Vault_AddMedia"]</span>
@@ -118,6 +118,9 @@
                                 GroupId="@_activeGroupId.Value"
                                 ArtistAlbumHubIds="@_artistAlbumHubIds"
                                 ArtistName="@_activeArtistName"
+                                GroupName="@_activeGroupName"
+                                GroupField="@_activeGroupField"
+                                MediaType="@_activeGroupMediaType"
                                 ShowUnowned="@_vaultPrefs.ShowUnowned"
                                 ShowUnownedChanged="OnShowUnownedChanged"
                                 OnBack="NavigateBackFromGroup"
@@ -369,6 +372,9 @@
     private Guid? _activeGroupId;
     private List<Guid>? _artistAlbumHubIds;
     private string? _activeArtistName;
+    private string? _activeGroupName;
+    private string? _activeGroupField;
+    private string? _activeGroupMediaType;
 
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
@@ -628,6 +634,13 @@
     /// Maps the current tab + view mode to the group_by_field used in System view hubs.
     /// Returns null when the view is not backed by a system view hub.
     /// </summary>
+    private static Guid GenerateDeterministicGuid(string name)
+    {
+        var bytes = System.Security.Cryptography.MD5.HashData(
+            System.Text.Encoding.UTF8.GetBytes(name));
+        return new Guid(bytes);
+    }
+
     private string? GetSystemViewGroupField() => (_activeTab, _viewMode) switch
     {
         ("tv", "shows")         => "show_name",
@@ -661,7 +674,9 @@
             _tabContentGroups = groups;
             _containerDisplayItems = groups.Select(g => new VaultItemViewModel
             {
-                EntityId = g.HubId,
+                // System view groups share the same HubId — generate a unique deterministic ID
+                // from the display name so the click handler can distinguish them.
+                EntityId = GenerateDeterministicGuid(g.DisplayName),
                 Title    = g.DisplayName,
                 MediaType = g.PrimaryMediaType,
                 CoverUrl = g.CoverUrl,
@@ -990,27 +1005,32 @@
         var groupType = GetGroupTypeForContainerTab(_activeTab);
         if (groupType is null) return;
 
-        // For artist view, we need to collect all album hub IDs for this artist
-        if (_viewMode == "artists" && _activeTab == "music")
-        {
-            var artist = _containerDisplayItems.FirstOrDefault(i => i.EntityId == hubId);
-            if (artist is not null)
-            {
-                var artistName = artist.Title;
+        var container = _containerDisplayItems.FirstOrDefault(i => i.EntityId == hubId);
+        var containerName = container?.Title;
 
-                // Try ContentGroup hubs first (legacy path)
+        // Check if this is a system-view-backed container (all items share the same hub ID)
+        var systemGroupField = GetSystemViewGroupField();
+
+        if (systemGroupField is not null && !string.IsNullOrWhiteSpace(containerName))
+        {
+            // System-view mode: pass group name/field for generic drill-down
+            _activeGroupName = containerName;
+            _activeGroupField = systemGroupField;
+            _activeGroupMediaType = GetMediaTypeForTab(_activeTab);
+
+            // For artist view, also set artist-specific fields for legacy path
+            if (_viewMode == "artists" && _activeTab == "music")
+            {
+                _activeArtistName = containerName;
                 _artistAlbumHubIds = _contentGroups
                     .Where(g => string.Equals(g.PrimaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
-                             && string.Equals(g.Creator, artistName, StringComparison.OrdinalIgnoreCase))
+                             && string.Equals(g.Creator, containerName, StringComparison.OrdinalIgnoreCase))
                     .Select(g => g.HubId)
                     .ToList();
-
-                // Store artist name for system-view fallback (when no ContentGroup hubs exist)
-                _activeArtistName = artistName;
-
-                NavigateToGroup("artist", hubId);
-                return;
             }
+
+            NavigateToGroup(groupType, hubId);
+            return;
         }
 
         NavigateToGroup(groupType, hubId);
@@ -1265,6 +1285,11 @@
     {
         _activeGroupType = null;
         _activeGroupId = null;
+        _activeGroupName = null;
+        _activeGroupField = null;
+        _activeGroupMediaType = null;
+        _activeArtistName = null;
+        _artistAlbumHubIds = null;
         StateHasChanged();
     }
 

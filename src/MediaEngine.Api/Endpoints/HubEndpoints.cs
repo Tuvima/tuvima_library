@@ -767,6 +767,224 @@ public static class HubEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
+        // GET /hubs/system-view-detail?groupField=show_name&groupValue=Breaking Bad&mediaType=TV
+        // Generic system-view drill-down that works for any group field (show_name, series, album, artist).
+        // Returns a HubGroupDetailDto with seasons/sections grouped by a secondary field when available.
+        group.MapGet("/system-view-detail", async (
+            [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupField")] string? groupField,
+            [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupValue")] string? groupValue,
+            [Microsoft.AspNetCore.Mvc.FromQuery(Name = "mediaType")] string? mediaType,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(groupField) || string.IsNullOrWhiteSpace(groupValue))
+                return Results.BadRequest("groupField and groupValue parameters are required");
+
+            // Determine the secondary grouping field and sort fields based on the primary group
+            var (secondaryGroup, sortFields) = groupField.ToLowerInvariant() switch
+            {
+                "show_name"  => ("season_number", "season_number, episode_number, title"),
+                "artist"     => ("album", "album, CAST(track_number AS INTEGER), title"),
+                "series"     => ((string?)null, "CAST(series_index AS INTEGER), title"),
+                _            => ((string?)null, "title"),
+            };
+
+            // Label for secondary groups
+            var secondaryLabelPrefix = groupField.ToLowerInvariant() switch
+            {
+                "show_name" => "Season ",
+                "artist"    => (string?)null, // use album name directly
+                _           => null,
+            };
+
+            using var conn = db.CreateConnection();
+            using var cmd = conn.CreateCommand();
+
+            // Build the query: find all works matching groupField=groupValue, optionally filtered by media_type
+            var mediaTypeFilter = !string.IsNullOrWhiteSpace(mediaType)
+                ? "INNER JOIN works w ON w.id = e.work_id AND w.media_type = @MediaType"
+                : "INNER JOIN works w ON w.id = e.work_id";
+
+            cmd.CommandText = $"""
+                WITH matched_works AS (
+                    SELECT DISTINCT e.work_id
+                    FROM canonical_values cv
+                    INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                    INNER JOIN editions e ON e.id = ma.edition_id
+                    {mediaTypeFilter}
+                    WHERE cv.key = @GroupField AND cv.value = @GroupValue COLLATE NOCASE
+                ),
+                work_data AS (
+                    SELECT
+                        mw.work_id,
+                        MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
+                        MAX(CASE WHEN cv.key = 'show_name' THEN cv.value END) AS show_name,
+                        MAX(CASE WHEN cv.key = 'season_number' THEN cv.value END) AS season_number,
+                        MAX(CASE WHEN cv.key = 'episode_number' THEN cv.value END) AS episode_number,
+                        MAX(CASE WHEN cv.key = 'series' THEN cv.value END) AS series,
+                        MAX(CASE WHEN cv.key = 'series_index' THEN cv.value END) AS series_index,
+                        MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
+                        MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
+                        MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS author,
+                        MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS director,
+                        MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
+                        MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS release_year,
+                        MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
+                        MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
+                        MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
+                        MAX(CASE WHEN cv.key = 'cover' THEN cv.value END) AS cover,
+                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre
+                    FROM matched_works mw
+                    INNER JOIN editions e ON e.work_id = mw.work_id
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                    GROUP BY mw.work_id
+                )
+                SELECT * FROM work_data ORDER BY {sortFields}
+                """;
+
+            var pField = cmd.CreateParameter();
+            pField.ParameterName = "@GroupField";
+            pField.Value = groupField;
+            cmd.Parameters.Add(pField);
+
+            var pValue = cmd.CreateParameter();
+            pValue.ParameterName = "@GroupValue";
+            pValue.Value = groupValue;
+            cmd.Parameters.Add(pValue);
+
+            if (!string.IsNullOrWhiteSpace(mediaType))
+            {
+                var pMedia = cmd.CreateParameter();
+                pMedia.ParameterName = "@MediaType";
+                pMedia.Value = mediaType;
+                cmd.Parameters.Add(pMedia);
+            }
+
+            using var reader = cmd.ExecuteReader();
+            var sectionMap = new Dictionary<string, List<HubGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
+            string? combinedCreator = null;
+            string? combinedCover = null;
+            string? combinedGenre = null;
+            var allYears = new List<string>();
+            int totalItems = 0;
+
+            while (reader.Read())
+            {
+                var workId = reader.GetGuid(reader.GetOrdinal("work_id"));
+                var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
+                var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
+                var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
+                var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
+                var runtime = reader.IsDBNull(reader.GetOrdinal("runtime")) ? null : reader.GetString(reader.GetOrdinal("runtime"));
+                var releaseYear = reader.IsDBNull(reader.GetOrdinal("release_year")) ? null : reader.GetString(reader.GetOrdinal("release_year"));
+                var yearVal = reader.IsDBNull(reader.GetOrdinal("year_val")) ? null : reader.GetString(reader.GetOrdinal("year_val"));
+                var episodeNum = reader.IsDBNull(reader.GetOrdinal("episode_number")) ? null : reader.GetString(reader.GetOrdinal("episode_number"));
+                var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
+                var seqIndex = reader.IsDBNull(reader.GetOrdinal("series_index")) ? null : reader.GetString(reader.GetOrdinal("series_index"));
+
+                // Determine creator (author, director, or artist)
+                var creator = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString(reader.GetOrdinal("author"));
+                creator ??= reader.IsDBNull(reader.GetOrdinal("director")) ? null : reader.GetString(reader.GetOrdinal("director"));
+                creator ??= reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
+
+                combinedCreator ??= creator;
+                combinedCover ??= cover;
+                combinedGenre ??= genre;
+
+                var year = releaseYear ?? yearVal;
+                if (!string.IsNullOrWhiteSpace(year)) allYears.Add(year);
+
+                // Build group key for sections
+                string sectionKey;
+                if (secondaryGroup is not null)
+                {
+                    var secVal = reader.IsDBNull(reader.GetOrdinal(secondaryGroup)) ? null : reader.GetString(reader.GetOrdinal(secondaryGroup));
+                    sectionKey = secVal ?? "Unknown";
+                }
+                else
+                {
+                    sectionKey = "_flat";
+                }
+
+                if (!sectionMap.TryGetValue(sectionKey, out var items))
+                {
+                    items = [];
+                    sectionMap[sectionKey] = items;
+                }
+
+                items.Add(new HubGroupWorkDto
+                {
+                    WorkId       = workId,
+                    Title        = title ?? $"Item {workId.ToString("N")[..8]}",
+                    Year         = year,
+                    Duration     = duration ?? runtime,
+                    CoverUrl     = cover,
+                    Episode      = episodeNum,
+                    TrackNumber  = trackNum,
+                    SequenceIndex = int.TryParse(seqIndex, out var si) ? si : null,
+                    Status       = "Provisional",
+                });
+
+                totalItems++;
+            }
+
+            var years = allYears.Distinct().OrderBy(y => y).ToList();
+            string? yearRange = years.Count switch
+            {
+                0 => null,
+                1 => years[0],
+                _ => $"{years[0]}–{years[^1]}",
+            };
+
+            // Build seasons/sections if we have a secondary group
+            List<HubGroupSeasonDto> seasons;
+            List<HubGroupWorkDto> flatWorks;
+
+            if (secondaryGroup is not null && sectionMap.Count > 0 && !sectionMap.ContainsKey("_flat"))
+            {
+                seasons = sectionMap
+                    .OrderBy(kvp => int.TryParse(kvp.Key, out var n) ? n : int.MaxValue)
+                    .ThenBy(kvp => kvp.Key)
+                    .Select((kvp, idx) => new HubGroupSeasonDto
+                    {
+                        SeasonNumber = int.TryParse(kvp.Key, out var sn) ? sn : idx,
+                        SeasonLabel  = secondaryLabelPrefix is not null
+                            ? $"{secondaryLabelPrefix}{kvp.Key}"
+                            : kvp.Key,
+                        Episodes     = kvp.Value,
+                    })
+                    .ToList();
+                flatWorks = [];
+            }
+            else
+            {
+                seasons = [];
+                flatWorks = sectionMap.Values.SelectMany(v => v).ToList();
+            }
+
+            var response = new HubGroupDetailDto
+            {
+                HubId            = Guid.Empty,
+                DisplayName      = groupValue,
+                PrimaryMediaType = mediaType ?? "Unknown",
+                CoverUrl         = combinedCover,
+                Creator          = combinedCreator,
+                YearRange        = yearRange,
+                Genre            = combinedGenre,
+                TotalItems       = totalItems,
+                Seasons          = seasons,
+                Works            = flatWorks,
+            };
+
+            return Results.Ok(response);
+        })
+        .WithName("GetSystemViewGroupDetail")
+        .WithSummary("Generic system-view drill-down. Returns works grouped by a secondary field for any group field (show_name, series, album, artist).")
+        .Produces<HubGroupDetailDto>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAnyRole();
+
         // ── Content Groups ───────────────────────────────────────────────────────
 
         // GET /hubs/content-groups — Universe hubs that have child works (albums, TV series, book series, movie series).

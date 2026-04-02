@@ -15,6 +15,7 @@ else
         <table class="vut-table">
             <thead>
                 <tr class="vut-thead-row">
+                    <th class="vut-th" style="width: 4%;"></th>
                     <th class="vut-th" style="width: 42%;">@L["VaultUniverses_ColUniverse"]</th>
                     <th class="vut-th vut-th--center vut-col-series" style="width: 13%;">@L["VaultUniverses_ColSeries"]</th>
                     <th class="vut-th" style="width: 25%;">@L["VaultUniverses_ColMediaAssets"]</th>
@@ -26,6 +27,7 @@ else
                 @foreach (var u in Universes)
                 {
                     <tr class="vut-row" @onclick="() => OnRowClicked.InvokeAsync(u.Id)">
+                        <td class="vut-td" style="width: 4%;"></td>
                         <td class="vut-td">
                             <div class="vut-name-cell">
                                 <div class="vut-icon-box">

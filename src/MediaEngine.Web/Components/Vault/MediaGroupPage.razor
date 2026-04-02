@@ -161,23 +161,40 @@ else
     /// <summary>For artist view with system hubs: the artist name to query by when album hub IDs are unavailable.</summary>
     [Parameter] public string? ArtistName { get; set; }
 
+    /// <summary>For system-view drill-downs: the group name (show name, series name, etc.) to query by.</summary>
+    [Parameter] public string? GroupName { get; set; }
+
+    /// <summary>For system-view drill-downs: the group field (show_name, series, artist) used to query.</summary>
+    [Parameter] public string? GroupField { get; set; }
+
+    /// <summary>For system-view drill-downs: the media type filter.</summary>
+    [Parameter] public string? MediaType { get; set; }
+
     // ── Private state ────────────────────────────────────────────────────────────
 
     private HubGroupDetailViewModel? _detail;
     private bool _loading = true;
     private HashSet<Guid> _selectedItems = [];
     private HashSet<int> _collapsedSeasons = [];
-    private Guid _lastLoadedGroupId;
+    private string? _lastLoadedCacheKey;
+
+    /// <summary>Composite key of all parameters that affect data loading.
+    /// For system view groups the GroupId is the same system hub —
+    /// GroupName/ArtistName distinguishes them.</summary>
+    private string GetCacheKey() =>
+        $"{GroupId}|{GroupType}|{ArtistName}|{GroupName}|{GroupField}|{string.Join(",", ArtistAlbumHubIds ?? [])}";
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnParametersSetAsync()
     {
         if (GroupId == Guid.Empty) return;
-        if (GroupId == _lastLoadedGroupId && _detail is not null) return;
+
+        var key = GetCacheKey();
+        if (key == _lastLoadedCacheKey && _detail is not null) return;
 
         _loading = true;
-        _lastLoadedGroupId = GroupId;
+        _lastLoadedCacheKey = key;
         _collapsedSeasons = [];
         _selectedItems = [];
         StateHasChanged();
@@ -186,9 +203,14 @@ else
         {
             _detail = await ApiClient.GetArtistGroupDetailAsync(ArtistAlbumHubIds);
         }
+        else if (!string.IsNullOrWhiteSpace(GroupName) && !string.IsNullOrWhiteSpace(GroupField))
+        {
+            // System-view mode: query by group field + value directly from canonical_values
+            _detail = await ApiClient.GetSystemViewGroupDetailAsync(GroupField, GroupName, MediaType);
+        }
         else if (GroupType == "artist" && !string.IsNullOrWhiteSpace(ArtistName))
         {
-            // System-view mode: no ContentGroup hub IDs available, query by artist name directly
+            // Legacy artist fallback
             _detail = await ApiClient.GetArtistDetailByNameAsync(ArtistName);
         }
         else

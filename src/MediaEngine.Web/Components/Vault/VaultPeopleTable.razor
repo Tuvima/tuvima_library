@@ -15,6 +15,7 @@ else
         <table class="vpt-table">
             <thead>
                 <tr class="vpt-thead-row">
+                    <th class="vpt-th" style="width: 4%;"></th>
                     <th class="vpt-th" style="width: 40%;">
                         <button class="vpt-sort-header" @onclick="SortByName">
                             @L["VaultPeople_ColName"]
@@ -48,6 +49,7 @@ else
                     var displayRoles = person.Roles.Where(r => !r.Equals("Composer", StringComparison.OrdinalIgnoreCase)).ToList();
                     var primaryRole = displayRoles.FirstOrDefault() ?? string.Empty;
                     <tr class="vpt-row" @onclick="() => OnRowClicked.InvokeAsync(person.Id)" style="cursor: pointer;">
+                        <td class="vpt-td" style="width: 4%;"></td>
                         <td class="vpt-td vpt-td--person">
                             <div class="vpt-avatar">
                                 @if (!string.IsNullOrEmpty(person.HeadshotUrl))

@@ -648,6 +648,9 @@ public interface IEngineApiClient
     /// <summary>GET /hubs/artist-detail-by-name?artistName=X — artist drill-down by name (system-view mode).</summary>
     Task<HubGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default);
 
+    /// <summary>GET /hubs/system-view-detail?groupField=&amp;groupValue=&amp;mediaType= — generic system-view drill-down for any group field.</summary>
+    Task<HubGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default);
+
     /// <summary>GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.</summary>
     Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default);
 
