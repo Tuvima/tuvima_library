@@ -19,14 +19,14 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task InsertEventAsync(EntityEvent evt, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         await InsertEventCoreAsync(conn, evt, ct).ConfigureAwait(false);
     }
 
     public async Task InsertEventsAsync(IReadOnlyList<EntityEvent> events, CancellationToken ct = default)
     {
         if (events.Count == 0) return;
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         await using var tx = conn.BeginTransaction();
         foreach (var evt in events)
             await InsertEventCoreAsync(conn, evt, ct).ConfigureAwait(false);
@@ -82,7 +82,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<IReadOnlyList<EntityEvent>> GetEventsByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
                    provider_id, provider_name, bridge_id_type, bridge_id_value,
@@ -102,7 +102,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<EntityEvent?> GetLatestEventAsync(Guid entityId, int stage, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
                    provider_id, provider_name, bridge_id_type, bridge_id_value,
@@ -125,7 +125,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<IReadOnlyList<EntityEvent>> GetCurrentPipelineStateAsync(Guid entityId, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         // Most recent event per stage for this entity (stages 0-3).
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
@@ -151,7 +151,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<EntityEvent?> GetEventByIdAsync(Guid eventId, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
                    provider_id, provider_name, bridge_id_type, bridge_id_value,
@@ -174,7 +174,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     public async Task InsertFieldChangesAsync(IReadOnlyList<EntityFieldChange> changes, CancellationToken ct = default)
     {
         if (changes.Count == 0) return;
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         await using var tx = conn.BeginTransaction();
 
         const string sql = """
@@ -210,7 +210,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<IReadOnlyList<EntityFieldChange>> GetFieldChangesByEventAsync(Guid eventId, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, event_id, entity_id, field,
                    old_value, new_value, old_provider_id, new_provider_id,
@@ -227,7 +227,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<IReadOnlyList<EntityFieldChange>> GetFieldHistoryAsync(Guid entityId, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         const string sql = """
             SELECT fc.id, fc.event_id, fc.entity_id, fc.field,
                    fc.old_value, fc.new_value, fc.old_provider_id, fc.new_provider_id,
@@ -245,7 +245,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<IReadOnlyList<EntityFieldChange>> GetFieldHistoryAsync(Guid entityId, string field, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         const string sql = """
             SELECT fc.id, fc.event_id, fc.entity_id, fc.field,
                    fc.old_value, fc.new_value, fc.old_provider_id, fc.new_provider_id,
@@ -264,7 +264,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<IReadOnlyList<EntityFieldChange>> GetFileOriginalsForEventAsync(Guid eventId, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, event_id, entity_id, field,
                    old_value, new_value, old_provider_id, new_provider_id,
@@ -286,7 +286,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     {
         if (entityIds.Count == 0) return new Dictionary<Guid, EntityEvent>();
 
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
 
         // SQLite doesn't support array parameters; use a temp table for efficiency.
         await using var createCmd = new SqliteCommand(
@@ -336,7 +336,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task<int> CullOldEventsAsync(TimeSpan retention, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         var cutoff = DateTimeOffset.UtcNow.Subtract(retention).ToString("o");
 
         // Delete old events EXCEPT the most recent per entity per stage.
@@ -363,7 +363,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public async Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
-        await using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         // Field changes cascade via FK ON DELETE CASCADE.
         const string sql = "DELETE FROM entity_events WHERE entity_id = @entity_id";
         await using var cmd = new SqliteCommand(sql, conn);

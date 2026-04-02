@@ -1272,26 +1272,98 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
-            // Authority match failed — create review item.
-            // Wikidata is NOT used as a Stage 1 fallback. Stage 2 (Wikidata) only
-            // runs after retail providers succeed. When retail fails, the item goes
-            // to review and the user resolves it manually (or AI disambiguation
-            // handles it above).
-            await CreateReviewItemAsync(
-                request, ReviewTrigger.AuthorityMatchFailed, 0.0,
-                $"Wikidata authority match failed for this {request.MediaType}",
-                result, ct, deferredReviewNotifications).ConfigureAwait(false);
-
-            // Always skip Stage 2 when Stage 1 (authority) failed.
-            // Retail providers must not run title-based searches for
-            // unconfirmed identities — this would pull covers and metadata
-            // for potentially wrong matches.  Stage 2 will run later when
-            // the user resolves the review item (PreResolvedQid path).
+            // Stage 1 failed — attempt type-constrained text reconciliation via Stage 2
+            // before falling back to the review queue. This gives comics, TV, music, and
+            // other items a chance to resolve via Wikidata CirrusSearch even when no
+            // retail provider covers the media type.
             _logger.LogInformation(
-                "Pipeline skipping Stage 2 after Stage 1 failure for entity {Id} — "
-                + "retail providers will run after identity is confirmed",
+                "Pipeline Stage 1 failed for entity {Id} — attempting text-only Wikidata reconciliation",
                 request.EntityId);
-            goto PostPipeline;
+
+            var textOnlyResolved = false;
+            try
+            {
+                var textReconAdapter = _providers
+                    .OfType<MediaEngine.Providers.Adapters.ReconciliationAdapter>()
+                    .FirstOrDefault();
+
+                if (textReconAdapter is not null)
+                {
+                    // Build minimal bridge dict with only title + author sentinels
+                    var textBridgeDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                    var textTitle = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Title);
+                    var textAuthor = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Author);
+
+                    if (!string.IsNullOrWhiteSpace(textTitle))
+                        textBridgeDict["_title"] = textTitle;
+                    if (!string.IsNullOrWhiteSpace(textAuthor))
+                        textBridgeDict["_author"] = textAuthor;
+
+                    if (textBridgeDict.ContainsKey("_title"))
+                    {
+                        var isEditionAware = hydration.EditionAwareMediaTypes
+                            ?.Contains(request.MediaType.ToString(), StringComparer.OrdinalIgnoreCase) ?? false;
+
+                        _logger.LogDebug(
+                            "Stage 1→2 fallback: text reconciliation for entity {Id} — title='{Title}', author='{Author}', mediaType={MediaType}",
+                            request.EntityId, textTitle, textAuthor, request.MediaType);
+
+                        // Empty wikidataProps — no bridge ID → P-code mappings needed for text-only path.
+                        var emptyWikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                        var textResult = await textReconAdapter.ResolveBridgeAsync(
+                            textBridgeDict, emptyWikidataProps, request.MediaType, isEditionAware, ct)
+                            .ConfigureAwait(false);
+
+                        if (textResult.Found)
+                        {
+                            _logger.LogInformation(
+                                "Stage 1→2 fallback succeeded for entity {Id} — resolved to work QID {WorkQid}",
+                                request.EntityId, textResult.WorkQid);
+
+                            // Persist QID claims
+                            var qidClaims = new List<ProviderClaim>();
+                            if (!string.IsNullOrWhiteSpace(textResult.WorkQid))
+                                qidClaims.Add(new ProviderClaim(BridgeIdKeys.WikidataQid, textResult.WorkQid, 1.0));
+                            if (textResult.IsEdition && !string.IsNullOrWhiteSpace(textResult.EditionQid))
+                                qidClaims.Add(new ProviderClaim("edition_qid", textResult.EditionQid, 1.0));
+                            foreach (var claim in textResult.Claims)
+                                qidClaims.Add(claim);
+
+                            if (qidClaims.Count > 0)
+                            {
+                                await ScoringHelper.PersistClaimsAndScoreAsync(
+                                    request.EntityId, qidClaims, textReconAdapter.ProviderId,
+                                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
+                                    _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
+                            }
+
+                            textOnlyResolved = true;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Stage 1→2 text reconciliation fallback failed for entity {Id} — falling through to review",
+                    request.EntityId);
+            }
+
+            if (!textOnlyResolved)
+            {
+                await CreateReviewItemAsync(
+                    request, ReviewTrigger.AuthorityMatchFailed, 0.0,
+                    $"Wikidata authority match failed for this {request.MediaType}",
+                    result, ct, deferredReviewNotifications).ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Pipeline skipping Stage 2 after Stage 1 failure for entity {Id} — "
+                    + "no text reconciliation match found",
+                    request.EntityId);
+                goto PostPipeline;
+            }
         }
         else
         {

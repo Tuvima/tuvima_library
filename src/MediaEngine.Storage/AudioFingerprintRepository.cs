@@ -15,7 +15,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
 
     public async Task UpsertAsync(Guid assetId, byte[] fingerprint, double durationSec, CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         await conn.ExecuteAsync(
             """
             INSERT INTO audio_fingerprints (asset_id, fingerprint, duration_sec, created_at)
@@ -30,7 +30,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
 
     public async Task<(byte[]? Fingerprint, double DurationSec)?> GetAsync(Guid assetId, CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<FingerprintRow>(
             "SELECT fingerprint, duration_sec AS DurationSec FROM audio_fingerprints WHERE asset_id = @Id",
             new { Id = assetId.ToString() });
@@ -41,7 +41,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
 
     public async Task<IReadOnlyList<(Guid AssetId, byte[] Fingerprint)>> GetAllAsync(CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<FingerprintAllRow>(
             "SELECT asset_id AS AssetId, fingerprint FROM audio_fingerprints");
 
@@ -52,7 +52,7 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
 
     public async Task<bool> ExistsAsync(Guid assetId, CancellationToken ct = default)
     {
-        using var conn = _db.Open();
+        using var conn = _db.CreateConnection();
         return await conn.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM audio_fingerprints WHERE asset_id = @Id",
             new { Id = assetId.ToString() }) > 0;

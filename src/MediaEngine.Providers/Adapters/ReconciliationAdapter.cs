@@ -556,7 +556,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // P629 (edition_or_translation_of) in one batched call. These power the
         // three-step scoring: type filter → property validation → weighted scoring.
         // P629 is used to demote translations/editions in favour of original works.
-        var fetchProps = new List<string> { "P31", "P50", "P212", "P957", "P629" };
+        var fetchProps = new List<string> { "P31", "P50", "P175", "P212", "P957", "P629" };
         var propsByQid = await ExtendAsync(qids, fetchProps, ct).ConfigureAwait(false);
 
         // ── Step 1: Type filter (P31) ───────────────────────────────────────
@@ -643,21 +643,42 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 score += 50.0 * titleSimilarity;
             }
 
-            // Author match (+30 scaled by best P50 similarity)
-            if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null
-                && cProps.TryGetValue("P50", out var p50Values) && p50Values.Count > 0)
+            // Author/performer match (+30 scaled by best P50 or P175 similarity)
+            if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null)
             {
                 double bestAuthorMatch = 0.0;
-                foreach (var p50 in p50Values)
+
+                // Check P50 (author) first
+                if (cProps.TryGetValue("P50", out var p50Values) && p50Values.Count > 0)
                 {
-                    var label = p50.Value?.RawValue;
-                    if (!string.IsNullOrWhiteSpace(label))
+                    foreach (var p50 in p50Values)
                     {
-                        var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
-                        if (similarity > bestAuthorMatch)
-                            bestAuthorMatch = similarity;
+                        var label = p50.Value?.RawValue;
+                        if (!string.IsNullOrWhiteSpace(label))
+                        {
+                            var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
+                            if (similarity > bestAuthorMatch)
+                                bestAuthorMatch = similarity;
+                        }
                     }
                 }
+
+                // Fall back to P175 (performer) for music items
+                if (bestAuthorMatch < 0.5
+                    && cProps.TryGetValue("P175", out var p175Values) && p175Values.Count > 0)
+                {
+                    foreach (var p175 in p175Values)
+                    {
+                        var label = p175.Value?.RawValue;
+                        if (!string.IsNullOrWhiteSpace(label))
+                        {
+                            var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
+                            if (similarity > bestAuthorMatch)
+                                bestAuthorMatch = similarity;
+                        }
+                    }
+                }
+
                 score += 30.0 * bestAuthorMatch;
             }
 

@@ -14,7 +14,7 @@
   "batch_size": 50,
   "reconciliation": {
     "auto_accept_threshold": 95,
-    "review_threshold": 70,
+    "review_threshold": 55,
     "max_candidates": 15,
     "person_property_constraints": {
       "P800": "notable_work_title",

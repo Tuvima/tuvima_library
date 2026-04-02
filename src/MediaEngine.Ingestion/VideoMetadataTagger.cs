@@ -75,7 +75,15 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             if (tags.TryGetValue("year", out var yearStr) && uint.TryParse(yearStr, out var year))
                 file.Tag.Year = year;
 
-            file.Save();
+            try
+            {
+                file.Save();
+            }
+            catch (ArgumentException argEx) when (argEx.Message.Contains("Not-a-Number"))
+            {
+                _logger.LogWarning("VideoTagger: skipping save for {Path} — file contains NaN duration metadata", filePath);
+                return;
+            }
 
             if (shouldBackup && File.Exists(backupPath))
                 File.Delete(backupPath);
