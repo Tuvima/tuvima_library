@@ -9,27 +9,37 @@ namespace MediaEngine.Storage;
 /// <summary>
 /// Translates hub rule predicates into SQL queries against the works + canonical_values tables.
 /// Used for query-resolved hubs (Smart, Custom, Discovery).
+///
+/// canonical_values.entity_id points to media_assets.id (not works.id).
+/// All canonical_values lookups must join through: works → editions → media_assets → canonical_values.
 /// </summary>
 public sealed class HubRuleEvaluator
 {
     private readonly IDatabaseConnection _db;
 
-    // Fields that map directly to columns on the works table (no canonical_values join needed).
-    private static readonly HashSet<string> DirectWorkFields = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "media_type", "wikidata_qid",
-    };
+    /// <summary>
+    /// Subquery that maps a canonical_values lookup to work IDs via the edition → asset chain.
+    /// Usage: $"w.id IN ({CvWorkSubquery} AND cv.key = ... AND cv.value = ...)"
+    /// </summary>
+    private const string CvWorkSubquery =
+        "SELECT e_cv.work_id FROM editions e_cv " +
+        "INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id " +
+        "INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id WHERE 1=1";
 
-    // Temporal fields that need special SQL.
-    private static readonly HashSet<string> TemporalFields = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "added_within_days", "decade",
-    };
+    /// <summary>
+    /// Subquery to resolve canonical values for a given work (used in ORDER BY / correlated subqueries).
+    /// Returns cv.value for the first matching asset under the given work.
+    /// </summary>
+    private const string CvForWorkSubquery =
+        "SELECT cv.value FROM editions e_cv " +
+        "INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id " +
+        "INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id " +
+        "WHERE e_cv.work_id = w.id";
 
     public HubRuleEvaluator(IDatabaseConnection db) => _db = db;
 
     /// <summary>
-    /// Evaluates the given rule predicates and returns matching entity_ids from the works table.
+    /// Evaluates the given rule predicates and returns matching work IDs from the works table.
     /// </summary>
     public IReadOnlyList<Guid> Evaluate(
         IReadOnlyList<HubRulePredicate> predicates,
@@ -70,9 +80,9 @@ public sealed class HubRuleEvaluator
         var orderBy = ResolveOrderBy(sortField, sortDirection);
 
         cmd.CommandText = $"""
-            SELECT DISTINCT w.entity_id
+            SELECT DISTINCT w.id
             FROM works w
-            WHERE w.status NOT IN ('InReview', 'Rejected')
+            WHERE COALESCE(w.curator_state, '') NOT IN ('rejected')
               AND ({whereClause})
             {orderBy}
             {(limit > 0 ? $"LIMIT {limit}" : "")}
@@ -194,12 +204,12 @@ public sealed class HubRuleEvaluator
             return ($"w.wikidata_qid = {pName}", parameters);
         }
 
-        // Temporal: added_within_days
+        // Temporal: added_within_days — use metadata_claims first claim date
         if (field == "added_within_days")
         {
             var pName = $"@p{paramIdx++}";
             parameters.Add((pName, effectiveValues[0]));
-            return ($"w.created_at >= datetime('now', '-' || {pName} || ' days')", parameters);
+            return ($"w.id IN (SELECT e_t.work_id FROM editions e_t INNER JOIN media_assets ma_t ON ma_t.edition_id = e_t.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_t.id GROUP BY e_t.work_id HAVING MIN(mc.claimed_at) >= datetime('now', '-' || {pName} || ' days'))", parameters);
         }
 
         // Temporal: decade
@@ -212,7 +222,7 @@ public sealed class HubRuleEvaluator
                 var pEnd = $"@p{paramIdx++}";
                 parameters.Add((pStart, decadeStart.ToString()));
                 parameters.Add((pEnd, (decadeStart + 9).ToString()));
-                return ($"w.entity_id IN (SELECT entity_id FROM canonical_values WHERE field_key = 'year' AND CAST(field_value AS INTEGER) BETWEEN {pStart} AND {pEnd})", parameters);
+                return ($"w.id IN ({CvWorkSubquery} AND cv.key = 'year' AND CAST(cv.value AS INTEGER) BETWEEN {pStart} AND {pEnd})", parameters);
             }
             return (null, parameters);
         }
@@ -225,15 +235,15 @@ public sealed class HubRuleEvaluator
             return ($"w.hub_id IN (SELECT hr.hub_id FROM hub_relationships hr WHERE hr.rel_type IN ('franchise','fictional_universe') AND hr.rel_qid = {pName})", parameters);
         }
 
-        // Person QID — join work_persons
+        // Person QID — join work_person_links
         if (field == "person_qid")
         {
             var pName = $"@p{paramIdx++}";
             parameters.Add((pName, effectiveValues[0]));
-            return ($"w.entity_id IN (SELECT wpl.entity_id FROM work_person_links wpl INNER JOIN persons per ON per.id = wpl.person_id WHERE per.wikidata_qid = {pName})", parameters);
+            return ($"w.id IN (SELECT e_p.work_id FROM editions e_p INNER JOIN media_assets ma_p ON ma_p.edition_id = e_p.id INNER JOIN work_person_links wpl ON wpl.entity_id = ma_p.id INNER JOIN persons per ON per.id = wpl.person_id WHERE per.wikidata_qid = {pName})", parameters);
         }
 
-        // All other fields: canonical_values lookup
+        // All other fields: canonical_values lookup via edition → asset chain
         var canonicalField = field switch
         {
             "provider_rating" => "rating",
@@ -244,7 +254,7 @@ public sealed class HubRuleEvaluator
         return op switch
         {
             "eq" when canonicalField == "user_rating" && effectiveValues[0] == "unrated" =>
-                ($"w.entity_id NOT IN (SELECT entity_id FROM canonical_values WHERE field_key = 'user_rating')", parameters),
+                ($"w.id NOT IN ({CvWorkSubquery} AND cv.key = 'user_rating')", parameters),
             "eq" => BuildCanonicalEq(canonicalField, effectiveValues[0], ref paramIdx, parameters),
             "neq" => BuildCanonicalNeq(canonicalField, effectiveValues[0], ref paramIdx, parameters),
             "contains" => BuildCanonicalLike(canonicalField, effectiveValues[0], ref paramIdx, parameters),
@@ -262,7 +272,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return ($"w.entity_id IN (SELECT entity_id FROM canonical_values WHERE field_key = {pField} AND field_value = {pValue})", parameters);
+        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value = {pValue})", parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalNeq(
@@ -272,7 +282,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return ($"w.entity_id NOT IN (SELECT entity_id FROM canonical_values WHERE field_key = {pField} AND field_value = {pValue})", parameters);
+        return ($"w.id NOT IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value = {pValue})", parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalLike(
@@ -282,7 +292,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, $"%{value}%"));
-        return ($"w.entity_id IN (SELECT entity_id FROM canonical_values WHERE field_key = {pField} AND field_value LIKE {pValue})", parameters);
+        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value LIKE {pValue})", parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalNumeric(
@@ -293,7 +303,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return ($"w.entity_id IN (SELECT entity_id FROM canonical_values WHERE field_key = {pField} AND CAST(field_value AS REAL) {sqlOp} CAST({pValue} AS REAL))", parameters);
+        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND CAST(cv.value AS REAL) {sqlOp} CAST({pValue} AS REAL))", parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalBetween(
@@ -305,7 +315,7 @@ public sealed class HubRuleEvaluator
         parameters.Add((pField, field));
         parameters.Add((pLow, low));
         parameters.Add((pHigh, high));
-        return ($"w.entity_id IN (SELECT entity_id FROM canonical_values WHERE field_key = {pField} AND CAST(field_value AS REAL) BETWEEN CAST({pLow} AS REAL) AND CAST({pHigh} AS REAL))", parameters);
+        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND CAST(cv.value AS REAL) BETWEEN CAST({pLow} AS REAL) AND CAST({pHigh} AS REAL))", parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalIn(
@@ -321,7 +331,7 @@ public sealed class HubRuleEvaluator
             valueParams.Add(pv);
         }
         var inList = string.Join(", ", valueParams);
-        return ($"w.entity_id IN (SELECT entity_id FROM canonical_values WHERE field_key = {pField} AND field_value IN ({inList}))", parameters);
+        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value IN ({inList}))", parameters);
     }
 
     private static string ResolveOrderBy(string? sortField, string sortDirection)
@@ -329,10 +339,10 @@ public sealed class HubRuleEvaluator
         var dir = sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
         return sortField?.ToLowerInvariant() switch
         {
-            "title" => $"ORDER BY (SELECT field_value FROM canonical_values cv WHERE cv.entity_id = w.entity_id AND cv.field_key = 'title' LIMIT 1) {dir}",
-            "year" => $"ORDER BY (SELECT CAST(field_value AS INTEGER) FROM canonical_values cv WHERE cv.entity_id = w.entity_id AND cv.field_key = 'year' LIMIT 1) {dir}",
-            "newest" or "created_at" => $"ORDER BY w.created_at {dir}",
-            _ => $"ORDER BY w.created_at {dir}",
+            "title" => $"ORDER BY ({CvForWorkSubquery} AND cv.key = 'title' LIMIT 1) {dir}",
+            "year" => $"ORDER BY (SELECT CAST(cv.value AS INTEGER) FROM editions e_cv INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id WHERE e_cv.work_id = w.id AND cv.key = 'year' LIMIT 1) {dir}",
+            "newest" or "created_at" => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}",
+            _ => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}",
         };
     }
 }

@@ -744,28 +744,41 @@ public static class HubEndpoints
                 // Group entity_ids by the group_by_field from canonical_values
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = $"""
+                    WITH work_assets AS (
+                        SELECT e.work_id, ma.id AS asset_id
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        WHERE e.work_id IN ({idList})
+                    ),
+                    grouped AS (
+                        SELECT
+                            cv_group.value                          AS group_name,
+                            COUNT(DISTINCT wa.work_id)              AS work_count,
+                            MIN(wa.asset_id)                        AS first_asset_id
+                        FROM work_assets wa
+                        INNER JOIN canonical_values cv_group ON cv_group.entity_id = wa.asset_id
+                        WHERE cv_group.key = @GroupField
+                        GROUP BY cv_group.value
+                    )
                     SELECT
-                        cv_group.field_value                                        AS group_name,
-                        COUNT(DISTINCT cv_group.entity_id)                          AS work_count,
+                        g.group_name,
+                        g.work_count,
                         (
-                            SELECT cv_cover.field_value
+                            SELECT cv_cover.value
                             FROM canonical_values cv_cover
-                            WHERE cv_cover.entity_id = MIN(cv_group.entity_id)
-                              AND cv_cover.field_key = 'cover'
+                            WHERE cv_cover.entity_id = g.first_asset_id
+                              AND cv_cover.key = 'cover'
                             LIMIT 1
-                        )                                                           AS cover_url,
+                        )                                           AS cover_url,
                         (
-                            SELECT cv_creator.field_value
+                            SELECT cv_creator.value
                             FROM canonical_values cv_creator
-                            WHERE cv_creator.entity_id = MIN(cv_group.entity_id)
-                              AND cv_creator.field_key IN ('artist','author','director')
+                            WHERE cv_creator.entity_id = g.first_asset_id
+                              AND cv_creator.key IN ('artist','author','director')
                             LIMIT 1
-                        )                                                           AS creator
-                    FROM canonical_values cv_group
-                    WHERE cv_group.entity_id IN ({idList})
-                      AND cv_group.field_key = @GroupField
-                    GROUP BY cv_group.field_value
-                    ORDER BY cv_group.field_value
+                        )                                           AS creator
+                    FROM grouped g
+                    ORDER BY g.group_name
                     """;
 
                 var gp = cmd.CreateParameter();
@@ -1175,9 +1188,9 @@ public static class HubEndpoints
             else
             {
                 cmd.CommandText = """
-                    SELECT DISTINCT field_value FROM canonical_values
-                    WHERE field_key = @Field AND field_value IS NOT NULL AND field_value != ''
-                    ORDER BY field_value
+                    SELECT DISTINCT value FROM canonical_values
+                    WHERE key = @Field AND value IS NOT NULL AND value != ''
+                    ORDER BY value
                     LIMIT @Limit
                     """;
                 var fp = cmd.CreateParameter();
@@ -1288,13 +1301,15 @@ public static class HubEndpoints
         {
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
-                SELECT cv.field_key, cv.field_value
-                FROM canonical_values cv
-                WHERE cv.entity_id = @EntityId
-                  AND cv.field_key IN ('title', 'author', 'director', 'artist', 'cover', 'year')
+                SELECT cv.key, cv.value
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                WHERE e.work_id = @EntityId
+                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover', 'year')
                 UNION ALL
                 SELECT 'media_type', w.media_type
-                FROM works w WHERE w.entity_id = @EntityId
+                FROM works w WHERE w.id = @EntityId
                 """;
             var p = cmd.CreateParameter();
             p.ParameterName = "@EntityId";
