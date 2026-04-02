@@ -167,14 +167,19 @@ else
     private bool _loading = true;
     private HashSet<Guid> _selectedItems = [];
     private HashSet<int> _collapsedSeasons = [];
+    private Guid _lastLoadedGroupId;
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnParametersSetAsync()
     {
         if (GroupId == Guid.Empty) return;
+        if (GroupId == _lastLoadedGroupId && _detail is not null) return;
 
         _loading = true;
+        _lastLoadedGroupId = GroupId;
+        _collapsedSeasons = [];
+        _selectedItems = [];
         StateHasChanged();
 
         if (GroupType == "artist" && ArtistAlbumHubIds is { Count: > 0 })

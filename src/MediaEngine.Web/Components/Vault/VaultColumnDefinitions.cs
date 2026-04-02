@@ -126,6 +126,19 @@ public static class VaultColumnDefinitions
         new() { Key = "featured",  Label = "Featured", Width = "10%", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Featured" },
     ];
 
+    // ── Action Center tab ────────────────────────────────────────────────────
+
+    /// <summary>Returns the column definitions for the Action Center tab.</summary>
+    public static List<VaultColumnDef> GetActionCenterColumns() =>
+    [
+        Checkbox(),
+        new() { Key = "media",  Label = "Title",  Width = "35%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "type",   Label = "Type",   Width = "auto", RenderType = ColumnRenderType.TypeBadge, PropertyName = "MediaType" },
+        new() { Key = "issue",  Label = "Issue",  Width = "auto", RenderType = ColumnRenderType.Text,    PropertyName = "ReviewTrigger" },
+        new() { Key = "status", Label = "Status", Width = "auto", RenderType = ColumnRenderType.StatusPill },
+        new() { Key = "manage", Label = "",       Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
+    ];
+
     // ═══════════════════════════════════════════════════════════════════════
     // ── Per-tab flat columns (metadata-focused) ──
     // ═══════════════════════════════════════════════════════════════════════
@@ -142,10 +155,11 @@ public static class VaultColumnDefinitions
             "audiobooks" => AudiobooksColumns(),
             "podcasts"   => PodcastsColumns(),
             "comics"     => ComicsColumns(),
-            "people"     => GetPeopleColumns(),
-            "universes"  => GetUniverseColumns(),
-            "hubs"       => GetHubColumns(),
-            _            => NewTabColumns(),
+            "people"        => GetPeopleColumns(),
+            "universes"     => GetUniverseColumns(),
+            "hubs"          => GetHubColumns(),
+            "action_center" => GetActionCenterColumns(),
+            _               => NewTabColumns(),
         };
 
     /// <summary>Resolves columns by tab ID and view mode.</summary>

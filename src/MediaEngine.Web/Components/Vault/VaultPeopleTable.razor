@@ -15,7 +15,7 @@ else
         <table class="vpt-table">
             <thead>
                 <tr class="vpt-thead-row">
-                    <th class="vpt-th" style="width: 36%;">
+                    <th class="vpt-th" style="width: 40%;">
                         <button class="vpt-sort-header" @onclick="SortByName">
                             @L["VaultPeople_ColName"]
                             <MudIcon Icon="@(_activeSortKey == "name" ? (_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward) : Icons.Material.Filled.UnfoldMore)"
@@ -36,8 +36,7 @@ else
                                      Style="@($"font-size: 11px; margin-left: 4px; opacity: {(_activeSortKey == "presence" ? "0.7" : "0.25")};")" />
                         </button>
                     </th>
-                    <th class="vpt-th" style="width: 28%;">Types</th>
-                    <th class="vpt-th vpt-th--right" style="width: 10%;"></th>
+                    <th class="vpt-th" style="width: 34%;">Types</th>
                 </tr>
             </thead>
             <tbody>
@@ -115,13 +114,6 @@ else
                                 <span class="vpt-muted">—</span>
                             }
                         </td>
-                        <td class="vpt-td vpt-td--right">
-                            <div class="vpt-manage-actions" @onclick:stopPropagation="true">
-                                <button class="vpt-manage-btn vpt-manage-btn--delete" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(person.Id)">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
-                                </button>
-                            </div>
-                        </td>
                     </tr>
                 }
             </tbody>
@@ -142,7 +134,6 @@ else
     [Parameter] public Dictionary<string, Dictionary<string, int>> Presence { get; set; } = new();
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
-    [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
 
     private string _activeSortKey = "role";
     private bool _sortAscending = true;
@@ -214,7 +205,7 @@ else
     /* ── Header ── */
     .vpt-thead-row {
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(15, 23, 42, 0.5);
         position: sticky;
         top: 0;
         z-index: 10;

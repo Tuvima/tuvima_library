@@ -32,16 +32,15 @@
                     </button>
                 }
             </div>
-            @{var _acId = "action_center";}
-            <button class="vault-tab vault-tab--action-center @(_primaryTab == _acId ? "vault-tab--active" : "") @(_actionCenterTotal > 0 ? "vault-tab--alert" : "")"
-                    @onclick="() => SwitchPrimaryTab(_acId)">
-                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 16px;" />
-                <span>Action Center</span>
-                @if (_actionCenterTotal > 0)
-                {
+            @if (_actionCenterTotal > 0)
+            {
+                <button class="vault-tab vault-tab--action-center @(_primaryTab == "action_center" ? "vault-tab--active" : "") vault-tab--alert"
+                        @onclick='() => SwitchPrimaryTab("action_center")'>
+                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 16px;" />
+                    <span>Action Center</span>
                     <span class="vault-tab-badge vault-tab-badge--alert">@_actionCenterTotal</span>
-                }
-            </button>
+                </button>
+            }
             <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
                 <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
                 <span>@L["Vault_AddMedia"]</span>
@@ -99,12 +98,10 @@
         <VaultToolbar ActiveTab="@_activeTab"
                       TabId="@_activeTab"
                       SearchText="@_searchText"
-                      SortBy="@_sortBy"
                       PosterSize="@_posterSize"
                       ViewMode="@_viewMode"
                       ViewModeChanged="OnViewModeChanged"
                       SearchTextChanged="OnSearchChanged"
-                      SortByChanged="OnSortChanged"
                       PosterSizeChanged="OnPosterSizeChanged"
                       ShowBackButton="@(_activeGroupId.HasValue)"
                       OnBack="NavigateBackFromGroup"
@@ -188,15 +185,21 @@
             }
             else if (_primaryTab == "action_center")
             {
-                <VaultActionCenter NeedsReviewCount="@_needsReviewCount"
-                                   QuarantinedCount="@_quarantinedCount"
-                                   WaitingForProviderCount="@_waitingForProviderCount"
-                                   IsExpanded="true"
-                                   IsExpandedChanged="v => {}"
-                                   ConflictItems="@_conflictItems"
-                                   OnItemEditClicked="OnActionCenterEdit"
-                                   OnDeleteClicked="OnActionCenterDelete"
-                                   OnBulkDeleteClicked="OnActionCenterBulkDelete" />
+                <VaultConfigurableTable @ref="_configurableTableRef"
+                                         Columns="@VaultColumnDefinitions.GetActionCenterColumns()"
+                                         VisibleColumnKeys="@_visibleColumnKeys"
+                                         Items="@(_conflictItems ?? new List<VaultItemViewModel>())"
+                                         Loading="@_loading"
+                                         PosterSize="@_posterSize"
+                                         OnRowClicked="OnActionCenterEdit"
+                                         OnAuthorClicked="OnAuthorLinkClicked"
+                                         SelectedItems="@_selectedItems"
+                                         SelectedItemsChanged="OnSelectionChanged"
+                                         ActiveSortKey="@_activeSortKey"
+                                         SortAscending="@_sortAscending"
+                                         OnSortRequested="OnColumnSortRequested"
+                                         OnEditClicked="OnManageEdit"
+                                         OnDeleteClicked="OnActionCenterDelete" />
             }
             else if (_activeTab.StartsWith("people"))
             {

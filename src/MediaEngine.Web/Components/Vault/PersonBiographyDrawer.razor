@@ -37,7 +37,11 @@
             <div class="pbd-role-group">
                 <span class="pbd-role-label">@roleLabel</span>
                 <div class="pbd-works-list">
-                    @foreach (var work in works)
+                    @{
+                        var visibleWorks = _showAllWorks ? works : works.Take(InitialWorksToShow).ToList();
+                        var remaining    = works.Count - InitialWorksToShow;
+                    }
+                    @foreach (var work in visibleWorks)
                     {
                         <button class="pbd-work-row" @onclick="() => OnWorkClicked.InvokeAsync(work.Id)">
                             <div class="pbd-work-thumb">
@@ -60,6 +64,12 @@
                                 }
                             </div>
                             <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
+                        </button>
+                    }
+                    @if (!_showAllWorks && remaining > 0)
+                    {
+                        <button class="pbd-show-more-btn" @onclick="() => _showAllWorks = true">
+                            Show @remaining more
                         </button>
                     }
                 </div>
@@ -253,8 +263,12 @@
     // requires an API extension to return role per work.
     private List<(string RoleLabel, List<HubViewModel> Works)> _roleGroups = [];
 
+    private bool _showAllWorks;
+    private const int InitialWorksToShow = 5;
+
     protected override void OnParametersSet()
     {
+        _showAllWorks = false;
         _roleGroups = BuildRoleGroups();
     }
 
@@ -457,5 +471,27 @@
         color: rgba(255, 255, 255, 0.25);
         margin: 0;
         padding: 4px 0;
+    }
+
+    /* ── Show more button ── */
+    .pbd-show-more-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        padding: 8px;
+        margin-top: 4px;
+        border-radius: 8px;
+        background: rgba(96, 165, 250, 0.06);
+        border: 1px solid rgba(96, 165, 250, 0.1);
+        color: rgba(96, 165, 250, 0.8);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .pbd-show-more-btn:hover {
+        background: rgba(96, 165, 250, 0.12);
     }
 </style>

@@ -199,7 +199,7 @@
                 @* ── Tab content (selected via pipeline circles) ── *@
                 @{
                     var hasRetail = IsRealRetailMatch(MediaItem?.RetailMatch) || IsRealRetailMatch(MediaItem?.RetailMatchDetail);
-                    var hasWikidata = IsWikidataMatched(MediaItem.WikidataQid);
+                    var hasWikidata = IsWikidataMatched(MediaItem?.WikidataQid);
                     var hasRetailForWiki = hasRetail;
                     var retailClaims = _claims.Where(c =>
                         !VaultHelpers.IsFileSource(c.ProviderId) &&
@@ -224,7 +224,7 @@
                                 }
                             </div>
 
-                            @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
+                            @if (!string.IsNullOrEmpty(MediaItem?.CoverUrl))
                             {
                                 <div class="vdd-file-cover">
                                     <span class="vdd-field-label">Cover Art</span>
@@ -269,40 +269,9 @@
                     case 1:
                         @* ── RETAIL TAB ── *@
                         <div class="vdd-tab-content">
-                            @if (hasRetail)
-                            {
-                                var retailDisplayName = GetRetailProviderDisplayName();
-                                var isManualMatch = MediaItem.RetailMatch?.Equals("user_manual", StringComparison.OrdinalIgnoreCase) == true;
-                                <div class="vdd-match-status vdd-match-status--ok">
-                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                    <span>@(isManualMatch ? "Manually matched by user" : $"Matched automatically via {retailDisplayName}")</span>
-                                </div>
-                                @if (GetRetailProviderUrl() is { } retailUrl)
-                                {
-                                    <a href="@retailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
-                                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
-                                        @retailUrl.Label
-                                    </a>
-                                }
-
-                                @* Show retail provider claims *@
-                                @if (retailClaims.Count > 0)
-                                {
-                                    <div class="vdd-metadata-list" style="margin-top: 8px;">
-                                        @foreach (var group in retailClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
-                                        {
-                                            var bestClaim = group.OrderByDescending(c => c.Confidence).First();
-                                            <div class="vdd-claim-row">
-                                                <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                                <span class="vdd-field-value">@bestClaim.ClaimValue</span>
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            }
-                            @* Always-visible filter-based search *@
-                            <div class="vdd-tab-search">
-                                <div class="vdd-search-bar-wrap">
+                            @* Always-visible filter-based search (at the top) *@
+                            <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
+                                <div class="vdd-search-bar-wrap" style="margin-top: 4px;">
                                     @* Media type row *@
                                     <div class="vdd-search-type-row">
                                         <span class="vdd-search-type-label">Type:</span>
@@ -408,6 +377,7 @@
                                 }
                             </div>
 
+                            @* Search results with field comparison cards *@
                             @if (_searching)
                             {
                                 <div style="padding: 8px 0; text-align: center;">
@@ -420,66 +390,85 @@
                             }
                             else if (_retailSearchResults.Count > 0)
                             {
-                                <div class="vdd-search-results">
+                                <div class="vdd-search-results" style="max-height: none;">
                                     @foreach (var result in _retailSearchResults)
                                     {
                                         var isExpanded = _pendingRetailMatch == result;
-                                        var displayFields = GetRetailResultFields(result);
-                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                        var fieldComparisons = GetRetailFieldComparisons(result);
+                                        var overallScore = result.Confidence;
+                                        <div class="vdd-result-card @(isExpanded ? "vdd-result-card--expanded" : "")"
                                              @onclick="() => SelectRetailResult(result)">
-                                            <div class="vdd-search-result-row">
-                                                <div class="vdd-search-result-thumb">
+                                            @* Header: cover + title + overall score *@
+                                            <div class="vdd-result-header">
+                                                <div class="vdd-result-cover">
                                                     @if (!string.IsNullOrEmpty(result.CoverUrl))
                                                     {
                                                         <img src="@result.CoverUrl" alt="" loading="lazy" />
                                                     }
                                                     else
                                                     {
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; color: rgba(255,255,255,0.15);" />
                                                     }
                                                 </div>
-                                                <div class="vdd-search-result-info">
-                                                    <span class="vdd-search-result-title">@result.Title</span>
-                                                    <span class="vdd-search-result-meta">
-                                                        @displayFields.Subline
-                                                        @if (!string.IsNullOrEmpty(displayFields.Tertiary))
+                                                <div class="vdd-result-title-block">
+                                                    <span class="vdd-result-card-title">@result.Title</span>
+                                                    @{
+                                                        var displayFields = GetRetailResultFields(result);
+                                                    }
+                                                    <span class="vdd-result-card-meta">@displayFields.Subline</span>
+                                                </div>
+                                                <div class="vdd-result-score">
+                                                    <span class="vdd-result-score-val" style="color: @GetScoreColor(overallScore);">@overallScore.ToString("F2")</span>
+                                                    <div class="vdd-result-score-bar">
+                                                        @for (int s = 0; s < 5; s++)
                                                         {
-                                                            <span> · @displayFields.Tertiary</span>
+                                                            var filled = s < (int)Math.Round(overallScore * 5);
+                                                            <div class="vdd-score-seg @(filled ? "vdd-score-seg--filled" : "")" style="@(filled ? $"background: {GetScoreColor(overallScore)};" : "")"></div>
                                                         }
-                                                    </span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            @if (isExpanded)
-                                            {
-                                                <div class="vdd-search-result-detail-below">
-                                                    @if (!string.IsNullOrEmpty(result.Description))
-                                                    {
-                                                        <p class="vdd-detail-description">@(result.Description.Length > 300 ? result.Description[..300] + "\u2026" : result.Description)</p>
-                                                    }
 
-                                                    @if (displayFields.Details.Count > 0)
-                                                    {
-                                                        <div class="vdd-detail-fields-compact">
-                                                            @foreach (var (label, value) in displayFields.Details)
+                                            @* Field comparison table (always visible) *@
+                                            <div class="vdd-field-compare">
+                                                <div class="vdd-compare-header-row">
+                                                    <span class="vdd-compare-col-label">YOUR FILE</span>
+                                                    <span class="vdd-compare-col-label" style="text-align: center;">↔</span>
+                                                    <span class="vdd-compare-col-label">PROVIDER MATCH</span>
+                                                    <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
+                                                </div>
+                                                @foreach (var comp in fieldComparisons)
+                                                {
+                                                    <div class="vdd-compare-row">
+                                                        <div class="vdd-compare-cell vdd-compare-cell--yours">
+                                                            <span class="vdd-compare-field-name">@comp.FieldLabel</span>
+                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? "—" : comp.YourValue)</span>
+                                                        </div>
+                                                        <span class="vdd-compare-arrow">↔</span>
+                                                        <div class="vdd-compare-cell vdd-compare-cell--theirs">
+                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? "—" : comp.ProviderValue)</span>
+                                                        </div>
+                                                        <div class="vdd-compare-cell vdd-compare-cell--score">
+                                                            @if (comp.Score.HasValue)
                                                             {
-                                                                <div class="vdd-detail-field-inline">
-                                                                    <span class="vdd-field-label">@label</span>
-                                                                    <span class="vdd-field-value">@value</span>
+                                                                <span style="color: @GetScoreColor(comp.Score.Value); font-weight: 700; font-size: 12px;">@comp.Score.Value.ToString("F2")</span>
+                                                                <div class="vdd-score-mini-bar">
+                                                                    <div class="vdd-score-mini-fill" style="width: @(comp.Score.Value * 100)%; background: @GetScoreColor(comp.Score.Value);"></div>
                                                                 </div>
                                                             }
-                                                        </div>
-                                                    }
-
-                                                    @if (displayFields.BridgeIds.Count > 0)
-                                                    {
-                                                        <div class="vdd-bridge-chips">
-                                                            @foreach (var (label, _) in displayFields.BridgeIds)
+                                                            else
                                                             {
-                                                                <span class="vdd-bridge-chip">@label ✓</span>
+                                                                <span style="color: rgba(255,255,255,0.2); font-size: 11px;">—</span>
                                                             }
                                                         </div>
-                                                    }
+                                                    </div>
+                                                }
+                                            </div>
 
+                                            @* Confirm button (only when expanded/selected) *@
+                                            @if (isExpanded)
+                                            {
+                                                <div class="vdd-result-actions">
                                                     @if (!_confirmingRetailMatch)
                                                     {
                                                         <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
@@ -494,18 +483,51 @@
                                                             {
                                                                 <span class="vdd-overwrite-warning">
                                                                     <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
-                                                                    This will replace the current retail match.
+                                                                    Replaces current retail match.
                                                                 </span>
                                                             }
                                                             <span class="vdd-confirm-prompt">Are you sure?</span>
-                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">
-                                                                Yes
-                                                            </button>
-                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">
-                                                                Cancel
-                                                            </button>
+                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">Yes</button>
+                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">Cancel</button>
                                                         </div>
                                                     }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @* Existing match status (below search and results) *@
+                            @if (hasRetail)
+                            {
+                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    @{
+                                        var retailDisplayName = GetRetailProviderDisplayName();
+                                        var isManualMatch = MediaItem?.RetailMatch?.Equals("user_manual", StringComparison.OrdinalIgnoreCase) == true;
+                                    }
+                                    <div class="vdd-match-status vdd-match-status--ok">
+                                        <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                        <span>@(isManualMatch ? "Manually matched by user" : $"Matched automatically via {retailDisplayName}")</span>
+                                    </div>
+                                    @if (GetRetailProviderUrl() is { } retailUrl)
+                                    {
+                                        <a href="@retailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
+                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                            @retailUrl.Label
+                                        </a>
+                                    }
+
+                                    @* Show retail provider claims *@
+                                    @if (retailClaims.Count > 0)
+                                    {
+                                        <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                            @foreach (var group in retailClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                            {
+                                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                                <div class="vdd-claim-row">
+                                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                                    <span class="vdd-field-value">@bestClaim.ClaimValue</span>
                                                 </div>
                                             }
                                         </div>
@@ -518,32 +540,9 @@
                     case 2:
                         @* ── WIKIDATA TAB ── *@
                         <div class="vdd-tab-content">
-                            @if (hasWikidata)
-                            {
-                                <div class="vdd-match-status vdd-match-status--ok">
-                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
-                                    <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem.WikidataQid</a>
-                                </div>
-                                <p class="vdd-match-explanation">@GetWikidataExplanation()</p>
-
-                                @* Wikidata claims *@
-                                @if (wikiClaims.Count > 0)
-                                {
-                                    <div class="vdd-metadata-list" style="margin-top: 8px;">
-                                        @foreach (var group in wikiClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
-                                        {
-                                            var bestClaim = group.OrderByDescending(c => c.Confidence).First();
-                                            <div class="vdd-claim-row">
-                                                <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                                <span class="vdd-field-value">@bestClaim.ClaimValue</span>
-                                            </div>
-                                        }
-                                    </div>
-                                }
-                            }
-                            @* Always-visible Wikidata search *@
-                            <div class="vdd-tab-search">
-                                <div class="vdd-search-bar-wrap">
+                            @* Always-visible Wikidata search (at the top) *@
+                            <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
+                                <div class="vdd-search-bar-wrap" style="margin-top: 4px;">
                                     <div class="vdd-search-type-row">
                                         <span class="vdd-search-type-label">Type:</span>
                                         <div class="vdd-dropdown-wrap">
@@ -583,6 +582,7 @@
                                 }
                             </div>
 
+                            @* Search results with field comparison cards *@
                             @if (_searchingWikidata)
                             {
                                 <div style="padding: 8px 0; text-align: center;">
@@ -595,32 +595,84 @@
                             }
                             else if (_wikidataSearchResults.Count > 0)
                             {
-                                <div class="vdd-search-results">
+                                <div class="vdd-search-results" style="max-height: none;">
                                     @foreach (var result in _wikidataSearchResults)
                                     {
                                         var isExpanded = _pendingWikidataMatch == result;
-                                        <div class="vdd-search-result-item @(isExpanded ? "vdd-search-result-item--expanded" : "")"
+                                        var wikiFieldComparisons = GetWikidataFieldComparisons(result);
+                                        <div class="vdd-result-card @(isExpanded ? "vdd-result-card--expanded" : "")"
                                              @onclick="() => SelectWikidataResult(result)">
-                                            <div class="vdd-search-result-row">
-                                                <div class="vdd-search-result-thumb" style="background: rgba(167,139,250,0.1);">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 16px; color: #A78BFA;" />
+                                            @* Header: icon + label/QID *@
+                                            <div class="vdd-result-header">
+                                                <div class="vdd-result-cover" style="background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.15);">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 24px; color: #A78BFA;" />
                                                 </div>
-                                                <div class="vdd-search-result-info">
-                                                    <span class="vdd-search-result-title">@result.Label</span>
-                                                    <span class="vdd-search-result-meta">@result.Qid</span>
+                                                <div class="vdd-result-title-block">
+                                                    <span class="vdd-result-card-title">@result.Label</span>
+                                                    <span class="vdd-result-card-meta">@result.Qid</span>
                                                     @if (!string.IsNullOrEmpty(result.Description))
                                                     {
-                                                        <span class="vdd-search-result-desc">@(result.Description.Length > 100 ? result.Description[..100] + "\u2026" : result.Description)</span>
+                                                        <span class="vdd-result-card-meta" style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal;">@result.Description</span>
                                                     }
+                                                </div>
+                                                <div class="vdd-result-score">
+                                                    @{
+                                                        var wikiScore = result.Confidence;
+                                                    }
+                                                    <span class="vdd-result-score-val" style="color: @GetScoreColor(wikiScore);">@wikiScore.ToString("F2")</span>
+                                                    <div class="vdd-result-score-bar">
+                                                        @for (int s = 0; s < 5; s++)
+                                                        {
+                                                            var filled = s < (int)Math.Round(wikiScore * 5);
+                                                            <div class="vdd-score-seg @(filled ? "vdd-score-seg--filled" : "")" style="@(filled ? $"background: {GetScoreColor(wikiScore)};" : "")"></div>
+                                                        }
+                                                    </div>
                                                 </div>
                                             </div>
+
+                                            @* Field comparison table *@
+                                            @if (wikiFieldComparisons.Count > 0)
+                                            {
+                                                <div class="vdd-field-compare">
+                                                    <div class="vdd-compare-header-row">
+                                                        <span class="vdd-compare-col-label">YOUR FILE</span>
+                                                        <span class="vdd-compare-col-label" style="text-align: center;">↔</span>
+                                                        <span class="vdd-compare-col-label">WIKIDATA</span>
+                                                        <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
+                                                    </div>
+                                                    @foreach (var comp in wikiFieldComparisons)
+                                                    {
+                                                        <div class="vdd-compare-row">
+                                                            <div class="vdd-compare-cell vdd-compare-cell--yours">
+                                                                <span class="vdd-compare-field-name">@comp.FieldLabel</span>
+                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? "—" : comp.YourValue)</span>
+                                                            </div>
+                                                            <span class="vdd-compare-arrow">↔</span>
+                                                            <div class="vdd-compare-cell vdd-compare-cell--theirs">
+                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? "—" : comp.ProviderValue)</span>
+                                                            </div>
+                                                            <div class="vdd-compare-cell vdd-compare-cell--score">
+                                                                @if (comp.Score.HasValue)
+                                                                {
+                                                                    <span style="color: @GetScoreColor(comp.Score.Value); font-weight: 700; font-size: 12px;">@comp.Score.Value.ToString("F2")</span>
+                                                                    <div class="vdd-score-mini-bar">
+                                                                        <div class="vdd-score-mini-fill" style="width: @(comp.Score.Value * 100)%; background: @GetScoreColor(comp.Score.Value);"></div>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span style="color: rgba(255,255,255,0.2); font-size: 11px;">—</span>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+
+                                            @* Confirm button (only when expanded/selected) *@
                                             @if (isExpanded)
                                             {
-                                                <div class="vdd-search-result-detail-below">
-                                                    @if (!string.IsNullOrEmpty(result.Description))
-                                                    {
-                                                        <p class="vdd-detail-description">@result.Description</p>
-                                                    }
+                                                <div class="vdd-result-actions">
                                                     @if (!_confirmingWikidataMatch)
                                                     {
                                                         <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
@@ -635,7 +687,7 @@
                                                             {
                                                                 <span class="vdd-overwrite-warning">
                                                                     <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
-                                                                    This will replace the current Wikidata link (@MediaItem?.WikidataQid).
+                                                                    Replaces current link (@MediaItem?.WikidataQid).
                                                                 </span>
                                                             }
                                                             <span class="vdd-confirm-prompt">Are you sure?</span>
@@ -653,20 +705,54 @@
                                     }
                                 </div>
                             }
+
+                            @* Existing QID status (below search and results) *@
+                            @if (hasWikidata)
+                            {
+                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    <div class="vdd-match-status vdd-match-status--ok">
+                                        <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                        <a href="https://www.wikidata.org/wiki/@MediaItem?.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem?.WikidataQid</a>
+                                    </div>
+                                    <p class="vdd-match-explanation">@GetWikidataExplanation()</p>
+
+                                    @* Wikidata claims *@
+                                    @if (wikiClaims.Count > 0)
+                                    {
+                                        <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                            @foreach (var group in wikiClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                            {
+                                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                                <div class="vdd-claim-row">
+                                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                                    <span class="vdd-field-value">@bestClaim.ClaimValue</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="vdd-match-status vdd-match-status--fail" style="margin-top: 12px;">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
+                                    <span>No Wikidata identity assigned yet</span>
+                                </div>
+                            }
                         </div>
                         break;
 
                     case 3:
                         @* ── UNIVERSE TAB ── *@
                         <div class="vdd-tab-content">
-                            @if (!string.IsNullOrEmpty(MediaItem.UniverseName))
+                            @if (!string.IsNullOrEmpty(MediaItem?.UniverseName))
                             {
                                 <div class="vdd-match-status vdd-match-status--ok">
                                     <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
                                     <span>Assigned to universe: @MediaItem.UniverseName</span>
                                 </div>
                             }
-                            else if (!string.IsNullOrEmpty(MediaItem.WikidataQid) && !MediaItem.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                            else if (!string.IsNullOrEmpty(MediaItem?.WikidataQid) && !MediaItem.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                             {
                                 <div class="vdd-match-status vdd-match-status--warn">
                                     <span class="vdd-pipeline-dot vdd-pipeline-dot--warn"></span>
@@ -1092,6 +1178,31 @@
             StateHasChanged();
             _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
             _claimsLoading = false;
+
+            // Pre-fill retail search fields from file metadata
+            _primarySearchField = "title";
+            _primarySearchValue = MediaItem.Title ?? "";
+            _searchFilters = [];
+
+            var creatorField = MediaItem.MediaType switch
+            {
+                "Movies" or "TV" => "director",
+                "Music" => "artist",
+                _ => "author",
+            };
+            var creatorValue = MediaItem.MediaType switch
+            {
+                "Movies" or "TV" => MediaItem.Director,
+                "Music" => MediaItem.Artist,
+                _ => MediaItem.Author,
+            };
+            if (!string.IsNullOrWhiteSpace(creatorValue))
+                _searchFilters.Add((creatorField, creatorValue));
+            if (!string.IsNullOrEmpty(MediaItem.Year))
+                _searchFilters.Add(("year", MediaItem.Year));
+
+            // Pre-fill Wikidata search with title
+            _wikidataSearchQuery = MediaItem.Title ?? "";
         }
         else if (Person is not null)
         {
@@ -1596,6 +1707,108 @@
         }
         return duration; // Return as-is if not numeric
     }
+
+    // ── Field comparison helpers ──
+
+    private record FieldComparison(string FieldLabel, string? YourValue, string? ProviderValue, double? Score);
+
+    private List<FieldComparison> GetRetailFieldComparisons(RetailCandidateDto result)
+    {
+        var comparisons = new List<FieldComparison>();
+
+        // Title
+        comparisons.Add(new("Title", MediaItem?.Title, result.Title,
+            ComputeFieldScore(MediaItem?.Title, result.Title)));
+
+        // Author/Director/Artist based on media type
+        var (creatorLabel, yourCreator, theirCreator) = _searchMediaType switch
+        {
+            "Movies" or "TV" => ("Director", MediaItem?.Director, result.Director),
+            "Music" => ("Artist", MediaItem?.Artist, result.Author),
+            _ => ("Author", MediaItem?.Author, result.Author),
+        };
+        if (!string.IsNullOrEmpty(yourCreator) || !string.IsNullOrEmpty(theirCreator))
+            comparisons.Add(new(creatorLabel, yourCreator, theirCreator,
+                ComputeFieldScore(yourCreator, theirCreator)));
+
+        // Year
+        if (!string.IsNullOrEmpty(MediaItem?.Year) || !string.IsNullOrEmpty(result.Year))
+            comparisons.Add(new("Year", MediaItem?.Year, result.Year,
+                ComputeFieldScore(MediaItem?.Year, result.Year)));
+
+        // Media type
+        comparisons.Add(new("Type", MediaItem?.MediaType, _searchMediaType,
+            string.Equals(MediaItem?.MediaType, _searchMediaType, StringComparison.OrdinalIgnoreCase) ? 1.0 : 0.0));
+
+        // Series (if applicable)
+        var theirSeries = result.ExtraFields?.GetValueOrDefault("series");
+        if (!string.IsNullOrEmpty(MediaItem?.Series) || !string.IsNullOrEmpty(theirSeries))
+            comparisons.Add(new("Series", MediaItem?.Series, theirSeries,
+                ComputeFieldScore(MediaItem?.Series, theirSeries)));
+
+        return comparisons;
+    }
+
+    private List<FieldComparison> GetWikidataFieldComparisons(UniverseCandidateDto result)
+    {
+        var comparisons = new List<FieldComparison>();
+
+        comparisons.Add(new("Title", MediaItem?.Title, result.Label,
+            ComputeFieldScore(MediaItem?.Title, result.Label)));
+
+        var (creatorLabel, yourCreator, theirCreator) = _searchMediaType switch
+        {
+            "Movies" or "TV" => ("Director", MediaItem?.Director, result.Director),
+            _ => ("Author", MediaItem?.Author, result.Author),
+        };
+        if (!string.IsNullOrEmpty(yourCreator) || !string.IsNullOrEmpty(theirCreator))
+            comparisons.Add(new(creatorLabel, yourCreator, theirCreator,
+                ComputeFieldScore(yourCreator, theirCreator)));
+
+        if (!string.IsNullOrEmpty(MediaItem?.Year) || !string.IsNullOrEmpty(result.Year))
+            comparisons.Add(new("Year", MediaItem?.Year, result.Year,
+                ComputeFieldScore(MediaItem?.Year, result.Year)));
+
+        // Instance type
+        if (!string.IsNullOrEmpty(result.InstanceOf))
+            comparisons.Add(new("Type", MediaItem?.MediaType, result.InstanceOf, null));
+
+        return comparisons;
+    }
+
+    private static double? ComputeFieldScore(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return null;
+        if (string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase)) return 1.0;
+
+        var aLower = a.Trim().ToLowerInvariant();
+        var bLower = b.Trim().ToLowerInvariant();
+
+        if (aLower.Contains(bLower) || bLower.Contains(aLower))
+            return 0.85;
+
+        var maxLen = Math.Max(aLower.Length, bLower.Length);
+        if (maxLen == 0) return 1.0;
+        var distance = LevenshteinDistance(aLower, bLower);
+        return Math.Max(0, 1.0 - (double)distance / maxLen);
+    }
+
+    private static int LevenshteinDistance(string s, string t)
+    {
+        var n = s.Length;
+        var m = t.Length;
+        var d = new int[n + 1, m + 1];
+        for (int i = 0; i <= n; i++) d[i, 0] = i;
+        for (int j = 0; j <= m; j++) d[0, j] = j;
+        for (int i = 1; i <= n; i++)
+            for (int j = 1; j <= m; j++)
+                d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + (s[i - 1] == t[j - 1] ? 0 : 1));
+        return d[n, m];
+    }
+
+    private static string GetScoreColor(double score) =>
+        score >= 0.85 ? "#5DCAA5" : score >= 0.60 ? "#EF9F27" : "#A05050";
 
     /// <summary>
     /// Builds the best available external URL for the current item's retail provider match,
@@ -3557,5 +3770,196 @@
         text-align: right;
         word-break: break-all;
         max-width: 240px;
+    }
+
+    /* ── Result card (full-width, one at a time) ── */
+    .vdd-result-card {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-result-card:hover {
+        border-color: rgba(96, 165, 250, 0.15);
+        background: rgba(15, 23, 42, 0.7);
+    }
+
+    .vdd-result-card--expanded {
+        border-color: rgba(96, 165, 250, 0.3);
+        background: rgba(15, 23, 42, 0.7);
+    }
+
+    .vdd-result-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .vdd-result-cover {
+        width: 64px;
+        height: 96px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-result-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-result-title-block {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-result-card-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .vdd-result-card-meta {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vdd-result-score {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    .vdd-result-score-val {
+        font-size: 18px;
+        font-weight: 900;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .vdd-result-score-bar {
+        display: flex;
+        gap: 2px;
+    }
+
+    .vdd-score-seg {
+        width: 8px;
+        height: 4px;
+        border-radius: 1px;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .vdd-score-seg--filled {
+        opacity: 1;
+    }
+
+    /* ── Field comparison table ── */
+    .vdd-field-compare {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .vdd-compare-header-row {
+        display: grid;
+        grid-template-columns: 1fr 24px 1fr 80px;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-compare-col-label {
+        font-size: 8px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .vdd-compare-row {
+        display: grid;
+        grid-template-columns: 1fr 24px 1fr 80px;
+        gap: 8px;
+        padding: 8px 12px;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .vdd-compare-row:last-child {
+        border-bottom: none;
+    }
+
+    .vdd-compare-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .vdd-compare-cell--score {
+        align-items: flex-end;
+        gap: 3px;
+    }
+
+    .vdd-compare-field-name {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vdd-compare-field-val {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vdd-compare-arrow {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.15);
+        font-size: 11px;
+    }
+
+    .vdd-score-mini-bar {
+        width: 48px;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .vdd-score-mini-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s;
+    }
+
+    .vdd-result-actions {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
     }
 </style>

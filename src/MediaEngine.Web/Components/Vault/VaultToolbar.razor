@@ -34,63 +34,22 @@
         </div>
     }
 
-    @* ── Sort / Group controls ── *@
-    <div class="vault-controls">
-        @* Sort *@
-        <div class="vault-control-group">
-            @foreach (var opt in GetSortOptions())
-            {
-                var isActive = SortBy == opt.Value || SortBy == opt.ReverseValue;
-                var isReversed = SortBy == opt.ReverseValue;
-                <button class="vault-sort-btn @(isActive ? "vault-sort-btn--active" : "")"
-                        @onclick="() => ToggleSort(opt.Value, opt.ReverseValue)">
-                    <span>@opt.Label</span>
-                    @if (isActive)
-                    {
-                        <MudIcon Icon="@(isReversed ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
-                                 Style="font-size: 12px;" />
-                    }
-                </button>
-            }
-        </div>
-
-        @* ── Contextual filter dropdown ── *@
-        @{
-            var filterOpts = GetFilterOptions();
-        }
-        @if (filterOpts.Count > 0)
-        {
-            <div class="vault-control-divider"></div>
-            <div class="vault-control-group">
-                <select class="vault-select" value="@(FilterValue ?? filterOpts[0].Value)"
-                        @onchange="OnFilterChanged">
-                    @foreach (var opt in filterOpts)
-                    {
-                        <option value="@opt.Value">@opt.Label</option>
-                    }
-                </select>
-            </div>
-        }
-
-    </div>
-
-    @* ── Column Picker button ── *@
-    <button class="vault-column-picker-btn" title="Choose columns"
+    @* ── Customize View button ── *@
+    <button class="vault-customize-btn" title="Customize view"
             @onclick="() => OnColumnPickerRequested.InvokeAsync()">
-        <MudIcon Icon="@Icons.Material.Outlined.ViewColumn" Style="font-size: 16px;" />
+        <MudIcon Icon="@Icons.Material.Outlined.Tune" Style="font-size: 14px;" />
+        <span>Customize</span>
     </button>
 </div>
 
 @code {
-    // ── Existing parameters (unchanged, preserved for backward compat) ──
+    // ── Parameters ──
     [Parameter] public string ActiveTab { get; set; } = "media";
     [Parameter] public string SearchText { get; set; } = "";
-    [Parameter] public string SortBy { get; set; } = "newest";
     [Parameter] public int PosterSize { get; set; } = 48;
     [Parameter] public EventCallback<int> PosterSizeChanged { get; set; }
 
     [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
-    [Parameter] public EventCallback<string> SortByChanged { get; set; }
 
     // ── New parameters ──
 
@@ -103,12 +62,6 @@
 
     /// <summary>Fires when the back button is clicked.</summary>
     [Parameter] public EventCallback OnBack { get; set; }
-
-    /// <summary>Currently selected value for the contextual filter dropdown.</summary>
-    [Parameter] public string? FilterValue { get; set; }
-
-    /// <summary>Fires when the contextual filter selection changes.</summary>
-    [Parameter] public EventCallback<string?> FilterValueChanged { get; set; }
 
     /// <summary>Fires when the column picker icon button is clicked.</summary>
     [Parameter] public EventCallback OnColumnPickerRequested { get; set; }
@@ -154,42 +107,6 @@
         "comics"     => [new("By Series", "series", Icons.Material.Outlined.Folder), new("All Issues", "all", Icons.Material.Outlined.ViewList)],
         _ => [],
     };
-
-    private record SortOption(string Label, string Value, string ReverseValue);
-    private record SelectOption(string Label, string Value);
-
-    private List<SortOption> GetSortOptions() => ResolvedTabId switch
-    {
-        "people" =>
-        [
-            new("Presence", "presence", "presence_asc"),
-            new("Name", "name", "name_desc"),
-            new("Newest", "newest", "oldest"),
-        ],
-        _ =>
-        [
-            new("Newest", "newest", "oldest"),
-            new("Title", "title", "title_desc"),
-        ],
-    };
-
-    /// <summary>Returns contextual filter options for the resolved tab.
-    /// Filter dropdown is disabled for all tabs.</summary>
-    private List<SelectOption> GetFilterOptions() => [];
-
-    private async Task ToggleSort(string value, string reverseValue)
-    {
-        var newSort = SortBy == value ? reverseValue : (SortBy == reverseValue ? value : value);
-        await SortByChanged.InvokeAsync(newSort);
-    }
-
-    private async Task OnFilterChanged(ChangeEventArgs e)
-    {
-        var val = e.Value?.ToString();
-        // Normalise empty string → null so callers can do a simple null check
-        await FilterValueChanged.InvokeAsync(string.IsNullOrEmpty(val) ? null : val);
-    }
-
 
     public void Dispose()
     {
@@ -247,95 +164,27 @@
         box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.15);
     }
 
-    /* ── Controls container ── */
-    .vault-controls {
+    /* ── Customize View button ── */
+    .vault-customize-btn {
         display: flex;
         align-items: center;
-        gap: 4px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
-        padding: 4px 8px;
-    }
-
-    .vault-control-group {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 4px;
-    }
-
-    .vault-select {
-        background: transparent;
-        border: none;
-        color: rgba(255, 255, 255, 0.5);
-        font-size: 10px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        outline: none;
-        cursor: pointer;
-        padding: 6px 4px;
-    }
-
-    .vault-select option {
-        background: #14181d;
-        color: rgba(255, 255, 255, 0.85);
-    }
-
-    .vault-control-divider {
-        width: 1px;
-        height: 24px;
-        background: rgba(255, 255, 255, 0.06);
-    }
-
-    /* ── Sort toggle buttons ── */
-    .vault-sort-btn {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background: transparent;
-        border: none;
-        color: rgba(255, 255, 255, 0.35);
-        font-size: 10px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        padding: 6px 8px;
-        border-radius: 6px;
-        cursor: pointer;
-        transition: all 0.15s;
-        white-space: nowrap;
-    }
-
-    .vault-sort-btn:hover {
-        color: rgba(255, 255, 255, 0.6);
-        background: rgba(255, 255, 255, 0.04);
-    }
-
-    .vault-sort-btn--active {
-        color: rgba(96, 165, 250, 0.9);
-        background: rgba(96, 165, 250, 0.08);
-    }
-
-    /* ── Column Picker button ── */
-    .vault-column-picker-btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 34px;
-        height: 34px;
+        gap: 6px;
+        padding: 6px 14px;
         border-radius: 10px;
         border: 1px solid rgba(255, 255, 255, 0.06);
         background: rgba(255, 255, 255, 0.02);
-        color: rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
         cursor: pointer;
         transition: all 0.15s;
-        padding: 0;
         flex-shrink: 0;
+        white-space: nowrap;
     }
 
-    .vault-column-picker-btn:hover {
+    .vault-customize-btn:hover {
         color: rgba(255, 255, 255, 0.75);
         background: rgba(255, 255, 255, 0.06);
         border-color: rgba(255, 255, 255, 0.12);
@@ -351,16 +200,6 @@
             flex: 1 1 100%;
             max-width: none;
             order: -1;
-        }
-
-        .vault-controls {
-            flex: 1;
-            overflow-x: auto;
-            scrollbar-width: none;
-        }
-
-        .vault-controls::-webkit-scrollbar {
-            display: none;
         }
 
         .vault-view-modes {
