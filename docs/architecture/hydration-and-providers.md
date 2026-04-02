@@ -47,7 +47,7 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 
 | Provider | Media Types | What it contributes |
 |---|---|---|
-| TMDB | Movies, TV | Cover art (up to 2000Ã—3000 at w500/w1280), TMDB ID, IMDb ID |
+| TMDB | Movies, TV | Cover art (up to 2000×3000 at w500/w1280), TMDB ID, IMDb ID, network (TV only) |
 | Google Books | Books, Audiobooks | Cover art, ISBN, Google Books ID |
 | Comic Vine | Comics | Cover art (super_url, ~900px), Comic Vine ID |
 | Podcast Index | Podcasts | Episode metadata, Podcast Index GUID |
@@ -121,15 +121,17 @@ Retail providers run in waterfall order defined in `config/slots.json`. Each slo
 
 Providers participate in Stage 1 by declaring `"hydration_stages": [1]` in their config.
 
-Stage 1 never waits on Stage 2. Cover art is written to disk during Stage 1 (`cover.jpg` alongside the staged file). If Stage 2 fails, the file retains the cover art and display metadata from Stage 1 and goes to the review queue for manual QID assignment.
+**Retail match confidence gate:** After each provider returns claims, `RetailMatchScoringService` scores the candidate against file metadata (title 45%, author 35%, year 10%, format 10% + cross-field boosts). Scores below 0.50 (ambiguous threshold) are discarded; scores between 0.50–0.85 are accepted with a review flag; scores ≥ 0.85 are auto-accepted. This uses the same unified scoring as manual search from the Vault detail drawer.
+
+Stage 1 never waits on Stage 2. Cover art is written to disk during Stage 1 (`cover.jpg` alongside the staged file). If Stage 1 fails to find any matching provider, the item routes directly to the review queue — **no text-only Wikidata fallback is attempted**. The principle: no retail match = no Wikidata.
 
 ### Stage 2 â€” WikidataBridge
 
 The `ReconciliationAdapter` runs second, using bridge IDs deposited by Stage 1 for precise QID resolution:
 
 1. **Bridge ID lookup (edition-first):** The adapter searches for editions matching the deposited bridge IDs (ISBN, ASIN, TMDB ID, etc.). Audiobook editions get audiobook-edition ISBNs; book editions get print ISBNs. This is filtered by P31 (instance_of) to ensure the returned QID matches the right media type.
-2. **Work fallback:** If no edition match is found, the adapter runs a title search via the OpenRefine Reconciliation API against the broader work-level entity.
-3. **Auto-accept:** Score â‰¥ 95 and `match: true` â†’ QID accepted automatically.
+2. **Text fallback (gated):** If all bridge ID lookups fail, a text-based reconciliation with type filtering is attempted — but **only when at least one real bridge ID lookup was attempted**. If the call contains only sentinel keys (`_title`, `_author`) with no real bridge IDs, text fallback is blocked and the item returns `NotFound` (routes to review).
+3. **Auto-accept:** Score ≥ 95 and `match: true` → QID accepted automatically.
 4. **Multiple candidates:** Multiple candidates without auto-accept â†’ `MultipleQidMatches` review item. Conservative matching â€” no auto-accept when ambiguous.
 5. **Data Extension fetch:** After QID confirmation, a single Data Extension API POST fetches all configured properties from `config/universe/wikidata.json`.
 6. **Wikipedia descriptions:** Fetched via `_reconciler.GetWikipediaSummariesAsync` as part of Stage 2.

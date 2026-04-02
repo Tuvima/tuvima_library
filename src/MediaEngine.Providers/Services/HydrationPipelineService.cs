@@ -701,6 +701,45 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 continue;
             }
 
+            // ── Retail match confidence gate ─────────────────────────────────
+            // Score the provider's result against file metadata using the unified
+            // RetailMatchScoringService. This ensures the pipeline applies the same
+            // scoring logic as manual search from the Vault detail drawer.
+            var candidateTitle  = claims.FirstOrDefault(c => c.Key == MetadataFieldConstants.Title)?.Value;
+            var candidateAuthor = claims.FirstOrDefault(c => c.Key == MetadataFieldConstants.Author)?.Value;
+            var candidateYear   = claims.FirstOrDefault(c => c.Key == MetadataFieldConstants.Year)?.Value;
+            var retailScores    = _retailScoring.ScoreCandidate(
+                request.Hints, candidateTitle, candidateAuthor, candidateYear, request.MediaType);
+
+            var hydrationConfig = _configLoader.LoadHydration();
+            var retailAcceptThreshold    = hydrationConfig.RetailAutoAcceptThreshold;  // default 0.85
+            var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;   // default 0.50
+
+            if (retailScores.CompositeScore < retailAmbiguousThreshold)
+            {
+                _logger.LogInformation(
+                    "[STAGE1] Provider '{Provider}' result scored {Score:F2} (below ambiguous threshold {Threshold:F2}) " +
+                    "for entity {Id} — skipping this provider result",
+                    provider.Name, retailScores.CompositeScore, retailAmbiguousThreshold, request.EntityId);
+                continue;
+            }
+
+            if (retailScores.CompositeScore < retailAcceptThreshold)
+            {
+                _logger.LogInformation(
+                    "[STAGE1] Provider '{Provider}' result scored {Score:F2} (below auto-accept {Threshold:F2}, above ambiguous) " +
+                    "for entity {Id} — accepting with review flag",
+                    provider.Name, retailScores.CompositeScore, retailAcceptThreshold, request.EntityId);
+                // Accept the claims but flag for review — the item will appear in Action Center.
+                result.NeedsReview = true;
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "[STAGE1] Provider '{Provider}' result scored {Score:F2} (auto-accept) for entity {Id}",
+                    provider.Name, retailScores.CompositeScore, request.EntityId);
+            }
+
             // Check for QID.
             var qidClaim = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid);
             if (qidClaim is not null)
@@ -1280,98 +1319,19 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 }
             }
 
-            // Stage 1 failed — attempt type-constrained text reconciliation via Stage 2
-            // before falling back to the review queue. This gives comics, TV, music, and
-            // other items a chance to resolve via Wikidata CirrusSearch even when no
-            // retail provider covers the media type.
             _logger.LogInformation(
-                "Pipeline Stage 1 failed for entity {Id} — attempting text-only Wikidata reconciliation",
+                "Pipeline Stage 1 failed for entity {Id} — no retail match found. Item will route to review queue.",
                 request.EntityId);
+            // Stage 2 requires bridge IDs from Stage 1. Without a retail match,
+            // Wikidata resolution cannot proceed. The item will be routed to the
+            // review queue for manual identification.
 
-            var textOnlyResolved = false;
-            try
-            {
-                var textReconAdapter = _providers
-                    .OfType<MediaEngine.Providers.Adapters.ReconciliationAdapter>()
-                    .FirstOrDefault();
+            await CreateReviewItemAsync(
+                request, ReviewTrigger.AuthorityMatchFailed, 0.0,
+                $"Wikidata authority match failed for this {request.MediaType}",
+                result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
-                if (textReconAdapter is not null)
-                {
-                    // Build minimal bridge dict with only title + author sentinels
-                    var textBridgeDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-                    var textTitle = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Title);
-                    var textAuthor = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Author);
-
-                    if (!string.IsNullOrWhiteSpace(textTitle))
-                        textBridgeDict["_title"] = textTitle;
-                    if (!string.IsNullOrWhiteSpace(textAuthor))
-                        textBridgeDict["_author"] = textAuthor;
-
-                    if (textBridgeDict.ContainsKey("_title"))
-                    {
-                        var isEditionAware = hydration.EditionAwareMediaTypes
-                            ?.Contains(request.MediaType.ToString(), StringComparer.OrdinalIgnoreCase) ?? false;
-
-                        _logger.LogDebug(
-                            "Stage 1→2 fallback: text reconciliation for entity {Id} — title='{Title}', author='{Author}', mediaType={MediaType}",
-                            request.EntityId, textTitle, textAuthor, request.MediaType);
-
-                        // Empty wikidataProps — no bridge ID → P-code mappings needed for text-only path.
-                        var emptyWikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-                        var textResult = await textReconAdapter.ResolveBridgeAsync(
-                            textBridgeDict, emptyWikidataProps, request.MediaType, isEditionAware, ct)
-                            .ConfigureAwait(false);
-
-                        if (textResult.Found)
-                        {
-                            _logger.LogInformation(
-                                "Stage 1→2 fallback succeeded for entity {Id} — resolved to work QID {WorkQid}",
-                                request.EntityId, textResult.WorkQid);
-
-                            // Persist QID claims
-                            var qidClaims = new List<ProviderClaim>();
-                            if (!string.IsNullOrWhiteSpace(textResult.WorkQid))
-                                qidClaims.Add(new ProviderClaim(BridgeIdKeys.WikidataQid, textResult.WorkQid, 1.0));
-                            if (textResult.IsEdition && !string.IsNullOrWhiteSpace(textResult.EditionQid))
-                                qidClaims.Add(new ProviderClaim("edition_qid", textResult.EditionQid, 1.0));
-                            foreach (var claim in textResult.Claims)
-                                qidClaims.Add(claim);
-
-                            if (qidClaims.Count > 0)
-                            {
-                                await ScoringHelper.PersistClaimsAndScoreAsync(
-                                    request.EntityId, qidClaims, textReconAdapter.ProviderId,
-                                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader,
-                                    _providers, ct, _arrayRepo, _logger, _searchIndex).ConfigureAwait(false);
-                            }
-
-                            textOnlyResolved = true;
-                        }
-                    }
-                }
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogWarning(ex,
-                    "Stage 1→2 text reconciliation fallback failed for entity {Id} — falling through to review",
-                    request.EntityId);
-            }
-
-            if (!textOnlyResolved)
-            {
-                await CreateReviewItemAsync(
-                    request, ReviewTrigger.AuthorityMatchFailed, 0.0,
-                    $"Wikidata authority match failed for this {request.MediaType}",
-                    result, ct, deferredReviewNotifications).ConfigureAwait(false);
-
-                _logger.LogInformation(
-                    "Pipeline skipping Stage 2 after Stage 1 failure for entity {Id} — "
-                    + "no text reconciliation match found",
-                    request.EntityId);
-                goto PostPipeline;
-            }
+            goto PostPipeline;
         }
         else
         {

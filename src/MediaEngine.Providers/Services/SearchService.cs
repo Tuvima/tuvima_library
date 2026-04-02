@@ -23,6 +23,7 @@ public sealed class SearchService : ISearchService
     private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
     private readonly IConfigurationLoader _configLoader;
     private readonly IFuzzyMatchingService _fuzzy;
+    private readonly IRetailMatchScoringService _retailScoring;
     private readonly ILogger<SearchService> _logger;
 
     // Providers that should not be used for retail search
@@ -51,19 +52,22 @@ public sealed class SearchService : ISearchService
         IEnumerable<IExternalMetadataProvider> providers,
         IConfigurationLoader configLoader,
         IFuzzyMatchingService fuzzy,
+        IRetailMatchScoringService retailScoring,
         ILogger<SearchService> logger)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(fuzzy);
+        ArgumentNullException.ThrowIfNull(retailScoring);
         ArgumentNullException.ThrowIfNull(logger);
 
         var providerList = providers.ToList();
 
-        _providers    = providerList;
-        _configLoader = configLoader;
-        _fuzzy        = fuzzy;
-        _logger       = logger;
+        _providers      = providerList;
+        _configLoader   = configLoader;
+        _fuzzy          = fuzzy;
+        _retailScoring  = retailScoring;
+        _logger         = logger;
     }
 
     /// <inheritdoc/>
@@ -153,13 +157,24 @@ public sealed class SearchService : ISearchService
                 candidates.Add(enriched);
             }
 
-            // If local context provided, score and re-rank candidates by fuzzy match
+            // If local context provided, score and re-rank candidates using
+            // the unified retail match scoring service (same as pipeline).
             if (!string.IsNullOrWhiteSpace(request.LocalTitle))
             {
-                var local = new LocalMetadata(request.LocalTitle, request.LocalAuthor, request.LocalYear, request.MediaType);
+                var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["title"] = request.LocalTitle,
+                };
+                if (!string.IsNullOrWhiteSpace(request.LocalAuthor))
+                    fileHints["author"] = request.LocalAuthor;
+                if (!string.IsNullOrWhiteSpace(request.LocalYear))
+                    fileHints["year"] = request.LocalYear;
+
                 foreach (var c in candidates)
                 {
-                    c.MatchScores = _fuzzy.ScoreCandidate(local, new CandidateMetadata(c.Label, c.Author, c.Year, c.MediaType));
+                    var scores = _retailScoring.ScoreCandidate(
+                        fileHints, c.Label, c.Author, c.Year, mediaType);
+                    c.MatchScores = ToFieldMatchResult(scores);
                 }
                 candidates = candidates.OrderByDescending(c => c.MatchScores?.CompositeScore ?? 0.0).ToList();
             }
@@ -203,23 +218,29 @@ public sealed class SearchService : ISearchService
         foreach (var providerResults in results)
             candidates.AddRange(providerResults);
 
-        // ── Fuzzy match scoring ───────────────────────────────────────────────
-        // If local context provided, score and re-rank candidates by fuzzy match.
+        // ── Unified retail match scoring ─────────────────────────────────────
+        // Score each candidate against file metadata using the same service
+        // the pipeline uses, ensuring consistent confidence numbers everywhere.
         if (!string.IsNullOrWhiteSpace(request.LocalTitle))
         {
-            var local = new LocalMetadata(request.LocalTitle, request.LocalAuthor, request.LocalYear, request.MediaType);
+            var fileHints = BuildFileHints(request);
+
             foreach (var c in candidates)
             {
-                c.MatchScores = _fuzzy.ScoreCandidate(local, new CandidateMetadata(c.Title, c.Author, c.Year, null));
-            }
-        }
+                var extMeta = new CandidateExtendedMetadata
+                {
+                    Description = c.Description,
+                    Genres = c.ExtraFields.TryGetValue("genre", out var g) ? [g] : null,
+                    Language = c.ExtraFields.GetValueOrDefault("language"),
+                };
+                var scores = _retailScoring.ScoreCandidate(
+                    fileHints, c.Title, c.Author, c.Year, mediaType,
+                    extendedMetadata: extMeta);
 
-        // ── Composite score and ranking ───────────────────────────────────────
-        if (!string.IsNullOrWhiteSpace(request.LocalTitle))
-        {
-            // Rank by fuzzy match score
-            foreach (var c in candidates)
-                c.CompositeScore = c.MatchScores?.CompositeScore ?? c.Confidence;
+                c.MatchScores = ToFieldMatchResult(scores);
+                c.CompositeScore = scores.CompositeScore;
+            }
+
             candidates = candidates.OrderByDescending(c => c.CompositeScore).ToList();
         }
         else
@@ -504,4 +525,58 @@ public sealed class SearchService : ISearchService
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
         return match.Success ? match.Groups[1].Value.Trim() : null;
     }
+
+    /// <summary>
+    /// Builds file hint dictionary from a retail search request for use with
+    /// <see cref="IRetailMatchScoringService"/>.
+    /// </summary>
+    private static Dictionary<string, string> BuildFileHints(SearchRetailRequest request)
+    {
+        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(request.LocalTitle))
+            hints["title"] = request.LocalTitle;
+        if (!string.IsNullOrWhiteSpace(request.LocalAuthor))
+            hints["author"] = request.LocalAuthor;
+        if (!string.IsNullOrWhiteSpace(request.LocalYear))
+            hints["year"] = request.LocalYear;
+
+        // Merge any additional file hints (narrator, series, publisher, etc.)
+        if (request.FileHints is { Count: > 0 })
+        {
+            foreach (var (k, v) in request.FileHints)
+            {
+                hints.TryAdd(k, v);
+            }
+        }
+        return hints;
+    }
+
+    /// <summary>
+    /// Maps <see cref="FieldMatchScores"/> (from RetailMatchScoringService) to
+    /// <see cref="FieldMatchResult"/> (used by search result display).
+    /// </summary>
+    private static FieldMatchResult ToFieldMatchResult(FieldMatchScores scores)
+    {
+        return new FieldMatchResult
+        {
+            TitleScore      = scores.TitleScore,
+            AuthorScore     = scores.AuthorScore,
+            YearScore       = scores.YearScore,
+            FormatScore     = scores.FormatScore,
+            CoverScore      = scores.CoverArtScore,
+            CompositeScore  = scores.CompositeScore,
+            TitleVerdict    = ToVerdict(scores.TitleScore),
+            AuthorVerdict   = scores.AuthorScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.AuthorScore),
+            YearVerdict     = scores.YearScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.YearScore),
+            FormatVerdict   = ToVerdict(scores.FormatScore),
+            CoverVerdict    = scores.CoverArtScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.CoverArtScore),
+        };
+    }
+
+    private static FieldMatchVerdict ToVerdict(double score) => score switch
+    {
+        >= 0.95 => FieldMatchVerdict.Exact,
+        >= 0.70 => FieldMatchVerdict.Close,
+        _       => FieldMatchVerdict.Mismatch,
+    };
 }

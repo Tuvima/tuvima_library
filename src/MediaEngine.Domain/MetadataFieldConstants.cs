@@ -51,6 +51,7 @@ public static class MetadataFieldConstants
     public const string ShowName        = "show_name";
     public const string EpisodeTitle    = "episode_title";
     public const string PodcastName     = "podcast_name";
+    public const string Network         = "network";
 
     // ── Multi-valued claim keys also used in claim creation ──────────────────
     public const string Narrator        = "narrator";

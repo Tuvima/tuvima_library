@@ -1,7 +1,8 @@
 # Feature: Metadata Source Management
 
-> **Mirrors:** `CLAUDE.md` §3.2 (Weighted Voter), §3.6 (Metadata Adapters) — keep both in sync per `.agent/SYNC-MAP.md`
-> Last audited: 2026-03-30 | Auditor: Claude
+> **Mirrors:** `CLAUDE.md` §3.2 (Priority Cascade Engine), §3.7 (Hydration Pipeline) — keep both in sync per `.agent/SYNC-MAP.md`
+> Last audited: 2026-04-02 | Auditor: Claude
+> **Update 2026-04-02:** Unified scoring via `RetailMatchScoringService` — single scorer for both pipeline and manual search. Multi-author splitting, stronger Wikidata penalties (-35/-40), 85/15 score blend. Text-only Wikidata fallback removed; sentinel-only ResolveBridgeAsync calls blocked. Network metadata (P449) added. See `CLAUDE.md` §3.2 and §3.7 for current details.
 > **Update 2026-03-30:** Provider management now uses ranked pipelines (`config/pipelines.json`) with three strategies (Waterfall, Cascade, Sequential) per media type. The fixed 3-slot system (`slots.json`) is auto-converted. Settings UI has a per-media-type strategy picker. See `CLAUDE.md` §3.7 for current details.
 
 ---

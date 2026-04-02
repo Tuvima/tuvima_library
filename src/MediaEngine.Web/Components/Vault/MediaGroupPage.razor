@@ -65,6 +65,10 @@ else
                 {
                     <span>· @_detail.TotalDuration</span>
                 }
+                @if (GroupType == "tv-show" && !string.IsNullOrEmpty(_detail.Network))
+                {
+                    <span class="mgp-network-badge">@_detail.Network</span>
+                }
             </div>
             <div class="mgp-actions">
                 <button class="mgp-action-btn mgp-action-btn--sync" @onclick="SyncAll">
@@ -527,6 +531,21 @@ else
         color: rgba(255, 255, 255, 0.4);
         margin-top: 4px;
         flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .mgp-network-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: rgba(201, 146, 46, 0.12);
+        color: #C9922E;
+        border: 1px solid rgba(201, 146, 46, 0.2);
     }
 
     .mgp-actions {

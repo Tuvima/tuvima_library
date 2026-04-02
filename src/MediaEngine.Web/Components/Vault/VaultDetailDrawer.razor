@@ -355,7 +355,7 @@
                                                 <div class="vdd-filter-pill">
                                                     <span class="vdd-filter-pill-label">@FormatClaimKey(filter.FieldKey):</span>
                                                     <input type="text" class="vdd-filter-pill-input"
-                                                           value="@filter.Value"
+                                                           value="@_searchFilters[idx].Value"
                                                            placeholder="..."
                                                            @oninput="(e) => UpdateFilter(idx, e.Value?.ToString())"
                                                            @onkeydown="OnRetailSearchKeyDown" />

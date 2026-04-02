@@ -152,6 +152,80 @@ Per-field provider priority overrides live in `config/field_priorities.json`.
 
 ---
 
+## Unified Retail Match Scoring
+
+`RetailMatchScoringService` is the **single scoring implementation** used by both the automated pipeline (Stage 1 retail confidence gate) and manual search (Vault detail drawer search). This ensures that search results and pipeline decisions use identical scoring logic.
+
+### Field Weights
+
+| Field | Default Weight | Notes |
+|---|---|---|
+| Title | 0.45 | Token-set-ratio fuzzy match |
+| Author | 0.35 | Multi-author splitting with proportional scoring |
+| Year | 0.10 | Exact = 1.0, ±1 year = 0.8, otherwise 0.3 |
+| Format | 0.10 | Always 1.0 (strategies are media-type-scoped) |
+
+Weights are configurable in `config/hydration.json` → `fuzzy_match_weights`.
+
+### Multi-Author Matching
+
+When the full-string author comparison scores below 0.70, both file and candidate authors are split on common separators (`&`, `and`, `,`) and each name is matched independently. Score = matched / max(file count, candidate count). For example, "Neil Gaiman & Terry Pratchett" vs "Terry Pratchett" scores 0.5 (1 of 2 matched).
+
+### Cross-Field Boost Signals
+
+Additive boost (positive or negative) from cross-referencing file metadata against candidate extended metadata:
+
+| Signal | Boost | Condition |
+|---|---|---|
+| Narrator in description | +0.10 | Audiobooks only |
+| Author in description | +0.08 | Books/Audiobooks |
+| Series name in description | +0.08 | All media types |
+| Publisher matches | +0.05 | Books only, fuzzy ≥ 0.85 |
+| Page count within 10% | +0.05 | Books only |
+| Duration within 15% | +0.05 | Audiobooks only |
+| Duration wildly different (>50%) | −0.10 | Audiobooks only |
+| Genre overlap | +0.05 | All media types |
+| Language matches | +0.05 | All media types |
+| Language mismatch | −0.10 | All media types |
+| Cover art strong match (>0.8) | +0.10 | When cover art hashing is available |
+| Cover art moderate match (>0.6) | +0.05 | When cover art hashing is available |
+
+### Placeholder Title Rejection
+
+Files with placeholder titles ("Unknown", "Untitled", "Untitled Book", "New Recording", "Track XX") receive a zero-score immediately and route to the review queue.
+
+### Pipeline Confidence Gate
+
+After Stage 1 providers return results, `RetailMatchScoringService` scores each candidate:
+- **CompositeScore ≥ 0.85** → auto-accepted, proceeds to Stage 2
+- **0.50 ≤ CompositeScore < 0.85** → accepted with review flag (appears in Action Center)
+- **CompositeScore < 0.50** → rejected, next provider tried
+
+---
+
+## Wikidata Candidate Ranking
+
+`ReconciliationAdapter.FilterByMediaTypeAsync` applies multi-author matching against P50/P175 properties. Penalties:
+
+| Condition | Penalty | Rationale |
+|---|---|---|
+| bestAuthorMatch < 0.3 | −35 | Strong author mismatch — likely wrong work |
+| No P50/P175 properties at all | −40 | Entity has no author/performer data — highly suspect |
+
+Score blending: 85% composite (type-aware scoring) / 15% original Wikidata API score. This ensures type filtering and author matching have strong influence over raw label-match scores.
+
+---
+
+## Pipeline Enforcement — No Retail, No Wikidata
+
+Stage 2 (Wikidata) requires bridge IDs from Stage 1 (retail). If Stage 1 produces no match:
+- The text-only Wikidata fallback is **removed** — no automatic text reconciliation bypass
+- The item routes directly to the review queue with `AuthorityMatchFailed`
+
+`ResolveBridgeAsync` sentinel guard: when only sentinel keys (`_title`, `_author`) are provided with no real bridge IDs, the text fallback is blocked and the item returns `NotFound`. Real bridge IDs that were attempted and failed still allow text reconciliation as a last resort.
+
+---
+
 ## AI and the Cascade
 
 AI features in `MediaEngine.AI` improve the quality of inputs to the cascade â€” they do not replace it. The cascade determines all final canonical values.

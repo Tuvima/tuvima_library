@@ -80,6 +80,7 @@
     { "claim_key": "tmdb_id",       "json_path": "id",                       "confidence": 1.0,  "transform": "to_string" },
     { "claim_key": "rating",        "json_path": "vote_average",             "confidence": 0.8,  "transform": "to_string" },
     { "claim_key": "language",      "json_path": "original_language",        "confidence": 0.85 },
-    { "claim_key": "genre",         "json_path": "genre_ids",                "confidence": 0.85, "transform": "array_join" }
+    { "claim_key": "genre",         "json_path": "genre_ids",                "confidence": 0.85, "transform": "array_join" },
+    { "claim_key": "network",       "json_path": "networks[0].name",         "confidence": 0.85, "apply_to": ["tv_search"] }
   ]
 }

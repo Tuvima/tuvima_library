@@ -631,12 +631,12 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (queryTokens.Count == 0 || titleTokens.Count == 0)
             return 0.50;
 
-        // Exact normalised match → near-perfect score.
+        // Exact normalised match → perfect score.
         if (string.Equals(
                 string.Join(' ', queryTokens.Order()),
                 string.Join(' ', titleTokens.Order()),
                 StringComparison.OrdinalIgnoreCase))
-            return 0.97;
+            return 1.0;
 
         // Coverage: fraction of query words that appear in the title.
         int coverageHits = queryTokens.Count(q => titleTokens.Contains(q));
@@ -661,7 +661,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 score += 0.05;
         }
 
-        return Math.Clamp(score, 0.05, 0.97);
+        return Math.Clamp(score, 0.05, 1.0);
     }
 
     /// <summary>

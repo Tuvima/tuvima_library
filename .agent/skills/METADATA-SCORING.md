@@ -1,14 +1,14 @@
 # Skill: Metadata Scoring & Provider Management
 
-> **Mirrors:** `CLAUDE.md` §3.2 (Weighted Voter) — keep both in sync per `.agent/SYNC-MAP.md`
+> **Mirrors:** `CLAUDE.md` §3.2 (Priority Cascade Engine) — keep both in sync per `.agent/SYNC-MAP.md`
 
-> Last updated: 2026-03-01
+> Last updated: 2026-04-02
 
 ---
 
 ## Purpose
 
-This skill covers the Weighted Voter system — how metadata Claims are collected, scored, and resolved into Canonical Values — and how providers are managed.
+This skill covers the Priority Cascade Engine — how metadata Claims are collected, scored, and resolved into Canonical Values — and how providers are managed. Also covers `RetailMatchScoringService`, the unified scorer for both pipeline and manual search.
 
 ---
 
@@ -16,37 +16,45 @@ This skill covers the Weighted Voter system — how metadata Claims are collecte
 
 | File | Role |
 |------|------|
-| `src/MediaEngine.Intelligence/ScoringEngine.cs` | Groups claims by key, scores per field, computes overall confidence |
-| `src/MediaEngine.Intelligence/ConflictResolver.cs` | Applies provider weights, stale decay, groups by value, detects conflicts |
-| `src/MediaEngine.Intelligence/IdentityMatcher.cs` | Matches works to hubs via hard-ID short-circuit + fuzzy field average |
-| `src/MediaEngine.Intelligence/HubArbiter.cs` | Selects the best Hub for a Work based on IdentityMatcher scores |
+| `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs` | Four-tier cascade: User Locks → Field Priority → Wikidata → Highest Confidence |
 | `src/MediaEngine.Intelligence/Models/ScoringConfiguration.cs` | Thresholds: auto-link 0.85, conflict 0.60, epsilon 0.05, stale decay 90d/0.8 |
+| `src/MediaEngine.Providers/Services/RetailMatchScoringService.cs` | Unified scorer: title/author/year/format + cross-field boosts + multi-author splitting |
+| `src/MediaEngine.Providers/Adapters/ReconciliationAdapter.cs` | Wikidata candidate ranking with multi-author matching and penalty system |
+| `src/MediaEngine.Providers/Services/HydrationPipelineService.cs` | Stage 1 retail confidence gate using RetailMatchScoringService |
+| `src/MediaEngine.Providers/Services/SearchService.cs` | Manual search scoring using RetailMatchScoringService |
 | `src/MediaEngine.Domain/Entities/MetadataClaim.cs` | Append-only claim record (key, value, confidence, provider, timestamp) |
 | `src/MediaEngine.Domain/Entities/CanonicalValue.cs` | Scored winner per field per entity |
-| `src/MediaEngine.Storage/Models/LibraryMasterManifest.cs` | Provider definitions, field weights, scoring settings |
+| `src/MediaEngine.Domain/Constants/ClaimConfidence.cs` | 22 named confidence constants (0.70–1.00) |
 | `src/MediaEngine.Api/Endpoints/SettingsEndpoints.cs` | Provider status + toggle endpoints |
-| `src/MediaEngine.Web/Components/Settings/MetadataTab.razor` | Provider cards with weights and reachability |
-| `src/MediaEngine.Web/Components/Settings/CuratorsDrawer.razor` | Manual claim locking and history |
 
 ---
 
-## Scoring algorithm
+## Priority Cascade (replaces Weighted Voter)
 
 ```
-For each metadata field (e.g., "title"):
-  1. Collect all Claims for this field across all providers.
-  2. For each Claim:
-     a. rawWeight = Claim.Confidence * providerFieldWeight * staleDecayFactor
-     b. staleDecayFactor = 1.0 if age < 90 days, else 0.8
-  3. Normalise raw weights so they sum to 1.0.
-  4. Group Claims by value (case-insensitive).
-  5. Sum normalised weights per value group.
-  6. Winner = group with highest total.
-  7. If (runnerUp / winner) >= (1 - epsilon), mark as Conflicted.
-  8. If any Claim is user-locked, it wins unconditionally (confidence = 1.0).
+For each metadata field:
+  Tier A: User lock → wins unconditionally (confidence 1.0)
+  Tier B: Per-field provider priority from config/field_priorities.json
+  Tier C: Wikidata authority
+  Tier D: Highest confidence wins (with stale decay)
 ```
 
-Overall entity confidence = mean of all field confidences.
+## Unified Retail Match Scoring
+
+`RetailMatchScoringService` is the single scorer for both pipeline and manual search:
+- Field weights: title 45%, author 35%, year 10%, format 10%
+- Cross-field boosts: narrator/author in description, genre overlap, language match/mismatch
+- Multi-author splitting: "A & B" split on &/and/, — proportional matching (matched/total)
+- Placeholder rejection: "Unknown", "Untitled", "Track XX" → zero score
+- Pipeline gate: ≥0.85 auto-accept, 0.50–0.85 accept+review, <0.50 discard
+
+## Wikidata Candidate Ranking
+
+- Multi-author matching against P50/P175 labels (proportional scoring)
+- Author mismatch (best < 0.3): -35 penalty
+- No P50/P175 properties: -40 penalty
+- Score blend: 85% composite / 15% API score
+- Sentinel-only ResolveBridgeAsync calls blocked (no retail = no Wikidata)
 
 ---
 

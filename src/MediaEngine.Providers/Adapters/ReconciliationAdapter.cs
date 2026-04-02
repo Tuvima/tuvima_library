@@ -644,38 +644,71 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
 
             // Author/performer match (+30 scaled by best P50 or P175 similarity)
+            // Supports multi-author files: "Neil Gaiman & Terry Pratchett" is split
+            // and each name matched independently against P50 entries. Score = matched/total.
             if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null)
             {
-                double bestAuthorMatch = 0.0;
+                // Split file author into individual names
+                var fileAuthors = SplitAuthors(authorHint);
 
-                // Check P50 (author) first
-                if (cProps.TryGetValue("P50", out var p50Values) && p50Values.Count > 0)
+                // Collect all Wikidata author/performer labels
+                var wikidataAuthors = new List<string>();
+                if (cProps.TryGetValue("P50", out var p50Values))
                 {
                     foreach (var p50 in p50Values)
                     {
                         var label = p50.Value?.RawValue;
                         if (!string.IsNullOrWhiteSpace(label))
-                        {
-                            var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
-                            if (similarity > bestAuthorMatch)
-                                bestAuthorMatch = similarity;
-                        }
+                            wikidataAuthors.Add(label);
                     }
                 }
-
-                // Fall back to P175 (performer) for music items
-                if (bestAuthorMatch < 0.5
-                    && cProps.TryGetValue("P175", out var p175Values) && p175Values.Count > 0)
+                if (cProps.TryGetValue("P175", out var p175Values))
                 {
                     foreach (var p175 in p175Values)
                     {
                         var label = p175.Value?.RawValue;
                         if (!string.IsNullOrWhiteSpace(label))
+                            wikidataAuthors.Add(label);
+                    }
+                }
+
+                double bestAuthorMatch = 0.0;
+
+                if (wikidataAuthors.Count > 0)
+                {
+                    // Multi-author matching: for each file author, find the best
+                    // matching Wikidata author. Proportional scoring.
+                    int matched = 0;
+                    var usedIndices = new HashSet<int>();
+                    foreach (var fa in fileAuthors)
+                    {
+                        double bestSim = 0.0;
+                        int bestIdx = -1;
+                        for (int i = 0; i < wikidataAuthors.Count; i++)
                         {
-                            var similarity = _fuzzy.ComputeTokenSetRatio(authorHint, label);
-                            if (similarity > bestAuthorMatch)
-                                bestAuthorMatch = similarity;
+                            if (usedIndices.Contains(i)) continue;
+                            var sim = _fuzzy.ComputeTokenSetRatio(fa, wikidataAuthors[i]);
+                            if (sim > bestSim)
+                            {
+                                bestSim = sim;
+                                bestIdx = i;
+                            }
                         }
+                        if (bestSim >= 0.70 && bestIdx >= 0)
+                        {
+                            matched++;
+                            usedIndices.Add(bestIdx);
+                        }
+                    }
+
+                    bestAuthorMatch = (double)matched / Math.Max(fileAuthors.Count, wikidataAuthors.Count);
+
+                    // Also try the original full-string comparison (handles single-author case)
+                    foreach (var wdAuthor in wikidataAuthors)
+                    {
+                        var fullStringSim = _fuzzy.ComputeTokenSetRatio(authorHint, wdAuthor);
+                        if (fullStringSim > bestAuthorMatch)
+                            bestAuthorMatch = fullStringSim;
                     }
                 }
 
@@ -683,9 +716,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                 if (bestAuthorMatch < 0.3)
                 {
-                    score -= 25.0;
+                    score -= 35.0;
                     _logger.LogDebug(
-                        "{Provider}: candidate {QID} '{Label}' — author mismatch penalty (-25, best={Best:F2})",
+                        "{Provider}: candidate {QID} '{Label}' — author mismatch penalty (-35, best={Best:F2})",
                         Name, candidate.Id, candidate.Name, bestAuthorMatch);
                 }
             }
@@ -693,9 +726,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null
                 && !cProps.ContainsKey("P50") && !cProps.ContainsKey("P175"))
             {
-                score -= 15.0;
+                score -= 40.0;
                 _logger.LogDebug(
-                    "{Provider}: candidate {QID} '{Label}' — no author properties penalty (-15)",
+                    "{Provider}: candidate {QID} '{Label}' — no author properties penalty (-40)",
                     Name, candidate.Id, candidate.Name);
             }
 
@@ -731,10 +764,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             .Select(s =>
             {
                 var compositeNorm = Math.Min(100.0, s.Score * normFactor);
-                // Weighted blend: 70% composite (type-aware), 30% original API score.
+                // Weighted blend: 85% composite (type-aware), 15% original API score.
                 // This ensures type filtering and title/author matching have real influence
                 // rather than being overridden by the raw Wikidata label-match score.
-                var blended = (compositeNorm * 0.7) + (s.Candidate.Score * 0.3);
+                var blended = (compositeNorm * 0.85) + (s.Candidate.Score * 0.15);
                 return new ReconciliationResult
                 {
                     Id          = s.Candidate.Id,
@@ -1091,6 +1124,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         // ── Step 1: Try each bridge ID in insertion order ──────────────────────
         string? resolvedQid = null;
+        bool realBridgeIdAttempted = false; // Track whether any non-sentinel lookup was tried
 
         foreach (var (idType, idValue) in bridgeIds)
         {
@@ -1105,6 +1139,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     Name, idType);
                 continue;
             }
+
+            realBridgeIdAttempted = true;
 
             try
             {
@@ -1149,8 +1185,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (string.IsNullOrWhiteSpace(resolvedQid))
         {
             // ── Fallback: text-based reconciliation with type filtering ───────
-            // Type-constrained search using instance_of_classes from config.
-            // Only fires when all bridge ID lookups have been exhausted.
+            // Only allowed when real bridge IDs were attempted and failed.
+            // If only sentinel keys (_title, _author) were provided (no real bridge
+            // IDs from Stage 1), the item should go to review instead.
+            if (!realBridgeIdAttempted)
+            {
+                _logger.LogInformation(
+                    "{Provider}: ResolveBridgeAsync — no real bridge IDs were attempted (sentinel-only). " +
+                    "Text fallback blocked; item will route to review queue.",
+                    Name);
+                return BridgeResolutionResult.NotFound;
+            }
+
             var mediaTypeKey = mediaType.ToString();
             var hasTypeClasses = _config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var typeClasses)
                 && typeClasses.Count > 0;
@@ -1484,6 +1530,30 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             qid = top.Id;
             // Use MatchedLabel from the library if available (alias or sitelink that matched).
             reconciliationLabel = top.MatchedLabel ?? top.Name;
+        }
+        else
+        {
+            // Manual QID selection: fetch the Wikidata label to use as reconciliation title.
+            // Without this, the title claim at ReconciliationTitle confidence (0.98) is never emitted,
+            // and the title falls through to Data Extension at lower confidence (0.90).
+            try
+            {
+                var labelLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
+                var labelProps = await _reconciler!.GetPropertiesAsync(
+                    [qid], [$"L{labelLanguage}"], labelLanguage, ct).ConfigureAwait(false);
+
+                if (labelProps.TryGetValue(qid, out var labelData)
+                    && labelData.TryGetValue($"L{labelLanguage}", out var labelClaims)
+                    && labelClaims.Count > 0
+                    && !string.IsNullOrWhiteSpace(labelClaims[0].Value?.RawValue))
+                {
+                    reconciliationLabel = labelClaims[0].Value!.RawValue;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex, "{Provider}: Failed to fetch label for pre-resolved QID {Qid}", Name, qid);
+            }
         }
 
         // ── Step 2 & 3: Audiobook Edition Pivot ──────────────────────────────────
@@ -2118,7 +2188,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             var resultClaims = new List<ProviderClaim>
             {
-                new(MetadataFieldConstants.Description, summary.Extract, ClaimConfidence.Description),
+                new(MetadataFieldConstants.Description, StripLeadingMediaWikiHeadings(summary.Extract), ClaimConfidence.Description),
                 new("wikipedia_url", summary.ArticleUrl ?? "", 1.0),
             };
 
@@ -2141,7 +2211,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
                         if (!string.IsNullOrWhiteSpace(plotContent))
                         {
-                            resultClaims.Add(new ProviderClaim("plot_summary", plotContent, ClaimConfidence.PlotSummary));
+                            resultClaims.Add(new ProviderClaim("plot_summary", StripLeadingMediaWikiHeadings(plotContent), ClaimConfidence.PlotSummary));
                             _logger.LogInformation(
                                 "{Provider}: Wikipedia plot section '{Section}' for {Qid}: {Len} chars",
                                 Name, plotSection.Title, qid, plotContent.Length);
@@ -2175,6 +2245,38 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return "en";
         var primary = lang.Split('-', StringSplitOptions.RemoveEmptyEntries)[0];
         return primary.ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Strips MediaWiki section heading lines (e.g. "== Plot ==", "=== Synopsis ===") from
+    /// the start of a description string and trims any resulting leading whitespace.
+    /// Headings anywhere after the first non-heading line are left untouched.
+    /// </summary>
+    private static string StripLeadingMediaWikiHeadings(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return text;
+
+        var lines = text.Split('\n');
+        var firstContentLine = 0;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            var trimmed = lines[i].Trim();
+            // Match lines that are pure MediaWiki headings: ==...== with optional surrounding whitespace
+            if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"^={2,}\s*.+?\s*={2,}$"))
+            {
+                firstContentLine = i + 1;
+            }
+            else if (!string.IsNullOrWhiteSpace(trimmed))
+            {
+                // First non-heading, non-blank line — stop scanning
+                break;
+            }
+        }
+
+        return firstContentLine == 0
+            ? text
+            : string.Join('\n', lines.Skip(firstContentLine)).TrimStart();
     }
 
     /// <summary>
@@ -2216,6 +2318,23 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (!string.IsNullOrWhiteSpace(request.Author))
             c["P50"] = request.Author;
         return c.Count > 0 ? c : null;
+    }
+
+    /// <summary>
+    /// Splits a multi-author/creator string on common separators: " &amp; ", " and ", ", ".
+    /// Returns individual names, trimmed and non-empty.
+    /// </summary>
+    private static List<string> SplitAuthors(string authors)
+    {
+        var parts = System.Text.RegularExpressions.Regex.Split(
+            authors,
+            @"\s+&\s+|\s+and\s+|,\s*",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return parts
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .ToList();
     }
 
     private Dictionary<string, string>? BuildPersonConstraints(ProviderLookupRequest request)

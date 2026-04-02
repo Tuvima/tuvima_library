@@ -78,7 +78,49 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         var fileAuthor = fileHints.GetValueOrDefault("author");
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
+            // First try a full-string comparison (handles single-author and matching order).
             authorScore = _fuzzy.ComputeTokenSetRatio(fileAuthor, candidateAuthor);
+
+            // When the full-string score is low, split on common multi-author
+            // separators and compare each individual name independently.
+            // "Neil Gaiman & Terry Pratchett" vs "Terry Pratchett" scores 0.5 (1 of 2).
+            if (authorScore < 0.70)
+            {
+                var fileAuthors = SplitAuthors(fileAuthor);
+                var candidateAuthors = SplitAuthors(candidateAuthor);
+
+                if (fileAuthors.Count > 1 || candidateAuthors.Count > 1)
+                {
+                    // For each file author, find the best matching candidate author.
+                    int matched = 0;
+                    var usedCandidates = new HashSet<int>();
+                    foreach (var fa in fileAuthors)
+                    {
+                        double bestMatch = 0.0;
+                        int bestIdx = -1;
+                        for (int i = 0; i < candidateAuthors.Count; i++)
+                        {
+                            if (usedCandidates.Contains(i)) continue;
+                            var sim = _fuzzy.ComputeTokenSetRatio(fa, candidateAuthors[i]);
+                            if (sim > bestMatch)
+                            {
+                                bestMatch = sim;
+                                bestIdx = i;
+                            }
+                        }
+                        if (bestMatch >= 0.70 && bestIdx >= 0)
+                        {
+                            matched++;
+                            usedCandidates.Add(bestIdx);
+                        }
+                    }
+
+                    // Proportional: 2 of 2 = 1.0, 1 of 2 = 0.5, 0 of 2 = 0.0
+                    var splitScore = (double)matched / Math.Max(fileAuthors.Count, candidateAuthors.Count);
+                    if (splitScore > authorScore)
+                        authorScore = splitScore;
+                }
+            }
         }
 
         // ── Year score ───────────────────────────────────────────────────
@@ -254,5 +296,24 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         }
 
         return boost;
+    }
+
+    /// <summary>
+    /// Splits a multi-author string on common separators: " &amp; ", " and ", ", ".
+    /// Returns individual author names, trimmed and non-empty.
+    /// Single-author strings return a list with one element.
+    /// </summary>
+    private static List<string> SplitAuthors(string authors)
+    {
+        // Split on " & ", " and " (case-insensitive), and ", "
+        var parts = System.Text.RegularExpressions.Regex.Split(
+            authors,
+            @"\s+&\s+|\s+and\s+|,\s*",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        return parts
+            .Select(p => p.Trim())
+            .Where(p => p.Length > 0)
+            .ToList();
     }
 }

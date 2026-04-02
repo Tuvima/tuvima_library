@@ -35,6 +35,10 @@ public sealed class HubGroupDetailDto
     [JsonPropertyName("total_duration")]
     public string? TotalDuration { get; init; }
 
+    /// <summary>Network or streaming service (e.g. "HBO", "Netflix"). Populated for TV media type only.</summary>
+    [JsonPropertyName("network")]
+    public string? Network { get; init; }
+
     /// <summary>Child works grouped into seasons. Populated for TV media type only.</summary>
     [JsonPropertyName("seasons")]
     public List<HubGroupSeasonDto> Seasons { get; init; } = [];

@@ -440,11 +440,12 @@ public static class HubEndpoints
 
             // Hub-level header canonical values (use first work as proxy).
             var firstWorkDto = hub.Works.Count > 0 ? WorkDto.FromDomain(hub.Works[0]) : null;
-            string? hubCreator = GetCanonical(firstWorkDto, "author")
+            string? hubCreator  = GetCanonical(firstWorkDto, "author")
                                  ?? GetCanonical(firstWorkDto, "director")
                                  ?? GetCanonical(firstWorkDto, "artist");
-            string? hubGenre   = GetCanonical(firstWorkDto, "genre");
-            string? hubCover   = GetCanonical(firstWorkDto, "cover");
+            string? hubGenre    = GetCanonical(firstWorkDto, "genre");
+            string? hubCover    = GetCanonical(firstWorkDto, "cover");
+            string? hubNetwork  = isTv ? GetCanonical(firstWorkDto, "network") : null;
 
             // Year range from all works.
             var years = workDtos
@@ -501,6 +502,7 @@ public static class HubEndpoints
                 Creator          = hubCreator,
                 YearRange        = yearRange,
                 Genre            = hubGenre,
+                Network          = hubNetwork,
                 TotalItems       = hub.Works.Count,
                 Seasons          = seasons,
                 Works            = flatWorks,
@@ -833,7 +835,8 @@ public static class HubEndpoints
                         MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
                         MAX(CASE WHEN cv.key = 'cover' THEN cv.value END) AS cover,
-                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre
+                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
+                        MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS network
                     FROM matched_works mw
                     INNER JOIN editions e ON e.work_id = mw.work_id
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -866,6 +869,7 @@ public static class HubEndpoints
             string? combinedCreator = null;
             string? combinedCover = null;
             string? combinedGenre = null;
+            string? combinedNetwork = null;
             var allYears = new List<string>();
             int totalItems = 0;
 
@@ -891,6 +895,9 @@ public static class HubEndpoints
                 combinedCreator ??= creator;
                 combinedCover ??= cover;
                 combinedGenre ??= genre;
+
+                var network = reader.IsDBNull(reader.GetOrdinal("network")) ? null : reader.GetString(reader.GetOrdinal("network"));
+                combinedNetwork ??= network;
 
                 var year = releaseYear ?? yearVal;
                 if (!string.IsNullOrWhiteSpace(year)) allYears.Add(year);
@@ -972,6 +979,7 @@ public static class HubEndpoints
                 Creator          = combinedCreator,
                 YearRange        = yearRange,
                 Genre            = combinedGenre,
+                Network          = combinedNetwork,
                 TotalItems       = totalItems,
                 Seasons          = seasons,
                 Works            = flatWorks,

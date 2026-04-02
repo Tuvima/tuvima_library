@@ -38,6 +38,10 @@ public sealed class HubGroupDetailViewModel
     [JsonPropertyName("total_duration")]
     public string? TotalDuration { get; set; }
 
+    /// <summary>Network or streaming service (e.g. "HBO", "Netflix"). Populated for TV shows only.</summary>
+    [JsonPropertyName("network")]
+    public string? Network { get; set; }
+
     /// <summary>TV only — works grouped by season.</summary>
     [JsonPropertyName("seasons")]
     public List<HubGroupSeasonViewModel> Seasons { get; set; } = [];
