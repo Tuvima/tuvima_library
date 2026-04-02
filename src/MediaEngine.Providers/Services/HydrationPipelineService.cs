@@ -643,6 +643,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 ? string.Join(", ", stage1Providers.Select(p => p.Name))
                 : "(none)");
 
+        _logger.LogInformation(
+            "Pipeline Stage 1: starting retail identification for '{Title}' ({MediaType})",
+            titleHint, request.MediaType);
+
         // Accumulate raw Stage-1 claims so that person extraction uses the
         // most current SPARQL data — not the post-scoring canonical values,
         // which can be stale when the entity has been hydrated multiple times.
@@ -787,6 +791,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
         result.Stage1ClaimsAdded = stage1Claims;
 
+        _logger.LogInformation(
+            "Pipeline Stage 1: completed for '{Title}' — {ClaimCount} claims from {ProviderName}",
+            titleHint, stage1Claims, bestStage1Provider?.Name ?? "(none)");
+
         // ── FIX B3: Media type correction from retail match ─────────────────
         // When the best Stage 1 retail provider handles a specific media type
         // that differs from the ingestion-detected type, correct the working
@@ -916,8 +924,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // that has been re-hydrated multiple times has stale single-value votes
             // outvoting the newer multi-value SPARQL result.
             var personRefs = stage1RawClaims.Count > 0
-                ? ExtractPersonReferencesFromRawClaims(stage1RawClaims)
-                : ExtractPersonReferences(canonicalsAfterS1);
+                ? ExtractPersonReferencesFromRawClaims(stage1RawClaims, request.MediaType)
+                : ExtractPersonReferences(canonicalsAfterS1, request.MediaType);
 
             _logger.LogInformation(
                 "[PERSON] Stage 1 person extraction for entity {EntityId}: {Count} person ref(s) from {Source} [{Names}]",
@@ -968,7 +976,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             {
                 try
                 {
-                    var unlinkedRefs = ExtractUnlinkedPersonReferences(stage1RawClaims);
+                    var unlinkedRefs = ExtractUnlinkedPersonReferences(stage1RawClaims, request.MediaType);
                     if (unlinkedRefs.Count > 0)
                     {
                         // Get the work title for notable-work matching boost.
@@ -1042,7 +1050,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                 .Select(mc => new ProviderClaim(mc.ClaimKey, mc.ClaimValue, mc.Confidence))
                                 .ToList();
 
-                            var reconciledRefs = ExtractPersonReferencesFromRawClaims(providerClaims);
+                            var reconciledRefs = ExtractPersonReferencesFromRawClaims(providerClaims, request.MediaType);
                             // Filter to only newly resolved persons (those whose QIDs are in newQidClaims).
                             var newQids = newQidClaims
                                 .Select(c => c.Value.Split("::")[0])
@@ -1467,6 +1475,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             request.EntityId,
             bridgeHints.Count > 0 ? string.Join(", ", bridgeHints.Keys) : "(none)");
 
+        _logger.LogInformation(
+            "Pipeline Stage 2: starting Wikidata bridge for '{Title}'",
+            titleHint);
+
         // Note: Wikipedia description fetching is handled by ReconciliationAdapter.FetchAsync
         // as part of the work/person fetch path. Description claims are returned and persisted
         // during Stage 1 — no separate parallel task needed here.
@@ -1714,7 +1726,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     // from these claims and run synchronous person enrichment so
                     // headshots and biographies are available immediately.
                     var stage2PersonRefs = ExtractPersonReferencesFromRawClaims(
-                        qidClaims.Select(c => new ProviderClaim(c.Key, c.Value, c.Confidence)).ToList());
+                        qidClaims.Select(c => new ProviderClaim(c.Key, c.Value, c.Confidence)).ToList(),
+                        request.MediaType);
 
                     if (stage2PersonRefs.Count > 0)
                     {
@@ -1768,11 +1781,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                         try
                         {
                             var s2FileMetadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-                            var s2TitleHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "(unknown)");
+                            var s2TitleHint = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Title, "(unknown)") ?? "(unknown)";
                             if (!string.IsNullOrWhiteSpace(s2TitleHint))
                                 s2FileMetadata[MetadataFieldConstants.Title] = s2TitleHint;
 
-                            var s2AuthorHint = request.Hints.GetValueOrDefault(MetadataFieldConstants.Author);
+                            var s2AuthorHint = request.Hints?.GetValueOrDefault(MetadataFieldConstants.Author);
                             if (!string.IsNullOrWhiteSpace(s2AuthorHint))
                                 s2FileMetadata[MetadataFieldConstants.Author] = s2AuthorHint;
 
@@ -1813,7 +1826,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                                     EntityId               = request.EntityId,
                                     EntityType             = request.EntityType,
                                     MediaType              = request.MediaType,
-                                    Hints                  = request.Hints,
+                                    Hints                  = request.Hints ?? new Dictionary<string, string>(),
                                     PreResolvedQid         = s2DisambResult.SelectedQid,
                                     SuppressActivityEntry  = request.SuppressActivityEntry,
                                     SuppressReviewCreation = true,
@@ -1910,7 +1923,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                                     // Person enrichment from title-fallback claims.
                                     var fallbackPersonRefs = ExtractPersonReferencesFromRawClaims(
-                                        titleFallbackClaims);
+                                        titleFallbackClaims, request.MediaType);
                                     if (fallbackPersonRefs.Count > 0)
                                     {
                                         try
@@ -1997,6 +2010,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         }
 
         result.Stage2ClaimsAdded = stage2Claims;
+
+        _logger.LogInformation(
+            "Pipeline Stage 2: completed for '{Title}' — QID={Qid}",
+            titleHint, result.WikidataQid ?? "(none)");
 
         // ── Description Intelligence ─────────────────────────────────────────────
         // Deferred to DescriptionIntelligenceBatchService — runs as a background
@@ -2521,6 +2538,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                 await _autoOrganize.TryAutoOrganizeAsync(request.EntityId, ct, request.IngestionRunId)
                     .ConfigureAwait(false);
+
+                _logger.LogInformation(
+                    "Promote: asset {AssetId} promoted from staging to {DestPath}",
+                    request.EntityId, "(library root)");
 
                 // Now the file is in the Library Root — try downloading cover art.
                 // PersistCoverFromUrlAsync guards against watcher-path downloads,
@@ -3232,6 +3253,11 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         };
 
         await _reviewRepo.InsertAsync(reviewEntry, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Pipeline: '{Title}' sent to review — trigger={Trigger}, confidence={Score:P0}",
+            request.Hints.GetValueOrDefault(MetadataFieldConstants.Title, "unknown"),
+            trigger, confidence);
 
         // Adjust batch counters: shift one file from Registered → Review.
         await AdjustBatchForReviewAsync(request.IngestionRunId, ct).ConfigureAwait(false);
@@ -3966,7 +3992,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// claim (last in the list) is used for QID resolution.
     /// </summary>
     private static IReadOnlyList<PersonReference> ExtractPersonReferencesFromRawClaims(
-        IReadOnlyList<ProviderClaim> rawClaims)
+        IReadOnlyList<ProviderClaim> rawClaims,
+        MediaType mediaType = MediaType.Unknown)
     {
         // Accumulate ALL values per key as a list (preserves multi-valued fields like author).
         var byKey = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
@@ -3980,10 +4007,21 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             list.Add(c.Value);
         }
 
+        var performerRole = mediaType switch
+        {
+            MediaType.Music      => "Performer",
+            MediaType.Audiobooks => "Narrator",
+            _                    => "Actor",
+        };
+
         var refs = new List<PersonReference>();
         AddPersonRefsFromLists(refs, "Author",   byKey, MetadataFieldConstants.Author,    "author_qid");
         AddPersonRefsFromLists(refs, "Narrator", byKey, MetadataFieldConstants.Narrator,  "narrator_qid");
-        AddPersonRefsFromLists(refs, "Narrator", byKey, "performer", "performer_qid");
+        AddPersonRefsFromLists(refs, performerRole, byKey, "performer", "performer_qid");
+        // "artist" / "artist_qid" is emitted by AudioProcessor for music files and
+        // by the Apple API provider for album-level artist data.  Map it to the same
+        // Performer role so music artists are enriched alongside other person types.
+        AddPersonRefsFromLists(refs, performerRole, byKey, MetadataFieldConstants.Artist, "artist_qid");
         AddPersonRefsFromLists(refs, "Director", byKey, "director",  "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",     "composer_qid");
@@ -4048,7 +4086,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// metadata or retail providers that weren't matched by structured Wikidata properties.
     /// </summary>
     private static IReadOnlyList<PersonReference> ExtractUnlinkedPersonReferences(
-        IReadOnlyList<ProviderClaim> rawClaims)
+        IReadOnlyList<ProviderClaim> rawClaims,
+        MediaType mediaType = MediaType.Unknown)
     {
         var byKey = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var c in rawClaims)
@@ -4061,10 +4100,20 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             list.Add(c.Value);
         }
 
+        var performerRole = mediaType switch
+        {
+            MediaType.Music      => "Performer",
+            MediaType.Audiobooks => "Narrator",
+            _                    => "Actor",
+        };
+
         var refs = new List<PersonReference>();
         AddPersonRefsFromLists(refs, "Author",       byKey, MetadataFieldConstants.Author,       "author_qid");
         AddPersonRefsFromLists(refs, "Narrator",     byKey, MetadataFieldConstants.Narrator,     "narrator_qid");
-        AddPersonRefsFromLists(refs, "Narrator",     byKey, "performer",    "performer_qid");
+        AddPersonRefsFromLists(refs, performerRole,  byKey, "performer",    "performer_qid");
+        // "artist" / "artist_qid" is emitted by AudioProcessor for music files.
+        // Include it here so unlinked music artists can be reconciled via standalone search.
+        AddPersonRefsFromLists(refs, performerRole,  byKey, MetadataFieldConstants.Artist, "artist_qid");
         AddPersonRefsFromLists(refs, "Director",     byKey, "director",     "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",     "composer_qid");
@@ -4126,14 +4175,24 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
     /// Multi-valued entries (joined with <c>|||</c>) are split into individual refs.
     /// </summary>
     private static IReadOnlyList<PersonReference> ExtractPersonReferences(
-        IReadOnlyList<CanonicalValue> canonicals)
+        IReadOnlyList<CanonicalValue> canonicals,
+        MediaType mediaType = MediaType.Unknown)
     {
+        var performerRole = mediaType switch
+        {
+            MediaType.Music      => "Performer",
+            MediaType.Audiobooks => "Narrator",
+            _                    => "Actor",
+        };
+
         var refs = new List<PersonReference>();
 
-        AddPersonRefs(refs, "Author",   canonicals, MetadataFieldConstants.Author,   "author_qid");
-        AddPersonRefs(refs, "Narrator", canonicals, MetadataFieldConstants.Narrator, "narrator_qid");
-        AddPersonRefs(refs, "Narrator", canonicals, "performer", "performer_qid");
-        AddPersonRefs(refs, "Director", canonicals, "director", "director_qid");
+        AddPersonRefs(refs, "Author",       canonicals, MetadataFieldConstants.Author,   "author_qid");
+        AddPersonRefs(refs, "Narrator",     canonicals, MetadataFieldConstants.Narrator, "narrator_qid");
+        AddPersonRefs(refs, performerRole,  canonicals, "performer", "performer_qid");
+        // "artist" / "artist_qid" is emitted by AudioProcessor for music files.
+        AddPersonRefs(refs, performerRole,  canonicals, MetadataFieldConstants.Artist, "artist_qid");
+        AddPersonRefs(refs, "Director",     canonicals, "director", "director_qid");
         AddPersonRefs(refs, "Screenwriter", canonicals, "screenwriter", "screenwriter_qid");
         AddPersonRefs(refs, "Composer",     canonicals, "composer",     "composer_qid");
         AddPersonRefs(refs, "Actor",         canonicals, "cast_member",  "cast_member_qid");

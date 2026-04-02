@@ -82,6 +82,8 @@ field_mappings        JSON path extraction rules with named transforms, confiden
 
 **Required-field short-circuits:** Each search strategy declares `required_fields`. If a required field is missing from the request, the strategy is skipped with no HTTP call made.
 
+**Metron title path validation:** `ConfigDrivenAdapter` validates a response before accepting it by checking that at least one recognised title field is non-empty. The recognised title field names for Metron are: `name`, `title`, `issue`, `series`, `volumeName`. The minimum F1 score for a title-only match (when no other metadata fields are present) is 0.40 — lowered from 0.80 to accommodate Metron's sparser response structure for single-issue lookups.
+
 ---
 
 ## 3. Two-Stage Hydration Pipeline
@@ -330,6 +332,16 @@ The Engine extracts person roles from both structured Wikidata properties and fi
 | P161 | Cast Member | Movies, TV (capped at 20 per work) |
 | P175 | Narrator | Audiobooks (via edition resolution) |
 
+**Media-type-aware Performer mapping:** The generic `Performer` role from file tags is mapped to a more specific role based on media type before person records are created:
+
+| Media Type | Performer maps to |
+|---|---|
+| Music | Performer |
+| Audiobooks | Narrator |
+| TV, Movies | Actor |
+
+This prevents audiobook narrator names from being stored with the generic Performer role, which would cause them to appear under the Musicians filter in the People tab rather than under Authors.
+
 These are fetched during Stage 2 (WikidataBridge) via the `work_properties.core` config. Each property emits both a name claim (e.g. `director`) and a companion QID claim (e.g. `director_qid`) at confidence 0.90.
 
 ### 7.2 QID-First Person Creation
@@ -366,6 +378,10 @@ After Stage 2, some person names from file metadata remain unlinked â€” e.g
 The Description Intelligence batch service (LLM-powered) extracts people and roles from text descriptions. When a person is mentioned in a description but no QID exists from higher-tier sources, the batch service feeds the name into `PersonReconciliationService` at confidence 0.75. This only fires when:
 - The AI extraction confidence is â‰¥ 0.50
 - No QID claim already exists for that role from Tier 1 or Tier 2
+
+### 7.4a Person Headshot Download Logging
+
+When the Engine downloads a headshot for a Person record during Stage 2 enrichment, it logs the outcome at `Information` level. Both successful downloads and skip conditions (file already present, no P18 value on the Wikidata entity) are logged so headshot coverage can be audited in the activity log.
 
 ### 7.5 Person Data Freshness
 

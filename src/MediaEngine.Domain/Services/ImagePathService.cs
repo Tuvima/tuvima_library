@@ -23,7 +23,7 @@ namespace MediaEngine.Domain.Services;
 ///         │   │       ├── cover.jpg
 ///         │   │       ├── cover_thumb.jpg
 ///         │   │       └── hero.jpg
-///         │   └── _provisional/
+///         │   └── _pending/
 ///         │       └── {assetId12}/
 ///         │           ├── cover.jpg
 ///         │           └── hero.jpg
@@ -48,7 +48,7 @@ public sealed class ImagePathService
 
     /// <summary>
     /// Gets the directory for a work's images, using QID + asset slot if available,
-    /// else provisional GUID slot. Each asset gets its own subdirectory (first 12 hex
+    /// else pending GUID slot. Each asset gets its own subdirectory (first 12 hex
     /// chars of the asset GUID) to avoid collisions when multiple editions share a QID.
     /// </summary>
     public string GetWorkImageDir(string? wikidataQid, Guid assetId)
@@ -56,7 +56,17 @@ public sealed class ImagePathService
         var assetSlot = assetId.ToString("N")[..12];
         if (!string.IsNullOrEmpty(wikidataQid) && !wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
             return Path.Combine(_imagesRoot, "works", wikidataQid, assetSlot);
-        return Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
+
+        // Migration: rename legacy _provisional to _pending on first access
+        var legacySlot = Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
+        var pendingSlot = Path.Combine(_imagesRoot, "works", "_pending", assetSlot);
+        if (Directory.Exists(legacySlot) && !Directory.Exists(pendingSlot))
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(pendingSlot)!);
+            Directory.Move(legacySlot, pendingSlot);
+        }
+
+        return Path.Combine(_imagesRoot, "works", "_pending", assetSlot);
     }
 
     /// <summary>Gets cover.jpg path for a work.</summary>
@@ -80,34 +90,47 @@ public sealed class ImagePathService
         Path.Combine(_imagesRoot, "universes", wikidataQid);
 
     /// <summary>
-    /// Promotes a provisional asset's images to QID-keyed location.
+    /// Promotes a pending asset's images to QID-keyed location.
     /// Call this when an asset gets a confirmed Wikidata QID.
-    /// Moves from <c>_provisional/{assetId12}/</c> to <c>{QID}/{assetId12}/</c>.
+    /// Moves from <c>_pending/{assetId12}/</c> to <c>{QID}/{assetId12}/</c>.
     /// </summary>
     public void PromoteToQid(Guid assetId, string wikidataQid)
     {
         var assetSlot = assetId.ToString("N")[..12];
-        var provisionalDir = Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
-        if (!Directory.Exists(provisionalDir)) return;
+
+        // Migration: rename legacy _provisional to _pending before promoting
+        var legacyDir = Path.Combine(_imagesRoot, "works", "_provisional", assetSlot);
+        if (Directory.Exists(legacyDir))
+        {
+            var migrationTarget = Path.Combine(_imagesRoot, "works", "_pending", assetSlot);
+            if (!Directory.Exists(migrationTarget))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(migrationTarget)!);
+                Directory.Move(legacyDir, migrationTarget);
+            }
+        }
+
+        var pendingDir = Path.Combine(_imagesRoot, "works", "_pending", assetSlot);
+        if (!Directory.Exists(pendingDir)) return;
 
         var targetDir = Path.Combine(_imagesRoot, "works", wikidataQid, assetSlot);
 
         if (Directory.Exists(targetDir))
         {
             // Target already exists — merge files, do not overwrite existing
-            foreach (var file in Directory.GetFiles(provisionalDir))
+            foreach (var file in Directory.GetFiles(pendingDir))
             {
                 var dest = Path.Combine(targetDir, Path.GetFileName(file));
                 if (!File.Exists(dest))
                     File.Move(file, dest);
             }
-            // Clean up empty provisional dir
-            try { Directory.Delete(provisionalDir, recursive: false); } catch { /* best-effort */ }
+            // Clean up empty pending dir
+            try { Directory.Delete(pendingDir, recursive: false); } catch { /* best-effort */ }
         }
         else
         {
             Directory.CreateDirectory(Path.GetDirectoryName(targetDir)!);
-            Directory.Move(provisionalDir, targetDir);
+            Directory.Move(pendingDir, targetDir);
         }
     }
 

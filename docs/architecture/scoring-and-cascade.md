@@ -76,6 +76,41 @@ A file with only one field scores at approximately 1/3 of its raw confidence. A 
 
 ---
 
+## Retail Match Scoring
+
+Missing metadata fields score **0.0** (not the neutral 0.5 they previously received). An absent value is evidence of a poor match, not absence of evidence.
+
+**Placeholder title detection:** Titles matching known placeholder patterns — "Unknown", "Untitled", and track-number patterns such as "Track 01" — are scored 0.0 and routed directly to the review queue. These indicate the file has no real title metadata and cannot be auto-matched.
+
+**Retail score thresholds** (configured in `config/scoring.json`):
+
+| Key | Value | Meaning |
+|---|---|---|
+| `retail_auto_accept` | 0.85 | Match accepted automatically |
+| `retail_ambiguous` | 0.50 | Match flagged for review |
+
+Scores below `retail_ambiguous` are discarded; the pipeline proceeds to the next ranked provider.
+
+## Wikidata Author Validation
+
+When the Stage 2 Wikidata candidate is scored, the author from the file's embedded metadata is compared against the candidate's P50 (author) property:
+
+| Condition | Score adjustment |
+|---|---|
+| Author similarity < 0.3 (clear mismatch) | −25 penalty |
+| Candidate has no author properties (P50 absent) | −15 penalty |
+
+These penalties apply on top of the base reconciliation score before the `wikidata_review_threshold` and `wikidata_auto_accept` gates are evaluated.
+
+**Wikidata score thresholds** (configured in `config/scoring.json`):
+
+| Key | Value | Meaning |
+|---|---|---|
+| `wikidata_review_threshold` | 55 | Below this score: item goes to review queue |
+| `wikidata_auto_accept` | 95 | At or above this score and `match: true`: QID accepted automatically |
+
+---
+
 ## Conflicted Fields
 
 When two claims for the same field are too close in confidence to pick a clear winner, the field is marked **Conflicted** and surfaced to the user for manual resolution. The conflict threshold and epsilon are configured in `config/scoring.json`.
@@ -108,6 +143,10 @@ All scoring parameters live in `config/scoring.json`:
 | `conflict_epsilon` | 0.05 | Maximum difference for two claims to be considered tied |
 | `stale_claim_decay_days` | 90 | Claims older than this begin to decay |
 | `stale_claim_decay_factor` | 0.8 | Multiplier applied to confidence of stale claims |
+| `retail_auto_accept` | 0.85 | Retail match score threshold for automatic acceptance |
+| `retail_ambiguous` | 0.50 | Retail match score threshold below which a match is discarded |
+| `wikidata_review_threshold` | 55 | Wikidata reconciliation score below which item goes to review |
+| `wikidata_auto_accept` | 95 | Wikidata reconciliation score at which QID is auto-accepted |
 
 Per-field provider priority overrides live in `config/field_priorities.json`.
 

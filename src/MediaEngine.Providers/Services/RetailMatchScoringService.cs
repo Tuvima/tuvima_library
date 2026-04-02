@@ -3,6 +3,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -18,15 +19,18 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
     private readonly IFuzzyMatchingService _fuzzy;
     private readonly IConfigurationLoader _configLoader;
     private readonly ICoverArtHashService? _coverArtHash;
+    private readonly ILogger<RetailMatchScoringService>? _logger;
 
     public RetailMatchScoringService(
         IFuzzyMatchingService fuzzy,
         IConfigurationLoader configLoader,
-        ICoverArtHashService? coverArtHash = null)
+        ICoverArtHashService? coverArtHash = null,
+        ILogger<RetailMatchScoringService>? logger = null)
     {
         _fuzzy = fuzzy;
         _configLoader = configLoader;
         _coverArtHash = coverArtHash;
+        _logger = logger;
     }
 
     public FieldMatchScores ScoreCandidate(
@@ -44,13 +48,33 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         // ── Title score ──────────────────────────────────────────────────
         double titleScore = 0.0;
         var fileTitle = fileHints.GetValueOrDefault("title");
+
+        if (string.IsNullOrWhiteSpace(fileTitle) ||
+            string.Equals(fileTitle, "unknown", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileTitle, "untitled", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileTitle, "untitled book", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(fileTitle, "new recording", StringComparison.OrdinalIgnoreCase) ||
+            System.Text.RegularExpressions.Regex.IsMatch(fileTitle ?? string.Empty, @"^track\s*\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        {
+            return new FieldMatchScores
+            {
+                TitleScore      = 0.0,
+                AuthorScore     = 0.0,
+                YearScore       = 0.0,
+                FormatScore     = 0.0,
+                CrossFieldBoost = 0.0,
+                CoverArtScore   = 0.0,
+                CompositeScore  = 0.0,
+            };
+        }
+
         if (!string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(candidateTitle))
         {
             titleScore = _fuzzy.ComputeTokenSetRatio(fileTitle, candidateTitle);
         }
 
         // ── Author score ─────────────────────────────────────────────────
-        double authorScore = 0.5; // Neutral when missing
+        double authorScore = 0.0; // Penalised when missing
         var fileAuthor = fileHints.GetValueOrDefault("author");
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
@@ -58,7 +82,7 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         }
 
         // ── Year score ───────────────────────────────────────────────────
-        double yearScore = 0.5; // Neutral when missing
+        double yearScore = 0.0; // Penalised when missing
         var fileYear = fileHints.GetValueOrDefault("year") ?? fileHints.GetValueOrDefault("release_year");
         if (!string.IsNullOrWhiteSpace(fileYear) && !string.IsNullOrWhiteSpace(candidateYear))
         {
@@ -99,6 +123,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
                       + (formatScore * formatWeight)
                       + crossFieldBoost
                       + coverBoost;
+
+        _logger?.LogDebug("RetailScoring: title={TitleScore:F2} author={AuthorScore:F2} year={YearScore:F2} cross={CrossField:F2} cover={Cover:F2} composite={Composite:F2} — file='{FileTitle}' candidate='{CandidateTitle}'",
+            titleScore, authorScore, yearScore, crossFieldBoost, coverBoost, composite, fileTitle, candidateTitle);
 
         return new FieldMatchScores
         {

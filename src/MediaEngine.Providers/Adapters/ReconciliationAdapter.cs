@@ -680,6 +680,23 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 }
 
                 score += 30.0 * bestAuthorMatch;
+
+                if (bestAuthorMatch < 0.3)
+                {
+                    score -= 25.0;
+                    _logger.LogDebug(
+                        "{Provider}: candidate {QID} '{Label}' — author mismatch penalty (-25, best={Best:F2})",
+                        Name, candidate.Id, candidate.Name, bestAuthorMatch);
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null
+                && !cProps.ContainsKey("P50") && !cProps.ContainsKey("P175"))
+            {
+                score -= 15.0;
+                _logger.LogDebug(
+                    "{Provider}: candidate {QID} '{Label}' — no author properties penalty (-15)",
+                    Name, candidate.Id, candidate.Name);
             }
 
             // Translation/edition penalty (-40 if P629 is present).
@@ -694,6 +711,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     "{Provider}: candidate {QID} '{Label}' — translation/edition penalty (-40, P629 present)",
                     Name, candidate.Id, candidate.Name);
             }
+
+            _logger.LogDebug(
+                "{Provider}: candidate {QID} '{Label}' — total composite={Score:F1}",
+                Name, candidate.Id, candidate.Name, score);
 
             scored.Add((candidate, score));
         }

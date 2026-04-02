@@ -890,13 +890,19 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     {
         // Skip entirely if there is no headshot URL — no directory is created.
         if (string.IsNullOrEmpty(headshotUrl))
+        {
+            var noUrlName = person?.Name ?? personId.ToString();
+            _logger.LogDebug("Person {Name}: no headshot URL available from Wikidata", noUrlName);
             return;
+        }
 
         // Both Name and QID are required to resolve a stable image path.
         if (person is null ||
             string.IsNullOrWhiteSpace(person.WikidataQid) ||
             string.IsNullOrWhiteSpace(person.Name))
             return;
+
+        _logger.LogDebug("Person {Name}: headshot URL found at {Url}", person.Name, headshotUrl);
 
         try
         {
@@ -919,7 +925,10 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             // Download headshot if URL is available and file doesn't exist.
             var headshotPath = Path.Combine(personFolder, "headshot.jpg");
             if (File.Exists(headshotPath))
+            {
+                _logger.LogDebug("Person {Name}: headshot already exists at {Path} — skipping download", person.Name, headshotPath);
                 return;
+            }
 
             try
             {
@@ -951,13 +960,19 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
                     await _personRepo.UpdateLocalHeadshotPathAsync(personId, headshotPath, ct)
                         .ConfigureAwait(false);
+
+                    _logger.LogInformation("Person {Name}: headshot downloaded to {Path}", person.Name, headshotPath);
+                }
+                else
+                {
+                    _logger.LogWarning("Person {Name}: headshot download failed — empty response body from {Url}", person.Name, headshotUrl);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex,
-                    "Headshot download failed for person {Id}; continuing",
-                    personId);
+                    "Person {Name}: headshot download failed — {Reason}",
+                    person.Name, ex.Message);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

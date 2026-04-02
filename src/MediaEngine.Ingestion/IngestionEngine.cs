@@ -1326,6 +1326,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             currentPath = await MoveToStagingAsync(currentPath, stagingSubcategory, ct, assetId)
                               .ConfigureAwait(false) ?? currentPath;
 
+            _logger.LogInformation(
+                "Staging: asset {AssetId} staged at {Path}",
+                assetId, currentPath);
+
             // Clean empty subdirectories left behind in the watch folder.
             CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
 
@@ -1345,6 +1349,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     gateResult.ReviewDetail!,
                     ct, ingestionRunId).ConfigureAwait(false);
 
+                _logger.LogInformation(
+                    "Review: asset {AssetId} queued for review — trigger={Trigger}",
+                    assetId, gateResult.ReviewTrigger);
+
                 // History: review created.
                 await SafeActivityLogAsync(new SystemActivityEntry
                 {
@@ -1353,6 +1361,12 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     Detail = $"Sent for review: {gateResult.ReviewTrigger}",
                     IngestionRunId = ingestionRunId,
                 }, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Review gap: asset {AssetId} in staging but no review entry created",
+                    assetId);
             }
 
             // Lifecycle log: staged.
@@ -1407,7 +1421,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // creation, linking, and enrichment after pen name detection has run.
 
         // Step 11b: persist embedded cover art.
-        // When ImagePathService is available, write to .images/works/_provisional/{assetId12}/cover.jpg
+        // When ImagePathService is available, write to .images/works/_pending/{assetId12}/cover.jpg
         // so the image is decoupled from the staging/library path and survives file moves.
         // Without ImagePathService (legacy), write alongside the staging file as before.
         bool fileIsInStaging = !string.IsNullOrWhiteSpace(_options.StagingPath)
@@ -2332,20 +2346,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             TryDeleteEmptyDirectory(editionFolder);
         }
 
-        // 1b. Clean .images/ provisional directory for this asset (if ImagePathService is active).
+        // 1b. Clean .images/ pending directory for this asset (if ImagePathService is active).
         if (_imagePathService is not null)
         {
             try
             {
-                var provisionalDir = Path.Combine(
-                    _imagePathService.ImagesRoot, "works", "_provisional",
+                var pendingDir = Path.Combine(
+                    _imagePathService.ImagesRoot, "works", "_pending",
                     staged.Id.ToString("N")[..12]);
-                if (Directory.Exists(provisionalDir))
-                    Directory.Delete(provisionalDir, recursive: true);
+                if (Directory.Exists(pendingDir))
+                    Directory.Delete(pendingDir, recursive: true);
             }
             catch (Exception ex)
             {
-                _logger.LogDebug(ex, "Failed to clean .images/_provisional for asset {Id}", staged.Id);
+                _logger.LogDebug(ex, "Failed to clean .images/_pending for asset {Id}", staged.Id);
             }
         }
 

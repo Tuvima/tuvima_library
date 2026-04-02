@@ -105,9 +105,13 @@ The Priority Cascade Engine scores all available claims for this file â€” f
 
 If multiple files from the same source folder have already been processed (e.g. a TV season with 22 episodes), the Engine uses **Ingestion Hinting**: the first file's resolved metadata is cached as a folder-level prior. Subsequent siblings receive the hub ID, QID, and bridge IDs from that prior as high-confidence claims, dramatically reducing the number of Wikidata lookups needed.
 
+**Work deduplication fallback:** `MediaEntityChainFactory` checks whether a Work already exists before creating a new one (matching by title + author + media type via `IWorkRepository`). When `canonical_values` has not yet been populated for an in-flight asset, the deduplication check falls back to a raw `metadata_claims` lookup so that duplicate files arriving close together in time do not bypass the check. Duplicate files create a new Edition under the existing Work rather than creating a duplicate Work.
+
 ### 6. Move to Staging
 
 The file is moved from its source location into `{LibraryRoot}/.staging/`, where it waits for hydration and promotion. Cover art is extracted and written alongside the file at this stage â€” the processor's cover image bytes are only available during the Scan step and must be persisted immediately.
+
+Cover art for items that have not yet received a Wikidata QID is written to `.data/images/_pending/{GUID12}/` (previously named `_provisional/`). When a QID is assigned, `ImagePathService.PromoteToQid()` renames the directory to `.data/images/{QID}/`.
 
 ---
 
@@ -132,9 +136,13 @@ Files are routed to one of four subcategories based on their overall confidence 
 | Subcategory | Condition | Behaviour |
 |---|---|---|
 | `.staging/pending/` | Confidence â‰¥ 0.85, or any user-locked claim | AutoOrganizeService promotes after hydration |
-| `.staging/low-confidence/` | Confidence 0.40â€“0.85, no user locks | Awaits hydration improvement or manual review |
+| `.staging/low-confidence/` | Confidence 0.40â€”0.85, no user locks | Awaits hydration improvement or manual review |
 | `.staging/unidentifiable/` | Confidence < 0.40, no user locks | Requires user to provide a title or match |
-| `.staging/other/` | Resolves to "Other" category | Requires media type classification |
+| `.staging/other/` | Resolves to “Other” category | Requires media type classification |
+
+**Staging lifecycle logging:** The Engine logs staging progress at `Information` level at four points: (1) when an asset is moved into staging, (2) when a review queue item is created, (3) when a gap is detected in expected review creation (e.g. a confidence score that should have triggered a review but did not), and (4) when an asset is promoted out of staging into the organised library. These log entries allow the staging pipeline to be audited from the activity log.
+
+**Vault staging exclusion:** Items currently in staging are filtered out of the Vault media tabs (Movies, TV, Books, etc.). The `RegistryRepository` `asset_data` CTE excludes assets whose status is `Staging`. These items are only visible in the Action Center tab.
 
 ### AutoOrganize Gate
 

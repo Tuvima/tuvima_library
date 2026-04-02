@@ -118,6 +118,9 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(LENGTH(ma.content_hash)) AS file_size_proxy
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
+                WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
+                  AND ma.file_path_root NOT LIKE '%\.data\staging\%'
+                  AND ma.file_path_root NOT LIKE '%/.data\staging/%'
                 GROUP BY e.work_id
             ),
             ingest_date_data AS (

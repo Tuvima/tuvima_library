@@ -1034,7 +1034,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             // word-overlap scoring isn't penalised by filename-derived suffixes.
             var cleanedQueryTitle = CleanTitleForSearch(queryTitle) ?? queryTitle;
 
-            var titlePaths  = new[] { "trackName", "collectionName", "title", "name" };
+            var titlePaths  = new[] { "trackName", "collectionName", "title", "name", "issue", "series", "volumeName" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
             var scored = new List<(JsonNode Node, double TitleScore, double AuthorScore)>();
@@ -1056,18 +1056,26 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             }
 
             if (scored.Count == 0)
-                return null;
+            {
+                // No results had a recognisable title field — skip validation
+                // and fall through to result_index selection rather than
+                // rejecting all results from providers with non-standard schemas.
+                var fallbackIndex = Math.Clamp(strategy.ResultIndex, 0, arr.Count - 1);
+                return arr[fallbackIndex];
+            }
 
             // Tier 1: prefer results where both author AND title match.
             var authorMatched = scored.Where(s => s.AuthorScore >= 0.50).ToList();
             if (authorMatched.Count > 0)
                 return authorMatched.OrderByDescending(s => s.TitleScore).First().Node;
 
-            // Tier 2: no author match — fall back to strong title match (>= 0.80).
-            // This handles pen names (embedded "Richard Bachman" vs retailer "Stephen King")
-            // while still rejecting unrelated books with vaguely similar titles.
+            // Tier 2: no author match — fall back to title match (>= 0.40).
+            // F1 >= 0.40 means at least moderate word overlap between query and candidate.
+            // Short queries (e.g. "Batman") have low precision against longer candidate
+            // titles (e.g. "Absolute Batman (2024) #1") but full coverage — 0.40 allows
+            // these while still rejecting completely unrelated results.
             var bestByTitle = scored.OrderByDescending(s => s.TitleScore).First();
-            return bestByTitle.TitleScore >= 0.80 ? bestByTitle.Node : null;
+            return bestByTitle.TitleScore >= 0.40 ? bestByTitle.Node : null;
         }
 
         var index = Math.Clamp(strategy.ResultIndex, 0, arr.Count - 1);

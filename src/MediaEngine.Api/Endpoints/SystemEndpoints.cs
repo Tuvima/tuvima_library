@@ -135,7 +135,7 @@ public static class SystemEndpoints
                 {
                     ct.ThrowIfCancellationRequested();
                     var name = Path.GetFileName(dir);
-                    if (string.Equals(name, "_provisional", StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(name, "_pending", StringComparison.OrdinalIgnoreCase))
                         continue; // handled separately below
 
                     if (!knownWorkQids.Contains(name))
@@ -145,8 +145,8 @@ public static class SystemEndpoints
                     }
                 }
 
-                // ── Sweep .images/works/_provisional/{id12}/ ─────────────────
-                var provisionalDir = Path.Combine(worksDir, "_provisional");
+                // ── Sweep .images/works/_pending/{id12}/ ─────────────────────
+                var provisionalDir = Path.Combine(worksDir, "_pending");
                 if (Directory.Exists(provisionalDir))
                 {
                     foreach (var dir in Directory.EnumerateDirectories(provisionalDir))
