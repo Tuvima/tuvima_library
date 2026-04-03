@@ -64,7 +64,7 @@ public sealed class QuickHydrationWorker
         return jobs.Count;
     }
 
-    private async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
+    internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Hydrating, ct: ct);
 

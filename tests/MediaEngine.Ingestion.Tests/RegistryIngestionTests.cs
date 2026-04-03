@@ -42,7 +42,7 @@ public sealed class RegistryIngestionTests : IDisposable
     private readonly StubFileWatcher _watcher = new();
     private readonly StubEventPublisher _publisher = new();
     private readonly StubHeroBannerGenerator _heroGenerator = new();
-    private readonly StubHydrationPipeline _hydrationPipeline = new();
+    private readonly StubIdentityJobRepository _identityJobRepo = new();
     private readonly StubRecursiveIdentity _recursiveIdentity = new();
     private readonly StubReconciliation _reconciliation = new();
     private readonly StubFileOrganizer _organizer = new();
@@ -125,7 +125,6 @@ public sealed class RegistryIngestionTests : IDisposable
             NullLogger<IngestionEngine>.Instance,
             _claimRepo,
             _canonicalRepo,
-            _hydrationPipeline,
             _recursiveIdentity,
             _chainFactory,
             _reviewRepo,
@@ -138,7 +137,8 @@ public sealed class RegistryIngestionTests : IDisposable
             new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
             new MediaEngine.Ingestion.Tests.Helpers.StubEntityTimelineRepository(),
             new MediaEngine.Intelligence.Models.ScoringConfiguration(),
-            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository());
+            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository(),
+            _identityJobRepo);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 

@@ -321,7 +321,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
         if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
         opts.ConfiguredLanguage = core.Language.Metadata;
-        opts.IdentityPipelineV2Enabled = core.IdentityPipelineV2Enabled;
+
     }
     catch (Exception ex)
     {
@@ -465,7 +465,7 @@ builder.Services.AddHttpClient("wikidata_reconciliation", c =>
 })
 .AddStandardResilienceHandler();
 
-// Image download clients used by HydrationPipelineService (cover art) and
+// Image download clients used by SynchronousIdentityPipelineService (cover art) and
 // MetadataHarvestingService (person headshots).  Wikimedia Commons requires a
 // descriptive User-Agent header and honours HTTP redirects automatically.
 builder.Services.AddHttpClient("cover_download", c =>
@@ -644,7 +644,7 @@ builder.Services.AddSingleton<IImageEnrichmentService,           MediaEngine.Pro
 builder.Services.AddSingleton<IOrganizationGate,             OrganizationGate>();
 builder.Services.AddSingleton<IAutoOrganizeService,          AutoOrganizeService>();
 builder.Services.AddSingleton<IDeferredEnrichmentRepository, DeferredEnrichmentRepository>();
-builder.Services.AddSingleton<IHydrationPipelineService,     HydrationPipelineService>();
+builder.Services.AddSingleton<IHydrationPipelineService,     SynchronousIdentityPipelineService>();
 builder.Services.AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>();
 builder.Services.AddSingleton<IBridgeIdRepository,           BridgeIdRepository>();
 builder.Services.AddSingleton<IEntityTimelineRepository,     EntityTimelineRepository>();

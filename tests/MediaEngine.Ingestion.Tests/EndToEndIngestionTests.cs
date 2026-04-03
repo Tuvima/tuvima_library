@@ -42,7 +42,7 @@ public sealed class EndToEndIngestionTests : IDisposable
     private readonly StubFileWatcher _watcher = new();
     private readonly StubEventPublisher _publisher = new();
     private readonly StubHeroBannerGenerator _heroGenerator = new();
-    private readonly StubHydrationPipeline _hydrationPipeline = new();
+    private readonly StubIdentityJobRepository _identityJobRepo = new();
     private readonly StubRecursiveIdentity _recursiveIdentity = new();
     private readonly StubReconciliation _reconciliation = new();
     private readonly StubFileOrganizer _organizer = new();
@@ -132,7 +132,6 @@ public sealed class EndToEndIngestionTests : IDisposable
             NullLogger<IngestionEngine>.Instance,
             _claimRepo,
             _canonicalRepo,
-            _hydrationPipeline,
             _recursiveIdentity,
             _chainFactory,
             _reviewRepo,
@@ -145,7 +144,8 @@ public sealed class EndToEndIngestionTests : IDisposable
             new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
             new MediaEngine.Ingestion.Tests.Helpers.StubEntityTimelineRepository(),
             new MediaEngine.Intelligence.Models.ScoringConfiguration(),
-            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository());
+            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository(),
+            _identityJobRepo);
 
         // Run the engine with a timeout. The engine will:
         // 1. Run reconciliation (stub — no-op)
@@ -222,9 +222,9 @@ public sealed class EndToEndIngestionTests : IDisposable
         var claims = await _claimRepo.GetByEntityAsync(asset.Id);
         Assert.True(claims.Count >= 4, "Should have at least 4 claims (title, author, year, isbn)");
 
-        // Assert: hydration enqueued
-        Assert.Single(_hydrationPipeline.EnqueuedRequests);
-        Assert.Equal(asset.Id, _hydrationPipeline.EnqueuedRequests[0].EntityId);
+        // Assert: identity job created
+        Assert.Single(_identityJobRepo.CreatedJobs);
+        Assert.Equal(asset.Id, _identityJobRepo.CreatedJobs[0].EntityId);
 
         // Sidecars removed — file metadata is the source of truth.
 
@@ -414,14 +414,10 @@ public sealed class EndToEndIngestionTests : IDisposable
         // Act
         await RunPipelineAsync();
 
-        // Person enrichment was moved to the hydration pipeline (Phase 9) so that
-        // pen-name detection runs before person linking. IRecursiveIdentityService is
-        // called by HydrationPipelineService, not by IngestionEngine directly.
-        // Verify that hydration was enqueued with author/narrator hints instead.
-        Assert.Single(_hydrationPipeline.EnqueuedRequests);
-        var request = _hydrationPipeline.EnqueuedRequests[0];
-        Assert.True(request.Hints.ContainsKey("author"),
-            "Hydration request should carry author hint so the pipeline can trigger person enrichment");
-        Assert.Equal("Stephen King", request.Hints["author"]);
+        // Person enrichment is handled by the hydration pipeline workers.
+        // Verify that an identity job was created for this asset.
+        Assert.Single(_identityJobRepo.CreatedJobs);
+        var request = _identityJobRepo.CreatedJobs[0];
+        Assert.Equal(EntityType.MediaAsset.ToString(), request.EntityType);
     }
 }

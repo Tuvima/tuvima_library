@@ -102,7 +102,7 @@ public sealed class WikidataBridgeWorker
         return jobs.Count;
     }
 
-    private async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
+    internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.BridgeSearching, ct: ct);
 

@@ -45,7 +45,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
     private readonly StubFileWatcher _watcher = new();
     private readonly StubEventPublisher _publisher = new();
     private readonly StubHeroBannerGenerator _heroGenerator = new();
-    private readonly StubHydrationPipeline _hydrationPipeline = new();
+    private readonly StubIdentityJobRepository _identityJobRepo = new();
     private readonly StubRecursiveIdentity _recursiveIdentity = new();
     private readonly StubReconciliation _reconciliation = new();
     private readonly StubFileOrganizer _organizer = new();
@@ -127,7 +127,6 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             NullLogger<IngestionEngine>.Instance,
             _claimRepo,
             _canonicalRepo,
-            _hydrationPipeline,
             _recursiveIdentity,
             _chainFactory,
             _reviewRepo,
@@ -140,7 +139,8 @@ public sealed class ComprehensiveIngestionTests : IDisposable
             new MediaEngine.Ingestion.Tests.Helpers.StubMediaTypeAdvisor(),
             new MediaEngine.Ingestion.Tests.Helpers.StubEntityTimelineRepository(),
             new MediaEngine.Intelligence.Models.ScoringConfiguration(),
-            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository());
+            new MediaEngine.Ingestion.Tests.Helpers.StubIngestionBatchRepository(),
+            _identityJobRepo);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
@@ -298,7 +298,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         Assert.NotNull(FindFileInTree(_libraryDir, "Sapiens.m4b"));
         Assert.NotNull(FindFileInTree(_libraryDir, "Arrival.mp4"));
 
-        Assert.Equal(3, _hydrationPipeline.EnqueuedRequests.Count);
+        Assert.Equal(3, _identityJobRepo.CreatedJobs.Count);
     }
 
     [Fact]
@@ -666,7 +666,7 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         await RunPipelineAsync();
 
         // Both should be processed (different hashes).
-        Assert.True(_hydrationPipeline.EnqueuedRequests.Count >= 2,
+        Assert.True(_identityJobRepo.CreatedJobs.Count >= 2,
             "Both files should trigger hydration (different hashes)");
     }
 
@@ -920,11 +920,10 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        Assert.Single(_hydrationPipeline.EnqueuedRequests);
-        var request = _hydrationPipeline.EnqueuedRequests[0];
-        Assert.Equal(EntityType.MediaAsset, request.EntityType);
-        Assert.True(request.Hints.ContainsKey("title"));
-        Assert.Equal("Hydration Book", request.Hints["title"]);
+        Assert.Single(_identityJobRepo.CreatedJobs);
+        var request = _identityJobRepo.CreatedJobs[0];
+        Assert.Equal(EntityType.MediaAsset.ToString(), request.EntityType);
+        Assert.Equal(MediaType.Books.ToString(), request.MediaType);
     }
 
     [Fact]
@@ -949,11 +948,9 @@ public sealed class ComprehensiveIngestionTests : IDisposable
         // Person enrichment was moved to the hydration pipeline so pen-name detection
         // runs first. IRecursiveIdentityService is called by HydrationPipelineService,
         // not by IngestionEngine. Verify the hydration request carries both person hints.
-        Assert.Single(_hydrationPipeline.EnqueuedRequests);
-        var request = _hydrationPipeline.EnqueuedRequests[0];
-        Assert.True(request.Hints.ContainsKey("author"),
-            "Hydration request should carry author hint (Stephen King)");
-        Assert.Equal("Stephen King", request.Hints["author"]);
+        Assert.Single(_identityJobRepo.CreatedJobs);
+        var request = _identityJobRepo.CreatedJobs[0];
+        Assert.Equal(EntityType.MediaAsset.ToString(), request.EntityType);
     }
 
     [Fact]
@@ -1563,17 +1560,12 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // The ingestion engine should have enqueued a HarvestRequest for this asset.
-        Assert.Single(_hydrationPipeline.EnqueuedRequests);
+        // The ingestion engine should have created an identity job for this asset.
+        Assert.Single(_identityJobRepo.CreatedJobs);
 
-        var request = _hydrationPipeline.EnqueuedRequests[0];
-        Assert.Equal(EntityType.MediaAsset, request.EntityType);
-
-        // The title hint must be forwarded so the real pipeline can call
-        // HasSufficientMetadataForAuthorityMatch with the title available.
-        Assert.True(request.Hints.ContainsKey("title"),
-            "Hints should include the title so Stage 1 gating can evaluate IsRealTitle()");
-        Assert.Equal("Foundation", request.Hints["title"]);
+        var request = _identityJobRepo.CreatedJobs[0];
+        Assert.Equal(EntityType.MediaAsset.ToString(), request.EntityType);
+        Assert.Equal(MediaType.Books.ToString(), request.MediaType);
     }
 
     [Fact]
@@ -1603,15 +1595,12 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // The hydration pipeline should have received a request even for a
-        // placeholder title — the real pipeline decides internally whether to
-        // block Stage 1 or create a PlaceholderTitle review item.
-        Assert.Single(_hydrationPipeline.EnqueuedRequests);
+        // An identity job should have been created even for a placeholder title —
+        // the real pipeline decides internally whether to block Stage 1 or create a PlaceholderTitle review item.
+        Assert.Single(_identityJobRepo.CreatedJobs);
 
-        var request = _hydrationPipeline.EnqueuedRequests[0];
-        Assert.True(request.Hints.ContainsKey("title"),
-            "Title hint must be forwarded regardless of whether it is a placeholder");
-        Assert.Equal("Unknown", request.Hints["title"]);
+        var request = _identityJobRepo.CreatedJobs[0];
+        Assert.Equal(EntityType.MediaAsset.ToString(), request.EntityType);
 
         // The asset should exist in the database.
         var fileInLib = FindFileInTree(_libraryDir, "Unknown.epub");
@@ -1645,12 +1634,11 @@ public sealed class ComprehensiveIngestionTests : IDisposable
 
         await RunPipelineAsync();
 
-        // Harvest request should contain the ISBN as a hint.
-        Assert.Single(_hydrationPipeline.EnqueuedRequests);
-        var request = _hydrationPipeline.EnqueuedRequests[0];
-        Assert.True(request.Hints.ContainsKey("isbn"),
-            "ISBN hint must be forwarded to the hydration pipeline for bridge ID lookup");
-        Assert.Equal("9780553380163", request.Hints["isbn"]);
+        // An identity job should have been created for this asset.
+        Assert.Single(_identityJobRepo.CreatedJobs);
+        var request = _identityJobRepo.CreatedJobs[0];
+        Assert.Equal(EntityType.MediaAsset.ToString(), request.EntityType);
+        Assert.Equal(MediaType.Books.ToString(), request.MediaType);
 
         // The ISBN should also be persisted in metadata_claims for the asset.
         var fileInLib = FindFileInTree(_libraryDir, "ISBN Bridge Book.epub")

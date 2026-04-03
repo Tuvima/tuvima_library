@@ -19,6 +19,5 @@
   "language": "en",
   "country": "US",
   "date_format": "system",
-  "time_format": "system",
-  "identity_pipeline_v2_enabled": false
+  "time_format": "system"
 }

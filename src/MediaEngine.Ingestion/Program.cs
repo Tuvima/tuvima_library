@@ -198,7 +198,7 @@ var host = Host.CreateDefaultBuilder(args)
         // Required by IngestionEngine constructor — missing from the worker host
         // caused a DI crash at startup, preventing the FileSystemWatcher from ever
         // starting (which is why files in the watch folder were not picked up).
-        services.AddSingleton<IHydrationPipelineService, HydrationPipelineService>();
+        services.AddSingleton<IHydrationPipelineService, SynchronousIdentityPipelineService>();
         services.AddSingleton<IReviewQueueRepository, ReviewQueueRepository>();
 
         // ── Library scanner ─────────────────────────────────────

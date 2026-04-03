@@ -78,7 +78,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Phase 9: claim/canonical persistence + external metadata harvesting.
     private readonly IMetadataClaimRepository    _claimRepo;
     private readonly ICanonicalValueRepository   _canonicalRepo;
-    private readonly IHydrationPipelineService   _pipeline;
     private readonly IRecursiveIdentityService   _identity;
 
     // Hub → Work → Edition scaffold creation.
@@ -118,9 +117,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Ingestion batch tracking — creates batch records and emits BatchProgress events.
     private readonly IIngestionBatchRepository _batchRepo;
 
-    // Durable identity pipeline (v2) — creates identity_jobs rows instead of
-    // enqueuing in-memory HarvestRequest objects. Null when v2 is disabled.
-    private readonly IIdentityJobRepository? _identityJobRepo;
+    // Durable identity pipeline — creates identity_jobs rows for the three-stage
+    // retail-first identity pipeline (RetailMatchWorker → WikidataBridgeWorker → QuickHydrationWorker).
+    private readonly IIdentityJobRepository _identityJobRepo;
 
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
@@ -150,7 +149,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         ILogger<IngestionEngine>  logger,
         IMetadataClaimRepository   claimRepo,
         ICanonicalValueRepository  canonicalRepo,
-        IHydrationPipelineService  pipeline,
         IRecursiveIdentityService  identity,
         IMediaEntityChainFactory   chainFactory,
         IReviewQueueRepository     reviewRepo,
@@ -164,8 +162,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IEntityTimelineRepository  timelineRepo,
         ScoringConfiguration       scoringConfig,
         IIngestionBatchRepository  batchRepo,
-        ImagePathService?          imagePathService = null,
-        IIdentityJobRepository?    identityJobRepo = null)
+        IIdentityJobRepository     identityJobRepo,
+        ImagePathService?          imagePathService = null)
     {
         _watcher          = watcher;
         _debounce         = debounce;
@@ -181,7 +179,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _logger           = logger;
         _claimRepo        = claimRepo;
         _canonicalRepo    = canonicalRepo;
-        _pipeline         = pipeline;
         _identity         = identity;
         _chainFactory     = chainFactory;
         _reviewRepo       = reviewRepo;
@@ -1396,31 +1393,14 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
         // hydration pipeline resolves before the review item is even written, leaving a
         // stale review item in the queue for a file that was successfully organized.
-        if (_options.IdentityPipelineV2Enabled && _identityJobRepo is not null)
+        await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
         {
-            await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
-            {
-                EntityId       = assetId,
-                EntityType     = EntityType.MediaAsset.ToString(),
-                MediaType      = resolvedMediaType.ToString(),
-                IngestionRunId = ingestionRunId,
-                Pass           = "Quick",
-            }, ct).ConfigureAwait(false);
-        }
-        else
-        {
-            await _pipeline.EnqueueAsync(new HarvestRequest
-            {
-                EntityId            = assetId,
-                EntityType          = EntityType.MediaAsset,
-                MediaType           = resolvedMediaType,
-                Hints               = BuildHints(candidate.Metadata),
-                IngestionRunId      = ingestionRunId,
-                FolderHintBridgeIds = null,
-                HintedHubId         = null,
-                Pass                = HydrationPass.Quick,
-            }, ct).ConfigureAwait(false);
-        }
+            EntityId       = assetId,
+            EntityType     = EntityType.MediaAsset.ToString(),
+            MediaType      = resolvedMediaType.ToString(),
+            IngestionRunId = ingestionRunId,
+            Pass           = "Quick",
+        }, ct).ConfigureAwait(false);
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
@@ -2187,28 +2167,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 existing.ContentHash[..12], staged, subcategory);
 
             // Re-enqueue hydration so AutoOrganizeService can promote after enrichment.
-            if (_options.IdentityPipelineV2Enabled && _identityJobRepo is not null)
+            await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
             {
-                await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
-                {
-                    EntityId       = existing.Id,
-                    EntityType     = EntityType.MediaAsset.ToString(),
-                    MediaType      = (mediaType ?? MediaType.Unknown).ToString(),
-                    Pass           = "Quick",
-                }, ct).ConfigureAwait(false);
-            }
-            else
-            {
-                await _pipeline.EnqueueAsync(new HarvestRequest
-                {
-                    EntityId              = existing.Id,
-                    EntityType            = EntityType.MediaAsset,
-                    MediaType             = mediaType ?? MediaType.Unknown,
-                    Hints                 = BuildHints(metadata),
-                    SuppressActivityEntry = true,
-                    Pass                  = HydrationPass.Quick,
-                }, ct).ConfigureAwait(false);
-            }
+                EntityId       = existing.Id,
+                EntityType     = EntityType.MediaAsset.ToString(),
+                MediaType      = (mediaType ?? MediaType.Unknown).ToString(),
+                Pass           = "Quick",
+            }, ct).ConfigureAwait(false);
 
             if (isPlaceholder)
             {
@@ -2509,47 +2474,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 StringComparer.OrdinalIgnoreCase);
     }
 
-    /// <summary>
-    /// Builds a hint dictionary from the resolved canonical metadata for use
-    /// in a <see cref="HarvestRequest"/>.
-    /// </summary>
-    private static IReadOnlyDictionary<string, string> BuildHints(
-        IReadOnlyDictionary<string, string>? metadata)
-    {
-        if (metadata is null or { Count: 0 })
-            return new Dictionary<string, string>();
-
-        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        // Core metadata keys for title search and person enrichment.
-        // Bridge identifier keys that enable direct Wikidata lookup (Tier 1)
-        // and satisfy the HasSufficientMetadataForAuthorityMatch gate in the
-        // hydration pipeline.  Without these, audiobooks and other media
-        // lacking ISBN/ASIN fall through to the review queue unnecessarily.
-        foreach (var key in new[]
-        {
-            // Core
-            MetadataFieldConstants.Title, MetadataFieldConstants.Author, MetadataFieldConstants.Narrator,
-            MetadataFieldConstants.Year, MetadataFieldConstants.Series, MetadataFieldConstants.SeriesPosition,
-            // Media-specific fields for attribute-targeted provider search
-            MetadataFieldConstants.ShowName, MetadataFieldConstants.EpisodeTitle,
-            MetadataFieldConstants.Album, MetadataFieldConstants.Artist,
-            MetadataFieldConstants.SeasonNumber, MetadataFieldConstants.EpisodeNumber,
-            MetadataFieldConstants.TrackNumber, MetadataFieldConstants.DurationField,
-            MetadataFieldConstants.Composer, MetadataFieldConstants.Director,
-            MetadataFieldConstants.Genre, MetadataFieldConstants.PodcastName,
-            // Bridge identifiers
-            BridgeIdKeys.Asin, BridgeIdKeys.Isbn, BridgeIdKeys.TmdbId, BridgeIdKeys.ImdbId, BridgeIdKeys.GoodreadsId,
-            BridgeIdKeys.MusicBrainzId, BridgeIdKeys.AppleBooksId, "audible_asin", BridgeIdKeys.OpenLibraryId,
-            BridgeIdKeys.ComicVineId, "apple_podcasts_id",
-        })
-        {
-            if (metadata.TryGetValue(key, out var value) &&
-                !string.IsNullOrWhiteSpace(value))
-                hints[key] = value;
-        }
-        return hints;
-    }
 
     /// <summary>
     /// Extracts author and narrator person references from resolved metadata.

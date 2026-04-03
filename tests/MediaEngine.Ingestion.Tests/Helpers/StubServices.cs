@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using IdentityJob = MediaEngine.Domain.Entities.IdentityJob;
 using MediaEngine.Domain.Models;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -60,23 +61,46 @@ internal sealed class InlineBackgroundWorker : IBackgroundWorker
     public Task DrainAsync(CancellationToken ct = default) => Task.CompletedTask;
 }
 
-// ── Hydration Pipeline Stub ───────────────────────────────────────────────────
+// ── Identity Job Repository Stub ─────────────────────────────────────────────
 
-internal sealed class StubHydrationPipeline : IHydrationPipelineService
+internal sealed class StubIdentityJobRepository : IIdentityJobRepository
 {
-    public List<HarvestRequest> EnqueuedRequests { get; } = [];
-    public int PendingCount => 0;
+    public List<IdentityJob> CreatedJobs { get; } = [];
 
-    public ValueTask EnqueueAsync(HarvestRequest request, CancellationToken ct = default)
+    public Task CreateAsync(IdentityJob job, CancellationToken ct = default)
     {
-        EnqueuedRequests.Add(request);
-        return ValueTask.CompletedTask;
+        CreatedJobs.Add(job);
+        return Task.CompletedTask;
     }
 
-    public Task<HydrationResult> RunSynchronousAsync(HarvestRequest request, CancellationToken ct = default)
-        => Task.FromResult(new HydrationResult());
+    public Task<IdentityJob?> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
+        => Task.FromResult<IdentityJob?>(null);
 
-    public Task RunBatchBridgeResolutionAsync(Guid batchId, CancellationToken ct = default)
+    public Task<IdentityJob?> GetByIdAsync(Guid jobId, CancellationToken ct = default)
+        => Task.FromResult<IdentityJob?>(null);
+
+    public Task<IReadOnlyList<IdentityJob>> LeaseNextAsync(string workerName, IReadOnlyList<IdentityJobState> states, int batchSize, TimeSpan leaseDuration, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<IdentityJob>>([]);
+
+    public Task UpdateStateAsync(Guid jobId, IdentityJobState newState, string? error = null, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task SetResolvedQidAsync(Guid jobId, string qid, CancellationToken ct = default)
+        => Task.CompletedTask;
+
+    public Task<IReadOnlyList<IdentityJob>> GetStaleAsync(TimeSpan age, int limit, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<IdentityJob>>([]);
+
+    public Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyList<IdentityJob>>([]);
+
+    public Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
+
+    public Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default)
         => Task.CompletedTask;
 }
 

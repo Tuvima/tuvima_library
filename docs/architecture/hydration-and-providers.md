@@ -538,7 +538,7 @@ In Sequential mode, `PriorProviderBridgeIds` on `ProviderLookupRequest` carries 
 
 ## Durable Identity Pipeline (v2)
 
-> **Feature-flagged:** Set `"identity_pipeline_v2_enabled": true` in `config/core.json` to enable. When disabled, the legacy in-memory `BoundedChannel` path runs unchanged.
+> **Active:** The durable identity pipeline is the sole implementation. The legacy in-memory `BoundedChannel` monolith (`HydrationPipelineService`) has been removed. `SynchronousIdentityPipelineService` implements `IHydrationPipelineService` by delegating to the three pipeline workers inline.
 
 ### Architecture
 

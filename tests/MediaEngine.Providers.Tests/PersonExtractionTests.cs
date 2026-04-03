@@ -1,27 +1,20 @@
-using System.Reflection;
 using MediaEngine.Domain.Models;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
-using MediaEngine.Providers.Services;
 
 namespace MediaEngine.Providers.Tests;
 
 /// <summary>
-/// Tests for <c>HydrationPipelineService.ExtractPersonReferencesFromRawClaims</c>.
+/// Tests for <see cref="PersonReferenceExtractor.FromRawClaims"/>.
 /// Validates that multi-valued author / narrator / performer fields are
 /// preserved correctly and that the performer→Narrator role mapping works.
-/// Uses reflection to access the private static method.
 /// </summary>
 public sealed class PersonExtractionTests
 {
-    private static readonly MethodInfo ExtractMethod = typeof(HydrationPipelineService)
-        .GetMethod("ExtractPersonReferencesFromRawClaims", BindingFlags.NonPublic | BindingFlags.Static)
-        ?? throw new InvalidOperationException(
-               "ExtractPersonReferencesFromRawClaims method not found on HydrationPipelineService");
-
     private static IReadOnlyList<PersonReference> Extract(
         IReadOnlyList<ProviderClaim> claims,
         MediaEngine.Domain.Enums.MediaType mediaType = MediaEngine.Domain.Enums.MediaType.Unknown) =>
-        (IReadOnlyList<PersonReference>)ExtractMethod.Invoke(null, [claims, mediaType])!;
+        PersonReferenceExtractor.FromRawClaims(claims, mediaType);
 
     // ── Multiple authors ──────────────────────────────────────────────────────
 
