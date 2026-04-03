@@ -63,7 +63,7 @@
     <PackageVersion Include="MudBlazor" Version="9.0.0" />
     <!-- Tuvima.WikidataReconciliation: unified Wikidata/Wikipedia API client.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="Tuvima.WikidataReconciliation" Version="0.9.0" />
+    <PackageVersion Include="Tuvima.WikidataReconciliation" Version="0.10.0" />
     <PackageVersion Include="Tuvima.WikidataReconciliation.AspNetCore" Version="0.9.0" />
   </ItemGroup>
   <ItemGroup Label="Test">

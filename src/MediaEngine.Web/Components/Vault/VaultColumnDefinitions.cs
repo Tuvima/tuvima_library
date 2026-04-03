@@ -211,7 +211,8 @@ public static class VaultColumnDefinitions
         new() { Key = "show",    Label = "Show",     Width = "auto", Sortable = true, SortKey = "show",    RenderType = ColumnRenderType.Text, PropertyName = "ShowName" },
         new() { Key = "season",  Label = "Season",   Width = "80px", Sortable = true, SortKey = "season",  RenderType = ColumnRenderType.Text, PropertyName = "Season",  Align = "center" },
         new() { Key = "episode", Label = "Episode",  Width = "80px", Sortable = true, SortKey = "episode", RenderType = ColumnRenderType.Text, PropertyName = "Episode", Align = "center" },
-        new() { Key = "quality", Label = "Quality",  Width = "auto", Sortable = true, SortKey = "specs", RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
+        new() { Key = "quality",  Label = "Quality", Width = "auto", Sortable = true, SortKey = "specs",    RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
+        new() { Key = "network",  Label = "Network", Width = "auto", Sortable = true, SortKey = "network",  RenderType = ColumnRenderType.Text, PropertyName = "Network" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 

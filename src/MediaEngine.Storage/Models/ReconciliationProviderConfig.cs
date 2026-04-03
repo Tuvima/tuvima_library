@@ -19,6 +19,7 @@ public sealed class ReconciliationProviderConfig
     [JsonPropertyName("reconciliation")] public ReconciliationSettings Reconciliation { get; set; } = new();
     [JsonPropertyName("instance_of_classes")] public Dictionary<string, List<string>> InstanceOfClasses { get; set; } = new();
     [JsonPropertyName("exclude_classes")] public Dictionary<string, List<string>> ExcludeClasses { get; set; } = new();
+    [JsonPropertyName("child_entity_discovery")] public ChildEntityDiscoveryConfig ChildEntityDiscovery { get; set; } = new();
     [JsonPropertyName("data_extension")] public DataExtensionSettings DataExtension { get; set; } = new();
 }
 
@@ -55,4 +56,37 @@ public sealed class DataExtensionPropertyGroup
     [JsonPropertyName("editions")] public List<string> Editions { get; set; } = [];
     [JsonPropertyName("social")] public List<string> Social { get; set; } = [];
     [JsonPropertyName("pen_names")] public List<string> PenNames { get; set; } = [];
+}
+
+// ── Child entity discovery config ──────────────────────────────────────────
+
+public sealed class ChildEntityDiscoveryConfig
+{
+    [JsonPropertyName("TV")] public TvChildDiscoveryConfig Tv { get; set; } = new();
+    [JsonPropertyName("Music")] public MusicChildDiscoveryConfig Music { get; set; } = new();
+    [JsonPropertyName("Comics")] public ComicsChildDiscoveryConfig Comics { get; set; } = new();
+}
+
+public sealed class TvChildDiscoveryConfig
+{
+    [JsonPropertyName("season_property")] public string SeasonProperty { get; set; } = "P527";
+    [JsonPropertyName("season_type_filter")] public List<string> SeasonTypeFilter { get; set; } = [];
+    [JsonPropertyName("episode_property")] public string EpisodeProperty { get; set; } = "P527";
+    [JsonPropertyName("episode_type_filter")] public List<string> EpisodeTypeFilter { get; set; } = [];
+    [JsonPropertyName("episode_properties")] public List<string> EpisodeProperties { get; set; } = [];
+}
+
+public sealed class MusicChildDiscoveryConfig
+{
+    [JsonPropertyName("track_property")] public string TrackProperty { get; set; } = "P658";
+    [JsonPropertyName("track_property_fallback")] public string TrackPropertyFallback { get; set; } = "P527";
+    [JsonPropertyName("track_type_filter")] public List<string> TrackTypeFilter { get; set; } = [];
+    [JsonPropertyName("track_properties")] public List<string> TrackProperties { get; set; } = [];
+}
+
+public sealed class ComicsChildDiscoveryConfig
+{
+    [JsonPropertyName("issue_property")] public string IssueProperty { get; set; } = "^P179";
+    [JsonPropertyName("issue_type_filter")] public List<string> IssueTypeFilter { get; set; } = [];
+    [JsonPropertyName("issue_properties")] public List<string> IssueProperties { get; set; } = [];
 }

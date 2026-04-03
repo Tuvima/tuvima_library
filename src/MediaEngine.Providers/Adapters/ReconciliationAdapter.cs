@@ -296,7 +296,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         string query,
         Dictionary<string, string>? propertyConstraints = null,
         CancellationToken ct = default,
-        MediaType mediaType = MediaType.Unknown)
+        MediaType mediaType = MediaType.Unknown,
+        List<PropertyConstraint>? multiValueConstraints = null)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
             return [];
@@ -312,6 +313,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 typeQids = classes;
         }
 
+        // Build property constraints — multi-value constraints (v0.10.0 Values property)
+        // take precedence over single-value string pairs for the same property.
+        var allConstraints = new List<PropertyConstraint>();
+        if (multiValueConstraints is { Count: > 0 })
+            allConstraints.AddRange(multiValueConstraints);
+        if (propertyConstraints is not null)
+        {
+            var multiValuePIds = multiValueConstraints?.Select(c => c.PropertyId).ToHashSet() ?? [];
+            allConstraints.AddRange(
+                propertyConstraints
+                    .Where(kvp => !multiValuePIds.Contains(kvp.Key))
+                    .Select(kvp => new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }));
+        }
+
         var request = new ReconciliationRequest
         {
             Query = query,
@@ -321,8 +336,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             Cleaners = QueryCleaners.All(),
             Types = typeQids,
             TypeHierarchyDepth = 1,
-            Properties = propertyConstraints?.Select(kvp =>
-                new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
+            Properties = allConstraints.Count > 0 ? allConstraints : null
         };
 
         try
@@ -1454,7 +1468,28 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 return [];
             }
 
-            var candidates = await ReconcileAsync(searchTitle, null, ct, request.MediaType).ConfigureAwait(false);
+            // Build author property constraint for better reconciliation scoring.
+            // Multi-author files pass all authors via PropertyConstraint.Values for
+            // proportional matching (v0.10.0 feature).
+            Dictionary<string, string>? constraints = null;
+            List<PropertyConstraint>? multiValueConstraints = null;
+            if (!string.IsNullOrWhiteSpace(request.Author))
+            {
+                var authors = SplitAuthors(request.Author);
+                if (authors.Count > 1)
+                {
+                    multiValueConstraints =
+                    [
+                        new PropertyConstraint { PropertyId = "P50", Values = authors }
+                    ];
+                }
+                else
+                {
+                    constraints = new Dictionary<string, string> { ["P50"] = request.Author };
+                }
+            }
+
+            var candidates = await ReconcileAsync(searchTitle, constraints, ct, request.MediaType, multiValueConstraints).ConfigureAwait(false);
 
             if (candidates.Count == 0)
             {
@@ -2076,8 +2111,220 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
+        // ── Child entity discovery ────────────────────────────────────────────
+        // After Stage 2 resolves a QID for a TV show, music album, or comic series,
+        // discover child entities (episodes, tracks, issues) from Wikidata and store
+        // them as claims on the parent entity. This enables the Dashboard to show
+        // episode/track/issue listings without additional API calls.
+        if (_reconciler is not null
+            && request.MediaType is MediaType.TV or MediaType.Music or MediaType.Comics)
+        {
+            try
+            {
+                var language2 = _configLoader?.LoadCore().Language.Metadata ?? "en";
+                claims.AddRange(
+                    await DiscoverChildEntitiesAsync(masterWorkQid, request.MediaType, language2, ct)
+                        .ConfigureAwait(false));
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: child entity discovery failed for {QID} ({MediaType}) — skipping",
+                    Name, masterWorkQid, request.MediaType);
+            }
+        }
+
         return claims;
     }
+
+    // ── Private: DiscoverChildEntitiesAsync ──────────────────────────────────
+
+    private const int MaxChildEntities = 500;
+    private const int MaxTvSeasons     = 20;
+
+    /// <summary>
+    /// Discovers child entities (TV episodes, music tracks, comic issues) for a parent QID
+    /// and returns them as <see cref="ProviderClaim"/> entries. The count claims and a
+    /// serialized JSON blob are stored using the existing metadata_claims system.
+    /// Wrapped in try/catch by the caller — exceptions here never fail the main pipeline.
+    /// </summary>
+    private async Task<IReadOnlyList<ProviderClaim>> DiscoverChildEntitiesAsync(
+        string parentQid,
+        MediaType mediaType,
+        string language,
+        CancellationToken ct)
+    {
+        var claims = new List<ProviderClaim>();
+        var cfg    = _config.ChildEntityDiscovery;
+
+        switch (mediaType)
+        {
+            case MediaType.TV:
+            {
+                var tvCfg   = cfg.Tv;
+                var seasons = await _reconciler!.GetChildEntitiesAsync(
+                    parentQid,
+                    tvCfg.SeasonProperty,
+                    tvCfg.SeasonTypeFilter.Count > 0 ? tvCfg.SeasonTypeFilter : null,
+                    ["P1476", "P1545"],
+                    language,
+                    ct).ConfigureAwait(false);
+
+                if (seasons.Count == 0)
+                    return claims;
+
+                var seasonsCapped = seasons.Take(MaxTvSeasons).ToList();
+
+                // Fetch episodes for each season concurrently (capped).
+                var seasonResults = new List<(ChildEntityInfo Season, IReadOnlyList<ChildEntityInfo> Episodes)>();
+                var totalEpisodes = 0;
+
+                foreach (var season in seasonsCapped)
+                {
+                    if (totalEpisodes >= MaxChildEntities) break;
+
+                    var episodes = await _reconciler!.GetChildEntitiesAsync(
+                        season.EntityId,
+                        tvCfg.EpisodeProperty,
+                        tvCfg.EpisodeTypeFilter.Count > 0 ? tvCfg.EpisodeTypeFilter : null,
+                        tvCfg.EpisodeProperties.Count > 0 ? tvCfg.EpisodeProperties : ["P1476", "P1545", "P577", "P2047", "P57"],
+                        language,
+                        ct).ConfigureAwait(false);
+
+                    seasonResults.Add((season, episodes));
+                    totalEpisodes += episodes.Count;
+                }
+
+                // Build JSON blob.
+                var seasonNodes = new List<object>();
+                foreach (var (season, episodes) in seasonResults)
+                {
+                    var episodeNodes = episodes.Select(ep => new
+                    {
+                        qid          = ep.EntityId,
+                        title        = ep.Label,
+                        ordinal      = ep.Ordinal,
+                        air_date     = GetFirstStr(ep.Properties, "P577"),
+                        duration_minutes = ParseDurationMinutes(GetFirstStr(ep.Properties, "P2047")),
+                        director     = GetFirstLabel(ep.Properties, "P57"),
+                    }).ToList();
+
+                    seasonNodes.Add(new
+                    {
+                        qid     = season.EntityId,
+                        label   = season.Label,
+                        ordinal = season.Ordinal,
+                        episodes = episodeNodes,
+                    });
+                }
+
+                var jsonBlob = JsonSerializer.Serialize(new { seasons = seasonNodes });
+                claims.Add(new ProviderClaim(MetadataFieldConstants.SeasonCount,      seasonsCapped.Count.ToString(), ClaimConfidence.WikidataProperty));
+                claims.Add(new ProviderClaim(MetadataFieldConstants.EpisodeCount,     totalEpisodes.ToString(),       ClaimConfidence.WikidataProperty));
+                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob,                      ClaimConfidence.WikidataProperty));
+
+                _logger.LogInformation(
+                    "{Provider}: child entity discovery — TV {QID}: {SeasonCount} seasons, {EpisodeCount} episodes",
+                    Name, parentQid, seasonsCapped.Count, totalEpisodes);
+                break;
+            }
+
+            case MediaType.Music:
+            {
+                var musicCfg   = cfg.Music;
+                var trackProps = musicCfg.TrackProperties.Count > 0
+                    ? musicCfg.TrackProperties
+                    : ["P1476", "P1545", "P2047", "P175", "P577"];
+
+                // Try primary property first; fall back to secondary if no results.
+                var tracks = await _reconciler!.GetChildEntitiesAsync(
+                    parentQid,
+                    musicCfg.TrackProperty,
+                    musicCfg.TrackTypeFilter.Count > 0 ? musicCfg.TrackTypeFilter : null,
+                    trackProps,
+                    language,
+                    ct).ConfigureAwait(false);
+
+                if (tracks.Count == 0 && !string.IsNullOrEmpty(musicCfg.TrackPropertyFallback)
+                    && musicCfg.TrackPropertyFallback != musicCfg.TrackProperty)
+                {
+                    tracks = await _reconciler!.GetChildEntitiesAsync(
+                        parentQid,
+                        musicCfg.TrackPropertyFallback,
+                        musicCfg.TrackTypeFilter.Count > 0 ? musicCfg.TrackTypeFilter : null,
+                        trackProps,
+                        language,
+                        ct).ConfigureAwait(false);
+                }
+
+                if (tracks.Count == 0)
+                    return claims;
+
+                var tracksCapped = tracks.Take(MaxChildEntities).ToList();
+
+                var trackNodes = tracksCapped.Select(t => new
+                {
+                    qid              = t.EntityId,
+                    title            = t.Label,
+                    ordinal          = t.Ordinal,
+                    duration_minutes = ParseDurationMinutes(GetFirstStr(t.Properties, "P2047")),
+                    performer        = GetFirstLabel(t.Properties, "P175"),
+                    release_date     = GetFirstStr(t.Properties, "P577"),
+                }).ToList();
+
+                var jsonBlob = JsonSerializer.Serialize(new { tracks = trackNodes });
+                claims.Add(new ProviderClaim(MetadataFieldConstants.TrackCount,        tracksCapped.Count.ToString(), ClaimConfidence.WikidataProperty));
+                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob,                      ClaimConfidence.WikidataProperty));
+
+                _logger.LogInformation(
+                    "{Provider}: child entity discovery — Music {QID}: {TrackCount} tracks",
+                    Name, parentQid, tracksCapped.Count);
+                break;
+            }
+
+            case MediaType.Comics:
+            {
+                var comicsCfg   = cfg.Comics;
+                var issueProps  = comicsCfg.IssueProperties.Count > 0
+                    ? comicsCfg.IssueProperties
+                    : ["P1476", "P1545", "P577"];
+
+                var issues = await _reconciler!.GetChildEntitiesAsync(
+                    parentQid,
+                    comicsCfg.IssueProperty,
+                    comicsCfg.IssueTypeFilter.Count > 0 ? comicsCfg.IssueTypeFilter : null,
+                    issueProps,
+                    language,
+                    ct).ConfigureAwait(false);
+
+                if (issues.Count == 0)
+                    return claims;
+
+                var issuesCapped = issues.Take(MaxChildEntities).ToList();
+
+                var issueNodes = issuesCapped.Select(i => new
+                {
+                    qid              = i.EntityId,
+                    title            = i.Label,
+                    ordinal          = i.Ordinal,
+                    publication_date = GetFirstStr(i.Properties, "P577"),
+                }).ToList();
+
+                var jsonBlob = JsonSerializer.Serialize(new { issues = issueNodes });
+                claims.Add(new ProviderClaim(MetadataFieldConstants.IssueCount,        issuesCapped.Count.ToString(), ClaimConfidence.WikidataProperty));
+                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob,                      ClaimConfidence.WikidataProperty));
+
+                _logger.LogInformation(
+                    "{Provider}: child entity discovery — Comics {QID}: {IssueCount} issues",
+                    Name, parentQid, issuesCapped.Count);
+                break;
+            }
+        }
+
+        return claims;
+    }
+
+    // ── Private: FetchPersonAsync ─────────────────────────────────────────────
 
     private async Task<IReadOnlyList<ProviderClaim>> FetchPersonAsync(
         ProviderLookupRequest request,
@@ -2576,6 +2823,20 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     // ── Private: Extension helpers ────────────────────────────────────────────
+
+    /// <summary>
+    /// Converts a Wikidata P2047 duration value (seconds as string) to whole minutes.
+    /// Returns null when the value is missing or unparseable.
+    /// </summary>
+    private static int? ParseDurationMinutes(string? rawValue)
+    {
+        if (string.IsNullOrWhiteSpace(rawValue))
+            return null;
+        if (double.TryParse(rawValue, System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture, out var seconds))
+            return (int)Math.Round(seconds / 60.0);
+        return null;
+    }
 
     private static string? GetFirstLabel(
         IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> properties,

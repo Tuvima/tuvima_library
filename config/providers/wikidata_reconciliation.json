@@ -40,6 +40,26 @@
     "Comics": ["Q196600", "Q1259759", "Q7889", "Q11424", "Q5398426", "Q15416", "Q482994", "Q105543609"],
     "Podcasts": ["Q196600", "Q1259759", "Q7889", "Q11424", "Q7725634", "Q571"]
   },
+  "child_entity_discovery": {
+    "TV": {
+      "season_property": "P527",
+      "season_type_filter": ["Q3464665"],
+      "episode_property": "P527",
+      "episode_type_filter": ["Q21191270"],
+      "episode_properties": ["P1476", "P1545", "P577", "P2047", "P57"]
+    },
+    "Music": {
+      "track_property": "P658",
+      "track_property_fallback": "P527",
+      "track_type_filter": [],
+      "track_properties": ["P1476", "P1545", "P2047", "P175", "P577"]
+    },
+    "Comics": {
+      "issue_property": "^P179",
+      "issue_type_filter": ["Q14406742", "Q838795"],
+      "issue_properties": ["P1476", "P1545", "P577"]
+    }
+  },
   "data_extension": {
     "work_properties": {
       "core": ["P31", "P50", "P57", "P58", "P86", "P110", "P161", "P175", "P577", "P1476", "P136", "P179", "P1545", "P449"],

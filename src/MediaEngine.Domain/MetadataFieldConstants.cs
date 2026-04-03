@@ -53,6 +53,13 @@ public static class MetadataFieldConstants
     public const string PodcastName     = "podcast_name";
     public const string Network         = "network";
 
+    // ── Child entity discovery claims ────────────────────────────────────────
+    public const string SeasonCount       = "season_count";
+    public const string EpisodeCount      = "episode_count";
+    public const string TrackCount        = "track_count";
+    public const string IssueCount        = "issue_count";
+    public const string ChildEntitiesJson = "child_entities_json";
+
     // ── Multi-valued claim keys also used in claim creation ──────────────────
     public const string Narrator        = "narrator";
     public const string Director        = "director";
