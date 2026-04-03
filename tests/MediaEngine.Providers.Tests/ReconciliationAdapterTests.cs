@@ -7,7 +7,7 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Models;
-using Tuvima.WikidataReconciliation;
+using Tuvima.Wikidata;
 using Xunit.Abstractions;
 
 namespace MediaEngine.Providers.Tests;

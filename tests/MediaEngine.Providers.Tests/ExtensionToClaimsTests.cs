@@ -1,7 +1,7 @@
 using System.Reflection;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
-using Tuvima.WikidataReconciliation;
+using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Tests;
 

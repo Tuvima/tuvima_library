@@ -16,7 +16,9 @@ public sealed record RegistryQuery(
     /// <summary>Sort order: "newest" (default), "oldest", "confidence".</summary>
     string? Sort = null,
     /// <summary>When set, only return items first ingested within this many days.</summary>
-    int? MaxDays = null);
+    int? MaxDays = null,
+    /// <summary>When true, includes staging items and all statuses (for diagnostics/testing).</summary>
+    bool IncludeAll = false);
 
 /// <summary>A single item in the registry listing.</summary>
 public sealed record RegistryItem

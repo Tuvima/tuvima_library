@@ -96,7 +96,7 @@ dotnet build
 
 The build must produce **0 errors and 0 warnings**. If warnings appear, treat them as errors â€” the CI pipeline enforces this. Investigate and fix before proceeding.
 
-If you see `NU1101` package restore errors, check your NuGet source configuration. The `Tuvima.WikidataReconciliation` package is published to the project's private NuGet feed; ensure your `NuGet.Config` points to it.
+If you see `NU1101` package restore errors, check your NuGet source configuration. The `Tuvima.Wikidata` package is published to the project's private NuGet feed; ensure your `NuGet.Config` points to it.
 
 ---
 

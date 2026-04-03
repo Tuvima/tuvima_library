@@ -1,9 +1,9 @@
 namespace MediaEngine.Domain.Contracts;
 
 /// <summary>
-/// Local in-memory SPARQL query service for the universe graph.
-/// Loads fictional entities and relationships from SQLite into a dotNetRDF
-/// in-memory graph. Queries run locally with zero network calls.
+/// Local in-memory graph query service for the universe graph.
+/// Loads fictional entities and relationships from SQLite into an EntityGraph.
+/// Queries run locally with zero network calls.
 /// </summary>
 public interface IUniverseGraphQueryService
 {

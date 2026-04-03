@@ -74,8 +74,10 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         }
 
         // ── Author score ─────────────────────────────────────────────────
-        double authorScore = 0.0; // Penalised when missing
-        var fileAuthor = fileHints.GetValueOrDefault("author");
+        double authorScore = 0.0;
+        // For music files, "artist" is the primary creator field, not "author".
+        var fileAuthor = fileHints.GetValueOrDefault("author")
+            ?? fileHints.GetValueOrDefault("artist");
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
             // First try a full-string comparison (handles single-author and matching order).
@@ -121,6 +123,14 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
                         authorScore = splitScore;
                 }
             }
+        }
+        else if (string.IsNullOrWhiteSpace(candidateAuthor))
+        {
+            // Provider didn't return author data — use neutral score so the 35%
+            // author weight doesn't tank the composite. This is common for providers
+            // like Metron (comics) where search results omit credits, and for music
+            // providers returning results without artist info.
+            authorScore = 0.5;
         }
 
         // ── Year score ───────────────────────────────────────────────────

@@ -748,16 +748,17 @@ public static class IntegrationTestEndpoints
         }
 
         // Phase 2: Wait for hydration (review queue + QID resolution) to complete.
-        // Track two counts: total works (all ingested) and "resolved" works (have QID, review entry,
-        // or curator_state). Hydration is done when resolved == total and stable for 3 polls.
-        // Also track metadata_claims growth — if claims are still being added, hydration is active.
+        // Track three metrics: total works, "resolved" works (QID/review/curator_state),
+        // and metadata_claims count. Hydration is done when ALL works are resolved and
+        // claims have stopped growing. The key insight: items still in Registered or
+        // AwaitingStage2 state haven't finished hydration — we must wait for them too.
         int lastVisibleCount = 0;
         int lastClaimCount = 0;
         int hydrationStable = 0;
         while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
         {
             await Task.Delay(5000, ct);
-            int totalWorks, visibleCount, claimCount;
+            int totalWorks, visibleCount, claimCount, pendingCount;
             using (var conn = db.CreateConnection())
             {
                 totalWorks = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM works;");
@@ -769,6 +770,15 @@ public static class IntegrationTestEndpoints
                     WHERE w.wikidata_qid IS NOT NULL OR rq.id IS NOT NULL OR w.curator_state IS NOT NULL
                     """);
                 claimCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM metadata_claims;");
+                // Count works that haven't finished hydration: no QID, no review entry, no curator_state.
+                // These are still in Registered or AwaitingStage2 — hydration hasn't completed for them.
+                pendingCount = conn.ExecuteScalar<int>("""
+                    SELECT COUNT(DISTINCT w.id) FROM works w
+                    LEFT JOIN editions e ON e.work_id = w.id
+                    LEFT JOIN media_assets ma ON ma.edition_id = e.id
+                    LEFT JOIN review_queue rq ON rq.entity_id = ma.id AND rq.status = 'Pending'
+                    WHERE w.wikidata_qid IS NULL AND rq.id IS NULL AND w.curator_state IS NULL
+                    """);
             }
 
             bool countsStable = visibleCount == lastVisibleCount && claimCount == lastClaimCount;
@@ -777,12 +787,14 @@ public static class IntegrationTestEndpoints
             lastVisibleCount = visibleCount;
             lastClaimCount = claimCount;
 
-            logger.LogInformation("  Hydration: {Visible}/{Total} works resolved, {Claims} claims, stable={Stable}/8",
-                visibleCount, totalWorks, claimCount, hydrationStable);
-            // All works resolved and stable
-            if (visibleCount >= totalWorks && totalWorks > 0 && hydrationStable >= 3) return true;
-            // Claims still growing means hydration is active — wait longer
-            if (visibleCount > 0 && hydrationStable >= 8) return true;
+            logger.LogInformation("  Hydration: {Visible}/{Total} works resolved, {Pending} pending, {Claims} claims, stable={Stable}/8",
+                visibleCount, totalWorks, pendingCount, claimCount, hydrationStable);
+            // All works resolved (none pending) and stable
+            if (visibleCount >= totalWorks && totalWorks > 0 && pendingCount == 0 && hydrationStable >= 3) return true;
+            // No pending items and claims stable for extended period
+            if (pendingCount == 0 && visibleCount > 0 && hydrationStable >= 5) return true;
+            // Fallback: claims completely stable for very long period (some items may never resolve)
+            if (visibleCount > 0 && hydrationStable >= 12) return true;
         }
 
         return lastVisibleCount > 0;
@@ -797,7 +809,7 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         // Get all items
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500), ct);
+        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         report.TotalItems = allItems.TotalCount;
 
         logger.LogInformation("  Total items in registry: {Count}", allItems.TotalCount);
@@ -955,7 +967,7 @@ public static class IntegrationTestEndpoints
         ILogger logger,
         CancellationToken ct)
     {
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500), ct);
+        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
 
         foreach (var item in allItems.Items)
         {
@@ -1013,6 +1025,46 @@ public static class IntegrationTestEndpoints
         int passCount = report.VaultChecks.Count(v => v.Pass);
         logger.LogInformation("  Vault checks: {Pass}/{Total} items pass core validation",
             passCount, report.VaultChecks.Count);
+
+        // ── Child entity validation (TV episodes, Music tracks) ──────────
+        foreach (var item in allItems.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.WikidataQid)) continue;
+
+            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            if (detail is null) continue;
+
+            var canonMap = detail.CanonicalValues.ToDictionary(cv => cv.Key, cv => cv.Value, StringComparer.OrdinalIgnoreCase);
+
+            if (item.MediaType.Equals("TV", StringComparison.OrdinalIgnoreCase))
+            {
+                var hasSeasonsStr = canonMap.GetValueOrDefault("season_count");
+                var hasEpisodesStr = canonMap.GetValueOrDefault("episode_count");
+                var hasChildren = canonMap.GetValueOrDefault("child_entities_json");
+                int.TryParse(hasSeasonsStr, out var seasonCount);
+                int.TryParse(hasEpisodesStr, out var episodeCount);
+
+                if (seasonCount == 0)
+                    report.IssuesFound.Add($"Child entities: TV '{item.Title}' has no season_count");
+                if (episodeCount == 0)
+                    logger.LogWarning("  Child entities: TV '{Title}' has no episode_count", item.Title);
+                if (string.IsNullOrWhiteSpace(hasChildren))
+                    report.IssuesFound.Add($"Child entities: TV '{item.Title}' has no child_entities_json");
+                else
+                    logger.LogInformation("  Child entities: TV '{Title}' — {Seasons} seasons, {Episodes} episodes",
+                        item.Title, seasonCount, episodeCount);
+            }
+            else if (item.MediaType.Equals("Music", StringComparison.OrdinalIgnoreCase))
+            {
+                var hasTracksStr = canonMap.GetValueOrDefault("track_count");
+                var hasChildren = canonMap.GetValueOrDefault("child_entities_json");
+                int.TryParse(hasTracksStr, out var trackCount);
+
+                if (!string.IsNullOrWhiteSpace(hasChildren))
+                    logger.LogInformation("  Child entities: Music '{Title}' — {Tracks} tracks",
+                        item.Title, trackCount);
+            }
+        }
     }
 
     // ── Stage gating validation ──────────────────────────────────────────
@@ -1024,7 +1076,7 @@ public static class IntegrationTestEndpoints
         ILogger logger,
         CancellationToken ct)
     {
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500), ct);
+        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
 
         if (stages == 1)
         {
@@ -1192,7 +1244,7 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         // Check if items that should form universes got QIDs (prerequisite for universe formation)
-        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500), ct);
+        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
 
         // Look for Tolkien universe items (The Hobbit + Fellowship of the Ring)
         var tolkienItems = allItems.Items.Where(i =>

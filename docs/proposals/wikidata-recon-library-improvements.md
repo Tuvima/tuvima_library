@@ -1,6 +1,6 @@
-# Tuvima.WikidataReconciliation Library — Improvement Proposals
+# Tuvima.Wikidata Library — Improvement Proposals
 
-**Version:** v0.10.0 target
+**Version:** v1.0.0 target
 **Date:** 2026-04-02
 **Status:** Proposal — awaiting implementation
 
@@ -8,7 +8,7 @@
 
 ## Overview
 
-Three improvements to the `Tuvima.WikidataReconciliation` library that address gaps discovered during real-world usage. Each improvement is designed generically — they benefit any consumer of the library, not just the Tuvima Library product.
+Three improvements to the `Tuvima.Wikidata` library that address gaps discovered during real-world usage. Each improvement is designed generically — they benefit any consumer of the library, not just the Tuvima Library product.
 
 ---
 

@@ -60,6 +60,9 @@ public sealed class ProviderLookupRequest
     /// <summary>Track number for music, e.g. <c>"3"</c>.</summary>
     public string? TrackNumber { get; init; }
 
+    /// <summary>Series name for comics, e.g. <c>"Batman"</c>. Used for Metron series_name search.</summary>
+    public string? Series { get; init; }
+
     /// <summary>Genre hint, e.g. <c>"Science Fiction"</c>. Used for Apple genreIndex search.</summary>
     public string? Genre { get; init; }
 

@@ -921,6 +921,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{season_number}", request.SeasonNumber, encode: true);
         url = ReplacePlaceholder(url, "{episode_number}", request.EpisodeNumber, encode: true);
         url = ReplacePlaceholder(url, "{track_number}", request.TrackNumber, encode: true);
+        url = ReplacePlaceholder(url, "{series}", request.Series, encode: true);
         url = ReplacePlaceholder(url, "{genre}", request.Genre, encode: true);
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
         url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
@@ -1034,7 +1035,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             // word-overlap scoring isn't penalised by filename-derived suffixes.
             var cleanedQueryTitle = CleanTitleForSearch(queryTitle) ?? queryTitle;
 
-            var titlePaths  = new[] { "trackName", "collectionName", "title", "name", "issue", "series", "volumeName" };
+            var titlePaths  = new[] { "trackName", "collectionName", "title", "name", "issue", "series.name", "series", "volumeName" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
             var scored = new List<(JsonNode Node, double TitleScore, double AuthorScore)>();
@@ -1480,6 +1481,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             "title" => request.Title,
             "author" => request.Author,
             "narrator" => request.Narrator,
+            "series" => request.Series,
             BridgeIdKeys.Isbn => request.Isbn,
             BridgeIdKeys.Asin => request.Asin,
             BridgeIdKeys.AppleBooksId => request.AppleBooksId,

@@ -22,7 +22,7 @@ Wikidata is the sole identity authority. Every media item is identified by its W
 
 All providers divide cleanly into two categories:
 
-**Wikidata + Wikipedia** â€” the sole sources for canonical structured data: titles, authors, series relationships, franchise links, fictional entities, person biographies, and all bridge identifiers. The Wikidata Reconciliation client (`Tuvima.WikidataReconciliation`) handles QID resolution via the OpenRefine Reconciliation API, property fetching via the Data Extension API, and Wikipedia summaries via `GetWikipediaSummariesAsync`.
+**Wikidata + Wikipedia** â€” the sole sources for canonical structured data: titles, authors, series relationships, franchise links, fictional entities, person biographies, and all bridge identifiers. The Wikidata Reconciliation client (`Tuvima.Wikidata`) handles QID resolution via the OpenRefine Reconciliation API, property fetching via the Data Extension API, and Wikipedia summaries via `GetWikipediaSummariesAsync`.
 
 **Retail providers** â€” exist solely to supply matching data that aids identity resolution, plus media assets that Wikidata cannot host. Their output is never treated as canonical structured data. Retail providers contribute:
 - Cover art and promotional imagery (copyright-safe sources that Wikimedia cannot host)
@@ -76,7 +76,7 @@ field_mappings        JSON path extraction rules with named transforms, confiden
 
 **Media-type scoping on strategies and field mappings:** A single provider config can serve multiple media types. Individual `search_strategies` and `field_mappings` entries carry an optional `media_types` array. When a request includes a media type, only matching entries are used. Entries with no `media_types` array are universal. `MediaType.Unknown` acts as a wildcard.
 
-**ReconciliationAdapter** uses the `Tuvima.WikidataReconciliation` NuGet package. Its configuration lives in `config/providers/wikidata_reconciliation.json` (provider scoring config: weight, field weights, throttle, enabled) and `config/universe/wikidata.json` (knowledge model: property map, bridge lookup order, value transforms, instance_of class mappings, scope exclusions).
+**ReconciliationAdapter** uses the `Tuvima.Wikidata` NuGet package. Its configuration lives in `config/providers/wikidata_reconciliation.json` (provider scoring config: weight, field weights, throttle, enabled) and `config/universe/wikidata.json` (knowledge model: property map, bridge lookup order, value transforms, instance_of class mappings, scope exclusions).
 
 **ValueTransformRegistry** provides named transform functions applied to raw API values: `to_string`, `strip_html`, `url_template`, `regex_replace`, `prefer_isbn13`, `array_join`, `array_nested_join`, `first_n_chars`, `fallback_key`, `title_case`. Transform assignment lives in config; transform implementations live in code.
 

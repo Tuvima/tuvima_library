@@ -10,7 +10,6 @@
     <!-- Dapper: micro-ORM for type-safe SQLite data access with named column mapping.
          Apache 2.0 license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageVersion Include="Dapper" Version="2.1.66" />
-    <PackageVersion Include="dotNetRdf" Version="3.5.1" />
     <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="10.0.3" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.3" />
@@ -61,10 +60,10 @@
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
     <!-- UI -->
     <PackageVersion Include="MudBlazor" Version="9.0.0" />
-    <!-- Tuvima.WikidataReconciliation: unified Wikidata/Wikipedia API client.
+    <!-- Tuvima.Wikidata: unified Wikidata/Wikipedia API client and in-memory graph engine.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="Tuvima.WikidataReconciliation" Version="0.10.0" />
-    <PackageVersion Include="Tuvima.WikidataReconciliation.AspNetCore" Version="0.9.0" />
+    <PackageVersion Include="Tuvima.Wikidata" Version="1.0.0" />
+    <PackageVersion Include="Tuvima.Wikidata.AspNetCore" Version="1.0.0" />
   </ItemGroup>
   <ItemGroup Label="Test">
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />

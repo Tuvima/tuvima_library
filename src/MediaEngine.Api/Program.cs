@@ -33,7 +33,7 @@ using Microsoft.Extensions.Http.Resilience;
 using Serilog;
 using MediaEngine.Api.DevSupport;
 using MediaEngine.Api.Services.HealthChecks;
-using Tuvima.WikidataReconciliation.AspNetCore;
+using Tuvima.Wikidata.AspNetCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 ConfigurationManager config  = builder.Configuration;
@@ -528,10 +528,10 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
 // ── WikidataReconciler — unified Wikidata/Wikipedia API client ────────────────
 // Provides reconciliation, entity fetching, property extraction, Wikipedia summaries,
 // and image URLs — all with built-in maxlag, retry, and concurrency control.
-// MIT license — Tuvima.WikidataReconciliation NuGet package.
+// MIT license — Tuvima.Wikidata NuGet package.
 {
     var coreConfig = configLoader.LoadCore();
-    var reconcilerOptions = new Tuvima.WikidataReconciliation.WikidataReconcilerOptions
+    var reconcilerOptions = new Tuvima.Wikidata.WikidataReconcilerOptions
     {
         UserAgent = "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)",
         Language  = coreConfig.Language.Metadata,
@@ -585,7 +585,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     {
         var httpClient = sp.GetRequiredService<IHttpClientFactory>()
             .CreateClient("WikidataReconciliation");
-        return new Tuvima.WikidataReconciliation.WikidataReconciler(httpClient, reconcilerOptions);
+        return new Tuvima.Wikidata.WikidataReconciler(httpClient, reconcilerOptions);
     });
 }
 
@@ -605,7 +605,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
                 sp.GetRequiredService<IFuzzyMatchingService>(),
                 sp.GetRequiredService<IProviderResponseCacheRepository>(),
                 sp.GetRequiredService<IConfigurationLoader>(),
-                sp.GetService<Tuvima.WikidataReconciliation.WikidataReconciler>()));
+                sp.GetService<Tuvima.Wikidata.WikidataReconciler>()));
         builder.Services.AddSingleton<IExternalMetadataProvider>(
             sp => sp.GetRequiredService<ReconciliationAdapter>());
     }

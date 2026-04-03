@@ -15,7 +15,7 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
-using Tuvima.WikidataReconciliation;
+using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Services;
 
@@ -1359,17 +1359,10 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             .ToList();
         var bridgeHints = ExtractBridgeHints(canonicalsForS2, request.MediaType, stage2ProviderConfigs);
 
-        // Update title hint with canonical value from Stage 1 (the retail match
-        // title is typically shorter/cleaner than the embedded P1476 formal title,
-        // e.g. "Frankenstein" rather than "Frankenstein; or, The Modern Prometheus").
-        // Use direct assignment so the canonical title overrides any embedded title
-        // already in bridgeHints or the original request hints.
-        var canonicalTitle = canonicalsForS2
-            .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase));
-        if (canonicalTitle is not null && !string.IsNullOrWhiteSpace(canonicalTitle.Value))
-        {
-            bridgeHints[MetadataFieldConstants.Title] = canonicalTitle.Value;
-        }
+        // Note: title is NOT added to bridgeHints — it is not a bridge ID.
+        // P1476 (title) is a text property that cannot be used with haswbstatement
+        // lookups. Title is passed to ReconciliationAdapter via the _title sentinel
+        // key for text reconciliation fallback only (see lines below).
 
         // ── Bridge ID fallback from raw claims ────────────────────────────────
         // If Stage 1 failed or hasn't deposited canonical values yet, the
@@ -4290,6 +4283,7 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             SeasonNumber          = h.GetValueOrDefault(MetadataFieldConstants.SeasonNumber),
             EpisodeNumber         = h.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber),
             TrackNumber           = h.GetValueOrDefault(MetadataFieldConstants.TrackNumber),
+            Series                = h.GetValueOrDefault(MetadataFieldConstants.Series),
             Genre                 = h.GetValueOrDefault(MetadataFieldConstants.Genre),
             Asin                  = h.GetValueOrDefault(BridgeIdKeys.Asin),
             Isbn                  = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),

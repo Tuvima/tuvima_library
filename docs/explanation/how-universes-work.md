@@ -123,7 +123,7 @@ The Universe Graph tracks:
 
 This graph powers features beyond simple browsing. It's what enables "which actor played this character in which adaptation?" It's what connects a podcast episode discussing a fictional faction to the novel that introduced that faction. It's the infrastructure for the Chronicle Explorer â€” the visual graph at `/universe/{QID}/explore` where you can navigate these relationships interactively.
 
-For now, Universe Graph data comes from Wikidata properties. The local dotNetRDF library handles in-memory SPARQL queries over this data so you can ask relationship questions without a network connection.
+For now, Universe Graph data comes from Wikidata properties. The Tuvima.Wikidata.Graph module handles in-memory graph queries over this data so you can ask relationship questions without a network connection.
 
 ---
 

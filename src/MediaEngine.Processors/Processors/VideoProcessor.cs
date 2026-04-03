@@ -169,6 +169,10 @@ public sealed class VideoProcessor : IMediaProcessor
     // Matched BEFORE title extraction so the series title (text before the
     // pattern) can be used as a cleaner title claim.
 
+    /// <summary>Trailing year in parentheses — e.g. "Blade Runner 2049 (2017)".</summary>
+    private static readonly Regex TrailingYearRegex = new(
+        @"\s*\((\d{4})\)\s*$", RegexOptions.Compiled);
+
     /// <summary>S01E01, S01E01E02 (multi-episode), case-insensitive.</summary>
     private static readonly Regex SxxExxRegex = new(
         @"^(?<series>.+?)\s*[.\-_ ]*[Ss](?<season>\d{1,2})\s*[Ee](?<ep1>\d{1,4})(?:\s*[Ee](?<ep2>\d{1,4}))?",
@@ -217,7 +221,26 @@ public sealed class VideoProcessor : IMediaProcessor
             }
             else if (!string.IsNullOrWhiteSpace(basicTitle))
             {
-                claims.Add(Claim("title", basicTitle, 0.50));
+                // Strip trailing year "(YYYY)" common in movie filenames and emit
+                // it as a separate year claim for cleaner provider search queries.
+                var yearMatch = TrailingYearRegex.Match(basicTitle);
+                if (yearMatch.Success)
+                {
+                    var cleanTitle = basicTitle[..yearMatch.Index].TrimEnd();
+                    if (!string.IsNullOrWhiteSpace(cleanTitle))
+                    {
+                        claims.Add(Claim("title", cleanTitle, 0.50));
+                        claims.Add(Claim("year", yearMatch.Groups[1].Value, 0.50));
+                    }
+                    else
+                    {
+                        claims.Add(Claim("title", basicTitle, 0.50));
+                    }
+                }
+                else
+                {
+                    claims.Add(Claim("title", basicTitle, 0.50));
+                }
             }
         }
 

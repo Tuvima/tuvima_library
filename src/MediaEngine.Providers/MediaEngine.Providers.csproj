@@ -10,14 +10,13 @@
       IHttpClientFactory-based named HTTP clients for all three zero-key adapters.
       MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1).
     -->
-    <PackageReference Include="dotNetRdf" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <!-- SkiaSharp: image decoding and resizing for thumbnail generation. MIT license. -->
     <PackageReference Include="SkiaSharp" />
     <PackageReference Include="SkiaSharp.NativeAssets.Linux" />
-    <!-- Tuvima.WikidataReconciliation: unified Wikidata/Wikipedia API client.
+    <!-- Tuvima.Wikidata: unified Wikidata/Wikipedia API client and in-memory graph engine.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageReference Include="Tuvima.WikidataReconciliation" />
+    <PackageReference Include="Tuvima.Wikidata" />
   </ItemGroup>
 
   <ItemGroup>

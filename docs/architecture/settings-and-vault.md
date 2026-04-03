@@ -276,7 +276,7 @@ Tracks whether the physical file's embedded metadata is up to date with what the
 
 **Sync writeback** is enabled by default (configurable in Settings > Preferences). When enabled, the engine automatically writes enriched metadata (title, author, cover art, series, description) back to the file's embedded tags after each pipeline run.
 
-**30-day refresh cycle:** Each item tracks `last_enrichment_date`. A scheduled background job identifies items past the 30-day mark and re-runs the pipeline to check for updated data from retail providers and Wikidata. Uses the Tuvima.WikidataReconciliation package's refresh capabilities. If anything changed, the file is re-synced automatically.
+**30-day refresh cycle:** Each item tracks `last_enrichment_date`. A scheduled background job identifies items past the 30-day mark and re-runs the pipeline to check for updated data from retail providers and Wikidata. Uses the Tuvima.Wikidata package's refresh capabilities. If anything changed, the file is re-synced automatically.
 
 For provisional items: Sync Now writes the provisional metadata to the file tags. The file becomes the carrier of the user's corrections.
 
@@ -456,7 +456,7 @@ All five asset types available (Cover Art, Headshot, Banner, Logo, Backdrop). He
 
 #### Action Bar
 
-None. The People detail drawer is purely informational â€” no manual actions. Person enrichment is handled by the same 30-day refresh cycle as media (via Tuvima.WikidataReconciliation). Person records are automatically cleaned up when all their associated media is removed from the library.
+None. The People detail drawer is purely informational â€” no manual actions. Person enrichment is handled by the same 30-day refresh cycle as media (via Tuvima.Wikidata). Person records are automatically cleaned up when all their associated media is removed from the library.
 
 ---
 

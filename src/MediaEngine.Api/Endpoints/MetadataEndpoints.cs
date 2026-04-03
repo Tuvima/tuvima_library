@@ -1101,7 +1101,7 @@ public static class MetadataEndpoints
 
         group.MapGet("/{qid}/aliases", async (
             string qid,
-            Tuvima.WikidataReconciliation.WikidataReconciler? reconciler,
+            Tuvima.Wikidata.WikidataReconciler? reconciler,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(qid) || !qid.StartsWith("Q", StringComparison.OrdinalIgnoreCase))

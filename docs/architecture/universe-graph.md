@@ -16,7 +16,7 @@ tags:
 
 The Universe Graph connects fictional characters, locations, organizations, and events across all media in the Library. When a book, film, audiobook, and comic all belong to the same creative universe, the graph captures the relationships that bind them â€” characters who are siblings, locations that exist within other locations, actors who played specific roles across adaptations.
 
-The graph is populated automatically during hydration using Wikidata as the data source. It is stored in SQLite and loaded into an in-memory dotNetRDF graph for SPARQL queries and pathfinding.
+The graph is populated automatically during hydration using Wikidata as the data source. It is stored in SQLite and loaded into an in-memory EntityGraph for graph queries and pathfinding.
 
 ---
 
@@ -88,9 +88,9 @@ Actor-to-character links are stored separately in `character_performer_links` (p
 
 ---
 
-## dotNetRDF In-Memory Graph
+## EntityGraph In-Memory Graph
 
-The `UniverseGraphQueryService` loads entities and relationships from SQLite into a dotNetRDF in-memory SPARQL graph. The graph is lazy-loaded per universe and cached â€” it is not rebuilt on every query.
+The `UniverseGraphQueryService` loads entities and relationships from SQLite into a Tuvima.Wikidata.Graph in-memory graph. The graph is lazy-loaded per universe and cached â€” it is not rebuilt on every query.
 
 Capabilities served from the in-memory graph:
 

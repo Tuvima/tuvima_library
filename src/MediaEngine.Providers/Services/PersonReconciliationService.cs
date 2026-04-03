@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
-using Tuvima.WikidataReconciliation;
+using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Services;
 

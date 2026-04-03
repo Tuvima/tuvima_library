@@ -66,8 +66,19 @@
       "media_types": ["Comics"]
     },
     {
-      "name": "issue_search",
+      "name": "issue_by_series",
       "priority": 1,
+      "required_fields": ["series"],
+      "url_template": "{base_url}/issue/?series_name={series}&limit={limit}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "fetch_limit": 5,
+      "max_results": 10
+    },
+    {
+      "name": "issue_by_title",
+      "priority": 2,
       "required_fields": ["title"],
       "url_template": "{base_url}/issue/?series_name={title}&limit={limit}",
       "results_path": "results",
@@ -78,7 +89,7 @@
     },
     {
       "name": "series_search",
-      "priority": 2,
+      "priority": 3,
       "required_fields": ["title"],
       "url_template": "{base_url}/series/?name={title}&limit={limit}",
       "results_path": "results",

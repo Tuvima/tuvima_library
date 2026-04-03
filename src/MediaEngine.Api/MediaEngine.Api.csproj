@@ -17,9 +17,9 @@
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
     <!-- Windows Service: integrates with SCM when running as installed service. No-op elsewhere. -->
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
-    <!-- Tuvima.WikidataReconciliation.AspNetCore: DI registration extension for WikidataReconciler.
+    <!-- Tuvima.Wikidata.AspNetCore: DI registration extension for WikidataReconciler.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageReference Include="Tuvima.WikidataReconciliation.AspNetCore" />
+    <PackageReference Include="Tuvima.Wikidata.AspNetCore" />
   </ItemGroup>
 
   <ItemGroup>

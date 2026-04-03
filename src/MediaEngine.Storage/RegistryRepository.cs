@@ -33,6 +33,18 @@ public sealed class RegistryRepository : IRegistryRepository
         var wikidataId       = WellKnownProviders.Wikidata.ToString();
         var localProcessorId = WellKnownProviders.LocalProcessor.ToString();
         var libraryScanId    = WellKnownProviders.LibraryScanner.ToString();
+        var stagingFilter = query.IncludeAll ? "" : """
+                    WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
+                      AND ma.file_path_root NOT LIKE '%\.data\staging\%'
+                      AND ma.file_path_root NOT LIKE '%/.data\staging/%'
+            """;
+        var visibilityFilter = query.IncludeAll ? "" : """
+                    WHERE (
+                        (wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%')
+                        OR rd.review_id IS NOT NULL
+                        OR wd.curator_state IN ('provisional', 'rejected')
+                    )
+            """;
         var sql = $"""
             WITH work_data AS (
                 SELECT
@@ -118,9 +130,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(LENGTH(ma.content_hash)) AS file_size_proxy
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
-                  AND ma.file_path_root NOT LIKE '%\.data\staging\%'
-                  AND ma.file_path_root NOT LIKE '%/.data\staging/%'
+                {stagingFilter}
                 GROUP BY e.work_id
             ),
             ingest_date_data AS (
@@ -263,16 +273,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 LEFT JOIN review_data rd ON rd.entity_id = ad.asset_id
                 LEFT JOIN user_lock_data ul ON ul.entity_id = ad.asset_id
                 LEFT JOIN ingest_date_data idd ON idd.work_id = wd.entity_id
-                WHERE (
-                    -- Items are only visible in the Vault when they have a confirmed
-                    -- identity (QID), a pending review, or an explicit curator state
-                    -- (provisional = user-created, rejected = quarantined).
-                    -- Items with curator_state='registered' that are still mid-pipeline
-                    -- (no QID, no review entry) stay hidden until enrichment completes.
-                    (wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%')
-                    OR rd.review_id IS NOT NULL
-                    OR wd.curator_state IN ('provisional', 'rejected')
-                )
+                {visibilityFilter}
             )
             """;
 
@@ -301,7 +302,7 @@ public sealed class RegistryRepository : IRegistryRepository
             else
                 conditions.Add("fd.status = @status");
         }
-        else
+        else if (!query.IncludeAll)
         {
             // Default: exclude items that belong in the Action Centre.
             // InReview and Rejected items are only shown when explicitly

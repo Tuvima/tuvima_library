@@ -10,12 +10,12 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Models;
-using Tuvima.WikidataReconciliation;
+using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Adapters;
 
 /// <summary>
-/// Wikidata adapter using the <see cref="WikidataReconciler"/> from the Tuvima.WikidataReconciliation library.
+/// Wikidata adapter using the <see cref="WikidataReconciler"/> from the Tuvima.Wikidata library.
 ///
 /// <para>
 /// This adapter replaces the SPARQL-based WikidataAdapter. Instead of custom SPARQL queries
@@ -570,8 +570,50 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // P629 (edition_or_translation_of) in one batched call. These power the
         // three-step scoring: type filter → property validation → weighted scoring.
         // P629 is used to demote translations/editions in favour of original works.
-        var fetchProps = new List<string> { "P31", "P50", "P175", "P212", "P957", "P629" };
+        var fetchProps = new List<string> { "P31", "P50", "P175", "P86", "P676", "P212", "P957", "P629" };
         var propsByQid = await ExtendAsync(qids, fetchProps, ct).ConfigureAwait(false);
+
+        // ── Resolve entity labels for person-property references ────────────
+        // GetPropertiesAsync may leave EntityLabel null for entity references,
+        // storing only QIDs in RawValue. Batch-resolve labels so the author
+        // fuzzy-matching in Step 2 can compare readable names ("Queen", not "Q15862").
+        var personPropCodes = new[] { "P50", "P175", "P86", "P676" };
+        var personQids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (_, props) in propsByQid)
+        {
+            foreach (var pCode in personPropCodes)
+            {
+                if (props.TryGetValue(pCode, out var claims))
+                {
+                    foreach (var c in claims)
+                    {
+                        if (string.IsNullOrWhiteSpace(c.Value?.EntityLabel)
+                            && c.Value?.RawValue is string raw && raw.StartsWith('Q'))
+                            personQids.Add(raw);
+                    }
+                }
+            }
+        }
+
+        var personLabelMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (personQids.Count > 0 && _reconciler is not null)
+        {
+            try
+            {
+                var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+                var entityInfos = await _reconciler.GetEntitiesAsync(
+                    personQids.ToList(), language, ct).ConfigureAwait(false);
+                foreach (var (qid, info) in entityInfos)
+                {
+                    if (!string.IsNullOrWhiteSpace(info.Label))
+                        personLabelMap[qid] = info.Label;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Failed to resolve person entity labels for {Count} QIDs", personQids.Count);
+            }
+        }
 
         // ── Step 1: Type filter (P31) ───────────────────────────────────────
         var typeFiltered = new List<ReconciliationResult>();
@@ -665,24 +707,29 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 // Split file author into individual names
                 var fileAuthors = SplitAuthors(authorHint);
 
-                // Collect all Wikidata author/performer labels
+                // Collect all Wikidata author/performer/composer labels.
+                // Entity references store the QID in RawValue; the resolved
+                // human-readable label lives in EntityLabel (populated by
+                // ResolveClaimsEntityLabelsAsync). Use EntityLabel first.
                 var wikidataAuthors = new List<string>();
-                if (cProps.TryGetValue("P50", out var p50Values))
+                foreach (var pCode in new[] { "P50", "P175", "P86", "P676" })
                 {
-                    foreach (var p50 in p50Values)
+                    if (cProps.TryGetValue(pCode, out var pValues))
                     {
-                        var label = p50.Value?.RawValue;
-                        if (!string.IsNullOrWhiteSpace(label))
-                            wikidataAuthors.Add(label);
-                    }
-                }
-                if (cProps.TryGetValue("P175", out var p175Values))
-                {
-                    foreach (var p175 in p175Values)
-                    {
-                        var label = p175.Value?.RawValue;
-                        if (!string.IsNullOrWhiteSpace(label))
-                            wikidataAuthors.Add(label);
+                        foreach (var claim in pValues)
+                        {
+                            var label = claim.Value?.EntityLabel;
+                            if (string.IsNullOrWhiteSpace(label)
+                                && claim.Value?.RawValue is string rawQid
+                                && rawQid.StartsWith('Q'))
+                            {
+                                personLabelMap.TryGetValue(rawQid, out label);
+                            }
+                            label ??= claim.Value?.RawValue;
+                            if (!string.IsNullOrWhiteSpace(label)
+                                && !label.StartsWith('Q'))
+                                wikidataAuthors.Add(label);
+                        }
                     }
                 }
 
@@ -738,7 +785,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
 
             if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null
-                && !cProps.ContainsKey("P50") && !cProps.ContainsKey("P175"))
+                && !cProps.ContainsKey("P50") && !cProps.ContainsKey("P175")
+                && !cProps.ContainsKey("P86") && !cProps.ContainsKey("P676"))
             {
                 score -= 40.0;
                 _logger.LogDebug(
@@ -1204,7 +1252,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // IDs from Stage 1), the item should go to review instead.
             if (!realBridgeIdAttempted)
             {
-                _logger.LogInformation(
+                _logger.LogDebug(
                     "{Provider}: ResolveBridgeAsync — no real bridge IDs were attempted (sentinel-only). " +
                     "Text fallback blocked; item will route to review queue.",
                     Name);
@@ -1228,7 +1276,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     // Type-constrained reconciliation (only runs when classes are configured).
                     if (hasTypeClasses)
                     {
-                        _logger.LogInformation(
+                        _logger.LogDebug(
                             "{Provider}: ResolveBridgeAsync — bridge IDs exhausted, attempting text reconciliation " +
                             "for '{Query}' ({MediaType}, types={TypeClasses})",
                             Name, fallbackQuery, mediaType, string.Join(",", typeClasses!));
@@ -1250,6 +1298,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         // to prevent cross-type mismatches (e.g. book → video game).
                         if (fallbackCandidates.Count > 0)
                         {
+                            _logger.LogDebug(
+                                "{Provider}: ResolveBridgeAsync — text reconciliation returned {Count} candidates " +
+                                "for '{Query}': {Candidates}",
+                                Name, fallbackCandidates.Count, fallbackQuery,
+                                string.Join(", ", fallbackCandidates.Select(c => $"{c.Id} '{c.Name}' score={c.Score}")));
+
                             var filteredCandidates = await FilterByMediaTypeAsync(
                                 fallbackCandidates, mediaType, ct,
                                 fallbackTitle, fallbackAuthor, null).ConfigureAwait(false);
@@ -1260,7 +1314,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                 if (topCandidate.Score >= _config.Reconciliation.ReviewThreshold)
                                 {
                                     resolvedQid = topCandidate.Id;
-                                    _logger.LogInformation(
+                                    _logger.LogDebug(
                                         "{Provider}: ResolveBridgeAsync — text reconciliation matched '{Query}' to " +
                                         "{QID} '{Label}' (score={Score}, after P31 filtering)",
                                         Name, fallbackQuery, resolvedQid, topCandidate.Name, topCandidate.Score);
@@ -1269,15 +1323,75 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                 {
                                     _logger.LogDebug(
                                         "{Provider}: ResolveBridgeAsync — text reconciliation top candidate " +
-                                        "'{Label}' ({QID}) score {Score} below threshold",
-                                        Name, topCandidate.Name, topCandidate.Id, topCandidate.Score);
+                                        "'{Label}' ({QID}) score {Score} below threshold {Threshold}",
+                                        Name, topCandidate.Name, topCandidate.Id, topCandidate.Score,
+                                        _config.Reconciliation.ReviewThreshold);
                                 }
                             }
                             else
                             {
                                 _logger.LogDebug(
-                                    "{Provider}: ResolveBridgeAsync — all {Count} candidates filtered out by P31",
-                                    Name, fallbackCandidates.Count);
+                                    "{Provider}: ResolveBridgeAsync — all {Count} candidates filtered out by P31 for '{Query}'",
+                                    Name, fallbackCandidates.Count, fallbackQuery);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogDebug(
+                                "{Provider}: ResolveBridgeAsync — text reconciliation returned 0 candidates for '{Query}'",
+                                Name, fallbackQuery);
+
+                            // When the combined title+author query returns nothing, retry with
+                            // title alone. Author names can confuse CirrusSearch — e.g. "Queen"
+                            // matches the British monarchy article before the band's songs.
+                            if (!string.IsNullOrWhiteSpace(fallbackAuthor))
+                            {
+                                _logger.LogDebug(
+                                    "{Provider}: ResolveBridgeAsync — retrying text reconciliation with title-only '{Title}' (dropping author '{Author}')",
+                                    Name, fallbackTitle, fallbackAuthor);
+
+                                var titleOnlyRequest = new ReconciliationRequest
+                                {
+                                    Query = fallbackTitle,
+                                    Limit = 5,
+                                    Language = language,
+                                    DiacriticInsensitive = true,
+                                    Cleaners = QueryCleaners.All(),
+                                    Types = typeClasses!.ToList(),
+                                };
+
+                                var titleOnlyCandidates = await _reconciler.ReconcileAsync(titleOnlyRequest, ct)
+                                    .ConfigureAwait(false);
+
+                                if (titleOnlyCandidates.Count > 0)
+                                {
+                                    _logger.LogDebug(
+                                        "{Provider}: ResolveBridgeAsync — title-only reconciliation returned {Count} candidates for '{Title}': {Candidates}",
+                                        Name, titleOnlyCandidates.Count, fallbackTitle,
+                                        string.Join(", ", titleOnlyCandidates.Select(c => $"{c.Id} '{c.Name}' score={c.Score}")));
+
+                                    var filteredRetry = await FilterByMediaTypeAsync(
+                                        titleOnlyCandidates, mediaType, ct,
+                                        fallbackTitle, fallbackAuthor, null).ConfigureAwait(false);
+
+                                    if (filteredRetry.Count > 0)
+                                    {
+                                        var topRetry = filteredRetry[0];
+                                        if (topRetry.Score >= _config.Reconciliation.ReviewThreshold)
+                                        {
+                                            resolvedQid = topRetry.Id;
+                                            _logger.LogDebug(
+                                                "{Provider}: ResolveBridgeAsync — title-only reconciliation matched '{Title}' to {QID} '{Label}' (score={Score})",
+                                                Name, fallbackTitle, resolvedQid, topRetry.Name, topRetry.Score);
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogDebug(
+                                        "{Provider}: ResolveBridgeAsync — title-only reconciliation also returned 0 candidates for '{Title}'",
+                                        Name, fallbackTitle);
+                                }
                             }
                         }
                     }
