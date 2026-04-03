@@ -143,9 +143,11 @@ public sealed class RegistryRepository : IRegistryRepository
                 GROUP BY e.work_id
             ),
             review_data AS (
-                SELECT DISTINCT rq.entity_id,
-                       (SELECT id FROM review_queue rq2
-                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
+                SELECT DISTINCT e_rv.work_id AS entity_id,
+                       (SELECT rq2.id FROM review_queue rq2
+                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
+                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
+                        WHERE e_rv2.work_id = e_rv.work_id AND rq2.status = 'Pending'
                         ORDER BY CASE rq2.trigger
                             WHEN 'AuthorityMatchFailed'  THEN 1
                             WHEN 'RetailMatchFailed'     THEN 1
@@ -161,7 +163,9 @@ public sealed class RegistryRepository : IRegistryRepository
                             ELSE 99
                         END LIMIT 1) AS review_id,
                        (SELECT trigger FROM review_queue rq2
-                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
+                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
+                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
+                        WHERE e_rv2.work_id = e_rv.work_id AND rq2.status = 'Pending'
                         ORDER BY CASE rq2.trigger
                             WHEN 'AuthorityMatchFailed'  THEN 1
                             WHEN 'RetailMatchFailed'     THEN 1
@@ -176,13 +180,19 @@ public sealed class RegistryRepository : IRegistryRepository
                             WHEN 'LanguageMismatch'      THEN 10
                             ELSE 99
                         END LIMIT 1) AS trigger,
-                       (SELECT MAX(confidence_score) FROM review_queue rq2
-                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending') AS confidence_score,
-                       (SELECT candidates_json FROM review_queue rq2
-                        WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
+                       (SELECT MAX(rq2.confidence_score) FROM review_queue rq2
+                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
+                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
+                        WHERE e_rv2.work_id = e_rv.work_id AND rq2.status = 'Pending') AS confidence_score,
+                       (SELECT rq2.candidates_json FROM review_queue rq2
+                        INNER JOIN media_assets ma_rv2 ON ma_rv2.id = rq2.entity_id
+                        INNER JOIN editions e_rv2 ON e_rv2.id = ma_rv2.edition_id
+                        WHERE e_rv2.work_id = e_rv.work_id AND rq2.status = 'Pending'
                           AND rq2.candidates_json IS NOT NULL
                         LIMIT 1) AS candidates_json
                 FROM review_queue rq
+                INNER JOIN media_assets ma_rv ON ma_rv.id = rq.entity_id
+                INNER JOIN editions e_rv ON e_rv.id = ma_rv.edition_id
                 WHERE rq.status = 'Pending'
             ),
             user_lock_data AS (
@@ -230,13 +240,13 @@ public sealed class RegistryRepository : IRegistryRepository
                     CASE
                         WHEN wd.curator_state = 'rejected' THEN 'Rejected'
                         WHEN wd.curator_state = 'provisional' THEN 'Provisional'
+                        WHEN rd.review_id IS NOT NULL THEN 'InReview'
                         WHEN wd.curator_state = 'registered'
                              AND wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''
                              AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'Identified'
                         WHEN wd.curator_state = 'registered'
                              AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
                              THEN 'Confirmed'
-                        WHEN rd.review_id IS NOT NULL THEN 'InReview'
                         WHEN rd.review_id IS NULL
                              AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
                              AND wd.cover_url IS NOT NULL AND wd.cover_url != ''
@@ -273,7 +283,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     idd.first_claimed_at AS created_at
                 FROM work_data wd
                 LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
-                LEFT JOIN review_data rd ON rd.entity_id = ad.asset_id
+                LEFT JOIN review_data rd ON rd.entity_id = wd.entity_id
                 LEFT JOIN user_lock_data ul ON ul.entity_id = ad.asset_id
                 LEFT JOIN ingest_date_data idd ON idd.work_id = wd.entity_id
                 {visibilityFilter}

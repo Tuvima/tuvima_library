@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
@@ -1568,7 +1569,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             // The library's Cleaners = QueryCleaners.All() and DiacriticInsensitive = true
             // handle title cleaning and diacritics normalization automatically.
-            var searchTitle = request.Title;
+            // Additionally strip classic subtitle patterns ("; or," convention common in
+            // 18th/19th-century literature) that confuse CirrusSearch — e.g.
+            // "Frankenstein; or, The Modern Prometheus" → "Frankenstein".
+            var searchTitle = Regex.Replace(request.Title, @"\s*;\s+or,\s+.*$", string.Empty,
+                RegexOptions.IgnoreCase).Trim();
+            if (string.IsNullOrWhiteSpace(searchTitle))
+                searchTitle = request.Title;
 
             // Guard: do not attempt reconciliation when media type is unknown.
             // Unknown media type means P31 filtering cannot be applied, leading to

@@ -383,7 +383,9 @@ public static class HubEndpoints
                 .ThenBy(w => w.Id)
                 .Select(w =>
                 {
-                    string? title       = GetCanonical(WorkDto.FromDomain(w), "title") ?? $"Work {w.Id.ToString("N")[..8]}";
+                    string? title       = (isTv ? GetCanonical(WorkDto.FromDomain(w), "episode_title") : null)
+                                         ?? GetCanonical(WorkDto.FromDomain(w), "title")
+                                         ?? $"Work {w.Id.ToString("N")[..8]}";
                     string? year        = GetCanonical(WorkDto.FromDomain(w), "release_year")
                                          ?? GetCanonical(WorkDto.FromDomain(w), "year");
                     string? duration    = GetCanonical(WorkDto.FromDomain(w), "duration")

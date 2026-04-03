@@ -188,6 +188,13 @@ public sealed class VideoProcessor : IMediaProcessor
         @"^(?<series>.+?)\s*[.\-_ ]*Season\s*(?<season>\d{1,2})\s*Episode\s*(?<ep1>\d{1,4})",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+    /// <summary>Leading SxxExx with optional episode title — e.g. "S01E01 - Episode Title".
+    /// When the filename starts with the episode pattern (no series name prefix), the
+    /// show name must be inferred from the parent folder hierarchy.</summary>
+    private static readonly Regex LeadingSxxExxRegex = new(
+        @"^[Ss](?<season>\d{1,2})\s*[Ee](?<ep1>\d{1,4})(?:\s*[Ee](?<ep2>\d{1,4}))?\s*[\-–—._ ]*\s*(?<epTitle>.+)?$",
+        RegexOptions.Compiled);
+
     private static IReadOnlyList<ExtractedClaim> BuildClaims(
         string filePath, VideoContainer container, VideoMetadata? meta)
     {
@@ -204,7 +211,7 @@ public sealed class VideoProcessor : IMediaProcessor
             // Attempt season/episode extraction BEFORE the title-only path.
             // When detected, the series title (text before the episode pattern) is
             // used as a cleaner title and season_number / episode_number are emitted.
-            var (seriesTitle, seasonNum, episodeNum) = ExtractSeasonEpisode(basicTitle);
+            var (seriesTitle, seasonNum, episodeNum, episodeTitle) = ExtractSeasonEpisode(basicTitle);
 
             if (seriesTitle is not null && seasonNum.HasValue)
             {
@@ -218,6 +225,33 @@ public sealed class VideoProcessor : IMediaProcessor
                     claims.Add(Claim("episode_number", episodeNum.Value.ToString(), 0.55));
                     claims.Add(Claim("episode", episodeNum.Value.ToString(), 0.55));
                 }
+                if (!string.IsNullOrWhiteSpace(episodeTitle))
+                    claims.Add(Claim("episode_title", episodeTitle, 0.55));
+            }
+            else if (seasonNum.HasValue)
+            {
+                // Leading SxxExx: filename starts with episode pattern, no series name.
+                // Infer show name from the grandparent folder (parent = "Season XX").
+                var showName = InferShowNameFromPath(filePath);
+                if (!string.IsNullOrWhiteSpace(showName))
+                {
+                    claims.Add(Claim("title", showName, 0.50));
+                    claims.Add(Claim("show_name", showName, 0.55));
+                    claims.Add(Claim("series", showName, 0.55));
+                }
+                else
+                {
+                    claims.Add(Claim("title", basicTitle, 0.50));
+                }
+                claims.Add(Claim("season_number", seasonNum.Value.ToString(), 0.55));
+                claims.Add(Claim("season", seasonNum.Value.ToString(), 0.55));
+                if (episodeNum.HasValue)
+                {
+                    claims.Add(Claim("episode_number", episodeNum.Value.ToString(), 0.55));
+                    claims.Add(Claim("episode", episodeNum.Value.ToString(), 0.55));
+                }
+                if (!string.IsNullOrWhiteSpace(episodeTitle))
+                    claims.Add(Claim("episode_title", episodeTitle, 0.55));
             }
             else if (!string.IsNullOrWhiteSpace(basicTitle))
             {
@@ -288,16 +322,19 @@ public sealed class VideoProcessor : IMediaProcessor
     ///   S01E01, S01E01E02, 1x01, Season 1 Episode 1.
     /// Returns (null, null, null) when no pattern matches.
     /// </summary>
-    private static (string? SeriesTitle, int? Season, int? Episode) ExtractSeasonEpisode(string text)
+    private static (string? SeriesTitle, int? Season, int? Episode, string? EpisodeTitle) ExtractSeasonEpisode(string text)
     {
-        // Try S01E01 / S01E01E02 first (most common).
+        // Try S01E01 / S01E01E02 first (most common): "Show Name S01E01 - Episode Title"
         var m = SxxExxRegex.Match(text);
         if (m.Success)
         {
             var series = CleanSeriesTitle(m.Groups["series"].Value);
             var season = int.Parse(m.Groups["season"].Value);
             var episode = int.Parse(m.Groups["ep1"].Value);
-            return (series, season, episode);
+            // Extract episode title from text after the SxxExx pattern
+            var afterPattern = text[m.Length..].TrimStart('.', '-', '–', '—', '_', ' ');
+            var epTitle = string.IsNullOrWhiteSpace(afterPattern) ? null : afterPattern;
+            return (series, season, episode, epTitle);
         }
 
         // Try 1x01 format.
@@ -307,7 +344,9 @@ public sealed class VideoProcessor : IMediaProcessor
             var series = CleanSeriesTitle(m.Groups["series"].Value);
             var season = int.Parse(m.Groups["season"].Value);
             var episode = int.Parse(m.Groups["ep1"].Value);
-            return (series, season, episode);
+            var afterPattern = text[m.Length..].TrimStart('.', '-', '–', '—', '_', ' ');
+            var epTitle = string.IsNullOrWhiteSpace(afterPattern) ? null : afterPattern;
+            return (series, season, episode, epTitle);
         }
 
         // Try verbose "Season 1 Episode 1".
@@ -317,16 +356,60 @@ public sealed class VideoProcessor : IMediaProcessor
             var series = CleanSeriesTitle(m.Groups["series"].Value);
             var season = int.Parse(m.Groups["season"].Value);
             var episode = int.Parse(m.Groups["ep1"].Value);
-            return (series, season, episode);
+            var afterPattern = text[m.Length..].TrimStart('.', '-', '–', '—', '_', ' ');
+            var epTitle = string.IsNullOrWhiteSpace(afterPattern) ? null : afterPattern;
+            return (series, season, episode, epTitle);
         }
 
-        return (null, null, null);
+        // Try leading SxxExx: "S01E01 - Episode Title" (no series name prefix).
+        // Series name will be inferred from the folder hierarchy by the caller.
+        m = LeadingSxxExxRegex.Match(text);
+        if (m.Success)
+        {
+            var season = int.Parse(m.Groups["season"].Value);
+            var episode = int.Parse(m.Groups["ep1"].Value);
+            var epTitle = m.Groups["epTitle"].Success
+                ? m.Groups["epTitle"].Value.Trim()
+                : null;
+            return (null, season, episode, string.IsNullOrWhiteSpace(epTitle) ? null : epTitle);
+        }
+
+        return (null, null, null, null);
     }
 
     /// <summary>Trims trailing separators and whitespace from extracted series title.</summary>
     private static string CleanSeriesTitle(string raw)
     {
         return raw.TrimEnd('.', '-', '_', ' ');
+    }
+
+    /// <summary>
+    /// Infers the show name from the folder hierarchy for files with leading SxxExx filenames.
+    /// Walks up from the parent folder, skipping "Season XX" directories, to find the show folder.
+    /// Strips trailing " (QXXX)" Wikidata QID suffixes from the folder name.
+    /// </summary>
+    private static string? InferShowNameFromPath(string filePath)
+    {
+        var dir = Path.GetDirectoryName(filePath);
+        if (string.IsNullOrWhiteSpace(dir)) return null;
+
+        // Walk up: skip "Season XX" folders
+        var dirName = Path.GetFileName(dir);
+        if (dirName is not null && Regex.IsMatch(dirName, @"^Season\s+\d{1,2}$", RegexOptions.IgnoreCase))
+        {
+            dir = Path.GetDirectoryName(dir);
+            if (string.IsNullOrWhiteSpace(dir)) return null;
+            dirName = Path.GetFileName(dir);
+        }
+
+        if (string.IsNullOrWhiteSpace(dirName)) return null;
+
+        // Strip trailing " (QXXX)" QID suffix — e.g. "Shogun (Q3275620)" → "Shogun"
+        var cleaned = Regex.Replace(dirName, @"\s*\(Q\d+\)\s*$", string.Empty).Trim();
+        // Strip trailing " (YYYY)" year suffix — e.g. "Shogun (2024)" → "Shogun"
+        cleaned = Regex.Replace(cleaned, @"\s*\(\d{4}\)\s*$", string.Empty).Trim();
+
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
     }
 
     // -------------------------------------------------------------------------

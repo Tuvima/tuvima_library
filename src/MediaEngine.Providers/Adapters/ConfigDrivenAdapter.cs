@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using System.Globalization;
+using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -875,7 +876,13 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var template = strategy.UrlTemplate;
 
         // Clean the title for search: strip trailing (YYYY) and SxxExx patterns.
-        var searchTitle = CleanTitleForSearch(request.Title) ?? request.Title;
+        // For TV-specific strategies, prefer ShowName (the series title) over Title
+        // (which may be the episode title extracted from the filename).
+        var rawTitle = strategy.MediaTypes?.Contains("TV") == true
+            && !string.IsNullOrWhiteSpace(request.ShowName)
+            ? request.ShowName
+            : request.Title;
+        var searchTitle = CleanTitleForSearch(rawTitle) ?? rawTitle;
         var yearFromTitle = ExtractYearFromTitle(request.Title);
 
         // Build {query} placeholder from query_template if specified.
@@ -1106,13 +1113,13 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
     /// </summary>
     private static double ComputeWordOverlap(string query, string candidate)
     {
-        var qWords = query.ToLowerInvariant()
+        var qWords = StripDiacritics(query).ToLowerInvariant()
             .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
                    StringSplitOptions.RemoveEmptyEntries)
             .Where(w => w.Length >= 2)
             .ToHashSet();
 
-        var cWords = candidate.ToLowerInvariant()
+        var cWords = StripDiacritics(candidate).ToLowerInvariant()
             .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
                    StringSplitOptions.RemoveEmptyEntries)
             .Where(w => w.Length >= 2)
@@ -1125,6 +1132,22 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
 
         if (coverage + precision == 0) return 0.0;
         return 2 * coverage * precision / (coverage + precision);
+    }
+
+    /// <summary>
+    /// Strips diacritical marks from text — e.g. "Shōgun" → "Shogun", "Für Elise" → "Fur Elise".
+    /// Uses Unicode decomposition to separate base characters from combining marks.
+    /// </summary>
+    private static string StripDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
     // ── Nested release selection ────────────────────────────────────────────
