@@ -1361,6 +1361,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-070: Universal Hub System — new columns on hubs, hub_placements table.
         MigrateUniversalHubSystem(conn);
 
+        // Migration M-080: Durable Identity Pipeline — identity_jobs, retail_match_candidates,
+        // wikidata_bridge_candidates tables for the retail-first identity pipeline.
+        MigrateIdentityPipeline(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2355,6 +2359,88 @@ public sealed class DatabaseConnection : IDatabaseConnection
         }
 
         System.Diagnostics.Debug.WriteLine("M-070: Universal Hub System — hub columns, hub_placements, backfill");
+    }
+
+    /// <summary>
+    /// Migration M-080: Durable Identity Pipeline.
+    /// <list type="bullet">
+    ///   <item>Creates <c>identity_jobs</c> table for durable job tracking.</item>
+    ///   <item>Creates <c>retail_match_candidates</c> table for Stage 1 candidate evidence.</item>
+    ///   <item>Creates <c>wikidata_bridge_candidates</c> table for Stage 2 candidate evidence.</item>
+    /// </list>
+    /// Idempotent: uses <c>CREATE TABLE IF NOT EXISTS</c>.
+    /// </summary>
+    private static void MigrateIdentityPipeline(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS identity_jobs (
+                id                     TEXT PRIMARY KEY,
+                entity_id              TEXT NOT NULL,
+                entity_type            TEXT NOT NULL,
+                media_type             TEXT NOT NULL,
+                ingestion_run_id       TEXT,
+                state                  TEXT NOT NULL DEFAULT 'Queued',
+                pass                   TEXT NOT NULL DEFAULT 'Quick',
+                attempt_count          INTEGER NOT NULL DEFAULT 0,
+                lease_owner            TEXT,
+                lease_expires_at       TEXT,
+                selected_candidate_id  TEXT,
+                resolved_qid          TEXT,
+                last_error             TEXT,
+                next_retry_at          TEXT,
+                created_at             TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_identity_jobs_entity_id ON identity_jobs (entity_id);
+            CREATE INDEX IF NOT EXISTS idx_identity_jobs_state ON identity_jobs (state);
+            CREATE INDEX IF NOT EXISTS idx_identity_jobs_ingestion_run_id ON identity_jobs (ingestion_run_id);
+            CREATE INDEX IF NOT EXISTS idx_identity_jobs_lease ON identity_jobs (state, lease_expires_at);
+
+            CREATE TABLE IF NOT EXISTS retail_match_candidates (
+                id                    TEXT PRIMARY KEY,
+                job_id                TEXT NOT NULL REFERENCES identity_jobs(id) ON DELETE CASCADE,
+                provider_id           TEXT NOT NULL,
+                provider_name         TEXT NOT NULL,
+                provider_item_id      TEXT,
+                rank                  INTEGER NOT NULL DEFAULT 0,
+                title                 TEXT NOT NULL,
+                creator               TEXT,
+                year                  TEXT,
+                score_total           REAL NOT NULL DEFAULT 0.0,
+                score_breakdown_json  TEXT,
+                bridge_ids_json       TEXT,
+                description           TEXT,
+                image_url             TEXT,
+                outcome               TEXT NOT NULL DEFAULT 'Rejected',
+                created_at            TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_retail_candidates_job_id ON retail_match_candidates (job_id);
+            CREATE INDEX IF NOT EXISTS idx_retail_candidates_outcome ON retail_match_candidates (outcome);
+
+            CREATE TABLE IF NOT EXISTS wikidata_bridge_candidates (
+                id                    TEXT PRIMARY KEY,
+                job_id                TEXT NOT NULL REFERENCES identity_jobs(id) ON DELETE CASCADE,
+                qid                   TEXT NOT NULL,
+                label                 TEXT NOT NULL,
+                description           TEXT,
+                matched_by            TEXT NOT NULL,
+                bridge_id_type        TEXT,
+                is_exact_match        INTEGER NOT NULL DEFAULT 0,
+                score_total           REAL NOT NULL DEFAULT 0.0,
+                score_breakdown_json  TEXT,
+                outcome               TEXT NOT NULL DEFAULT 'Rejected',
+                created_at            TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_wikidata_candidates_job_id ON wikidata_bridge_candidates (job_id);
+            CREATE INDEX IF NOT EXISTS idx_wikidata_candidates_outcome ON wikidata_bridge_candidates (outcome);
+            """;
+        cmd.ExecuteNonQuery();
+
+        System.Diagnostics.Debug.WriteLine("M-080: Durable Identity Pipeline — identity_jobs, retail_match_candidates, wikidata_bridge_candidates");
     }
 
     /// <summary>

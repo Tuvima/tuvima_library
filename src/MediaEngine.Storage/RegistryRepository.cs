@@ -148,6 +148,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
                         ORDER BY CASE rq2.trigger
                             WHEN 'AuthorityMatchFailed'  THEN 1
+                            WHEN 'RetailMatchFailed'     THEN 1
                             WHEN 'StagedUnidentifiable'  THEN 2
                             WHEN 'PlaceholderTitle'      THEN 3
                             WHEN 'AmbiguousMediaType'    THEN 4
@@ -163,6 +164,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHERE rq2.entity_id = rq.entity_id AND rq2.status = 'Pending'
                         ORDER BY CASE rq2.trigger
                             WHEN 'AuthorityMatchFailed'  THEN 1
+                            WHEN 'RetailMatchFailed'     THEN 1
                             WHEN 'StagedUnidentifiable'  THEN 2
                             WHEN 'PlaceholderTitle'      THEN 3
                             WHEN 'AmbiguousMediaType'    THEN 4
@@ -249,6 +251,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     CASE
                         WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'matched'
                         WHEN rd.review_id IS NOT NULL AND rd.trigger = 'AuthorityMatchFailed' THEN 'failed'
+                        WHEN rd.review_id IS NOT NULL AND rd.trigger = 'RetailMatchFailed' THEN 'failed'
                         WHEN rd.review_id IS NOT NULL THEN 'warning'
                         ELSE 'none'
                     END AS wikidata_match,
@@ -482,6 +485,7 @@ public sealed class RegistryRepository : IRegistryRepository
             WHERE (entity_id = @assetId OR entity_id = @entityId) AND status = 'Pending'
             ORDER BY CASE trigger
                 WHEN 'AuthorityMatchFailed'  THEN 1
+                WHEN 'RetailMatchFailed'     THEN 1
                 WHEN 'StagedUnidentifiable'  THEN 2
                 WHEN 'PlaceholderTitle'      THEN 3
                 WHEN 'AmbiguousMediaType'    THEN 4

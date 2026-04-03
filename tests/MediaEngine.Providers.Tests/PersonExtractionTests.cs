@@ -18,8 +18,10 @@ public sealed class PersonExtractionTests
         ?? throw new InvalidOperationException(
                "ExtractPersonReferencesFromRawClaims method not found on HydrationPipelineService");
 
-    private static IReadOnlyList<PersonReference> Extract(IReadOnlyList<ProviderClaim> claims) =>
-        (IReadOnlyList<PersonReference>)ExtractMethod.Invoke(null, [claims])!;
+    private static IReadOnlyList<PersonReference> Extract(
+        IReadOnlyList<ProviderClaim> claims,
+        MediaEngine.Domain.Enums.MediaType mediaType = MediaEngine.Domain.Enums.MediaType.Unknown) =>
+        (IReadOnlyList<PersonReference>)ExtractMethod.Invoke(null, [claims, mediaType])!;
 
     // ── Multiple authors ──────────────────────────────────────────────────────
 
@@ -73,7 +75,7 @@ public sealed class PersonExtractionTests
             new("performer_qid", "Q123456::Tim Gerard Reynolds", 0.90),
         };
 
-        var refs = Extract(claims);
+        var refs = Extract(claims, MediaEngine.Domain.Enums.MediaType.Audiobooks);
 
         Assert.Single(refs);
         Assert.Equal("Tim Gerard Reynolds", refs[0].Name);

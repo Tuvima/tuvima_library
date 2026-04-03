@@ -26,7 +26,9 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Services;
+using MediaEngine.Providers.Workers;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
 using Microsoft.Extensions.Http.Resilience;
@@ -319,6 +321,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
         if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) { opts.OrganizationTemplate = core.OrganizationTemplate; }
         if (core.OrganizationTemplates.Count > 0) { opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase); }
         opts.ConfiguredLanguage = core.Language.Metadata;
+        opts.IdentityPipelineV2Enabled = core.IdentityPipelineV2Enabled;
     }
     catch (Exception ex)
     {
@@ -655,6 +658,32 @@ builder.Services.AddSingleton<IImageCacheRepository,              ImageCacheRepo
 builder.Services.AddSingleton<IProviderResponseCacheRepository,  ProviderResponseCacheRepository>();
 builder.Services.AddSingleton<ISearchResultsCacheRepository,     SearchResultsCacheRepository>();
 builder.Services.AddSingleton<IProviderHealthRepository,         ProviderHealthRepository>();
+
+// ── Identity Pipeline (v2 — durable job model) ─────────────────────────
+builder.Services.AddSingleton<IIdentityJobRepository, IdentityJobRepository>();
+builder.Services.AddSingleton<IRetailCandidateRepository, RetailCandidateRepository>();
+builder.Services.AddSingleton<IWikidataCandidateRepository, WikidataCandidateRepository>();
+
+// Pipeline helpers
+builder.Services.AddSingleton<BridgeIdHelper>();
+builder.Services.AddSingleton<StageOutcomeFactory>();
+builder.Services.AddSingleton<TimelineRecorder>();
+builder.Services.AddSingleton<BatchProgressService>();
+
+// Enrichment workers
+builder.Services.AddSingleton<CoverArtWorker>();
+builder.Services.AddSingleton<PersonEnrichmentWorker>();
+builder.Services.AddSingleton<ChildEntityWorker>();
+builder.Services.AddSingleton<FictionalEntityWorker>();
+builder.Services.AddSingleton<DescriptionEnrichmentWorker>();
+
+// Enrichment orchestrator
+builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
+
+// Pipeline workers
+builder.Services.AddSingleton<RetailMatchWorker>();
+builder.Services.AddSingleton<WikidataBridgeWorker>();
+builder.Services.AddSingleton<QuickHydrationWorker>();
 
 // ── Provider Health Monitor: active probes, recovery flush, SignalR events ────
 builder.Services.AddSingleton<ProviderHealthMonitorService>();

@@ -34,16 +34,16 @@ public static class ReviewTrigger
     public const string ArbiterNeedsReview = "ArbiterNeedsReview";
 
     /// <summary>
-    /// Stage 1 (Authority Match) failed to identify the work via Wikidata.
-    /// Bridge ID lookup (ISBN, ASIN, etc.) and title search both returned no match.
-    /// The pipeline continues to Stage 3 (Retail Match) but the user should review.
+    /// Legacy trigger from the authority-first pipeline. Equivalent to
+    /// <see cref="RetailMatchFailed"/>. Kept for backward compatibility
+    /// with existing review rows.
     /// </summary>
     public const string AuthorityMatchFailed = "AuthorityMatchFailed";
 
     /// <summary>
-    /// Stage 3 (Retail Match) failed to find a match using any retail provider.
-    /// The file's identifiers and title did not resolve to any result.
-    /// The user must manually select a match or provide metadata.
+    /// Legacy trigger from the authority-first pipeline. Equivalent to
+    /// <see cref="RetailMatchFailed"/>. Kept for backward compatibility
+    /// with existing review rows.
     /// </summary>
     public const string ContentMatchFailed = "ContentMatchFailed";
 
@@ -65,8 +65,8 @@ public static class ReviewTrigger
     public const string AmbiguousMediaType = "AmbiguousMediaType";
 
     /// <summary>
-    /// Wikidata (Stage 1) did not find a QID for the work, but a retail
-    /// provider (Stage 3) matched by ISBN/ASIN.  The book is likely new or
+    /// Stage 2 (Wikidata Bridge Resolution) did not find a QID for the work, but a retail
+    /// provider (Stage 1 (Retail Identification)) matched by ISBN/ASIN.  The book is likely new or
     /// in early release.  A <c>NF{6-digit}</c> placeholder QID was assigned
     /// and should be replaced with a real QID when Wikidata catches up.
     /// </summary>

@@ -67,6 +67,13 @@ public sealed class HarvestRequest
     public bool SuppressReviewCreation { get; init; }
 
     /// <summary>
+    /// When <c>true</c>, indicates this request was initiated by user action
+    /// (e.g., Fix Match from Dashboard). User-initiated requests may set
+    /// <see cref="PreResolvedQid"/> to bypass the retail gate.
+    /// </summary>
+    public bool IsUserResolution { get; init; }
+
+    /// <summary>
     /// The ingestion run ID that originated this request.
     /// When set, the <c>MediaAdded</c> activity entry will carry this ID so the
     /// Dashboard can link all ingestion sub-steps to a single <c>MediaAdded</c> card.

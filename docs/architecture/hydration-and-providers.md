@@ -533,3 +533,52 @@ In Sequential mode, `PriorProviderBridgeIds` on `ProviderLookupRequest` carries 
 - [How Two-Stage Enrichment Works](../explanation/how-hydration-works.md)
 - [Providers Reference](../reference/providers.md)
 - [How to Add a New Metadata Provider](../guides/adding-a-provider.md)
+
+---
+
+## Durable Identity Pipeline (v2)
+
+> **Feature-flagged:** Set `"identity_pipeline_v2_enabled": true` in `config/core.json` to enable. When disabled, the legacy in-memory `BoundedChannel` path runs unchanged.
+
+### Architecture
+
+The v2 pipeline replaces the in-memory queue with durable SQLite-backed jobs (migration M-080). Three tables: `identity_jobs` (one row per staged asset, tracks state machine), `retail_match_candidates` (every candidate from Stage 1 with full score breakdowns), `wikidata_bridge_candidates` (every Wikidata entity evaluated in Stage 2).
+
+### State Machine
+
+```
+Queued → RetailSearching → RetailMatched / RetailMatchedNeedsReview / RetailNoMatch
+RetailMatched → BridgeSearching → QidResolved / QidNeedsReview / QidNoMatch
+QidResolved → Hydrating → Completed
+Failed (terminal — from any state after max retries)
+```
+
+`RetailNoMatch` is terminal for the automatic pipeline. Only user Fix Match can advance it.
+
+### Pipeline Workers
+
+Workers are plain service classes in `MediaEngine.Providers/Workers/`. The Api layer wraps them in `BackgroundService` for polling lifecycle.
+
+| Worker | Leases | Output States |
+|--------|--------|--------------|
+| `RetailMatchWorker` | `Queued` | `RetailMatched`, `RetailMatchedNeedsReview`, `RetailNoMatch` |
+| `WikidataBridgeWorker` | `RetailMatched`, `RetailMatchedNeedsReview` | `QidResolved`, `QidNeedsReview`, `QidNoMatch` |
+| `QuickHydrationWorker` | `QidResolved` | `Completed` |
+
+### EnrichmentService
+
+Thin dispatcher (`IEnrichmentService`) routing to modular enrichment workers:
+
+- **Quick Pass:** CoverArt → Persons → WriteBack
+- **Universe Pass:** Children → Fictional → Persons (actor mapping) → Images → Descriptions → WriteBack
+- **Single Enrichment:** targeted re-run for one enrichment type
+
+### Extracted Helpers
+
+| Helper | Responsibility |
+|--------|---------------|
+| `BridgeIdHelper` | Bridge ID ↔ Wikidata P-code mapping |
+| `StageOutcomeFactory` | Review item creation with correct triggers |
+| `TimelineRecorder` | Entity timeline event recording |
+| `BatchProgressService` | Batch counter adjustment + SignalR progress |
+| `PersonReferenceExtractor` | Person reference extraction from claims |

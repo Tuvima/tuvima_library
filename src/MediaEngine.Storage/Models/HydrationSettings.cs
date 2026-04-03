@@ -3,21 +3,23 @@ using System.Text.Json.Serialization;
 namespace MediaEngine.Storage.Models;
 
 /// <summary>
-/// Configuration for the three-stage hydration pipeline.
+/// Configuration for the hydration pipeline.
 ///
 /// Loaded from <c>config/hydration.json</c>. Controls concurrency, timeouts,
 /// disambiguation thresholds, and the confidence gate that triggers review
 /// queue entries.
 ///
 /// <list type="bullet">
-///   <item><b>Stage 1 — Authority Match:</b> Wikidata resolves the work's identity
-///     via bridge IDs or title search, SPARQL deep hydration, Hub Intelligence,
-///     and Person Enrichment.</item>
-///   <item><b>Stage 2 — Context Match:</b> Wikipedia provides a human-readable
-///     description using the QID from Stage 1.</item>
-///   <item><b>Stage 3 — Retail Match:</b> runs retail providers in waterfall order
-///     from <c>config/slots.json</c>, using bridge IDs from Stage 1 for precise
-///     lookups.</item>
+///   <item><b>Stage 1 — Retail Identification:</b> retail providers search catalogues
+///     using file metadata. Cover art, descriptions, ratings, and bridge IDs
+///     (ISBN, ASIN, TMDB ID) are gathered. <c>RetailMatchScoringService</c> gates
+///     acceptance (≥0.85 auto, 0.50–0.85 review, &lt;0.50 discard).</item>
+///   <item><b>Stage 2 — Wikidata Bridge Resolution:</b> uses bridge IDs from Stage 1
+///     to resolve Wikidata QIDs for canonical identity, universe linkage,
+///     and person enrichment. Requires Stage 1 success.</item>
+///   <item><b>Stage 3 — Universe Enrichment:</b> background service for deep
+///     relationship discovery, fictional entities, and image enrichment.
+///     Runs on cron schedule.</item>
 /// </list>
 /// </summary>
 public sealed class HydrationSettings
@@ -29,15 +31,15 @@ public sealed class HydrationSettings
     [JsonPropertyName("stage_concurrency")]
     public int StageConcurrency { get; set; } = 3;
 
-    /// <summary>Timeout in seconds for Stage 1 (Authority Match — Wikidata SPARQL).</summary>
+    /// <summary>Timeout in seconds for Stage 1 (Retail Identification — provider API calls).</summary>
     [JsonPropertyName("stage1_timeout_seconds")]
     public int Stage1TimeoutSeconds { get; set; } = 45;
 
-    /// <summary>Timeout in seconds for Stage 2 (Context Match — Wikipedia REST API).</summary>
+    /// <summary>Timeout in seconds for Stage 2 (Wikidata Bridge Resolution).</summary>
     [JsonPropertyName("stage2_timeout_seconds")]
     public int Stage2TimeoutSeconds { get; set; } = 15;
 
-    /// <summary>Timeout in seconds for Stage 3 (Retail Match — provider waterfall).</summary>
+    /// <summary>Timeout in seconds for Stage 3 (Universe Enrichment — background sweep).</summary>
     [JsonPropertyName("stage3_timeout_seconds")]
     public int Stage3TimeoutSeconds { get; set; } = 30;
 

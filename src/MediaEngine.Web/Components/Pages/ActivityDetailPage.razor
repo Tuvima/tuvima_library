@@ -567,6 +567,7 @@
         var priorityOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
         {
             ["AuthorityMatchFailed"] = 0,
+            ["RetailMatchFailed"] = 0,
             ["LowConfidence"] = 1,
             ["MultipleQidMatches"] = 2,
             ["AmbiguousMediaType"] = 3,
@@ -876,6 +877,7 @@
         "MultipleQidMatches"   => "Pick the correct entity",
         "LowConfidence"        => "Below confidence threshold",
         "AuthorityMatchFailed" => "No Wikidata match found",
+        "RetailMatchFailed"    => "No retail match found",
         "ContentMatchFailed"   => "No cover art found",
         "AmbiguousMediaType"   => "Unclear media type",
         "MissingQid"           => "Needs manual match",

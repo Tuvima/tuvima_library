@@ -163,6 +163,12 @@ public sealed class IngestionOptions
     /// </summary>
     public IReadOnlyList<LibraryFolderEntry> LibraryFolders { get; set; } = [];
 
+    /// <summary>
+    /// When true, ingestion creates durable identity jobs instead of using the
+    /// in-memory hydration pipeline channel. Set from <c>core.json</c> via PostConfigure.
+    /// </summary>
+    public bool IdentityPipelineV2Enabled { get; set; }
+
     // ── Template Resolution ────────────────────────────────────────────
 
     private const string HardcodedFallback = "{Category}/{Title}/{Title}{Ext}";

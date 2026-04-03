@@ -59,6 +59,18 @@ The wizard collects information in preparation for Engine-side custom source reg
 
 ---
 
+## Two-Stage Enrichment Pipeline
+
+Metadata enrichment is a strict two-stage sequence. The stages are never reversed or bypassed.
+
+**Stage 1 — Retail Identification:** Commercial catalogues (e.g. Apple Books, TMDB, Audnexus) are searched for cover art, descriptions, ratings, and bridge identifiers (ISBN, ASIN, TMDB ID). Each candidate is scored by `RetailMatchScoringService`. If no retail provider returns a confident match, the item is routed to the review queue and Stage 2 is never attempted.
+
+**Stage 2 — Wikidata Bridge Resolution:** Bridge IDs from Stage 1 are used to resolve a canonical Wikidata entity (QID). This provides universe linkage, person relationships, and canonical metadata authority. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking. The text-only Wikidata fallback (sentinel-only `ResolveBridgeAsync` calls) is disabled — Stage 1 must supply real bridge IDs.
+
+**Two-pass enrichment:** The Quick pass gets the item visible on the Dashboard fast (core identity + cover art). The Universe pass runs later in the background for deep enrichment (relationships, people, fictional entities, additional images).
+
+---
+
 ## Business Rules
 
 | # | Rule | Where enforced |

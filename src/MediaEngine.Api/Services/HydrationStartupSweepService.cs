@@ -150,7 +150,7 @@ public sealed class HydrationStartupSweepService : BackgroundService
                 SELECT 1 FROM review_queue rq2
                 WHERE rq2.entity_id = ma.id
                   AND rq2.status IN ('Resolved', 'Dismissed')
-                  AND rq2.trigger IN ('AuthorityMatchFailed', 'MultipleQidMatches', 'MissingQid')
+                  AND rq2.trigger IN ('AuthorityMatchFailed', 'RetailMatchFailed', 'MultipleQidMatches', 'MissingQid')
             )
             GROUP BY ma.id, w.media_type
             """;

@@ -117,6 +117,14 @@ public sealed class CoreConfiguration
     [JsonPropertyName("rate_limiting")]
     public RateLimitingSettings RateLimiting { get; set; } = new();
 
+    /// <summary>
+    /// When true, ingestion creates durable <c>identity_jobs</c> rows instead of
+    /// enqueuing in-memory <see cref="IHydrationPipelineService"/> requests.
+    /// Default is false — the legacy in-memory path runs unchanged.
+    /// </summary>
+    [JsonPropertyName("identity_pipeline_v2_enabled")]
+    public bool IdentityPipelineV2Enabled { get; set; }
+
     private static string GetDefaultCountry()
     {
         try { return RegionInfo.CurrentRegion.TwoLetterISORegionName; }

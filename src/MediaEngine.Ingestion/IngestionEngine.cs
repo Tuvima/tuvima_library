@@ -118,6 +118,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Ingestion batch tracking — creates batch records and emits BatchProgress events.
     private readonly IIngestionBatchRepository _batchRepo;
 
+    // Durable identity pipeline (v2) — creates identity_jobs rows instead of
+    // enqueuing in-memory HarvestRequest objects. Null when v2 is disabled.
+    private readonly IIdentityJobRepository? _identityJobRepo;
+
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
     // Replaces inline ConcurrentDictionary<string, SemaphoreSlim> instances.
     // Lock order: folder → hash (see ConcurrencyGuard doc for full hierarchy).
@@ -160,7 +164,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IEntityTimelineRepository  timelineRepo,
         ScoringConfiguration       scoringConfig,
         IIngestionBatchRepository  batchRepo,
-        ImagePathService?          imagePathService = null)
+        ImagePathService?          imagePathService = null,
+        IIdentityJobRepository?    identityJobRepo = null)
     {
         _watcher          = watcher;
         _debounce         = debounce;
@@ -191,6 +196,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _scoringConfig     = scoringConfig;
         _batchRepo         = batchRepo;
         _imagePathService  = imagePathService;
+        _identityJobRepo  = identityJobRepo;
     }
 
     // =========================================================================
@@ -1390,17 +1396,31 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
         // hydration pipeline resolves before the review item is even written, leaving a
         // stale review item in the queue for a file that was successfully organized.
-        await _pipeline.EnqueueAsync(new HarvestRequest
+        if (_options.IdentityPipelineV2Enabled && _identityJobRepo is not null)
         {
-            EntityId            = assetId,
-            EntityType          = EntityType.MediaAsset,
-            MediaType           = resolvedMediaType,
-            Hints               = BuildHints(candidate.Metadata),
-            IngestionRunId      = ingestionRunId,
-            FolderHintBridgeIds = null,
-            HintedHubId         = null,
-            Pass                = HydrationPass.Quick,
-        }, ct).ConfigureAwait(false);
+            await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
+            {
+                EntityId       = assetId,
+                EntityType     = EntityType.MediaAsset.ToString(),
+                MediaType      = resolvedMediaType.ToString(),
+                IngestionRunId = ingestionRunId,
+                Pass           = "Quick",
+            }, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            await _pipeline.EnqueueAsync(new HarvestRequest
+            {
+                EntityId            = assetId,
+                EntityType          = EntityType.MediaAsset,
+                MediaType           = resolvedMediaType,
+                Hints               = BuildHints(candidate.Metadata),
+                IngestionRunId      = ingestionRunId,
+                FolderHintBridgeIds = null,
+                HintedHubId         = null,
+                Pass                = HydrationPass.Quick,
+            }, ct).ConfigureAwait(false);
+        }
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
@@ -2167,15 +2187,28 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 existing.ContentHash[..12], staged, subcategory);
 
             // Re-enqueue hydration so AutoOrganizeService can promote after enrichment.
-            await _pipeline.EnqueueAsync(new HarvestRequest
+            if (_options.IdentityPipelineV2Enabled && _identityJobRepo is not null)
             {
-                EntityId              = existing.Id,
-                EntityType            = EntityType.MediaAsset,
-                MediaType             = mediaType ?? MediaType.Unknown,
-                Hints                 = BuildHints(metadata),
-                SuppressActivityEntry = true,
-                Pass                  = HydrationPass.Quick,
-            }, ct).ConfigureAwait(false);
+                await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
+                {
+                    EntityId       = existing.Id,
+                    EntityType     = EntityType.MediaAsset.ToString(),
+                    MediaType      = (mediaType ?? MediaType.Unknown).ToString(),
+                    Pass           = "Quick",
+                }, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await _pipeline.EnqueueAsync(new HarvestRequest
+                {
+                    EntityId              = existing.Id,
+                    EntityType            = EntityType.MediaAsset,
+                    MediaType             = mediaType ?? MediaType.Unknown,
+                    Hints                 = BuildHints(metadata),
+                    SuppressActivityEntry = true,
+                    Pass                  = HydrationPass.Quick,
+                }, ct).ConfigureAwait(false);
+            }
 
             if (isPlaceholder)
             {

@@ -84,6 +84,7 @@ public static class RegistryHelpers
             "LowConfidence"        => ("Needs Verification",     p.LowConfidence,   Icons.Material.Outlined.TrendingDown),
             "MultipleQidMatches"   => ("Multiple Matches Found", p.MultipleMatches, Icons.Material.Outlined.CallSplit),
             "AuthorityMatchFailed" => ("No Match Found",         p.MatchFailed,     Icons.Material.Outlined.LinkOff),
+            "RetailMatchFailed"    => ("No Retail Match",        p.MatchFailed,     Icons.Material.Outlined.LinkOff),
             "ContentMatchFailed"   => ("No Cover Art Found",     p.MatchFailed,     Icons.Material.Outlined.SearchOff),
             "AmbiguousMediaType"   => ("Unknown Format",         p.Ambiguous,       Icons.Material.Outlined.HelpOutline),
             "MissingQid"           => ("Needs Manual Match",     p.MultipleMatches, Icons.Material.Outlined.QuestionMark),

@@ -433,6 +433,30 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
         // confidence above the review threshold).
         var deferredReviewNotifications = new List<Guid>();
 
+        // ── Retail gate enforcement ──────────────────────────────────────────
+        // Only user-initiated Fix Match may set PreResolvedQid.
+        // Automated sources (folder hints, AI) must go through the retail gate.
+        if (request.PreResolvedQid is not null && !request.IsUserResolution)
+        {
+            _logger.LogWarning(
+                "PreResolvedQid {Qid} on entity {Id} cleared — only user Fix Match may bypass retail gate",
+                request.PreResolvedQid, request.EntityId);
+            request = new HarvestRequest
+            {
+                EntityId              = request.EntityId,
+                EntityType            = request.EntityType,
+                MediaType             = request.MediaType,
+                Hints                 = request.Hints,
+                SuppressActivityEntry = request.SuppressActivityEntry,
+                SuppressReviewCreation = request.SuppressReviewCreation,
+                IngestionRunId        = request.IngestionRunId,
+                FolderHintBridgeIds   = request.FolderHintBridgeIds,
+                HintedHubId           = request.HintedHubId,
+                Pass                  = request.Pass,
+                IsUserResolution      = false,
+            };
+        }
+
         // ── Language mismatch detection (informational only) ──────────────
         // If the file declares a language that is not in the accepted languages
         // list, create an informational review item so the user can see it in
@@ -525,8 +549,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 mergedHints.TryAdd(key, value);
             }
 
-            // If hint provides a wikidata_qid, set it as PreResolvedQid so the
-            // ReconciliationAdapter skips reconciliation and goes straight to deep hydration.
+            // Folder hint QID is available but retail gate is strict — the QID stays in
+            // hints as a search signal for Stage 1 providers but does not bypass retail identification.
             if (request.PreResolvedQid is null
                 && request.FolderHintBridgeIds.TryGetValue(BridgeIdKeys.WikidataQid, out var hintQid)
                 && !string.IsNullOrWhiteSpace(hintQid))
@@ -537,7 +561,6 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                     EntityType          = request.EntityType,
                     MediaType           = request.MediaType,
                     Hints               = mergedHints,
-                    PreResolvedQid      = hintQid,
                     SuppressActivityEntry = request.SuppressActivityEntry,
                     IngestionRunId      = request.IngestionRunId,
                     FolderHintBridgeIds = request.FolderHintBridgeIds,
@@ -628,8 +651,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 request.EntityId, titleHint);
 
             await CreateReviewItemAsync(
-                request, ReviewTrigger.AuthorityMatchFailed, 0.0,
-                "Cannot perform authority match: file has no usable title, author, year, or " +
+                request, ReviewTrigger.RetailMatchFailed, 0.0,
+                "Cannot perform retail identification: file has no usable title, author, year, or " +
                 "identifiers embedded. Add metadata manually to enable library matching.",
                 result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
@@ -1288,27 +1311,27 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
 
                     if (disambResult.SelectedQid is not null && disambResult.Confidence >= 0.80)
                     {
+                        // Strict retail gate: AI disambiguation result stored as
+                        // review suggestion, not used to bypass retail.
+                        result.DisambiguationCandidates ??= new List<QidCandidate>();
+
+                        // Ensure AI-selected candidate is first in the list
+                        var aiCandidate = result.DisambiguationCandidates
+                            .FirstOrDefault(c => c.Qid == disambResult.SelectedQid);
+                        if (aiCandidate is null)
+                        {
+                            result.DisambiguationCandidates = new List<QidCandidate>(result.DisambiguationCandidates)
+                            {
+                                new() { Qid = disambResult.SelectedQid, Label = disambResult.SelectedQid,
+                                        Description = disambResult.Reasoning, ResolutionTier = "ai_disambiguation" }
+                            };
+                        }
+
                         _logger.LogInformation(
-                            "AI QidDisambiguator resolved entity {Id} to {Qid} (confidence: {Conf:F2}): {Reasoning}",
+                            "AI disambiguation resolved entity {Id} to {Qid} (confidence: {Conf:F2}) — " +
+                            "stored as review suggestion (retail gate enforced). Reasoning: {Reasoning}",
                             request.EntityId, disambResult.SelectedQid, disambResult.Confidence,
                             disambResult.Reasoning);
-
-                        // Re-enqueue with the AI-resolved QID so Stage 2 runs directly.
-                        // PreResolvedQid is init-only, so we create a new request object.
-                        await EnqueueAsync(new HarvestRequest
-                        {
-                            EntityId            = request.EntityId,
-                            EntityType          = request.EntityType,
-                            MediaType           = request.MediaType,
-                            Hints               = request.Hints,
-                            PreResolvedQid      = disambResult.SelectedQid,
-                            SuppressActivityEntry = request.SuppressActivityEntry,
-                            SuppressReviewCreation = true,
-                            IngestionRunId      = request.IngestionRunId,
-                            Pass                = request.Pass,
-                        }, ct).ConfigureAwait(false);
-
-                        goto PostPipeline;
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1327,8 +1350,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
             // review queue for manual identification.
 
             await CreateReviewItemAsync(
-                request, ReviewTrigger.AuthorityMatchFailed, 0.0,
-                $"Wikidata authority match failed for this {request.MediaType}",
+                request, ReviewTrigger.RetailMatchFailed, 0.0,
+                $"Retail identification failed for this {request.MediaType} — no provider returned a match",
                 result, ct, deferredReviewNotifications).ConfigureAwait(false);
 
             goto PostPipeline;
@@ -2422,7 +2445,8 @@ public sealed class HydrationPipelineService : IHydrationPipelineService, IAsync
                 r.Status == ReviewStatus.Pending &&
                 r.Trigger is ReviewTrigger.LowConfidence
                           or ReviewTrigger.ContentMatchFailed
-                          or ReviewTrigger.AuthorityMatchFailed).ToList();
+                          or ReviewTrigger.AuthorityMatchFailed   // legacy
+                          or ReviewTrigger.RetailMatchFailed).ToList();
             // AuthorityMatchFailed is auto-resolved here because high confidence from
             // Stage 1 retail providers is sufficient to identify and organise the file
             // — Wikidata bridge resolution is optional enrichment.
