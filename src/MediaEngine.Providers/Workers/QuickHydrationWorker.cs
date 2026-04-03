@@ -17,6 +17,7 @@ public sealed class QuickHydrationWorker
 {
     private readonly IIdentityJobRepository _jobRepo;
     private readonly IEnrichmentService _enrichment;
+    private readonly HubAssignmentService _hubAssignment;
     private readonly ILogger<QuickHydrationWorker> _logger;
     private readonly PostPipelineService _postPipeline;
 
@@ -26,11 +27,13 @@ public sealed class QuickHydrationWorker
     public QuickHydrationWorker(
         IIdentityJobRepository jobRepo,
         IEnrichmentService enrichment,
+        HubAssignmentService hubAssignment,
         PostPipelineService postPipeline,
         ILogger<QuickHydrationWorker> logger)
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
+        _hubAssignment = hubAssignment;
         _postPipeline = postPipeline;
         _logger = logger;
     }
@@ -79,6 +82,18 @@ public sealed class QuickHydrationWorker
             job.EntityId, job.ResolvedQid);
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
+
+        // Assign the work to a ContentGroup hub based on Wikidata relationships
+        // (series, franchise, fictional_universe). Must run after enrichment
+        // populates canonical values but before PostPipeline gates organization.
+        try
+        {
+            await _hubAssignment.AssignAsync(job.EntityId, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Hub assignment failed for entity {EntityId} — continuing", job.EntityId);
+        }
 
         await _postPipeline.EvaluateAndOrganizeAsync(
             job.EntityId, job.Id, job.ResolvedQid, job.IngestionRunId, ct);

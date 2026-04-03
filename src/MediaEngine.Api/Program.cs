@@ -679,6 +679,7 @@ builder.Services.AddSingleton<DescriptionEnrichmentWorker>();
 
 // Enrichment orchestrator
 builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.HubAssignmentService>();
 
 // Pipeline workers
 builder.Services.AddSingleton<RetailMatchWorker>();
