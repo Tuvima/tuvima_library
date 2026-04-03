@@ -206,6 +206,14 @@ public interface IPersonRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns all character-performer links for a given work QID.
+    /// Each entry contains the person ID and fictional entity ID.
+    /// </summary>
+    Task<IReadOnlyList<(Guid PersonId, Guid FictionalEntityId)>> GetCharacterLinksByWorkAsync(
+        string workQid,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Reassigns all media links, character links, and alias links from one person
     /// to another. Used during QID-based deduplication. Idempotent.
     /// </summary>

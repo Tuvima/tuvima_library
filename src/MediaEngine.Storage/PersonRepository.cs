@@ -47,6 +47,7 @@ public sealed class PersonRepository : IPersonRepository
 
     /// <summary>Helper record for reading character-performer link rows.</summary>
     private sealed record CharacterLinkRow(string FictionalEntityId, string? WorkQid);
+    private sealed record CharacterLinkByWorkRow(string PersonId, string FictionalEntityId);
 
     /// <summary>Helper record for the ListAllAsync GROUP_CONCAT query.</summary>
     private sealed record PersonWithRolesCsv
@@ -747,6 +748,31 @@ public sealed class PersonRepository : IPersonRepository
 
         IReadOnlyList<(Guid, string?)> result = rows
             .Select(r => (Guid.Parse(r.FictionalEntityId), r.WorkQid))
+            .ToList();
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<(Guid PersonId, Guid FictionalEntityId)>> GetCharacterLinksByWorkAsync(
+        string workQid,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(workQid);
+
+        using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("workQid", workQid);
+        var rows = conn.Query<CharacterLinkByWorkRow>("""
+            SELECT person_id           AS PersonId,
+                   fictional_entity_id AS FictionalEntityId
+            FROM   character_performer_links
+            WHERE  work_qid = @workQid;
+            """, p).AsList();
+
+        IReadOnlyList<(Guid, Guid)> result = rows
+            .Select(r => (Guid.Parse(r.PersonId), Guid.Parse(r.FictionalEntityId)))
             .ToList();
 
         return Task.FromResult(result);

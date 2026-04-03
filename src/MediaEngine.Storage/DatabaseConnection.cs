@@ -1833,7 +1833,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 id               TEXT PRIMARY KEY,
                 entity_id        TEXT NOT NULL,
                 entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
-                asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','Backdrop')),
+                asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','Backdrop','CharacterPortrait')),
                 image_url        TEXT,
                 local_image_path TEXT,
                 source_provider  TEXT,

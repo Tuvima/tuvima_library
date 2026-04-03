@@ -18,11 +18,17 @@ namespace MediaEngine.Domain.Services;
 ///         │   │   ├── {assetId12}/       ← ebook edition
 ///         │   │   │   ├── cover.jpg
 ///         │   │   │   ├── cover_thumb.jpg
-///         │   │   │   └── hero.jpg
+///         │   │   │   ├── hero.jpg
+///         │   │   │   ├── backdrop.jpg
+///         │   │   │   ├── logo.png
+///         │   │   │   └── banner.jpg
 ///         │   │   └── {assetId12}/       ← audiobook edition
 ///         │   │       ├── cover.jpg
 ///         │   │       ├── cover_thumb.jpg
-///         │   │       └── hero.jpg
+///         │   │       ├── hero.jpg
+///         │   │       ├── backdrop.jpg
+///         │   │       ├── logo.png
+///         │   │       └── banner.jpg
 ///         │   └── _pending/
 ///         │       └── {assetId12}/
 ///         │           ├── cover.jpg
@@ -80,6 +86,18 @@ public sealed class ImagePathService
     /// <summary>Gets hero.jpg path for a work.</summary>
     public string GetWorkHeroPath(string? wikidataQid, Guid assetId) =>
         Path.Combine(GetWorkImageDir(wikidataQid, assetId), "hero.jpg");
+
+    /// <summary>Gets backdrop.jpg path for a work.</summary>
+    public string GetWorkBackdropPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "backdrop.jpg");
+
+    /// <summary>Gets logo.png path for a work (transparent PNG).</summary>
+    public string GetWorkLogoPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "logo.png");
+
+    /// <summary>Gets banner.jpg path for a work.</summary>
+    public string GetWorkBannerPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "banner.jpg");
 
     /// <summary>Gets the directory for a person's images.</summary>
     public string GetPersonImageDir(string wikidataQid) =>

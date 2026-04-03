@@ -1,6 +1,6 @@
 {
   "name": "Fanart.tv",
-  "provider_id": "bb00000b-0000-4000-8000-000000000012",
+  "provider_id": "bc00000c-0000-4000-8000-000000000013",
   "adapter_type": "config_driven",
   "enabled": true,
   "hydration_stages": [3],

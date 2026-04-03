@@ -130,6 +130,35 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<FictionalEntity>> GetByWorkQidAsync(
+        string workQid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(workQid);
+
+        using var conn = _db.CreateConnection();
+        var results = conn.Query<FictionalEntity>("""
+            SELECT fe.id                      AS Id,
+                   fe.wikidata_qid            AS WikidataQid,
+                   fe.label                   AS Label,
+                   fe.description             AS Description,
+                   fe.entity_sub_type         AS EntitySubType,
+                   fe.fictional_universe_qid  AS FictionalUniverseQid,
+                   fe.fictional_universe_label AS FictionalUniverseLabel,
+                   fe.image_url               AS ImageUrl,
+                   fe.local_image_path        AS LocalImagePath,
+                   fe.created_at              AS CreatedAt,
+                   fe.enriched_at             AS EnrichedAt
+            FROM   fictional_entities fe
+            INNER JOIN fictional_entity_work_links fewl
+                ON fe.id = fewl.fictional_entity_id
+            WHERE  fewl.work_qid = @workQid COLLATE NOCASE;
+            """, new { workQid }).AsList();
+
+        return Task.FromResult<IReadOnlyList<FictionalEntity>>(results);
+    }
+
+    /// <inheritdoc/>
     public Task CreateAsync(FictionalEntity entity, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

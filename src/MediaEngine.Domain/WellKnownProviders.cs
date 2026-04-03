@@ -55,6 +55,9 @@ public static class WellKnownProviders
     /// <summary>Pseudonym provider — synthetic claims linking pen names to real authors.</summary>
     public static readonly Guid Pseudonym = Guid.Parse("ffa00001-0000-4000-8000-000000000099");
 
+    /// <summary>Fanart.tv — rich imagery (backdrops, logos, banners, character art).</summary>
+    public static readonly Guid FanartTv = Guid.Parse("bc00000c-0000-4000-8000-000000000013");
+
     /// <summary>Returns true if the provider is a file/local source (LocalProcessor or LibraryScanner).</summary>
     public static bool IsFileSource(Guid providerId) =>
         providerId == LocalProcessor || providerId == LibraryScanner;

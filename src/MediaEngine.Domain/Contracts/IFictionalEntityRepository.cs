@@ -26,6 +26,13 @@ public interface IFictionalEntityRepository
     Task<IReadOnlyList<FictionalEntity>> GetByUniverseAndTypeAsync(
         string universeQid, string entitySubType, CancellationToken ct = default);
 
+    /// <summary>
+    /// Returns all fictional entities linked to a given work QID
+    /// via the <c>fictional_entity_work_links</c> junction table.
+    /// </summary>
+    Task<IReadOnlyList<FictionalEntity>> GetByWorkQidAsync(
+        string workQid, CancellationToken ct = default);
+
     /// <summary>Create a new fictional entity record.</summary>
     Task CreateAsync(FictionalEntity entity, CancellationToken ct = default);
 
