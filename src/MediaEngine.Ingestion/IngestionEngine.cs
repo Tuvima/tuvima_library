@@ -452,6 +452,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 candidate.Path,
                 candidate.FailureReason ?? "Lock probe exhausted",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
+            if (candidate.BatchId.HasValue)
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
             return;
         }
 
@@ -736,6 +738,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 candidate.Path,
                 $"Corrupt: {result.CorruptReason}",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
+            if (candidate.BatchId.HasValue)
+                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
             return;
         }
 
@@ -1401,6 +1405,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
             Pass           = "Quick",
         }, ct).ConfigureAwait(false);
+
+        // Batch counter: file has been fully processed through the ingestion pipeline.
+        if (candidate.BatchId.HasValue)
+            await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
@@ -2820,6 +2828,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             _logger.LogDebug(ex, "Activity log write failed for action '{Action}' — pipeline continues",
                 entry.ActionType);
+        }
+    }
+
+    /// <summary>
+    /// Atomically increments one counter column on the given batch record.
+    /// Best-effort — never throws; a counter miss must not abort the pipeline.
+    /// </summary>
+    private async Task SafeIncrementBatchCounterAsync(
+        Guid batchId,
+        BatchCounterColumn column,
+        CancellationToken ct)
+    {
+        try
+        {
+            await _batchRepo.IncrementCounterAsync(batchId, column, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Batch counter increment failed for batch {BatchId} column {Column} — pipeline continues",
+                batchId, column);
         }
     }
 

@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Domain.Contracts;
 
@@ -50,6 +51,12 @@ public interface IIngestionBatchRepository
     /// where at least one such file exists).
     /// </summary>
     Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Atomically increments a single counter column by 1 for the given batch.
+    /// Uses SQL <c>col = col + 1</c> — safe for concurrent calls, no read-modify-write needed.
+    /// </summary>
+    Task IncrementCounterAsync(Guid id, BatchCounterColumn column, CancellationToken ct = default);
 
     /// <summary>
     /// Marks all batches currently in "running" status as "abandoned".

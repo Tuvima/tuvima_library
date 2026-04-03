@@ -17,6 +17,7 @@
     <ProjectReference Include="..\..\src\MediaEngine.Storage\MediaEngine.Storage.csproj" />
     <ProjectReference Include="..\..\src\MediaEngine.Intelligence\MediaEngine.Intelligence.csproj" />
     <ProjectReference Include="..\..\src\MediaEngine.Processors\MediaEngine.Processors.csproj" />
+    <ProjectReference Include="..\..\src\MediaEngine.Providers\MediaEngine.Providers.csproj" />
   </ItemGroup>
 
   <ItemGroup>

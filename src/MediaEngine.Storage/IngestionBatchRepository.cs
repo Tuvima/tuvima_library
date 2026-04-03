@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -176,6 +177,38 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             """);
 
         return Task.FromResult(count);
+    }
+
+    /// <inheritdoc/>
+    public Task IncrementCounterAsync(Guid id, BatchCounterColumn column, CancellationToken ct = default)
+    {
+        // Map enum to the exact SQLite column name.
+        var colName = column switch
+        {
+            BatchCounterColumn.FilesTotal      => "files_total",
+            BatchCounterColumn.FilesProcessed  => "files_processed",
+            BatchCounterColumn.FilesIdentified => "files_registered",
+            BatchCounterColumn.FilesReview     => "files_review",
+            BatchCounterColumn.FilesNoMatch    => "files_no_match",
+            BatchCounterColumn.FilesFailed     => "files_failed",
+            _ => throw new ArgumentOutOfRangeException(nameof(column), column, "Unknown BatchCounterColumn value"),
+        };
+
+        // Use a raw SQL string built from a fixed switch — colName is never user-supplied, so no injection risk.
+        using var conn = _db.CreateConnection();
+        conn.Execute($"""
+            UPDATE ingestion_batches
+            SET {colName}   = {colName} + 1,
+                updated_at  = @updatedAt
+            WHERE id = @id;
+            """,
+            new
+            {
+                id        = id.ToString(),
+                updatedAt = DateTimeOffset.UtcNow.ToString("O"),
+            });
+
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>

@@ -138,9 +138,12 @@ public sealed class PostPipelineService
         var autoResolveTriggers = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
             nameof(ReviewTrigger.RetailMatchFailed),
+            nameof(ReviewTrigger.RetailMatchAmbiguous),
             nameof(ReviewTrigger.AuthorityMatchFailed),
             nameof(ReviewTrigger.ContentMatchFailed),
             nameof(ReviewTrigger.LowConfidence),
+            nameof(ReviewTrigger.WikidataBridgeFailed),
+            nameof(ReviewTrigger.MissingQid),
         };
 
         foreach (var review in pendingReviews)

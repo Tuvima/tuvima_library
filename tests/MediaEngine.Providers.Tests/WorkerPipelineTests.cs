@@ -808,6 +808,9 @@ public sealed class WorkerPipelineTests
         public Task CompleteAsync(Guid id, string status, CancellationToken ct = default)
             => Task.CompletedTask;
 
+        public Task IncrementCounterAsync(Guid id, BatchCounterColumn column, CancellationToken ct = default)
+            => Task.CompletedTask;
+
         public Task<IngestionBatch?> GetByIdAsync(Guid id, CancellationToken ct = default)
             => Task.FromResult<IngestionBatch?>(null);
 

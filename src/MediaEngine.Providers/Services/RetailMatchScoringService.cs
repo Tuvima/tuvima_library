@@ -76,8 +76,11 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         // ── Author score ─────────────────────────────────────────────────
         double authorScore = 0.0;
         // For music files, "artist" is the primary creator field, not "author".
+        // For video/comics, "director" or "writer" may be the primary creator.
         var fileAuthor = fileHints.GetValueOrDefault("author")
-            ?? fileHints.GetValueOrDefault("artist");
+            ?? fileHints.GetValueOrDefault("artist")
+            ?? fileHints.GetValueOrDefault("director")
+            ?? fileHints.GetValueOrDefault("writer");
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
             // First try a full-string comparison (handles single-author and matching order).
@@ -124,14 +127,15 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
                 }
             }
         }
-        else if (string.IsNullOrWhiteSpace(candidateAuthor))
+        else if (string.IsNullOrWhiteSpace(candidateAuthor) && !string.IsNullOrWhiteSpace(fileAuthor))
         {
-            // Provider didn't return author data — use neutral score so the 35%
-            // author weight doesn't tank the composite. This is common for providers
-            // like Metron (comics) where search results omit credits, and for music
-            // providers returning results without artist info.
-            authorScore = 0.5;
+            // File has a creator but the provider returned no author data — 0.0 per spec
+            // (weak evidence: this candidate can't be verified against the known creator).
+            authorScore = 0.0;
         }
+        // When BOTH file and candidate have no author data (e.g. Movies, TV, Comics where
+        // creator fields are absent from file metadata), we flag this for weight redistribution
+        // below — see the composite calculation.
 
         // ── Year score ───────────────────────────────────────────────────
         double yearScore = 0.0; // Penalised when missing
@@ -169,10 +173,31 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         var yearWeight   = weights.GetValueOrDefault("year",   0.10);
         var formatWeight = weights.GetValueOrDefault("format", 0.10);
 
-        var composite = (titleScore  * titleWeight)
-                      + (authorScore * authorWeight)
-                      + (yearScore   * yearWeight)
-                      + (formatScore * formatWeight)
+        // When NEITHER the file NOR the candidate carries any creator data (common for
+        // Movies, TV, and Comics where "author/artist/director/writer" are absent on both
+        // sides), the author weight would penalise every candidate equally and unfairly.
+        // In that case, redistribute the 35% author weight proportionally to the other
+        // three fields so scoring is driven entirely by title, year, and format.
+        double effectiveTitleWeight  = titleWeight;
+        double effectiveAuthorWeight = authorWeight;
+        double effectiveYearWeight   = yearWeight;
+        double effectiveFormatWeight = formatWeight;
+
+        bool bothLackAuthor = string.IsNullOrWhiteSpace(fileAuthor)
+                           && string.IsNullOrWhiteSpace(candidateAuthor);
+        if (bothLackAuthor)
+        {
+            double remaining = 1.0 - authorWeight; // 0.65
+            effectiveTitleWeight  = titleWeight  / remaining;
+            effectiveYearWeight   = yearWeight   / remaining;
+            effectiveFormatWeight = formatWeight / remaining;
+            effectiveAuthorWeight = 0.0;
+        }
+
+        var composite = (titleScore  * effectiveTitleWeight)
+                      + (authorScore * effectiveAuthorWeight)
+                      + (yearScore   * effectiveYearWeight)
+                      + (formatScore * effectiveFormatWeight)
                       + crossFieldBoost
                       + coverBoost;
 
@@ -187,7 +212,7 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             FormatScore     = formatScore,
             CrossFieldBoost = crossFieldBoost,
             CoverArtScore   = coverBoost,
-            CompositeScore  = Math.Clamp(composite, 0.0, 1.0),
+            CompositeScore  = Math.Round(Math.Clamp(composite, 0.0, 1.0), 4),
         };
     }
 

@@ -156,6 +156,21 @@ public sealed class RetailMatchWorker
                     MediaType = mediaType,
                     Title = hints.GetValueOrDefault(MetadataFieldConstants.Title),
                     Author = hints.GetValueOrDefault(MetadataFieldConstants.Author),
+                    Narrator = hints.GetValueOrDefault(MetadataFieldConstants.Narrator),
+                    ShowName = hints.GetValueOrDefault(MetadataFieldConstants.ShowName)
+                        ?? hints.GetValueOrDefault(MetadataFieldConstants.Series),
+                    Album = hints.GetValueOrDefault(MetadataFieldConstants.Album),
+                    Artist = hints.GetValueOrDefault(MetadataFieldConstants.Artist),
+                    Director = hints.GetValueOrDefault(MetadataFieldConstants.Director),
+                    SeasonNumber = hints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
+                        ?? hints.GetValueOrDefault("season"),
+                    EpisodeNumber = hints.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber)
+                        ?? hints.GetValueOrDefault("episode"),
+                    TrackNumber = hints.GetValueOrDefault(MetadataFieldConstants.TrackNumber),
+                    Series = hints.GetValueOrDefault(MetadataFieldConstants.Series),
+                    Genre = hints.GetValueOrDefault(MetadataFieldConstants.Genre),
+                    Isbn = hints.GetValueOrDefault(BridgeIdKeys.Isbn),
+                    Asin = hints.GetValueOrDefault(BridgeIdKeys.Asin),
                     Hints = hints,
                     PriorProviderBridgeIds = strategy == ProviderStrategy.Sequential
                         ? sequentialBridgeIds : null,
