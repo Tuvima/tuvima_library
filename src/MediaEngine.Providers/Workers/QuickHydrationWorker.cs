@@ -1,6 +1,7 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Providers.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
@@ -17,6 +18,7 @@ public sealed class QuickHydrationWorker
     private readonly IIdentityJobRepository _jobRepo;
     private readonly IEnrichmentService _enrichment;
     private readonly ILogger<QuickHydrationWorker> _logger;
+    private readonly PostPipelineService _postPipeline;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
     private const int BatchSize = 5;
@@ -24,10 +26,12 @@ public sealed class QuickHydrationWorker
     public QuickHydrationWorker(
         IIdentityJobRepository jobRepo,
         IEnrichmentService enrichment,
+        PostPipelineService postPipeline,
         ILogger<QuickHydrationWorker> logger)
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
+        _postPipeline = postPipeline;
         _logger = logger;
     }
 
@@ -76,8 +80,8 @@ public sealed class QuickHydrationWorker
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
 
-        // TODO: Call PostPipelineService.EvaluateAndOrganizeAsync for confidence check,
-        // auto-resolve, and organization gating.
+        await _postPipeline.EvaluateAndOrganizeAsync(
+            job.EntityId, job.Id, job.ResolvedQid, job.IngestionRunId, ct);
 
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Completed, ct: ct);
         _logger.LogInformation("Quick hydration completed for entity {EntityId}", job.EntityId);

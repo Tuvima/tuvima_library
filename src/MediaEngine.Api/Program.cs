@@ -684,6 +684,7 @@ builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
 builder.Services.AddSingleton<RetailMatchWorker>();
 builder.Services.AddSingleton<WikidataBridgeWorker>();
 builder.Services.AddSingleton<QuickHydrationWorker>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.PostPipelineService>();
 
 // ── Provider Health Monitor: active probes, recovery flush, SignalR events ────
 builder.Services.AddSingleton<ProviderHealthMonitorService>();
@@ -753,6 +754,11 @@ builder.Services.AddHostedService<MediaEngine.Api.Services.SeriesAlignmentBackgr
 builder.Services.AddHostedService<MediaEngine.Api.Services.TasteProfileBackgroundService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.DescriptionIntelligenceBatchService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.UniverseEnrichmentService>();
+
+// Pipeline hosted services.
+builder.Services.AddHostedService<MediaEngine.Api.Services.RetailMatchHostedService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.WikidataBridgeHostedService>();
+builder.Services.AddHostedService<MediaEngine.Api.Services.QuickHydrationHostedService>();
 
 // AI inference and feature services.
 builder.Services.AddSingleton<MediaEngine.AI.Llama.LlamaInferenceService>();
