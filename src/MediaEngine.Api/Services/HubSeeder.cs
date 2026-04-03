@@ -19,9 +19,12 @@ public static class HubSeeder
         await SeedSystemViewHubsAsync(hubRepo, ct);
 
         var counts = await hubRepo.GetCountsByTypeAsync(ct);
-        // System hubs now always exist; check for non-System types
-        var nonSystemCount = counts.Where(c => c.Key != "System").Sum(c => c.Value);
-        if (nonSystemCount > 0)
+        // System and ContentGroup hubs are auto-generated — don't count them when
+        // deciding whether to seed Smart/Mix/Playlist hubs for the first time.
+        var userCreatedCount = counts
+            .Where(c => c.Key is not "System" and not "ContentGroup" and not "Universe")
+            .Sum(c => c.Value);
+        if (userCreatedCount > 0)
             return; // Already seeded
 
         var now = DateTimeOffset.UtcNow;
@@ -220,6 +223,58 @@ public static class HubSeeder
                 "AutoStories",
                 [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
                 "series", "title"),
+
+            // ── Flat views for types that only had grouped views ─────
+            ("All TV", "Every TV episode in your library",
+                "LiveTv",
+                [new() { Field = "media_type", Op = "eq", Value = "TV" }],
+                null, "title"),
+
+            ("All Podcasts", "Every podcast episode in your library",
+                "Mic",
+                [new() { Field = "media_type", Op = "eq", Value = "Podcasts" }],
+                null, "title"),
+
+            // ── Creator-based views ─────────────────────────────────
+            ("Movies by Director", "Movies grouped by director",
+                "TheaterComedy",
+                [new() { Field = "media_type", Op = "eq", Value = "Movies" }],
+                "director", "title"),
+
+            ("Movies by Genre", "Movies grouped by genre",
+                "Category",
+                [new() { Field = "media_type", Op = "eq", Value = "Movies" }],
+                "genre", "title"),
+
+            ("TV by Genre", "TV grouped by genre",
+                "Category",
+                [new() { Field = "media_type", Op = "eq", Value = "TV" }],
+                "genre", "title"),
+
+            ("Books by Author", "Books grouped by author",
+                "Person",
+                [new() { Field = "media_type", Op = "eq", Value = "Books" }],
+                "author", "title"),
+
+            ("Audiobooks by Author", "Audiobooks grouped by author",
+                "Person",
+                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
+                "author", "title"),
+
+            ("Audiobooks by Narrator", "Audiobooks grouped by narrator",
+                "RecordVoiceOver",
+                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
+                "narrator", "title"),
+
+            ("Music by Genre", "Music grouped by genre",
+                "Category",
+                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
+                "genre", "title"),
+
+            ("Comics by Writer", "Comics grouped by writer",
+                "Person",
+                [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
+                "author", "title"),
         };
 
         foreach (var (name, desc, icon, rules, groupBy, sort) in viewHubs)
