@@ -74,6 +74,8 @@ public enum ColumnRenderType
     ManageActions,
     /// <summary>Compact cell: small icon + title only, for dense list views (Apple Music style).</summary>
     CompactCell,
+    /// <summary>Clickable text — splits on common delimiters and renders each part as a button invoking OnAuthorClicked.</summary>
+    ClickableText,
 }
 
 /// <summary>Provides default column definitions per media type and tab.</summary>
@@ -222,7 +224,7 @@ public static class VaultColumnDefinitions
     [
         Checkbox(),
         new() { Key = "media",   Label = "Song",   Width = "30%",  Sortable = true, SortKey = "title",  RenderType = ColumnRenderType.MediaCell },
-        new() { Key = "artist",  Label = "Artist",  Width = "auto", Sortable = true, SortKey = "artist", RenderType = ColumnRenderType.Text, PropertyName = "Artist" },
+        new() { Key = "artist",  Label = "Artist",  Width = "auto", Sortable = true, SortKey = "artist", RenderType = ColumnRenderType.ClickableText, PropertyName = "Artist" },
         new() { Key = "album",   Label = "Album",   Width = "auto", Sortable = true, SortKey = "album",  RenderType = ColumnRenderType.Text, PropertyName = "Album" },
         new() { Key = "genre",   Label = "Genre",   Width = "auto", RenderType = ColumnRenderType.Text,  PropertyName = "Genre" },
         new() { Key = "size",    Label = "Size",    Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },

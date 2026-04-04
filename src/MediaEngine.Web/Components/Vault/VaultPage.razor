@@ -1579,7 +1579,7 @@
                 "people_authors"   => result.Where(p => p.Roles.Any(r => r is "Author" or "Narrator")),
                 "people_directors" => result.Where(p => p.Roles.Any(r => r is "Director")),
                 "people_actors"    => result.Where(p => p.Roles.Any(r => r is "Actor" or "Voice Actor")),
-                "people_musicians" => result.Where(p => p.Roles.Any(r => r is "Artist" or "Composer" or "Musician")),
+                "people_musicians" => result.Where(p => p.Roles.Any(r => r is "Artist" or "Composer" or "Musician" or "Performer")),
                 _                  => result, // "people_all" — no filter
             };
 

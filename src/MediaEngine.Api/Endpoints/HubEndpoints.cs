@@ -822,6 +822,7 @@ public static class HubEndpoints
                     SELECT
                         mw.work_id,
                         MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
+                        MAX(CASE WHEN cv.key = 'episode_title' THEN cv.value END) AS episode_title,
                         MAX(CASE WHEN cv.key = 'show_name' THEN cv.value END) AS show_name,
                         MAX(CASE WHEN cv.key = 'season_number' THEN cv.value END) AS season_number,
                         MAX(CASE WHEN cv.key = 'episode_number' THEN cv.value END) AS episode_number,
@@ -879,6 +880,7 @@ public static class HubEndpoints
             {
                 var workId = reader.GetGuid(reader.GetOrdinal("work_id"));
                 var title = reader.IsDBNull(reader.GetOrdinal("title")) ? null : reader.GetString(reader.GetOrdinal("title"));
+                var episodeTitle = reader.IsDBNull(reader.GetOrdinal("episode_title")) ? null : reader.GetString(reader.GetOrdinal("episode_title"));
                 var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
                 var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
                 var duration = reader.IsDBNull(reader.GetOrdinal("duration")) ? null : reader.GetString(reader.GetOrdinal("duration"));
@@ -889,17 +891,22 @@ public static class HubEndpoints
                 var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
                 var seqIndex = reader.IsDBNull(reader.GetOrdinal("series_index")) ? null : reader.GetString(reader.GetOrdinal("series_index"));
 
-                // Determine creator (author, director, or artist)
+                // Determine creator (author, director, artist, or network for TV)
                 var creator = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString(reader.GetOrdinal("author"));
-                creator ??= reader.IsDBNull(reader.GetOrdinal("director")) ? null : reader.GetString(reader.GetOrdinal("director"));
-                creator ??= reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
+                var directorVal = reader.IsDBNull(reader.GetOrdinal("director")) ? null : reader.GetString(reader.GetOrdinal("director"));
+                var artistVal = reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
+                var networkVal = reader.IsDBNull(reader.GetOrdinal("network")) ? null : reader.GetString(reader.GetOrdinal("network"));
+                // For TV, prefer network over director as the header creator
+                if (mediaType == "TV")
+                    creator ??= networkVal ?? directorVal ?? artistVal;
+                else
+                    creator ??= directorVal ?? artistVal;
 
                 combinedCreator ??= creator;
                 combinedCover ??= cover;
                 combinedGenre ??= genre;
 
-                var network = reader.IsDBNull(reader.GetOrdinal("network")) ? null : reader.GetString(reader.GetOrdinal("network"));
-                combinedNetwork ??= network;
+                combinedNetwork ??= networkVal;
 
                 var year = releaseYear ?? yearVal;
                 if (!string.IsNullOrWhiteSpace(year)) allYears.Add(year);
@@ -925,7 +932,7 @@ public static class HubEndpoints
                 items.Add(new HubGroupWorkDto
                 {
                     WorkId       = workId,
-                    Title        = title ?? $"Item {workId.ToString("N")[..8]}",
+                    Title        = episodeTitle ?? title ?? $"Item {workId.ToString("N")[..8]}",
                     Year         = year,
                     Duration     = duration ?? runtime,
                     CoverUrl     = cover,
