@@ -3,9 +3,8 @@ using MudBlazor;
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
-/// Static registry of all content-type navigation lanes.
-/// Replaces the user-configurable Virtual Library system with fixed,
-/// Netflix-style content lanes that always appear in the dock.
+/// Static registry of category navigation lanes.
+/// Three content categories: Read (Books+Comics), Watch (Movies+TV), Listen (Music+Audiobooks+Podcasts).
 /// </summary>
 public static class ContentLanes
 {
@@ -13,66 +12,46 @@ public static class ContentLanes
         "home", "Home",
         Icons.Material.Outlined.Home,
         [],
-        ["Continue Journey", "Recently Added", "Smart Collections"]);
-
-    public static readonly LaneDefinition Search = new(
-        "search", "Search",
-        Icons.Material.Filled.Search,
-        [],
         []);
 
-    public static readonly LaneDefinition Books = new(
-        "books", "Books",
+    public static readonly LaneDefinition Read = new(
+        "read", "Read",
         Icons.Material.Filled.MenuBook,
-        ["Books", "Audiobooks"],
-        ["All", "Reading Lists", "Authors", "Series"]);
+        ["Books", "Audiobooks", "Comics"],
+        ["All", "Books", "Comics", "Audiobooks"]);
 
-    public static readonly LaneDefinition Video = new(
-        "video", "Video",
+    public static readonly LaneDefinition Watch = new(
+        "watch", "Watch",
         Icons.Material.Filled.Movie,
         ["Movies", "TV"],
-        ["All", "Watchlists", "Directors", "Genres"]);
+        ["All", "Movies", "TV Shows"]);
 
-    public static readonly LaneDefinition Music = new(
-        "music", "Music",
-        Icons.Material.Filled.MusicNote,
-        ["Music"],
-        ["All", "Playlists", "Artists", "Genres"]);
+    public static readonly LaneDefinition Listen = new(
+        "listen", "Listen",
+        Icons.Material.Filled.Headphones,
+        ["Music", "Audiobooks", "Podcasts"],
+        ["All", "Music", "Audiobooks", "Podcasts"]);
 
-    public static readonly LaneDefinition Podcasts = new(
-        "podcasts", "Podcasts",
-        Icons.Material.Filled.Podcasts,
-        ["Podcasts"],
-        ["All", "Subscriptions", "Episodes"]);
-
-    public static readonly LaneDefinition Comics = new(
-        "comics", "Comics",
-        Icons.Material.Filled.AutoStories,
-        ["Comics"],
-        ["All", "Reading Lists", "Series", "Publishers"]);
-
-    /// <summary>All navigation lanes in dock display order.</summary>
+    /// <summary>All navigation lanes in display order.</summary>
     public static readonly IReadOnlyList<LaneDefinition> All =
-        [Home, Search, Books, Video, Music, Podcasts, Comics];
+        [Home, Read, Watch, Listen];
 
-    /// <summary>Content lanes only (excludes Home and Search).</summary>
+    /// <summary>Content lanes only (excludes Home).</summary>
     public static readonly IReadOnlyList<LaneDefinition> ContentOnly =
-        [Books, Video, Music, Podcasts, Comics];
+        [Read, Watch, Listen];
 
     /// <summary>Finds a lane by its URL key (case-insensitive).</summary>
     public static LaneDefinition? ByKey(string key) =>
         All.FirstOrDefault(l => l.Key.Equals(key, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
-    /// Returns the accent colour for a lane based on its primary media type bucket.
+    /// Returns the accent colour for a lane.
     /// </summary>
     public static string AccentColor(LaneDefinition lane) => lane.Key switch
     {
-        "books"    => "#FF8F00", // Amber — warm, literary
-        "video"    => "#00BFA5", // Teal — cinematic
-        "music"    => "#EC407A", // Rose — vibrant audio
-        "podcasts" => "#AB47BC", // Purple — spoken word
-        "comics"   => "#7C4DFF", // Violet — illustration
-        _          => "#C9922E", // Golden amber — brand default
+        "read"   => "#5DCAA5", // Green — reading
+        "watch"  => "#60A5FA", // Blue — watching
+        "listen" => "#A78BFA", // Purple — listening
+        _        => "#C9922E", // Golden amber — brand default
     };
 }

@@ -17,9 +17,8 @@
                 <div class="az-grid">
                     @foreach (var item in group.Items)
                     {
-                        <PosterCard Item="@item"
-                                    OnItemSelected="OnItemSelected"
-                                    Width="@CardWidth" />
+                        <LibraryCard Item="@item"
+                                     OnItemSelected="OnItemSelected" />
                     }
                 </div>
             </div>
@@ -42,7 +41,6 @@
 @code {
     [Parameter] public IReadOnlyList<PosterItemViewModel> Items { get; set; } = [];
     [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
-    [Parameter] public int CardWidth { get; set; } = 180;
 
     private static readonly string[] _allLetters =
         Enumerable.Range('A', 26).Select(c => ((char)c).ToString()).Append("#").ToArray();

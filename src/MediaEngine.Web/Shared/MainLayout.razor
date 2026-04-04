@@ -14,7 +14,7 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-@* Global Command Palette — mounted only when the feature is enabled for this device *@
+@* Global Command Palette *@
 @if (!DeviceContext.IsFeatureDisabled("command_palette"))
 {
     <CommandPalette @ref="_palette" />
@@ -22,37 +22,14 @@
 
 <MudLayout Class="app-bg">
     @* ── Top Navigation Bar ── *@
-    <TopBar Variant="@TopBarVariant"
-            OnSearchRequested="@(() => _palette?.Toggle())"
-            OnHamburgerClick="@OnHamburgerClick"
-            ReviewCount="@_reviewCount"
+    <TopBar ReviewCount="@_reviewCount"
             AvatarColor="@_avatarColor"
             AvatarInitial="@_avatarInitial"
             DisplayName="@_displayName" />
 
-    @* ── Mobile Navigation Drawer (always rendered; hamburger shows it on mobile) ── *@
-    <MobileNavDrawer @bind-Open="@_mobileDrawerOpen"
-                     AvatarColor="@_avatarColor"
-                     AvatarInitial="@_avatarInitial"
-                     DisplayName="@_displayName"
-                     ReviewCount="@_reviewCount"
-                     CurrentRole="Administrator" />
-
-    @* ── Left Navigation Sidebar (when config says visible) ── *@
-    @if (ShowDock)
-    {
-        <Sidebar AvatarColor="@_avatarColor"
-                 AvatarInitial="@_avatarInitial"
-                 DisplayName="@_displayName"
-                 ReviewCount="@_reviewCount"
-                 CurrentRole="Administrator"
-                 Collapsed="@_sidebarCollapsed"
-                 CollapsedChanged="@OnSidebarCollapsedChanged" />
-    }
-
-    @* Full-width main content — top padding clears top bar, left clears dock *@
-    <MudMainContent Class="@ContentClass">
-        <MudContainer MaxWidth="@ContentMaxWidth" Class="py-6 px-4 px-md-8">
+    @* ── Main content — top padding clears top bar ── *@
+    <MudMainContent Class="main-content-with-topbar">
+        <MudContainer MaxWidth="MaxWidth.False" Class="py-6 px-0">
             @Body
         </MudContainer>
     </MudMainContent>
@@ -60,48 +37,16 @@
 
 @code {
     private CommandPalette? _palette;
-    private bool _mobileDrawerOpen;
-    private bool _sidebarCollapsed;
 
-    // Profile state for the top bar and dock.
+    // Profile state
     private string _avatarColor = "#C9922E";
     private string _avatarInitial = "?";
     private string _displayName = "User";
 
-    // Review queue badge count for notification bell.
+    // Review queue badge count
     private int _reviewCount;
 
-    // ── Top bar variant based on device class ─────────────────────────────
-
-    private string TopBarVariant => DeviceContext.Settings.Shell.TopBarStyle;
-
-    // ── Content area — top padding for top bar, left for dock ─────────────
-
-    private bool ShowDock => DeviceContext.Settings.Shell.DockVisible;
-
-    private string ContentClass
-    {
-        get
-        {
-            var classes = "main-content-with-topbar";
-            if (ShowDock)
-                classes += _sidebarCollapsed ? " main-content-sidebar-collapsed" : " main-content-sidebar-expanded";
-            classes += $" {DeviceContext.Settings.ContentPadding}";
-            return classes;
-        }
-    }
-
-    private MaxWidth ContentMaxWidth =>
-        DeviceContext.Settings.ContentMaxWidth switch
-        {
-            "Full" => MaxWidth.False,
-            "ExtraLarge" => MaxWidth.ExtraLarge,
-            "Large" => MaxWidth.Large,
-            "Medium" => MaxWidth.Medium,
-            _ => MaxWidth.ExtraLarge,
-        };
-
-    // ── Lifecycle ───────────────────────────────────────────────────────────
+    // ── Lifecycle ──────────────────────────────────────────────────
 
     protected override void OnInitialized()
     {
@@ -112,28 +57,21 @@
     {
         if (firstRender)
         {
-            // Detect the device class from the browser.
             var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");
             await DeviceContext.InitialiseAsync(detectedDevice);
 
-            // Register Ctrl+K to open the Command Palette.
             if (!DeviceContext.IsFeatureDisabled("command_palette"))
             {
                 await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
             }
 
-            // Apply dark theme class to body.
             await JS.InvokeVoidAsync("setThemeClass");
 
-            // Load the active profile.
             await LoadActiveProfileAsync();
-
-            // Load review badge count and subscribe to changes.
             await LoadReviewCountAsync();
             Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
             Orchestrator.OnProfileChanged     += OnProfileChanged;
 
-            // Sync UI culture with server display language preference.
             await SyncCultureAsync();
 
             StateHasChanged();
@@ -164,10 +102,7 @@
                 }
             }
         }
-        catch
-        {
-            // Engine may be offline — keep current culture.
-        }
+        catch { }
     }
 
     private async Task LoadActiveProfileAsync()
@@ -185,10 +120,7 @@
                 StateHasChanged();
             }
         }
-        catch
-        {
-            // Engine may be offline — keep defaults.
-        }
+        catch { }
     }
 
     private async Task LoadReviewCountAsync()
@@ -197,10 +129,7 @@
         {
             _reviewCount = await Orchestrator.RefreshReviewCountAsync();
         }
-        catch
-        {
-            // Engine may be offline — badge stays at 0.
-        }
+        catch { }
     }
 
     private void OnReviewCountChanged()
@@ -214,31 +143,6 @@
         InvokeAsync(LoadActiveProfileAsync);
     }
 
-    private async Task OnSidebarCollapsedChanged(bool collapsed)
-    {
-        _sidebarCollapsed = collapsed;
-        StateHasChanged();
-    }
-
-    private async void OnHamburgerClick()
-    {
-        // On narrow viewports (< 768px) the sidebar is hidden via CSS, so the
-        // hamburger must open the mobile drawer regardless of detected device class.
-        var isNarrow = DeviceContext.IsMobile;
-        if (!isNarrow)
-        {
-            try { isNarrow = await JS.InvokeAsync<bool>("eval", "window.innerWidth < 768"); }
-            catch { /* fallback to device class */ }
-        }
-
-        if (isNarrow)
-            _mobileDrawerOpen = !_mobileDrawerOpen;
-        else
-            _ = OnSidebarCollapsedChanged(!_sidebarCollapsed);
-
-        await InvokeAsync(StateHasChanged);
-    }
-
     public void Dispose()
     {
         DeviceContext.OnChanged            -= OnDeviceContextChanged;
@@ -250,24 +154,6 @@
 }
 
 <style>
-    /* Content area shifts right to accommodate the sidebar */
-    .main-content-sidebar-expanded {
-        margin-left: 256px !important;
-        transition: margin-left 0.2s ease;
-    }
-
-    .main-content-sidebar-collapsed {
-        margin-left: 64px !important;
-        transition: margin-left 0.2s ease;
-    }
-
-    @@media (max-width: 768px) {
-        .main-content-sidebar-expanded,
-        .main-content-sidebar-collapsed {
-            margin-left: 0 !important;
-        }
-    }
-
     /* Content area clears the fixed 64px top bar */
     .main-content-with-topbar {
         padding-top: 64px !important;
@@ -276,34 +162,6 @@
     /* ── Global ambient background ── */
     .app-bg {
         background-color: #080B14;
-        background-image:
-            radial-gradient(
-                1200px 600px at 20% -10%,
-                rgba(127, 119, 221, 0.10),
-                transparent 60%
-            ),
-            radial-gradient(
-                1000px 500px at 90% 0%,
-                rgba(201, 146, 46, 0.06),
-                transparent 60%
-            ),
-            radial-gradient(
-                800px 400px at 50% 100%,
-                rgba(55, 138, 221, 0.05),
-                transparent 70%
-            );
-        background-repeat: no-repeat;
-        background-attachment: fixed;
         min-height: 100vh;
-    }
-
-    /* Subtle film grain overlay */
-    .app-bg::before {
-        content: "";
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-        z-index: 0;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.015'/%3E%3C/svg%3E");
     }
 </style>

@@ -1,0 +1,277 @@
+@namespace MediaEngine.Web.Components.Navigation
+@inject NavigationManager Nav
+
+<div class="profile-dropdown" @ref="_containerRef">
+    <button class="profile-trigger @(_isOpen ? "profile-trigger-active" : "")"
+            @onclick="Toggle" @onclick:stopPropagation="true">
+        <div class="profile-avatar" style="background: @AvatarColor;">
+            @AvatarInitial
+        </div>
+        <div class="profile-trigger-name">
+            @DisplayName.Split(' ').FirstOrDefault()
+        </div>
+        <MudIcon Icon="@MudBlazor.Icons.Material.Filled.ExpandMore"
+                 Size="Size.Small"
+                 Class="@($"profile-chevron {(_isOpen ? "profile-chevron-open" : "")}")" />
+    </button>
+
+    @if (_isOpen)
+    {
+        <div class="profile-menu-backdrop" @onclick="() => _isOpen = false"></div>
+        <div class="profile-menu">
+            <div class="profile-menu-header">
+                <span class="profile-menu-label">Signed in as</span>
+                <span class="profile-menu-name">@DisplayName</span>
+            </div>
+            <div class="profile-menu-items">
+                <!-- Functional navigation links -->
+                <button class="profile-menu-item" @onclick='() => Navigate("/vault")'>
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Inventory2" Size="Size.Small" />
+                    <span>Library Vault</span>
+                    @if (ReviewCount > 0)
+                    {
+                        <span class="profile-menu-badge">@ReviewCount</span>
+                    }
+                </button>
+                <button class="profile-menu-item" @onclick='() => Navigate("/hubs")'>
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Collections" Size="Size.Small" />
+                    <span>Hubs</span>
+                </button>
+                <button class="profile-menu-item" @onclick='() => Navigate("/settings")'>
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Settings" Size="Size.Small" />
+                    <span>Settings</span>
+                </button>
+
+                <div class="profile-menu-divider"></div>
+
+                <!-- Decorative links (non-functional for now) -->
+                <button class="profile-menu-item">
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Person" Size="Size.Small" />
+                    <span>Profile Settings</span>
+                </button>
+                <button class="profile-menu-item">
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.History" Size="Size.Small" />
+                    <span>Activity History</span>
+                </button>
+                <button class="profile-menu-item">
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.CloudDownload" Size="Size.Small" />
+                    <span>My Downloads</span>
+                </button>
+
+                <div class="profile-menu-divider"></div>
+
+                <button class="profile-menu-item profile-menu-item-danger">
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Logout" Size="Size.Small" />
+                    <span>Sign Out</span>
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string AvatarColor { get; set; } = "#C9922E";
+    [Parameter] public string AvatarInitial { get; set; } = "?";
+    [Parameter] public string DisplayName { get; set; } = "User";
+    [Parameter] public int ReviewCount { get; set; }
+
+    private bool _isOpen;
+    private ElementReference _containerRef;
+
+    private void Toggle() => _isOpen = !_isOpen;
+
+    private void Navigate(string url)
+    {
+        _isOpen = false;
+        Nav.NavigateTo(url);
+    }
+}
+
+<style>
+    .profile-dropdown {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+    }
+
+    /* ── Trigger button ── */
+    .profile-trigger {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 999px;
+        padding: 6px 16px 6px 6px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .profile-trigger:hover {
+        background: rgba(255, 255, 255, 0.10);
+    }
+
+    .profile-trigger-active {
+        border-color: rgba(201, 146, 46, 0.50);
+    }
+
+    /* ── Avatar circle ── */
+    .profile-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #000;
+        flex-shrink: 0;
+    }
+
+    /* ── First name label ── */
+    .profile-trigger-name {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: -0.02em;
+        color: white;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    @@media (max-width: 768px) {
+        .profile-trigger-name {
+            display: none;
+        }
+    }
+
+    /* ── Chevron ── */
+    .profile-chevron {
+        color: rgba(248, 248, 248, 0.50);
+        transition: transform 0.2s ease;
+    }
+
+    .profile-chevron-open {
+        transform: rotate(180deg);
+    }
+
+    /* ── Backdrop (click-outside) ── */
+    .profile-menu-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 99;
+        background: transparent;
+        cursor: default;
+    }
+
+    /* ── Dropdown menu ── */
+    .profile-menu {
+        position: absolute;
+        top: calc(100% + 12px);
+        right: 0;
+        width: 260px;
+        background: rgba(10, 14, 23, 0.95);
+        backdrop-filter: blur(24px);
+        -webkit-backdrop-filter: blur(24px);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.60);
+        z-index: 100;
+        overflow: hidden;
+        padding: 8px 0;
+    }
+
+    /* ── Menu header ── */
+    .profile-menu-header {
+        padding: 12px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .profile-menu-label {
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: rgba(248, 248, 248, 0.38);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .profile-menu-name {
+        font-size: 14px;
+        font-weight: 700;
+        color: white;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ── Menu items container ── */
+    .profile-menu-items {
+        padding: 0 8px;
+    }
+
+    /* ── Individual menu item ── */
+    .profile-menu-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        color: rgba(248, 248, 248, 0.70);
+        font-size: 14px;
+        font-weight: 500;
+        font-family: 'Montserrat', sans-serif;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .profile-menu-item:hover {
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(248, 248, 248, 0.90);
+    }
+
+    .profile-menu-item:hover .mud-icon-root {
+        color: #C9922E;
+    }
+
+    /* ── Danger variant ── */
+    .profile-menu-item-danger {
+        color: rgba(248, 113, 113, 0.85);
+    }
+
+    .profile-menu-item-danger:hover {
+        background: rgba(248, 113, 113, 0.05);
+        color: rgba(248, 113, 113, 1.0);
+    }
+
+    .profile-menu-item-danger:hover .mud-icon-root {
+        color: rgba(248, 113, 113, 1.0);
+    }
+
+    /* ── Review count badge ── */
+    .profile-menu-badge {
+        margin-left: auto;
+        background: #C9922E;
+        color: black;
+        font-size: 10px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ── Divider ── */
+    .profile-menu-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.05);
+        margin: 4px 8px;
+    }
+</style>

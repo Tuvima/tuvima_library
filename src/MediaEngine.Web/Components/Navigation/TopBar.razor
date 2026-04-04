@@ -1,180 +1,101 @@
-﻿@namespace MediaEngine.Web.Components.Navigation
+@namespace MediaEngine.Web.Components.Navigation
+@inject NavigationManager Nav
+@inject UniverseStateContainer State
+@inject IStringLocalizer<SharedStrings> L
+@implements IDisposable
 
-@* TopBar — Horizontal navigation bar at the top of the content area.
-   Contains: app logo (wordmark), search icon, notification bell with review badge, profile avatar.
-   Adapts to device context: full (desktop), mobile (hamburger + compact), simplified (TV), minimal (automotive). *@
+@* TopBar — Fixed horizontal navigation bar.
+   Logo (left) + nav links (Home/Read/Watch/Listen) + search icon + ProfileDropdown (right).
+   Single responsive layout — no device variants, no hamburger menu. *@
 
-<header class="top-bar @VariantClass">
-    @if (Variant == "mobile")
-    {
-        @* Mobile: hamburger on left, logo centered, actions on right *@
-        <button class="top-bar-hamburger-btn" @onclick="@OnHamburgerClick" aria-label="@L["Nav_OpenNavigation"]">
-            <MudIcon Icon="@Icons.Material.Filled.Menu"
-                     Style="font-size: 24px; color: rgba(248,248,248,0.80);" />
-        </button>
-
-        <div class="top-bar-logo top-bar-logo-center">
-            <a href="/"><AppLogo Style="height: 24px; display: block;" /></a>
-        </div>
-    }
-    else if (Variant is "simplified" or "minimal")
-    {
-        @* TV/Automotive: logo only (simplified) or icon-only (minimal) *@
-        <div class="top-bar-logo">
-            @if (Variant == "minimal")
-            {
-                <a href="/"><img src="images/tuvima-icon.svg" alt="Tuvima" style="height: 28px;" /></a>
-            }
-            else
-            {
-                <a href="/"><AppLogo Style="height: 28px; display: block;" /></a>
-            }
-        </div>
-        <div class="top-bar-spacer"></div>
-    }
-    else
-    {
-        @* Desktop (full): logo left, inline search center, bell + avatar right *@
-        <button class="top-bar-hamburger-btn"
-                @onclick="@OnHamburgerClick"
-                aria-label="@L["Nav_OpenNavigation"]">
-            <MudIcon Icon="@Icons.Material.Filled.Menu"
-                     Style="font-size: 24px; color: rgba(248,248,248,0.70);" />
-        </button>
-        <div class="top-bar-logo">
-            <a href="/"><AppLogo Style="height: 36px; display: block;" /></a>
-        </div>
-
-        @* Inline search — grows to fill center space *@
-        <div class="top-bar-search-wrapper">
-            <div class="top-bar-search @(_searchActive ? "top-bar-search-focused" : "")">
-                <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" Class="top-bar-search-icon" />
-                <input value="@_searchText"
-                       @oninput="OnSearchInput"
-                       @onfocus="OnSearchFocus"
-                       @onblur="OnSearchBlur"
-                       placeholder="@L["Nav_SearchPlaceholder"]"
-                       class="top-bar-search-input"
-                       type="search"
-                       autocomplete="off" />
-                @if (_searchActive && _searchResults.Count > 0)
-                {
-                    <div class="top-bar-search-dropdown">
-                        @foreach (var hub in _searchResults)
-                        {
-                            <div class="top-bar-search-result" @onmousedown="@(() => NavigateToHub(hub))">
-                                @if (!string.IsNullOrEmpty(hub.CoverUrl))
-                                {
-                                    <img src="@hub.CoverUrl" alt="" class="search-result-thumb" />
-                                }
-                                else
-                                {
-                                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" Class="top-bar-result-icon" />
-                                }
-                                <div class="top-bar-result-text">
-                                    <span class="top-bar-result-title">@hub.DisplayName</span>
-                                    @if (!string.IsNullOrEmpty(hub.Author))
-                                    {
-                                        <span class="top-bar-result-author">@hub.Author</span>
-                                    }
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
+<header class="top-bar">
+    @* ── Logo ── *@
+    <div class="top-bar-left">
+        <a href="/" class="top-bar-logo-link">
+            <div class="top-bar-logo-icon">
+                <span class="top-bar-logo-letter">T</span>
             </div>
-        </div>
+            <span class="top-bar-logo-text">TUVIMA</span>
+        </a>
 
-        <div class="top-bar-actions">
-            <MudBadge Content="@ReviewCount" Visible="@(ReviewCount > 0)"
-                      Color="Color.Error" Overlap="true" Class="top-bar-badge">
-                <MudIconButton Icon="@Icons.Material.Outlined.Notifications"
-                               Color="Color.Inherit" Size="Size.Medium"
-                               Href="/vault/media?filter=review"
-                               aria-label="@L["Nav_ReviewQueue"]" />
-            </MudBadge>
+        @* ── Nav links (hidden on small screens, shown in hamburger-less responsive way) ── *@
+        <nav class="top-bar-nav">
+            @foreach (var link in _navLinks)
+            {
+                <a href="@link.Path"
+                   class="top-bar-nav-link @(IsActive(link.Path) ? "top-bar-nav-link-active" : "")"
+                   style="border-color: @NavColor(link.Path); @(IsActive(link.Path) ? $"color: white;" : "")">
+                    @link.Label
+                </a>
+            }
+        </nav>
+    </div>
 
-            <MudTooltip Text="@DisplayName">
-                <MudAvatar Size="Size.Small"
-                           Style="@($"background: {AvatarColor}; width: 36px; height: 36px; font-size: 0.9rem; cursor: pointer;")"
-                           @onclick="@(() => Nav.NavigateTo("/switch-profile"))">
-                    @AvatarInitial
-                </MudAvatar>
-            </MudTooltip>
-        </div>
-    }
+    @* ── Right side: search + profile ── *@
+    <div class="top-bar-right">
+        <MudIconButton Icon="@MudBlazor.Icons.Material.Outlined.Search"
+                       Color="Color.Inherit" Size="Size.Medium"
+                       Class="top-bar-search-btn"
+                       aria-label="Search" />
+        <ProfileDropdown AvatarColor="@AvatarColor"
+                         AvatarInitial="@AvatarInitial"
+                         DisplayName="@DisplayName"
+                         ReviewCount="@ReviewCount" />
+    </div>
 </header>
 
 @code {
-    [Parameter] public EventCallback OnSearchRequested { get; set; }
-    [Parameter] public EventCallback OnHamburgerClick { get; set; }
     [Parameter] public int ReviewCount { get; set; }
     [Parameter] public string AvatarColor { get; set; } = "#C9922E";
     [Parameter] public string AvatarInitial { get; set; } = "?";
     [Parameter] public string DisplayName { get; set; } = "User";
 
-    /// <summary>
-    /// Layout variant: "full" (desktop), "mobile", "simplified" (TV), "minimal" (automotive).
-    /// </summary>
-    [Parameter] public string Variant { get; set; } = "full";
+    private static readonly (string Path, string Label)[] _navLinks =
+    [
+        ("/", "Home"),
+        ("/read", "Read"),
+        ("/watch", "Watch"),
+        ("/listen", "Listen"),
+    ];
 
-    private string VariantClass => Variant switch
+    private string _currentPath = "";
+
+    protected override void OnInitialized()
     {
-        "mobile" => "top-bar-mobile",
-        "simplified" => "top-bar-simplified",
-        "minimal" => "top-bar-minimal",
-        _ => "top-bar-full",
-    };
+        Nav.LocationChanged += OnLocationChanged;
+        UpdateCurrentPath();
+    }
 
-    // ── Inline search state ────────────────────────────────────────────────
-
-    private string _searchText = string.Empty;
-    private bool _searchActive;
-    private List<HubViewModel> _searchResults = [];
-
-    private void OnSearchInput(ChangeEventArgs e)
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        _searchText = e.Value?.ToString() ?? string.Empty;
-        if (_searchText.Trim().Length < 1)
+        UpdateCurrentPath();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateCurrentPath()
+    {
+        _currentPath = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].Split('#')[0].Trim('/');
+    }
+
+    private bool IsActive(string path) => _currentPath.Equals(path, StringComparison.OrdinalIgnoreCase)
+        || (path == "/" && _currentPath == "");
+
+    private string NavColor(string path)
+    {
+        if (!IsActive(path)) return "transparent";
+        return path switch
         {
-            _searchResults = [];
-            return;
-        }
-
-        var term = _searchText.Trim();
-        _searchResults = State.FilteredHubs
-            .Where(h => h.DisplayName.Contains(term, StringComparison.OrdinalIgnoreCase)
-                     || (!string.IsNullOrEmpty(h.Author) && h.Author.Contains(term, StringComparison.OrdinalIgnoreCase)))
-            .Take(8)
-            .ToList();
+            "/read" => "#5DCAA5",
+            "/watch" => "#60A5FA",
+            "/listen" => "#A78BFA",
+            _ => "#C9922E",
+        };
     }
 
-    private void OnSearchFocus()
+    public void Dispose()
     {
-        _searchActive = true;
+        Nav.LocationChanged -= OnLocationChanged;
     }
-
-    private void OnSearchBlur()
-    {
-        // Small delay so @onmousedown on a result fires before blur hides the dropdown.
-        _ = Task.Delay(200).ContinueWith(_ => InvokeAsync(() =>
-        {
-            _searchActive = false;
-            StateHasChanged();
-        }));
-    }
-
-    private void NavigateToHub(HubViewModel hub)
-    {
-        _searchText = string.Empty;
-        _searchResults = [];
-        _searchActive = false;
-        Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
-    }
-
-    [Inject] private NavigationManager Nav { get; set; } = default!;
-    [Inject] private UniverseStateContainer State { get; set; } = default!;
-    [Inject] private IStringLocalizer<SharedStrings> L { get; set; } = default!;
 }
 
 <style>
@@ -184,219 +105,122 @@
         left: 0;
         right: 0;
         height: 64px;
-        z-index: 1250; /* above MudDrawer overlay (1200) */
+        z-index: 1250;
         display: flex;
         align-items: center;
-        padding: 0 28px;
-        gap: 12px;
+        justify-content: space-between;
+        padding: 0 1.5rem;
         background: rgba(6, 10, 22, 0.60);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    /* Mobile: same full-width behaviour */
-    .top-bar-mobile {
-        left: 0;
-        padding: 0 16px;
+    @@media (min-width: 768px) {
+        .top-bar {
+            padding: 0 2rem;
+        }
     }
 
-    /* TV/Automotive: larger height */
-    .top-bar-simplified,
-    .top-bar-minimal {
-        left: 0;
-        height: 72px;
-        padding: 0 40px;
+    @@media (min-width: 1024px) {
+        .top-bar {
+            padding: 0 4rem;
+        }
     }
 
-    .top-bar-logo a {
+    .top-bar-left {
         display: flex;
         align-items: center;
+        gap: 2rem;
+    }
+
+    .top-bar-logo-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
         text-decoration: none;
+        cursor: pointer;
     }
 
-    .top-bar-logo-center {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-    }
-
-    .top-bar-spacer {
-        flex: 1;
-    }
-
-    .top-bar-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .top-bar .mud-icon-button {
-        color: rgba(248, 248, 248, 0.70);
-    }
-
-    .top-bar .mud-icon-button:hover {
-        color: rgba(248, 248, 248, 0.95);
-        background: rgba(255, 255, 255, 0.06);
-    }
-
-    .top-bar-badge .mud-badge {
-        font-size: 0.65rem;
-    }
-
-    /* ── Inline search ──────────────────────────────────────────────── */
-    .top-bar-search-wrapper {
-        flex: 1;
-        display: flex;
-        justify-content: center;
-        padding: 0 12px;
-    }
-
-    .top-bar-search {
-        position: relative;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 10px;
-        padding: 7px 14px;
-        width: 100%;
-        max-width: 480px;
-        transition: background 0.2s ease, border-color 0.2s ease;
-    }
-
-    .top-bar-search-focused {
-        background: rgba(255, 255, 255, 0.10);
-        border-color: rgba(255, 255, 255, 0.18);
-    }
-
-    .top-bar-search-icon {
-        color: rgba(248, 248, 248, 0.38);
-        flex-shrink: 0;
-    }
-
-    .top-bar-search-input {
-        background: transparent;
-        border: none;
-        outline: none;
-        color: rgba(248, 248, 248, 0.90);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.875rem;
-        width: 100%;
-        min-width: 0;
-    }
-
-    .top-bar-search-input::placeholder {
-        color: rgba(248, 248, 248, 0.28);
-    }
-
-    .top-bar-search-input::-webkit-search-cancel-button {
-        display: none;
-    }
-
-    .top-bar-search-dropdown {
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        right: 0;
-        background: rgba(8, 13, 30, 0.97);
-        border: 1px solid rgba(255, 255, 255, 0.10);
+    .top-bar-logo-icon {
+        width: 36px;
+        height: 36px;
         border-radius: 12px;
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.70);
-        z-index: 2000;
-        overflow: hidden;
-    }
-
-    .top-bar-search-result {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 14px;
-        cursor: pointer;
-        transition: background 0.1s ease;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .top-bar-search-result:last-child {
-        border-bottom: none;
-    }
-
-    .top-bar-search-result:hover {
-        background: rgba(255, 255, 255, 0.06);
-    }
-
-    .search-result-thumb {
-        width: 32px;
-        height: 48px;
-        object-fit: cover;
-        border-radius: 4px;
-        flex-shrink: 0;
-    }
-
-    .top-bar-result-icon {
-        color: rgba(248, 248, 248, 0.35);
-        flex-shrink: 0;
-    }
-
-    .top-bar-result-text {
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-    }
-
-    .top-bar-result-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.88);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    .top-bar-result-author {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.75rem;
-        color: rgba(248, 248, 248, 0.38);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-    }
-
-    /* Unstyled hamburger button — works on first tap on all platforms */
-    .top-bar-hamburger-btn {
-        background: none;
-        border: none;
-        padding: 8px;
-        margin: 0;
-        cursor: pointer;
+        background: #C9922E;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 8px;
-        flex-shrink: 0;
-        transition: background 0.15s ease;
-        -webkit-tap-highlight-color: transparent;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.30);
+        transition: transform 0.2s ease;
     }
 
-    .top-bar-hamburger-btn:hover {
-        background: rgba(255, 255, 255, 0.08);
+    .top-bar-logo-link:hover .top-bar-logo-icon {
+        transform: rotate(6deg);
     }
 
-    @@media (max-width: 768px) {
-        .top-bar-full .top-bar-search-wrapper { display: none !important; }
-        .top-bar-full .top-bar-logo {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            /* pointer-events intentionally NOT set to none — logo must remain clickable */
+    .top-bar-logo-letter {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: black;
+        line-height: 1;
+    }
+
+    .top-bar-logo-text {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 900;
+        color: white;
+        letter-spacing: -0.04em;
+    }
+
+    /* ── Nav links ── */
+    .top-bar-nav {
+        display: none;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    @@media (min-width: 1024px) {
+        .top-bar-nav {
+            display: flex;
         }
-        /* Hide bell + avatar on narrow screens regardless of Blazor variant */
-        .top-bar-full .top-bar-actions {
-            display: none !important;
-        }
+    }
+
+    .top-bar-nav-link {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        color: rgba(148, 163, 184, 1);
+        text-decoration: none;
+        padding: 4px 0;
+        border-bottom: 2px solid transparent;
+        transition: all 0.2s ease;
+    }
+
+    .top-bar-nav-link:hover {
+        color: white;
+    }
+
+    .top-bar-nav-link-active {
+        color: white;
+    }
+
+    /* ── Right side ── */
+    .top-bar-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .top-bar-search-btn {
+        color: rgba(148, 163, 184, 1) !important;
+    }
+
+    .top-bar-search-btn:hover {
+        color: white !important;
+        background: rgba(255, 255, 255, 0.06) !important;
     }
 </style>

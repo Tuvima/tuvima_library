@@ -43,9 +43,8 @@
             <div class="swimlane-scroll" @ref="_scrollRef">
                 @foreach (var item in Items)
                 {
-                    <PosterCard Item="@item"
-                                OnItemSelected="OnItemSelected"
-                                Width="@CardWidth" />
+                    <LibraryCard Item="@item"
+                               OnItemSelected="OnItemSelected" />
                 }
             </div>
 
@@ -65,7 +64,6 @@
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter] public IReadOnlyList<PosterItemViewModel> Items { get; set; } = [];
     [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
-    [Parameter] public int CardWidth { get; set; } = 180;
     [Parameter] public string? Class { get; set; }
     [Parameter] public int? TotalCount { get; set; }
     [Parameter] public string? SeeAllRoute { get; set; }

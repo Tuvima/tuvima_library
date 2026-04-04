@@ -1,0 +1,378 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@using MediaEngine.Web.Services.Integration
+
+@* LibraryCard — Unified media card replacing PosterCard.
+   Portrait mode (Books, Comics, Movies, TV): 2:3 image ratio, colored left spine.
+   Square mode (Music, Audiobooks, Podcasts): 1:1 image ratio, no spine.
+   Both modes share the same container height so swimlanes stay vertically aligned. *@
+
+<div class="library-card @(isSquare ? "library-card-square" : "library-card-portrait")"
+     style="--card-height: @(CardHeight)px; --type-color: @color;"
+     @onclick="OnClick">
+
+    <div class="library-card-image">
+
+        @* Colored left spine bar — portrait cards only *@
+        @if (!isSquare)
+        {
+            <div class="library-card-spine"></div>
+        }
+
+        @* Cover image or fallback *@
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <img src="@Item.CoverUrl" alt="@Item.Title" class="library-card-img" loading="lazy" />
+        }
+        else
+        {
+            <div class="library-card-spine-fallback">
+                <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MenuBook"
+                         Style="font-size: 36px; color: rgba(255,255,255,0.18); margin-bottom: 8px;" />
+                <span class="library-card-spine-title">@Item.Title</span>
+            </div>
+        }
+
+        @* Top-right badges *@
+        <div class="library-card-badges">
+            @if (Item.IsNew)
+            {
+                <span class="library-card-badge-new">NEW</span>
+            }
+            @if (!string.IsNullOrEmpty(typeLabel))
+            {
+                <span class="library-card-badge-type">@typeLabel</span>
+            }
+        </div>
+
+        @* Hover play overlay *@
+        <div class="library-card-play-overlay">
+            <div class="library-card-play-circle">
+                <MudIcon Icon="@Icons.Material.Filled.PlayArrow"
+                         Style="font-size: 28px; color: #000; margin-left: 3px;" />
+            </div>
+        </div>
+
+        @* Progress bar *@
+        @if (EffectiveProgressPct.HasValue && EffectiveProgressPct.Value > 0)
+        {
+            <div class="library-card-progress">
+                <div class="library-card-progress-fill" style="width: @(EffectiveProgressPct.Value)%;"></div>
+            </div>
+        }
+
+    </div>
+
+    <div class="library-card-info">
+        <span class="library-card-title">@Item.Title</span>
+        <div class="library-card-author-row">
+            <MudIcon Icon="@typeIcon" Style="font-size: 11px; color: rgba(148,163,184,0.7); margin-right: 4px; flex-shrink: 0;" />
+            @if (!string.IsNullOrEmpty(Item.Subtitle))
+            {
+                <span class="library-card-author">@Item.Subtitle</span>
+            }
+            else if (!string.IsNullOrEmpty(typeLabel))
+            {
+                <span class="library-card-author">@typeLabel</span>
+            }
+        </div>
+    </div>
+
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PosterItemViewModel Item { get; set; } = default!;
+    [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
+    [Parameter] public int CardHeight { get; set; } = 270;
+    [Parameter] public double? ProgressPct { get; set; }
+
+    // ProgressPct parameter takes precedence; fall back to Item.Progress.
+    private double? EffectiveProgressPct => ProgressPct ?? Item.Progress;
+
+    private bool isSquare => IsSquareType(Item.FormatBadge);
+    private string color => TypeColor(Item.FormatBadge);
+    private string typeLabel => TypeLabel(Item.FormatBadge);
+    private string typeIcon => TypeIcon(Item.FormatBadge);
+
+    private static bool IsSquareType(string? mediaType)
+    {
+        if (string.IsNullOrEmpty(mediaType)) return false;
+        var t = mediaType.ToLowerInvariant();
+        return t.Contains("music") || t.Contains("audio") || t.Contains("m4b")
+            || t.Contains("podcast");
+    }
+
+    private static string TypeColor(string? mediaType)
+    {
+        if (string.IsNullOrEmpty(mediaType)) return "transparent";
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("book") || t.Contains("epub")) return "#5DCAA5";
+        if (t.Contains("audio") || t.Contains("m4b")) return "#A78BFA";
+        if (t.Contains("movie") || t.Contains("video")) return "#60A5FA";
+        if (t.Contains("tv")) return "#FBBF24";
+        if (t.Contains("music")) return "#22D3EE";
+        if (t.Contains("podcast")) return "#FB923C";
+        if (t.Contains("comic")) return "#7C4DFF";
+        return "transparent";
+    }
+
+    private static string TypeLabel(string? mediaType)
+    {
+        if (string.IsNullOrEmpty(mediaType)) return "";
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("m4b") || t.Contains("audiobook") || t.Contains("audio")) return "Audiobook";
+        if (t.Contains("book") || t.Contains("epub")) return "Book";
+        if (t.Contains("movie")) return "Movie";
+        if (t.Contains("tv")) return "TV";
+        if (t.Contains("music")) return "Music";
+        if (t.Contains("podcast")) return "Podcast";
+        if (t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")) return "Comic";
+        return "";
+    }
+
+    private static string TypeIcon(string? mediaType)
+    {
+        if (string.IsNullOrEmpty(mediaType)) return Icons.Material.Filled.MenuBook;
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("audio") || t.Contains("m4b")) return Icons.Material.Filled.Headphones;
+        if (t.Contains("book") || t.Contains("epub")) return Icons.Material.Filled.MenuBook;
+        if (t.Contains("movie") || t.Contains("video") || t.Contains("tv")) return Icons.Material.Filled.Movie;
+        if (t.Contains("music")) return Icons.Material.Filled.MusicNote;
+        if (t.Contains("podcast")) return Icons.Material.Filled.Podcasts;
+        if (t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")) return Icons.Material.Filled.MenuBook;
+        return Icons.Material.Filled.MenuBook;
+    }
+
+    private async Task OnClick() => await OnItemSelected.InvokeAsync(Item);
+}
+
+<style>
+    /* ── Base card shell ─────────────────────────────────────────── */
+    .library-card {
+        flex-shrink: 0;
+        cursor: pointer;
+        scroll-snap-align: start;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.3s ease;
+    }
+
+    .library-card:hover {
+        transform: translateY(-8px);
+    }
+
+    /* Portrait: width = height / 1.5  (2:3 aspect) */
+    .library-card-portrait {
+        width: calc(var(--card-height) / 1.5);
+    }
+
+    /* Square: width = height  (1:1 aspect) */
+    .library-card-square {
+        width: var(--card-height);
+    }
+
+    /* ── Image area ──────────────────────────────────────────────── */
+    .library-card-image {
+        position: relative;
+        width: 100%;
+        height: var(--card-height);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #0D1230;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* ── Colored left spine (portrait only) ──────────────────────── */
+    .library-card-spine {
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 3.5px;
+        background: var(--type-color, transparent);
+        z-index: 3;
+        border-radius: 12px 0 0 12px;
+    }
+
+    /* ── Cover image ─────────────────────────────────────────────── */
+    .library-card-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.5s ease;
+    }
+
+    .library-card:hover .library-card-img {
+        transform: scale(1.1);
+    }
+
+    /* ── Spine fallback (no cover art) ───────────────────────────── */
+    .library-card-spine-fallback {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 16px 10px;
+        width: 100%;
+        height: 100%;
+    }
+
+    .library-card-spine-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.30);
+        text-align: center;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    /* ── Top-right badge cluster ─────────────────────────────────── */
+    .library-card-badges {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        z-index: 4;
+    }
+
+    .library-card-badge-new {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #C9922E;
+        color: #000;
+        line-height: 1.4;
+    }
+
+    .library-card-badge-type {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 8px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.60);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        color: #fff;
+        line-height: 1.4;
+    }
+
+    /* ── Hover play overlay ──────────────────────────────────────── */
+    .library-card-play-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.45);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+        z-index: 5;
+        border-radius: 12px;
+    }
+
+    .library-card:hover .library-card-play-overlay {
+        opacity: 1;
+    }
+
+    .library-card-play-circle {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    /* ── Progress bar ────────────────────────────────────────────── */
+    .library-card-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 1.5px;
+        background: rgba(0, 0, 0, 0.40);
+        z-index: 6;
+    }
+
+    .library-card-progress-fill {
+        height: 100%;
+        background: var(--type-color, #C9922E);
+        border-radius: 0 1px 1px 0;
+        transition: width 0.3s ease;
+    }
+
+    /* ── Text area below image ───────────────────────────────────── */
+    .library-card-info {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 0 2px;
+    }
+
+    .library-card-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        line-height: 1.3;
+        color: rgba(248, 248, 248, 0.92);
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .library-card-author-row {
+        display: flex;
+        align-items: center;
+        overflow: hidden;
+    }
+
+    .library-card-author {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Mobile: responsive height reduction ─────────────────────── */
+    @@media (max-width: 768px) {
+        .library-card-portrait {
+            --card-height: calc(var(--card-height) * 0.8);
+            width: calc(var(--card-height) * 0.8 / 1.5);
+        }
+
+        .library-card-square {
+            --card-height: calc(var(--card-height) * 0.8);
+            width: calc(var(--card-height) * 0.8);
+        }
+
+        .library-card-image {
+            height: calc(var(--card-height) * 0.8);
+        }
+    }
+</style>

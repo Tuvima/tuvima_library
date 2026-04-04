@@ -1,0 +1,446 @@
+@namespace MediaEngine.Web.Components.Universe
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (CurrentItem is not null)
+{
+    <div class="hero-carousel">
+        <div class="hero-layout">
+            @* ── Cover art ── *@
+            <div class="hero-cover">
+                @if (!string.IsNullOrEmpty(CurrentItem.CoverUrl))
+                {
+                    <img src="@CurrentItem.CoverUrl" alt="@CurrentItem.Title"
+                         class="hero-cover-img" />
+                }
+                <div class="hero-cover-ring"></div>
+            </div>
+
+            @* ── Info panel ── *@
+            <div class="hero-info">
+                @* Now Playing pill *@
+                <div class="hero-context-pill">
+                    <MudIcon Icon="@TypeIcon" Size="Size.Small"
+                             Style="@($"font-size: 12px; color: {TypeColor};")" />
+                    <span class="hero-context-text">@NowContext</span>
+                </div>
+
+                @* Title — split on colon for multi-line *@
+                <h2 class="hero-title">
+                    @{
+                        var parts = CurrentItem.Title.Split(':');
+                        for (var i = 0; i < parts.Length; i++)
+                        {
+                            <span class="hero-title-line">@(parts[i].Trim())@(i == 0 && parts.Length > 1 ? ":" : "")</span>
+                        }
+                    }
+                </h2>
+
+                @* Metadata chips *@
+                <div class="hero-meta">
+                    @if (!string.IsNullOrEmpty(CurrentItem.Genre))
+                    {
+                        <span>@CurrentItem.Genre</span>
+                    }
+                    @if (!string.IsNullOrEmpty(CurrentItem.Year))
+                    {
+                        <span class="hero-meta-dot"></span>
+                        <span>@CurrentItem.Year</span>
+                    }
+                    @if (!string.IsNullOrEmpty(CurrentItem.Rating))
+                    {
+                        <span class="hero-meta-dot"></span>
+                        <span class="hero-meta-rating">@CurrentItem.Rating</span>
+                    }
+                </div>
+
+                @* Action buttons *@
+                <div class="hero-actions">
+                    <button class="hero-cta" @onclick="HandleCta">
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Filled.PlayArrow"
+                                 Size="Size.Small" Style="font-size: 18px;" />
+                        @ActionLabel
+                    </button>
+                    <button class="hero-action-btn" @onclick="HandleClick">
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.BookmarkBorder"
+                                 Size="Size.Small" Style="font-size: 20px;" />
+                    </button>
+                    <button class="hero-action-btn" @onclick="HandleClick">
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Info"
+                                 Size="Size.Small" Style="font-size: 20px;" />
+                    </button>
+                </div>
+
+                @* Progress bar *@
+                @if (CurrentItem.ProgressPct is > 0)
+                {
+                    <div class="hero-progress">
+                        <div class="hero-progress-track">
+                            <div class="hero-progress-fill"
+                                 style="width: @(CurrentItem.ProgressPct.Value)%;"></div>
+                        </div>
+                    </div>
+                }
+
+                @* Dot navigation *@
+                @if (Items.Count > 1)
+                {
+                    <div class="hero-dots">
+                        @for (var i = 0; i < Items.Count; i++)
+                        {
+                            var idx = i;
+                            <button class="hero-dot @(i == _currentIndex ? "hero-dot-active" : "")"
+                                    @onclick="() => SetIndex(idx)"></button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<HeroData> Items { get; set; } = [];
+    [Parameter] public EventCallback<HeroData> OnItemSelected { get; set; }
+    [Parameter] public EventCallback<HeroData> OnCtaClicked { get; set; }
+    /// <summary>Called when the active item changes, so the parent can update the ambient background.</summary>
+    [Parameter] public EventCallback<HeroData> OnActiveItemChanged { get; set; }
+
+    private int _currentIndex;
+    private HeroData? CurrentItem => Items.Count > 0 ? Items[_currentIndex] : null;
+
+    private async Task SetIndex(int index)
+    {
+        if (index >= 0 && index < Items.Count)
+        {
+            _currentIndex = index;
+            if (CurrentItem is not null)
+                await OnActiveItemChanged.InvokeAsync(CurrentItem);
+        }
+    }
+
+    private string ActionLabel => CurrentItem?.MediaTypeLabel?.ToLowerInvariant() switch
+    {
+        var t when t != null && t.Contains("book")    => "CONTINUE READING",
+        var t when t != null && t.Contains("music")   => "LISTEN NOW",
+        var t when t != null && t.Contains("audio")   => "CONTINUE LISTENING",
+        var t when t != null && t.Contains("podcast") => "CONTINUE LISTENING",
+        _                                              => "CONTINUE WATCHING",
+    };
+
+    private string NowContext => CurrentItem?.MediaTypeLabel?.ToLowerInvariant() switch
+    {
+        var t when t != null && t.Contains("book")  => "Now Reading",
+        var t when t != null && t.Contains("music") => "Now Listening",
+        var t when t != null && t.Contains("audio") => "Now Listening",
+        _                                            => "Now Playing",
+    };
+
+    private string TypeIcon => CurrentItem?.MediaTypeLabel?.ToLowerInvariant() switch
+    {
+        var t when t != null && t.Contains("book")  => MudBlazor.Icons.Material.Filled.MenuBook,
+        var t when t != null && t.Contains("music") => MudBlazor.Icons.Material.Filled.MusicNote,
+        _                                            => MudBlazor.Icons.Material.Filled.PlayArrow,
+    };
+
+    private string TypeColor
+    {
+        get
+        {
+            var t = (CurrentItem?.MediaTypeLabel ?? "").ToLowerInvariant();
+            if (t.Contains("book") || t.Contains("epub"))   return "#5DCAA5";
+            if (t.Contains("audio") || t.Contains("m4b"))   return "#A78BFA";
+            if (t.Contains("movie") || t.Contains("video")) return "#60A5FA";
+            if (t.Contains("tv"))                            return "#FBBF24";
+            if (t.Contains("music"))                         return "#22D3EE";
+            if (t.Contains("podcast"))                       return "#FB923C";
+            if (t.Contains("comic"))                         return "#7C4DFF";
+            return "#C9922E";
+        }
+    }
+
+    private async Task HandleClick()
+    {
+        if (CurrentItem is not null)
+            await OnItemSelected.InvokeAsync(CurrentItem);
+    }
+
+    private async Task HandleCta()
+    {
+        if (CurrentItem is not null)
+            await OnCtaClicked.InvokeAsync(CurrentItem);
+    }
+}
+
+<style>
+    .hero-carousel {
+        margin-bottom: 4rem;
+        margin-top: 2rem;
+        padding: 0 1.5rem;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-carousel {
+            padding: 0 4rem;
+        }
+    }
+
+    .hero-layout {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2.5rem;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-layout {
+            flex-direction: row;
+            gap: 3.5rem;
+        }
+    }
+
+    /* ── Cover ── */
+    .hero-cover {
+        position: relative;
+        flex-shrink: 0;
+        height: 320px;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-cover {
+            height: 440px;
+        }
+    }
+
+    .hero-cover-img {
+        height: 100%;
+        border-radius: 16px;
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.80);
+        position: relative;
+    }
+
+    .hero-cover-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        pointer-events: none;
+    }
+
+    /* ── Info ── */
+    .hero-info {
+        position: relative;
+        z-index: 20;
+        max-width: 48rem;
+        flex-grow: 1;
+        text-align: center;
+        padding: 1rem 0;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-info {
+            text-align: left;
+        }
+    }
+
+    /* Context pill */
+    .hero-context-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(201, 146, 46, 0.20);
+        border: 1px solid rgba(201, 146, 46, 0.30);
+        border-radius: 999px;
+        padding: 6px 16px;
+        margin-bottom: 1.5rem;
+    }
+
+    .hero-context-text {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 900;
+        color: #C9922E;
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+    }
+
+    /* Title */
+    .hero-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 2.5rem;
+        font-weight: 900;
+        color: white;
+        line-height: 0.85;
+        letter-spacing: -0.05em;
+        margin-bottom: 1.5rem;
+        text-shadow: 0 4px 20px rgba(0, 0, 0, 0.50);
+    }
+
+    @@media (min-width: 768px) {
+        .hero-title {
+            font-size: 4.5rem;
+        }
+    }
+
+    .hero-title-line {
+        display: block;
+    }
+
+    /* Meta */
+    .hero-meta {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(148, 163, 184, 1);
+        text-transform: uppercase;
+        letter-spacing: 0.2em;
+        margin-bottom: 2rem;
+        opacity: 0.80;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-meta {
+            justify-content: flex-start;
+        }
+    }
+
+    .hero-meta-dot {
+        width: 4px;
+        height: 4px;
+        background: rgba(71, 85, 105, 1);
+        border-radius: 50%;
+    }
+
+    .hero-meta-rating {
+        border: 1px solid rgba(51, 65, 85, 1);
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-size: 9px;
+    }
+
+    /* Actions */
+    .hero-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        margin-bottom: 2.5rem;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-actions {
+            flex-direction: row;
+        }
+    }
+
+    .hero-cta {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: white;
+        color: black;
+        border: none;
+        border-radius: 999px;
+        padding: 1rem 2.5rem;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        font-weight: 900;
+        cursor: pointer;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+        transition: all 0.2s ease;
+    }
+
+    .hero-cta:hover {
+        background: rgba(226, 232, 240, 1);
+        transform: scale(1.05);
+    }
+
+    .hero-cta:active {
+        transform: scale(0.95);
+    }
+
+    .hero-action-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 48px;
+        height: 48px;
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        border-radius: 50%;
+        color: white;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+
+    .hero-action-btn:hover {
+        background: rgba(255, 255, 255, 0.20);
+    }
+
+    /* Progress */
+    .hero-progress {
+        width: 100%;
+        max-width: 280px;
+        margin: 0 auto 2rem;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-progress {
+            margin: 0 0 2rem;
+        }
+    }
+
+    .hero-progress-track {
+        height: 2.5px;
+        width: 100%;
+        background: rgba(255, 255, 255, 0.10);
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .hero-progress-fill {
+        height: 100%;
+        background: #FFB800;
+        border-radius: 999px;
+        box-shadow: 0 0 15px rgba(255, 184, 0, 0.53);
+        transition: width 1s ease;
+    }
+
+    /* Dots */
+    .hero-dots {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        margin-top: 1rem;
+    }
+
+    @@media (min-width: 768px) {
+        .hero-dots {
+            justify-content: flex-start;
+        }
+    }
+
+    .hero-dot {
+        height: 6px;
+        width: 6px;
+        background: rgba(255, 255, 255, 0.20);
+        border: none;
+        border-radius: 999px;
+        cursor: pointer;
+        padding: 0;
+        transition: all 0.5s ease;
+    }
+
+    .hero-dot:hover {
+        background: rgba(255, 255, 255, 0.40);
+    }
+
+    .hero-dot-active {
+        width: 32px;
+        background: #C9922E;
+    }
+</style>
