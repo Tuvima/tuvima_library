@@ -391,28 +391,26 @@ else
                                         break;
 
                                     case ColumnRenderType.ClickableText:
-                                        @{
-                                            var clickText = GetTextValue(item, col.PropertyName);
-                                            if (!string.IsNullOrEmpty(clickText))
+                                        var clickText = GetTextValue(item, col.PropertyName);
+                                        if (!string.IsNullOrEmpty(clickText))
+                                        {
+                                            var parts = clickText.Split(new[] { " and ", " & ", ", " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                                            for (var pi = 0; pi < parts.Length; pi++)
                                             {
-                                                var parts = clickText.Split(new[] { " and ", " & ", ", " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                                                for (var pi = 0; pi < parts.Length; pi++)
+                                                var part = parts[pi];
+                                                if (pi > 0)
                                                 {
-                                                    var part = parts[pi];
-                                                    if (pi > 0)
-                                                    {
-                                                        <span class="vmt-creator-sep">, </span>
-                                                    }
-                                                    <button class="vmt-creator-link" @onclick:stopPropagation="true"
-                                                            @onclick="() => OnAuthorClicked.InvokeAsync(part)">
-                                                        @part.ToUpperInvariant()
-                                                    </button>
+                                                    <span class="vmt-creator-sep">, </span>
                                                 }
+                                                <button class="vmt-creator-link" @onclick:stopPropagation="true"
+                                                        @onclick="() => OnAuthorClicked.InvokeAsync(part)">
+                                                    @part.ToUpperInvariant()
+                                                </button>
                                             }
-                                            else
-                                            {
-                                                <span class="vct-text-cell">—</span>
-                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="vct-text-cell">—</span>
                                         }
                                         break;
 

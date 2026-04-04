@@ -51,7 +51,7 @@
       "name": "podcast_search",
       "priority": 1,
       "required_fields": ["title"],
-      "url_template": "{base_url}/search/byterm?q={title}&max=5",
+      "url_template": "{base_url}/search/byterm?q={title}+{author}&max=5",
       "results_path": "feeds",
       "result_index": 0,
       "tolerate_404": false
