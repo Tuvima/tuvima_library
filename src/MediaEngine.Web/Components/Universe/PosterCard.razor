@@ -30,8 +30,8 @@
             <span class="poster-new-badge">NEW</span>
         }
 
-        @* Format badge — book formats only *@
-        @if (!string.IsNullOrEmpty(Item.FormatBadge))
+        @* Format badge — only for book-category items where the distinction matters *@
+        @if (ShowFormatBadge)
         {
             <span class="poster-format-badge"
                   style="background: @FormatBadgeColour;">@FormatBadgeText</span>
@@ -89,6 +89,23 @@
     private bool IsAudiobook =>
         (Item.FormatBadge ?? string.Empty).Contains("audio", StringComparison.OrdinalIgnoreCase)
         || (Item.FormatBadge ?? string.Empty).Contains("m4b", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Only show the format badge for book-category items (Book, Audiobook, Comic)
+    /// where distinguishing the format is useful. Other media types are identified
+    /// by the accent stripe colour — no badge needed.
+    /// </summary>
+    private bool ShowFormatBadge
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(Item.FormatBadge)) return false;
+            var t = Item.FormatBadge.ToLowerInvariant();
+            return t.Contains("book") || t.Contains("epub") || t.Contains("audio")
+                || t.Contains("m4b") || t.Contains("comic") || t.Contains("cbz")
+                || t.Contains("cbr");
+        }
+    }
 
     private string ArtworkStyle =>
         // Audiobooks: transparent — CSS handles subtle fallback when no cover art

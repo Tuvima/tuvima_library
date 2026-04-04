@@ -89,8 +89,6 @@
     .compact-hero {
         position: relative;
         width: 100%;
-        max-height: 280px;
-        min-height: 180px;
         border-radius: 12px;
         overflow: hidden;
         cursor: pointer;
@@ -135,24 +133,24 @@
         z-index: 1;
         display: flex;
         align-items: center;
-        gap: 24px;
-        padding: 24px 32px;
+        gap: 20px;
+        padding: 20px 28px;
     }
 
     .compact-hero-cover {
         flex-shrink: 0;
-        width: 130px;
+        width: 120px;
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.50);
     }
 
     .portrait .compact-hero-cover {
-        height: 195px;
+        height: 170px;
     }
 
     .landscape .compact-hero-cover {
-        width: 200px;
+        width: 180px;
         height: auto;
         aspect-ratio: 16 / 9;
     }
@@ -261,13 +259,11 @@
     /* ── Mobile ── */
     @@media (max-width: 768px) {
         .compact-hero {
-            max-height: 200px;
-            min-height: 140px;
             border-radius: 10px;
         }
 
         .compact-hero-content {
-            gap: 14px;
+            gap: 12px;
             padding: 14px 16px;
         }
 
@@ -276,7 +272,7 @@
         }
 
         .portrait .compact-hero-cover {
-            height: 120px;
+            height: 110px;
         }
 
         .landscape .compact-hero-cover {

@@ -220,12 +220,23 @@
         StateHasChanged();
     }
 
-    private void OnHamburgerClick()
+    private async void OnHamburgerClick()
     {
-        if (DeviceContext.IsMobile)
+        // On narrow viewports (< 768px) the sidebar is hidden via CSS, so the
+        // hamburger must open the mobile drawer regardless of detected device class.
+        var isNarrow = DeviceContext.IsMobile;
+        if (!isNarrow)
+        {
+            try { isNarrow = await JS.InvokeAsync<bool>("eval", "window.innerWidth < 768"); }
+            catch { /* fallback to device class */ }
+        }
+
+        if (isNarrow)
             _mobileDrawerOpen = !_mobileDrawerOpen;
         else
             _ = OnSidebarCollapsedChanged(!_sidebarCollapsed);
+
+        await InvokeAsync(StateHasChanged);
     }
 
     public void Dispose()
