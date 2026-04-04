@@ -1,0 +1,609 @@
+@page "/"
+@page "/books"
+@page "/video"
+@page "/music"
+@page "/podcasts"
+@page "/comics"
+@inject UIOrchestratorService  Orchestrator
+@inject UniverseStateContainer  State
+@inject DeviceContextService    DeviceContext
+@inject NavigationManager       Nav
+@inject IPhraseTemplateService  Phrases
+@inject IWebHostEnvironment     Env
+@inject IStringLocalizer<SharedStrings> L
+@implements IDisposable
+
+@using MediaEngine.Web.Models.ViewDTOs
+
+<PageTitle>@_config.PageTitle</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius: 4px;" />
+}
+else if (_hubs.Count == 0 && _libraryWorks.Count == 0)
+{
+    @* ── Empty state ── *@
+    <div class="browse-empty-state">
+        <img src="/images/tuvima-icon.svg" alt="Tuvima" class="browse-empty-icon" />
+        <h2 class="browse-empty-title">@(_isHome ? L["Home_EmptyTitle"] : $"No {_config.Lane?.Label ?? "items"} yet")</h2>
+        <p class="browse-empty-subtitle">
+            @(_isHome ? L["Home_EmptySubtitle"] : EmptyMessage)
+        </p>
+
+        @if (_isHome && Env.IsDevelopment())
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                       StartIcon="@Icons.Material.Filled.AutoStories"
+                       Size="MudBlazor.Size.Large"
+                       OnClick="HandleSeedLibrary" Disabled="@_seeding"
+                       Style="font-family: 'Montserrat', sans-serif; font-weight: 600; text-transform: none; border-radius: 8px;">
+                @if (_seeding)
+                {
+                    <MudProgressCircular Size="MudBlazor.Size.Small" Indeterminate="true" Class="mr-2" />
+                    <text>@L["Home_Seeding"]</text>
+                }
+                else
+                {
+                    <text>@L["Home_SeedLibrary"]</text>
+                }
+            </MudButton>
+        }
+    </div>
+}
+else
+{
+    @* ── Ambient background ── *@
+    <AmbientBackground Color="@_ambientColor" />
+
+    @* ── Greeting bar ── *@
+    <GreetingBar UserName="@_userName"
+                 GreetingOverride="@_config.GreetingOverride"
+                 StatLabel="@StatLabel"
+                 AccentColor="@_config.AccentColor" />
+
+    @* ── Compact hero ── *@
+    @if (_config.HeroEnabled && _heroData is not null)
+    {
+        <CompactHero Data="@_heroData"
+                     OnClicked="HandleHeroClick"
+                     OnCtaClicked="HandleHeroCta" />
+    }
+
+    @* ── Swimlane stack ── *@
+    @foreach (var def in _config.Swimlanes)
+    {
+        var items = GetSwimlaneItems(def);
+        var title = ResolveSwimlaneTitle(def);
+
+        @if (items.Count > 0)
+        {
+            @if (def.CardVariant == CardVariant.Wide)
+            {
+                @* Wide cards use a custom swimlane for universe spotlight *@
+                <div class="swimlane-section" style="padding-left: 16px;">
+                    <div class="swimlane-header">
+                        <div class="swimlane-header-left">
+                            <h3 style="font-family: 'Montserrat', sans-serif; font-size: clamp(1.15rem, 1.4vw, 1.5rem); font-weight: 600; color: rgba(248,248,248,0.90); margin: 0; line-height: 1.3;">@title</h3>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: clamp(16px, 1.2vw, 24px); overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 8px; scrollbar-width: none;">
+                        @foreach (var universe in _universeSpotlights)
+                        {
+                            <WideCard Title="@universe.DisplayName"
+                                      Subtitle="@universe.Author"
+                                      CoverUrls="@universe.Works.Where(w => !string.IsNullOrEmpty(w.CoverUrl)).Select(w => w.CoverUrl!).Take(4).ToList()"
+                                      MediaBreakdown="@GetMediaBreakdown(universe)"
+                                      DominantColor="@universe.DominantHexColor"
+                                      OnClicked="@(() => HandleUniverseClick(universe))" />
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <SwimlaneSection Title="@title"
+                                 TotalCount="@(items.Count > 12 ? items.Count : null)"
+                                 Items="@items.Take(20).ToList()"
+                                 Variant="@def.CardVariant"
+                                 OnItemSelected="HandleItemSelected"
+                                 CardWidth="@_cardWidth" />
+            }
+        }
+    }
+}
+
+@code {
+    // Lane key resolved from the URL path — no route parameter needed.
+    private string? _laneKey;
+
+    // ── Configuration ─────────────────────────────────────────────────────
+    private BrowsePageConfig _config = BrowsePageConfig.ForHome();
+    private bool _isHome => string.IsNullOrEmpty(_laneKey);
+    private bool _loading = true;
+    private bool _seeding;
+    private string? _userName;
+
+    // ── Data ──────────────────────────────────────────────────────────────
+    private List<HubViewModel> _hubs = [];
+    private List<WorkViewModel> _libraryWorks = [];
+    private List<WorkViewModel> _filteredWorks = [];
+    private List<JourneyItemViewModel> _journeyItems = [];
+    private List<HubViewModel> _parentHubs = [];
+    private List<HubViewModel> _universeSpotlights = [];
+    private Dictionary<string, PersonViewModel> _personLookup = new();
+
+    // ── Swimlane data cache (rebuilt on load/filter) ─────────────────────
+    private List<PosterItemViewModel> _continueItems = [];
+    private List<PosterItemViewModel> _recentItems = [];
+    private List<PosterItemViewModel> _suggestedItems = [];
+    private List<PosterItemViewModel> _unfinishedItems = [];
+    private List<PosterItemViewModel> _exploreItems = [];
+    private List<(string Name, List<PosterItemViewModel> Items)> _personGroups = [];
+    private List<(string Name, List<PosterItemViewModel> Items)> _seriesGroups = [];
+    private List<(string Name, List<PosterItemViewModel> Items)> _genreGroups = [];
+
+    // ── Suggestion context ───────────────────────────────────────────────
+    private string? _becauseTitle;
+    private string? _becauseVerb;
+    private string? _topGenre;
+
+    // ── Hero ─────────────────────────────────────────────────────────────
+    private HeroData? _heroData;
+    private JourneyItemViewModel? _heroJourney;
+    private HubViewModel? _heroHub;
+
+    private int _cardWidth => DeviceContext.Settings.Pages.Home.SwimlaneCardWidth;
+
+    private string? _ambientColor =>
+        _heroData?.DominantColor
+        ?? _hubs.FirstOrDefault()?.DominantHexColor;
+
+    private string StatLabel
+    {
+        get
+        {
+            var count = _filteredWorks.Count;
+            if (_isHome) return $"{count:N0} items";
+            var label = _config.Lane?.Label?.ToLowerInvariant() ?? "items";
+            return $"{count:N0} {label}";
+        }
+    }
+
+    private string EmptyMessage => _config.Lane?.Key switch
+    {
+        "books" => "Add a Library Folder with books to get started.",
+        "video" => "Add a Library Folder with movies or TV shows to get started.",
+        "music" => "Add a Library Folder with music to get started.",
+        "podcasts" => "Add a Library Folder with podcasts to get started.",
+        "comics" => "Add a Library Folder with comics to get started.",
+        _ => "Add a Library Folder to get started.",
+    };
+
+    // ── Lifecycle ─────────────────────────────────────────────────────────
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        State.OnStateChanged += OnStateChanged;
+        await Orchestrator.StartSignalRAsync();
+        ResolveLaneFromUrl();
+        await LoadAsync();
+    }
+
+    private void ResolveLaneFromUrl()
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].Split('#')[0].Trim('/');
+        _laneKey = ContentLanes.ByKey(path) is not null ? path : null;
+        _config = BrowsePageConfig.ForLane(_laneKey ?? "");
+        State.SetLaneFilter(_config.MediaTypes.Count > 0 ? _config.MediaTypes.ToArray() : null);
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        var path = new Uri(e.Location).AbsolutePath.Trim('/');
+        // Only handle our routes
+        if (path == "" || ContentLanes.ByKey(path) is not null)
+        {
+            ResolveLaneFromUrl();
+            await LoadAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            // Load profile name
+            try
+            {
+                var profile = await Orchestrator.GetActiveProfileAsync();
+                _userName = profile?.DisplayName;
+            }
+            catch { _userName = null; }
+
+            // Load core data
+            _hubs = await Orchestrator.GetHubsAsync();
+            _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
+            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
+
+            // Load parent hubs for universe spotlight
+            try { _parentHubs = await Orchestrator.GetParentHubsAsync(); }
+            catch { _parentHubs = []; }
+
+            // Filter works to lane media types
+            if (_config.MediaTypes.Count > 0)
+            {
+                _filteredWorks = _libraryWorks
+                    .Where(w => _config.MediaTypes.Any(mt =>
+                        (w.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+
+                _journeyItems = _journeyItems
+                    .Where(j => _config.MediaTypes.Any(mt =>
+                        (j.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
+                    .ToList();
+            }
+            else
+            {
+                _filteredWorks = _libraryWorks;
+            }
+
+            // Load person headshots
+            var personLabel = _config.Lane is not null
+                ? LaneFilterConfig.ForLane(_config.Lane.Key).PersonLabel
+                : "Author";
+            try
+            {
+                var persons = await Orchestrator.GetPersonsByRoleAsync(personLabel, 50);
+                _personLookup = persons
+                    .GroupBy(p => p.Name.ToLowerInvariant())
+                    .ToDictionary(g => g.Key, g => g.First());
+            }
+            catch { _personLookup = new(); }
+
+            BuildSwimlaneData();
+            BuildHero();
+        }
+        catch { /* Engine unreachable — show empty */ }
+        finally { _loading = false; }
+    }
+
+    private void BuildSwimlaneData()
+    {
+        // Continue — in-progress items as landscape cards
+        _continueItems = _journeyItems
+            .OrderByDescending(j => j.LastAccessed)
+            .Take(10)
+            .Select(PosterItemViewModel.FromJourney)
+            .ToList();
+
+        // Recently Added
+        _recentItems = _filteredWorks
+            .OrderByDescending(w =>
+                w.CanonicalValues.Select(cv => cv.LastScoredAt)
+                    .DefaultIfEmpty(DateTimeOffset.MinValue).Max())
+            .Take(20)
+            .Select(w => PosterItemViewModel.FromWork(w))
+            .ToList();
+
+        // Universe spotlights (parent hubs with children)
+        _universeSpotlights = _parentHubs
+            .Where(h => h.ChildHubCount > 0)
+            .OrderByDescending(h => h.WorkCount)
+            .Take(5)
+            .ToList();
+
+        // "Because You [Verb] [Title]" — author/genre match from most recent journey item
+        var recentJourney = _journeyItems.FirstOrDefault();
+        if (recentJourney is not null)
+        {
+            _becauseTitle = recentJourney.Title;
+            _becauseVerb = recentJourney.ActionVerb.Replace("Continue ", "");
+
+            var journeyWorkIds = _journeyItems.Select(j => j.WorkId).ToHashSet();
+            var recentAuthors = _journeyItems
+                .Select(j => j.Author)
+                .Where(a => !string.IsNullOrEmpty(a))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var candidates = _filteredWorks
+                .Where(w => !journeyWorkIds.Contains(w.Id))
+                .ToList();
+
+            var authorMatches = candidates
+                .Where(w => !string.IsNullOrEmpty(w.Author) && recentAuthors.Contains(w.Author!))
+                .ToList();
+
+            _suggestedItems = (authorMatches.Count >= 4 ? authorMatches : candidates)
+                .Take(12)
+                .Select(w => PosterItemViewModel.FromWork(w))
+                .ToList();
+        }
+        else
+        {
+            _suggestedItems = [];
+        }
+
+        // Genre suggestion
+        _topGenre = _filteredWorks
+            .Where(w => w.Genres.Count > 0)
+            .SelectMany(w => w.Genres)
+            .GroupBy(g => g, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .FirstOrDefault()?.Key;
+
+        // Unfinished — started 30+ days ago, < 80% complete
+        var threshold = DateTimeOffset.UtcNow.AddDays(-30);
+        _unfinishedItems = _journeyItems
+            .Where(j => j.LastAccessed < threshold && j.ProgressPct is > 0 and < 80)
+            .Select(PosterItemViewModel.FromJourney)
+            .Take(10)
+            .ToList();
+
+        // Explore — random sample
+        _exploreItems = _filteredWorks
+            .OrderBy(_ => Random.Shared.Next())
+            .Take(12)
+            .Select(w => PosterItemViewModel.FromWork(w))
+            .ToList();
+
+        // Person groups
+        _personGroups = _filteredWorks
+            .Where(w => !string.IsNullOrEmpty(w.Author))
+            .GroupBy(w => w.Author!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .Take(5)
+            .Select(g => (g.Key, g.Select(w => PosterItemViewModel.FromWork(w)).ToList()))
+            .ToList();
+
+        // Series groups
+        _seriesGroups = _filteredWorks
+            .Where(w => !string.IsNullOrEmpty(w.Series))
+            .GroupBy(w => w.Series!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .Take(5)
+            .Select(g => (g.Key, g.OrderBy(w => w.Year ?? "9999").Select(w => PosterItemViewModel.FromWork(w)).ToList()))
+            .ToList();
+
+        // Genre groups
+        _genreGroups = _filteredWorks
+            .Where(w => w.Genres.Count > 0)
+            .SelectMany(w => w.Genres.Select(g => (Genre: g, Work: w)))
+            .GroupBy(x => x.Genre, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .Take(5)
+            .Select(g => (g.Key, g.Select(x => PosterItemViewModel.FromWork(x.Work)).Distinct().ToList()))
+            .ToList();
+    }
+
+    private void BuildHero()
+    {
+        // Priority: active journey → newest item
+        var topJourney = _journeyItems
+            .OrderByDescending(j => j.LastAccessed)
+            .FirstOrDefault();
+
+        if (topJourney is not null)
+        {
+            _heroJourney = topJourney;
+            _heroHub = topJourney.HubId.HasValue
+                ? _hubs.FirstOrDefault(h => h.Id == topJourney.HubId)
+                : null;
+
+            var data = HeroData.FromJourney(topJourney);
+            data = data with { Subtitle = ResolveHeroPhrase(data) };
+            _heroData = data;
+        }
+        else
+        {
+            // Newest item with cover art
+            var hub = _hubs
+                .Where(h => !string.IsNullOrEmpty(h.CoverUrl) || !string.IsNullOrEmpty(h.HeroUrl))
+                .OrderByDescending(h => h.CreatedAt)
+                .FirstOrDefault() ?? _hubs.FirstOrDefault();
+
+            if (hub is not null)
+            {
+                _heroHub = hub;
+                _heroJourney = null;
+                var work = hub.Works.FirstOrDefault();
+                var data = work is not null
+                    ? HeroData.FromWork(work, hub)
+                    : HeroData.FromHub(hub);
+                data = data with { Subtitle = ResolveHeroPhrase(data) };
+                _heroData = data;
+            }
+            else
+            {
+                _heroData = null;
+            }
+        }
+    }
+
+    // ── Swimlane data resolution ─────────────────────────────────────────
+
+    private IReadOnlyList<PosterItemViewModel> GetSwimlaneItems(SwimlaneDef def) => def.Type switch
+    {
+        SwimlaneType.Continue => _continueItems,
+        SwimlaneType.RecentlyAdded => _recentItems,
+        SwimlaneType.UniverseSpotlight => _universeSpotlights.Count > 0
+            ? [PosterItemViewModel.FromHub(_universeSpotlights.First())]  // Placeholder — WideCard rendered directly
+            : [],
+        SwimlaneType.BecauseYou => _suggestedItems,
+        SwimlaneType.GenreSuggestion => _genreGroups.FirstOrDefault().Items ?? [],
+        SwimlaneType.FeaturedPersons => _personGroups.SelectMany(g => g.Items).Take(12).ToList(),
+        SwimlaneType.SeriesGroups => _seriesGroups.SelectMany(g => g.Items).Take(12).ToList(),
+        SwimlaneType.GenreGroups => _genreGroups.Skip(1).SelectMany(g => g.Items).Take(12).ToList(),
+        SwimlaneType.Unfinished => _unfinishedItems,
+        SwimlaneType.Explore => _exploreItems,
+        _ => [],
+    };
+
+    private string ResolveSwimlaneTitle(SwimlaneDef def) => def.Type switch
+    {
+        SwimlaneType.BecauseYou when _becauseTitle is not null =>
+            $"Because You {_becauseVerb} {_becauseTitle}",
+        SwimlaneType.GenreSuggestion when _topGenre is not null =>
+            $"{_topGenre} You Might Like",
+        SwimlaneType.FeaturedPersons when _personGroups.Count > 0 =>
+            _personGroups.First().Name,
+        SwimlaneType.SeriesGroups when _seriesGroups.Count > 0 =>
+            _seriesGroups.First().Name,
+        SwimlaneType.GenreGroups when _genreGroups.Count > 1 =>
+            _genreGroups[1].Name,
+        _ => def.TitleTemplate,
+    };
+
+    private static IReadOnlyList<(string Label, int Count)> GetMediaBreakdown(HubViewModel hub)
+    {
+        if (string.IsNullOrEmpty(hub.MediaTypesOverride)) return [];
+        return hub.MediaTypesOverride
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(t => (t, 1))
+            .ToList();
+    }
+
+    // ── Navigation handlers ──────────────────────────────────────────────
+
+    private void HandleItemSelected(PosterItemViewModel item) =>
+        Nav.NavigateTo(item.NavigationUrl);
+
+    private void HandleHeroClick()
+    {
+        if (_heroJourney is not null && _heroJourney.HubId.HasValue)
+            Nav.NavigateTo($"/book/{_heroJourney.HubId.Value}?lastAssetId={_heroJourney.AssetId}");
+        else if (_heroHub is not null)
+            Nav.NavigateTo($"/book/{_heroHub.Works.FirstOrDefault()?.Id ?? _heroHub.Id}");
+    }
+
+    private void HandleHeroCta()
+    {
+        if (_heroJourney is not null)
+        {
+            var t = _heroJourney.MediaType.ToLowerInvariant();
+            if (t.Contains("epub") || t.Contains("book"))
+            {
+                var url = $"/read/{_heroJourney.AssetId}";
+                if (_heroJourney.HubId.HasValue) url += $"?returnHubId={_heroJourney.HubId.Value}";
+                Nav.NavigateTo(url);
+            }
+            else if (_heroJourney.HubId.HasValue)
+            {
+                Nav.NavigateTo($"/book/{_heroJourney.HubId.Value}?lastAssetId={_heroJourney.AssetId}");
+            }
+        }
+        else
+        {
+            HandleHeroClick();
+        }
+    }
+
+    private void HandleUniverseClick(HubViewModel hub) =>
+        Nav.NavigateTo($"/hub/{hub.Id}");
+
+    // ── Seed library (dev only) ──────────────────────────────────────────
+
+    private async Task HandleSeedLibrary()
+    {
+        _seeding = true;
+        StateHasChanged();
+        await Orchestrator.SeedLibraryAsync();
+        _seeding = false;
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    // ── Hero phrase resolution ────────────────────────────────────────────
+
+    private string? ResolveHeroPhrase(HeroData data)
+    {
+        var hasProgress = data.ProgressPct is > 0;
+        var isCompleted = data.ProgressPct is >= 99.5;
+
+        var slot = isCompleted
+            ? PhraseSlot.HeroCompleted
+            : hasProgress
+                ? (!string.IsNullOrEmpty(data.Series) ? PhraseSlot.HeroJourneySeries : PhraseSlot.HeroJourneyStandalone)
+                : !string.IsNullOrEmpty(data.Series)
+                    ? PhraseSlot.HeroDiscoverSeries
+                    : !string.IsNullOrEmpty(data.Author)
+                        ? PhraseSlot.HeroDiscoverAuthor
+                        : PhraseSlot.HeroDiscoverStandalone;
+
+        var ctx = new PhraseContext
+        {
+            EntityId = data.EntityId,
+            Title = data.Title,
+            Author = data.Author,
+            Series = data.Series,
+            Genre = data.Genre,
+            MediaType = data.MediaTypeLabel,
+            ProgressPct = data.ProgressPct,
+        };
+
+        var phrase = Phrases.Resolve(slot, ctx);
+        return string.IsNullOrEmpty(phrase.Text) ? null : phrase.Text;
+    }
+
+    // ── SignalR live refresh ──────────────────────────────────────────────
+
+    private void OnStateChanged()
+    {
+        InvokeAsync(async () =>
+        {
+            await LoadAsync();
+            StateHasChanged();
+        });
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        State.OnStateChanged -= OnStateChanged;
+    }
+}
+
+<style>
+    .browse-empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+        gap: 16px;
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .browse-empty-icon {
+        width: 80px;
+        height: 80px;
+        opacity: 0.4;
+        margin-bottom: 8px;
+    }
+
+    .browse-empty-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.85);
+        margin: 0;
+    }
+
+    .browse-empty-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.50);
+        max-width: 420px;
+        line-height: 1.5;
+        margin: 0;
+    }
+</style>

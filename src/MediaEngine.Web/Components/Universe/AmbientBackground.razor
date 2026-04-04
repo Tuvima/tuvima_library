@@ -1,0 +1,45 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@* AmbientBackground — Fixed-position colour layer that reacts to the current content.
+   Provides a soft radial gradient from the dominant colour of the hero/top item. *@
+
+<div class="ambient-bg" aria-hidden="true"
+     style="--ambient-color: @(Color ?? "#080B14"); --ambient-opacity: @OpacityStr;">
+</div>
+
+@code {
+    [Parameter] public string? Color { get; set; }
+    [Parameter] public double Opacity { get; set; } = 0.25;
+
+    private string OpacityStr => Opacity.ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+}
+
+<style>
+    .ambient-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 100vh;
+        pointer-events: none;
+        z-index: -1;
+        background: radial-gradient(
+            ellipse at 50% 0%,
+            color-mix(in srgb, var(--ambient-color) calc(var(--ambient-opacity) * 100%), transparent) 0%,
+            transparent 70%
+        );
+        transition: background 0.8s ease;
+    }
+
+    @@media (prefers-reduced-motion: reduce) {
+        .ambient-bg {
+            transition: none;
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .ambient-bg {
+            height: 50vh;
+        }
+    }
+</style>

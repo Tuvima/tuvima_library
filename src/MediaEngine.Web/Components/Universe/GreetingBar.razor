@@ -1,0 +1,101 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@* GreetingBar — Compact contextual header with time-of-day greeting and library stat.
+   Fades out on scroll via CSS. *@
+
+<div class="greeting-bar" style="@(string.IsNullOrEmpty(AccentColor) ? "" : $"--greeting-accent: {AccentColor};")">
+    <div class="greeting-text">
+        <span class="greeting-main">@GreetingText</span>
+        @if (!string.IsNullOrEmpty(DateText))
+        {
+            <span class="greeting-date">@DateText</span>
+        }
+    </div>
+    @if (!string.IsNullOrEmpty(StatLabel))
+    {
+        <span class="greeting-stat">@StatLabel</span>
+    }
+</div>
+
+@code {
+    [Parameter] public string? UserName { get; set; }
+    [Parameter] public string? GreetingOverride { get; set; }
+    [Parameter] public string? StatLabel { get; set; }
+    [Parameter] public string? AccentColor { get; set; }
+
+    private string GreetingText
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(GreetingOverride))
+                return GreetingOverride;
+
+            var hour = DateTime.Now.Hour;
+            var timeGreeting = hour switch
+            {
+                < 12 => "Good morning",
+                < 17 => "Good afternoon",
+                _ => "Good evening",
+            };
+
+            return string.IsNullOrEmpty(UserName)
+                ? timeGreeting
+                : $"{timeGreeting}, {UserName}";
+        }
+    }
+
+    private string DateText => DateTime.Now.ToString("dddd, d MMMM");
+}
+
+<style>
+    .greeting-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px 8px 16px;
+        min-height: 48px;
+    }
+
+    .greeting-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .greeting-main {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(1.1rem, 1.8vw, 1.4rem);
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.88);
+        letter-spacing: -0.01em;
+    }
+
+    .greeting-date {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.35);
+    }
+
+    .greeting-stat {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.30);
+        white-space: nowrap;
+    }
+
+    @@media (max-width: 768px) {
+        .greeting-bar {
+            padding: 8px 12px 4px 12px;
+        }
+
+        .greeting-main {
+            font-size: 1rem;
+        }
+
+        .greeting-date {
+            display: none;
+        }
+    }
+</style>

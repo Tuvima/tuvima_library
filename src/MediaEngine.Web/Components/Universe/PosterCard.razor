@@ -5,7 +5,7 @@
 @* PosterCard — Individual poster art tile with cover image, title, and metadata badges.
    Used inside PosterSwimlane for horizontal scrolling rows. *@
 
-<div class="poster-card" style="width: @(Width)px; --card-width: @(Width)px;" @onclick="OnClick">
+<div class="poster-card" style="width: @(Width)px; --card-width: @(Width)px; --type-accent: @TypeAccent;" @onclick="OnClick">
     <div class="poster-card-artwork @(IsAudiobook ? "audiobook-tile" : "") @(string.IsNullOrEmpty(Item.CoverUrl) ? "no-cover" : "")"
          style="@ArtworkStyle">
         @if (!string.IsNullOrEmpty(Item.CoverUrl))
@@ -70,6 +70,22 @@
     // swimlanes that don't explicitly pass ProgressPct still show the bar.
     private double? EffectiveProgressPct => ProgressPct ?? Item.Progress;
 
+    private string TypeAccent => MediaTypeAccent(Item.FormatBadge);
+
+    private static string MediaTypeAccent(string? mediaType)
+    {
+        if (string.IsNullOrEmpty(mediaType)) return "transparent";
+        var t = mediaType.ToLowerInvariant();
+        if (t.Contains("book") || t.Contains("epub")) return "#5DCAA5";
+        if (t.Contains("audio") || t.Contains("m4b")) return "#A78BFA";
+        if (t.Contains("movie") || t.Contains("video")) return "#60A5FA";
+        if (t.Contains("tv")) return "#FBBF24";
+        if (t.Contains("music")) return "#22D3EE";
+        if (t.Contains("podcast")) return "#FB923C";
+        if (t.Contains("comic")) return "#7C4DFF";
+        return "transparent";
+    }
+
     private bool IsAudiobook =>
         (Item.FormatBadge ?? string.Empty).Contains("audio", StringComparison.OrdinalIgnoreCase)
         || (Item.FormatBadge ?? string.Empty).Contains("m4b", StringComparison.OrdinalIgnoreCase);
@@ -121,7 +137,7 @@
     }
 
     .poster-card:hover .poster-card-artwork {
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40), -3px 0 12px var(--type-accent, transparent);
     }
 
     .poster-card-artwork {
@@ -136,6 +152,7 @@
         background: #0D1230;
         margin-bottom: 8px;
         transition: box-shadow 0.2s ease;
+        border-left: 3px solid var(--type-accent, transparent);
     }
 
     /* ── Audiobook tile: square aspect ratio (1:1) + transparent background ── */

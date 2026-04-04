@@ -1,0 +1,235 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@inject IJSRuntime JS
+
+@* SwimlaneSection — Renders a swimlane with the appropriate card variant.
+   Wraps the scroll container, header, and card selection logic. *@
+
+@if (Items is { Count: > 0 })
+{
+    <div class="swimlane-section @Class">
+        <div class="swimlane-header">
+            <div class="swimlane-header-left">
+                <h3 class="swimlane-title">@Title</h3>
+                @if (TotalCount.HasValue)
+                {
+                    <span class="swimlane-count">(@TotalCount)</span>
+                }
+            </div>
+            @if (SeeAllRoute is not null)
+            {
+                <a class="swimlane-see-all" href="@SeeAllRoute">See All &#x203A;</a>
+            }
+        </div>
+
+        <div class="swimlane-scroll-wrapper">
+            @if (Items.Count > 1 && !_atStart)
+            {
+                <button class="swimlane-arrow swimlane-arrow-left" @onclick="ScrollLeft"
+                        aria-label="Scroll left">
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Filled.ChevronLeft" Size="Size.Medium" />
+                </button>
+            }
+
+            <div class="swimlane-scroll" @ref="_scrollRef">
+                @foreach (var item in Items)
+                {
+                    @switch (Variant)
+                    {
+                        case CardVariant.Landscape:
+                            <LandscapeCard Item="@item" OnItemSelected="OnItemSelected" />
+                            break;
+                        case CardVariant.Square:
+                            <SquareCard Item="@item" OnItemSelected="OnItemSelected" Width="@CardWidth" />
+                            break;
+                        default:
+                            <PosterCard Item="@item" OnItemSelected="OnItemSelected" Width="@CardWidth" />
+                            break;
+                    }
+                }
+            </div>
+
+            @if (Items.Count > 1 && !_atEnd)
+            {
+                <button class="swimlane-arrow swimlane-arrow-right" @onclick="ScrollRight"
+                        aria-label="Scroll right">
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Filled.ChevronRight" Size="Size.Medium" />
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public IReadOnlyList<PosterItemViewModel> Items { get; set; } = [];
+    [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
+    [Parameter] public CardVariant Variant { get; set; } = CardVariant.Portrait;
+    [Parameter] public int CardWidth { get; set; } = 180;
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public int? TotalCount { get; set; }
+    [Parameter] public string? SeeAllRoute { get; set; }
+
+    private ElementReference _scrollRef;
+    private bool _atStart = true;
+    private bool _atEnd = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Items.Count > 1)
+        {
+            try
+            {
+                var state = await JS.InvokeAsync<ScrollBoundary>("getSwimlaneScrollState", _scrollRef);
+                _atStart = state.AtStart;
+                _atEnd = state.AtEnd;
+                await InvokeAsync(StateHasChanged);
+            }
+            catch { /* JS not ready */ }
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        _atStart = true;
+        _atEnd = false;
+    }
+
+    private async Task ScrollLeft()
+    {
+        var state = await JS.InvokeAsync<ScrollBoundary>("scrollSwimlaneEx", _scrollRef, "left");
+        _atStart = state.AtStart;
+        _atEnd = state.AtEnd;
+    }
+
+    private async Task ScrollRight()
+    {
+        var state = await JS.InvokeAsync<ScrollBoundary>("scrollSwimlaneEx", _scrollRef, "right");
+        _atStart = state.AtStart;
+        _atEnd = state.AtEnd;
+    }
+
+    private sealed class ScrollBoundary
+    {
+        public bool AtStart { get; set; }
+        public bool AtEnd { get; set; }
+    }
+}
+
+<style>
+    .swimlane-section {
+        margin-bottom: 2rem;
+        padding-left: 16px;
+    }
+
+    @@media (max-width: 768px) {
+        .swimlane-section {
+            padding-left: 0;
+        }
+    }
+
+    .swimlane-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+        padding: 0 2px;
+    }
+
+    .swimlane-header-left {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+    }
+
+    .swimlane-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(1.15rem, 1.4vw, 1.5rem);
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .swimlane-count {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.40);
+    }
+
+    .swimlane-see-all {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: rgba(248, 248, 248, 0.45);
+        text-decoration: none;
+        transition: color 0.2s ease;
+        white-space: nowrap;
+    }
+
+    .swimlane-see-all:hover {
+        color: rgba(248, 248, 248, 0.75);
+    }
+
+    .swimlane-scroll-wrapper {
+        position: relative;
+    }
+
+    .swimlane-arrow {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40px;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        cursor: pointer;
+        color: rgba(248, 248, 248, 0.80);
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        padding: 0;
+    }
+
+    .swimlane-arrow-left {
+        left: 0;
+        background: linear-gradient(to right, rgba(6, 10, 22, 0.95) 40%, transparent);
+        border-radius: 6px 0 0 6px;
+    }
+
+    .swimlane-arrow-right {
+        right: 0;
+        background: linear-gradient(to left, rgba(6, 10, 22, 0.95) 40%, transparent);
+        border-radius: 0 6px 6px 0;
+    }
+
+    .swimlane-scroll-wrapper:hover .swimlane-arrow {
+        opacity: 1;
+    }
+
+    .swimlane-arrow:hover {
+        color: rgba(248, 248, 248, 1);
+    }
+
+    @@media (hover: none) {
+        .swimlane-arrow {
+            display: none;
+        }
+    }
+
+    .swimlane-scroll {
+        display: flex;
+        gap: clamp(16px, 1.2vw, 24px);
+        overflow-x: auto;
+        scroll-snap-type: x proximity;
+        padding-bottom: 8px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .swimlane-scroll::-webkit-scrollbar {
+        display: none;
+    }
+</style>

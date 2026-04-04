@@ -1,0 +1,175 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@* WideCard — Wide format card for Universe/franchise spotlight rows.
+   Shows a collage of cover arts and multi-media type breadth indicators. *@
+
+<div class="wide-card" @onclick="OnClick"
+     style="--accent-1: @(DominantColor ?? "#1A2040"); --accent-2: @(SecondaryColor ?? "#0D1230");">
+    <div class="wide-card-collage">
+        @foreach (var url in CoverUrls.Take(4))
+        {
+            <div class="wide-card-collage-item">
+                <img src="@url" alt="" loading="lazy" />
+            </div>
+        }
+        @if (CoverUrls.Count == 0)
+        {
+            <div class="wide-card-collage-empty">
+                <MudIcon Icon="@MudBlazor.Icons.Material.Filled.Collections"
+                         Style="font-size: 36px; color: rgba(255,255,255,0.10);" />
+            </div>
+        }
+    </div>
+    <div class="wide-card-body">
+        <span class="wide-card-title">@Title</span>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <span class="wide-card-subtitle">@Subtitle</span>
+        }
+        @if (MediaBreakdown.Count > 0)
+        {
+            <div class="wide-card-breakdown">
+                @foreach (var (label, count) in MediaBreakdown)
+                {
+                    <span class="wide-card-pill">@count @label</span>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public IReadOnlyList<string> CoverUrls { get; set; } = [];
+    [Parameter] public IReadOnlyList<(string Label, int Count)> MediaBreakdown { get; set; } = [];
+    [Parameter] public string? DominantColor { get; set; }
+    [Parameter] public string? SecondaryColor { get; set; }
+    [Parameter] public EventCallback OnClicked { get; set; }
+
+    private async Task OnClick() => await OnClicked.InvokeAsync();
+}
+
+<style>
+    .wide-card {
+        display: flex;
+        gap: 16px;
+        min-width: 420px;
+        max-width: 560px;
+        flex-shrink: 0;
+        cursor: pointer;
+        scroll-snap-align: start;
+        padding: 12px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, var(--accent-1, #1A2040) 0%, var(--accent-2, #0D1230) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        overflow: hidden;
+    }
+
+    .wide-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    .wide-card-collage {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr 1fr;
+        gap: 3px;
+        width: 120px;
+        min-width: 120px;
+        height: 120px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .wide-card-collage-item {
+        overflow: hidden;
+        background: rgba(0, 0, 0, 0.25);
+    }
+
+    .wide-card-collage-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.3s ease;
+    }
+
+    .wide-card:hover .wide-card-collage-item img {
+        transform: scale(1.05);
+    }
+
+    .wide-card-collage-empty {
+        grid-column: 1 / -1;
+        grid-row: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .wide-card-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 4px;
+    }
+
+    .wide-card-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.92);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.3;
+    }
+
+    .wide-card-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 400;
+        color: rgba(248, 248, 248, 0.45);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .wide-card-breakdown {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+    }
+
+    .wide-card-pill {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        color: rgba(248, 248, 248, 0.65);
+        background: rgba(255, 255, 255, 0.08);
+        padding: 2px 8px;
+        border-radius: 10px;
+        white-space: nowrap;
+    }
+
+    @@media (max-width: 768px) {
+        .wide-card {
+            min-width: 300px;
+            max-width: 340px;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .wide-card-collage {
+            width: 100%;
+            height: 80px;
+        }
+    }
+</style>
