@@ -23,33 +23,41 @@
 
         @if (IsExpanded && ConflictItems is { Count: > 0 })
         {
+            var groups = GroupByContainer(ConflictItems);
             <div class="vac-list">
                 <div class="vac-list-inner">
-                    @foreach (var item in ConflictItems)
+                    @foreach (var group in groups)
                     {
-                        var isQuarantined = item.VaultDisplayStatus == VaultStatus.Quarantined;
-                        var isChecked = _selectedIds.Contains(item.EntityId);
+                        var first = group.Items[0];
+                        var isQuarantined = first.VaultDisplayStatus == VaultStatus.Quarantined;
+                        var isContainer = group.Items.Count > 1;
+                        var displayTitle = isContainer ? group.Label : first.Title;
+                        var issueLabel = isContainer
+                            ? $"{group.Items.Count} items need review"
+                            : VaultHelpers.GetReviewTriggerLabel(first.ReviewTrigger);
+                        var isChecked = group.Items.All(i => _selectedIds.Contains(i.EntityId));
                         <div class="vac-row @(isChecked ? "vac-row--selected" : "")">
                             <div class="vac-row-left">
                                 <input type="checkbox"
                                        class="vac-checkbox"
                                        checked="@isChecked"
                                        @onclick:stopPropagation="true"
-                                       @onchange="() => ToggleSelection(item.EntityId)" />
+                                       @onchange="() => ToggleGroupSelection(group)" />
                                 <div class="vac-severity-dot @(isQuarantined ? "vac-dot--severe" : "vac-dot--warn")" />
                                 <div class="vac-row-info">
-                                    <span class="vac-row-title">@item.Title</span>
-                                    <span class="vac-row-issue">@VaultHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</span>
+                                    <span class="vac-row-title">@displayTitle</span>
+                                    <span class="vac-row-issue">@issueLabel</span>
                                 </div>
                             </div>
                             <div class="vac-row-right">
                                 <span class="vac-status-badge @(isQuarantined ? "vac-badge--quarantine" : "vac-badge--warning")">
-                                    @(isQuarantined ? "QUARANTINED" : "NEEDS REVIEW")
+                                    @(isQuarantined ? "QUARANTINED" : (isContainer ? $"{group.Items.Count} ITEMS" : "NEEDS REVIEW"))
                                 </span>
-                                <button class="vac-action-btn" title="Edit" @onclick="() => OnItemEditClicked.InvokeAsync(item.EntityId)" @onclick:stopPropagation>
+                                <button class="vac-action-btn" title="Edit" @onclick="() => OnItemEditClicked.InvokeAsync(first.EntityId)" @onclick:stopPropagation>
                                     <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
                                 </button>
-                                <button class="vac-action-btn vac-action-btn--danger" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)" @onclick:stopPropagation>
+                                <button class="vac-action-btn vac-action-btn--danger" title="Delete"
+                                        @onclick="() => DeleteGroup(group)" @onclick:stopPropagation>
                                     <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
                                 </button>
                             </div>
@@ -108,6 +116,67 @@
         if (_selectedIds.Count == 0) return;
         await OnBulkDeleteClicked.InvokeAsync(new HashSet<Guid>(_selectedIds));
         _selectedIds.Clear();
+    }
+
+    /// <summary>One row per show/album/series in the Action Center; standalone items become single-item groups.</summary>
+    private sealed record ContainerGroup(string Key, string Label, List<VaultItemViewModel> Items);
+
+    private static List<ContainerGroup> GroupByContainer(List<VaultItemViewModel> items)
+    {
+        var result = new List<ContainerGroup>();
+        var bucket = new Dictionary<string, List<VaultItemViewModel>>(StringComparer.OrdinalIgnoreCase);
+        var labels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in items)
+        {
+            // Pick the most specific container key available for this media type.
+            var (key, label) = item.MediaType switch
+            {
+                "TV"        => (item.ShowName, item.ShowName),
+                "Music"     => (item.Album, item.Album),
+                "Comics"    => (item.Series, item.Series),
+                "Audiobooks"=> (item.Series, item.Series),
+                "Books"     => (item.Series, item.Series),
+                "Podcasts"  => (item.ShowName, item.ShowName),
+                _           => (null, null),
+            };
+
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                // No container — emit as a standalone single-item group.
+                result.Add(new ContainerGroup(item.EntityId.ToString(), item.Title, [item]));
+                continue;
+            }
+
+            if (!bucket.TryGetValue(key, out var list))
+            {
+                list = [];
+                bucket[key] = list;
+                labels[key] = label!;
+            }
+            list.Add(item);
+        }
+
+        foreach (var (k, list) in bucket)
+            result.Add(new ContainerGroup(k, labels[k], list));
+
+        return result;
+    }
+
+    private void ToggleGroupSelection(ContainerGroup group)
+    {
+        var allSelected = group.Items.All(i => _selectedIds.Contains(i.EntityId));
+        if (allSelected)
+            foreach (var i in group.Items) _selectedIds.Remove(i.EntityId);
+        else
+            foreach (var i in group.Items) _selectedIds.Add(i.EntityId);
+    }
+
+    private async Task DeleteGroup(ContainerGroup group)
+    {
+        // Cascade delete: route every member through the bulk delete callback.
+        var ids = new HashSet<Guid>(group.Items.Select(i => i.EntityId));
+        await OnBulkDeleteClicked.InvokeAsync(ids);
     }
 }
 

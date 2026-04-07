@@ -28,7 +28,7 @@ else
             var trackCount = album.Value.Count;
             var artistName = firstItem.Artist ?? firstItem.Author ?? "";
 
-            <div class="vmug-card" @onclick="() => OnCardClicked.InvokeAsync(firstItem.EntityId)">
+            <div class="vmug-card" @onclick="() => HandleClick(album.Key, firstItem.EntityId)">
                 <div class="vmug-cover">
                     @if (!string.IsNullOrEmpty(firstItem.CoverUrl))
                     {
@@ -59,17 +59,30 @@ else
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnCardClicked { get; set; }
 
+    /// <summary>Fires when a tile is clicked, passing the album name for system-view drill-down.</summary>
+    [Parameter] public EventCallback<string> OnAlbumNameClicked { get; set; }
+
     private Dictionary<string, List<VaultItemViewModel>> _albums = new();
 
     protected override void OnParametersSet()
     {
+        // Group by Album (not Artist) so the grid actually shows album cards.
         _albums = Items
-            .GroupBy(i => string.IsNullOrWhiteSpace(i.Artist ?? i.Author)
+            .GroupBy(i => string.IsNullOrWhiteSpace(i.Album)
                 ? "Unknown Album"
-                : (i.Artist ?? i.Author)!)
+                : i.Album!)
             .OrderBy(g => g.Key == "Unknown Album" ? 1 : 0)
             .ThenBy(g => g.Key)
             .ToDictionary(g => g.Key, g => g.ToList());
+    }
+
+    private async Task HandleClick(string albumName, Guid firstItemId)
+    {
+        // Prefer drilling into the album as a container; fall back to opening the first track.
+        if (OnAlbumNameClicked.HasDelegate && !string.IsNullOrWhiteSpace(albumName) && albumName != "Unknown Album")
+            await OnAlbumNameClicked.InvokeAsync(albumName);
+        else if (OnCardClicked.HasDelegate)
+            await OnCardClicked.InvokeAsync(firstItemId);
     }
 }
 

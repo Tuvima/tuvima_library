@@ -292,12 +292,33 @@ else
                                                 </div>
                                             </div>
                                             <div class="vmt-media-info">
-                                                <p class="vmt-title @(isQuarantined ? "vmt-title--muted" : "")">@item.Title</p>
-                                                @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != item.Title)
+                                                @{
+                                                    var isTv = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+                                                    // For TV: prefer episode title over generic title; show name moves to a badge under the title.
+                                                    var displayTitle = isTv && !string.IsNullOrWhiteSpace(item.EpisodeTitle)
+                                                        ? item.EpisodeTitle!
+                                                        : item.Title;
+                                                }
+                                                <p class="vmt-title @(isQuarantined ? "vmt-title--muted" : "")">@displayTitle</p>
+                                                @if (isTv && !string.IsNullOrEmpty(item.ShowName))
+                                                {
+                                                    <p class="vmt-show-badge">@item.ShowName</p>
+                                                }
+                                                @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != displayTitle)
                                                 {
                                                     <p class="vmt-original-title">@item.OriginalTitle</p>
                                                 }
-                                                <p class="vmt-subtitle">@VaultHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"• {item.Year}" : "")</p>
+                                                @if (isTv)
+                                                {
+                                                    var subParts = new List<string>();
+                                                    if (!string.IsNullOrEmpty(item.Network)) subParts.Add(item.Network!);
+                                                    if (item.Year is not null) subParts.Add(item.Year);
+                                                    <p class="vmt-subtitle">@string.Join(" • ", subParts)</p>
+                                                }
+                                                else
+                                                {
+                                                    <p class="vmt-subtitle">@VaultHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"• {item.Year}" : "")</p>
+                                                }
                                                 @{
                                                     var creatorName = GetCreatorForMediaType(item);
                                                 }
@@ -630,6 +651,7 @@ else
             "Season"        => item.Season ?? "—",
             "Episode"       => item.Episode ?? "—",
             "Network"       => item.Network ?? "—",
+            "EpisodeTitle"  => item.EpisodeTitle ?? "—",
             "IssueNumber"   => "—",                   // placeholder
             "Name"          => item.Title,            // Hubs tab
             "Type"          => item.MediaType ?? "—", // Hubs tab
@@ -890,6 +912,21 @@ else
         text-transform: uppercase;
         letter-spacing: 0.02em;
         margin: 0;
+    }
+
+    .vmt-show-badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        color: #C9922E;
+        background: rgba(201, 146, 46, 0.12);
+        border: 1px solid rgba(201, 146, 46, 0.25);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin: 2px 0 0 0;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        line-height: 1.2;
     }
 
     .vmt-creator-link {

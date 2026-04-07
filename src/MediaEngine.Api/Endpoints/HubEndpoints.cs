@@ -708,10 +708,11 @@ public static class HubEndpoints
                         MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
                         MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
-                        MAX(CASE WHEN cv.key = 'cover' THEN cv.value END) AS cover,
+                        MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover,
                         MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
                         MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json,
-                        MAX(CASE WHEN cv.key = 'series_qid' THEN cv.value END) AS series_qid
+                        MAX(CASE WHEN cv.key = 'series_qid' THEN cv.value END) AS series_qid,
+                        MAX(CASE WHEN cv.key = 'album_qid' THEN cv.value END) AS album_qid
                     FROM artist_works aw
                     INNER JOIN editions e ON e.work_id = aw.work_id
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -918,7 +919,7 @@ public static class HubEndpoints
                         MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
                         MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
-                        MAX(CASE WHEN cv.key = 'cover' THEN cv.value END) AS cover,
+                        MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover,
                         MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
                         MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS network
                     FROM matched_works mw
@@ -1224,7 +1225,7 @@ public static class HubEndpoints
                             SELECT cv_cover.value
                             FROM canonical_values cv_cover
                             WHERE cv_cover.entity_id = g.first_asset_id
-                              AND cv_cover.key = 'cover'
+                              AND cv_cover.key = 'cover_url'
                             LIMIT 1
                         )                                           AS cover_url,
                         (
@@ -1332,7 +1333,7 @@ public static class HubEndpoints
                         SELECT cv.key, cv.value
                         FROM canonical_values cv
                         WHERE cv.entity_id = @WorkId
-                          AND cv.key IN ('title', 'author', 'cover')
+                          AND cv.key IN ('title', 'author', 'cover_url')
                         UNION ALL
                         SELECT 'media_type', w.media_type
                         FROM works w WHERE w.id = @WorkId
@@ -1876,7 +1877,7 @@ public static class HubEndpoints
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 INNER JOIN canonical_values cv ON cv.entity_id = ma.id
                 WHERE e.work_id = @EntityId
-                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover', 'year')
+                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover_url', 'year')
                 UNION ALL
                 SELECT 'media_type', w.media_type
                 FROM works w WHERE w.id = @EntityId
@@ -1898,7 +1899,7 @@ public static class HubEndpoints
                     case "author" when creator is null: creator = val; break;
                     case "director" when creator is null: creator = val; break;
                     case "artist" when creator is null: creator = val; break;
-                    case "cover": cover = val; break;
+                    case "cover_url": cover = val; break;
                     case "year": year = val; break;
                     case "media_type": mediaType = val; break;
                 }

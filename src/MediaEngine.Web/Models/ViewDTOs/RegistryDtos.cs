@@ -110,6 +110,9 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("show_name")]
     public string? ShowName { get; set; }
 
+    [JsonPropertyName("episode_title")]
+    public string? EpisodeTitle { get; set; }
+
     [JsonPropertyName("network")]
     public string? Network { get; set; }
 

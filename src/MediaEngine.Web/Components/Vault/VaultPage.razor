@@ -127,9 +127,12 @@
                                 OnItemClicked="OpenDetailDrawerFromGroup"
                                 OnItemEditClicked="OpenDetailDrawerFromGroup"
                                 OnAlbumTileClicked="OnAlbumTileClickedFromGroup"
+                                OnAlbumNameClicked="OnAlbumNameClickedFromGroup"
                                 OnPersonClicked="OnArtistPhotoClickedFromGroup"
                                 OnBatchDelete="OnBatchDelete"
-                                OnBatchSync="OnBatchSync" />
+                                OnBatchSync="OnBatchSync"
+                                OnContainerRefresh="OnContainerRefresh"
+                                OnContainerDelete="OnContainerDelete" />
             }
             else if (IsMediaTab(_activeTab))
             {
@@ -138,7 +141,8 @@
                     <VaultMusicGrid Items="@_mediaItems"
                                     CardSize="@_posterSize"
                                     Loading="@_loading"
-                                    OnCardClicked="OnMediaRowClicked" />
+                                    OnCardClicked="OnMediaRowClicked"
+                                    OnAlbumNameClicked="OnAlbumNameClickedFromGroup" />
                 }
                 else if (IsContainerView)
                 {
@@ -1334,6 +1338,18 @@
         NavigateToGroup("ContentGroup", albumHubId);
     }
 
+    private void OnAlbumNameClickedFromGroup(string albumName)
+    {
+        if (string.IsNullOrWhiteSpace(albumName)) return;
+        // Drill into the album using a system-view lookup keyed by canonical 'album' value.
+        _activeGroupName     = albumName;
+        _activeGroupField    = "album";
+        _activeGroupMediaType = "Music";
+        _activeArtistName    = null;
+        _artistAlbumHubIds   = null;
+        NavigateToGroup("album", Guid.NewGuid());
+    }
+
     private async Task OnArtistPhotoClickedFromGroup(Guid personId)
     {
         if (personId == Guid.Empty) return;
@@ -1420,6 +1436,23 @@
     private void OnBatchDelete()
     {
         if (_selectedItems.Count == 0) return;
+        _showBatchDeleteConfirm = true;
+        StateHasChanged();
+    }
+
+    private async Task OnContainerRefresh(List<Guid> workIds)
+    {
+        if (workIds is null || workIds.Count == 0) return;
+        // Single batched refresh — one queue trip per work, deduplicated by the engine.
+        foreach (var id in workIds.Distinct())
+            await ApiClient.TriggerHydrationAsync(id);
+        Snackbar.Add($"Queued refresh for {workIds.Count} items", Severity.Info);
+    }
+
+    private void OnContainerDelete(List<Guid> workIds)
+    {
+        if (workIds is null || workIds.Count == 0) return;
+        _selectedItems = [.. workIds];
         _showBatchDeleteConfirm = true;
         StateHasChanged();
     }

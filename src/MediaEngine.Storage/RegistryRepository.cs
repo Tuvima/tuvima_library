@@ -97,6 +97,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN cv.key = 'season_number' THEN cv.value END) AS season_number,
                     MAX(CASE WHEN cv.key = 'episode_number' THEN cv.value END) AS episode_number,
                     MAX(CASE WHEN cv.key = 'show_name' THEN cv.value END) AS show_name,
+                    MAX(CASE WHEN cv.key = 'episode_title' THEN cv.value END) AS episode_title,
+                    MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS network,
                     MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                     (SELECT pr.name || ': ' || mc_rt.claim_value
                      FROM metadata_claims mc_rt
@@ -223,6 +225,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.season_number,
                     wd.episode_number,
                     wd.show_name,
+                    wd.episode_title,
+                    wd.network,
                     wd.duration,
                     wd.retail_match_detail,
                     wd.file_name,
@@ -364,7 +368,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.series, fd.series_position, fd.narrator, fd.genre,
                 fd.runtime, fd.rating, fd.album, fd.track_number,
                 fd.season_number, fd.episode_number,
-                fd.show_name, fd.duration
+                fd.show_name, fd.duration, fd.episode_title, fd.network
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -419,6 +423,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 EpisodeNumber     = reader.IsDBNull(33) ? null : reader.GetString(33),
                 ShowName          = reader.IsDBNull(34) ? null : reader.GetString(34),
                 Duration          = reader.IsDBNull(35) ? null : reader.GetString(35),
+                EpisodeTitle      = reader.IsDBNull(36) ? null : reader.GetString(36),
+                Network           = reader.IsDBNull(37) ? null : reader.GetString(37),
             });
         }
 

@@ -63,8 +63,17 @@ else
             </div>
         }
         <div class="mgp-meta">
-            <h1 class="mgp-title">@_detail.DisplayName</h1>
-            @if (!string.IsNullOrEmpty(_detail.Creator))
+            @if (GroupType == "artist" && _detail.ArtistPersonId.HasValue)
+            {
+                <h1 class="mgp-title mgp-title--clickable" @onclick="HandleArtistPhotoClick" title="View artist details">@_detail.DisplayName</h1>
+            }
+            else
+            {
+                <h1 class="mgp-title">@_detail.DisplayName</h1>
+            }
+            @* Suppress creator line when it would simply duplicate the title (e.g. artist views). *@
+            @if (!string.IsNullOrEmpty(_detail.Creator)
+                 && !string.Equals(_detail.Creator, _detail.DisplayName, StringComparison.OrdinalIgnoreCase))
             {
                 <p class="mgp-creator">@_detail.Creator</p>
             }
@@ -108,8 +117,16 @@ else
                 }
                 <button class="mgp-action-btn mgp-action-btn--sync" @onclick="SyncAll">
                     <MudIcon Icon="@Icons.Material.Outlined.Sync" Style="font-size: 16px;" />
-                    Sync All
+                    Refresh All
                 </button>
+                @if (GroupType is "tv-show" or "album" or "artist" or "podcast-show" or "comic-series" or "book-series" or "movie-series")
+                {
+                    <button class="mgp-action-btn mgp-action-btn--delete" @onclick="DeleteContainer"
+                            title="@($"Delete this {GetGroupTypeLabel().ToLowerInvariant()} and every file inside it")">
+                        <MudIcon Icon="@Icons.Material.Outlined.DeleteSweep" Style="font-size: 16px;" />
+                        Delete @GetGroupTypeLabel()
+                    </button>
+                }
                 <button class="mgp-action-btn mgp-action-btn--toggle @(ShowUnowned ? "mgp-action-btn--toggle-on" : "")"
                         @onclick="ToggleShowUnowned">
                     <MudIcon Icon="@(ShowUnowned ? Icons.Material.Outlined.Visibility : Icons.Material.Outlined.VisibilityOff)" Style="font-size: 16px;" />
@@ -242,6 +259,10 @@ else
     /// <summary>Fired when batch Sync Now is requested from the floating bar.</summary>
     [Parameter] public EventCallback OnBatchSync { get; set; }
 
+    /// <summary>Fired by container-level Refresh All / Delete actions; passes the full owned-work id set.</summary>
+    [Parameter] public EventCallback<List<Guid>> OnContainerRefresh { get; set; }
+    [Parameter] public EventCallback<List<Guid>> OnContainerDelete  { get; set; }
+
     /// <summary>Whether to show unowned items (grayed out). Default: true.</summary>
     [Parameter] public bool ShowUnowned { get; set; } = true;
 
@@ -268,6 +289,10 @@ else
 
     /// <summary>Fires when an album tile is clicked in the artist view. Passes the album hub ID.</summary>
     [Parameter] public EventCallback<Guid> OnAlbumTileClicked { get; set; }
+
+    /// <summary>Fires when an album tile is clicked but no concrete hub id is available.
+    /// Passes the album name so the host can route to a system-view drill-down.</summary>
+    [Parameter] public EventCallback<string> OnAlbumNameClicked { get; set; }
 
     /// <summary>Fires when the artist photo is clicked. Passes the person record ID.</summary>
     [Parameter] public EventCallback<Guid> OnPersonClicked { get; set; }
@@ -308,15 +333,21 @@ else
         {
             _detail = await ApiClient.GetArtistGroupDetailAsync(ArtistAlbumHubIds);
         }
+        else if (GroupType == "artist" || string.Equals(GroupField, "artist", StringComparison.OrdinalIgnoreCase))
+        {
+            // Artist drill-down — always prefer the by-name endpoint so we get
+            // per-album covers, unowned-track merging, and the artist headshot.
+            // GroupName takes priority over ArtistName when arriving from system-view tiles.
+            var nameForLookup = !string.IsNullOrWhiteSpace(GroupName) ? GroupName : ArtistName;
+            if (!string.IsNullOrWhiteSpace(nameForLookup))
+                _detail = await ApiClient.GetArtistDetailByNameAsync(nameForLookup);
+            else if (!string.IsNullOrWhiteSpace(GroupField))
+                _detail = await ApiClient.GetSystemViewGroupDetailAsync(GroupField, GroupName ?? "", MediaType);
+        }
         else if (!string.IsNullOrWhiteSpace(GroupName) && !string.IsNullOrWhiteSpace(GroupField))
         {
             // System-view mode: query by group field + value directly from canonical_values
             _detail = await ApiClient.GetSystemViewGroupDetailAsync(GroupField, GroupName, MediaType);
-        }
-        else if (GroupType == "artist" && !string.IsNullOrWhiteSpace(ArtistName))
-        {
-            // Legacy artist fallback
-            _detail = await ApiClient.GetArtistDetailByNameAsync(ArtistName);
         }
         else
         {
@@ -357,14 +388,39 @@ else
 
     // ── Sync all ────────────────────────────────────────────────────────────────
 
-    private Task SyncAll()
+    private List<Guid> CollectAllOwnedIds()
     {
-        // Select every work and delegate to the parent's sync handler.
-        if (_detail is null) return Task.CompletedTask;
-        var allIds = _detail.Works.Select(w => w.WorkId)
-            .Concat(_detail.Seasons.SelectMany(s => s.Episodes.Select(e => e.WorkId)));
-        _selectedItems = [.. allIds];
-        return OnBatchSync.InvokeAsync();
+        if (_detail is null) return [];
+        return _detail.Works.Select(w => w.WorkId)
+            .Concat(_detail.Seasons.SelectMany(s => s.Episodes.Where(e => e.IsOwned).Select(e => e.WorkId)))
+            .Distinct()
+            .ToList();
+    }
+
+    private async Task SyncAll()
+    {
+        var ids = CollectAllOwnedIds();
+        if (ids.Count == 0) return;
+        if (OnContainerRefresh.HasDelegate)
+            await OnContainerRefresh.InvokeAsync(ids);
+        else
+        {
+            _selectedItems = [.. ids];
+            await OnBatchSync.InvokeAsync();
+        }
+    }
+
+    private async Task DeleteContainer()
+    {
+        var ids = CollectAllOwnedIds();
+        if (ids.Count == 0) return;
+        if (OnContainerDelete.HasDelegate)
+            await OnContainerDelete.InvokeAsync(ids);
+        else
+        {
+            _selectedItems = [.. ids];
+            await OnBatchDelete.InvokeAsync();
+        }
     }
 
     // ── Toggle show-unowned ──────────────────────────────────────────────────────
@@ -390,8 +446,14 @@ else
 
     private async Task HandleAlbumTileClick(HubGroupSeasonViewModel season)
     {
-        if (season.AlbumHubId is { } hubId && OnAlbumTileClicked.HasDelegate)
+        if (season.AlbumHubId is { } hubId && hubId != Guid.Empty && OnAlbumTileClicked.HasDelegate)
+        {
             await OnAlbumTileClicked.InvokeAsync(hubId);
+            return;
+        }
+        // No hub id (system-view artist drill-down) — fall back to navigating by album name.
+        if (!string.IsNullOrWhiteSpace(season.SeasonLabel) && OnAlbumNameClicked.HasDelegate)
+            await OnAlbumNameClicked.InvokeAsync(season.SeasonLabel);
     }
 
     // ── Label helpers ────────────────────────────────────────────────────────────
@@ -837,6 +899,15 @@ else
         line-height: 1.2;
     }
 
+    .mgp-title--clickable {
+        cursor: pointer;
+        transition: color 0.15s ease;
+    }
+
+    .mgp-title--clickable:hover {
+        color: #C9922E;
+    }
+
     .mgp-creator {
         font-size: 15px;
         font-weight: 600;
@@ -897,6 +968,16 @@ else
 
     .mgp-action-btn--sync:hover {
         background: rgba(96, 165, 250, 0.2);
+    }
+
+    .mgp-action-btn--delete {
+        background: rgba(239, 68, 68, 0.10);
+        color: #F87171;
+        border: 1px solid rgba(239, 68, 68, 0.20);
+    }
+
+    .mgp-action-btn--delete:hover {
+        background: rgba(239, 68, 68, 0.18);
     }
 
     /* Toggle button */

@@ -209,12 +209,11 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> TvColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",   Label = "Episode", Width = "30%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
-        new() { Key = "show",    Label = "Show",     Width = "auto", Sortable = true, SortKey = "show",    RenderType = ColumnRenderType.Text, PropertyName = "ShowName" },
+        new() { Key = "media",   Label = "Episode", Width = "40%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
         new() { Key = "season",  Label = "Season",   Width = "80px", Sortable = true, SortKey = "season",  RenderType = ColumnRenderType.Text, PropertyName = "Season",  Align = "center" },
         new() { Key = "episode", Label = "Episode",  Width = "80px", Sortable = true, SortKey = "episode", RenderType = ColumnRenderType.Text, PropertyName = "Episode", Align = "center" },
         new() { Key = "quality",  Label = "Quality", Width = "auto", Sortable = true, SortKey = "specs",    RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
-        new() { Key = "network",  Label = "Network", Width = "auto", Sortable = true, SortKey = "network",  RenderType = ColumnRenderType.Text, PropertyName = "Network" },
+        new() { Key = "size",    Label = "Size",     Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 

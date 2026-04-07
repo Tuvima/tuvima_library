@@ -35,6 +35,7 @@ public sealed class VaultItemViewModel
     public string? Duration { get; init; }
     public string? DiscNumber { get; init; }
     public string? ShowName { get; init; }
+    public string? EpisodeTitle { get; init; }
     public string? Network { get; init; }
     public string? TrackCount { get; init; }
     public string? Year { get; init; }
@@ -113,6 +114,7 @@ public sealed class VaultItemViewModel
         Duration = r.Duration,
         DiscNumber = r.DiscNumber,
         ShowName = r.ShowName,
+        EpisodeTitle = r.EpisodeTitle,
         Network = r.Network,
         TrackCount = r.TrackCount,
         Year = r.Year,
