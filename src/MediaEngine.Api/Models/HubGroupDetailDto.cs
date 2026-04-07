@@ -51,7 +51,7 @@ public sealed class HubGroupDetailDto
     [JsonPropertyName("seasons")]
     public List<HubGroupSeasonDto> Seasons { get; init; } = [];
 
-    /// <summary>Flat list of works sorted by sequence_index. Populated for non-TV media types.</summary>
+    /// <summary>Flat list of works sorted by ordinal. Populated for non-TV media types.</summary>
     [JsonPropertyName("works")]
     public List<HubGroupWorkDto> Works { get; init; } = [];
 }
@@ -90,8 +90,8 @@ public sealed class HubGroupWorkDto
     [JsonPropertyName("title")]
     public required string Title { get; init; }
 
-    [JsonPropertyName("sequence_index")]
-    public int? SequenceIndex { get; init; }
+    [JsonPropertyName("ordinal")]
+    public int? Ordinal { get; init; }
 
     [JsonPropertyName("year")]
     public string? Year { get; init; }

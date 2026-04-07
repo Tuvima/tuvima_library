@@ -8,7 +8,7 @@ public sealed class WorkViewModel
     public Guid                         Id              { get; init; }
     public Guid?                        HubId           { get; init; }
     public string                       MediaType       { get; init; } = string.Empty;
-    public int?                         SequenceIndex   { get; init; }
+    public int?                         Ordinal         { get; init; }
     public List<CanonicalValueViewModel> CanonicalValues { get; init; } = [];
 
     // ── Display helpers ───────────────────────────────────────────────────────

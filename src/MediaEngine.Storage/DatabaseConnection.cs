@@ -1365,6 +1365,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // wikidata_bridge_candidates tables for the retail-first identity pipeline.
         MigrateIdentityPipeline(conn);
 
+        // Migration M-081: Work hierarchy — adds work_kind, parent_work_id, ordinal,
+        // is_catalog_only, external_identifiers to the works table and renames the
+        // legacy sequence_index column to ordinal. Enables albums/seasons/series to
+        // be expressed as parent/child Work rows instead of fake ContentGroup hubs.
+        MigrateWorkHierarchy(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2441,6 +2447,110 @@ public sealed class DatabaseConnection : IDatabaseConnection
         cmd.ExecuteNonQuery();
 
         System.Diagnostics.Debug.WriteLine("M-080: Durable Identity Pipeline — identity_jobs, retail_match_candidates, wikidata_bridge_candidates");
+    }
+
+    /// <summary>
+    /// Migration M-081: Work hierarchy.
+    /// <list type="bullet">
+    ///   <item>Renames <c>works.sequence_index</c> → <c>works.ordinal</c>.</item>
+    ///   <item>Adds <c>work_kind</c> TEXT NOT NULL DEFAULT 'standalone' with a
+    ///     CHECK constraint enforcing standalone/parent/child/catalog.</item>
+    ///   <item>Adds <c>parent_work_id</c> TEXT FK to <c>works(id)</c> ON DELETE SET NULL.</item>
+    ///   <item>Adds <c>is_catalog_only</c> INTEGER NOT NULL DEFAULT 0.</item>
+    ///   <item>Adds <c>external_identifiers</c> TEXT (JSON blob).</item>
+    ///   <item>Creates supporting indexes <c>idx_works_parent_work_id</c> and
+    ///     <c>idx_works_work_kind</c>.</item>
+    /// </list>
+    /// Idempotent: each step probes <c>PRAGMA table_info</c> first.
+    /// All existing rows get <c>work_kind = 'standalone'</c> via the column DEFAULT;
+    /// the HierarchyResolver in Phase 3 promotes them to parent/child as files
+    /// are re-ingested.
+    /// </summary>
+    private static void MigrateWorkHierarchy(SqliteConnection conn)
+    {
+        // ── Step 1: rename sequence_index → ordinal ──────────────────────────
+        // SQLite 3.25+ supports ALTER TABLE RENAME COLUMN. The bundled SQLite
+        // is well past that version, so the rename is a single statement —
+        // no table-rebuild dance required.
+        bool hasOrdinal = false;
+        bool hasSequenceIndex = false;
+        using (var infoCmd = conn.CreateCommand())
+        {
+            infoCmd.CommandText = "PRAGMA table_info(works);";
+            using var reader = infoCmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var name = reader.GetString(1);
+                if (string.Equals(name, "ordinal", StringComparison.OrdinalIgnoreCase))
+                    hasOrdinal = true;
+                else if (string.Equals(name, "sequence_index", StringComparison.OrdinalIgnoreCase))
+                    hasSequenceIndex = true;
+            }
+        }
+
+        if (!hasOrdinal && hasSequenceIndex)
+        {
+            using var renameCmd = conn.CreateCommand();
+            renameCmd.CommandText = "ALTER TABLE works RENAME COLUMN sequence_index TO ordinal;";
+            renameCmd.ExecuteNonQuery();
+        }
+        else if (!hasOrdinal && !hasSequenceIndex)
+        {
+            // Fresh DB or weird state — just add the column directly.
+            using var addCmd = conn.CreateCommand();
+            addCmd.CommandText = "ALTER TABLE works ADD COLUMN ordinal INTEGER;";
+            addCmd.ExecuteNonQuery();
+        }
+
+        // ── Step 2: work_kind with CHECK constraint ───────────────────────────
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "work_kind",
+            ddl:    "ALTER TABLE works ADD COLUMN work_kind TEXT NOT NULL DEFAULT 'standalone' " +
+                    "CHECK (work_kind IN ('standalone','parent','child','catalog'));");
+
+        // ── Step 3: parent_work_id (self-referencing FK) ──────────────────────
+        // Note: SQLite enforces ON DELETE SET NULL only when the FK is added at
+        // CREATE TABLE time. ALTER TABLE ADD COLUMN with REFERENCES does not
+        // enforce the action — but the column itself is created, and the
+        // application layer handles cleanup. The CREATE TABLE statement in
+        // schema.sql carries the enforced FK for fresh databases.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "parent_work_id",
+            ddl:    "ALTER TABLE works ADD COLUMN parent_work_id TEXT REFERENCES works(id) ON DELETE SET NULL;");
+
+        // ── Step 4: is_catalog_only ───────────────────────────────────────────
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "is_catalog_only",
+            ddl:    "ALTER TABLE works ADD COLUMN is_catalog_only INTEGER NOT NULL DEFAULT 0 " +
+                    "CHECK (is_catalog_only IN (0, 1));");
+
+        // ── Step 5: external_identifiers (JSON blob) ──────────────────────────
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "external_identifiers",
+            ddl:    "ALTER TABLE works ADD COLUMN external_identifiers TEXT;");
+
+        // ── Step 6: indexes ───────────────────────────────────────────────────
+        using (var idxCmd = conn.CreateCommand())
+        {
+            idxCmd.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_works_parent_work_id
+                    ON works(parent_work_id);
+
+                CREATE INDEX IF NOT EXISTS idx_works_work_kind
+                    ON works(work_kind) WHERE work_kind != 'standalone';
+                """;
+            idxCmd.ExecuteNonQuery();
+        }
+
+        System.Diagnostics.Debug.WriteLine("M-081: Work hierarchy — work_kind, parent_work_id, ordinal, is_catalog_only, external_identifiers");
     }
 
     /// <summary>

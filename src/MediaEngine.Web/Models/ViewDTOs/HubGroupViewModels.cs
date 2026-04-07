@@ -94,8 +94,8 @@ public sealed class HubGroupWorkViewModel
     [JsonPropertyName("title")]
     public string Title { get; set; } = "";
 
-    [JsonPropertyName("sequence_index")]
-    public int? SequenceIndex { get; set; }
+    [JsonPropertyName("ordinal")]
+    public int? Ordinal { get; set; }
 
     [JsonPropertyName("year")]
     public string? Year { get; set; }

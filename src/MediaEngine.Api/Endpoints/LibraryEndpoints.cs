@@ -21,7 +21,7 @@ public static class LibraryEndpoints
 
             // Get all works with their canonical values, excluding staging files
             cmd.CommandText = """
-                SELECT w.id, w.media_type, w.sequence_index, w.wikidata_qid,
+                SELECT w.id, w.media_type, w.ordinal, w.wikidata_qid,
                        ma.id AS asset_id,
                        cv.key, cv.value
                 FROM works w
@@ -52,7 +52,7 @@ public static class LibraryEndpoints
                     {
                         Id            = workId,
                         MediaType     = reader.IsDBNull(1) ? null : reader.GetString(1),
-                        SequenceIndex = reader.IsDBNull(2) ? null : (int?)reader.GetInt32(2),
+                        Ordinal       = reader.IsDBNull(2) ? null : (int?)reader.GetInt32(2),
                         WikidataQid   = reader.IsDBNull(3) ? null : reader.GetString(3),
                         AssetId       = reader.IsDBNull(4) ? null : Guid.Parse(reader.GetString(4)),
                         CanonicalValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
@@ -85,7 +85,7 @@ public sealed class LibraryWorkDto
 {
     public Guid Id { get; init; }
     public string? MediaType { get; init; }
-    public int? SequenceIndex { get; init; }
+    public int? Ordinal { get; init; }
     public string? WikidataQid { get; init; }
     public Guid? AssetId { get; init; }
     public Dictionary<string, string> CanonicalValues { get; init; } = new();

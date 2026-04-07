@@ -256,8 +256,8 @@ public sealed class WorkDto
     [JsonPropertyName("media_type")]
     public string MediaType { get; init; } = string.Empty;
 
-    [JsonPropertyName("sequence_index")]
-    public int? SequenceIndex { get; init; }
+    [JsonPropertyName("ordinal")]
+    public int? Ordinal { get; init; }
 
     [JsonPropertyName("universe_mismatch")]
     public bool UniverseMismatch { get; init; }
@@ -273,7 +273,7 @@ public sealed class WorkDto
         Id                 = work.Id,
         HubId              = work.HubId,
         MediaType          = work.MediaType.ToString(),
-        SequenceIndex      = work.SequenceIndex,
+        Ordinal            = work.Ordinal,
         UniverseMismatch   = work.UniverseMismatch,
         UniverseMismatchAt = work.UniverseMismatchAt,
         CanonicalValues    = work.CanonicalValues.Select(CanonicalValueDto.FromDomain).ToList(),

@@ -54,7 +54,11 @@ public class AggregateTests
 
         Assert.Equal(MediaType.Unknown, work.MediaType);
         Assert.Null(work.HubId);
-        Assert.Null(work.SequenceIndex);
+        Assert.Equal(WorkKind.Standalone, work.WorkKind);
+        Assert.Null(work.ParentWorkId);
+        Assert.Null(work.Ordinal);
+        Assert.False(work.IsCatalogOnly);
+        Assert.Empty(work.ExternalIdentifiers);
         Assert.False(work.UniverseMismatch);
         Assert.Null(work.UniverseMismatchAt);
         Assert.Equal("pending", work.WikidataStatus);
@@ -64,16 +68,16 @@ public class AggregateTests
     }
 
     [Fact]
-    public void Work_SequenceIndex_ForSeriesOrdering()
+    public void Work_Ordinal_ForSeriesOrdering()
     {
         var work = new Work
         {
             Id = Guid.NewGuid(),
             MediaType = MediaType.Books,
-            SequenceIndex = 3,
+            Ordinal = 3,
         };
 
-        Assert.Equal(3, work.SequenceIndex);
+        Assert.Equal(3, work.Ordinal);
     }
 
     [Fact]

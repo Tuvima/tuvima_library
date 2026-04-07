@@ -169,7 +169,7 @@ Music uses the same Hub/Work/Edition/MediaAsset hierarchy as all other media typ
 | Work | Track |
 | Person (role: Artist) | Artist |
 
-Track number maps to `Work.SequenceIndex`. Disc number is stored as the canonical value `disc_number`.
+Track number maps to `Work.Ordinal`. Disc number is stored as the canonical value `disc_number`.
 
 ### MusicProcessor
 
@@ -275,7 +275,7 @@ Faceted filtering is added to the Home page: filter by year range, media type, a
 - Breadcrumb trail: Home â†’ Hub â†’ Work
 - Click-through from swimlane tiles to HubDetail
 - Click-through from search results to WorkDetail
-- "Next in series" link on WorkDetail (uses `Work.SequenceIndex`)
+- "Next in series" link on WorkDetail (uses `Work.Ordinal`)
 
 ### Statistics Page
 

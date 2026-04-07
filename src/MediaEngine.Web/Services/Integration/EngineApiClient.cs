@@ -79,7 +79,7 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 Id              = w.Id,
                 MediaType       = w.MediaType ?? "Unknown",
-                SequenceIndex   = w.SequenceIndex,
+                Ordinal         = w.Ordinal,
                 CanonicalValues = (w.CanonicalValues ?? new())
                     .Select(kv => new CanonicalValueViewModel
                     {
@@ -2696,7 +2696,7 @@ public sealed class EngineApiClient : IEngineApiClient
             Id              = w.Id,
             HubId           = w.HubId,
             MediaType       = w.MediaType,
-            SequenceIndex   = w.SequenceIndex,
+            Ordinal         = w.Ordinal,
             CanonicalValues = w.CanonicalValues.Select(cv => new CanonicalValueViewModel
             {
                 Key          = cv.Key,
@@ -2941,7 +2941,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("id")]               Guid                      Id,
         [property: JsonPropertyName("hub_id")]           Guid?                     HubId,
         [property: JsonPropertyName("media_type")]       string                    MediaType,
-        [property: JsonPropertyName("sequence_index")]   int?                      SequenceIndex,
+        [property: JsonPropertyName("ordinal")]          int?                      Ordinal,
         [property: JsonPropertyName("canonical_values")] List<CanonicalValueRaw>   CanonicalValues);
 
     private sealed record CanonicalValueRaw(
@@ -2953,7 +2953,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         [JsonPropertyName("id")]              public Guid Id { get; set; }
         [JsonPropertyName("mediaType")]       public string? MediaType { get; set; }
-        [JsonPropertyName("sequenceIndex")]   public int? SequenceIndex { get; set; }
+        [JsonPropertyName("ordinal")]         public int? Ordinal { get; set; }
         [JsonPropertyName("wikidataQid")]     public string? WikidataQid { get; set; }
         [JsonPropertyName("assetId")]         public Guid? AssetId { get; set; }
         [JsonPropertyName("createdAt")]       public string? CreatedAt { get; set; }

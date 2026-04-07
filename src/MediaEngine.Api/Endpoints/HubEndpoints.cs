@@ -381,7 +381,7 @@ public static class HubEndpoints
 
             // Build per-work DTOs.
             var workDtos = hub.Works
-                .OrderBy(w => w.SequenceIndex ?? int.MaxValue)
+                .OrderBy(w => w.Ordinal ?? int.MaxValue)
                 .ThenBy(w => w.Id)
                 .Select(w =>
                 {
@@ -426,7 +426,7 @@ public static class HubEndpoints
                     {
                         WorkId        = w.Id,
                         Title         = title,
-                        SequenceIndex = w.SequenceIndex,
+                        Ordinal = w.Ordinal,
                         Year          = year,
                         Duration      = duration,
                         CoverUrl      = coverUrl,
@@ -480,7 +480,7 @@ public static class HubEndpoints
                     {
                         SeasonNumber = g.Key,
                         SeasonLabel  = $"Season {g.Key}",
-                        Episodes     = g.OrderBy(e => int.TryParse(e.Episode, out var en) ? en : e.SequenceIndex ?? int.MaxValue).ToList(),
+                        Episodes     = g.OrderBy(e => int.TryParse(e.Episode, out var en) ? en : e.Ordinal ?? int.MaxValue).ToList(),
                     })
                     .ToList();
             }
@@ -488,7 +488,7 @@ public static class HubEndpoints
             {
                 // Music: tracks are already within one album hub, show as flat list with track ordering
                 flatWorks = workDtos
-                    .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : w.SequenceIndex ?? int.MaxValue)
+                    .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : w.Ordinal ?? int.MaxValue)
                     .ToList();
             }
             else
@@ -554,7 +554,7 @@ public static class HubEndpoints
 
                 // Build owned track DTOs from hub.Works.
                 var ownedTracks = hub.Works
-                    .OrderBy(w => w.SequenceIndex ?? int.MaxValue)
+                    .OrderBy(w => w.Ordinal ?? int.MaxValue)
                     .ThenBy(w => w.Id)
                     .Select(w =>
                     {
@@ -563,7 +563,7 @@ public static class HubEndpoints
                         {
                             WorkId        = w.Id,
                             Title         = GetCanonical(wDto, "title") ?? $"Track {w.Id.ToString("N")[..8]}",
-                            SequenceIndex = w.SequenceIndex,
+                            Ordinal = w.Ordinal,
                             Year          = GetCanonical(wDto, "release_year") ?? GetCanonical(wDto, "year"),
                             Duration      = GetCanonical(wDto, "duration") ?? GetCanonical(wDto, "runtime"),
                             CoverUrl      = GetCanonical(wDto, "cover"),
@@ -1021,7 +1021,7 @@ public static class HubEndpoints
                     CoverUrl     = cover,
                     Episode      = episodeNum,
                     TrackNumber  = trackNum,
-                    SequenceIndex = int.TryParse(seqIndex, out var si) ? si : null,
+                    Ordinal = int.TryParse(seqIndex, out var si) ? si : null,
                     Status       = "Provisional",
                 });
 
@@ -1823,7 +1823,7 @@ public static class HubEndpoints
         {
             // No Wikidata data — sort owned by track number and return.
             return ownedTracks
-                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
                 .ToList();
         }
 
@@ -1834,7 +1834,7 @@ public static class HubEndpoints
                 tracksArr.ValueKind != System.Text.Json.JsonValueKind.Array)
             {
                 return ownedTracks
-                    .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                    .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
                     .ToList();
             }
 
@@ -1870,7 +1870,7 @@ public static class HubEndpoints
                         {
                             WorkId        = owned.WorkId,
                             Title         = owned.Title,
-                            SequenceIndex = ordinal,
+                            Ordinal = ordinal,
                             Year          = owned.Year,
                             Duration      = owned.Duration,
                             CoverUrl      = owned.CoverUrl ?? albumCover,
@@ -1893,7 +1893,7 @@ public static class HubEndpoints
                     {
                         WorkId        = Guid.Empty,
                         Title         = title,
-                        SequenceIndex = ordinal,
+                        Ordinal = ordinal,
                         TrackNumber   = ordinal.ToString(),
                         CoverUrl      = albumCover,
                         Status        = "Unowned",
@@ -1910,14 +1910,14 @@ public static class HubEndpoints
             }
 
             return merged
-                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
                 .ToList();
         }
         catch
         {
             // Malformed JSON — fall back to owned-only.
             return ownedTracks
-                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.Ordinal ?? int.MaxValue)
                 .ToList();
         }
     }

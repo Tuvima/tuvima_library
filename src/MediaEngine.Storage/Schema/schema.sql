@@ -81,16 +81,34 @@ CREATE TABLE IF NOT EXISTS hub_items (
     added_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- hub_id is NULLABLE so that ON DELETE SET NULL can satisfy the spec invariant:
---   "A deletion of a Hub MUST trigger a cascade or re-assignment of all
---    associated Works to an 'Unassigned' state."
--- NULL hub_id == Unassigned.
+-- Works form a parent/child hierarchy among themselves (M-081):
+--   • An album is a Parent Work; its tracks are Child Works whose
+--     parent_work_id points at the album row.
+--   • A TV show is a Parent of seasons, which are themselves Parents
+--     of episodes — three rows linked by parent_work_id.
+--   • A standalone movie or single-volume novel has work_kind='standalone'
+--     and parent_work_id=NULL.
+--   • A Catalog row exists when Wikidata or a retail provider knows about
+--     a title that the user does not yet have a file for.
+--
+-- hub_id is the legacy ContentGroup link, kept until Phase 4 collapses
+-- the hub system onto the parent_work_id hierarchy.
 CREATE TABLE IF NOT EXISTS works (
-    id             TEXT    NOT NULL PRIMARY KEY,  -- UUID
-    hub_id         TEXT    REFERENCES hubs(id) ON DELETE SET NULL,
-    media_type     TEXT    NOT NULL,              -- e.g. 'MOVIE', 'EPUB'
-    sequence_index INTEGER                        -- NULLABLE: series ordering
+    id                   TEXT    NOT NULL PRIMARY KEY,  -- UUID
+    hub_id               TEXT    REFERENCES hubs(id) ON DELETE SET NULL,
+    media_type           TEXT    NOT NULL,              -- e.g. 'Movies', 'Books'
+
+    -- M-081: parent/child hierarchy
+    work_kind            TEXT    NOT NULL DEFAULT 'standalone'
+                                 CHECK (work_kind IN ('standalone','parent','child','catalog')),
+    parent_work_id       TEXT    REFERENCES works(id) ON DELETE SET NULL,
+    ordinal              INTEGER,                       -- track #, episode #, issue #, volume #
+    is_catalog_only      INTEGER NOT NULL DEFAULT 0,    -- 1 = no file in library yet
+    external_identifiers TEXT                           -- JSON: {"isbn_13":"...","tmdb_id":"..."}
 );
+
+CREATE INDEX IF NOT EXISTS idx_works_parent_work_id ON works(parent_work_id);
+CREATE INDEX IF NOT EXISTS idx_works_work_kind      ON works(work_kind) WHERE work_kind != 'standalone';
 
 CREATE TABLE IF NOT EXISTS editions (
     id           TEXT NOT NULL PRIMARY KEY,  -- UUID

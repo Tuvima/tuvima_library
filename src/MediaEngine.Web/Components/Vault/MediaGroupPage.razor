@@ -547,7 +547,7 @@ else
             // Number cell
             var numDisplay = showTrackNumber   ? item.TrackNumber
                            : showEpisodeNumber ? item.Episode
-                           : showSequence      ? item.SequenceIndex?.ToString()
+                           : showSequence      ? item.Ordinal?.ToString()
                            : null;
             builder.OpenElement(seq++, "td");
             builder.AddAttribute(seq++, "class", "mgp-track-td mgp-track-td--num");

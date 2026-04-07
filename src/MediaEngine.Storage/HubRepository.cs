@@ -105,7 +105,7 @@ public sealed class HubRepository : IHubRepository
                        h.hub_type, h.description, h.icon_name, h.scope,
                        h.profile_id, h.is_enabled, h.is_featured, h.min_items,
                        h.rule_json, h.refresh_schedule, h.last_refreshed_at, h.modified_at,
-                       w.id, w.media_type, w.sequence_index,
+                       w.id, w.media_type, w.ordinal,
                        w.universe_mismatch, w.universe_mismatch_at,
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
                 FROM   hubs h
@@ -155,7 +155,7 @@ public sealed class HubRepository : IHubRepository
                             Id                 = workId,
                             HubId              = hubId,
                             MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
-                            SequenceIndex      = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                            Ordinal            = reader.IsDBNull(21) ? null : reader.GetInt32(21),
                             UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
                             UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
                             WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
@@ -948,13 +948,13 @@ public sealed class HubRepository : IHubRepository
                        h.hub_type, h.description, h.icon_name, h.scope,
                        h.profile_id, h.is_enabled, h.is_featured, h.min_items,
                        h.rule_json, h.refresh_schedule, h.last_refreshed_at, h.modified_at,
-                       w.id, w.media_type, w.sequence_index,
+                       w.id, w.media_type, w.ordinal,
                        w.universe_mismatch, w.universe_mismatch_at,
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
                 FROM   hubs h
                 INNER JOIN works w ON w.hub_id = h.id
                 WHERE  h.hub_type IN ('ContentGroup', 'Universe')
-                ORDER  BY h.display_name, h.created_at, w.sequence_index, w.id;
+                ORDER  BY h.display_name, h.created_at, w.ordinal, w.id;
                 """;
 
             using var reader = cmd.ExecuteReader();
@@ -996,7 +996,7 @@ public sealed class HubRepository : IHubRepository
                         Id                 = workId,
                         HubId              = hubId,
                         MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
-                        SequenceIndex      = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                        Ordinal            = reader.IsDBNull(21) ? null : reader.GetInt32(21),
                         UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
                         UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
                         WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
@@ -1065,13 +1065,13 @@ public sealed class HubRepository : IHubRepository
                        h.hub_type, h.description, h.icon_name, h.scope,
                        h.profile_id, h.is_enabled, h.is_featured, h.min_items,
                        h.rule_json, h.refresh_schedule, h.last_refreshed_at, h.modified_at,
-                       w.id, w.media_type, w.sequence_index,
+                       w.id, w.media_type, w.ordinal,
                        w.universe_mismatch, w.universe_mismatch_at,
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
                 FROM   hubs h
                 LEFT JOIN works w ON w.hub_id = h.id
                 WHERE  h.id = @HubId
-                ORDER  BY w.sequence_index, w.id;
+                ORDER  BY w.ordinal, w.id;
                 """;
             var p = cmd.CreateParameter();
             p.ParameterName = "@HubId";
@@ -1118,7 +1118,7 @@ public sealed class HubRepository : IHubRepository
                             Id                 = workId,
                             HubId              = hub.Id,
                             MediaType          = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
-                            SequenceIndex      = reader.IsDBNull(21) ? null : reader.GetInt32(21),
+                            Ordinal            = reader.IsDBNull(21) ? null : reader.GetInt32(21),
                             UniverseMismatch   = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
                             UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
                             WikidataStatus     = reader.IsDBNull(24) ? "pending" : reader.GetString(24),

@@ -12,13 +12,25 @@ public interface IWork
 {
     Guid Id { get; }
 
-    /// <summary>Non-nullable: a Work MUST NOT exist without a parent Hub.</summary>
-    Guid HubId { get; }
+    /// <summary>
+    /// Optional legacy Hub. Phase 4 collapses this onto
+    /// <see cref="ParentWorkId"/>; the column is expected to disappear.
+    /// </summary>
+    Guid? HubId { get; }
 
     MediaType MediaType { get; }
 
-    /// <summary>Required when the Work belongs to an ordered series; otherwise null.</summary>
-    int? SequenceIndex { get; }
+    /// <summary>Role in the parent/child hierarchy (M-081).</summary>
+    WorkKind WorkKind { get; }
+
+    /// <summary>Parent Work in the hierarchy, or null for standalone/root.</summary>
+    Guid? ParentWorkId { get; }
+
+    /// <summary>Position within parent (track, episode, issue, volume).</summary>
+    int? Ordinal { get; }
+
+    /// <summary>True when this Work has no file in the library yet.</summary>
+    bool IsCatalogOnly { get; }
 
     IReadOnlyList<IEdition> Editions { get; }
 
