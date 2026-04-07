@@ -2,6 +2,7 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
@@ -522,6 +523,7 @@ public static class HubEndpoints
         group.MapGet("/artist-group-detail", async (
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "hub_ids")] string hubIdsParam,
             IHubRepository hubRepo,
+            IPersonRepository personRepo,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(hubIdsParam))
@@ -539,7 +541,6 @@ public static class HubEndpoints
             // Load all hubs and build album-based seasons
             var allSeasons = new List<HubGroupSeasonDto>();
             string? combinedCreator = null;
-            string? combinedCover = null;
             string? combinedGenre = null;
             int totalItems = 0;
             var allYears = new List<string>();
@@ -550,7 +551,8 @@ public static class HubEndpoints
                 var hub = await hubRepo.GetHubWithWorksAsync(hubId, ct);
                 if (hub is null) continue;
 
-                var workDtos = hub.Works
+                // Build owned track DTOs from hub.Works.
+                var ownedTracks = hub.Works
                     .OrderBy(w => w.SequenceIndex ?? int.MaxValue)
                     .ThenBy(w => w.Id)
                     .Select(w =>
@@ -572,31 +574,53 @@ public static class HubEndpoints
                                 "skipped"   => "Unlinked",
                                 _           => "Provisional",
                             },
+                            IsOwned       = true,
                         };
                     })
-                    .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : w.SequenceIndex ?? int.MaxValue)
                     .ToList();
 
-                if (workDtos.Count > 0)
+                // Per-album cover, year, and child_entities_json from this hub's first work.
+                string? albumCover = null;
+                string? albumYear = null;
+                string? childJson = null;
+                if (hub.Works.Count > 0)
                 {
                     var firstWorkDto = WorkDto.FromDomain(hub.Works[0]);
                     combinedCreator ??= GetCanonical(firstWorkDto, "artist")
                                        ?? GetCanonical(firstWorkDto, "author");
-                    combinedCover ??= GetCanonical(firstWorkDto, "cover");
                     combinedGenre ??= GetCanonical(firstWorkDto, "genre");
+                    albumCover = GetCanonical(firstWorkDto, "cover");
+                    albumYear = GetCanonical(firstWorkDto, "release_year") ?? GetCanonical(firstWorkDto, "year");
 
-                    var yearValues = workDtos.Where(w => !string.IsNullOrWhiteSpace(w.Year)).Select(w => w.Year!);
-                    allYears.AddRange(yearValues);
+                    // child_entities_json may be on any track in the album (album-level claim attached
+                    // to whichever track was being processed when Stage 2 ran). Try each in order.
+                    foreach (var w in hub.Works)
+                    {
+                        var dto = WorkDto.FromDomain(w);
+                        childJson = GetCanonical(dto, MetadataFieldConstants.ChildEntitiesJson);
+                        if (!string.IsNullOrWhiteSpace(childJson)) break;
+                    }
+                }
+
+                // Merge unowned tracks from child_entities_json.
+                var mergedTracks = MergeUnownedMusicTracks(ownedTracks, childJson, albumCover);
+
+                if (mergedTracks.Any(t => t.IsOwned && !string.IsNullOrWhiteSpace(t.Year)))
+                {
+                    allYears.AddRange(mergedTracks.Where(t => t.IsOwned && !string.IsNullOrWhiteSpace(t.Year)).Select(t => t.Year!));
                 }
 
                 allSeasons.Add(new HubGroupSeasonDto
                 {
                     SeasonNumber = albumIndex,
                     SeasonLabel  = hub.DisplayName ?? $"Album {albumIndex + 1}",
-                    Episodes     = workDtos,
+                    CoverUrl     = albumCover,
+                    AlbumHubId   = hub.Id,
+                    Year         = albumYear,
+                    Episodes     = mergedTracks,
                 });
 
-                totalItems += workDtos.Count;
+                totalItems += mergedTracks.Count(t => t.IsOwned);
                 albumIndex++;
             }
 
@@ -608,18 +632,38 @@ public static class HubEndpoints
                 _ => $"{years[0]}–{years[^1]}",
             };
 
+            // Resolve artist photo via the persons table.
+            string? artistPhotoUrl = null;
+            Guid? artistPersonId = null;
+            if (!string.IsNullOrWhiteSpace(combinedCreator))
+            {
+                try
+                {
+                    var person = await personRepo.FindByNameAsync(combinedCreator, ct);
+                    if (person is not null)
+                    {
+                        artistPersonId = person.Id;
+                        if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
+                            artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                    }
+                }
+                catch { /* best-effort lookup */ }
+            }
+
             var response = new HubGroupDetailDto
             {
                 HubId            = hubIds[0],
                 DisplayName      = combinedCreator ?? "Unknown Artist",
                 PrimaryMediaType = "Music",
-                CoverUrl         = combinedCover,
+                CoverUrl         = null, // artist view header uses ArtistPhotoUrl, not an album cover
                 Creator          = combinedCreator,
                 YearRange        = yearRange,
                 Genre            = combinedGenre,
                 TotalItems       = totalItems,
                 Seasons          = allSeasons,
                 Works            = [],
+                ArtistPhotoUrl   = artistPhotoUrl,
+                ArtistPersonId   = artistPersonId,
             };
 
             return Results.Ok(response);
@@ -635,6 +679,7 @@ public static class HubEndpoints
         group.MapGet("/artist-detail-by-name", async (
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
             IDatabaseConnection db,
+            IPersonRepository personRepo,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(artistName))
@@ -664,7 +709,9 @@ public static class HubEndpoints
                         MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
                         MAX(CASE WHEN cv.key = 'cover' THEN cv.value END) AS cover,
-                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre
+                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
+                        MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json,
+                        MAX(CASE WHEN cv.key = 'series_qid' THEN cv.value END) AS series_qid
                     FROM artist_works aw
                     INNER JOIN editions e ON e.work_id = aw.work_id
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -682,11 +729,11 @@ public static class HubEndpoints
             using var reader = cmd.ExecuteReader();
             var albumMap = new Dictionary<string, List<HubGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
             var albumCovers = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            var albumYears = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            var albumChildJson = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             string? combinedCreator = null;
-            string? combinedCover = null;
             string? combinedGenre = null;
             var allYears = new List<string>();
-            int totalItems = 0;
 
             while (reader.Read())
             {
@@ -701,9 +748,9 @@ public static class HubEndpoints
                 var cover = reader.IsDBNull(reader.GetOrdinal("cover")) ? null : reader.GetString(reader.GetOrdinal("cover"));
                 var genre = reader.IsDBNull(reader.GetOrdinal("genre")) ? null : reader.GetString(reader.GetOrdinal("genre"));
                 var artistVal = reader.IsDBNull(reader.GetOrdinal("artist")) ? null : reader.GetString(reader.GetOrdinal("artist"));
+                var childJson = reader.IsDBNull(reader.GetOrdinal("child_entities_json")) ? null : reader.GetString(reader.GetOrdinal("child_entities_json"));
 
                 combinedCreator ??= artistVal;
-                combinedCover ??= cover;
                 combinedGenre ??= genre;
 
                 var year = releaseYear ?? yearVal;
@@ -717,6 +764,10 @@ public static class HubEndpoints
                 }
                 if (!albumCovers.ContainsKey(albumKey))
                     albumCovers[albumKey] = cover;
+                if (!albumYears.ContainsKey(albumKey) || string.IsNullOrWhiteSpace(albumYears[albumKey]))
+                    albumYears[albumKey] = year;
+                if (!albumChildJson.ContainsKey(albumKey) || string.IsNullOrWhiteSpace(albumChildJson[albumKey]))
+                    albumChildJson[albumKey] = childJson;
 
                 tracks.Add(new HubGroupWorkDto
                 {
@@ -727,9 +778,8 @@ public static class HubEndpoints
                     CoverUrl    = cover,
                     TrackNumber = trackNum,
                     Status      = "Provisional",
+                    IsOwned     = true,
                 });
-
-                totalItems++;
             }
 
             var years = allYears.Distinct().OrderBy(y => y).ToList();
@@ -740,27 +790,58 @@ public static class HubEndpoints
                 _ => $"{years[0]}–{years[^1]}",
             };
 
-            var seasons = albumMap.Select((kvp, idx) => new HubGroupSeasonDto
+            int totalItems = 0;
+            var seasons = albumMap.Select((kvp, idx) =>
             {
-                SeasonNumber = idx,
-                SeasonLabel  = kvp.Key,
-                Episodes     = kvp.Value
-                    .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : int.MaxValue)
-                    .ToList(),
+                var albumKey = kvp.Key;
+                var albumCover = albumCovers.TryGetValue(albumKey, out var c) ? c : null;
+                var albumYear = albumYears.TryGetValue(albumKey, out var y) ? y : null;
+                var childJson = albumChildJson.TryGetValue(albumKey, out var j) ? j : null;
+                var merged = MergeUnownedMusicTracks(kvp.Value, childJson, albumCover);
+                totalItems += merged.Count(t => t.IsOwned);
+                return new HubGroupSeasonDto
+                {
+                    SeasonNumber = idx,
+                    SeasonLabel  = albumKey,
+                    CoverUrl     = albumCover,
+                    Year         = albumYear,
+                    AlbumHubId   = null, // by-name lookup has no concrete hub id
+                    Episodes     = merged,
+                };
             }).ToList();
+
+            // Resolve artist photo via the persons table.
+            string? artistPhotoUrl = null;
+            Guid? artistPersonId = null;
+            if (!string.IsNullOrWhiteSpace(combinedCreator))
+            {
+                try
+                {
+                    var person = await personRepo.FindByNameAsync(combinedCreator, ct);
+                    if (person is not null)
+                    {
+                        artistPersonId = person.Id;
+                        if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
+                            artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                    }
+                }
+                catch { /* best-effort lookup */ }
+            }
 
             var response = new HubGroupDetailDto
             {
                 HubId            = Guid.Empty,
                 DisplayName      = artistName,
                 PrimaryMediaType = "Music",
-                CoverUrl         = combinedCover,
+                CoverUrl         = null,
                 Creator          = combinedCreator,
                 YearRange        = yearRange,
                 Genre            = combinedGenre,
                 TotalItems       = totalItems,
                 Seasons          = seasons,
                 Works            = [],
+                ArtistPhotoUrl   = artistPhotoUrl,
+                ArtistPersonId   = artistPersonId,
             };
 
             return Results.Ok(response);
@@ -1664,6 +1745,119 @@ public static class HubEndpoints
         if (raw is not null && raw.Contains("|||", StringComparison.Ordinal) && !MultiValuedKeys.Contains(key))
             return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         return raw;
+    }
+
+    /// <summary>
+    /// Merges Wikidata-discovered tracks (from <c>child_entities_json</c>) into the owned-track list,
+    /// flagging those without a matching local file as <c>IsOwned = false</c>. Owned tracks are matched
+    /// to Wikidata tracks by case-insensitive title.
+    /// </summary>
+    private static List<HubGroupWorkDto> MergeUnownedMusicTracks(
+        List<HubGroupWorkDto> ownedTracks,
+        string? childEntitiesJson,
+        string? albumCover)
+    {
+        if (string.IsNullOrWhiteSpace(childEntitiesJson))
+        {
+            // No Wikidata data — sort owned by track number and return.
+            return ownedTracks
+                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                .ToList();
+        }
+
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(childEntitiesJson);
+            if (!doc.RootElement.TryGetProperty("tracks", out var tracksArr) ||
+                tracksArr.ValueKind != System.Text.Json.JsonValueKind.Array)
+            {
+                return ownedTracks
+                    .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                    .ToList();
+            }
+
+            // Build a lookup of owned tracks by normalized title for matching.
+            var ownedByTitle = ownedTracks
+                .Where(t => !string.IsNullOrWhiteSpace(t.Title))
+                .GroupBy(t => t.Title.Trim().ToLowerInvariant())
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var merged = new List<HubGroupWorkDto>();
+            var seenOwned = new HashSet<Guid>();
+            int wikidataOrdinal = 0;
+
+            foreach (var trackEl in tracksArr.EnumerateArray())
+            {
+                wikidataOrdinal++;
+                var title = trackEl.TryGetProperty("title", out var titleEl) && titleEl.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? titleEl.GetString()
+                    : null;
+                if (string.IsNullOrWhiteSpace(title)) continue;
+
+                var ordinal = trackEl.TryGetProperty("ordinal", out var ordEl) && ordEl.ValueKind == System.Text.Json.JsonValueKind.Number
+                    ? ordEl.GetInt32()
+                    : wikidataOrdinal;
+
+                var key = title.Trim().ToLowerInvariant();
+                if (ownedByTitle.TryGetValue(key, out var owned))
+                {
+                    // Owned — keep the local row but normalise the track number from Wikidata.
+                    if (string.IsNullOrWhiteSpace(owned.TrackNumber))
+                    {
+                        merged.Add(new HubGroupWorkDto
+                        {
+                            WorkId        = owned.WorkId,
+                            Title         = owned.Title,
+                            SequenceIndex = ordinal,
+                            Year          = owned.Year,
+                            Duration      = owned.Duration,
+                            CoverUrl      = owned.CoverUrl ?? albumCover,
+                            WikidataQid   = owned.WikidataQid,
+                            TrackNumber   = ordinal.ToString(),
+                            Status        = owned.Status,
+                            IsOwned       = true,
+                        });
+                    }
+                    else
+                    {
+                        merged.Add(owned);
+                    }
+                    seenOwned.Add(owned.WorkId);
+                }
+                else
+                {
+                    // Unowned — synthesize a row from Wikidata data.
+                    merged.Add(new HubGroupWorkDto
+                    {
+                        WorkId        = Guid.Empty,
+                        Title         = title,
+                        SequenceIndex = ordinal,
+                        TrackNumber   = ordinal.ToString(),
+                        CoverUrl      = albumCover,
+                        Status        = "Unowned",
+                        IsOwned       = false,
+                    });
+                }
+            }
+
+            // Append any owned tracks that didn't match a Wikidata title (rare — bonus tracks, mislabeled).
+            foreach (var t in ownedTracks)
+            {
+                if (!seenOwned.Contains(t.WorkId))
+                    merged.Add(t);
+            }
+
+            return merged
+                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                .ToList();
+        }
+        catch
+        {
+            // Malformed JSON — fall back to owned-only.
+            return ownedTracks
+                .OrderBy(t => int.TryParse(t.TrackNumber, out var n) ? n : t.SequenceIndex ?? int.MaxValue)
+                .ToList();
+        }
     }
 
     private static List<HubResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)

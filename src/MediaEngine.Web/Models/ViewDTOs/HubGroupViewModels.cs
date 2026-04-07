@@ -42,6 +42,14 @@ public sealed class HubGroupDetailViewModel
     [JsonPropertyName("network")]
     public string? Network { get; set; }
 
+    /// <summary>Artist photo URL (headshot). Populated for artist drill-down only.</summary>
+    [JsonPropertyName("artist_photo_url")]
+    public string? ArtistPhotoUrl { get; set; }
+
+    /// <summary>Artist's person record ID. Populated for artist drill-down only — used to open the person detail drawer.</summary>
+    [JsonPropertyName("artist_person_id")]
+    public Guid? ArtistPersonId { get; set; }
+
     /// <summary>TV only — works grouped by season.</summary>
     [JsonPropertyName("seasons")]
     public List<HubGroupSeasonViewModel> Seasons { get; set; } = [];
@@ -60,6 +68,18 @@ public sealed class HubGroupSeasonViewModel
     /// <summary>Optional display label for the section (e.g. album title when GroupType is "artist").</summary>
     [JsonPropertyName("season_label")]
     public string? SeasonLabel { get; set; }
+
+    /// <summary>Section cover URL (e.g. album art when GroupType is "artist").</summary>
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; set; }
+
+    /// <summary>Hub ID for this section if it maps to a real hub (e.g. an album hub). Used for tile click navigation.</summary>
+    [JsonPropertyName("album_hub_id")]
+    public Guid? AlbumHubId { get; set; }
+
+    /// <summary>Section year (e.g. album release year).</summary>
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
 
     [JsonPropertyName("episodes")]
     public List<HubGroupWorkViewModel> Episodes { get; set; } = [];
@@ -100,4 +120,8 @@ public sealed class HubGroupWorkViewModel
 
     [JsonPropertyName("status")]
     public string? Status { get; set; }
+
+    /// <summary>Whether this work corresponds to an actual file in the library (true) or an unowned track from Wikidata (false).</summary>
+    [JsonPropertyName("is_owned")]
+    public bool IsOwned { get; set; } = true;
 }

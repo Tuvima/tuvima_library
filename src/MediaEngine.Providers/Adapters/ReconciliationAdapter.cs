@@ -1552,6 +1552,149 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         };
     }
 
+    /// <summary>
+    /// Music-specific Stage 2 resolution that targets the <b>album</b> rather than the
+    /// individual track. Per the Tuvima Library design, songs are not given their own
+    /// Wikidata QIDs — only the album they belong to is matched. The resulting album QID
+    /// is emitted as a <c>series_qid</c> claim so <c>HubAssignmentService</c> creates a
+    /// ContentGroup hub for the album, grouping all of its tracks.
+    /// </summary>
+    /// <param name="albumTitle">The album name from canonical metadata.</param>
+    /// <param name="artist">The album artist (used for disambiguation).</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>
+    /// A <see cref="BridgeResolutionResult"/> with <c>series_qid</c> + <c>series</c>
+    /// claims (and no <c>wikidata_qid</c>), or <see cref="BridgeResolutionResult.NotFound"/>.
+    /// </returns>
+    public async Task<BridgeResolutionResult> ResolveMusicAlbumAsync(
+        string albumTitle,
+        string? artist,
+        CancellationToken ct)
+    {
+        if (_reconciler is null || string.IsNullOrWhiteSpace(albumTitle))
+            return BridgeResolutionResult.NotFound;
+
+        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
+
+        // Use the dedicated MusicAlbum class list, not the broader Music list
+        // (which includes Q105543609 musical work / Q7302866 song — exactly what
+        // we are trying to avoid matching against).
+        if (!_config.InstanceOfClasses.TryGetValue("MusicAlbum", out var albumClasses)
+            || albumClasses.Count == 0)
+        {
+            _logger.LogWarning(
+                "{Provider}: ResolveMusicAlbumAsync — no MusicAlbum classes configured", Name);
+            return BridgeResolutionResult.NotFound;
+        }
+
+        var query = string.IsNullOrWhiteSpace(artist) ? albumTitle : $"{albumTitle} {artist}";
+
+        try
+        {
+            var request = new ReconciliationRequest
+            {
+                Query                = query,
+                Limit                = 5,
+                Language             = language,
+                DiacriticInsensitive = true,
+                Cleaners             = QueryCleaners.All(),
+                Types                = albumClasses.ToList(),
+            };
+
+            var candidates = await _reconciler.ReconcileAsync(request, ct).ConfigureAwait(false);
+
+            // Retry without artist — band names like "Queen" can confuse CirrusSearch.
+            if (candidates.Count == 0 && !string.IsNullOrWhiteSpace(artist))
+            {
+                _logger.LogDebug(
+                    "{Provider}: ResolveMusicAlbumAsync — retrying with title-only '{Album}'",
+                    Name, albumTitle);
+
+                var titleOnly = new ReconciliationRequest
+                {
+                    Query                = albumTitle,
+                    Limit                = 5,
+                    Language             = language,
+                    DiacriticInsensitive = true,
+                    Cleaners             = QueryCleaners.All(),
+                    Types                = albumClasses.ToList(),
+                };
+                candidates = await _reconciler.ReconcileAsync(titleOnly, ct).ConfigureAwait(false);
+            }
+
+            if (candidates.Count == 0)
+            {
+                _logger.LogInformation(
+                    "{Provider}: ResolveMusicAlbumAsync — no album candidates for '{Query}'",
+                    Name, query);
+                return BridgeResolutionResult.NotFound;
+            }
+
+            var top = candidates[0];
+            if (top.Score < _config.Reconciliation.ReviewThreshold)
+            {
+                _logger.LogInformation(
+                    "{Provider}: ResolveMusicAlbumAsync — top candidate '{Label}' ({QID}) " +
+                    "score {Score} below threshold {Threshold}",
+                    Name, top.Name, top.Id, top.Score, _config.Reconciliation.ReviewThreshold);
+                return BridgeResolutionResult.NotFound;
+            }
+
+            var albumQid   = top.Id;
+            var albumLabel = !string.IsNullOrWhiteSpace(top.Name) ? top.Name : albumTitle;
+
+            _logger.LogInformation(
+                "{Provider}: ResolveMusicAlbumAsync — matched album '{Album}' to {QID} '{Label}' (score={Score})",
+                Name, albumTitle, albumQid, albumLabel, top.Score);
+
+            // Emit series + series_qid claims so HubAssignmentService creates an album hub.
+            // Deliberately do NOT emit wikidata_qid — the track itself has no individual
+            // Wikidata identity in this design.
+            var claims = new List<ProviderClaim>
+            {
+                new("series",     albumLabel,                          ClaimConfidence.WikidataProperty),
+                new("series_qid", $"{albumQid}::{albumLabel}",         ClaimConfidence.EntityQidReference),
+            };
+
+            // Discover album tracks so the artist drill-down can show unowned tracks.
+            // The resulting child_entities_json claim is attached to the track's media asset
+            // so any track in the album hub can serve as the source of the album's full track list.
+            try
+            {
+                var childClaims = await DiscoverChildEntitiesAsync(albumQid, MediaType.Music, language, ct)
+                    .ConfigureAwait(false);
+                if (childClaims.Count > 0)
+                    claims.AddRange(childClaims);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception childEx)
+            {
+                _logger.LogDebug(childEx,
+                    "{Provider}: ResolveMusicAlbumAsync — child entity discovery failed for {QID}, continuing",
+                    Name, albumQid);
+            }
+
+            return new BridgeResolutionResult
+            {
+                Found              = true,
+                Qid                = albumQid,
+                IsEdition          = false,
+                WorkQid            = null,
+                EditionQid         = null,
+                Claims             = claims,
+                CollectedBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            };
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "{Provider}: ResolveMusicAlbumAsync failed for '{Album}' by '{Artist}'",
+                Name, albumTitle, artist);
+            return BridgeResolutionResult.NotFound;
+        }
+    }
+
     // ── Private: FetchWork / FetchPerson ─────────────────────────────────────
 
     private async Task<IReadOnlyList<ProviderClaim>> FetchWorkAsync(

@@ -147,6 +147,7 @@ public sealed class SearchService : ISearchService
                     Label          = result.Title,
                     Description    = result.Description,
                     ResolutionTier = "title_search",
+                    InstanceOf     = ExtractInstanceOfFromDescription(result.Description),
                 };
 
                 // Enrich with cover art from retail providers
@@ -348,6 +349,7 @@ public sealed class SearchService : ISearchService
             Qid               = candidate.Qid,
             Label             = candidate.Label,
             Description       = candidate.Description,
+            InstanceOf        = candidate.InstanceOf ?? ExtractInstanceOfFromDescription(candidate.Description),
             Year              = year,
             Author            = retailAuthor ?? ExtractAuthorFromDescription(candidate.Description),
             CoverUrl          = coverUrl,
@@ -514,6 +516,35 @@ public sealed class SearchService : ISearchService
         if (string.IsNullOrWhiteSpace(description)) return null;
         var match = System.Text.RegularExpressions.Regex.Match(description, @"\b(1[5-9]\d{2}|20[0-2]\d)\b");
         return match.Success ? match.Value : null;
+    }
+
+    /// <summary>
+    /// Heuristic: extract the entity-type label from a Wikidata description like
+    /// "1965 novel by Frank Herbert" → "novel". Falls back to the second word if the
+    /// first is a year. Returns null if nothing recognisable is found.
+    /// </summary>
+    private static readonly string[] InstanceOfKeywords =
+    [
+        "novel", "book", "novella", "short story", "anthology", "literary work", "written work",
+        "film", "movie", "animated film", "short film", "documentary", "documentary film",
+        "television series", "television film", "web series", "animated series", "miniseries", "TV series",
+        "album", "studio album", "compilation album", "live album", "EP", "single", "song", "musical work",
+        "comic book", "comic book series", "graphic novel", "manga", "manhwa",
+        "podcast", "podcast series", "podcast episode",
+        "video game",
+    ];
+
+    private static string? ExtractInstanceOfFromDescription(string? description)
+    {
+        if (string.IsNullOrWhiteSpace(description)) return null;
+
+        // Longest-first match so "comic book series" beats "comic book".
+        foreach (var kw in InstanceOfKeywords.OrderByDescending(k => k.Length))
+        {
+            if (description.Contains(kw, StringComparison.OrdinalIgnoreCase))
+                return kw;
+        }
+        return null;
     }
 
     /// <summary>Heuristic: extract author from "... by Author Name" pattern.</summary>

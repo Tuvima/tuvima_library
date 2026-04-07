@@ -126,6 +126,8 @@
                                 OnBack="NavigateBackFromGroup"
                                 OnItemClicked="OpenDetailDrawerFromGroup"
                                 OnItemEditClicked="OpenDetailDrawerFromGroup"
+                                OnAlbumTileClicked="OnAlbumTileClickedFromGroup"
+                                OnPersonClicked="OnArtistPhotoClickedFromGroup"
                                 OnBatchDelete="OnBatchDelete"
                                 OnBatchSync="OnBatchSync" />
             }
@@ -1324,6 +1326,26 @@
         _selectedPerson = null;
         _selectedUniverse = null;
         await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnAlbumTileClickedFromGroup(Guid albumHubId)
+    {
+        if (albumHubId == Guid.Empty) return;
+        NavigateToGroup("ContentGroup", albumHubId);
+    }
+
+    private async Task OnArtistPhotoClickedFromGroup(Guid personId)
+    {
+        if (personId == Guid.Empty) return;
+        if (_people.Count == 0) await LoadPeople();
+        var person = _people.FirstOrDefault(p => p.Id == personId);
+        if (person is not null)
+        {
+            _selectedPerson = person;
+            _selectedMedia = null;
+            _selectedUniverse = null;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task OnHubEnabledToggled((Guid Id, bool Enabled) args)

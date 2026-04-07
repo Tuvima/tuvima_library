@@ -465,6 +465,29 @@
                                                 }
                                             </div>
 
+                                            @* Extra details: description + extra fields *@
+                                            @if (!string.IsNullOrEmpty(result.Description) || (result.ExtraFields is { Count: > 0 }))
+                                            {
+                                                <div class="vdd-result-details">
+                                                    @if (!string.IsNullOrEmpty(result.Description))
+                                                    {
+                                                        <div class="vdd-result-description">@result.Description</div>
+                                                    }
+                                                    @if (result.ExtraFields is { Count: > 0 })
+                                                    {
+                                                        <div class="vdd-result-extra-fields">
+                                                            @foreach (var kv in result.ExtraFields.Where(kv => !string.IsNullOrEmpty(kv.Value)).Take(8))
+                                                            {
+                                                                <div class="vdd-extra-field-chip">
+                                                                    <span class="vdd-extra-field-key">@FormatClaimKey(kv.Key)</span>
+                                                                    <span class="vdd-extra-field-val">@kv.Value</span>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+
                                             @* Confirm button (only when expanded/selected) *@
                                             @if (isExpanded)
                                             {
@@ -609,7 +632,20 @@
                                                 </div>
                                                 <div class="vdd-result-title-block">
                                                     <span class="vdd-result-card-title">@result.Label</span>
-                                                    <span class="vdd-result-card-meta">@result.Qid</span>
+                                                    <div class="vdd-result-card-qid-row">
+                                                        <a href="https://www.wikidata.org/wiki/@result.Qid" target="_blank" rel="noopener" class="vdd-result-qid-link" @onclick:stopPropagation="true">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 10px;" />
+                                                            @result.Qid
+                                                        </a>
+                                                        @if (!string.IsNullOrEmpty(result.InstanceOf))
+                                                        {
+                                                            <span class="vdd-result-instance-chip">@result.InstanceOf</span>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(result.Year))
+                                                        {
+                                                            <span class="vdd-result-instance-chip">@result.Year</span>
+                                                        }
+                                                    </div>
                                                     @if (!string.IsNullOrEmpty(result.Description))
                                                     {
                                                         <span class="vdd-result-card-meta" style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal;">@result.Description</span>
@@ -3836,6 +3872,91 @@
     .vdd-result-card-meta {
         font-size: 12px;
         color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vdd-result-card-qid-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .vdd-result-qid-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 11px;
+        color: #A78BFA;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .vdd-result-qid-link:hover {
+        text-decoration: underline;
+    }
+
+    .vdd-result-instance-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        color: rgba(167, 139, 250, 0.85);
+        background: rgba(167, 139, 250, 0.08);
+        border: 1px solid rgba(167, 139, 250, 0.18);
+        border-radius: 4px;
+    }
+
+    .vdd-result-details {
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-result-description {
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.55);
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .vdd-result-extra-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .vdd-extra-field-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px;
+        font-size: 10px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+    }
+
+    .vdd-extra-field-key {
+        color: rgba(255, 255, 255, 0.4);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .vdd-extra-field-val {
+        color: rgba(255, 255, 255, 0.75);
+        font-weight: 500;
     }
 
     .vdd-result-score {

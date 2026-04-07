@@ -158,8 +158,84 @@ public sealed class WikidataBridgeWorker
         var allCandidates = new List<WikidataBridgeCandidate>();
         string? resolvedQid = null;
 
-        // Try bridge resolution
-        if (bridgeIds.Count > 0)
+        // Music branch: resolve to ALBUM only, never tracks.
+        // Individual songs are rarely notable enough for Wikidata; matching them
+        // produces false matches against composition entities. Stage 2 for music
+        // assigns the album QID to the track so HubAssignmentService can group it
+        // under an album ContentGroup hub. Track titles are NOT overwritten.
+        var isMusic = mediaType == MediaType.Music;
+        if (isMusic)
+        {
+            var albumHint = canonicals
+                .FirstOrDefault(c => string.Equals(c.Key, "album",
+                    StringComparison.OrdinalIgnoreCase))?.Value;
+            var artistHint = canonicals
+                .FirstOrDefault(c => string.Equals(c.Key, "artist",
+                    StringComparison.OrdinalIgnoreCase))?.Value
+                ?? authorHint;
+
+            if (!string.IsNullOrWhiteSpace(albumHint))
+            {
+                try
+                {
+                    var albumResult = await reconAdapter.ResolveMusicAlbumAsync(
+                        albumHint, artistHint, ct);
+
+                    if (albumResult.Found)
+                    {
+                        resolvedQid = albumResult.Qid;
+
+                        var candidate = new WikidataBridgeCandidate
+                        {
+                            JobId = job.Id,
+                            Qid = resolvedQid!,
+                            Label = albumHint,
+                            MatchedBy = "music_album",
+                            IsExactMatch = true,
+                            ScoreTotal = 0.95,
+                            Outcome = "AutoAccepted",
+                        };
+                        allCandidates.Add(candidate);
+
+                        if (albumResult.Claims.Count > 0)
+                        {
+                            await ScoringHelper.PersistClaimsAndScoreAsync(
+                                job.EntityId, albumResult.Claims, reconAdapter.ProviderId,
+                                _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
+                                logger: _logger);
+                        }
+
+                        await _timeline.RecordBridgeResolvedAsync(
+                            job.EntityId, resolvedQid!, "music_album",
+                            job.IngestionRunId, ct);
+
+                        _logger.LogInformation(
+                            "Music album resolution succeeded for entity {EntityId}: album QID {Qid}",
+                            job.EntityId, resolvedQid);
+                    }
+                    else
+                    {
+                        _logger.LogInformation(
+                            "Music album resolution found no match for '{Album}' by '{Artist}' (entity {EntityId})",
+                            albumHint, artistHint, job.EntityId);
+                    }
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Music album resolution failed for entity {EntityId}", job.EntityId);
+                }
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "Music entity {EntityId} has no album metadata — skipping Wikidata resolution",
+                    job.EntityId);
+            }
+        }
+
+        // Try bridge resolution (non-music paths)
+        if (!isMusic && bridgeIds.Count > 0)
         {
             try
             {
@@ -226,8 +302,8 @@ public sealed class WikidataBridgeWorker
             }
         }
 
-        // Text reconciliation fallback
-        if (resolvedQid is null && !string.IsNullOrWhiteSpace(titleHint))
+        // Text reconciliation fallback (skip for music — album resolution already handled above)
+        if (!isMusic && resolvedQid is null && !string.IsNullOrWhiteSpace(titleHint))
         {
             try
             {
@@ -293,6 +369,14 @@ public sealed class WikidataBridgeWorker
         {
             await _jobRepo.SetResolvedQidAsync(job.Id, resolvedQid, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidResolved, ct: ct);
+
+            // Skip post-resolve property fetch for music — the resolved QID is the
+            // ALBUM, not the track. Fetching its properties would overwrite the
+            // track's title/duration/artist with album-level values.
+            if (isMusic)
+            {
+                return;
+            }
 
             // Fetch full properties now that we have a QID
             try

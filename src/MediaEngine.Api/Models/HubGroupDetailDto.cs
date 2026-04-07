@@ -39,6 +39,14 @@ public sealed class HubGroupDetailDto
     [JsonPropertyName("network")]
     public string? Network { get; init; }
 
+    /// <summary>Artist photo URL (headshot). Populated for artist drill-down only.</summary>
+    [JsonPropertyName("artist_photo_url")]
+    public string? ArtistPhotoUrl { get; init; }
+
+    /// <summary>Artist's person record ID. Populated for artist drill-down only — used to open the person detail drawer.</summary>
+    [JsonPropertyName("artist_person_id")]
+    public Guid? ArtistPersonId { get; init; }
+
     /// <summary>Child works grouped into seasons. Populated for TV media type only.</summary>
     [JsonPropertyName("seasons")]
     public List<HubGroupSeasonDto> Seasons { get; init; } = [];
@@ -56,6 +64,18 @@ public sealed class HubGroupSeasonDto
 
     [JsonPropertyName("season_label")]
     public string? SeasonLabel { get; init; }
+
+    /// <summary>Section cover URL (e.g. album art for an artist's album). Optional.</summary>
+    [JsonPropertyName("cover_url")]
+    public string? CoverUrl { get; init; }
+
+    /// <summary>Hub ID for this section if it maps to a real hub (e.g. an album hub). Used for tile click navigation.</summary>
+    [JsonPropertyName("album_hub_id")]
+    public Guid? AlbumHubId { get; init; }
+
+    /// <summary>Section year. Optional.</summary>
+    [JsonPropertyName("year")]
+    public string? Year { get; init; }
 
     [JsonPropertyName("episodes")]
     public List<HubGroupWorkDto> Episodes { get; init; } = [];
@@ -96,6 +116,10 @@ public sealed class HubGroupWorkDto
 
     [JsonPropertyName("status")]
     public string? Status { get; init; }
+
+    /// <summary>Whether this work corresponds to an actual file in the library (true) or an unowned track surfaced from Wikidata child entity data (false).</summary>
+    [JsonPropertyName("is_owned")]
+    public bool IsOwned { get; init; } = true;
 
     /// <summary>Stage 1 (retail identification) pipeline status for this work's primary asset.</summary>
     [JsonPropertyName("stage1")]

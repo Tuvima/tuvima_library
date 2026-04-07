@@ -3150,8 +3150,11 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var idsParam = string.Join(",", hubIds);
-            return await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
+            var result = await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
                 $"/hubs/artist-group-detail?hub_ids={idsParam}", ct);
+            if (result?.ArtistPhotoUrl is not null)
+                result.ArtistPhotoUrl = AbsoluteUrl(result.ArtistPhotoUrl);
+            return result;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -3166,8 +3169,11 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
+            var result = await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
                 $"/hubs/artist-detail-by-name?artistName={Uri.EscapeDataString(artistName)}", ct);
+            if (result?.ArtistPhotoUrl is not null)
+                result.ArtistPhotoUrl = AbsoluteUrl(result.ArtistPhotoUrl);
+            return result;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)

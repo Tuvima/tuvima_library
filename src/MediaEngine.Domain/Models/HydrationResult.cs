@@ -71,4 +71,10 @@ public sealed class QidCandidate
     /// Null for candidates from legacy code paths.
     /// </summary>
     public string? ResolutionTier { get; init; }
+
+    /// <summary>
+    /// The instance-of label for this entity (e.g. "novel", "film", "music album").
+    /// Surfaced in the manual search drawer to help the user judge match validity.
+    /// </summary>
+    public string? InstanceOf { get; init; }
 }
