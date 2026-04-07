@@ -3259,7 +3259,13 @@ public sealed class EngineApiClient : IEngineApiClient
             if (!string.IsNullOrWhiteSpace(groupField))
                 queryParts.Add($"groupField={Uri.EscapeDataString(groupField)}");
             var url = "/hubs/system-views" + (queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "");
-            return await _http.GetFromJsonAsync<List<ContentGroupViewModel>>(url, ct) ?? [];
+            var groups = await _http.GetFromJsonAsync<List<ContentGroupViewModel>>(url, ct) ?? [];
+            foreach (var g in groups)
+            {
+                if (g.ArtistPhotoUrl is not null)
+                    g.ArtistPhotoUrl = AbsoluteUrl(g.ArtistPhotoUrl);
+            }
+            return groups;
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)

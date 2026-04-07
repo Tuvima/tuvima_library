@@ -446,8 +446,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (candidate.IsFailed)
         {
             _logger.LogWarning(
-                "Ingestion skipped (lock probe failed): {Path} — {Reason}",
-                candidate.Path, candidate.FailureReason);
+                "Quarantined: \"{FileName}\" — lock probe failed: {Reason}",
+                Path.GetFileName(candidate.Path), candidate.FailureReason);
             await SafePublishAsync(SignalREvents.IngestionFailed, new IngestionFailedEvent(
                 candidate.Path,
                 candidate.FailureReason ?? "Lock probe exhausted",
@@ -466,9 +466,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         if (!File.Exists(candidate.Path))
         {
-            _logger.LogWarning("Ingestion skipped — file missing: {Path}", candidate.Path);
+            _logger.LogWarning("Ingestion skipped — file missing: \"{FileName}\"", Path.GetFileName(candidate.Path));
             return;
         }
+
+        _logger.LogInformation("Detected: \"{FileName}\" — queued for ingestion", Path.GetFileName(candidate.Path));
 
         await SafePublishAsync(SignalREvents.IngestionStarted, new IngestionStartedEvent(
             candidate.Path, DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
@@ -491,6 +493,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Step 4: hash.
         var hash = await _hasher.ComputeAsync(candidate.Path, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Fingerprinted \"{FileName}\" — sha256={HashPrefix}… ({SizeKB:F1} KB)",
+            Path.GetFileName(candidate.Path), hash.Hex[..8], hash.FileSize / 1024.0);
 
         await SafePublishAsync(SignalREvents.IngestionHashed, new IngestionHashedEvent(
             candidate.Path, hash.Hex, hash.FileSize, hash.Elapsed), ct).ConfigureAwait(false);
@@ -591,6 +597,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Step 6: process.
         var result = await _processors.ProcessAsync(candidate.Path, ct).ConfigureAwait(false);
+
+        {
+            var extractedTitle = result.Claims
+                .FirstOrDefault(c => c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value;
+            _logger.LogInformation(
+                "Processed \"{FileName}\" via {ProcessorType} — {ClaimCount} claims extracted (title='{Title}')",
+                Path.GetFileName(candidate.Path),
+                result.DetectedType,
+                result.Claims.Count,
+                extractedTitle ?? "(none)");
+        }
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
@@ -784,7 +801,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Failed to write Stage 0 timeline event for asset {Id}", assetId);
+            _logger.LogWarning(ex,
+                "Failed to write Stage 0 timeline event for \"{FileName}\" (asset {Id})",
+                Path.GetFileName(candidate.Path), assetId);
         }
 
         // Step 9: score.
@@ -1405,6 +1424,13 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IngestionRunId = ingestionRunId,
             Pass           = "Quick",
         }, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Identity job created for [{MediaType}] '{Title}'{AuthorPart} — queued for retail match ({AssetId12})",
+            resolvedMediaType,
+            resolvedTitle,
+            string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}",
+            assetId.ToString("N")[..12]);
 
         // Batch counter: file has been fully processed through the ingestion pipeline.
         if (candidate.BatchId.HasValue)

@@ -12,6 +12,13 @@ public interface IBridgeIdRepository
     /// <summary>Returns all bridge IDs for the given entity.</summary>
     Task<IReadOnlyList<BridgeIdEntry>> GetByEntityAsync(Guid entityId, CancellationToken ct = default);
 
+    /// <summary>
+    /// Returns all bridge IDs for a batch of entities in a single query.
+    /// The result is grouped by entity ID for O(1) per-job lookup.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>>> GetByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds, CancellationToken ct = default);
+
     /// <summary>Finds a single bridge ID by entity + type (e.g. "isbn").</summary>
     Task<BridgeIdEntry?> FindAsync(Guid entityId, string idType, CancellationToken ct = default);
 

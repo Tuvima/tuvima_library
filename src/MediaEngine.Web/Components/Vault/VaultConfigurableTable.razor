@@ -438,19 +438,28 @@ else
                                     case ColumnRenderType.ContainerCell:
                                         <div class="vmt-media-cell">
                                             <div class="vmt-poster-wrap">
-                                                <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
-                                                     @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
-                                                     @onmouseleave="HideHover">
-                                                    @if (!string.IsNullOrEmpty(item.CoverUrl))
-                                                    {
-                                                        <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
-                                                    }
-                                                    else
-                                                    {
-                                                        <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)"
-                                                                 Style="font-size: 20px; opacity: 0.25;" />
-                                                    }
-                                                </div>
+                                                @if (!string.IsNullOrEmpty(item.ArtistPhotoUrl))
+                                                {
+                                                    <div class="vmt-artist-photo" style="width: @(PosterSize)px; height: @(PosterSize)px;">
+                                                        <img src="@item.ArtistPhotoUrl" alt="@item.Title" class="vmt-artist-photo-img" loading="lazy" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
+                                                         @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
+                                                         @onmouseleave="HideHover">
+                                                        @if (!string.IsNullOrEmpty(item.CoverUrl))
+                                                        {
+                                                            <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Person"
+                                                                     Style="font-size: 20px; opacity: 0.25;" />
+                                                        }
+                                                    </div>
+                                                }
                                             </div>
                                             <div class="vmt-media-info">
                                                 <p class="vmt-title">@item.Title</p>
@@ -835,6 +844,30 @@ else
     }
 
     .vmt-thumb:hover .vmt-thumb-img {
+        opacity: 1;
+    }
+
+    /* Artist circular avatar — used in Music By Artist container view */
+    .vmt-artist-photo {
+        border-radius: 50%;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .vmt-artist-photo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.75;
+        transition: opacity 0.15s;
+    }
+
+    .vmt-artist-photo:hover .vmt-artist-photo-img {
         opacity: 1;
     }
 

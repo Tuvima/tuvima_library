@@ -36,6 +36,12 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; set; }
 
+    [JsonPropertyName("artist_photo_url")]
+    public string? ArtistPhotoUrl { get; set; }
+
+    [JsonPropertyName("artist_person_id")]
+    public Guid? ArtistPersonId { get; set; }
+
     // ── Computed display helpers ──
 
     public string MediaTypeIcon => PrimaryMediaType switch

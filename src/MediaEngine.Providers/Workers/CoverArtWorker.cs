@@ -92,8 +92,22 @@ public sealed class CoverArtWorker
         // Skip if cover already exists
         if (File.Exists(coverPath))
         {
-            _logger.LogDebug("Cover already exists at {Path} for entity {EntityId}", coverPath, entityId);
+            var titleForSkip = canonicals
+                .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
+                ?? $"entity {entityId}";
+            _logger.LogInformation(
+                "Cover art: skipped '{Title}' — already cached on disk ({Path})",
+                titleForSkip, coverPath);
             return;
+        }
+
+        {
+            var titleForDownload = canonicals
+                .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
+                ?? $"entity {entityId}";
+            _logger.LogInformation(
+                "Cover art: downloading '{Title}' from {Url} → {LocalPath}",
+                titleForDownload, coverUrl, coverPath);
         }
 
         // Capture embedded cover pHash before downloading new one
@@ -173,9 +187,14 @@ public sealed class CoverArtWorker
             GenerateThumbnail(coverPath, thumbPath);
         }
 
-        _logger.LogInformation(
-            "Cover art downloaded and processed for entity {EntityId} ({Bytes} bytes)",
-            entityId, bytes.Length);
+        {
+            var titleForDone = canonicals
+                .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
+                ?? $"entity {entityId}";
+            _logger.LogInformation(
+                "Cover art: downloaded poster for '{Title}' ({SizeKB:F1} KB) → /stream/{EntityId}/cover",
+                titleForDone, bytes.Length / 1024.0, entityId);
+        }
     }
 
     private async Task GenerateHeroBannerAsync(

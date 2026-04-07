@@ -97,6 +97,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <summary>Universal provider: handles all media types.</summary>
     public bool CanHandle(MediaType mediaType) => true;
 
+    /// <summary>
+    /// The minimum reconciliation score (0–100) for a candidate to be auto-accepted.
+    /// Exposed so batch callers (e.g. <see cref="WikidataBridgeWorker"/>) can apply
+    /// the same threshold when evaluating batch reconciliation results.
+    /// </summary>
+    public double ReviewThreshold => _config.Reconciliation.ReviewThreshold;
+
     /// <summary>Handles MediaAsset and Person entity types.</summary>
     public bool CanHandle(EntityType entityType) =>
         entityType is EntityType.MediaAsset or EntityType.Person;

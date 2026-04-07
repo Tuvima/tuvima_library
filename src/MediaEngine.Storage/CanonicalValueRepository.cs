@@ -114,6 +114,46 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>> GetByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        if (entityIds.Count == 0)
+        {
+            IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>> empty =
+                new Dictionary<Guid, IReadOnlyList<CanonicalValue>>();
+            return Task.FromResult(empty);
+        }
+
+        var entityIdStrings = entityIds.Select(id => id.ToString()).ToList();
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<CanonicalValueRow>("""
+            SELECT entity_id           AS EntityId,
+                   key                 AS Key,
+                   value               AS Value,
+                   last_scored_at      AS LastScoredAt,
+                   is_conflicted       AS IsConflicted,
+                   winning_provider_id AS WinningProviderId,
+                   needs_review        AS NeedsReview
+            FROM   canonical_values
+            WHERE  entity_id IN @entityIds
+            ORDER  BY entity_id, key ASC;
+            """, new { entityIds = entityIdStrings }).AsList();
+
+        var grouped = rows
+            .GroupBy(r => Guid.TryParse(r.EntityId, out var gid) ? gid : Guid.Empty)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<CanonicalValue>)g.Select(MapRow).ToList());
+
+        IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>> result = grouped;
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<CanonicalValue>> GetConflictedAsync(
         CancellationToken ct = default)
     {

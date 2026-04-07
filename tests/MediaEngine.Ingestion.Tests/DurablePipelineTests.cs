@@ -285,6 +285,7 @@ public sealed class DurablePipelineTests : IDisposable
             new NoOpScoringEngine(),
             configLoader,
             new NoOpBridgeIdRepository(),
+            new NoOpHttpClientFactory(),
             NullLogger<RetailMatchWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -388,6 +389,7 @@ public sealed class DurablePipelineTests : IDisposable
             enrichment,
             hubAssignment,
             postPipeline,
+            new NoOpCanonicalValueRepository(),
             NullLogger<QuickHydrationWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -872,6 +874,9 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<IReadOnlyList<CanonicalValue>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<CanonicalValue>>([]);
 
+        public Task<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>> GetByEntitiesAsync(IReadOnlyList<Guid> entityIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>>(new Dictionary<Guid, IReadOnlyList<CanonicalValue>>());
+
         public Task UpsertBatchAsync(IReadOnlyList<CanonicalValue> values, CancellationToken ct = default)
             => Task.CompletedTask;
 
@@ -918,6 +923,9 @@ public sealed class DurablePipelineTests : IDisposable
     {
         public Task<IReadOnlyList<BridgeIdEntry>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<BridgeIdEntry>>([]);
+
+        public Task<IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>>> GetByEntitiesAsync(IReadOnlyList<Guid> entityIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>>>(new Dictionary<Guid, IReadOnlyList<BridgeIdEntry>>());
 
         public Task UpsertBatchAsync(IReadOnlyList<BridgeIdEntry> entries, CancellationToken ct = default)
             => Task.CompletedTask;
@@ -1043,5 +1051,15 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<Guid?> GetHubIdByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Hub?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
         public Task<IReadOnlyList<Hub>> GetAllHubsForLocationAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
+    }
+
+    /// <summary>
+    /// Stub IHttpClientFactory — never called in tests that use non-Music/TV media types.
+    /// </summary>
+    private sealed class NoOpHttpClientFactory : System.Net.Http.IHttpClientFactory
+    {
+        public System.Net.Http.HttpClient CreateClient(string name)
+            => throw new NotSupportedException(
+                $"NoOpHttpClientFactory.CreateClient('{name}') should not be called in unit tests.");
     }
 }

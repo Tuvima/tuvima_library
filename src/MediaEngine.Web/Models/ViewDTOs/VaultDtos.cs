@@ -62,6 +62,9 @@ public sealed class VaultItemViewModel
     /// <summary>Name of the provider that is currently unreachable (if any).</summary>
     public string? FailedProviderName { get; init; }
 
+    /// <summary>Artist headshot URL — set only for Music By Artist container rows.</summary>
+    public string? ArtistPhotoUrl { get; init; }
+
     // Computed: the 4 vault display statuses
     public VaultStatus VaultDisplayStatus => ComputeVaultStatus();
 

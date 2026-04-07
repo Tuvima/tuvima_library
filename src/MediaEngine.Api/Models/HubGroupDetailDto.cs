@@ -176,4 +176,12 @@ public sealed class ContentGroupDto
 
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
+
+    /// <summary>Artist headshot URL — populated only when GroupByField == "artist".</summary>
+    [JsonPropertyName("artist_photo_url")]
+    public string? ArtistPhotoUrl { get; init; }
+
+    /// <summary>Person ID of the matched artist — populated alongside ArtistPhotoUrl.</summary>
+    [JsonPropertyName("artist_person_id")]
+    public Guid? ArtistPersonId { get; init; }
 }

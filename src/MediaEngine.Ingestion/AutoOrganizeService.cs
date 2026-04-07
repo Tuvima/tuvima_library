@@ -133,9 +133,28 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
 
         // ── QID gate — nothing enters the library without a confirmed identity ──
-        var hasQid = metadata.TryGetValue("wikidata_qid", out var qidVal)
-            && !string.IsNullOrWhiteSpace(qidVal)
-            && !qidVal.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+        // For per-track / per-episode media (music tracks, TV episodes), Wikidata
+        // does not assign individual QIDs — the parent album / show / series QID
+        // (emitted as series_qid by ResolveMusicAlbumAsync and the TV resolver) is
+        // the asset's confirmed identity. Accept any of wikidata_qid / series_qid /
+        // edition_qid as proof of identification.
+        static bool IsRealQid(string? v) =>
+            !string.IsNullOrWhiteSpace(v)
+            && !v.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+
+        // series_qid values are stored as "Qxxx::Label" — strip the label suffix.
+        static string? StripLabel(string? v) =>
+            string.IsNullOrWhiteSpace(v) ? null
+            : (v.IndexOf("::", StringComparison.Ordinal) is var i && i > 0 ? v[..i] : v);
+
+        metadata.TryGetValue("wikidata_qid", out var qidVal);
+        metadata.TryGetValue("series_qid", out var seriesQidVal);
+        metadata.TryGetValue("edition_qid", out var editionQidVal);
+
+        var hasQid = IsRealQid(qidVal)
+            || IsRealQid(StripLabel(seriesQidVal))
+            || IsRealQid(StripLabel(editionQidVal));
+
         if (!hasQid)
         {
             _logger.LogInformation(

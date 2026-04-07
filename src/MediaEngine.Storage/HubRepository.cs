@@ -567,10 +567,16 @@ public sealed class HubRepository : IHubRepository
             );
             """); // relationships are not counted in the total
 
+        // Only prune ContentGroup / Universe hubs — these are the ones whose
+        // identity is bound to the works they contain. System view hubs (e.g.
+        // "Music by Album", "TV by Show"), Smart hubs, Mix, Playlist, and Custom
+        // hubs are query-resolved and intentionally have no work rows; they must
+        // never be pruned.
         total += conn.Execute("""
             DELETE FROM hubs
-            WHERE id NOT IN (
-                SELECT DISTINCT hub_id FROM works
+            WHERE hub_type IN ('ContentGroup', 'Universe')
+              AND id NOT IN (
+                SELECT DISTINCT hub_id FROM works WHERE hub_id IS NOT NULL
             );
             """);
 

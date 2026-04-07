@@ -39,6 +39,37 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>>> GetByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds, CancellationToken ct = default)
+    {
+        if (entityIds.Count == 0)
+        {
+            IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>> empty =
+                new Dictionary<Guid, IReadOnlyList<BridgeIdEntry>>();
+            return Task.FromResult(empty);
+        }
+
+        var entityIdStrings = entityIds.Select(id => id.ToString()).ToList();
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<BridgeIdRow>("""
+            SELECT id, entity_id, id_type, id_value, wikidata_property, provider_id, created_at
+            FROM   bridge_ids
+            WHERE  entity_id IN @entityIds
+            ORDER BY entity_id, id_type;
+            """, new { entityIds = entityIdStrings });
+
+        var grouped = rows
+            .GroupBy(r => Guid.TryParse(r.EntityId, out var gid) ? gid : Guid.Empty)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<BridgeIdEntry>)g.Select(MapRow).ToList());
+
+        IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>> result = grouped;
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public Task<BridgeIdEntry?> FindAsync(Guid entityId, string idType, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(idType);

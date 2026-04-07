@@ -7,6 +7,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -1145,13 +1146,23 @@ public static class HubEndpoints
             string? groupField,
             IHubRepository hubRepo,
             IDatabaseConnection db,
+            IPersonRepository personRepo,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
+            var log = loggerFactory.CreateLogger("HubEndpoints.SystemViews");
+
+            log.LogInformation("[ByAlbum] system-views called — mediaType={MediaType} groupField={GroupField}",
+                mediaType ?? "(none)", groupField ?? "(none)");
+
             // Load all System hubs that have a group_by_field (these are the view hubs seeded by HubSeeder)
             var systemHubs = await hubRepo.GetByTypeAsync("System", ct);
             var viewHubs = systemHubs
                 .Where(h => !string.IsNullOrWhiteSpace(h.GroupByField) && h.Resolution == "query")
                 .ToList();
+
+            log.LogInformation("[ByAlbum] Found {Total} System hubs with a group_by_field; filtering for mediaType/groupField",
+                viewHubs.Count);
 
             // Filter by mediaType and groupField if provided
             if (!string.IsNullOrWhiteSpace(mediaType))
@@ -1172,8 +1183,13 @@ public static class HubEndpoints
                     .ToList();
             }
 
+            log.LogInformation("[ByAlbum] After filter: {Count} matching view hubs", viewHubs.Count);
+
             if (viewHubs.Count == 0)
+            {
+                log.LogWarning("[ByAlbum] No matching System view hubs — check HubSeeder seeded 'Music by Album' with group_by_field='album' and media_type predicate 'Music'");
                 return Results.Ok(new List<ContentGroupDto>());
+            }
 
             var evaluator = new HubRuleEvaluator(db);
             var result = new List<ContentGroupDto>();
@@ -1187,6 +1203,10 @@ public static class HubEndpoints
 
                 // Evaluate hub rules to get entity_ids
                 var entityIds = evaluator.Evaluate(predicates, hub.MatchMode, hub.SortField, hub.SortDirection);
+
+                log.LogInformation("[ByAlbum] Hub '{HubName}' (groupByField={GroupByField}) matched {WorkCount} works from HubRuleEvaluator",
+                    hub.DisplayName, hub.GroupByField, entityIds.Count);
+
                 if (entityIds.Count == 0) continue;
 
                 var groupByField = hub.GroupByField!;
@@ -1244,26 +1264,67 @@ public static class HubEndpoints
                 gp.Value = groupByField;
                 cmd.Parameters.Add(gp);
 
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                // Collect rows first so we can close the reader before doing async person lookups.
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? Creator)>();
+                using (var reader = cmd.ExecuteReader())
                 {
-                    var groupName = reader.IsDBNull(0) ? null : reader.GetString(0);
-                    if (string.IsNullOrWhiteSpace(groupName)) continue;
+                    while (reader.Read())
+                    {
+                        var groupName = reader.IsDBNull(0) ? null : reader.GetString(0);
+                        if (string.IsNullOrWhiteSpace(groupName)) continue;
+                        rows.Add((
+                            groupName,
+                            reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
+                            reader.IsDBNull(2) ? null : reader.GetString(2),
+                            reader.IsDBNull(3) ? null : reader.GetString(3)
+                        ));
+                    }
+                }
+
+                log.LogInformation("[ByAlbum] SQL grouping query for hub '{HubName}' (groupByField={GroupByField}) returned {RowCount} distinct group(s)",
+                    hub.DisplayName, groupByField, rows.Count);
+
+                var isArtistGroup = groupByField.Equals("artist", StringComparison.OrdinalIgnoreCase);
+
+                foreach (var row in rows)
+                {
+                    string? artistPhotoUrl = null;
+                    Guid? artistPersonId = null;
+
+                    if (isArtistGroup && !string.IsNullOrWhiteSpace(row.GroupName))
+                    {
+                        try
+                        {
+                            var person = await personRepo.FindByNameAsync(row.GroupName, ct);
+                            if (person is not null)
+                            {
+                                artistPersonId = person.Id;
+                                if (!string.IsNullOrEmpty(person.LocalHeadshotPath) || !string.IsNullOrEmpty(person.HeadshotUrl))
+                                    artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                            }
+                        }
+                        catch { /* best-effort — missing photo is fine */ }
+                    }
 
                     result.Add(new ContentGroupDto
                     {
                         HubId            = hub.Id,
-                        DisplayName      = groupName,
+                        DisplayName      = row.GroupName,
                         WikidataQid      = null,
                         PrimaryMediaType = primaryMediaType,
-                        WorkCount        = reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
-                        CoverUrl         = reader.IsDBNull(2) ? null : reader.GetString(2),
-                        Creator          = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        WorkCount        = row.WorkCount,
+                        CoverUrl         = row.CoverUrl,
+                        Creator          = row.Creator,
                         UniverseStatus   = "Complete",
                         CreatedAt        = hub.CreatedAt,
+                        ArtistPhotoUrl   = artistPhotoUrl,
+                        ArtistPersonId   = artistPersonId,
                     });
                 }
             }
+
+            log.LogInformation("[ByAlbum] Returning {Total} content groups for mediaType={MediaType} groupField={GroupField}",
+                result.Count, mediaType ?? "(none)", groupField ?? "(none)");
 
             return Results.Ok(result.OrderBy(r => r.DisplayName).ToList());
         })

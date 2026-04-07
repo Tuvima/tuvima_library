@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -20,6 +21,7 @@ public sealed class QuickHydrationWorker
     private readonly HubAssignmentService _hubAssignment;
     private readonly ILogger<QuickHydrationWorker> _logger;
     private readonly PostPipelineService _postPipeline;
+    private readonly ICanonicalValueRepository _canonicalRepo;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
     private const int BatchSize = 5;
@@ -29,12 +31,14 @@ public sealed class QuickHydrationWorker
         IEnrichmentService enrichment,
         HubAssignmentService hubAssignment,
         PostPipelineService postPipeline,
+        ICanonicalValueRepository canonicalRepo,
         ILogger<QuickHydrationWorker> logger)
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
         _hubAssignment = hubAssignment;
         _postPipeline = postPipeline;
+        _canonicalRepo = canonicalRepo;
         _logger = logger;
     }
 
@@ -78,8 +82,24 @@ public sealed class QuickHydrationWorker
             return;
         }
 
-        _logger.LogInformation("Quick hydration starting for entity {EntityId} (QID {Qid})",
-            job.EntityId, job.ResolvedQid);
+        // Pre-fetch title for narrative logging (best-effort — enrichment will improve it)
+        var canonicals = await _canonicalRepo.GetByEntityAsync(job.EntityId, ct);
+        var titleForLog = canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.ShowName, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? "(unknown)";
+        var authorForLog = canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))?.Value
+            ?? canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Artist, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        _logger.LogInformation(
+            "Hydration: starting for '{Title}'{AuthorPart} — {Qid} (entity {EntityId})",
+            titleForLog,
+            string.IsNullOrWhiteSpace(authorForLog) ? string.Empty : $" by {authorForLog}",
+            job.ResolvedQid,
+            job.EntityId);
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
 
@@ -99,6 +119,12 @@ public sealed class QuickHydrationWorker
             job.EntityId, job.Id, job.ResolvedQid, job.IngestionRunId, ct);
 
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Completed, ct: ct);
-        _logger.LogInformation("Quick hydration completed for entity {EntityId}", job.EntityId);
+        _logger.LogInformation(
+            "Identified: '{Title}'{AuthorPart} — {Qid} ({MediaType}) [entity {EntityId}]",
+            titleForLog,
+            string.IsNullOrWhiteSpace(authorForLog) ? string.Empty : $" by {authorForLog}",
+            job.ResolvedQid,
+            job.MediaType,
+            job.EntityId);
     }
 }

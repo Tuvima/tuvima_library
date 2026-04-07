@@ -470,8 +470,10 @@
         _            => null, // "new" tab — no type filter
     };
 
-    /// <summary>True when the current tab + view mode is showing containers (not individual files).</summary>
-    private bool IsContainerView => _viewMode is "shows" or "artists" or "albums" or "series";
+    /// <summary>True when the current tab + view mode is showing containers (not individual files).
+    /// Note: "albums" is intentionally excluded — VaultMusicGrid handles album grouping from the flat
+    /// _mediaItems list itself, so LoadMediaItems() (not LoadContainerItems()) must run for that view.</summary>
+    private bool IsContainerView => _viewMode is "shows" or "artists" or "series";
 
     /// <summary>Returns the default view mode for a given tab (from saved preferences or built-in defaults).</summary>
     private string GetDefaultViewMode(string tabId)
@@ -689,6 +691,7 @@
                 Author   = g.Creator,
                 Year     = null,
                 TrackCount = g.WorkCount.ToString(),
+                ArtistPhotoUrl = g.ArtistPhotoUrl,
             }).ToList();
         }
         else

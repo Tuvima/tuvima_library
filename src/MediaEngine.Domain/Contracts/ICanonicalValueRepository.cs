@@ -35,6 +35,16 @@ public interface ICanonicalValueRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns all canonical values for a batch of entities in a single query.
+    /// The result is grouped by entity ID for O(1) per-job lookup.
+    /// </summary>
+    /// <param name="entityIds">Entity IDs to fetch canonical values for.</param>
+    /// <param name="ct">Cancellation token.</param>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>> GetByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Returns all canonical values that have unresolved conflicts, ordered by
     /// most recently scored first.
     /// Spec: Phase B – Conflict Surfacing (B-05).

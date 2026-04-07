@@ -104,8 +104,21 @@
       "media_types": ["Audiobooks"]
     },
     {
-      "name": "music_search",
+      "name": "music_album_search",
       "priority": 2,
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search?term={query}\u0026entity=album\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
+      "query_template": "{artist} {title}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 10,
+      "fetch_limit": 10,
+      "media_types": ["Music"]
+    },
+    {
+      "name": "music_search",
+      "priority": 3,
       "required_fields": ["title"],
       "url_template": "{base_url}/search?term={query}\u0026entity=musicTrack\u0026limit={limit}\u0026country={country}\u0026lang={lang}_{country}",
       "query_template": "{title} {artist}",
@@ -118,7 +131,7 @@
     },
     {
       "name": "music_album_lookup",
-      "priority": 3,
+      "priority": 4,
       "required_fields": ["apple_music_collection_id"],
       "url_template": "{base_url}/lookup?id={apple_music_collection_id}\u0026entity=song\u0026country={country}\u0026lang={lang}_{country}",
       "results_path": "results",

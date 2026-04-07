@@ -67,6 +67,18 @@
       "result_index": 0,
       "tolerate_404": false,
       "media_types": ["TV"]
+    },
+    {
+      "name": "tv_season_episodes",
+      "priority": 2,
+      "required_fields": ["tmdb_id", "season_number"],
+      "url_template": "{base_url}/tv/{tmdb_id}/season/{season_number}?language={lang}-{country}&api_key={api_key}",
+      "results_path": "episodes",
+      "result_index": 0,
+      "tolerate_404": true,
+      "fetch_limit": 1,
+      "max_results": 200,
+      "media_types": ["TV"]
     }
   ],
 

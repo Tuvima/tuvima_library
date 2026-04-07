@@ -92,6 +92,7 @@ public sealed class WorkerPipelineTests
             scoringEngine,
             configLoader,
             bridgeIdRepo,
+            new StubHttpClientFactory(),
             NullLogger<RetailMatchWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -159,6 +160,7 @@ public sealed class WorkerPipelineTests
             scoringEngine,
             configLoader,
             bridgeIdRepo,
+            new StubHttpClientFactory(),
             NullLogger<RetailMatchWorker>.Instance);
 
         await retailWorker.PollAsync(CancellationToken.None);
@@ -303,6 +305,7 @@ public sealed class WorkerPipelineTests
             enrichment,
             hubAssignment,
             postPipeline,
+            canonicalRepo,
             NullLogger<QuickHydrationWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -576,6 +579,9 @@ public sealed class WorkerPipelineTests
         public Task<IReadOnlyList<CanonicalValue>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<CanonicalValue>>([]);
 
+        public Task<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>> GetByEntitiesAsync(IReadOnlyList<Guid> entityIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>>(new Dictionary<Guid, IReadOnlyList<CanonicalValue>>());
+
         public Task UpsertBatchAsync(IReadOnlyList<CanonicalValue> values, CancellationToken ct = default)
             => Task.CompletedTask;
 
@@ -625,6 +631,12 @@ public sealed class WorkerPipelineTests
 
         public Task<IReadOnlyList<BridgeIdEntry>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<BridgeIdEntry>>(Entries.Where(e => e.EntityId == entityId).ToList());
+
+        public Task<IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>>> GetByEntitiesAsync(IReadOnlyList<Guid> entityIds, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<BridgeIdEntry>>>(
+                entityIds.ToDictionary(
+                    id => id,
+                    id => (IReadOnlyList<BridgeIdEntry>)Entries.Where(e => e.EntityId == id).ToList()));
 
         public Task UpsertBatchAsync(IReadOnlyList<BridgeIdEntry> entries, CancellationToken ct = default)
         {
@@ -879,5 +891,15 @@ public sealed class WorkerPipelineTests
         public Task<Guid?> GetHubIdByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
         public Task<Hub?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
         public Task<IReadOnlyList<Hub>> GetAllHubsForLocationAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
+    }
+
+    /// <summary>
+    /// Stub IHttpClientFactory — never called in tests that use non-Music/TV media types.
+    /// </summary>
+    private sealed class StubHttpClientFactory : System.Net.Http.IHttpClientFactory
+    {
+        public System.Net.Http.HttpClient CreateClient(string name)
+            => throw new NotSupportedException(
+                $"StubHttpClientFactory.CreateClient('{name}') should not be called in unit tests.");
     }
 }
