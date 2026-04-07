@@ -337,4 +337,62 @@ public sealed class WikidataBridgeWorker
                 job.EntityId, bridgeIds.Count);
         }
     }
+
+    /// <summary>
+    /// Fetches full Wikidata properties for an already-resolved QID and persists
+    /// claims + canonical values. Called by the synchronous pipeline when the
+    /// user manually selects a QID (bypassing normal Stage 2 resolution).
+    /// </summary>
+    internal async Task FetchAndPersistPropertiesAsync(
+        Guid entityId, string qid, string mediaTypeStr, CancellationToken ct)
+    {
+        if (!Enum.TryParse<MediaType>(mediaTypeStr, true, out var mediaType))
+            mediaType = MediaType.Unknown;
+
+        var reconAdapter = _providers
+            .OfType<ReconciliationAdapter>()
+            .FirstOrDefault();
+
+        if (reconAdapter is null)
+        {
+            _logger.LogWarning("No ReconciliationAdapter available — cannot fetch properties for QID {Qid}", qid);
+            return;
+        }
+
+        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+        var titleHint = canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title,
+                StringComparison.OrdinalIgnoreCase))?.Value;
+
+        try
+        {
+            var fullClaims = await reconAdapter.FetchAsync(
+                new ProviderLookupRequest
+                {
+                    EntityId = entityId,
+                    EntityType = EntityType.MediaAsset,
+                    MediaType = mediaType,
+                    Title = titleHint,
+                    PreResolvedQid = qid,
+                }, ct);
+
+            if (fullClaims.Count > 0)
+            {
+                await ScoringHelper.PersistClaimsAndScoreAsync(
+                    entityId, fullClaims, reconAdapter.ProviderId,
+                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
+                    logger: _logger);
+            }
+
+            _logger.LogInformation(
+                "Fetched {Count} Wikidata properties for QID {Qid} (entity {EntityId})",
+                fullClaims.Count, qid, entityId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Full property fetch failed for QID {Qid} (entity {EntityId})",
+                qid, entityId);
+        }
+    }
 }

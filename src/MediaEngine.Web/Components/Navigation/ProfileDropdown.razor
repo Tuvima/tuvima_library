@@ -24,6 +24,27 @@
                 <span class="profile-menu-name">@DisplayName</span>
             </div>
             <div class="profile-menu-items">
+                @* ── Category navigation (visible on very small phones where top-bar nav is hidden) ── *@
+                <div class="profile-menu-mobile-nav">
+                    <button class="profile-menu-item" @onclick='() => Navigate("/")'>
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Home" Size="Size.Small" />
+                        <span>Home</span>
+                    </button>
+                    <button class="profile-menu-item" @onclick='() => Navigate("/read")'>
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.MenuBook" Size="Size.Small" />
+                        <span>Read</span>
+                    </button>
+                    <button class="profile-menu-item" @onclick='() => Navigate("/watch")'>
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Movie" Size="Size.Small" />
+                        <span>Watch</span>
+                    </button>
+                    <button class="profile-menu-item" @onclick='() => Navigate("/listen")'>
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Headphones" Size="Size.Small" />
+                        <span>Listen</span>
+                    </button>
+                    <div class="profile-menu-divider"></div>
+                </div>
+
                 <!-- Functional navigation links -->
                 <button class="profile-menu-item" @onclick='() => Navigate("/vault")'>
                     <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Inventory2" Size="Size.Small" />
@@ -212,6 +233,17 @@
     /* ── Menu items container ── */
     .profile-menu-items {
         padding: 0 8px;
+    }
+
+    /* ── Mobile-only category nav (hidden on ≥640px where TopBar shows nav) ── */
+    .profile-menu-mobile-nav {
+        display: block;
+    }
+
+    @@media (min-width: 640px) {
+        .profile-menu-mobile-nav {
+            display: none;
+        }
     }
 
     /* ── Individual menu item ── */

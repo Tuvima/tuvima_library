@@ -102,4 +102,43 @@
     .vault-batch-btn--clear:hover {
         color: rgba(255, 255, 255, 1);
     }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vault-batch-bar {
+            bottom: 12px;
+            gap: 8px;
+            padding: 10px 16px;
+            left: 12px;
+            right: 12px;
+            transform: none;
+            border-radius: 12px;
+        }
+
+        @@keyframes vault-batch-slide-up {
+            from { transform: translateY(20px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        .vault-batch-count {
+            font-size: 12px;
+        }
+
+        .vault-batch-btn {
+            padding: 6px 12px;
+            font-size: 10px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .vault-batch-bar {
+            gap: 6px;
+            padding: 8px 12px;
+        }
+
+        .vault-batch-btn {
+            padding: 6px 8px;
+            font-size: 9px;
+        }
+    }
 </style>

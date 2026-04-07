@@ -1634,7 +1634,7 @@
         overflow: hidden;
         color: rgba(255, 255, 255, 0.85);
         font-family: inherit;
-        padding-left: 16px;
+        padding: 0;
     }
 
     /* ── Header ── */
@@ -1817,24 +1817,53 @@
     .vault-content {
         flex: 1;
         overflow-y: auto;
-        overflow-x: visible;
+        overflow-x: hidden;
         padding: 16px 24px 48px;
         min-width: 0;
     }
 
-    /* ── Mobile ── */
-    @@media (max-width: 768px) {
-        .vault-layout {
-            padding-left: 0; /* LeftDock hidden on mobile */
-        }
-
-        .vault-header {
-            padding: 16px;
+    /* ── Tablet ── */
+    @@media (max-width: 1024px) {
+        .vault-title-row {
+            padding: 0 16px;
         }
 
         .vault-tab-row {
-            flex-direction: column;
-            align-items: flex-start;
+            padding: 0 16px;
+        }
+
+        .vault-subtab-row {
+            padding: 0 16px;
+        }
+
+        .vault-toolbar-row {
+            padding: 12px 16px;
+        }
+
+        .vault-content {
+            padding: 12px 16px 48px;
+        }
+    }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vault-header {
+            padding: 12px 0 8px;
+        }
+
+        .vault-title-row {
+            padding: 0 12px;
+            margin-bottom: 10px;
+        }
+
+        .vault-title {
+            font-size: 22px;
+        }
+
+        .vault-tab-row {
+            padding: 0 12px;
+            margin-bottom: 10px;
+            gap: 8px;
         }
 
         .vault-tab-bar {
@@ -1842,12 +1871,33 @@
             flex-wrap: nowrap;
         }
 
-        .vault-title {
-            font-size: 24px;
+        .vault-tab {
+            padding: 6px 10px;
+            font-size: 11px;
+            gap: 5px;
+        }
+
+        .vault-tab--sub {
+            font-size: 10px;
+            padding: 5px 8px;
+        }
+
+        .vault-add-btn {
+            padding: 6px 12px;
+            font-size: 10px;
+        }
+
+        .vault-add-btn span {
+            display: none;
+        }
+
+        .vault-subtab-row {
+            padding: 0 12px;
+            margin-bottom: 4px;
         }
 
         .vault-toolbar-row {
-            padding: 12px 16px;
+            padding: 8px 12px;
             flex-wrap: wrap;
         }
 
@@ -1856,7 +1906,28 @@
         }
 
         .vault-content {
-            padding: 12px 16px 48px;
+            padding: 8px 12px 48px;
+        }
+
+        .vault-progress-banner {
+            margin: 0 12px 8px;
+        }
+    }
+
+    /* ── Small mobile ── */
+    @@media (max-width: 480px) {
+        .vault-title {
+            font-size: 20px;
+        }
+
+        .vault-tab {
+            padding: 5px 8px;
+            font-size: 10px;
+            gap: 4px;
+        }
+
+        .vault-tab .mud-icon-root {
+            display: none;
         }
     }
 

@@ -190,10 +190,18 @@
         border-color: rgba(255, 255, 255, 0.12);
     }
 
+    /* ── Tablet ── */
+    @@media (max-width: 1024px) {
+        .vault-search-wrap {
+            max-width: 240px;
+        }
+    }
+
     /* ── Mobile ── */
     @@media (max-width: 768px) {
         .vault-toolbar {
             flex-wrap: wrap;
+            gap: 8px;
         }
 
         .vault-search-wrap {
@@ -203,9 +211,28 @@
         }
 
         .vault-view-modes {
-            order: -1;
-            flex: 1 1 100%;
+            order: 0;
+            flex: 1 1 auto;
             justify-content: center;
+        }
+
+        .vault-customize-btn span {
+            display: none;
+        }
+
+        .vault-customize-btn {
+            padding: 6px 10px;
+        }
+    }
+
+    /* ── Small mobile ── */
+    @@media (max-width: 480px) {
+        .vault-view-mode-btn span {
+            display: none;
+        }
+
+        .vault-view-mode-btn {
+            padding: 5px 8px;
         }
     }
 

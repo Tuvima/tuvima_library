@@ -124,8 +124,10 @@ public static class StreamEndpoints
         .WithSummary("Serve cover.jpg — checks .images/ first, falls back to legacy location alongside media file.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
-        .RequireAnyRole()
-        .RequireRateLimiting("streaming");
+        .RequireAnyRole();
+        // NOTE: No rate limit — cover art is small, cacheable, and loaded in bulk on
+        // Home/category pages (dozens per reload). The streaming policy (100/min) is
+        // sized for true media streams, not static thumbnails.
 
         group.MapGet("/{assetId:guid}/cover-thumb", async (
             Guid assetId,
@@ -177,8 +179,9 @@ public static class StreamEndpoints
         .WithSummary("Serve cover_thumb.jpg (200px wide) — falls back to full cover when thumbnail is not yet generated.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
-        .RequireAnyRole()
-        .RequireRateLimiting("streaming");
+        .RequireAnyRole();
+        // NOTE: No rate limit — thumbnails are loaded in bulk on Home/category pages.
+        // The 100/min streaming cap was causing 429s on page reloads with many swimlanes.
 
         group.MapGet("/{assetId:guid}/hero", async (
             Guid assetId,

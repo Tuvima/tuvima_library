@@ -700,7 +700,7 @@ else
         background: rgba(255, 255, 255, 0.01);
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 16px;
-        overflow: visible;
+        overflow: hidden;
     }
 
     .vmt-table {
@@ -1024,9 +1024,23 @@ else
         text-decoration-color: rgba(255, 255, 255, 0.3);
     }
 
+    /* ── Tablet ── */
+    @@media (max-width: 1024px) {
+        .vmt-media-cell {
+            gap: 10px;
+        }
+
+        .vmt-group-header {
+            gap: 10px;
+            padding: 8px 10px;
+        }
+    }
+
+    /* ── Mobile ── */
     @@media (max-width: 768px) {
         .vmt-table-wrap {
             border-radius: 12px;
+            border: none;
         }
 
         .vmt-thead-row {
@@ -1037,12 +1051,15 @@ else
             display: flex;
             flex-wrap: wrap;
             align-items: center;
-            padding: 6px 12px;
+            padding: 8px 10px;
             gap: 8px;
         }
 
         .vmt-td {
             padding: 0;
+            max-width: none;
+            overflow: visible;
+            white-space: normal;
         }
 
         .vmt-td:nth-child(1) {
@@ -1059,9 +1076,54 @@ else
             display: none;
         }
 
+        .vmt-td:last-child {
+            flex: 0 0 auto;
+        }
+
         .vmt-thumb {
-            width: 40px;
-            min-height: 40px;
+            width: 40px !important;
+            min-height: 40px !important;
+        }
+
+        .vmt-media-cell {
+            gap: 10px;
+        }
+
+        .vmt-title {
+            font-size: 13px;
+        }
+
+        .vmt-group-header {
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .vmt-group {
+            margin-bottom: 16px;
+        }
+
+        .vmt-hover-overlay {
+            display: none;
+        }
+    }
+
+    /* ── Small mobile ── */
+    @@media (max-width: 480px) {
+        .vmt-row {
+            padding: 6px 8px;
+        }
+
+        .vmt-thumb {
+            width: 36px !important;
+            min-height: 36px !important;
+        }
+
+        .vmt-title {
+            font-size: 12px;
+        }
+
+        .vmt-subtitle {
+            font-size: 9px;
         }
     }
 

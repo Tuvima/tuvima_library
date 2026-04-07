@@ -397,4 +397,58 @@
     .vac-bulk-delete:hover {
         background: rgba(244, 63, 94, 0.15);
     }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vac-summary {
+            padding: 8px 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .vac-summary-left {
+            gap: 8px;
+        }
+
+        .vac-label {
+            font-size: 9px;
+            letter-spacing: 0.08em;
+        }
+
+        .vac-list {
+            padding: 0 12px 12px;
+        }
+
+        .vac-row {
+            flex-wrap: wrap;
+            padding: 8px 10px;
+            gap: 6px;
+        }
+
+        .vac-row-left {
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .vac-row-right {
+            flex: 0 0 auto;
+        }
+
+        .vac-status-badge {
+            font-size: 8px;
+            padding: 2px 6px;
+        }
+
+        .vac-row-title {
+            font-size: 11px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .vac-bulk-bar {
+            padding: 6px 10px;
+        }
+    }
 </style>

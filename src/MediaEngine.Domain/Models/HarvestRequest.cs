@@ -74,6 +74,14 @@ public sealed class HarvestRequest
     public bool IsUserResolution { get; init; }
 
     /// <summary>
+    /// When <c>true</c>, the pipeline skips Stage 1 (retail identification) and
+    /// starts directly from Stage 2 (Wikidata bridge resolution). Used when a
+    /// curator manually selects a retail match — retail is already done, but
+    /// Wikidata resolution should still run automatically.
+    /// </summary>
+    public bool SkipRetailStage { get; init; }
+
+    /// <summary>
     /// The ingestion run ID that originated this request.
     /// When set, the <c>MediaAdded</c> activity entry will carry this ID so the
     /// Dashboard can link all ingestion sub-steps to a single <c>MediaAdded</c> card.

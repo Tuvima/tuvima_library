@@ -81,7 +81,8 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             Pass = request.Pass.ToString(),
         };
 
-        // If caller provided a pre-resolved QID (e.g. Fix Match), skip retail + bridge
+        // Path A: Pre-resolved QID (user selected a Wikidata entity directly)
+        // Skip retail + bridge resolution, but FETCH full Wikidata properties.
         if (!string.IsNullOrWhiteSpace(request.PreResolvedQid) && request.IsUserResolution)
         {
             job.State = nameof(IdentityJobState.QidResolved);
@@ -89,7 +90,27 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             await _jobRepo.CreateAsync(job, ct);
             await _jobRepo.SetResolvedQidAsync(job.Id, request.PreResolvedQid, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidResolved, ct: ct);
+
+            // Fetch full Wikidata properties (genre, series, description, people, etc.)
+            // This was previously skipped, leaving manual QID matches without enrichment data.
+            await _bridgeWorker.FetchAndPersistPropertiesAsync(
+                request.EntityId, request.PreResolvedQid, job.MediaType, ct);
         }
+        // Path B: Skip retail, run bridge (user confirmed a retail match, now auto-resolve Wikidata)
+        else if (request.SkipRetailStage)
+        {
+            job.State = nameof(IdentityJobState.RetailMatched);
+            await _jobRepo.CreateAsync(job, ct);
+            await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched, ct: ct);
+
+            // Stage 2: Wikidata bridge resolution using existing bridge IDs + text fallback
+            await _bridgeWorker.ProcessJobAsync(job, ct);
+
+            var updatedJob = await _jobRepo.GetByIdAsync(job.Id, ct);
+            if (updatedJob is not null)
+                job = updatedJob;
+        }
+        // Path C: Full pipeline (normal automated flow)
         else
         {
             await _jobRepo.CreateAsync(job, ct);

@@ -12,10 +12,7 @@
     @* ── Logo ── *@
     <div class="top-bar-left">
         <a href="/" class="top-bar-logo-link">
-            <div class="top-bar-logo-icon">
-                <span class="top-bar-logo-letter">T</span>
-            </div>
-            <span class="top-bar-logo-text">TUVIMA</span>
+            <AppLogo Style="height: 36px; display: block;" />
         </a>
 
         @* ── Nav links (hidden on small screens, shown in hamburger-less responsive way) ── *@
@@ -109,11 +106,17 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 1.5rem;
+        padding: 0 0.75rem;
         background: rgba(6, 10, 22, 0.60);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    @@media (min-width: 640px) {
+        .top-bar {
+            padding: 0 1.5rem;
+        }
     }
 
     @@media (min-width: 768px) {
@@ -131,7 +134,13 @@
     .top-bar-left {
         display: flex;
         align-items: center;
-        gap: 2rem;
+        gap: 1rem;
+    }
+
+    @@media (min-width: 640px) {
+        .top-bar-left {
+            gap: 2rem;
+        }
     }
 
     .top-bar-logo-link {
@@ -142,48 +151,24 @@
         cursor: pointer;
     }
 
-    .top-bar-logo-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 12px;
-        background: #C9922E;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.30);
-        transition: transform 0.2s ease;
-    }
-
-    .top-bar-logo-link:hover .top-bar-logo-icon {
-        transform: rotate(6deg);
-    }
-
-    .top-bar-logo-letter {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1.5rem;
-        font-weight: 900;
-        color: black;
-        line-height: 1;
-    }
-
-    .top-bar-logo-text {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1.5rem;
-        font-weight: 900;
-        color: white;
-        letter-spacing: -0.04em;
-    }
-
     /* ── Nav links ── */
     .top-bar-nav {
         display: none;
         align-items: center;
-        gap: 2rem;
+        gap: 1.25rem;
+    }
+
+    /* Show nav tabs on tablets and large phones (≥640px). Very small phones
+       fall back to the ProfileDropdown for category navigation. */
+    @@media (min-width: 640px) {
+        .top-bar-nav {
+            display: flex;
+        }
     }
 
     @@media (min-width: 1024px) {
         .top-bar-nav {
-            display: flex;
+            gap: 2rem;
         }
     }
 

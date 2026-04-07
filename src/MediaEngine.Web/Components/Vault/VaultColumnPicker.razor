@@ -248,7 +248,7 @@
         right: 0;
         top: 64px;
         bottom: 0;
-        width: 280px;
+        width: min(280px, 85vw);
         background: #14181d;
         border-left: 1px solid rgba(255, 255, 255, 0.08);
         display: flex;
@@ -403,5 +403,18 @@
 
     .vcp-reset-btn:hover {
         color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vcp-panel {
+            top: 0;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .vcp-row {
+            padding: 10px 12px;
+        }
     }
 </style>

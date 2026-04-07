@@ -126,9 +126,10 @@ public static class RegistryEndpoints
             CancellationToken ct) =>
         {
 
-            // Resolve asset ID and work title from work ID
+            // Resolve asset ID, work title, and media type from work ID
             string? assetIdStr = null;
             string? workTitle = null;
+            string? mediaTypeStr = null;
             using (var conn = db.CreateConnection())
             {
                 using (var cmd = conn.CreateCommand())
@@ -154,7 +155,20 @@ public static class RegistryEndpoints
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     workTitle = cmd2.ExecuteScalar()?.ToString();
                 }
+                using (var cmd3 = conn.CreateCommand())
+                {
+                    cmd3.CommandText = @"
+                        SELECT cv.value FROM canonical_values cv
+                        INNER JOIN media_assets ma ON ma.id = cv.entity_id
+                        INNER JOIN editions e ON e.id = ma.edition_id
+                        WHERE e.work_id = @workId AND cv.key = 'media_type'
+                        LIMIT 1";
+                    cmd3.Parameters.AddWithValue("@workId", entityId.ToString());
+                    mediaTypeStr = cmd3.ExecuteScalar()?.ToString();
+                }
             }
+
+            var resolvedMediaType = Enum.TryParse<MediaType>(mediaTypeStr, true, out var mt) ? mt : MediaType.Unknown;
 
             if (assetIdStr is null)
                 return Results.NotFound($"No media asset found for work {entityId}.");
@@ -253,7 +267,7 @@ public static class RegistryEndpoints
                     {
                         EntityId               = assetId,
                         EntityType             = EntityType.MediaAsset,
-                        MediaType              = MediaType.Unknown,
+                        MediaType              = resolvedMediaType,
                         Hints                  = hints,
                         Pass                   = HydrationPass.Universe,
                         SuppressReviewCreation = true,
@@ -337,6 +351,33 @@ public static class RegistryEndpoints
                         cmd.Parameters.AddWithValue("@scoredAt", now.ToString("o"));
                         cmd.ExecuteNonQuery();
                     }
+                }
+
+                // Trigger Stage 2 (Wikidata bridge resolution) — retail is already done.
+                // The bridge worker will use any existing bridge IDs + text reconciliation.
+                try
+                {
+                    var pipelineResult = await pipeline.RunSynchronousAsync(new HarvestRequest
+                    {
+                        EntityId               = assetId,
+                        EntityType             = EntityType.MediaAsset,
+                        MediaType              = resolvedMediaType,
+                        SkipRetailStage        = true,
+                        SuppressReviewCreation = true,
+                    }, ct);
+                    hydrationTriggered = true;
+
+                    // If Stage 2 resolved a QID, update the status
+                    if (!string.IsNullOrWhiteSpace(pipelineResult.WikidataQid))
+                    {
+                        wikidataStatus = "confirmed";
+                        await hubRepo.UpdateWorkWikidataStatusAsync(entityId, "confirmed", ct);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Pipeline failure doesn't fail the match — claims are already written
+                    hydrationTriggered = false;
                 }
 
                 // Log retail-only approval to the activity ledger
