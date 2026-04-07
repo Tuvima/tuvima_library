@@ -117,6 +117,14 @@ public sealed class CoreConfiguration
     [JsonPropertyName("rate_limiting")]
     public RateLimitingSettings RateLimiting { get; set; } = new();
 
+    /// <summary>
+    /// Identity pipeline tuning parameters (lease batch sizes for the three workers).
+    /// Centralises cross-file batching policy in one config section instead of
+    /// scattered <c>const int BatchSize</c> values inside each worker.
+    /// </summary>
+    [JsonPropertyName("pipeline")]
+    public PipelineSettings Pipeline { get; set; } = new();
+
     private static string GetDefaultCountry()
     {
         try { return RegionInfo.CurrentRegion.TwoLetterISORegionName; }

@@ -306,6 +306,7 @@ public sealed class WorkerPipelineTests
             hubAssignment,
             postPipeline,
             canonicalRepo,
+            configLoader,
             NullLogger<QuickHydrationWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);

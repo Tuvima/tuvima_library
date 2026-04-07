@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Services;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
@@ -24,7 +25,14 @@ public sealed class QuickHydrationWorker
     private readonly ICanonicalValueRepository _canonicalRepo;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
-    private const int BatchSize = 5;
+
+    /// <summary>
+    /// Lease batch size. Sourced from
+    /// <c>config/core.json → pipeline.lease_sizes.hydration</c> at construction time.
+    /// Hydration is per-job (no cross-job batching benefit), so the limit is set
+    /// lower than the retail/wikidata stages to keep individual cycles responsive.
+    /// </summary>
+    private readonly int _batchSize;
 
     public QuickHydrationWorker(
         IIdentityJobRepository jobRepo,
@@ -32,6 +40,7 @@ public sealed class QuickHydrationWorker
         HubAssignmentService hubAssignment,
         PostPipelineService postPipeline,
         ICanonicalValueRepository canonicalRepo,
+        IConfigurationLoader configLoader,
         ILogger<QuickHydrationWorker> logger)
     {
         _jobRepo = jobRepo;
@@ -40,6 +49,8 @@ public sealed class QuickHydrationWorker
         _postPipeline = postPipeline;
         _canonicalRepo = canonicalRepo;
         _logger = logger;
+
+        _batchSize = Math.Max(1, configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
     }
 
     /// <summary>
@@ -51,7 +62,7 @@ public sealed class QuickHydrationWorker
         var jobs = await _jobRepo.LeaseNextAsync(
             "QuickHydrationWorker",
             [IdentityJobState.QidResolved],
-            BatchSize,
+            _batchSize,
             LeaseDuration,
             ct);
 

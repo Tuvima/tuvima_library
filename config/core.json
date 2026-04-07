@@ -19,5 +19,12 @@
   "language": "en",
   "country": "US",
   "date_format": "system",
-  "time_format": "system"
+  "time_format": "system",
+  "pipeline": {
+    "lease_sizes": {
+      "retail": 50,
+      "wikidata": 50,
+      "hydration": 20
+    }
+  }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -21,6 +22,12 @@ public sealed class HubAssignmentService
     private readonly IHubRepository _hubRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ILogger<HubAssignmentService> _logger;
+
+    // Per-QID semaphores serialise concurrent find-or-create calls so two
+    // workers cannot race past FindByQidAsync and both UpsertAsync the same
+    // ContentGroup hub. The service is a singleton, so the dictionary lives
+    // for the process lifetime; entries are cheap (one SemaphoreSlim each).
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> QidLocks = new();
 
     public HubAssignmentService(
         IHubRepository hubRepo,
@@ -72,34 +79,49 @@ public sealed class HubAssignmentService
             return;
         }
 
-        // Find or create a ContentGroup hub for this parent QID
-        var hub = await _hubRepo.FindByQidAsync(parentQid, ct);
-
-        if (hub is null)
+        // Find or create a ContentGroup hub for this parent QID.
+        // Serialise on the QID so two workers cannot race past FindByQidAsync
+        // and both Upsert a duplicate hub for the same album/show/series.
+        var gate = QidLocks.GetOrAdd(parentQid, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(ct);
+        Hub hub;
+        try
         {
-            // Sanitize the label — fall back to QID if label is just a QID or empty
-            if (string.IsNullOrWhiteSpace(parentLabel) ||
-                (parentLabel.Length > 1 && parentLabel[0] is 'Q' && char.IsDigit(parentLabel[1])))
+            var existing = await _hubRepo.FindByQidAsync(parentQid, ct);
+            if (existing is not null)
             {
-                parentLabel = parentQid;
+                hub = existing;
             }
-
-            hub = new Hub
+            else
             {
-                Id = Guid.NewGuid(),
-                DisplayName = parentLabel,
-                WikidataQid = parentQid,
-                HubType = "ContentGroup",
-                Resolution = "materialized",
-                UniverseStatus = "Unknown",
-                CreatedAt = DateTimeOffset.UtcNow,
-            };
+                // Sanitize the label — fall back to QID if label is just a QID or empty
+                if (string.IsNullOrWhiteSpace(parentLabel) ||
+                    (parentLabel.Length > 1 && parentLabel[0] is 'Q' && char.IsDigit(parentLabel[1])))
+                {
+                    parentLabel = parentQid;
+                }
 
-            await _hubRepo.UpsertAsync(hub, ct);
+                hub = new Hub
+                {
+                    Id = Guid.NewGuid(),
+                    DisplayName = parentLabel,
+                    WikidataQid = parentQid,
+                    HubType = "ContentGroup",
+                    Resolution = "materialized",
+                    UniverseStatus = "Unknown",
+                    CreatedAt = DateTimeOffset.UtcNow,
+                };
 
-            _logger.LogInformation(
-                "HubAssignment: created ContentGroup hub '{Name}' ({Qid}) for work {WorkId}",
-                hub.DisplayName, parentQid, workId);
+                await _hubRepo.UpsertAsync(hub, ct);
+
+                _logger.LogInformation(
+                    "HubAssignment: created ContentGroup hub '{Name}' ({Qid}) for work {WorkId}",
+                    hub.DisplayName, parentQid, workId);
+            }
+        }
+        finally
+        {
+            gate.Release();
         }
 
         // Assign the work to the hub

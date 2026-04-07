@@ -40,7 +40,14 @@ public sealed class WikidataBridgeWorker
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
-    private const int BatchSize = 20;
+
+    /// <summary>
+    /// Cross-job batching window. Sourced from
+    /// <c>config/core.json → pipeline.lease_sizes.wikidata</c> at construction time.
+    /// Larger values mean more jobs share a single Wikidata reconciliation call
+    /// (one call per unique album/show, one call per unique bridge ID).
+    /// </summary>
+    private readonly int _batchSize;
 
     public WikidataBridgeWorker(
         IIdentityJobRepository jobRepo,
@@ -68,6 +75,10 @@ public sealed class WikidataBridgeWorker
         _scoringEngine = scoringEngine;
         _configLoader = configLoader;
         _logger = logger;
+
+        // Lease size is read once at construction. A restart applies any
+        // config change — same lifetime as every other CoreConfiguration value.
+        _batchSize = Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Wikidata);
     }
 
     /// <summary>
@@ -77,7 +88,7 @@ public sealed class WikidataBridgeWorker
     ///
     /// PollAsync runs in six phases so that N jobs produce far fewer than N Wikidata calls:
     ///
-    ///   Phase 1 — Lease: lease up to <see cref="BatchSize"/> eligible jobs.
+    ///   Phase 1 — Lease: lease up to <see cref="_batchSize"/> eligible jobs.
     ///   Phase 2 — Load context: batch-fetch bridge IDs and canonical values
     ///             for all jobs in two SQL queries (vs N×2 previously).
     ///   Phase 3 — Build job contexts: assemble per-job working DTOs and
@@ -105,7 +116,7 @@ public sealed class WikidataBridgeWorker
         var jobs = await _jobRepo.LeaseNextAsync(
             "WikidataBridgeWorker",
             [IdentityJobState.RetailMatched, IdentityJobState.RetailMatchedNeedsReview],
-            BatchSize,
+            _batchSize,
             LeaseDuration,
             ct);
 

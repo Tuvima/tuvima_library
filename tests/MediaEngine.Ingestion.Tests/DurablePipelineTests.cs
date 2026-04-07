@@ -390,6 +390,7 @@ public sealed class DurablePipelineTests : IDisposable
             hubAssignment,
             postPipeline,
             new NoOpCanonicalValueRepository(),
+            new MinimalConfigurationLoader(),
             NullLogger<QuickHydrationWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);

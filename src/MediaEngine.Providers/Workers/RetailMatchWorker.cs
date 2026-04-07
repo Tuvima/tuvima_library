@@ -46,7 +46,15 @@ public sealed class RetailMatchWorker
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
-    private const int BatchSize = 10;
+
+    /// <summary>
+    /// Cross-file batching window. Sourced from
+    /// <c>config/core.json → pipeline.lease_sizes.retail</c> at construction time.
+    /// Larger values mean a single drop of N files (e.g. a TV season, an album)
+    /// processes in one lease cycle instead of being chopped into multiple leases
+    /// — which is what enables one Apple album call to cover all its tracks.
+    /// </summary>
+    private readonly int _batchSize;
 
     // iTunes throttle: 300 ms between calls (same as config). We track it here
     // for the direct HTTP calls made by the group processors.
@@ -87,6 +95,10 @@ public sealed class RetailMatchWorker
         _bridgeIdRepo = bridgeIdRepo;
         _httpFactory = httpFactory;
         _logger = logger;
+
+        // Lease size is read once at construction. A restart applies any
+        // config change — same lifetime as every other CoreConfiguration value.
+        _batchSize = Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Retail);
     }
 
     /// <summary>
@@ -99,7 +111,7 @@ public sealed class RetailMatchWorker
         var jobs = await _jobRepo.LeaseNextAsync(
             "RetailMatchWorker",
             [IdentityJobState.Queued],
-            BatchSize,
+            _batchSize,
             LeaseDuration,
             ct);
 
