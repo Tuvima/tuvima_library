@@ -1,44 +1,47 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Storage;
 
 /// <summary>
-/// Creates the Work → Edition chain required before a MediaAsset
-/// can be inserted.  Uses <c>INSERT OR IGNORE</c> throughout so the
-/// operation is idempotent and safe to call concurrently.
+/// Creates the Work → Edition chain required before a MediaAsset can be
+/// inserted. Idempotent and safe to call concurrently.
 ///
-/// Hub assignment no longer happens at ingestion time — Works are created
-/// standalone (hub_id = NULL). Hub intelligence runs during Stage 2 of the
-/// hydration pipeline, where Wikidata relationship properties drive grouping.
+/// As of Phase 3 (M-082) the chain factory delegates Work resolution to
+/// <see cref="HierarchyResolver"/>. The legacy title+author dedup path
+/// has been removed entirely — hierarchical media (music, TV, comics,
+/// series-bound books) flows through parent/child resolution, and
+/// standalone media (movies, single books) gets a fresh Work each time
+/// the upstream ingestion logic decides to call us.
 ///
-/// Work-level deduplication: before creating a new Work, the factory checks
-/// whether an existing Work with the same title + author + media type already
-/// exists. If one is found, only a new Edition is created under that Work,
-/// preventing duplicate Work rows for different file formats of the same title.
-///
-/// Spec: Phase 4 – Hub Atomic Zone; Phase 7 – Ingestion § Entity Chain.
+/// Hub assignment no longer happens at ingestion time. The legacy
+/// <c>EnsureContentGroupAsync</c> stub remains as a no-op for DI
+/// compatibility and is scheduled for deletion in Phase 4 along with the
+/// HubAssignmentService.
 /// </summary>
 public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
 {
     private readonly IDatabaseConnection _db;
-    private readonly IWorkRepository _works;
+    private readonly HierarchyResolver _resolver;
     private readonly ILogger<MediaEntityChainFactory>? _logger;
 
     public MediaEntityChainFactory(
         IDatabaseConnection db,
         IWorkRepository works,
         IHubRepository hubs,
+        HierarchyResolver resolver,
         ILogger<MediaEntityChainFactory>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(db);
-        ArgumentNullException.ThrowIfNull(works);
-        ArgumentNullException.ThrowIfNull(hubs); // kept for DI compatibility
-        _db     = db;
-        _works  = works;
-        _logger = logger;
+        ArgumentNullException.ThrowIfNull(works);    // kept for DI compatibility
+        ArgumentNullException.ThrowIfNull(hubs);     // kept for DI compatibility
+        ArgumentNullException.ThrowIfNull(resolver);
+        _db        = db;
+        _resolver  = resolver;
+        _logger    = logger;
     }
 
     /// <inheritdoc/>
@@ -49,41 +52,14 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
     {
         ct.ThrowIfCancellationRequested();
 
-        string? title  = null;
-        string? author = null;
-        metadata?.TryGetValue("title",  out title);
-        metadata?.TryGetValue("author", out author);
+        // ── 1. Resolve Work via the hierarchy resolver ───────────────────────
+        var resolved = await _resolver.ResolveAsync(mediaType, metadata, ct).ConfigureAwait(false);
 
-        // ── 1. Resolve Work — reuse existing or create new ───────────────
-        Guid workId;
+        _logger?.LogDebug(
+            "Chain factory: resolved {MediaType} → Work {WorkId} ({Kind}, parent={Parent}, ordinal={Ordinal}, new={New})",
+            mediaType, resolved.WorkId, resolved.WorkKind, resolved.ParentWorkId, resolved.Ordinal, resolved.NewlyCreated);
 
-        if (!string.IsNullOrWhiteSpace(title))
-        {
-            var existing = await _works.FindByTitleAuthorAsync(
-                title, author, mediaType.ToString(), ct).ConfigureAwait(false);
-
-            if (existing is not null)
-            {
-                workId = existing.WorkId;
-                _logger?.LogDebug(
-                    "Work deduplication: reusing existing Work {WorkId} for title={Title} author={Author} mediaType={MediaType}",
-                    workId, title, author, mediaType);
-            }
-            else
-            {
-                workId = CreateWork(mediaType);
-            }
-        }
-        else
-        {
-            // No title available — cannot deduplicate; always create a new Work.
-            workId = CreateWork(mediaType);
-        }
-
-        // ── 1b. Ensure content group hub ────────────────────────────────
-        await EnsureContentGroupAsync(workId, mediaType, metadata, ct).ConfigureAwait(false);
-
-        // ── 2. Create Edition under the resolved Work ─────────────────────
+        // ── 2. Create Edition under the resolved Work ────────────────────────
         string? formatLabel = null;
         metadata?.TryGetValue("format", out formatLabel);
 
@@ -96,42 +72,11 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
             VALUES (@id, @work_id, @format_label);
             """;
         insertEdition.Parameters.AddWithValue("@id",           editionId.ToString());
-        insertEdition.Parameters.AddWithValue("@work_id",      workId.ToString());
+        insertEdition.Parameters.AddWithValue("@work_id",      resolved.WorkId.ToString());
         insertEdition.Parameters.AddWithValue("@format_label",
             formatLabel ?? (object)DBNull.Value);
         insertEdition.ExecuteNonQuery();
 
         return editionId;
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private Task EnsureContentGroupAsync(
-        Guid workId, MediaType mediaType,
-        IReadOnlyDictionary<string, string>? metadata,
-        CancellationToken ct)
-    {
-        // ContentGroup hubs are no longer created during ingestion.
-        // System hubs (created at startup) drive all Vault views.
-        // Universe-level hubs are still created by the hydration pipeline.
-        _ = workId; _ = mediaType; _ = metadata; _ = ct;
-        return Task.CompletedTask;
-    }
-
-    private Guid CreateWork(MediaType mediaType)
-    {
-        var workId = Guid.NewGuid();
-
-        using var conn = _db.CreateConnection();
-        using var insertWork = conn.CreateCommand();
-        insertWork.CommandText = """
-            INSERT INTO works (id, hub_id, media_type, wikidata_status)
-            VALUES (@id, NULL, @media_type, 'pending');
-            """;
-        insertWork.Parameters.AddWithValue("@id",         workId.ToString());
-        insertWork.Parameters.AddWithValue("@media_type", mediaType.ToString());
-        insertWork.ExecuteNonQuery();
-
-        return workId;
     }
 }

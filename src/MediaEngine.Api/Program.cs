@@ -21,6 +21,7 @@ using MediaEngine.Processors.Processors;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+using MediaEngine.Storage.Services;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
@@ -521,6 +522,8 @@ builder.Services.AddSingleton<IMetadataClaimRepository,  MetadataClaimRepository
 builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
 builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
+builder.Services.AddSingleton<HierarchyResolver>();
+builder.Services.AddSingleton<CatalogUpsertService>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();
 
 // QID label cache and multi-value array storage (QID-first architecture).

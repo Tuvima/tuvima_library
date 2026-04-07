@@ -89,6 +89,17 @@ public sealed class Work
     public Dictionary<string, string> ExternalIdentifiers { get; set; }
         = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Normalized find-or-create cache key. Populated only on parent Works
+    /// (<see cref="WorkKind.Parent"/>). Format is media-type-specific and
+    /// computed by <c>HierarchyResolver</c> — e.g.
+    /// <c>"pink floyd|the dark side of the moon"</c> for music albums or
+    /// <c>"breaking bad"</c> for TV shows.
+    /// Backed by <c>works.parent_key</c> with a partial index on
+    /// <c>(media_type, parent_key)</c>. NULL on standalone/child/catalog rows.
+    /// </summary>
+    public string? ParentKey { get; set; }
+
     // -------------------------------------------------------------------------
     // Universe matching state
     // -------------------------------------------------------------------------

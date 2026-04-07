@@ -1371,6 +1371,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // be expressed as parent/child Work rows instead of fake ContentGroup hubs.
         MigrateWorkHierarchy(conn);
 
+        // Migration M-082: parent_key shadow column + index. Powers the
+        // HierarchyResolver's indexed find-or-create lookup for parent Works
+        // (albums, shows, series, comic series, podcast shows).
+        MigrateParentKey(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2551,6 +2556,39 @@ public sealed class DatabaseConnection : IDatabaseConnection
         }
 
         System.Diagnostics.Debug.WriteLine("M-081: Work hierarchy — work_kind, parent_work_id, ordinal, is_catalog_only, external_identifiers");
+    }
+
+    /// <summary>
+    /// Migration M-082: parent_key shadow column + index.
+    /// <list type="bullet">
+    ///   <item>Adds <c>works.parent_key</c> TEXT (nullable). Populated only on
+    ///     parent rows (<c>work_kind = 'parent'</c>).</item>
+    ///   <item>Creates partial index <c>idx_works_parent_key</c> on
+    ///     <c>(media_type, parent_key) WHERE parent_key IS NOT NULL</c>.</item>
+    /// </list>
+    /// Idempotent: <see cref="MigrateAddColumnIfMissing"/> probes
+    /// <c>PRAGMA table_info</c>; the index uses <c>CREATE INDEX IF NOT EXISTS</c>.
+    /// No backfill — parent_key is populated by the HierarchyResolver as files
+    /// are ingested. Existing standalone rows stay NULL.
+    /// </summary>
+    private static void MigrateParentKey(SqliteConnection conn)
+    {
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "parent_key",
+            ddl:    "ALTER TABLE works ADD COLUMN parent_key TEXT;");
+
+        using (var idxCmd = conn.CreateCommand())
+        {
+            idxCmd.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_works_parent_key
+                    ON works(media_type, parent_key) WHERE parent_key IS NOT NULL;
+                """;
+            idxCmd.ExecuteNonQuery();
+        }
+
+        System.Diagnostics.Debug.WriteLine("M-082: parent_key shadow column + index");
     }
 
     /// <summary>

@@ -19,6 +19,7 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Services;
 using MediaEngine.Storage.Models;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -90,7 +91,8 @@ public sealed class DurablePipelineTests : IDisposable
         _reviewRepo      = new ReviewQueueRepository(db);
         _activityRepo    = new SystemActivityRepository(db);
         _ingestionLog    = new IngestionLogRepository(db);
-        _chainFactory    = new MediaEntityChainFactory(db, new WorkRepository(db), new HubRepository(db));
+        var workRepo = new WorkRepository(db);
+        _chainFactory    = new MediaEntityChainFactory(db, workRepo, new HubRepository(db), new HierarchyResolver(workRepo));
         _batchRepo       = new IngestionBatchRepository(db);
         _identityJobRepo = new IdentityJobRepository(db);
 

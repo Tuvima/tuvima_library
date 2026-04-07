@@ -1,6 +1,7 @@
+using System.Text.Json;
 using Dapper;
-using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -9,21 +10,29 @@ namespace MediaEngine.Storage;
 /// <summary>
 /// SQLite implementation of <see cref="IWorkRepository"/>.
 ///
-/// Used during ingestion to detect whether a Work already exists for a given
-/// title + author + media type, enabling new files for the same title to be
-/// added as Editions under the existing Work rather than creating duplicate Works.
+/// Phase 3 (M-082) replaced the legacy title+author dedup with parent/child
+/// resolution. The repository now exposes:
 ///
-/// Primary lookup traverses: canonical_values → media_assets → editions → works,
-/// because canonical_values.entity_id maps to media_assets.id.
+/// <list type="bullet">
+///   <item>Indexed find-or-create against the <c>parent_key</c> shadow column
+///     for parent Works (albums, shows, series).</item>
+///   <item>Ordinal/title lookups for child Works under a known parent.</item>
+///   <item>Catalog row promotion when a previously unowned child gets a file.</item>
+///   <item>Merging writes to the <c>external_identifiers</c> JSON blob.</item>
+/// </list>
 ///
-/// Fallback lookup traverses raw metadata_claims from local file processors,
-/// catching the race condition where multiple files arrive before canonical_values
-/// have been populated by the hydration pipeline.
+/// All inserts use parameterised SQL through <see cref="SqliteConnection"/>
+/// directly (Dapper is used only for the lightweight queries).
 /// </summary>
 public sealed class WorkRepository : IWorkRepository
 {
     private readonly IDatabaseConnection _db;
     private readonly ILogger<WorkRepository>? _logger;
+
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = false,
+    };
 
     public WorkRepository(IDatabaseConnection db, ILogger<WorkRepository>? logger = null)
     {
@@ -32,104 +41,340 @@ public sealed class WorkRepository : IWorkRepository
         _logger = logger;
     }
 
+    // ── Lookups ────────────────────────────────────────────────────────────────
+
     /// <inheritdoc/>
-    public Task<WorkMatch?> FindByTitleAuthorAsync(
-        string title,
-        string? author,
-        string mediaType,
+    public Task<Guid?> FindParentByKeyAsync(
+        MediaType mediaType,
+        string parentKey,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(parentKey))
+            return Task.FromResult<Guid?>(null);
+
+        using var conn = _db.CreateConnection();
+        const string sql = """
+            SELECT id
+            FROM   works
+            WHERE  media_type = @mediaType
+              AND  parent_key = @parentKey
+              AND  work_kind  = 'parent'
+            LIMIT  1;
+            """;
+
+        var idStr = conn.QueryFirstOrDefault<string?>(
+            sql, new { mediaType = mediaType.ToString(), parentKey });
+
+        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
+    }
+
+    /// <inheritdoc/>
+    public Task<Guid?> FindChildByOrdinalAsync(
+        Guid parentWorkId,
+        int ordinal,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-
-        // ── Primary lookup: canonical_values ─────────────────────────────────
-        // Join canonical_values through media_assets and editions to reach works.
-        // Two canonical_values rows per asset are needed: one for 'title', one
-        // for 'author'. We use a self-join on cv_title / cv_author (LEFT JOIN so
-        // works without an author claim still match when author is null).
-        // When @author is provided, the author claim must also match.
-        const string primarySql = """
-            SELECT w.id          AS WorkId,
-                   w.wikidata_qid AS WikidataQid
-            FROM   works w
-            INNER JOIN editions e   ON e.work_id     = w.id
-            INNER JOIN media_assets ma ON ma.edition_id = e.id
-            INNER JOIN canonical_values cv_title
-                    ON cv_title.entity_id = ma.id AND cv_title.key = 'title'
-            LEFT  JOIN canonical_values cv_author
-                    ON cv_author.entity_id = ma.id AND cv_author.key = 'author'
-            WHERE  w.media_type = @mediaType
-              AND  cv_title.value = @title COLLATE NOCASE
-              AND  (@author IS NULL OR @author = '' OR cv_author.value = @author COLLATE NOCASE)
+        const string sql = """
+            SELECT id
+            FROM   works
+            WHERE  parent_work_id = @parentId
+              AND  ordinal        = @ordinal
             LIMIT  1;
             """;
 
-        var primaryMatch = conn.QueryFirstOrDefault<WorkMatchRow>(
-            primarySql, new { title, author = author ?? string.Empty, mediaType });
+        var idStr = conn.QueryFirstOrDefault<string?>(
+            sql, new { parentId = parentWorkId.ToString(), ordinal });
 
-        if (primaryMatch is not null)
-        {
-            return Task.FromResult<WorkMatch?>(
-                new WorkMatch(Guid.Parse(primaryMatch.WorkId), primaryMatch.WikidataQid));
-        }
-
-        // ── Fallback lookup: raw metadata_claims from file processors ─────────
-        // canonical_values are only populated after Stage 1 of the hydration
-        // pipeline. When several files for the same Work arrive in quick
-        // succession, each ingestion thread finds empty canonical_values and
-        // creates a duplicate Work. This fallback checks the raw claims emitted
-        // by local file processors (LocalProcessor + LibraryScanner) before
-        // that race window closes.
-        const string fallbackSql = """
-            SELECT w.id          AS WorkId,
-                   w.wikidata_qid AS WikidataQid
-            FROM   works w
-            INNER JOIN editions e       ON e.work_id      = w.id
-            INNER JOIN media_assets ma  ON ma.edition_id  = e.id
-            INNER JOIN metadata_claims mc_title
-                    ON mc_title.entity_id  = ma.id
-                   AND mc_title.claim_key  = 'title'
-                   AND mc_title.provider_id IN (@localProcessor, @libraryScanner)
-            LEFT  JOIN metadata_claims mc_author
-                    ON mc_author.entity_id  = ma.id
-                   AND mc_author.claim_key  = 'author'
-                   AND mc_author.provider_id IN (@localProcessor, @libraryScanner)
-            WHERE  w.media_type = @mediaType
-              AND  mc_title.claim_value = @title COLLATE NOCASE
-              AND  (@author IS NULL OR @author = '' OR mc_author.claim_value = @author COLLATE NOCASE)
-            LIMIT  1;
-            """;
-
-        var fallbackMatch = conn.QueryFirstOrDefault<WorkMatchRow>(
-            fallbackSql,
-            new
-            {
-                title,
-                author           = author ?? string.Empty,
-                mediaType,
-                localProcessor   = WellKnownProviders.LocalProcessor.ToString(),
-                libraryScanner   = WellKnownProviders.LibraryScanner.ToString(),
-            });
-
-        if (fallbackMatch is not null)
-        {
-            var workId = Guid.Parse(fallbackMatch.WorkId);
-            _logger?.LogInformation(
-                "Work dedup fallback: matched '{Title}' by '{Author}' to existing Work {WorkId} via raw claims",
-                title, author, workId);
-
-            return Task.FromResult<WorkMatch?>(
-                new WorkMatch(workId, fallbackMatch.WikidataQid));
-        }
-
-        return Task.FromResult<WorkMatch?>(null);
+        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
     }
 
-    // Internal Dapper projection row — avoids exposing mutable types to Dapper.
-    private sealed class WorkMatchRow
+    /// <inheritdoc/>
+    public Task<Guid?> FindChildByTitleAsync(
+        Guid parentWorkId,
+        string title,
+        CancellationToken ct = default)
     {
-        public string WorkId      { get; init; } = string.Empty;
-        public string? WikidataQid { get; init; }
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(title))
+            return Task.FromResult<Guid?>(null);
+
+        using var conn = _db.CreateConnection();
+
+        // Title comparison goes through the canonical_values → media_assets →
+        // editions chain. For catalog children that have no asset yet, we
+        // also fall back to canonical values written directly with the
+        // child's work id as entity_id (CatalogUpsertService).
+        const string sql = """
+            SELECT w.id
+            FROM   works w
+            LEFT   JOIN editions e        ON e.work_id      = w.id
+            LEFT   JOIN media_assets ma   ON ma.edition_id  = e.id
+            LEFT   JOIN canonical_values cv_asset
+                    ON cv_asset.entity_id = ma.id AND cv_asset.key = 'title'
+            LEFT   JOIN canonical_values cv_work
+                    ON cv_work.entity_id  = w.id  AND cv_work.key  = 'title'
+            WHERE  w.parent_work_id = @parentId
+              AND  (cv_asset.value = @title COLLATE NOCASE
+                 OR cv_work.value  = @title COLLATE NOCASE)
+            LIMIT  1;
+            """;
+
+        var idStr = conn.QueryFirstOrDefault<string?>(
+            sql, new { parentId = parentWorkId.ToString(), title });
+
+        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
+    }
+
+    /// <inheritdoc/>
+    public Task<Guid?> FindByExternalIdentifierAsync(
+        string scheme,
+        string value,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(scheme) || string.IsNullOrWhiteSpace(value))
+            return Task.FromResult<Guid?>(null);
+
+        using var conn = _db.CreateConnection();
+
+        // SQLite's json_extract is the cleanest way to read a single key from
+        // the JSON blob. The schemes we use are well-known constants
+        // (BridgeIdKeys.*) so the path is always "$.{scheme}".
+        const string sql = """
+            SELECT id
+            FROM   works
+            WHERE  external_identifiers IS NOT NULL
+              AND  json_extract(external_identifiers, '$.' || @scheme) = @value
+            LIMIT  1;
+            """;
+
+        var idStr = conn.QueryFirstOrDefault<string?>(
+            sql, new { scheme, value });
+
+        return Task.FromResult<Guid?>(idStr is null ? null : Guid.Parse(idStr));
+    }
+
+    // ── Inserts ────────────────────────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public Task<Guid> InsertParentAsync(
+        MediaType mediaType,
+        string parentKey,
+        Guid? grandparentWorkId,
+        int? ordinal,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var workId = Guid.NewGuid();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO works
+                (id, hub_id, media_type, work_kind, parent_work_id,
+                 ordinal, is_catalog_only, parent_key, wikidata_status)
+            VALUES
+                (@id, NULL, @mediaType, 'parent', @parentId,
+                 @ordinal, 0, @parentKey, 'pending');
+            """;
+        cmd.Parameters.AddWithValue("@id",         workId.ToString());
+        cmd.Parameters.AddWithValue("@mediaType",  mediaType.ToString());
+        cmd.Parameters.AddWithValue("@parentId",   (object?)grandparentWorkId?.ToString() ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ordinal",    (object?)ordinal ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@parentKey",  parentKey);
+        cmd.ExecuteNonQuery();
+
+        _logger?.LogDebug(
+            "Inserted parent Work {WorkId} ({MediaType}) parent_key='{ParentKey}' grandparent={Grandparent} ordinal={Ordinal}",
+            workId, mediaType, parentKey, grandparentWorkId, ordinal);
+
+        return Task.FromResult(workId);
+    }
+
+    /// <inheritdoc/>
+    public Task<Guid> InsertChildAsync(
+        MediaType mediaType,
+        Guid parentWorkId,
+        int? ordinal,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var workId = Guid.NewGuid();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO works
+                (id, hub_id, media_type, work_kind, parent_work_id,
+                 ordinal, is_catalog_only, wikidata_status)
+            VALUES
+                (@id, NULL, @mediaType, 'child', @parentId,
+                 @ordinal, 0, 'pending');
+            """;
+        cmd.Parameters.AddWithValue("@id",        workId.ToString());
+        cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
+        cmd.Parameters.AddWithValue("@parentId",  parentWorkId.ToString());
+        cmd.Parameters.AddWithValue("@ordinal",   (object?)ordinal ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+
+        return Task.FromResult(workId);
+    }
+
+    /// <inheritdoc/>
+    public Task<Guid> InsertStandaloneAsync(
+        MediaType mediaType,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var workId = Guid.NewGuid();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO works
+                (id, hub_id, media_type, work_kind, is_catalog_only, wikidata_status)
+            VALUES
+                (@id, NULL, @mediaType, 'standalone', 0, 'pending');
+            """;
+        cmd.Parameters.AddWithValue("@id",        workId.ToString());
+        cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
+        cmd.ExecuteNonQuery();
+
+        return Task.FromResult(workId);
+    }
+
+    /// <inheritdoc/>
+    public Task<Guid> InsertCatalogChildAsync(
+        MediaType mediaType,
+        Guid parentWorkId,
+        int? ordinal,
+        IReadOnlyDictionary<string, string>? externalIdentifiers,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var workId = Guid.NewGuid();
+
+        var idsJson = externalIdentifiers is { Count: > 0 }
+            ? JsonSerializer.Serialize(externalIdentifiers, JsonOptions)
+            : null;
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO works
+                (id, hub_id, media_type, work_kind, parent_work_id,
+                 ordinal, is_catalog_only, external_identifiers, wikidata_status)
+            VALUES
+                (@id, NULL, @mediaType, 'catalog', @parentId,
+                 @ordinal, 1, @ids, 'pending');
+            """;
+        cmd.Parameters.AddWithValue("@id",        workId.ToString());
+        cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
+        cmd.Parameters.AddWithValue("@parentId",  parentWorkId.ToString());
+        cmd.Parameters.AddWithValue("@ordinal",   (object?)ordinal ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ids",       (object?)idsJson ?? DBNull.Value);
+        cmd.ExecuteNonQuery();
+
+        return Task.FromResult(workId);
+    }
+
+    // ── Mutations ──────────────────────────────────────────────────────────────
+
+    /// <inheritdoc/>
+    public Task PromoteCatalogToOwnedAsync(Guid workId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            UPDATE works
+            SET    work_kind       = 'child',
+                   is_catalog_only = 0
+            WHERE  id              = @id
+              AND  work_kind       = 'catalog';
+            """;
+        cmd.Parameters.AddWithValue("@id", workId.ToString());
+        var rows = cmd.ExecuteNonQuery();
+
+        if (rows > 0)
+            _logger?.LogInformation("Promoted catalog Work {WorkId} to owned child", workId);
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task WriteExternalIdentifiersAsync(
+        Guid workId,
+        IReadOnlyDictionary<string, string> identifiers,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (identifiers.Count == 0) return Task.CompletedTask;
+
+        using var conn = _db.CreateConnection();
+
+        // Read existing blob, merge new keys (no overwrite), write back.
+        // Done in a single transaction to avoid lost-update races between
+        // RetailMatchWorker and WikidataBridgeWorker writing in parallel.
+        using var tx = conn.BeginTransaction();
+
+        string? currentJson;
+        using (var read = conn.CreateCommand())
+        {
+            read.Transaction = tx;
+            read.CommandText = "SELECT external_identifiers FROM works WHERE id = @id;";
+            read.Parameters.AddWithValue("@id", workId.ToString());
+            currentJson = read.ExecuteScalar() as string;
+        }
+
+        Dictionary<string, string> merged;
+        if (string.IsNullOrWhiteSpace(currentJson))
+        {
+            merged = new Dictionary<string, string>(identifiers, StringComparer.OrdinalIgnoreCase);
+        }
+        else
+        {
+            try
+            {
+                merged = JsonSerializer.Deserialize<Dictionary<string, string>>(currentJson)
+                    ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+            catch (JsonException)
+            {
+                _logger?.LogWarning(
+                    "Existing external_identifiers JSON for Work {WorkId} is malformed; resetting",
+                    workId);
+                merged = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            foreach (var kv in identifiers)
+            {
+                if (!merged.ContainsKey(kv.Key))
+                    merged[kv.Key] = kv.Value;
+            }
+        }
+
+        var newJson = JsonSerializer.Serialize(merged, JsonOptions);
+
+        using (var write = conn.CreateCommand())
+        {
+            write.Transaction = tx;
+            write.CommandText = """
+                UPDATE works
+                SET    external_identifiers = @json
+                WHERE  id                   = @id;
+                """;
+            write.Parameters.AddWithValue("@id",   workId.ToString());
+            write.Parameters.AddWithValue("@json", newJson);
+            write.ExecuteNonQuery();
+        }
+
+        tx.Commit();
+        return Task.CompletedTask;
     }
 }

@@ -104,11 +104,19 @@ CREATE TABLE IF NOT EXISTS works (
     parent_work_id       TEXT    REFERENCES works(id) ON DELETE SET NULL,
     ordinal              INTEGER,                       -- track #, episode #, issue #, volume #
     is_catalog_only      INTEGER NOT NULL DEFAULT 0,    -- 1 = no file in library yet
-    external_identifiers TEXT                           -- JSON: {"isbn_13":"...","tmdb_id":"..."}
+    external_identifiers TEXT,                          -- JSON: {"isbn_13":"...","tmdb_id":"..."}
+
+    -- M-082: parent_key shadow column for indexed find-or-create lookups.
+    -- Populated for parent Works only (work_kind = 'parent') as a normalized
+    -- "key1|key2" string the HierarchyResolver uses to dedup albums, shows, and
+    -- series before any QID is known. NULL on standalone/child/catalog rows.
+    parent_key           TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_works_parent_work_id ON works(parent_work_id);
 CREATE INDEX IF NOT EXISTS idx_works_work_kind      ON works(work_kind) WHERE work_kind != 'standalone';
+CREATE INDEX IF NOT EXISTS idx_works_parent_key
+    ON works(media_type, parent_key) WHERE parent_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS editions (
     id           TEXT NOT NULL PRIMARY KEY,  -- UUID
