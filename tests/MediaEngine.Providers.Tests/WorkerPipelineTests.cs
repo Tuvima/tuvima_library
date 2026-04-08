@@ -531,7 +531,8 @@ public sealed class WorkerPipelineTests
             string? candidateYear,
             MediaType mediaType,
             MatchTierConfig? matchTiers = null,
-            CandidateExtendedMetadata? extendedMetadata = null)
+            CandidateExtendedMetadata? extendedMetadata = null,
+            double structuralBonus = 0.0)
             => Result;
     }
 

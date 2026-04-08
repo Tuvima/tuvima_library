@@ -116,15 +116,17 @@ public sealed class QuickHydrationWorker
             job.ResolvedQid,
             job.EntityId);
 
-        // Sweep any images already downloaded to the _pending slot into the QID-keyed
-        // location before CoverArtWorker runs. This promotes images downloaded during an
-        // earlier (pre-QID) pass, making them visible without re-downloading.
+        // STRICT ORDERING: Stage 2 has resolved a QID (we only lease QidResolved jobs),
+        // so before any cover art enrichment runs, sweep historical _pending images into
+        // the QID-keyed slot. CoverArtWorker (invoked from RunQuickPassAsync) must NEVER
+        // fire before this sweep completes — otherwise covers downloaded by an earlier
+        // pre-QID pass remain orphaned in _pending/{assetId12}/.
         if (_imagePathService is not null)
         {
-            var swept = _imagePathService.SweepPendingToQid(job.EntityId, job.ResolvedQid);
-            if (swept)
-                _logger.LogInformation(
-                    "Swept pending images {EntityId} → {Qid}", job.EntityId, job.ResolvedQid);
+            await _imagePathService.SweepPendingToQidAsync(job.EntityId, job.ResolvedQid, ct);
+            _logger.LogInformation(
+                "Swept pending images for entity {EntityId} → {Qid}",
+                job.EntityId, job.ResolvedQid);
         }
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);

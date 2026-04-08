@@ -1056,13 +1056,11 @@ public sealed class RetailMatchWorker
             ? bestEpisode["air_date"]!.GetValue<string>()![..4]
             : null;
 
-        var retailScore = _retailScoring.ScoreCandidate(
-            fileHints, candidateTitle, candidateAuthor, candidateYear, MediaType.TV);
-
         // ── Structural S/E number signal ─────────────────────────────────────
         // Season+episode number matching is a very strong structural indicator
         // that dwarfs title fuzziness (episode titles may be absent or ambiguous).
-        // Apply a boost/penalty to the composite after base scoring.
+        // The bonus is computed here and passed into the scoring service so the
+        // composite is produced through a single code path (no manual addition).
         var candidateEpisodeNum = bestEpisode["episode_number"]?.GetValue<long?>()?.ToString();
         var candidateSeasonNum  = bestEpisode["season_number"]?.GetValue<long?>()?.ToString()
             ?? bestEpisode["season"]?.GetValue<string>();
@@ -1080,10 +1078,13 @@ public sealed class RetailMatchWorker
         else if (episodeMatches && !seasonMatches)
             structuralAdjustment = +0.05;   // Episode matches but season differs — weak
         else if (!string.IsNullOrWhiteSpace(fileEpisodeNumber) && !string.IsNullOrWhiteSpace(candidateEpisodeNum))
-            structuralAdjustment = -0.30;   // Episode number present but doesn't match — strong mismatch
+            structuralAdjustment = -0.25;   // Episode number present but doesn't match — strong mismatch
 
-        var adjustedComposite = Math.Round(
-            Math.Clamp(retailScore.CompositeScore + structuralAdjustment, 0.0, 1.0), 4);
+        var retailScore = _retailScoring.ScoreCandidate(
+            fileHints, candidateTitle, candidateAuthor, candidateYear, MediaType.TV,
+            structuralBonus: structuralAdjustment);
+
+        var adjustedComposite = retailScore.CompositeScore;
 
         // ── TV identity override ────────────────────────────────────────────
         // When we matched the show on TMDB by name AND the file's season+episode

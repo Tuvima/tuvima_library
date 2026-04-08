@@ -179,9 +179,14 @@ public sealed class CoverArtWorker
             var titleForDone = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
                 ?? $"entity {entityId}";
+            // NOTE: We deliberately do NOT write a cover_url canonical pointing at
+            // /stream/{entityId}/cover here. The /stream URL is a display hint that the
+            // Dashboard layer can build on the fly from the entity id; it is not
+            // persisted state. The authoritative source URL (the provider URL) lives in
+            // the original claims, and the disk location is owned by ImagePathService.
             _logger.LogInformation(
-                "Cover art: downloaded poster for '{Title}' ({SizeKB:F1} KB) → /stream/{EntityId}/cover",
-                titleForDone, bytes.Length / 1024.0, entityId);
+                "Cover art: downloaded poster for '{Title}' ({SizeKB:F1} KB) → {LocalPath}",
+                titleForDone, bytes.Length / 1024.0, coverPath);
         }
     }
 

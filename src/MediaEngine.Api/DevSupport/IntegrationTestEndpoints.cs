@@ -23,66 +23,12 @@ namespace MediaEngine.Api.DevSupport;
 /// </summary>
 public static class IntegrationTestEndpoints
 {
-    // ── Test case definitions (expected outcomes) ──────────────────────────
-
-    private sealed record TestExpectation(
-        string Title,
-        string ExpectedMediaType,
-        string ExpectedProvider,
-        string SearchQuery,
-        bool ExpectIdentified);
-
-    private static readonly TestExpectation[] BookExpectations =
-    [
-        new("Dune", "Books", "apple_api", "Dune Frank Herbert", true),
-        new("Project Hail Mary", "Books", "apple_api", "Project Hail Mary Andy Weir", true),
-        new("The Hobbit", "Books", "apple_api", "The Hobbit Tolkien", true),
-        new("Harry Potter and the Philosopher's Stone", "Books", "apple_api", "Harry Potter Philosopher's Stone", true),
-    ];
-
-    private static readonly TestExpectation[] AudiobookExpectations =
-    [
-        new("Dune", "Audiobooks", "apple_api", "Dune Frank Herbert audiobook", true),
-        new("Project Hail Mary", "Audiobooks", "apple_api", "Project Hail Mary audiobook", true),
-    ];
-
-    private static readonly TestExpectation[] MovieExpectations =
-    [
-        new("Blade Runner 2049", "Movies", "tmdb", "Blade Runner 2049", true),
-        new("The Matrix", "Movies", "tmdb", "The Matrix", true),
-        new("Interstellar", "Movies", "tmdb", "Interstellar", true),
-        new("Spirited Away", "Movies", "tmdb", "Spirited Away", true),
-    ];
-
-    private static readonly TestExpectation[] TvExpectations =
-    [
-        new("Breaking Bad", "TV", "tmdb", "Breaking Bad", true),
-        new("The Expanse", "TV", "tmdb", "The Expanse", true),
-    ];
-
-    private static readonly TestExpectation[] MusicExpectations =
-    [
-        new("Bohemian Rhapsody", "Music", "apple_api", "Bohemian Rhapsody Queen", true),
-        new("99 Luftballons", "Music", "apple_api", "99 Luftballons Nena", true),
-        new("Lose Yourself", "Music", "apple_api", "Lose Yourself Eminem", true),
-        new("Imagine", "Music", "apple_api", "Imagine John Lennon", true),
-        new("Smells Like Teen Spirit", "Music", "apple_api", "Smells Like Teen Spirit Nirvana", true),
-        new("Under Pressure", "Music", "apple_api", "Under Pressure Queen Bowie", true),
-        new("La Vie en rose", "Music", "apple_api", "La Vie en rose Piaf", true),
-        new("Take Five", "Music", "apple_api", "Take Five Dave Brubeck", true),
-        new("Yesterday", "Music", "apple_api", "Yesterday Beatles", true),
-        new("Clair de Lune", "Music", "apple_api", "Clair de Lune Debussy", true),
-        new("Nuvole Bianche", "Music", "apple_api", "Nuvole Bianche Einaudi", true),
-        new("Stan", "Music", "apple_api", "Stan Eminem", true),
-    ];
-
-    private static readonly TestExpectation[] ComicExpectations =
-    [
-        new("Batman: Year One Part 1", "Comics", "metron", "Batman Year One", true),
-        new("Saga Chapter One", "Comics", "metron", "Saga Brian Vaughan", true),
-        new("The Sandman: Sleep of the Just", "Comics", "metron", "Sandman Neil Gaiman", true),
-        new("Akira Vol 1", "Comics", "metron", "Akira Otomo", true),
-    ];
+    // ── Test case definitions ──────────────────────────────────────────────
+    //
+    // Expectations are now read at runtime from DevSeedEndpoints.GetAllExpectations()
+    // so the seed records themselves are the single source of truth. The previous
+    // hardcoded TestExpectation[] arrays drifted out of sync with the seed list and
+    // were never actually consulted by the reconciliation pass.
 
     // ── Test result models ────────────────────────────────────────────────
 
@@ -112,6 +58,11 @@ public static class IntegrationTestEndpoints
         public Dictionary<string, string> SkippedTypes { get; set; } = [];
         public Dictionary<string, bool> ProviderHealth { get; set; } = [];
         public ReconciliationSummary? Reconciliation { get; set; }
+        /// <summary>
+        /// Structured reconciliation report for JSON consumers (e.g. CI tooling).
+        /// Populated alongside <see cref="Reconciliation"/> in Phase 4d.
+        /// </summary>
+        public ReconciliationReport? ReconciliationReport { get; set; }
     }
 
     /// <summary>Per-item Vault display validation result.</summary>
@@ -1543,6 +1494,41 @@ public static class IntegrationTestEndpoints
         }
 
         report.Reconciliation = summary;
+
+        // Build the structured ReconciliationReport in parallel for JSON consumers.
+        // The HTML report still pulls from ReconciliationSummary for backward compat.
+        var structured = new ReconciliationReport
+        {
+            Total   = summary.ExpectedTotal,
+            Matched = summary.Matched,
+        };
+        // Matched items are not retained as individual rows by ReconciliationSummary
+        // (only mismatches). Synthesise placeholder rows for matches so the totals
+        // line up; mismatches carry the full detail.
+        for (int i = 0; i < summary.Matched; i++)
+        {
+            structured.Items.Add(new ReconciliationReportItem(
+                FileName:        "(matched)",
+                ExpectedStatus:  "Identified",
+                ActualStatus:    "Identified",
+                ExpectedTrigger: null,
+                ActualTrigger:   null,
+                Matched:         true,
+                Reason:          null));
+        }
+        foreach (var mismatch in summary.Mismatches)
+        {
+            structured.Items.Add(new ReconciliationReportItem(
+                FileName:        mismatch.Title,
+                ExpectedStatus:  mismatch.Expected,
+                ActualStatus:    mismatch.Actual,
+                ExpectedTrigger: null,
+                ActualTrigger:   null,
+                Matched:         false,
+                Reason:          mismatch.Reason));
+        }
+        report.ReconciliationReport = structured;
+
         logger.LogInformation("[Reconciliation] Complete: {Matched}/{Total} matched, {Mismatches} mismatches",
             summary.Matched, summary.ExpectedTotal, summary.Mismatches.Count);
     }

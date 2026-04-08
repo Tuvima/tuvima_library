@@ -802,7 +802,8 @@ public sealed class DurablePipelineTests : IDisposable
             string? candidateYear,
             MediaType mediaType,
             MatchTierConfig? matchTiers = null,
-            CandidateExtendedMetadata? extendedMetadata = null)
+            CandidateExtendedMetadata? extendedMetadata = null,
+            double structuralBonus = 0.0)
             => new()
             {
                 TitleScore       = _score,

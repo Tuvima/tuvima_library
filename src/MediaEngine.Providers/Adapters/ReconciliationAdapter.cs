@@ -300,6 +300,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <param name="propertyConstraints">Optional P-code → value constraints to narrow the search.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <param name="mediaType">Media type for CirrusSearch type pre-filtering (default: Unknown = no filter).</param>
+    /// <remarks>
+    /// SOURCE OF TRUTH: All text reconciliation requests must flow through
+    /// <see cref="BuildTextReconciliationRequest"/>. Do not construct
+    /// <c>ReconciliationRequest</c> instances by hand in new code; extend the
+    /// builder instead. Parity is enforced by <c>WikidataParityTests</c>.
+    /// </remarks>
     public async Task<IReadOnlyList<ReconciliationResult>> ReconcileAsync(
         string query,
         Dictionary<string, string>? propertyConstraints = null,
@@ -419,6 +425,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// When <paramref name="mediaType"/> is specified, CirrusSearch pre-filters by
     /// the configured <c>instance_of_classes</c> for that media type.
     /// </summary>
+    /// <remarks>
+    /// SOURCE OF TRUTH: All text reconciliation requests must flow through
+    /// <see cref="BuildTextReconciliationRequest"/>. Do not construct
+    /// <c>ReconciliationRequest</c> instances by hand in new code; extend the
+    /// builder instead. Parity is enforced by <c>WikidataParityTests</c>.
+    /// </remarks>
     public async Task<IReadOnlyList<ReconciliationResult>> ReconcileMultiLanguageAsync(
         string query,
         string? fileLanguage,
@@ -451,6 +463,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <param name="requests">List of (QueryId, Query, PropertyConstraints) tuples.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Dictionary keyed by QueryId.</returns>
+    /// <remarks>
+    /// SOURCE OF TRUTH: All text reconciliation requests must flow through
+    /// <see cref="BuildTextReconciliationRequest"/>. Do not construct
+    /// <c>ReconciliationRequest</c> instances by hand in new code; extend the
+    /// builder instead. Parity is enforced by <c>WikidataParityTests</c>.
+    /// </remarks>
     public async Task<Dictionary<string, IReadOnlyList<ReconciliationResult>>> ReconcileBatchAsync(
         IReadOnlyList<(string QueryId, string Query, Dictionary<string, string>? PropertyConstraints, MediaType MediaType)> requests,
         CancellationToken ct = default)

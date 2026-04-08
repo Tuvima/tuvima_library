@@ -40,7 +40,8 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         string? candidateYear,
         MediaType mediaType,
         MatchTierConfig? matchTiers = null,
-        CandidateExtendedMetadata? extendedMetadata = null)
+        CandidateExtendedMetadata? extendedMetadata = null,
+        double structuralBonus = 0.0)
     {
         var hydration = _configLoader.LoadHydration();
         var weights = hydration.FuzzyMatchWeights;
@@ -200,7 +201,8 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
                       + (yearScore   * effectiveYearWeight)
                       + (formatScore * effectiveFormatWeight)
                       + crossFieldBoost
-                      + coverBoost;
+                      + coverBoost
+                      + structuralBonus;
 
         _logger?.LogDebug("RetailScoring: title={TitleScore:F2} author={AuthorScore:F2} year={YearScore:F2} cross={CrossField:F2} cover={Cover:F2} composite={Composite:F2} — file='{FileTitle}' candidate='{CandidateTitle}'",
             titleScore, authorScore, yearScore, crossFieldBoost, coverBoost, composite, fileTitle, candidateTitle);

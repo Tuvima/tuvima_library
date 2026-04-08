@@ -119,9 +119,9 @@ public sealed class PersonEnrichmentWorker
 
                     if (searchResult is not null)
                     {
-                        _logger.LogDebug(
-                            "Reconciled person '{Name}' → {Qid} (role: {Role})",
-                            unlinked.Name, searchResult.WikidataQid, unlinked.Role);
+                        _logger.LogInformation(
+                            "Person enrichment writeback: {OldName} → {NewName} ({Qid}) (role: {Role})",
+                            unlinked.Name, searchResult.Name, searchResult.WikidataQid, unlinked.Role);
 
                         // Fix 3: persist the resolved QID/name and create the person record
                         // so the People tab shows the real name instead of "Unknown Person (Qxxx)".

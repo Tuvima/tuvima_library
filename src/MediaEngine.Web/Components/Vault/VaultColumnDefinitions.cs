@@ -209,12 +209,13 @@ public static class VaultColumnDefinitions
     private static List<VaultColumnDef> TvColumns() =>
     [
         Checkbox(),
-        new() { Key = "media",   Label = "Episode", Width = "40%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
-        new() { Key = "season",  Label = "Season",   Width = "80px", Sortable = true, SortKey = "season",  RenderType = ColumnRenderType.Text, PropertyName = "Season",  Align = "center" },
-        new() { Key = "episode", Label = "Episode",  Width = "80px", Sortable = true, SortKey = "episode", RenderType = ColumnRenderType.Text, PropertyName = "Episode", Align = "center" },
-        new() { Key = "quality",  Label = "Quality", Width = "auto", Sortable = true, SortKey = "specs",    RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
-        new() { Key = "size",    Label = "Size",     Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
-        new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
+        new() { Key = "media",         Label = "Episode",       Width = "30%",  Sortable = true, SortKey = "title",          RenderType = ColumnRenderType.MediaCell },
+        new() { Key = "episode_title", Label = "Episode Title", Width = "auto", Sortable = true, SortKey = "episode_title",  RenderType = ColumnRenderType.Text, PropertyName = "EpisodeTitle" },
+        new() { Key = "season",        Label = "Season",        Width = "80px", Sortable = true, SortKey = "season",         RenderType = ColumnRenderType.Text, PropertyName = "Season",  Align = "center" },
+        new() { Key = "episode",       Label = "Episode",       Width = "80px", Sortable = true, SortKey = "episode",        RenderType = ColumnRenderType.Text, PropertyName = "Episode", Align = "center" },
+        new() { Key = "quality",       Label = "Quality",       Width = "auto", Sortable = true, SortKey = "specs",          RenderType = ColumnRenderType.Text, PropertyName = "Specs" },
+        new() { Key = "size",          Label = "Size",          Width = "80px", RenderType = ColumnRenderType.FileSize, PropertyName = "FileSizeBytes", Align = "right" },
+        new() { Key = "manage",        Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
     // ── Music ────────────────────────────────────────────────────────────

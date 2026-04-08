@@ -19,6 +19,7 @@ public interface IRetailMatchScoringService
     /// <param name="mediaType">Media type of the file being scored.</param>
     /// <param name="matchTiers">Optional tier config from the provider. When null, uses fuzzy match only.</param>
     /// <param name="extendedMetadata">Optional extended metadata (description, publisher, duration, genres) for cross-field scoring.</param>
+    /// <param name="structuralBonus">Optional additive bonus (e.g. TV S/E exact match) added to the composite after the weighted average and before clamping. Default 0.0 (no effect).</param>
     /// <returns>Composite confidence score (0.0–1.0) and per-field breakdown.</returns>
     FieldMatchScores ScoreCandidate(
         IReadOnlyDictionary<string, string> fileHints,
@@ -27,7 +28,8 @@ public interface IRetailMatchScoringService
         string? candidateYear,
         MediaType mediaType,
         MatchTierConfig? matchTiers = null,
-        CandidateExtendedMetadata? extendedMetadata = null);
+        CandidateExtendedMetadata? extendedMetadata = null,
+        double structuralBonus = 0.0);
 }
 
 /// <summary>

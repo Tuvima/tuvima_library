@@ -215,7 +215,13 @@ public sealed class VideoProcessor : IMediaProcessor
 
             if (seriesTitle is not null && seasonNum.HasValue)
             {
-                claims.Add(Claim("title", seriesTitle, 0.55));
+                // TV title resolution: prefer the episode title (specific) over the
+                // show name (generic). When the filename has no episode title we fall
+                // back to the show name so the title field is never empty.
+                var resolvedTitle = !string.IsNullOrWhiteSpace(episodeTitle)
+                    ? episodeTitle
+                    : seriesTitle;
+                claims.Add(Claim("title", resolvedTitle, 0.55));
                 claims.Add(Claim("show_name", seriesTitle, 0.55));
                 claims.Add(Claim("series", seriesTitle, 0.55));
                 claims.Add(Claim("season_number", seasonNum.Value.ToString(), 0.55));
@@ -233,15 +239,15 @@ public sealed class VideoProcessor : IMediaProcessor
                 // Leading SxxExx: filename starts with episode pattern, no series name.
                 // Infer show name from the grandparent folder (parent = "Season XX").
                 var showName = InferShowNameFromPath(filePath);
+                // TV title resolution: episode title preferred, else inferred show name.
+                var resolvedTitle = !string.IsNullOrWhiteSpace(episodeTitle)
+                    ? episodeTitle
+                    : (string.IsNullOrWhiteSpace(showName) ? basicTitle : showName);
+                claims.Add(Claim("title", resolvedTitle, 0.50));
                 if (!string.IsNullOrWhiteSpace(showName))
                 {
-                    claims.Add(Claim("title", showName, 0.50));
                     claims.Add(Claim("show_name", showName, 0.55));
                     claims.Add(Claim("series", showName, 0.55));
-                }
-                else
-                {
-                    claims.Add(Claim("title", basicTitle, 0.50));
                 }
                 claims.Add(Claim("season_number", seasonNum.Value.ToString(), 0.55));
                 claims.Add(Claim("season", seasonNum.Value.ToString(), 0.55));

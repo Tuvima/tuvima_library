@@ -88,6 +88,7 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             ICanonicalValueRepository canonicalRepo,
             ImagePathService imagePathService,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
@@ -113,15 +114,28 @@ public static class StreamEndpoints
                 : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "cover.jpg");
 
             string? coverPath = null;
+            bool servedFromPending = false;
             if (File.Exists(newCoverPath))
                 coverPath = newCoverPath;
             else if (File.Exists(pendingCoverPath))
+            {
                 coverPath = pendingCoverPath;
+                servedFromPending = true;
+            }
             else if (!string.IsNullOrEmpty(legacyCoverPath) && File.Exists(legacyCoverPath))
                 coverPath = legacyCoverPath;
 
             if (coverPath is null)
                 return Results.NotFound("No cover art found for this asset.");
+
+            if (servedFromPending)
+            {
+                loggerFactory
+                    .CreateLogger("MediaEngine.Api.StreamEndpoints")
+                    .LogWarning(
+                        "Cover art served from _pending for {EntityId} — needs sweep",
+                        assetId);
+            }
 
             var bytes = await File.ReadAllBytesAsync(coverPath, ct);
             return Results.File(bytes, "image/jpeg", "cover.jpg");
@@ -140,6 +154,7 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             ICanonicalValueRepository canonicalRepo,
             ImagePathService imagePathService,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
@@ -155,6 +170,7 @@ public static class StreamEndpoints
                 ?.Value;
 
             var thumbPath = imagePathService.GetWorkCoverThumbPath(wikidataQid, assetId);
+            bool servedFromPending = false;
 
             // Fall back to full cover if no thumbnail exists yet.
             if (!File.Exists(thumbPath))
@@ -173,10 +189,12 @@ public static class StreamEndpoints
                     if (File.Exists(pendingThumbPath))
                     {
                         thumbPath = pendingThumbPath;
+                        servedFromPending = true;
                     }
                     else if (File.Exists(pendingCoverPath))
                     {
                         thumbPath = pendingCoverPath;
+                        servedFromPending = true;
                     }
                     else
                     {
@@ -191,6 +209,15 @@ public static class StreamEndpoints
                         thumbPath = legacyPath;
                     }
                 }
+            }
+
+            if (servedFromPending)
+            {
+                loggerFactory
+                    .CreateLogger("MediaEngine.Api.StreamEndpoints")
+                    .LogWarning(
+                        "Cover thumbnail served from _pending for {EntityId} — needs sweep",
+                        assetId);
             }
 
             var bytes = await File.ReadAllBytesAsync(thumbPath, ct);
@@ -209,6 +236,7 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             ICanonicalValueRepository canonicalRepo,
             ImagePathService imagePathService,
+            ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
@@ -224,18 +252,36 @@ public static class StreamEndpoints
                 ?.Value;
 
             var newHeroPath  = imagePathService.GetWorkHeroPath(wikidataQid, assetId);
+            // Pending fallback: hero banners generated before the QID was resolved live
+            // in _pending/{assetId12}/ until SweepPendingToQid moves them.
+            var pendingHeroPath = imagePathService.GetWorkHeroPath(null, assetId);
             var legacyHeroPath = string.IsNullOrEmpty(asset.FilePathRoot)
                 ? null
                 : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "hero.jpg");
 
             string? heroPath = null;
+            bool servedFromPending = false;
             if (File.Exists(newHeroPath))
                 heroPath = newHeroPath;
+            else if (File.Exists(pendingHeroPath))
+            {
+                heroPath = pendingHeroPath;
+                servedFromPending = true;
+            }
             else if (!string.IsNullOrEmpty(legacyHeroPath) && File.Exists(legacyHeroPath))
                 heroPath = legacyHeroPath;
 
             if (heroPath is null)
                 return Results.NotFound("No hero banner found for this asset.");
+
+            if (servedFromPending)
+            {
+                loggerFactory
+                    .CreateLogger("MediaEngine.Api.StreamEndpoints")
+                    .LogWarning(
+                        "Hero banner served from _pending for {EntityId} — needs sweep",
+                        assetId);
+            }
 
             var bytes = await File.ReadAllBytesAsync(heroPath, ct);
             return Results.File(bytes, "image/jpeg", "hero.jpg");

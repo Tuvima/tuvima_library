@@ -33,7 +33,8 @@ public static class DevSeedEndpoints
         string? TestCategory = null,
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
-        string? ExpectedReason = null);
+        string? ExpectedReason = null,
+        string? ExpectedProvider = null);
 
     /// <summary>A seed MP3 audiobook definition.</summary>
     private sealed record SeedAudiobook(
@@ -48,7 +49,8 @@ public static class DevSeedEndpoints
         string? TestCategory = null,
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
-        string? ExpectedReason = null);
+        string? ExpectedReason = null,
+        string? ExpectedProvider = null);
 
     /// <summary>A seed MP4 movie/TV definition.</summary>
     private sealed record SeedVideo(
@@ -59,10 +61,13 @@ public static class DevSeedEndpoints
         string? Series = null,
         int? SeasonNumber = null,
         int? EpisodeNumber = null,
+        string? EpisodeTitle = null,
+        string? FileNameOverride = null,
         string? TestCategory = null,
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
-        string? ExpectedReason = null);
+        string? ExpectedReason = null,
+        string? ExpectedProvider = null);
 
     /// <summary>A seed FLAC music track definition.</summary>
     private sealed record SeedMusic(
@@ -75,7 +80,8 @@ public static class DevSeedEndpoints
         string? TestCategory = null,
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
-        string? ExpectedReason = null);
+        string? ExpectedReason = null,
+        string? ExpectedProvider = null);
 
     /// <summary>A seed CBZ comic definition.</summary>
     private sealed record SeedComic(
@@ -91,7 +97,8 @@ public static class DevSeedEndpoints
         string? TestCategory = null,
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
-        string? ExpectedReason = null);
+        string? ExpectedReason = null,
+        string? ExpectedProvider = null);
 
     // ── EPUB Seed definitions ────────────────────────────────────────────────
     // Real ISBNs so the hydration pipeline can fetch real cover art and metadata.
@@ -364,22 +371,66 @@ public static class DevSeedEndpoints
 
         new("Breaking Bad", null, 2008, "TV",
             Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 1,
-            TestCategory: "TV — S01E01, strong TMDB match"),
+            TestCategory: "TV — S01E01, strong TMDB match",
+            ExpectedProvider: "tmdb"),
 
         new("Breaking Bad", null, 2008, "TV",
             Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 2,
-            TestCategory: "TV — S01E02, same series grouping test"),
+            TestCategory: "TV — S01E02, same series grouping test",
+            ExpectedProvider: "tmdb"),
 
         new("The Expanse", null, 2015, "TV",
             Series: "The Expanse", SeasonNumber: 1, EpisodeNumber: 1,
-            TestCategory: "TV — cross-ref with book series (Leviathan Wakes)"),
+            TestCategory: "TV — cross-ref with book series (Leviathan Wakes)",
+            ExpectedProvider: "tmdb"),
 
         new("Shogun", null, 2024, "TV",
             Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1,
             TestCategory: "TV — recent series, cross-media potential",
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Recent (2024) episode 'The Star of Edo' lacks individual Wikidata entry"),
+            ExpectedReason: "Recent (2024) episode 'The Star of Edo' lacks individual Wikidata entry",
+            ExpectedProvider: "tmdb"),
+
+        // ── New TV fixtures: filename pattern coverage (Phase: scoring fix) ──
+        // Each fixture targets a different on-disk filename pattern so the
+        // VideoProcessor's TV regex variants and the structural-bonus scoring
+        // path are all exercised end-to-end by the integration test.
+
+        new("Pilot", null, 2008, "TV",
+            Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 1,
+            EpisodeTitle: "Pilot",
+            FileNameOverride: "Breaking Bad/Season 01/Breaking Bad - S01E01 - Pilot.mp4",
+            TestCategory: "TV pattern — show + SxxExx + episode title in nested folder",
+            ExpectedProvider: "tmdb"),
+
+        new("Anjin", null, 2024, "TV",
+            Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1,
+            EpisodeTitle: "Anjin",
+            FileNameOverride: "Shogun (2024)/Season 01/Shogun - S01E01 - Anjin.mp4",
+            TestCategory: "TV pattern — show with year suffix folder + SxxExx + episode title",
+            ExpectedProvider: "tmdb"),
+
+        new("Chapter 1: The Mandalorian", null, 2019, "TV",
+            Series: "The Mandalorian", SeasonNumber: 1, EpisodeNumber: 1,
+            EpisodeTitle: "Chapter 1 - The Mandalorian",
+            FileNameOverride: "The Mandalorian/Season 01/S01E01 - Chapter 1 - The Mandalorian.mp4",
+            TestCategory: "TV pattern — leading SxxExx (no show prefix), show inferred from folder",
+            ExpectedProvider: "tmdb"),
+
+        new("The Mathematician's Ghost", null, 2021, "TV",
+            Series: "Foundation", SeasonNumber: 1, EpisodeNumber: 3,
+            EpisodeTitle: "The Mathematician's Ghost",
+            FileNameOverride: "Foundation/Season 01/Foundation - S01E03 - The Mathematician's Ghost.mp4",
+            TestCategory: "TV pattern — non-pilot episode with possessive in title",
+            ExpectedProvider: "tmdb"),
+
+        new("The You You Are", null, 2022, "TV",
+            Series: "Severance", SeasonNumber: 1, EpisodeNumber: 4,
+            EpisodeTitle: "The You You Are",
+            FileNameOverride: "Severance/Season 01/Severance.S01E04.The.You.You.Are.mp4",
+            TestCategory: "TV pattern — dot-separated filename convention",
+            ExpectedProvider: "tmdb"),
     ];
 
     // ── FLAC Music Seed definitions ────────────────────────────────────────
@@ -841,12 +892,28 @@ public static class DevSeedEndpoints
             EnsureDirectory(videoDir, logger);
 
             string fileName;
-            if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
-                fileName = $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4";
+            string filePath;
+            if (!string.IsNullOrWhiteSpace(video.FileNameOverride))
+            {
+                // Allow nested relative paths (e.g. "Breaking Bad/Season 01/...mp4")
+                // so the test harness can exercise filename patterns that depend on
+                // parent-folder context (leading SxxExx, year suffix, etc.).
+                var rel = video.FileNameOverride.Replace('/', Path.DirectorySeparatorChar);
+                filePath = Path.Combine(videoDir, rel);
+                fileName = Path.GetFileName(filePath);
+                var parentDir = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrWhiteSpace(parentDir))
+                    EnsureDirectory(parentDir, logger);
+            }
             else
-                fileName = $"{SanitizeFileName(video.Title)} ({video.Year}).mp4";
+            {
+                if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
+                    fileName = $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4";
+                else
+                    fileName = $"{SanitizeFileName(video.Title)} ({video.Year}).mp4";
+                filePath = Path.Combine(videoDir, fileName);
+            }
 
-            string filePath = Path.Combine(videoDir, fileName);
             if (File.Exists(filePath)) { skipped++; continue; }
 
             byte[] mp4 = Mp4Builder.Create(
@@ -1329,7 +1396,8 @@ public static class DevSeedEndpoints
         string? Author,
         bool ExpectIdentified,
         string? ExpectedReviewTrigger,
-        string? ExpectedReason);
+        string? ExpectedReason,
+        string? ExpectedProvider = null);
 
     /// <summary>
     /// Returns all seed fixtures as a flat list of expectations.
@@ -1348,7 +1416,8 @@ public static class DevSeedEndpoints
                 Author: b.Author,
                 ExpectIdentified: b.ExpectIdentified,
                 ExpectedReviewTrigger: b.ExpectedReviewTrigger,
-                ExpectedReason: b.ExpectedReason));
+                ExpectedReason: b.ExpectedReason,
+                ExpectedProvider: b.ExpectedProvider));
 
         // Audiobooks
         foreach (var a in SeedAudiobooks)
@@ -1358,7 +1427,8 @@ public static class DevSeedEndpoints
                 Author: a.Artist,
                 ExpectIdentified: a.ExpectIdentified,
                 ExpectedReviewTrigger: a.ExpectedReviewTrigger,
-                ExpectedReason: a.ExpectedReason));
+                ExpectedReason: a.ExpectedReason,
+                ExpectedProvider: a.ExpectedProvider));
 
         // Videos — split by MediaType field
         foreach (var v in SeedVideos)
@@ -1370,7 +1440,8 @@ public static class DevSeedEndpoints
                 Author: v.Director,
                 ExpectIdentified: v.ExpectIdentified,
                 ExpectedReviewTrigger: v.ExpectedReviewTrigger,
-                ExpectedReason: v.ExpectedReason));
+                ExpectedReason: v.ExpectedReason,
+                ExpectedProvider: v.ExpectedProvider));
         }
 
         // Music
@@ -1381,7 +1452,8 @@ public static class DevSeedEndpoints
                 Author: m.Artist,
                 ExpectIdentified: m.ExpectIdentified,
                 ExpectedReviewTrigger: m.ExpectedReviewTrigger,
-                ExpectedReason: m.ExpectedReason));
+                ExpectedReason: m.ExpectedReason,
+                ExpectedProvider: m.ExpectedProvider));
 
         // Comics
         foreach (var c in SeedComics)
@@ -1391,7 +1463,8 @@ public static class DevSeedEndpoints
                 Author: c.Writer,
                 ExpectIdentified: c.ExpectIdentified,
                 ExpectedReviewTrigger: c.ExpectedReviewTrigger,
-                ExpectedReason: c.ExpectedReason));
+                ExpectedReason: c.ExpectedReason,
+                ExpectedProvider: c.ExpectedProvider));
 
         return result;
     }

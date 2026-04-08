@@ -209,6 +209,18 @@ public sealed class ImagePathService
         }
     }
 
+    /// <summary>
+    /// Async wrapper around <see cref="SweepPendingToQid(Guid, string?)"/> for callers
+    /// that prefer the Task-based API. The underlying I/O is synchronous (Directory.Move)
+    /// and short, so this simply runs the work and returns a completed task.
+    /// </summary>
+    public Task SweepPendingToQidAsync(Guid entityId, string qid, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        SweepPendingToQid(entityId, qid);
+        return Task.CompletedTask;
+    }
+
     /// <summary>Ensures the directory containing the given file path exists.</summary>
     public static void EnsureDirectory(string filePath)
     {

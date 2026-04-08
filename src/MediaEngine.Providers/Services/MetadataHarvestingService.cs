@@ -855,11 +855,27 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             return;
         }
 
+        // Best-effort: use the locally cached Wikidata label if we have one
+        // (populated by prior enrichment runs via _qidLabelRepo.UpsertAsync).
+        // If the cache misses, fall back to a placeholder name; the next
+        // enrichment pass will overwrite it once Wikidata is queried.
+        string stubName = $"Unknown Person ({missingQid})";
+        try
+        {
+            var cachedLabel = await _qidLabelRepo.GetLabelAsync(missingQid, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(cachedLabel))
+                stubName = cachedLabel;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "QID label cache lookup failed for {Qid}; using placeholder name", missingQid);
+        }
+
         var stubId = Guid.NewGuid();
         var stub = new Person
         {
             Id = stubId,
-            Name = $"Unknown Person ({missingQid})",
+            Name = stubName,
             Roles = ["Author"], // Default role
             WikidataQid = missingQid,
             CreatedAt = DateTimeOffset.UtcNow,
