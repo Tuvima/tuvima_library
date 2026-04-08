@@ -8,19 +8,15 @@ namespace MediaEngine.Domain.Contracts;
 public interface ISearchIndexRepository
 {
     /// <summary>
-    /// Upserts a work's search data into the FTS5 index, resolving work_id
-    /// from a media asset entity ID via the editions → works join.
-    /// Indexes title, original title, alternate titles, author, and description
-    /// for prefix matching and BM25 ranking across all languages.
+    /// Refreshes a work's row in the FTS5 index by reading the current
+    /// canonical state from the database. <paramref name="entityId"/> may be
+    /// either a media_assets id or a works id — both resolve to the same
+    /// leaf work row. Self-scope fields (title, original_title, hero) are
+    /// read from the asset row; parent-scope fields (author, description,
+    /// alternate_title array) are read from the topmost Work row by walking
+    /// the parent_work_id chain.
     /// </summary>
-    Task UpsertByEntityIdAsync(
-        Guid entityId,
-        string? title,
-        string? originalTitle,
-        string? alternateTitles,
-        string? author,
-        string? description,
-        CancellationToken ct = default);
+    Task UpsertByEntityIdAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>
     /// Full-text search using FTS5 MATCH with BM25 ranking.

@@ -10,31 +10,60 @@ namespace MediaEngine.Storage;
 /// Translates hub rule predicates into SQL queries against the works + canonical_values tables.
 /// Used for query-resolved hubs (Smart, Custom, Discovery).
 ///
-/// canonical_values.entity_id points to media_assets.id (not works.id).
-/// All canonical_values lookups must join through: works → editions → media_assets → canonical_values.
+/// Phase 4 — lineage-aware. Canonical values may live on the asset row (Self-scope:
+/// title, episode_title, hero, runtime/director for TV) or on the topmost Work row
+/// (Parent-scope: author, genre, cover, description, runtime/director for Movies).
+/// Because the same field key (e.g. "year", "director") may be Self for one media
+/// type and Parent for another, the rule evaluator unions BOTH lookup paths so a
+/// single predicate matches works regardless of where the value is stored.
 /// </summary>
 public sealed class HubRuleEvaluator
 {
     private readonly IDatabaseConnection _db;
 
     /// <summary>
-    /// Subquery that maps a canonical_values lookup to work IDs via the edition → asset chain.
-    /// Usage: $"w.id IN ({CvWorkSubquery} AND cv.key = ... AND cv.value = ...)"
+    /// Builds a "w.id IN (...)" clause that finds works whose canonical_values
+    /// row matches <paramref name="cvPredicate"/> on EITHER the asset row
+    /// (Self-scope) or the root parent Work row (Parent-scope, walking
+    /// parent_work_id up two levels).
     /// </summary>
-    private const string CvWorkSubquery =
-        "SELECT e_cv.work_id FROM editions e_cv " +
-        "INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id " +
-        "INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id WHERE 1=1";
+    private static string CvLookup(string cvPredicate, bool negate = false)
+    {
+        var op = negate ? "NOT IN" : "IN";
+        return $$"""
+            w.id {{op}} (
+                SELECT e_cv.work_id FROM editions e_cv
+                INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id
+                INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id
+                WHERE {{cvPredicate}}
+                UNION
+                SELECT w2.id FROM works w2
+                LEFT JOIN works p2  ON p2.id  = w2.parent_work_id
+                LEFT JOIN works gp2 ON gp2.id = p2.parent_work_id
+                INNER JOIN canonical_values cv ON cv.entity_id = COALESCE(gp2.id, p2.id, w2.id)
+                WHERE {{cvPredicate}}
+            )
+            """;
+    }
 
     /// <summary>
-    /// Subquery to resolve canonical values for a given work (used in ORDER BY / correlated subqueries).
-    /// Returns cv.value for the first matching asset under the given work.
+    /// Correlated scalar subquery that resolves a canonical value for the
+    /// outer-row work <c>w</c>. Checks asset row first, then walks parent_work_id
+    /// up two levels to the topmost Work row. Used in ORDER BY clauses.
     /// </summary>
-    private const string CvForWorkSubquery =
-        "SELECT cv.value FROM editions e_cv " +
-        "INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id " +
-        "INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id " +
-        "WHERE e_cv.work_id = w.id";
+    private static string CvForWork(string keyParam) => $$"""
+        COALESCE(
+            (SELECT cv.value FROM editions e_cv
+             INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id
+             INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id
+             WHERE e_cv.work_id = w.id AND cv.key = {{keyParam}} LIMIT 1),
+            (SELECT cv.value FROM works w_p
+             LEFT JOIN works p_p  ON p_p.id  = w_p.parent_work_id
+             LEFT JOIN works gp_p ON gp_p.id = p_p.parent_work_id
+             INNER JOIN canonical_values cv ON cv.entity_id = COALESCE(gp_p.id, p_p.id, w_p.id)
+             WHERE w_p.id = w.id AND cv.key = {{keyParam}} LIMIT 1)
+        )
+        """;
 
     public HubRuleEvaluator(IDatabaseConnection db) => _db = db;
 
@@ -222,7 +251,7 @@ public sealed class HubRuleEvaluator
                 var pEnd = $"@p{paramIdx++}";
                 parameters.Add((pStart, decadeStart.ToString()));
                 parameters.Add((pEnd, (decadeStart + 9).ToString()));
-                return ($"w.id IN ({CvWorkSubquery} AND cv.key = 'year' AND CAST(cv.value AS INTEGER) BETWEEN {pStart} AND {pEnd})", parameters);
+                return (CvLookup($"cv.key = 'year' AND CAST(cv.value AS INTEGER) BETWEEN {pStart} AND {pEnd}"), parameters);
             }
             return (null, parameters);
         }
@@ -254,7 +283,7 @@ public sealed class HubRuleEvaluator
         return op switch
         {
             "eq" when canonicalField == "user_rating" && effectiveValues[0] == "unrated" =>
-                ($"w.id NOT IN ({CvWorkSubquery} AND cv.key = 'user_rating')", parameters),
+                (CvLookup("cv.key = 'user_rating'", negate: true), parameters),
             "eq" => BuildCanonicalEq(canonicalField, effectiveValues[0], ref paramIdx, parameters),
             "neq" => BuildCanonicalNeq(canonicalField, effectiveValues[0], ref paramIdx, parameters),
             "contains" => BuildCanonicalLike(canonicalField, effectiveValues[0], ref paramIdx, parameters),
@@ -272,7 +301,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value = {pValue})", parameters);
+        return (CvLookup($"cv.key = {pField} AND cv.value = {pValue}"), parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalNeq(
@@ -282,7 +311,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return ($"w.id NOT IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value = {pValue})", parameters);
+        return (CvLookup($"cv.key = {pField} AND cv.value = {pValue}", negate: true), parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalLike(
@@ -292,7 +321,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, $"%{value}%"));
-        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value LIKE {pValue})", parameters);
+        return (CvLookup($"cv.key = {pField} AND cv.value LIKE {pValue}"), parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalNumeric(
@@ -303,7 +332,7 @@ public sealed class HubRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND CAST(cv.value AS REAL) {sqlOp} CAST({pValue} AS REAL))", parameters);
+        return (CvLookup($"cv.key = {pField} AND CAST(cv.value AS REAL) {sqlOp} CAST({pValue} AS REAL)"), parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalBetween(
@@ -315,7 +344,7 @@ public sealed class HubRuleEvaluator
         parameters.Add((pField, field));
         parameters.Add((pLow, low));
         parameters.Add((pHigh, high));
-        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND CAST(cv.value AS REAL) BETWEEN CAST({pLow} AS REAL) AND CAST({pHigh} AS REAL))", parameters);
+        return (CvLookup($"cv.key = {pField} AND CAST(cv.value AS REAL) BETWEEN CAST({pLow} AS REAL) AND CAST({pHigh} AS REAL)"), parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalIn(
@@ -331,7 +360,7 @@ public sealed class HubRuleEvaluator
             valueParams.Add(pv);
         }
         var inList = string.Join(", ", valueParams);
-        return ($"w.id IN ({CvWorkSubquery} AND cv.key = {pField} AND cv.value IN ({inList}))", parameters);
+        return (CvLookup($"cv.key = {pField} AND cv.value IN ({inList})"), parameters);
     }
 
     private static string ResolveOrderBy(string? sortField, string sortDirection)
@@ -339,8 +368,8 @@ public sealed class HubRuleEvaluator
         var dir = sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
         return sortField?.ToLowerInvariant() switch
         {
-            "title" => $"ORDER BY ({CvForWorkSubquery} AND cv.key = 'title' LIMIT 1) {dir}",
-            "year" => $"ORDER BY (SELECT CAST(cv.value AS INTEGER) FROM editions e_cv INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id WHERE e_cv.work_id = w.id AND cv.key = 'year' LIMIT 1) {dir}",
+            "title" => $"ORDER BY {CvForWork("'title'")} {dir}",
+            "year" => $"ORDER BY CAST({CvForWork("'year'")} AS INTEGER) {dir}",
             "newest" or "created_at" => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}",
             _ => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}",
         };

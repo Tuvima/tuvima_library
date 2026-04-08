@@ -365,6 +365,8 @@ public static class HubEndpoints
         group.MapGet("/{hubId:guid}/group-detail", async (
             Guid hubId,
             IHubRepository hubRepo,
+            ICanonicalValueRepository canonicalRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var hub = await hubRepo.GetHubWithWorksAsync(hubId, ct);
@@ -378,6 +380,40 @@ public static class HubEndpoints
                 .FirstOrDefault()?.Key;
 
             bool isTv = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase);
+
+            // Phase 4 — resolve the topmost Work id for the hub by walking the
+            // parent_work_id chain from any of the hub's works (they all share
+            // the same root parent in a ContentGroup hub). Parent-scope canonical
+            // values (author, cover, genre, network, year) live on this row.
+            Guid? rootParentWorkId = null;
+            IReadOnlyList<CanonicalValue> parentCvs = [];
+            if (hub.Works.Count > 0)
+            {
+                using var conn = db.CreateConnection();
+                using var rootCmd = conn.CreateCommand();
+                rootCmd.CommandText = """
+                    SELECT COALESCE(gp.id, p.id, w.id)
+                    FROM works w
+                    LEFT JOIN works p  ON p.id  = w.parent_work_id
+                    LEFT JOIN works gp ON gp.id = p.parent_work_id
+                    WHERE w.id = @id
+                    LIMIT 1
+                    """;
+                var idParam = rootCmd.CreateParameter();
+                idParam.ParameterName = "@id";
+                idParam.Value = hub.Works[0].Id.ToString();
+                rootCmd.Parameters.Add(idParam);
+
+                var rootIdObj = await rootCmd.ExecuteScalarAsync(ct);
+                if (rootIdObj is string rootIdStr && Guid.TryParse(rootIdStr, out var rid))
+                {
+                    rootParentWorkId = rid;
+                    parentCvs = await canonicalRepo.GetByEntityAsync(rid, ct);
+                }
+            }
+
+            string? ParentCv(string key) =>
+                parentCvs.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
             // Build per-work DTOs.
             var workDtos = hub.Works
@@ -442,14 +478,13 @@ public static class HubEndpoints
                 })
                 .ToList();
 
-            // Hub-level header canonical values (use first work as proxy).
-            var firstWorkDto = hub.Works.Count > 0 ? WorkDto.FromDomain(hub.Works[0]) : null;
-            string? hubCreator  = GetCanonical(firstWorkDto, "author")
-                                 ?? GetCanonical(firstWorkDto, "director")
-                                 ?? GetCanonical(firstWorkDto, "artist");
-            string? hubGenre    = GetCanonical(firstWorkDto, "genre");
-            string? hubCover    = GetCanonical(firstWorkDto, "cover");
-            string? hubNetwork  = isTv ? GetCanonical(firstWorkDto, "network") : null;
+            // Hub-level header canonical values come from the topmost Work row.
+            // Phase 4 — parent-scoped fields (author, director, artist, genre, cover,
+            // network) live on the root parent Work, not on individual child works.
+            string? hubCreator  = ParentCv("author") ?? ParentCv("director") ?? ParentCv("artist");
+            string? hubGenre    = ParentCv("genre");
+            string? hubCover    = ParentCv("cover") ?? ParentCv("cover_url");
+            string? hubNetwork  = isTv ? ParentCv("network") : null;
 
             // Year range from all works.
             var years = workDtos

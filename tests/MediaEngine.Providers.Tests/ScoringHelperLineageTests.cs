@@ -15,11 +15,11 @@ using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
 namespace MediaEngine.Providers.Tests;
 
 /// <summary>
-/// Phase 3c — verifies that <see cref="ScoringHelper.PersistAndScoreWithLineageAsync"/>
-/// performs lineage-aware dual-write: every claim still lands on the asset id
-/// (so existing readers don't regress), and parent-scoped claims additionally
-/// land on the parent Work id when the asset has a real parent in the
-/// hierarchy.
+/// Phase 4 — verifies that <see cref="ScoringHelper.PersistAndScoreWithLineageAsync"/>
+/// performs a lineage-aware partitioned write: self-scope claims land on the
+/// asset id, parent-scope claims land on <c>lineage.TargetForParentScope</c>
+/// (the topmost Work in the hierarchy). The split is unconditional and applies
+/// to every media type, including movies — there is no dual-write fallback.
 /// </summary>
 public sealed class ScoringHelperLineageTests
 {
@@ -51,13 +51,13 @@ public sealed class ScoringHelperLineageTests
         Assert.All(claimRepo.Inserted, c => Assert.Equal(assetId, c.EntityId));
     }
 
-    // ── Test 2: lineage with self == parent (movie) → no parent mirror ──
+    // ── Test 2: standalone movie → parent claims go to the work, NOT the asset ──
 
     [Fact]
-    public async Task LineageWithoutRealParent_PersistsToAssetIdOnly()
+    public async Task StandaloneMovie_PartitionsClaimsBetweenAssetAndWork()
     {
         var assetId = Guid.NewGuid();
-        var workId  = Guid.NewGuid();   // parent collapses to self for movies
+        var workId  = Guid.NewGuid();   // parent collapses to self for standalone movies
         var providerId = Guid.NewGuid();
         var claimRepo = new RecordingClaimRepository();
         var canonicalRepo = new RecordingCanonicalRepository();
@@ -67,15 +67,15 @@ public sealed class ScoringHelperLineageTests
             EditionId:        Guid.NewGuid(),
             WorkId:           workId,
             ParentWorkId:     null,
-            RootParentWorkId: workId,        // standalone — parent collapses to self
+            RootParentWorkId: workId,        // standalone — parent collapses to the movie's own Work
             WorkKind:         WorkKind.Standalone,
             MediaType:        MediaType.Movies);
 
         var claims = new[]
         {
-            new ProviderClaim(MetadataFieldConstants.Title, "Dune",    0.9),
-            new ProviderClaim(MetadataFieldConstants.Year,  "2021",     0.9),
-            new ProviderClaim(MetadataFieldConstants.Director, "Villeneuve", 0.9),
+            new ProviderClaim(MetadataFieldConstants.Title,    "Dune",        0.9),  // Self
+            new ProviderClaim(MetadataFieldConstants.Year,     "2021",         0.9), // Parent (Movies override)
+            new ProviderClaim(MetadataFieldConstants.Director, "Villeneuve",   0.9), // Parent (Movies override)
         };
 
         await ScoringHelper.PersistAndScoreWithLineageAsync(
@@ -84,9 +84,18 @@ public sealed class ScoringHelperLineageTests
             new RecordingScoringEngine(), new MinimalConfigLoader(),
             allProviders: [], CancellationToken.None);
 
-        // Only one persistence pass — all 3 claims keyed by the asset.
-        Assert.Equal(3, claimRepo.Inserted.Count);
-        Assert.All(claimRepo.Inserted, c => Assert.Equal(assetId, c.EntityId));
+        // Asset row receives only self-scope claims (Title).
+        var assetClaims = claimRepo.Inserted.Where(c => c.EntityId == assetId).ToList();
+        Assert.Single(assetClaims);
+        Assert.Equal(MetadataFieldConstants.Title, assetClaims[0].ClaimKey);
+
+        // Work row receives the parent-scope claims (Year, Director). Even when the
+        // standalone Work id == AssetId would be tempting, the writer always routes
+        // parent claims to TargetForParentScope (= workId here), not to the asset.
+        var workClaims = claimRepo.Inserted.Where(c => c.EntityId == workId).ToList();
+        Assert.Equal(2, workClaims.Count);
+        Assert.Contains(workClaims, c => c.ClaimKey == MetadataFieldConstants.Year);
+        Assert.Contains(workClaims, c => c.ClaimKey == MetadataFieldConstants.Director);
     }
 
     // ── Test 3: TV episode under a show → parent claims mirrored ──
@@ -131,9 +140,13 @@ public sealed class ScoringHelperLineageTests
             new RecordingScoringEngine(), new MinimalConfigLoader(),
             allProviders: [], CancellationToken.None);
 
-        // Asset received the full picture (no reader regression).
+        // Asset row receives ONLY self-scope claims (Title, EpisodeNumber, Director).
+        // Director defaults to Self for TV (it is only Parent-scoped under the Movies override).
         var assetClaims = claimRepo.Inserted.Where(c => c.EntityId == assetId).ToList();
-        Assert.Equal(7, assetClaims.Count);
+        Assert.Equal(3, assetClaims.Count);
+        Assert.Contains(assetClaims, c => c.ClaimKey == MetadataFieldConstants.Title);
+        Assert.Contains(assetClaims, c => c.ClaimKey == MetadataFieldConstants.EpisodeNumber);
+        Assert.Contains(assetClaims, c => c.ClaimKey == MetadataFieldConstants.Director);
 
         // Show Work received only the parent-scoped claims.
         var showClaims = claimRepo.Inserted.Where(c => c.EntityId == showWorkId).ToList();
@@ -193,7 +206,10 @@ public sealed class ScoringHelperLineageTests
         var trackClaims = claimRepo.Inserted.Where(c => c.EntityId == assetId).ToList();
         var albumClaims = claimRepo.Inserted.Where(c => c.EntityId == albumWorkId).ToList();
 
-        Assert.Equal(6, trackClaims.Count);
+        // Track row receives only the self-scope claims (Title, TrackNumber).
+        Assert.Equal(2, trackClaims.Count);
+        Assert.Contains(trackClaims, c => c.ClaimKey == MetadataFieldConstants.Title);
+        Assert.Contains(trackClaims, c => c.ClaimKey == MetadataFieldConstants.TrackNumber);
 
         // Album Work receives album, author, year, cover_url (4 parent-scoped claims).
         Assert.Equal(4, albumClaims.Count);

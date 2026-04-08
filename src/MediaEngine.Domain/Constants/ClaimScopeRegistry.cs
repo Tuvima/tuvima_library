@@ -124,9 +124,21 @@ public static class ClaimScopeRegistry
                 [MetadataFieldConstants.Cover]       = ClaimScope.Parent,
                 [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
             },
-            // Movies have no parent in the current resolver (always Standalone),
-            // so no overrides are needed — TargetForParentScope falls back to
-            // the movie's own Work.
+            [MediaType.Movies] = new(StringComparer.OrdinalIgnoreCase)
+            {
+                // Movies are standalone — TargetForParentScope collapses to
+                // the movie's own Work id. Declaring these fields Parent-scoped
+                // routes them to works.id (rather than media_assets.id), which
+                // gives every reader a single uniform lookup target.
+                [MetadataFieldConstants.Year]        = ClaimScope.Parent,
+                [MetadataFieldConstants.Description] = ClaimScope.Parent,
+                [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
+                [MetadataFieldConstants.Cover]       = ClaimScope.Parent,
+                [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
+                [MetadataFieldConstants.CastMember]  = ClaimScope.Parent,
+                [MetadataFieldConstants.Director]    = ClaimScope.Parent,
+                [MetadataFieldConstants.Runtime]     = ClaimScope.Parent,
+            },
         };
 
     /// <summary>
@@ -153,6 +165,55 @@ public static class ClaimScopeRegistry
             ? defaultScope
             : ClaimScope.Self;
     }
+
+    /// <summary>
+    /// Returns the set of claim keys that are <see cref="ClaimScope.Parent"/>
+    /// for the given media type. Used by reader queries (RegistryRepository,
+    /// SearchIndexRepository, HubRuleEvaluator) to know which canonical fields
+    /// must be looked up on the parent Work id rather than the asset id.
+    ///
+    /// The set is the union of <see cref="DefaultMap"/> Parent entries and
+    /// the per-media-type override Parent entries. Companion QID keys are
+    /// included automatically (e.g. if <c>genre</c> is parent-scoped, so is
+    /// <c>genre_qid</c>).
+    /// </summary>
+    public static IReadOnlySet<string> GetParentScopedKeys(MediaType mediaType)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (key, scope) in DefaultMap)
+        {
+            if (scope == ClaimScope.Parent)
+                set.Add(key);
+        }
+
+        if (Overrides.TryGetValue(mediaType, out var ovr))
+        {
+            foreach (var (key, scope) in ovr)
+            {
+                if (scope == ClaimScope.Parent)
+                    set.Add(key);
+                else
+                    set.Remove(key); // override demoted a default Parent → Self
+            }
+        }
+
+        // Mirror companion QID keys for any multi-valued parent key.
+        var withCompanions = new HashSet<string>(set, StringComparer.OrdinalIgnoreCase);
+        foreach (var key in set)
+        {
+            if (MetadataFieldConstants.MultiValuedKeys.Contains(key))
+                withCompanions.Add(key + MetadataFieldConstants.CompanionQidSuffix);
+        }
+        return withCompanions;
+    }
+
+    /// <summary>
+    /// Convenience predicate equivalent to
+    /// <c>GetScope(claimKey, mediaType) == ClaimScope.Parent</c>.
+    /// </summary>
+    public static bool IsParentScoped(string claimKey, MediaType mediaType)
+        => GetScope(claimKey, mediaType) == ClaimScope.Parent;
 
     /// <summary>
     /// Strips the <c>_qid</c> suffix used for companion QID keys so the

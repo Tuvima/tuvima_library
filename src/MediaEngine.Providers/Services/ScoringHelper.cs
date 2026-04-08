@@ -134,28 +134,14 @@ public static class ScoringHelper
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
-        // Update FTS5 search index when any searchable field changes.
-        // Phase 2C: index title, original_title, alternate_titles, author, description
-        // for cross-language search (e.g. "Amélie" matches via unicode61 tokenizer).
+        // Refresh the FTS5 search index for this work. UpsertByEntityIdAsync
+        // accepts either an asset id or a Work id and re-reads the canonical
+        // state from the database — Self fields from the asset row, Parent
+        // fields from the topmost Work row. Both persist passes
+        // (asset and parent) call this; the second simply overwrites the row.
         if (searchIndex is not null)
         {
-            var titleVal         = canonicals.FirstOrDefault(c => c.Key == "title")?.Value;
-            var originalTitleVal = canonicals.FirstOrDefault(c => c.Key == "original_title")?.Value;
-            var authorVal        = canonicals.FirstOrDefault(c => c.Key == "author")?.Value;
-            var descriptionVal   = canonicals.FirstOrDefault(c => c.Key == "description")?.Value;
-            // alternate_titles are stored in canonical_value_arrays; UpsertByEntityIdAsync
-            // resolves them from the database via the work_id join.
-            if (titleVal is not null || originalTitleVal is not null || authorVal is not null)
-            {
-                await searchIndex.UpsertByEntityIdAsync(
-                    entityId,
-                    titleVal,
-                    originalTitleVal,
-                    alternateTitles: null,  // populated by RebuildAsync from canonical_value_arrays
-                    authorVal,
-                    descriptionVal,
-                    ct).ConfigureAwait(false);
-            }
+            await searchIndex.UpsertByEntityIdAsync(entityId, ct).ConfigureAwait(false);
         }
 
         // Decompose multi-valued fields into proper array rows.
@@ -227,24 +213,25 @@ public static class ScoringHelper
     }
 
     /// <summary>
-    /// Phase 3c: lineage-aware persist + score. Runs the existing per-asset
-    /// persistence path unchanged (so no Vault reader regresses), and then —
-    /// when the asset has a real parent in the Work hierarchy — mirrors the
-    /// claims tagged with <see cref="ClaimScope.Parent"/> onto the parent
-    /// Work id as a second persist+score pass.
+    /// Lineage-aware persist + score (Phase 4 target architecture).
     ///
-    /// The result is "dual write": the asset row keeps its full canonical
-    /// values picture for backward compatibility, and the parent Work gains
-    /// an authoritative copy of the parent-scoped fields (show_name, album,
-    /// year for music, etc.). Phase 4 readers will consult the parent Work,
-    /// and Phase 5 will retire the asset-side mirror once the registry CTEs
-    /// are ported.
+    /// Splits the inbound provider claims into two disjoint buckets using
+    /// <see cref="ClaimScopeRegistry"/>:
+    ///   • Self-scope claims  → written to the asset's own entity id.
+    ///   • Parent-scope claims → written to <c>lineage.TargetForParentScope</c>,
+    ///     which is the topmost Work in the hierarchy (the SHOW for TV, the
+    ///     ALBUM for music, the SERIES for comics, the movie's own Work for
+    ///     standalone movies).
     ///
-    /// When <paramref name="lineage"/> is null, or when the asset is its own
-    /// root (movies, single-volume books), the parent pass is a no-op and
-    /// behaviour is identical to <see cref="PersistClaimsAndScoreAsync"/>.
-    /// The parent-side mirror is best-effort: failures are logged but never
-    /// break the asset-side write.
+    /// This split is unconditional and applies to every media type — including
+    /// movies, where <c>TargetForParentScope == TargetForSelfScope</c>. In that
+    /// case the parent claims still land on the movie's own Work id (not the
+    /// media_assets row), giving every reader a single uniform lookup target:
+    /// "parent-scoped fields live on the work; self-scoped fields live on the
+    /// asset". No COALESCE, no fallback, no dual-write mirror.
+    ///
+    /// When <paramref name="lineage"/> is null, the entire write collapses to
+    /// the asset id (legacy callers without a resolved hierarchy).
     /// </summary>
     public static async Task<ScoringResult> PersistAndScoreWithLineageAsync(
         Guid entityId,
@@ -261,47 +248,59 @@ public static class ScoringHelper
         ILogger? logger = null,
         ISearchIndexRepository? searchIndex = null)
     {
-        // 1. Asset-keyed write — unchanged behaviour, preserves all current
-        //    Vault reads.
+        // No lineage → fall back to single-target write on the asset id.
+        if (lineage is null)
+        {
+            return await PersistClaimsAndScoreAsync(
+                entityId, claims, providerId,
+                claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
+                arrayRepo, logger, searchIndex).ConfigureAwait(false);
+        }
+
+        // Partition claims by scope. The split is media-type aware.
+        var selfClaims = new List<ProviderClaim>(claims.Count);
+        var parentClaims = new List<ProviderClaim>(claims.Count);
+        foreach (var c in claims)
+        {
+            if (string.IsNullOrWhiteSpace(c.Key))
+                continue;
+
+            if (ClaimScopeRegistry.GetScope(c.Key, lineage.MediaType) == ClaimScope.Parent)
+                parentClaims.Add(c);
+            else
+                selfClaims.Add(c);
+        }
+
+        // 1. Asset-keyed write — only self-scope claims.
         var assetResult = await PersistClaimsAndScoreAsync(
-            entityId, claims, providerId,
+            entityId, selfClaims, providerId,
             claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
             arrayRepo, logger, searchIndex).ConfigureAwait(false);
 
-        // 2. Parent-Work mirror — only when the asset has a real parent.
-        if (lineage is null
-            || lineage.TargetForParentScope == lineage.TargetForSelfScope
-            || claims.Count == 0)
+        // 2. Parent-Work write — only parent-scope claims, always against the
+        //    topmost Work id (collapses to the movie's own Work for standalone
+        //    media, so the data lives on works.id rather than media_assets.id).
+        if (parentClaims.Count > 0)
         {
-            return assetResult;
-        }
+            try
+            {
+                await PersistClaimsAndScoreAsync(
+                    lineage.TargetForParentScope,
+                    parentClaims,
+                    providerId,
+                    claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
+                    arrayRepo, logger, searchIndex).ConfigureAwait(false);
 
-        var parentClaims = claims
-            .Where(c => !string.IsNullOrWhiteSpace(c.Key)
-                     && ClaimScopeRegistry.GetScope(c.Key, lineage.MediaType) == ClaimScope.Parent)
-            .ToList();
-
-        if (parentClaims.Count == 0)
-            return assetResult;
-
-        try
-        {
-            await PersistClaimsAndScoreAsync(
-                lineage.TargetForParentScope,
-                parentClaims,
-                providerId,
-                claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-                arrayRepo, logger, searchIndex).ConfigureAwait(false);
-
-            logger?.LogDebug(
-                "Phase 3c: mirrored {Count} parent-scope claim(s) for asset {AssetId} → parent Work {ParentWorkId} ({MediaType})",
-                parentClaims.Count, entityId, lineage.TargetForParentScope, lineage.MediaType);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            logger?.LogWarning(ex,
-                "Phase 3c parent-scope mirror write failed for parent Work {ParentWorkId} (asset {AssetId})",
-                lineage.TargetForParentScope, entityId);
+                logger?.LogDebug(
+                    "Lineage write: {ParentCount} parent-scope + {SelfCount} self-scope claim(s) for asset {AssetId} → parent Work {ParentWorkId} ({MediaType})",
+                    parentClaims.Count, selfClaims.Count, entityId, lineage.TargetForParentScope, lineage.MediaType);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger?.LogWarning(ex,
+                    "Parent-scope write failed for parent Work {ParentWorkId} (asset {AssetId}, {MediaType})",
+                    lineage.TargetForParentScope, entityId, lineage.MediaType);
+            }
         }
 
         return assetResult;

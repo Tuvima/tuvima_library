@@ -45,18 +45,64 @@ public sealed class RegistryRepository : IRegistryRepository
                         OR wd.curator_state IN ('provisional', 'rejected')
                     )
             """;
+        // Phase 4 — lineage-aware reads. Two pivot CTEs:
+        //   • acv (asset_cv) — canonical_values keyed on media_assets.id, holding
+        //     SELF-scope fields (title, season_number, episode_number, etc.)
+        //   • wcv (work_cv)  — canonical_values keyed on the TOPMOST Work id
+        //     (the SHOW for TV, the ALBUM for music, the SERIES for comics, the
+        //     movie's own Work for standalone movies), holding PARENT-scope
+        //     fields (year, cover_url, genre, description, show_name, album,
+        //     director-for-movies, etc.).
+        //
+        // The router (ScoringHelper.PersistAndScoreWithLineageAsync) writes each
+        // claim to exactly ONE target based on ClaimScopeRegistry, so each field
+        // appears in exactly one CTE — no fallback, no COALESCE between them.
+        // Fields whose scope varies by media type (director, runtime) use a
+        // single deterministic source per row via CASE on w.media_type.
         var sql = $"""
-            WITH work_data AS (
+            WITH asset_cv AS (
+                SELECT e.work_id AS work_id,
+                       cv.key, cv.value, cv.winning_provider_id, cv.is_conflicted
+                FROM editions e
+                JOIN media_assets ma ON ma.edition_id = e.id
+                JOIN canonical_values cv ON cv.entity_id = ma.id
+            ),
+            work_cv AS (
+                -- canonical_values stored against the topmost Work id.
+                -- Walks the parent_work_id chain up to two levels (TV: episode →
+                -- season → show; music: track → album; movies: standalone).
+                SELECT w.id AS work_id, cv.key, cv.value
+                FROM works w
+                LEFT JOIN works p  ON p.id  = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                JOIN canonical_values cv
+                  ON cv.entity_id = COALESCE(gp.id, p.id, w.id)
+            ),
+            work_data AS (
                 SELECT
                     w.id AS entity_id,
                     w.media_type,
                     w.wikidata_status,
-                    MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
-                    MAX(CASE WHEN cv.key IN ('release_year', 'date', 'year') THEN cv.value END) AS year,
-                    MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover_url,
-                    MAX(CASE WHEN cv.key = 'hero' THEN cv.value END) AS hero_url,
-                    -- Multi-author display: "A & B" or "A & B + N more", falling back to
-                    -- canonical_values.author when no array entries exist.
+                    -- ── Self-scope (asset row) ──
+                    MAX(CASE WHEN acv.key = 'title'           THEN acv.value END) AS title,
+                    MAX(CASE WHEN acv.key = 'series_position' THEN acv.value END) AS series_position,
+                    MAX(CASE WHEN acv.key = 'rating'          THEN acv.value END) AS rating,
+                    MAX(CASE WHEN acv.key = 'track_number'    THEN acv.value END) AS track_number,
+                    MAX(CASE WHEN acv.key = 'season_number'   THEN acv.value END) AS season_number,
+                    MAX(CASE WHEN acv.key = 'episode_number'  THEN acv.value END) AS episode_number,
+                    MAX(CASE WHEN acv.key = 'episode_title'   THEN acv.value END) AS episode_title,
+                    MAX(CASE WHEN acv.key = 'duration'        THEN acv.value END) AS duration,
+                    MAX(CASE WHEN acv.key = 'hero'            THEN acv.value END) AS hero_url,
+                    MAX(CASE WHEN acv.key = 'file_name'       THEN acv.value END) AS file_name,
+                    MAX(CASE WHEN acv.key = 'title' THEN acv.winning_provider_id END) AS title_provider_id,
+                    MAX(CASE WHEN acv.key = 'title' THEN acv.is_conflicted END)       AS title_conflicted,
+                    -- ── Parent-scope (root parent Work row) ──
+                    MAX(CASE WHEN wcv.key IN ('release_year','date','year') THEN wcv.value END) AS year,
+                    MAX(CASE WHEN wcv.key = 'cover_url'    THEN wcv.value END) AS cover_url,
+                    -- Multi-author display: prefer canonical_value_arrays
+                    -- (keyed on the topmost Work id since author is Parent-scoped),
+                    -- format as "A & B" or "A & B + N more", and fall back to the
+                    -- pivoted single-string canonical author when no array exists.
                     COALESCE(
                         (SELECT
                             CASE
@@ -66,40 +112,50 @@ public sealed class RegistryRepository : IRegistryRepository
                             END
                          FROM (SELECT COUNT(DISTINCT cva0.value) AS total
                                FROM canonical_value_arrays cva0
-                               INNER JOIN media_assets ma0 ON ma0.id = cva0.entity_id
-                               INNER JOIN editions e0 ON e0.id = ma0.edition_id
-                               WHERE e0.work_id = w.id AND cva0.key = 'author') cnt
+                               LEFT JOIN works pw  ON pw.id  = w.parent_work_id
+                               LEFT JOIN works gpw ON gpw.id = pw.parent_work_id
+                               WHERE cva0.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                                 AND cva0.key = 'author') cnt
                          LEFT JOIN (SELECT DISTINCT cva1.value
                                     FROM canonical_value_arrays cva1
-                                    INNER JOIN media_assets ma1 ON ma1.id = cva1.entity_id
-                                    INNER JOIN editions e1 ON e1.id = ma1.edition_id
-                                    WHERE e1.work_id = w.id AND cva1.key = 'author'
+                                    LEFT JOIN works pw1  ON pw1.id  = w.parent_work_id
+                                    LEFT JOIN works gpw1 ON gpw1.id = pw1.parent_work_id
+                                    WHERE cva1.entity_id = COALESCE(gpw1.id, pw1.id, w.id)
+                                      AND cva1.key = 'author'
                                     ORDER BY cva1.ordinal LIMIT 1) a1 ON 1=1
                          LEFT JOIN (SELECT DISTINCT cva2.value
                                     FROM canonical_value_arrays cva2
-                                    INNER JOIN media_assets ma2b ON ma2b.id = cva2.entity_id
-                                    INNER JOIN editions e2b ON e2b.id = ma2b.edition_id
-                                    WHERE e2b.work_id = w.id AND cva2.key = 'author'
+                                    LEFT JOIN works pw2  ON pw2.id  = w.parent_work_id
+                                    LEFT JOIN works gpw2 ON gpw2.id = pw2.parent_work_id
+                                    WHERE cva2.entity_id = COALESCE(gpw2.id, pw2.id, w.id)
+                                      AND cva2.key = 'author'
                                     ORDER BY cva2.ordinal LIMIT 1 OFFSET 1) a2 ON cnt.total >= 2
                          WHERE cnt.total >= 1),
-                        MAX(CASE WHEN cv.key = 'author' THEN cv.value END)
+                        MAX(CASE WHEN wcv.key = 'author' THEN wcv.value END)
                     ) AS author,
-                    MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS director,
-                    MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
-                    MAX(CASE WHEN cv.key = 'series' THEN cv.value END) AS series,
-                    MAX(CASE WHEN cv.key = 'series_position' THEN cv.value END) AS series_position,
-                    MAX(CASE WHEN cv.key = 'narrator' THEN cv.value END) AS narrator,
-                    MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
-                    MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
-                    MAX(CASE WHEN cv.key = 'rating' THEN cv.value END) AS rating,
-                    MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
-                    MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
-                    MAX(CASE WHEN cv.key = 'season_number' THEN cv.value END) AS season_number,
-                    MAX(CASE WHEN cv.key = 'episode_number' THEN cv.value END) AS episode_number,
-                    MAX(CASE WHEN cv.key = 'show_name' THEN cv.value END) AS show_name,
-                    MAX(CASE WHEN cv.key = 'episode_title' THEN cv.value END) AS episode_title,
-                    MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS network,
-                    MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
+                    MAX(CASE WHEN wcv.key = 'artist'       THEN wcv.value END) AS artist,
+                    MAX(CASE WHEN wcv.key = 'series'       THEN wcv.value END) AS series,
+                    MAX(CASE WHEN wcv.key = 'narrator'     THEN wcv.value END) AS narrator,
+                    MAX(CASE WHEN wcv.key = 'genre'        THEN wcv.value END) AS genre,
+                    MAX(CASE WHEN wcv.key = 'album'        THEN wcv.value END) AS album,
+                    MAX(CASE WHEN wcv.key = 'show_name'    THEN wcv.value END) AS show_name,
+                    MAX(CASE WHEN wcv.key = 'network'      THEN wcv.value END) AS network,
+                    -- wikidata_qid is Self-scoped (default): for TV the QID is the
+                    -- episode's QID, for music it's the track's QID, for movies it
+                    -- collapses onto the movie's own Work but is still routed to the
+                    -- asset row by ScoringHelper. Read from the asset CTE only.
+                    MAX(CASE WHEN acv.key = 'wikidata_qid' THEN acv.value END) AS wikidata_qid,
+                    -- ── Mixed fields (scope depends on media_type) ──
+                    -- director: Parent for Movies (works.id), Self for TV (asset).
+                    -- runtime:  Parent for Movies, Self elsewhere.
+                    CASE WHEN w.media_type = 'Movies'
+                         THEN MAX(CASE WHEN wcv.key = 'director' THEN wcv.value END)
+                         ELSE MAX(CASE WHEN acv.key = 'director' THEN acv.value END)
+                    END AS director,
+                    CASE WHEN w.media_type = 'Movies'
+                         THEN MAX(CASE WHEN wcv.key = 'runtime' THEN wcv.value END)
+                         ELSE MAX(CASE WHEN acv.key = 'runtime' THEN acv.value END)
+                    END AS runtime,
                     (SELECT pr.name || ': ' || mc_rt.claim_value
                      FROM metadata_claims mc_rt
                      INNER JOIN media_assets ma_rt ON ma_rt.id = mc_rt.entity_id
@@ -112,15 +168,10 @@ public sealed class RegistryRepository : IRegistryRepository
                      ORDER BY mc_rt.confidence DESC
                      LIMIT 1
                     ) AS retail_match_detail,
-                    MAX(CASE WHEN cv.key = 'file_name' THEN cv.value END) AS file_name,
-                    MAX(CASE WHEN cv.key = 'wikidata_qid' THEN cv.value END) AS wikidata_qid,
-                    MAX(CASE WHEN cv.key = 'title' THEN cv.winning_provider_id END) AS title_provider_id,
-                    MAX(CASE WHEN cv.key = 'title' THEN cv.is_conflicted END) AS title_conflicted,
                     w.curator_state
                 FROM works w
-                LEFT JOIN editions e2 ON e2.work_id = w.id
-                LEFT JOIN media_assets ma2 ON ma2.edition_id = e2.id
-                LEFT JOIN canonical_values cv ON cv.entity_id = ma2.id
+                LEFT JOIN asset_cv acv ON acv.work_id = w.id
+                LEFT JOIN work_cv  wcv ON wcv.work_id = w.id
                 GROUP BY w.id, w.media_type, w.wikidata_status, w.curator_state
             ),
             asset_data AS (
@@ -438,20 +489,33 @@ public sealed class RegistryRepository : IRegistryRepository
     {
         using var conn = _db.CreateConnection();
 
-        // Canonical values and claims are stored against media_asset.id, not works.id.
-        // Resolve the asset ID through the editions → media_assets chain.
-        var assetIdStr = conn.ExecuteScalar<string?>("""
-            SELECT MIN(ma.id) AS id
-            FROM editions e
-            INNER JOIN media_assets ma ON ma.edition_id = e.id
-            WHERE e.work_id = @entityId
+        // Phase 4 — lineage-aware detail load. We need TWO canonical_values rowsets:
+        //   • assetId          → Self-scope fields (title, episode_number, etc.)
+        //   • rootParentWorkId → Parent-scope fields (year, cover_url, genre, etc.)
+        //
+        // Walk the parent_work_id chain up to two levels via WorkRepository's
+        // canonical lineage SQL, returning the topmost Work id.
+        var lineageRow = conn.QueryFirstOrDefault<(string AssetId, string RootParentWorkId, string MediaType)>("""
+            SELECT MIN(ma.id)                                      AS AssetId,
+                   COALESCE(gp.id, p.id, w.id)                     AS RootParentWorkId,
+                   w.media_type                                    AS MediaType
+            FROM works w
+            LEFT JOIN works p  ON p.id  = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            LEFT JOIN editions e         ON e.work_id     = w.id
+            LEFT JOIN media_assets ma    ON ma.edition_id = e.id
+            WHERE w.id = @entityId
+            GROUP BY w.id
             """, new { entityId = entityId.ToString() });
 
-        if (assetIdStr is null)
+        if (lineageRow == default || lineageRow.AssetId is null)
             return Task.FromResult<RegistryItemDetail?>(null);
 
-        // Load all canonical values for this entity (keyed by asset ID)
-        var canonicalValues = conn.Query<(string Key, string Value, int IsConflicted,
+        var assetIdStr     = lineageRow.AssetId;
+        var rootParentStr  = lineageRow.RootParentWorkId;
+
+        // Load self-scope canonical values from the asset row.
+        var selfValues = conn.Query<(string Key, string Value, int IsConflicted,
             string? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
             SELECT key AS Key, value AS Value, is_conflicted AS IsConflicted,
                    winning_provider_id AS WinningProviderId, needs_review AS NeedsReview,
@@ -469,19 +533,49 @@ public sealed class RegistryRepository : IRegistryRepository
                 LastScoredAt:      DateTimeOffset.TryParse(r.LastScoredAt, out var dt) ? dt : DateTimeOffset.MinValue))
             .ToList();
 
+        // Load parent-scope canonical values from the topmost Work row.
+        // For standalone media (movies, single-volume books) the topmost Work id
+        // equals the work itself, so this still finds the correct row.
+        var parentValues = conn.Query<(string Key, string Value, int IsConflicted,
+            string? WinningProviderId, int NeedsReview, string LastScoredAt)>("""
+            SELECT key AS Key, value AS Value, is_conflicted AS IsConflicted,
+                   winning_provider_id AS WinningProviderId, needs_review AS NeedsReview,
+                   last_scored_at AS LastScoredAt
+            FROM canonical_values
+            WHERE entity_id = @parentId
+            ORDER BY key
+            """, new { parentId = rootParentStr })
+            .Select(r => new RegistryCanonicalValue(
+                Key:               r.Key,
+                Value:             r.Value,
+                IsConflicted:      r.IsConflicted == 1,
+                WinningProviderId: r.WinningProviderId,
+                NeedsReview:       r.NeedsReview == 1,
+                LastScoredAt:      DateTimeOffset.TryParse(r.LastScoredAt, out var dt) ? dt : DateTimeOffset.MinValue))
+            .ToList();
+
+        // Merge for the detail panel display: callers expect a single CanonicalValues
+        // collection. Self values shadow same-key parent values for safety, but with
+        // the partitioned writer there should be no overlap.
+        var canonicalValues = parentValues
+            .Where(p => !selfValues.Any(s => s.Key == p.Key))
+            .Concat(selfValues)
+            .ToList();
+
         if (canonicalValues.Count == 0)
             return Task.FromResult<RegistryItemDetail?>(null);
 
-        // Load claim history (also keyed by asset ID)
+        // Load claim history from BOTH the asset row and the parent Work row,
+        // since the writer partitions claims by scope.
         var claims = conn.Query<(string Id, string ClaimKey, string ClaimValue, string ProviderId,
             double Confidence, int IsUserLocked, string ClaimedAt)>("""
             SELECT id AS Id, claim_key AS ClaimKey, claim_value AS ClaimValue,
                    provider_id AS ProviderId, confidence AS Confidence,
                    is_user_locked AS IsUserLocked, claimed_at AS ClaimedAt
             FROM metadata_claims
-            WHERE entity_id = @assetId
+            WHERE entity_id IN (@assetId, @parentId)
             ORDER BY claimed_at DESC
-            """, new { assetId = assetIdStr })
+            """, new { assetId = assetIdStr, parentId = rootParentStr })
             .Select(r => new RegistryClaimRecord(
                 Id:           Guid.Parse(r.Id),
                 ClaimKey:     r.ClaimKey,
@@ -665,10 +759,17 @@ public sealed class RegistryRepository : IRegistryRepository
                      SELECT 1 FROM review_queue rq
                      WHERE rq.entity_id = ma.id AND rq.status = 'Pending'
                    )) AS Staging,
+                -- MissingImages: items with a wikidata_qid (Self, asset row) but no
+                -- cover_url on the topmost Work row (Parent-scoped after Phase 4).
                 (SELECT COUNT(DISTINCT e.work_id)
                  FROM editions e
                  JOIN media_assets ma ON ma.edition_id = e.id
-                 LEFT JOIN canonical_values cv_cover ON cv_cover.entity_id = ma.id AND cv_cover.key = 'cover_url'
+                 JOIN works w  ON w.id = e.work_id
+                 LEFT JOIN works p  ON p.id  = w.parent_work_id
+                 LEFT JOIN works gp ON gp.id = p.parent_work_id
+                 LEFT JOIN canonical_values cv_cover
+                        ON cv_cover.entity_id = COALESCE(gp.id, p.id, w.id)
+                       AND cv_cover.key = 'cover_url'
                  WHERE (cv_cover.value IS NULL OR TRIM(cv_cover.value) = '')
                    AND EXISTS (
                      SELECT 1 FROM canonical_values cv2
@@ -848,14 +949,17 @@ public sealed class RegistryRepository : IRegistryRepository
     public Task<Dictionary<string, int>> GetMediaTypeCountsAsync(CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
+        // works.media_type is the authoritative source — no need to round-trip
+        // through canonical_values for a column that lives directly on the row.
+        // Only count playable leaf works (those with attached editions/media_assets);
+        // parent container rows (albums, shows, series) are excluded.
         var rows = conn.Query<(string MediaType, int Count)>("""
-            SELECT cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-            FROM canonical_values cv
-            JOIN media_assets ma ON ma.id = cv.entity_id
-            JOIN editions e ON e.id = ma.edition_id
-            JOIN works w ON w.id = e.work_id
-            WHERE cv.key = 'media_type'
-            GROUP BY cv.value
+            SELECT w.media_type AS MediaType, COUNT(DISTINCT w.id) AS Count
+            FROM works w
+            INNER JOIN editions e     ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE w.media_type IS NOT NULL AND w.media_type != ''
+            GROUP BY w.media_type
             """);
         return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));
     }
