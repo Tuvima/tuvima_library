@@ -552,8 +552,19 @@ public sealed class RetailMatchWorker
 
         if (outcome != "Rejected")
         {
-            await ScoringHelper.PersistClaimsAndScoreAsync(
-                job.EntityId, claims, providerId,
+            // Phase 3c: fetch lineage so parent-scope claims (album, artist,
+            // year, cover) mirror onto the album Work in addition to the track.
+            WorkLineage? lineage = null;
+            try { lineage = await _workRepo.GetLineageByAssetAsync(job.EntityId, ct); }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex,
+                    "Phase 3c: lineage lookup failed for music track {EntityId} — parent mirror skipped",
+                    job.EntityId);
+            }
+
+            await ScoringHelper.PersistAndScoreWithLineageAsync(
+                job.EntityId, claims, providerId, lineage,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                 logger: _logger);
 
@@ -1084,8 +1095,20 @@ public sealed class RetailMatchWorker
 
         if (outcome != "Rejected")
         {
-            await ScoringHelper.PersistClaimsAndScoreAsync(
-                job.EntityId, claims, providerId,
+            // Phase 3c: fetch lineage so parent-scope claims (show_name,
+            // year, description, cover) mirror onto the show Work in
+            // addition to the episode.
+            WorkLineage? lineage = null;
+            try { lineage = await _workRepo.GetLineageByAssetAsync(job.EntityId, ct); }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex,
+                    "Phase 3c: lineage lookup failed for TV episode {EntityId} — parent mirror skipped",
+                    job.EntityId);
+            }
+
+            await ScoringHelper.PersistAndScoreWithLineageAsync(
+                job.EntityId, claims, providerId, lineage,
                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                 logger: _logger);
 
@@ -1468,8 +1491,11 @@ public sealed class RetailMatchWorker
                 // Persist claims if candidate is accepted or ambiguous
                 if (outcome != "Rejected")
                 {
-                    await ScoringHelper.PersistClaimsAndScoreAsync(
-                        job.EntityId, claims, provider.ProviderId,
+                    // Phase 3c: pass lineage so parent-scope claims mirror
+                    // onto the parent Work (book series → series Work,
+                    // audiobook series → series Work, etc.).
+                    await ScoringHelper.PersistAndScoreWithLineageAsync(
+                        job.EntityId, claims, provider.ProviderId, lineage,
                         _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                         logger: _logger);
 

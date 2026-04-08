@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Contracts;
@@ -223,6 +224,87 @@ public static class ScoringHelper
         }
 
         return scored;
+    }
+
+    /// <summary>
+    /// Phase 3c: lineage-aware persist + score. Runs the existing per-asset
+    /// persistence path unchanged (so no Vault reader regresses), and then —
+    /// when the asset has a real parent in the Work hierarchy — mirrors the
+    /// claims tagged with <see cref="ClaimScope.Parent"/> onto the parent
+    /// Work id as a second persist+score pass.
+    ///
+    /// The result is "dual write": the asset row keeps its full canonical
+    /// values picture for backward compatibility, and the parent Work gains
+    /// an authoritative copy of the parent-scoped fields (show_name, album,
+    /// year for music, etc.). Phase 4 readers will consult the parent Work,
+    /// and Phase 5 will retire the asset-side mirror once the registry CTEs
+    /// are ported.
+    ///
+    /// When <paramref name="lineage"/> is null, or when the asset is its own
+    /// root (movies, single-volume books), the parent pass is a no-op and
+    /// behaviour is identical to <see cref="PersistClaimsAndScoreAsync"/>.
+    /// The parent-side mirror is best-effort: failures are logged but never
+    /// break the asset-side write.
+    /// </summary>
+    public static async Task<ScoringResult> PersistAndScoreWithLineageAsync(
+        Guid entityId,
+        IReadOnlyList<ProviderClaim> claims,
+        Guid providerId,
+        WorkLineage? lineage,
+        IMetadataClaimRepository claimRepo,
+        ICanonicalValueRepository canonicalRepo,
+        IScoringEngine scoringEngine,
+        IConfigurationLoader configLoader,
+        IEnumerable<IExternalMetadataProvider> allProviders,
+        CancellationToken ct,
+        ICanonicalValueArrayRepository? arrayRepo = null,
+        ILogger? logger = null,
+        ISearchIndexRepository? searchIndex = null)
+    {
+        // 1. Asset-keyed write — unchanged behaviour, preserves all current
+        //    Vault reads.
+        var assetResult = await PersistClaimsAndScoreAsync(
+            entityId, claims, providerId,
+            claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
+            arrayRepo, logger, searchIndex).ConfigureAwait(false);
+
+        // 2. Parent-Work mirror — only when the asset has a real parent.
+        if (lineage is null
+            || lineage.TargetForParentScope == lineage.TargetForSelfScope
+            || claims.Count == 0)
+        {
+            return assetResult;
+        }
+
+        var parentClaims = claims
+            .Where(c => !string.IsNullOrWhiteSpace(c.Key)
+                     && ClaimScopeRegistry.GetScope(c.Key, lineage.MediaType) == ClaimScope.Parent)
+            .ToList();
+
+        if (parentClaims.Count == 0)
+            return assetResult;
+
+        try
+        {
+            await PersistClaimsAndScoreAsync(
+                lineage.TargetForParentScope,
+                parentClaims,
+                providerId,
+                claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
+                arrayRepo, logger, searchIndex).ConfigureAwait(false);
+
+            logger?.LogDebug(
+                "Phase 3c: mirrored {Count} parent-scope claim(s) for asset {AssetId} → parent Work {ParentWorkId} ({MediaType})",
+                parentClaims.Count, entityId, lineage.TargetForParentScope, lineage.MediaType);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger?.LogWarning(ex,
+                "Phase 3c parent-scope mirror write failed for parent Work {ParentWorkId} (asset {AssetId})",
+                lineage.TargetForParentScope, entityId);
+        }
+
+        return assetResult;
     }
 
     /// <summary>

@@ -97,6 +97,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
             features.ScholarAvailable ? "text_scholar (8B)" : "text_quality (3B)",
             features.ScholarAvailable);
         var canonicalRepo  = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
+        var workRepo       = scope.ServiceProvider.GetRequiredService<IWorkRepository>();
         var descIntel      = scope.ServiceProvider.GetRequiredService<IDescriptionIntelligenceService>();
         var personRecon    = scope.ServiceProvider.GetService<IPersonReconciliationService>();
         var claimRepo      = scope.ServiceProvider.GetRequiredService<IMetadataClaimRepository>();
@@ -350,8 +351,19 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             // Persist AI-resolved person QID claims and create Person records.
                             if (aiPersonClaims.Count > 0)
                             {
-                                await ScoringHelper.PersistClaimsAndScoreAsync(
-                                    entityId, aiPersonClaims, wikidataProviderId,
+                                // Phase 3c: lineage-aware persist so cast_member_qid /
+                                // director_qid for TV episodes mirror onto the show Work.
+                                WorkLineage? lineage = null;
+                                try { lineage = await workRepo.GetLineageByAssetAsync(entityId, ct).ConfigureAwait(false); }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogDebug(ex,
+                                        "[DESCRIPTION-INTEL-BATCH] Phase 3c lineage lookup failed for entity {EntityId} — parent mirror skipped",
+                                        entityId);
+                                }
+
+                                await ScoringHelper.PersistAndScoreWithLineageAsync(
+                                    entityId, aiPersonClaims, wikidataProviderId, lineage,
                                     claimRepo, canonicalRepo, scoringEngine, configLoader,
                                     providers, ct, arrayRepo, _logger, searchIndex).ConfigureAwait(false);
 

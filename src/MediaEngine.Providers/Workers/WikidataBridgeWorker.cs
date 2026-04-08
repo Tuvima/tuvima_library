@@ -477,6 +477,20 @@ public sealed class WikidataBridgeWorker
     {
         var job = ctx.Job;
 
+        // Phase 3c: fetch lineage once for this job. Used by both
+        // ScoringHelper (parent-scope claim mirroring into the parent Work's
+        // canonical_values) and RouteToWorksAsync (writing the resolved QID
+        // and bridge IDs to works.external_identifiers). One DB round-trip
+        // per job, reused throughout finalisation.
+        WorkLineage? lineage = null;
+        try { lineage = await _workRepo.GetLineageByAssetAsync(job.EntityId, ct); }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex,
+                "Phase 3c: lineage lookup failed for asset {EntityId} — parent-scope mirror and Work routing skipped",
+                job.EntityId);
+        }
+
         if (ctx.ResolvedQid is not null)
         {
             // Build candidate record.
@@ -503,14 +517,16 @@ public sealed class WikidataBridgeWorker
             // Persist claims accumulated during group resolution.
             if (ctx.AdditionalClaims.Count > 0)
             {
-                await ScoringHelper.PersistClaimsAndScoreAsync(
-                    job.EntityId, ctx.AdditionalClaims, reconAdapter.ProviderId,
+                // Phase 3c: lineage-aware persist mirrors parent-scope display
+                // claims (album, year, cover) onto the parent Work.
+                await ScoringHelper.PersistAndScoreWithLineageAsync(
+                    job.EntityId, ctx.AdditionalClaims, reconAdapter.ProviderId, lineage,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                     logger: _logger);
 
                 // Phase 3b: route any container-level structural data (the album
                 // QID, child entity manifests) onto the parent Work.
-                await RouteToWorksAsync(job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                     ctx.AdditionalClaims, ct);
             }
 
@@ -572,14 +588,17 @@ public sealed class WikidataBridgeWorker
 
                 if (fullClaims.Count > 0)
                 {
-                    await ScoringHelper.PersistClaimsAndScoreAsync(
-                        job.EntityId, fullClaims, reconAdapter.ProviderId,
+                    // Phase 3c: lineage-aware persist mirrors parent-scope
+                    // display claims (show_name, year, description, cover,
+                    // genre, cast) onto the parent Work — the show or series.
+                    await ScoringHelper.PersistAndScoreWithLineageAsync(
+                        job.EntityId, fullClaims, reconAdapter.ProviderId, lineage,
                         _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                         logger: _logger);
 
                     // Phase 3b: route the QID and container fields onto the
                     // correct Work, then upsert any catalog children.
-                    await RouteToWorksAsync(job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                    await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                         fullClaims, ct);
                 }
             }
@@ -632,12 +651,15 @@ public sealed class WikidataBridgeWorker
                                 Outcome      = "AutoAccepted",
                             });
 
-                            await ScoringHelper.PersistClaimsAndScoreAsync(
-                                job.EntityId, fallbackClaims, reconAdapter.ProviderId,
+                            // Phase 3c: lineage-aware persist for the
+                            // text-fallback path so parent-scope claims still
+                            // mirror onto the parent Work.
+                            await ScoringHelper.PersistAndScoreWithLineageAsync(
+                                job.EntityId, fallbackClaims, reconAdapter.ProviderId, lineage,
                                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                                 logger: _logger);
 
-                            await RouteToWorksAsync(job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                            await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                                 fallbackClaims, ct);
 
                             await _timeline.RecordTitleFallbackResolvedAsync(
@@ -885,8 +907,18 @@ public sealed class WikidataBridgeWorker
 
             if (fullClaims.Count > 0)
             {
-                await ScoringHelper.PersistClaimsAndScoreAsync(
-                    entityId, fullClaims, reconAdapter.ProviderId,
+                // Phase 3c: lineage-aware persist for the manual-QID flow.
+                WorkLineage? lineage = null;
+                try { lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct); }
+                catch (Exception ex)
+                {
+                    _logger.LogDebug(ex,
+                        "Phase 3c: lineage lookup failed for asset {EntityId} (manual QID {Qid}) — parent mirror skipped",
+                        entityId, qid);
+                }
+
+                await ScoringHelper.PersistAndScoreWithLineageAsync(
+                    entityId, fullClaims, reconAdapter.ProviderId, lineage,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                     logger: _logger);
             }
@@ -921,16 +953,16 @@ public sealed class WikidataBridgeWorker
     /// surrounding pipeline.
     /// </summary>
     private async Task RouteToWorksAsync(
+        WorkLineage? lineage,
         Guid assetId,
         MediaType mediaType,
         string? resolvedQid,
         IReadOnlyList<ProviderClaim> claims,
         CancellationToken ct)
     {
+        if (lineage is null) return;
         try
         {
-            var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct);
-            if (lineage is null) return;
 
             // Build an identifier dict from the resolved QID plus any bridge-id
             // claims that came back with the Wikidata response. The router
