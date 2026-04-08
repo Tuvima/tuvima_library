@@ -205,6 +205,22 @@ public sealed class WikidataBridgeWorker
                 .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Author,
                     StringComparison.OrdinalIgnoreCase))?.Value;
 
+            // For TV episodes, Wikidata typically has an entity for the SHOW, not the
+            // individual episode. If text fallback runs (because the show's tmdb_id
+            // wasn't indexed on Wikidata), use the show name — not the episode title —
+            // so we resolve to the show QID instead of failing on a bogus episode lookup.
+            if (mediaType == MediaType.TV)
+            {
+                var showName = canonicals
+                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.ShowName,
+                        StringComparison.OrdinalIgnoreCase))?.Value
+                    ?? canonicals
+                        .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Series,
+                            StringComparison.OrdinalIgnoreCase))?.Value;
+                if (!string.IsNullOrWhiteSpace(showName))
+                    titleHint = showName;
+            }
+
             BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
             string? albumHint  = null;

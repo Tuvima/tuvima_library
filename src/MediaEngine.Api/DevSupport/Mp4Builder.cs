@@ -16,7 +16,10 @@ public static class Mp4Builder
     public static byte[] Create(
         string title,
         string? director = null,
-        int year = 0)
+        int year = 0,
+        string? showName = null,
+        int? seasonNumber = null,
+        int? episodeNumber = null)
     {
         using var stream = new MemoryStream();
 
@@ -26,7 +29,7 @@ public static class Mp4Builder
 
         // moov box: movie box — contains metadata
         // We embed a minimal udta box with a ©nam (title) and ©ART (artist) atom.
-        WriteMoovBox(stream, title, director, year);
+        WriteMoovBox(stream, title, director, year, showName, seasonNumber, episodeNumber);
 
         // mdat box: media data box — empty (no actual video frames)
         WriteMdatBox(stream);
@@ -45,7 +48,8 @@ public static class Mp4Builder
         stream.Write("isom"u8);              // compatible brand
     }
 
-    private static void WriteMoovBox(Stream stream, string title, string? director, int year)
+    private static void WriteMoovBox(Stream stream, string title, string? director, int year,
+        string? showName = null, int? seasonNumber = null, int? episodeNumber = null)
     {
         // Build the udta content first to know sizes
         using var udtaContent = new MemoryStream();
@@ -61,6 +65,18 @@ public static class Mp4Builder
         // ©day atom (year)
         if (year > 0)
             WriteItunesStringAtom(udtaContent, "\u00A9day", year.ToString());
+
+        // tvsh atom (TV show name)
+        if (!string.IsNullOrEmpty(showName))
+            WriteItunesStringAtom(udtaContent, "tvsh", showName);
+
+        // tvsn atom (TV season number)
+        if (seasonNumber.HasValue)
+            WriteItunesStringAtom(udtaContent, "tvsn", seasonNumber.Value.ToString());
+
+        // tves atom (TV episode number)
+        if (episodeNumber.HasValue)
+            WriteItunesStringAtom(udtaContent, "tves", episodeNumber.Value.ToString());
 
         byte[] udtaData = udtaContent.ToArray();
 

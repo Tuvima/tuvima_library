@@ -849,7 +849,11 @@ public static class DevSeedEndpoints
             string filePath = Path.Combine(videoDir, fileName);
             if (File.Exists(filePath)) { skipped++; continue; }
 
-            byte[] mp4 = Mp4Builder.Create(video.Title, video.Director, video.Year);
+            byte[] mp4 = Mp4Builder.Create(
+                video.Title, video.Director, video.Year,
+                showName: video.MediaType == "TV" ? video.Series : null,
+                seasonNumber: video.SeasonNumber,
+                episodeNumber: video.EpisodeNumber);
             await File.WriteAllBytesAsync(filePath, mp4);
             created.Add(fileName);
             if (video.MediaType == "TV") tvCreated++; else moviesCreated++;

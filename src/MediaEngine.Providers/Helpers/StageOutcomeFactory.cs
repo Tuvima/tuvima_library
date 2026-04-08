@@ -240,6 +240,26 @@ public sealed class StageOutcomeFactory
             return null;
         }
 
+        // Supersession: a work-level pipeline trigger (RetailMatchFailed,
+        // WikidataBridgeFailed, etc.) is the authoritative explanation for why
+        // an entity is in review. Resolve any older asset-level LowConfidence
+        // review for the same entity so the user only sees one row instead of
+        // two for the same underlying problem.
+        if (!string.Equals(trigger, ReviewTrigger.LowConfidence, StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var stale in existing.Where(r =>
+                r.Status == ReviewStatus.Pending
+                && string.Equals(r.Trigger, ReviewTrigger.LowConfidence, StringComparison.OrdinalIgnoreCase)))
+            {
+                await _reviewRepo
+                    .UpdateStatusAsync(stale.Id, ReviewStatus.Resolved, "system:superseded", ct)
+                    .ConfigureAwait(false);
+                _logger.LogDebug(
+                    "Resolved stale LowConfidence review {Id} for entity {EntityId} \u2014 superseded by {Trigger}",
+                    stale.Id, entityId, trigger);
+            }
+        }
+
         var entry = new ReviewQueueEntry
         {
             Id              = Guid.NewGuid(),

@@ -455,7 +455,7 @@ public static class IntegrationTestEndpoints
 
         // ── Phase 4d: Reconciliation — expected vs. actual outcomes ─────────
         logger.LogInformation("[Phase 4d] Running reconciliation pass...");
-        await RunReconciliationAsync(db, report, logger, ct);
+        await RunReconciliationAsync(db, report, activeTypes, logger, ct);
 
         // ── Phase 5: Test manual search for review items ──────────────────
         logger.LogInformation("[Phase 5] Testing manual search on review items...");
@@ -698,7 +698,11 @@ public static class IntegrationTestEndpoints
                     : $"{SanitizeFileName(v.Title)} ({v.Year}).mp4";
                 string filePath = Path.Combine(tvDir, fileName);
                 if (File.Exists(filePath)) continue;
-                byte[] mp4 = Mp4Builder.Create(v.Title, v.Director, v.Year);
+                byte[] mp4 = Mp4Builder.Create(
+                    v.Title, v.Director, v.Year,
+                    showName: v.Series,
+                    seasonNumber: v.SeasonNumber,
+                    episodeNumber: v.EpisodeNumber);
                 await File.WriteAllBytesAsync(filePath, mp4);
                 total++;
             }
@@ -1340,10 +1344,16 @@ public static class IntegrationTestEndpoints
     private static async Task RunReconciliationAsync(
         IDatabaseConnection db,
         TestReport report,
+        IReadOnlyCollection<string> activeTypes,
         ILogger logger,
         CancellationToken ct)
     {
-        var expectations = DevSeedEndpoints.GetAllExpectations();
+        // Filter expectations to only the media types actually exercised by this run
+        // (e.g. skip Comics if the run was launched without comics in the types filter).
+        var activeSet = new HashSet<string>(activeTypes, StringComparer.OrdinalIgnoreCase);
+        var expectations = DevSeedEndpoints.GetAllExpectations()
+            .Where(e => activeSet.Contains(e.MediaType))
+            .ToList();
         var summary = new ReconciliationSummary { ExpectedTotal = expectations.Count };
 
         // Build a lookup of (title_lower, media_type_lower) → (wikidata_qid, curator_state, review_trigger)
@@ -1355,31 +1365,54 @@ public static class IntegrationTestEndpoints
         IEnumerable<WorkReconRow> dbRows;
         using (var conn = db.CreateConnection())
         {
+            // For reconciliation, we need to match the seed-supplied title against
+            // ANY title we can find for the work — the file processor's claim,
+            // the canonical value (which may have been overridden by Wikidata),
+            // alternate_title claims, original_title, etc. We emit one row per
+            // (work, title-source) pair via UNION so the C# index can lookup
+            // the work from any of its known titles.
             dbRows = await conn.QueryAsync<WorkReconRow>(
                 """
-                SELECT
-                    LOWER(COALESCE(
-                        (SELECT cv.claim_value FROM canonical_values cv
-                         WHERE cv.entity_id = w.id AND cv.key = 'title'
-                         LIMIT 1),
-                        (SELECT mc.claim_value FROM metadata_claims mc
-                         WHERE mc.entity_id = (SELECT ma.id FROM media_assets ma
-                                               INNER JOIN editions e ON e.id = ma.edition_id
-                                               WHERE e.work_id = w.id LIMIT 1)
-                           AND mc.claim_key = 'title'
-                         LIMIT 1),
-                        w.display_name,
-                        ''
-                    ))                       AS TitleLower,
-                    LOWER(w.media_type)      AS MediaTypeLower,
-                    w.wikidata_qid           AS WikidataQid,
-                    w.curator_state          AS CuratorState,
-                    (SELECT rq.trigger FROM review_queue rq
-                     INNER JOIN media_assets ma ON ma.id = rq.entity_id
-                     INNER JOIN editions e ON e.id = ma.edition_id
-                     WHERE e.work_id = w.id AND rq.status = 'Pending'
-                     ORDER BY rq.created_at DESC LIMIT 1) AS ReviewTrigger
-                FROM works w
+                WITH work_assets AS (
+                    SELECT w.id AS work_id, w.media_type, w.curator_state, ma.id AS asset_id
+                    FROM works w
+                    INNER JOIN editions e ON e.work_id = w.id
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                ),
+                work_qids AS (
+                    SELECT wa.work_id,
+                           (SELECT cv.value FROM canonical_values cv
+                            WHERE cv.entity_id = wa.asset_id AND cv.key = 'wikidata_qid' LIMIT 1) AS qid
+                    FROM work_assets wa
+                ),
+                work_reviews AS (
+                    SELECT wa.work_id,
+                           (SELECT rq.trigger FROM review_queue rq
+                            WHERE rq.entity_id = wa.asset_id AND rq.status = 'Pending'
+                            ORDER BY rq.created_at DESC LIMIT 1) AS trigger
+                    FROM work_assets wa
+                ),
+                titles AS (
+                    -- Canonical title
+                    SELECT wa.work_id, wa.media_type, wa.curator_state, LOWER(cv.value) AS title_lower
+                    FROM work_assets wa
+                    INNER JOIN canonical_values cv ON cv.entity_id = wa.asset_id
+                    WHERE cv.key IN ('title', 'original_title', 'show_name', 'series', 'episode_title', 'alternate_title', 'album')
+                    UNION
+                    -- File processor claim title (this is the seed-supplied title)
+                    SELECT wa.work_id, wa.media_type, wa.curator_state, LOWER(mc.claim_value) AS title_lower
+                    FROM work_assets wa
+                    INNER JOIN metadata_claims mc ON mc.entity_id = wa.asset_id
+                    WHERE mc.claim_key IN ('title', 'original_title', 'show_name', 'series', 'episode_title', 'alternate_title', 'album')
+                )
+                SELECT DISTINCT
+                    t.title_lower               AS TitleLower,
+                    LOWER(t.media_type)         AS MediaTypeLower,
+                    (SELECT qid FROM work_qids WHERE work_id = t.work_id) AS WikidataQid,
+                    t.curator_state             AS CuratorState,
+                    (SELECT trigger FROM work_reviews WHERE work_id = t.work_id) AS ReviewTrigger
+                FROM titles t
+                WHERE t.title_lower IS NOT NULL AND t.title_lower <> ''
                 """);
         }
 
