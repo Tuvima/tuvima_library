@@ -310,42 +310,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
             return [];
 
-        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
-
-        // Build type filter from instance_of_classes config (same as SearchAsync)
-        IReadOnlyList<string>? typeQids = null;
-        if (mediaType != MediaType.Unknown)
-        {
-            var mediaTypeKey = mediaType.ToString();
-            if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
-                typeQids = classes;
-        }
-
-        // Build property constraints — multi-value constraints (v0.10.0 Values property)
-        // take precedence over single-value string pairs for the same property.
-        var allConstraints = new List<PropertyConstraint>();
-        if (multiValueConstraints is { Count: > 0 })
-            allConstraints.AddRange(multiValueConstraints);
-        if (propertyConstraints is not null)
-        {
-            var multiValuePIds = multiValueConstraints?.Select(c => c.PropertyId).ToHashSet() ?? [];
-            allConstraints.AddRange(
-                propertyConstraints
-                    .Where(kvp => !multiValuePIds.Contains(kvp.Key))
-                    .Select(kvp => new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }));
-        }
-
-        var request = new ReconciliationRequest
-        {
-            Query = query,
-            Limit = _config.Reconciliation.MaxCandidates,
-            Language = language,
-            DiacriticInsensitive = true,
-            Cleaners = QueryCleaners.All(),
-            Types = typeQids,
-            TypeHierarchyDepth = 1,
-            Properties = allConstraints.Count > 0 ? allConstraints : null
-        };
+        var request = BuildTextReconciliationRequest(
+            query, mediaType, fileLanguage: null,
+            propertyConstraints, multiValueConstraints);
 
         try
         {
@@ -357,6 +324,91 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             _logger.LogWarning(ex, "{Provider}: ReconcileAsync failed for query '{Query}'", Name, query);
             return [];
         }
+    }
+
+    /// <summary>
+    /// SINGLE SOURCE OF TRUTH for building a text-reconciliation
+    /// <see cref="ReconciliationRequest"/>. Every code path that performs a
+    /// text-based Wikidata reconciliation — manual search via <see cref="SearchAsync"/>,
+    /// the bridge worker's text fallback via <see cref="ReconcileBatchAsync"/>,
+    /// the multi-language path used by stand-alone callers, and internal
+    /// fallbacks inside <c>ResolveBridgeAsync</c>/<c>ResolveMusicAlbumAsync</c> —
+    /// MUST go through this builder. Adding a new wrapper that constructs
+    /// <c>ReconciliationRequest</c> directly will silently drift from the
+    /// canonical settings (cleaners, type filter, multi-value constraints,
+    /// hierarchy depth, language list) and re-introduce the bugs that the
+    /// unification work was created to prevent. Extend this method instead.
+    /// </summary>
+    private ReconciliationRequest BuildTextReconciliationRequest(
+        string query,
+        MediaType mediaType,
+        string? fileLanguage,
+        Dictionary<string, string>? propertyConstraints,
+        List<PropertyConstraint>? multiValueConstraints,
+        int? limitOverride = null,
+        IReadOnlyList<string>? typeQidsOverride = null)
+    {
+        var metadataLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
+
+        // Build language list — file language first (when present and different
+        // from the metadata language), then metadata language. The library
+        // performs concurrent multi-language search and dedupes by QID.
+        string? singleLanguage = null;
+        List<string>? languages = null;
+        var fileLang = fileLanguage?.Split('-', '_')[0].ToLowerInvariant().Trim();
+        var metaLang = metadataLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
+        if (!string.IsNullOrEmpty(fileLang)
+            && !string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
+        {
+            languages = [fileLang, metaLang];
+        }
+        else
+        {
+            singleLanguage = metaLang;
+        }
+
+        // Type filter from instance_of_classes config — pre-filters CirrusSearch
+        // by media type so a TV episode title can never resolve to a literary work.
+        // Callers may override (e.g. ResolveMusicAlbumAsync uses the narrower
+        // MusicAlbum class list rather than the broader Music list).
+        IReadOnlyList<string>? typeQids = typeQidsOverride;
+        if (typeQids is null && mediaType != MediaType.Unknown)
+        {
+            var mediaTypeKey = mediaType.ToString();
+            if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+                typeQids = classes;
+        }
+
+        // Merge multi-value and single-value property constraints — multi-value
+        // takes precedence when both target the same P-code.
+        List<PropertyConstraint>? allConstraints = null;
+        if (multiValueConstraints is { Count: > 0 } || propertyConstraints is { Count: > 0 })
+        {
+            allConstraints = [];
+            if (multiValueConstraints is { Count: > 0 })
+                allConstraints.AddRange(multiValueConstraints);
+            if (propertyConstraints is { Count: > 0 })
+            {
+                var multiValuePIds = multiValueConstraints?.Select(c => c.PropertyId).ToHashSet() ?? [];
+                allConstraints.AddRange(
+                    propertyConstraints
+                        .Where(kvp => !multiValuePIds.Contains(kvp.Key))
+                        .Select(kvp => new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }));
+            }
+        }
+
+        return new ReconciliationRequest
+        {
+            Query                = query,
+            Limit                = limitOverride ?? _config.Reconciliation.MaxCandidates,
+            Language             = singleLanguage,
+            Languages            = languages,
+            DiacriticInsensitive = true,
+            Cleaners             = QueryCleaners.All(),
+            Types                = typeQids,
+            TypeHierarchyDepth   = 1,
+            Properties           = allConstraints
+        };
     }
 
     /// <summary>
@@ -377,38 +429,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
             return [];
 
-        var metadataLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
-        var fileLang = fileLanguage?.Split('-', '_')[0].ToLowerInvariant().Trim();
-        var metaLang = metadataLanguage.Split('-', '_')[0].ToLowerInvariant().Trim();
-
-        // Build language list: file language first, then metadata language
-        var languages = new List<string>();
-        if (!string.IsNullOrEmpty(fileLang))
-            languages.Add(fileLang);
-        if (!string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
-            languages.Add(metaLang);
-
-        // Build type filter from instance_of_classes config (same as ReconcileAsync)
-        IReadOnlyList<string>? typeQids = null;
-        if (mediaType != MediaType.Unknown)
-        {
-            var mediaTypeKey = mediaType.ToString();
-            if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
-                typeQids = classes;
-        }
-
-        var request = new ReconciliationRequest
-        {
-            Query = query,
-            Limit = _config.Reconciliation.MaxCandidates,
-            Languages = languages.Count > 1 ? languages : null,
-            Language = languages.Count <= 1 ? (fileLang ?? metaLang) : null,
-            DiacriticInsensitive = true,
-            Types = typeQids,
-            TypeHierarchyDepth = 1,
-            Properties = propertyConstraints?.Select(kvp =>
-                new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
-        };
+        var request = BuildTextReconciliationRequest(
+            query, mediaType, fileLanguage,
+            propertyConstraints, multiValueConstraints: null);
 
         try
         {
@@ -436,34 +459,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (requests.Count == 0 || _reconciler is null)
             return result;
 
-        var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
-        var libRequests = requests.Select(r =>
-        {
-            // Per-request type filter from instance_of_classes config — same logic
-            // ReconcileAsync uses. Without this, text reconciliation can return a
-            // literary work for a TV episode title (the "Star of Edo" → Shogun
-            // novel mismatch).
-            IReadOnlyList<string>? typeQids = null;
-            if (r.MediaType != MediaType.Unknown)
-            {
-                var mediaTypeKey = r.MediaType.ToString();
-                if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
-                    typeQids = classes;
-            }
-
-            return new ReconciliationRequest
-            {
-                Query = r.Query,
-                Limit = _config.Reconciliation.MaxCandidates,
-                Language = language,
-                DiacriticInsensitive = true,
-                Cleaners = QueryCleaners.All(),
-                Types = typeQids,
-                TypeHierarchyDepth = 1,
-                Properties = r.PropertyConstraints?.Select(kvp =>
-                    new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
-            };
-        }).ToList();
+        // Per-request build via the single source of truth so batch
+        // reconciliation can never drift from manual/single reconciliation.
+        var libRequests = requests
+            .Select(r => BuildTextReconciliationRequest(
+                r.Query, r.MediaType, fileLanguage: null,
+                r.PropertyConstraints, multiValueConstraints: null))
+            .ToList();
 
         try
         {
@@ -1306,15 +1308,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                             "for '{Query}' ({MediaType}, types={TypeClasses})",
                             Name, fallbackQuery, mediaType, string.Join(",", typeClasses!));
 
-                        var reconRequest = new ReconciliationRequest
-                        {
-                            Query = fallbackQuery,
-                            Limit = 5,
-                            Language = language,
-                            DiacriticInsensitive = true,
-                            Cleaners = QueryCleaners.All(),
-                            Types = typeClasses!.ToList(),
-                        };
+                        var reconRequest = BuildTextReconciliationRequest(
+                            fallbackQuery, mediaType, fileLanguage: null,
+                            propertyConstraints: null, multiValueConstraints: null,
+                            limitOverride: 5);
 
                         var fallbackCandidates = await _reconciler.ReconcileAsync(reconRequest, ct)
                             .ConfigureAwait(false);
@@ -1375,15 +1372,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                                     "{Provider}: ResolveBridgeAsync — retrying text reconciliation with title-only '{Title}' (dropping author '{Author}')",
                                     Name, fallbackTitle, fallbackAuthor);
 
-                                var titleOnlyRequest = new ReconciliationRequest
-                                {
-                                    Query = fallbackTitle,
-                                    Limit = 5,
-                                    Language = language,
-                                    DiacriticInsensitive = true,
-                                    Cleaners = QueryCleaners.All(),
-                                    Types = typeClasses!.ToList(),
-                                };
+                                var titleOnlyRequest = BuildTextReconciliationRequest(
+                                    fallbackTitle, mediaType, fileLanguage: null,
+                                    propertyConstraints: null, multiValueConstraints: null,
+                                    limitOverride: 5);
 
                                 var titleOnlyCandidates = await _reconciler.ReconcileAsync(titleOnlyRequest, ct)
                                     .ConfigureAwait(false);
@@ -1615,15 +1607,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         try
         {
-            var request = new ReconciliationRequest
-            {
-                Query                = query,
-                Limit                = 5,
-                Language             = language,
-                DiacriticInsensitive = true,
-                Cleaners             = QueryCleaners.All(),
-                Types                = albumClasses.ToList(),
-            };
+            var request = BuildTextReconciliationRequest(
+                query, MediaType.Music, fileLanguage: null,
+                propertyConstraints: null, multiValueConstraints: null,
+                limitOverride: 5, typeQidsOverride: albumClasses);
 
             var candidates = await _reconciler.ReconcileAsync(request, ct).ConfigureAwait(false);
 
@@ -1634,15 +1621,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     "{Provider}: ResolveMusicAlbumAsync — retrying with title-only '{Album}'",
                     Name, albumTitle);
 
-                var titleOnly = new ReconciliationRequest
-                {
-                    Query                = albumTitle,
-                    Limit                = 5,
-                    Language             = language,
-                    DiacriticInsensitive = true,
-                    Cleaners             = QueryCleaners.All(),
-                    Types                = albumClasses.ToList(),
-                };
+                var titleOnly = BuildTextReconciliationRequest(
+                    albumTitle, MediaType.Music, fileLanguage: null,
+                    propertyConstraints: null, multiValueConstraints: null,
+                    limitOverride: 5, typeQidsOverride: albumClasses);
                 candidates = await _reconciler.ReconcileAsync(titleOnly, ct).ConfigureAwait(false);
             }
 
