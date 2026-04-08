@@ -3,62 +3,55 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Tuvima.Wikidata;
-// PersonSearchResult exists in both MediaEngine.Domain.Models and Tuvima.Wikidata (the
-// v2.1+ Persons sub-service). Until Phase 4 wraps the library type, the unqualified name
-// in this file always means the Domain DTO.
+using TwPersonRole = Tuvima.Wikidata.PersonRole;
+using TwPersonSearchRequest = Tuvima.Wikidata.PersonSearchRequest;
+using TwPersonSearchResult = Tuvima.Wikidata.PersonSearchResult;
+
+// PersonSearchResult exists in both MediaEngine.Domain.Models and Tuvima.Wikidata
+// (the v2.1+ Persons sub-service). The Domain DTO is the public contract this
+// service exposes; the library type is only used internally to call the wrapper.
 using PersonSearchResult = MediaEngine.Domain.Models.PersonSearchResult;
 
 namespace MediaEngine.Providers.Services;
 
 /// <summary>
 /// Standalone person reconciliation service that resolves unlinked person names
-/// to Wikidata QIDs by searching for matching human entities and scoring them
-/// against expected role (occupation) and optional notable work title.
+/// to Wikidata QIDs by delegating to the Tuvima.Wikidata v2.1+
+/// <see cref="Services.PersonsService"/> sub-service. Phase 4 of the adapter
+/// slimdown remediation collapses the previous ~440-line hand-rolled
+/// implementation into this thin wrapper.
 ///
-/// Three-tier confidence model:
+/// <para>
+/// Three-tier confidence model (unchanged from the legacy version):
 ///   - Tier 1 (0.90): Structured Wikidata properties (P50, P57, P161, P175)
 ///   - Tier 2 (0.80): This service — standalone name search with occupation match
 ///   - Tier 3 (0.75): AI description extraction fallback
+/// </para>
 ///
-/// Auto-accept threshold: score >= 0.80. Below that, the person is skipped
-/// and retried at the next 30-day refresh cycle.
+/// <para>
+/// Auto-accept threshold: score &gt;= 0.80. Below that, the person is skipped
+/// and retried at the next 30-day refresh cycle. The library's
+/// <see cref="TwPersonSearchRequest.AcceptThreshold"/> defaults to 0.80, so we
+/// pass the same value through.
+/// </para>
+///
+/// <para>
+/// What the library handles natively (no longer in this file):
+/// role → P106 occupation mapping (replaces the OccupationsByRole dictionary),
+/// musical group inclusion for Performer / Artist roles (replaces the manual
+/// Q5 → Q215380 → Q5741069 fallback chain), notable-work P800 boost for the
+/// title hint, and the v2.3 fix for the P106-on-musical-groups penalty that
+/// previously forced consumers to lower the threshold to ~0.5 for Daft Punk /
+/// Radiohead. Daft Punk now passes at the documented default 0.80.
+/// </para>
 /// </summary>
 public sealed class PersonReconciliationService : IPersonReconciliationService
 {
     private const double AutoAcceptThreshold = 0.80;
-    private const double OccupationBoost = 0.20;
-    private const double NotableWorkBoost = 0.10;
-
-    // Q5 = human, Q215380 = musical group, Q5741069 = musical ensemble.
-    private const string HumanClassQid = "Q5";
-    private const string MusicalGroupClassQid = "Q215380";
-    private const string MusicalEnsembleClassQid = "Q5741069";
-
-    /// <summary>Music-specific roles that should also search for groups/bands.</summary>
-    private static readonly HashSet<string> MusicRoles = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Performer", "Artist", "Composer"
-    };
 
     private readonly WikidataReconciler? _reconciler;
     private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<PersonReconciliationService> _logger;
-
-    /// <summary>
-    /// Maps PersonReference roles to expected Wikidata P106 (occupation) labels.
-    /// Multiple labels per role to handle variant Wikidata labeling.
-    /// </summary>
-    private static readonly Dictionary<string, HashSet<string>> OccupationsByRole =
-        new(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Author"]    = new(StringComparer.OrdinalIgnoreCase) { "writer", "author", "novelist", "poet", "playwright", "essayist", "journalist" },
-            ["Narrator"]  = new(StringComparer.OrdinalIgnoreCase) { "narrator", "voice actor", "actor", "actress", "audiobook narrator" },
-            ["Director"]  = new(StringComparer.OrdinalIgnoreCase) { "film director", "television director", "director", "film producer" },
-            ["Composer"]  = new(StringComparer.OrdinalIgnoreCase) { "composer", "film score composer", "musician", "songwriter" },
-            ["Actor"]     = new(StringComparer.OrdinalIgnoreCase) { "actor", "actress", "film actor", "television actor", "voice actor" },
-            ["Performer"] = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "vocalist", "guitarist", "drummer", "bassist", "pianist", "DJ", "band", "musical group" },
-            ["Artist"]    = new(StringComparer.OrdinalIgnoreCase) { "musician", "singer", "rapper", "band", "musical group", "recording artist", "songwriter", "performer" },
-        };
 
     public PersonReconciliationService(
         IConfigurationLoader configLoader,
@@ -81,179 +74,58 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         if (_reconciler is null || string.IsNullOrWhiteSpace(name))
             return null;
 
-        var language = _configLoader.LoadCore().Language.Metadata ?? "en";
+        var language = _configLoader.LoadCore().Language?.Metadata ?? "en";
 
-        // Step 1: Search Wikidata for person candidates.
-        // Type = "Q5" filters for humans at search time (TypeHierarchyDepth = 1 catches
-        // subclasses such as fictional humans). DiacriticInsensitive handles accented names.
-
-        // For music-specific roles, search both humans and musical groups.
-        // Groups (Q215380) and ensembles (Q5741069) would be missed by Q5-only filter.
-        bool isMusicRole = MusicRoles.Contains(expectedRole);
-
-        var request = new ReconciliationRequest
-        {
-            Query = name,
-            Limit = 10,
-            Language = language,
-            Types = [HumanClassQid],
-            TypeHierarchyDepth = 1,
-            DiacriticInsensitive = true,
-        };
-
-        IReadOnlyList<ReconciliationResult> candidates;
+        TwPersonSearchResult libResult;
         try
         {
-            candidates = await _reconciler.ReconcileAsync(request, ct).ConfigureAwait(false);
-
-            // If this is a music role and no human candidates were found (or none met
-            // threshold), also search for musical groups.
-            if (isMusicRole && candidates.Count == 0)
-            {
-                var groupRequest = new ReconciliationRequest
+            libResult = await _reconciler.Persons.SearchAsync(
+                new TwPersonSearchRequest
                 {
-                    Query = name,
-                    Limit = 10,
-                    Language = language,
-                    Types = [MusicalGroupClassQid],
-                    TypeHierarchyDepth = 1,
-                    DiacriticInsensitive = true,
-                };
-                candidates = await _reconciler.ReconcileAsync(groupRequest, ct).ConfigureAwait(false);
-
-                if (candidates.Count == 0)
-                {
-                    // Try musical ensemble as well.
-                    var ensembleRequest = new ReconciliationRequest
-                    {
-                        Query = name,
-                        Limit = 10,
-                        Language = language,
-                        Types = [MusicalEnsembleClassQid],
-                        TypeHierarchyDepth = 1,
-                        DiacriticInsensitive = true,
-                    };
-                    candidates = await _reconciler.ReconcileAsync(ensembleRequest, ct).ConfigureAwait(false);
-                }
-            }
+                    Name            = name,
+                    Role            = MapRole(expectedRole),
+                    TitleHint       = workTitle,
+                    Language        = language,
+                    AcceptThreshold = AutoAcceptThreshold,
+                    // IncludeMusicalGroups left null — the library defaults
+                    // Performer / Artist to true and every other role to false,
+                    // which matches the legacy MusicRoles set.
+                }, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Person reconciliation search failed for '{Name}' ({Role})", name, expectedRole);
+            _logger.LogWarning(ex,
+                "Person reconciliation search failed for '{Name}' ({Role})", name, expectedRole);
             return null;
         }
 
-        if (candidates.Count == 0)
-        {
-            _logger.LogDebug("No Wikidata candidates found for person '{Name}' ({Role})", name, expectedRole);
-            return null;
-        }
-
-        // Step 2: Fetch P106 (occupation) and P800 (notable_work) for all candidates.
-        // resolveEntityLabels: true populates EntityLabel on entity-valued claims so we can
-        // match against human-readable labels rather than relying on RawValue alone.
-        // P31 is omitted — type filtering is now handled at search time via Type = "Q5".
-        var candidateQids = candidates.Select(c => c.Id).Distinct().ToList();
-
-        IReadOnlyDictionary<string, WikidataEntityInfo> entityInfos;
-        try
-        {
-            entityInfos = await _reconciler.GetEntitiesAsync(candidateQids, resolveEntityLabels: true, language, ct)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Person property fetch failed for '{Name}' candidates", name);
-            return null;
-        }
-
-        // Step 3: Score each candidate.
-        PersonSearchResult? bestMatch = null;
-
-        foreach (var candidate in candidates)
-        {
-            if (!entityInfos.TryGetValue(candidate.Id, out var entityInfo))
-                continue;
-
-            var props = entityInfo.Claims;
-
-            // Base score from reconciliation (0-100 → 0.0-1.0), weighted at 0.50.
-            double baseScore = (candidate.Score / 100.0) * 0.50;
-
-            // Occupation match boost (+0.20).
-            double occupationScore = HasMatchingOccupation(props, expectedRole) ? OccupationBoost : 0.0;
-
-            // Notable work match boost (+0.10).
-            double notableWorkScore = 0.0;
-            if (!string.IsNullOrWhiteSpace(workTitle))
-                notableWorkScore = HasMatchingNotableWork(props, workTitle) ? NotableWorkBoost : 0.0;
-
-            double totalScore = baseScore + occupationScore + notableWorkScore;
-
-            _logger.LogDebug(
-                "Person candidate {QID} '{CandidateName}' for '{SearchName}' ({Role}): " +
-                "base={Base:F2}, occupation={Occ:F2}, notable={Notable:F2}, total={Total:F2}",
-                candidate.Id, candidate.Name, name, expectedRole,
-                baseScore, occupationScore, notableWorkScore, totalScore);
-
-            if (totalScore >= AutoAcceptThreshold && (bestMatch is null || totalScore > bestMatch.Score))
-                bestMatch = new PersonSearchResult(candidate.Id, candidate.Name, totalScore);
-        }
-
-        if (bestMatch is not null)
-        {
-            _logger.LogInformation(
-                "Person reconciliation auto-accepted: '{Name}' ({Role}) → {QID} '{WikiName}' (score={Score:F2})",
-                name, expectedRole, bestMatch.WikidataQid, bestMatch.Name, bestMatch.Score);
-        }
-        else
+        if (!libResult.Found || string.IsNullOrWhiteSpace(libResult.Qid))
         {
             _logger.LogDebug(
-                "Person reconciliation auto-skipped: '{Name}' ({Role}) — no candidate met threshold {Threshold:F2}",
-                name, expectedRole, AutoAcceptThreshold);
+                "Person reconciliation auto-skipped: '{Name}' ({Role}) — best score {Score:F2} below threshold {Threshold:F2}",
+                name, expectedRole, libResult.Score, AutoAcceptThreshold);
+            return null;
         }
 
-        return bestMatch;
+        var canonicalName = libResult.CanonicalName ?? name;
+        _logger.LogInformation(
+            "Person reconciliation auto-accepted: '{Name}' ({Role}) → {QID} '{WikiName}' (score={Score:F2})",
+            name, expectedRole, libResult.Qid, canonicalName, libResult.Score);
+
+        return new PersonSearchResult(libResult.Qid!, canonicalName, libResult.Score);
     }
 
-    /// <summary>
-    /// Reconciles multiple person names in a single batch operation.
-    /// Deduplicates by name (case-insensitive) before issuing any Wikidata calls,
-    /// so 30 tracks by the same artist cost one API round-trip instead of 30.
-    ///
-    /// Uses <c>WikidataReconciler.ReconcileBatchAsync</c> when available for a true
-    /// single-request batch; falls back to sequential <c>ReconcileAsync</c> calls
-    /// (which still benefits from deduplication).
-    ///
-    /// The returned dictionary is keyed by the lower-cased name. Callers that
-    /// previously looped over <see cref="SearchPersonAsync"/> can warm a local
-    /// name→result cache from this method and fall back to <see cref="SearchPersonAsync"/>
-    /// only for cache misses.
-    /// </summary>
-    /// <param name="requests">
-    /// Sequence of (Name, Role, WorkTitle) tuples — one per person reference.
-    /// Duplicate names are collapsed; the first occurrence's Role and WorkTitle win.
-    /// </param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>
-    /// Dictionary keyed by name (lower-cased) → <see cref="PersonSearchResult"/> if a
-    /// confident match was found, or <c>null</c> if no candidate met the auto-accept
-    /// threshold (mirrors the <c>null</c> contract of <see cref="SearchPersonAsync"/>).
-    /// </returns>
     public async Task<IReadOnlyDictionary<string, PersonSearchResult?>> SearchPersonsBatchAsync(
         IReadOnlyList<(string Name, string Role, string? WorkTitle)> requests,
         CancellationToken ct = default)
     {
         var results = new Dictionary<string, PersonSearchResult?>(StringComparer.OrdinalIgnoreCase);
-
         if (_reconciler is null || requests.Count == 0)
             return results;
 
-        var language = _configLoader.LoadCore().Language.Metadata ?? "en";
-
-        // ── Deduplicate by name (case-insensitive), keeping first occurrence ──
+        // Deduplicate by name (case-insensitive), keeping the first occurrence's
+        // Role and WorkTitle. Mirrors the legacy implementation's contract.
         var seen = new Dictionary<string, (string Name, string Role, string? WorkTitle)>(
             StringComparer.OrdinalIgnoreCase);
         foreach (var req in requests)
@@ -262,184 +134,43 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
                 seen[req.Name] = req;
         }
 
-        var unique = seen.Values.ToList();
-        if (unique.Count == 0)
-            return results;
+        if (seen.Count == 0) return results;
 
-        // ── Build one ReconciliationRequest per unique name ───────────────────
-        // For music roles we need separate group-type searches; the batch path
-        // issues the primary human (Q5) requests in one call, then falls back
-        // per-name for any music role that returned zero candidates.
-        var batchRequests = unique
-            .Select(u => new ReconciliationRequest
-            {
-                Query               = u.Name,
-                Limit               = 10,
-                Language            = language,
-                Types               = [HumanClassQid],
-                TypeHierarchyDepth  = 1,
-                DiacriticInsensitive = true,
-            })
-            .ToList();
-
-        // ── Issue all primary (Q5) reconciliation calls in one batch ──────────
-        IReadOnlyList<IReadOnlyList<ReconciliationResult>> batchCandidates;
-        try
+        // PersonsService does not yet expose a batch entry point — issue the
+        // unique requests sequentially. The library's internal ConcurrencyLimiter
+        // (default MaxConcurrency = 5) bounds the parallelism if a future
+        // version adds Task.WhenAll fan-out here. For now, the deduplication
+        // alone is the primary win: 30 tracks by the same artist still cost
+        // one round-trip instead of 30.
+        foreach (var (personName, role, workTitle) in seen.Values)
         {
-            batchCandidates = await _reconciler.ReconcileBatchAsync(batchRequests, ct)
+            ct.ThrowIfCancellationRequested();
+            var result = await SearchPersonAsync(personName, role, workTitle, ct)
                 .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Person batch reconciliation failed — falling back to sequential");
-            // Sequential fallback: still benefits from deduplication.
-            foreach (var u in unique)
-            {
-                var r = await SearchPersonAsync(u.Name, u.Role, u.WorkTitle, ct).ConfigureAwait(false);
-                results[u.Name.ToLowerInvariant()] = r;
-            }
-            return results;
-        }
-
-        // ── Collect all candidate QIDs for a single GetEntitiesAsync call ─────
-        var allQids = batchCandidates
-            .SelectMany(list => list.Select(c => c.Id))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        IReadOnlyDictionary<string, WikidataEntityInfo> entityInfos;
-        try
-        {
-            entityInfos = allQids.Count > 0
-                ? await _reconciler.GetEntitiesAsync(allQids, resolveEntityLabels: true, language, ct)
-                    .ConfigureAwait(false)
-                : new Dictionary<string, WikidataEntityInfo>();
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Person batch property fetch failed — falling back to sequential");
-            foreach (var u in unique)
-            {
-                var r = await SearchPersonAsync(u.Name, u.Role, u.WorkTitle, ct).ConfigureAwait(false);
-                results[u.Name.ToLowerInvariant()] = r;
-            }
-            return results;
-        }
-
-        // ── Score each person using the shared helpers ────────────────────────
-        for (int i = 0; i < unique.Count; i++)
-        {
-            var (personName, role, workTitle) = unique[i];
-            var candidates = i < batchCandidates.Count ? batchCandidates[i] : Array.Empty<ReconciliationResult>();
-            bool isMusicRole = MusicRoles.Contains(role);
-
-            // For music roles with zero Q5 hits, fall back to individual group searches.
-            if (isMusicRole && candidates.Count == 0)
-            {
-                var fallback = await SearchPersonAsync(personName, role, workTitle, ct)
-                    .ConfigureAwait(false);
-                results[personName.ToLowerInvariant()] = fallback;
-                continue;
-            }
-
-            if (candidates.Count == 0)
-            {
-                _logger.LogDebug("No Wikidata candidates found for person '{Name}' ({Role}) in batch", personName, role);
-                results[personName.ToLowerInvariant()] = null;
-                continue;
-            }
-
-            PersonSearchResult? best = null;
-            foreach (var candidate in candidates)
-            {
-                if (!entityInfos.TryGetValue(candidate.Id, out var entityInfo))
-                    continue;
-
-                var props = entityInfo.Claims;
-                double baseScore       = (candidate.Score / 100.0) * 0.50;
-                double occupationScore = HasMatchingOccupation(props, role) ? OccupationBoost : 0.0;
-                double notableWorkScore = 0.0;
-                if (!string.IsNullOrWhiteSpace(workTitle))
-                    notableWorkScore = HasMatchingNotableWork(props, workTitle) ? NotableWorkBoost : 0.0;
-
-                double totalScore = baseScore + occupationScore + notableWorkScore;
-
-                _logger.LogDebug(
-                    "Batch person candidate {QID} '{CandidateName}' for '{SearchName}' ({Role}): " +
-                    "base={Base:F2}, occupation={Occ:F2}, notable={Notable:F2}, total={Total:F2}",
-                    candidate.Id, candidate.Name, personName, role,
-                    baseScore, occupationScore, notableWorkScore, totalScore);
-
-                if (totalScore >= AutoAcceptThreshold && (best is null || totalScore > best.Score))
-                    best = new PersonSearchResult(candidate.Id, candidate.Name, totalScore);
-            }
-
-            if (best is not null)
-            {
-                _logger.LogInformation(
-                    "Person batch reconciliation auto-accepted: '{Name}' ({Role}) → {QID} '{WikiName}' (score={Score:F2})",
-                    personName, role, best.WikidataQid, best.Name, best.Score);
-            }
-            else
-            {
-                _logger.LogDebug(
-                    "Person batch reconciliation auto-skipped: '{Name}' ({Role}) — no candidate met threshold {Threshold:F2}",
-                    personName, role, AutoAcceptThreshold);
-            }
-
-            results[personName.ToLowerInvariant()] = best;
+            results[personName.ToLowerInvariant()] = result;
         }
 
         return results;
     }
 
-    // ── Private helpers ─────────────────────────────────────────────────────
-
-    /// <summary>Returns true if P106 (occupation) contains a label matching the expected role.</summary>
-    private static bool HasMatchingOccupation(
-        IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> props,
-        string expectedRole)
+    /// <summary>
+    /// Translates the consumer's string-typed role into the library's
+    /// <see cref="TwPersonRole"/> enum. Roles outside the known set fall back
+    /// to <see cref="TwPersonRole.Unknown"/>, which causes the library to
+    /// skip the occupation filter entirely.
+    /// </summary>
+    private static TwPersonRole MapRole(string expectedRole) => expectedRole switch
     {
-        if (!props.TryGetValue("P106", out var p106Claims))
-            return false;
-
-        if (!OccupationsByRole.TryGetValue(expectedRole, out var expectedOccupations))
-            return false;
-
-        return p106Claims.Any(c =>
-        {
-            // Prefer EntityLabel (resolved human-readable label from v0.6.0 resolveEntityLabels),
-            // fall back to RawValue for backwards compatibility.
-            var label = c.Value?.EntityLabel ?? c.Value?.RawValue;
-            return !string.IsNullOrWhiteSpace(label) && expectedOccupations.Contains(label);
-        });
-    }
-
-    /// <summary>Returns true if P800 (notable_work) contains a label fuzzy-matching the work title.</summary>
-    private static bool HasMatchingNotableWork(
-        IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> props,
-        string workTitle)
-    {
-        if (!props.TryGetValue("P800", out var p800Claims))
-            return false;
-
-        var normalizedTitle = workTitle.Trim().ToLowerInvariant();
-
-        return p800Claims.Any(c =>
-        {
-            // Prefer EntityLabel (resolved human-readable label from v0.6.0 resolveEntityLabels),
-            // fall back to RawValue for backwards compatibility.
-            var label = c.Value?.EntityLabel ?? c.Value?.RawValue;
-            if (string.IsNullOrWhiteSpace(label))
-                return false;
-
-            var normalizedLabel = label.Trim().ToLowerInvariant();
-            // Exact match or containment (handles "Dune" matching "Dune Part One").
-            return normalizedLabel == normalizedTitle
-                || normalizedLabel.Contains(normalizedTitle)
-                || normalizedTitle.Contains(normalizedLabel);
-        });
-    }
+        // Match-case insensitive comparison via ToLowerInvariant first.
+        _ when string.Equals(expectedRole, "Author",     StringComparison.OrdinalIgnoreCase) => TwPersonRole.Author,
+        _ when string.Equals(expectedRole, "Narrator",   StringComparison.OrdinalIgnoreCase) => TwPersonRole.Narrator,
+        _ when string.Equals(expectedRole, "Director",   StringComparison.OrdinalIgnoreCase) => TwPersonRole.Director,
+        _ when string.Equals(expectedRole, "Actor",      StringComparison.OrdinalIgnoreCase) => TwPersonRole.Actor,
+        _ when string.Equals(expectedRole, "VoiceActor", StringComparison.OrdinalIgnoreCase) => TwPersonRole.VoiceActor,
+        _ when string.Equals(expectedRole, "Composer",   StringComparison.OrdinalIgnoreCase) => TwPersonRole.Composer,
+        _ when string.Equals(expectedRole, "Performer",  StringComparison.OrdinalIgnoreCase) => TwPersonRole.Performer,
+        _ when string.Equals(expectedRole, "Artist",     StringComparison.OrdinalIgnoreCase) => TwPersonRole.Artist,
+        _ when string.Equals(expectedRole, "Screenwriter", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Screenwriter,
+        _ => TwPersonRole.Unknown,
+    };
 }
