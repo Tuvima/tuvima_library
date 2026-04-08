@@ -645,13 +645,17 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             try
             {
+                // v2.4.1 Labels.GetBatchAsync filters malformed QIDs internally
+                // (one bad QID no longer drops the whole batch) and only fetches
+                // the label payload — no claims, sitelinks, descriptions.
                 var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
-                var entityInfos = await _reconciler.GetEntitiesAsync(
-                    personQids.ToList(), language, ct).ConfigureAwait(false);
-                foreach (var (qid, info) in entityInfos)
+                var labels = await _reconciler.Labels
+                    .GetBatchAsync(personQids.ToList(), language, withFallbackLanguage: true, ct)
+                    .ConfigureAwait(false);
+                foreach (var (qid, label) in labels)
                 {
-                    if (!string.IsNullOrWhiteSpace(info.Label))
-                        personLabelMap[qid] = info.Label;
+                    if (!string.IsNullOrWhiteSpace(label))
+                        personLabelMap[qid] = label;
                 }
             }
             catch (Exception ex)
@@ -2632,19 +2636,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // Manual QID selection: fetch the Wikidata label to use as reconciliation title.
             // Without this, the title claim at ReconciliationTitle confidence (0.98) is never emitted,
             // and the title falls through to Data Extension at lower confidence (0.90).
+            // v2.4.1 Labels.GetAsync replaces a GetPropertiesAsync(qid, [$"L{lang}"]) call with
+            // a single label-only fetch and built-in language fallback.
             try
             {
                 var labelLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
-                var labelProps = await _reconciler!.GetPropertiesAsync(
-                    [qid], [$"L{labelLanguage}"], labelLanguage, ct).ConfigureAwait(false);
-
-                if (labelProps.TryGetValue(qid, out var labelData)
-                    && labelData.TryGetValue($"L{labelLanguage}", out var labelClaims)
-                    && labelClaims.Count > 0
-                    && !string.IsNullOrWhiteSpace(labelClaims[0].Value?.RawValue))
-                {
-                    reconciliationLabel = labelClaims[0].Value!.RawValue;
-                }
+                var label = await _reconciler!.Labels
+                    .GetAsync(qid, labelLanguage, withFallbackLanguage: true, ct)
+                    .ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(label))
+                    reconciliationLabel = label;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -3173,19 +3174,24 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             if (!string.Equals(fileLang, metaLang, StringComparison.OrdinalIgnoreCase))
             {
+                // Pure label fetch in the file's native language. v2.4.1
+                // Labels.GetAsync replaces a full GetEntitiesAsync call (which
+                // also fetches sitelinks, descriptions, claims) with a single
+                // label-only payload. withFallbackLanguage: false because we
+                // ONLY want the original-language title — falling back to
+                // English would defeat the purpose of original_title.
                 try
                 {
-                    var fileLangEntities = await _reconciler
-                        .GetEntitiesAsync([masterWorkQid], fileLang, ct)
+                    var fileLangLabel = await _reconciler.Labels
+                        .GetAsync(masterWorkQid, fileLang, withFallbackLanguage: false, ct)
                         .ConfigureAwait(false);
 
-                    if (fileLangEntities.TryGetValue(masterWorkQid, out var fileLangEntity)
-                        && !string.IsNullOrWhiteSpace(fileLangEntity.Label))
+                    if (!string.IsNullOrWhiteSpace(fileLangLabel))
                     {
-                        claims.Add(new ProviderClaim(MetadataFieldConstants.OriginalTitle, fileLangEntity.Label, ClaimConfidence.OriginalTitle));
+                        claims.Add(new ProviderClaim(MetadataFieldConstants.OriginalTitle, fileLangLabel, ClaimConfidence.OriginalTitle));
                         _logger.LogDebug(
                             "{Provider}: original_title '{OriginalTitle}' emitted for {QID} in file language '{Lang}'",
-                            Name, fileLangEntity.Label, masterWorkQid, fileLang);
+                            Name, fileLangLabel, masterWorkQid, fileLang);
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
