@@ -13,6 +13,7 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -92,6 +93,8 @@ public sealed class WorkerPipelineTests
             scoringEngine,
             configLoader,
             bridgeIdRepo,
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
             new StubHttpClientFactory(),
             NullLogger<RetailMatchWorker>.Instance);
 
@@ -160,6 +163,8 @@ public sealed class WorkerPipelineTests
             scoringEngine,
             configLoader,
             bridgeIdRepo,
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
             new StubHttpClientFactory(),
             NullLogger<RetailMatchWorker>.Instance);
 
@@ -184,6 +189,9 @@ public sealed class WorkerPipelineTests
             canonicalRepo,
             scoringEngine,
             configLoader,
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new CatalogUpsertService(new StubWorkRepository()),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var bridgeProcessed = await bridgeWorker.PollAsync(CancellationToken.None);
@@ -241,6 +249,9 @@ public sealed class WorkerPipelineTests
             canonicalRepo,
             scoringEngine,
             configLoader,
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new CatalogUpsertService(new StubWorkRepository()),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -902,5 +913,47 @@ public sealed class WorkerPipelineTests
         public System.Net.Http.HttpClient CreateClient(string name)
             => throw new NotSupportedException(
                 $"StubHttpClientFactory.CreateClient('{name}') should not be called in unit tests.");
+    }
+
+    /// <summary>
+    /// Stub IWorkRepository — every method returns a no-op default. The
+    /// pipeline tests don't exercise the asset → work lineage path, so
+    /// returning null from <see cref="GetLineageByAssetAsync"/> short-circuits
+    /// the Phase 3b routing helper without affecting test outcomes.
+    /// </summary>
+    private sealed class StubWorkRepository : IWorkRepository
+    {
+        public Task<Guid?> FindParentByKeyAsync(MediaType mediaType, string parentKey, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(null);
+
+        public Task<Guid?> FindChildByOrdinalAsync(Guid parentWorkId, int ordinal, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(null);
+
+        public Task<Guid?> FindChildByTitleAsync(Guid parentWorkId, string title, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(null);
+
+        public Task<Guid?> FindByExternalIdentifierAsync(string scheme, string value, CancellationToken ct = default)
+            => Task.FromResult<Guid?>(null);
+
+        public Task<Guid> InsertParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
+        public Task<Guid> InsertChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
+        public Task<Guid> InsertStandaloneAsync(MediaType mediaType, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
+        public Task<Guid> InsertCatalogChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, IReadOnlyDictionary<string, string>? externalIdentifiers, CancellationToken ct = default)
+            => Task.FromResult(Guid.NewGuid());
+
+        public Task PromoteCatalogToOwnedAsync(Guid workId, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task WriteExternalIdentifiersAsync(Guid workId, IReadOnlyDictionary<string, string> identifiers, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task<WorkLineage?> GetLineageByAssetAsync(Guid assetId, CancellationToken ct = default)
+            => Task.FromResult<WorkLineage?>(null);
     }
 }

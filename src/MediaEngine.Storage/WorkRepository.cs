@@ -377,4 +377,70 @@ public sealed class WorkRepository : IWorkRepository
         tx.Commit();
         return Task.CompletedTask;
     }
+
+    /// <inheritdoc/>
+    public Task<WorkLineage?> GetLineageByAssetAsync(
+        Guid assetId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        // Single join walks asset → edition → work plus two LEFT JOINs up
+        // the parent chain. COALESCE picks the topmost parent so a TV episode
+        // resolves to its SHOW (gp.id) not its season (p.id), and a music
+        // track resolves to its album (p.id), and a standalone movie falls
+        // back to its own Work (w.id).
+        const string sql = """
+            SELECT a.id             AS AssetId,
+                   e.id             AS EditionId,
+                   w.id             AS WorkId,
+                   w.parent_work_id AS ParentWorkId,
+                   COALESCE(gp.id, p.id, w.id) AS RootParentWorkId,
+                   w.work_kind      AS WorkKind,
+                   w.media_type     AS MediaType
+            FROM   media_assets a
+            JOIN   editions e  ON e.id  = a.edition_id
+            JOIN   works    w  ON w.id  = e.work_id
+            LEFT JOIN works p  ON p.id  = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE  a.id = @assetId
+            LIMIT  1;
+            """;
+
+        using var conn = _db.CreateConnection();
+        var row = conn.QueryFirstOrDefault<LineageRow>(sql, new { assetId = assetId.ToString() });
+        if (row is null)
+            return Task.FromResult<WorkLineage?>(null);
+
+        var workKind = Enum.TryParse<WorkKind>(
+            row.WorkKind, ignoreCase: true, out var wk)
+            ? wk
+            : WorkKind.Standalone;
+
+        var mediaType = Enum.TryParse<MediaType>(row.MediaType, ignoreCase: true, out var mt)
+            ? mt
+            : MediaType.Unknown;
+
+        var lineage = new WorkLineage(
+            AssetId:          Guid.Parse(row.AssetId),
+            EditionId:        Guid.Parse(row.EditionId),
+            WorkId:           Guid.Parse(row.WorkId),
+            ParentWorkId:     string.IsNullOrEmpty(row.ParentWorkId) ? null : Guid.Parse(row.ParentWorkId),
+            RootParentWorkId: Guid.Parse(row.RootParentWorkId),
+            WorkKind:         workKind,
+            MediaType:        mediaType);
+
+        return Task.FromResult<WorkLineage?>(lineage);
+    }
+
+    private sealed class LineageRow
+    {
+        public string AssetId          { get; set; } = string.Empty;
+        public string EditionId        { get; set; } = string.Empty;
+        public string WorkId           { get; set; } = string.Empty;
+        public string? ParentWorkId    { get; set; }
+        public string RootParentWorkId { get; set; } = string.Empty;
+        public string WorkKind         { get; set; } = string.Empty;
+        public string MediaType        { get; set; } = string.Empty;
+    }
 }

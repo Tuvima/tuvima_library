@@ -287,6 +287,8 @@ public sealed class DurablePipelineTests : IDisposable
             new NoOpScoringEngine(),
             configLoader,
             new NoOpBridgeIdRepository(),
+            new WorkRepository(_dbFactory.Connection),
+            new WorkClaimRouter(),
             new NoOpHttpClientFactory(),
             NullLogger<RetailMatchWorker>.Instance);
 
@@ -324,6 +326,7 @@ public sealed class DurablePipelineTests : IDisposable
         var configLoader  = new MinimalConfigurationLoader();
         var bridgeIdHelper = new BridgeIdHelper(configLoader);
 
+        var workRepoLocal = new WorkRepository(_dbFactory.Connection);
         var worker = new WikidataBridgeWorker(
             jobRepo,
             wikidataCandidates,
@@ -336,6 +339,9 @@ public sealed class DurablePipelineTests : IDisposable
             new NoOpCanonicalValueRepository(),
             new NoOpScoringEngine(),
             configLoader,
+            workRepoLocal,
+            new WorkClaimRouter(),
+            new CatalogUpsertService(workRepoLocal),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);

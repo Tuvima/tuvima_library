@@ -116,4 +116,50 @@ public interface IWorkRepository
         Guid workId,
         IReadOnlyDictionary<string, string> identifiers,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Resolves the parent/child lineage for a given media asset.
+    /// Walks <c>media_assets → editions → works</c> and returns the asset's
+    /// owning Work along with its parent Work id (if any) and work kind.
+    /// Returns <c>null</c> when the asset id is unknown.
+    ///
+    /// Workers (RetailMatchWorker, WikidataBridgeWorker) use this to decide
+    /// whether a provider claim or bridge ID describes the file's own Work
+    /// (a track, episode, issue) or its container (an album, show, series).
+    /// </summary>
+    Task<WorkLineage?> GetLineageByAssetAsync(
+        Guid assetId,
+        CancellationToken ct = default);
+}
+
+/// <summary>
+/// Walked lineage of a single media asset: the asset's owning Work,
+/// the parent Work that contains it (if hierarchical), and the work kind.
+/// Returned by <see cref="IWorkRepository.GetLineageByAssetAsync"/>.
+/// </summary>
+public sealed record WorkLineage(
+    Guid AssetId,
+    Guid EditionId,
+    Guid WorkId,
+    Guid? ParentWorkId,
+    Guid RootParentWorkId,
+    WorkKind WorkKind,
+    MediaType MediaType)
+{
+    /// <summary>
+    /// Returns the Work id that should receive a parent-scoped claim.
+    /// For TV (Show → Season → Episode) this walks up to the SHOW, not the
+    /// season — show_name, network, cast, and genre are show-level facts.
+    /// For music/comics/series-bound books this is the immediate parent.
+    /// For standalone media (movies, single books) this falls back to the
+    /// asset's own Work — parent-scoped claims are still recorded, but on
+    /// the same row as self-scoped claims, which is the desired behaviour.
+    /// </summary>
+    public Guid TargetForParentScope => RootParentWorkId;
+
+    /// <summary>
+    /// Returns the Work id that should receive a self-scoped claim — the
+    /// asset's own Work (track, episode, issue, movie, single book).
+    /// </summary>
+    public Guid TargetForSelfScope => WorkId;
 }

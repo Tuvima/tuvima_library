@@ -523,6 +523,7 @@ builder.Services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepositor
 builder.Services.AddSingleton<IPersonRepository,         PersonRepository>();
 builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
 builder.Services.AddSingleton<HierarchyResolver>();
+builder.Services.AddSingleton<WorkClaimRouter>();
 builder.Services.AddSingleton<CatalogUpsertService>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();
 

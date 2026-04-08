@@ -12,6 +12,7 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
@@ -42,6 +43,8 @@ public sealed class RetailMatchWorker
     private readonly IScoringEngine _scoringEngine;
     private readonly IConfigurationLoader _configLoader;
     private readonly IBridgeIdRepository _bridgeIdRepo;
+    private readonly IWorkRepository _workRepo;
+    private readonly WorkClaimRouter _claimRouter;
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<RetailMatchWorker> _logger;
 
@@ -78,6 +81,8 @@ public sealed class RetailMatchWorker
         IScoringEngine scoringEngine,
         IConfigurationLoader configLoader,
         IBridgeIdRepository bridgeIdRepo,
+        IWorkRepository workRepo,
+        WorkClaimRouter claimRouter,
         IHttpClientFactory httpFactory,
         ILogger<RetailMatchWorker> logger)
     {
@@ -93,6 +98,8 @@ public sealed class RetailMatchWorker
         _scoringEngine = scoringEngine;
         _configLoader = configLoader;
         _bridgeIdRepo = bridgeIdRepo;
+        _workRepo = workRepo;
+        _claimRouter = claimRouter;
         _httpFactory = httpFactory;
         _logger = logger;
 
@@ -1297,6 +1304,27 @@ public sealed class RetailMatchWorker
         if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
             mediaType = MediaType.Unknown;
 
+        // Look up the asset's work lineage once. Used by the router below to
+        // write provider bridge IDs to the correct Work — track-level IDs
+        // (apple_music_id, isrc) on the asset's own Work; album-level IDs
+        // (apple_music_collection_id, musicbrainz_id) on the parent. Null
+        // when the job targets a Work directly (manual flows) — in that case
+        // we skip work-level routing entirely.
+        WorkLineage? lineage = null;
+        if (string.Equals(job.EntityType, "MediaAsset", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                lineage = await _workRepo.GetLineageByAssetAsync(job.EntityId, ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Lineage lookup failed for asset {EntityId} — work-level external_identifiers writes will be skipped",
+                    job.EntityId);
+            }
+        }
+
         // Load pipeline configuration for this media type
         var pipelineConfig = _configLoader.LoadPipelines();
         var pipeline = pipelineConfig.GetPipelineForMediaType(job.MediaType);
@@ -1458,6 +1486,34 @@ public sealed class RetailMatchWorker
 
                     if (bridgeEntries.Count > 0)
                         await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
+
+                    // Phase 3b: also write provider bridge IDs to the appropriate
+                    // Work's external_identifiers JSON. Track-level IDs land on
+                    // the asset's own Work; album/show/series-level IDs land on
+                    // the parent. WriteExternalIdentifiersAsync is no-overwrite,
+                    // so re-running this for sibling tracks of the same album
+                    // is harmless.
+                    if (lineage is not null && bridgeEntries.Count > 0)
+                    {
+                        var bridgeDict = bridgeEntries
+                            .GroupBy(b => b.IdType, StringComparer.OrdinalIgnoreCase)
+                            .ToDictionary(g => g.Key, g => g.First().IdValue,
+                                StringComparer.OrdinalIgnoreCase);
+
+                        var (forParent, forSelf) = _claimRouter.SplitBridgeIds(lineage, bridgeDict);
+
+                        if (forParent.Count > 0)
+                        {
+                            await _workRepo.WriteExternalIdentifiersAsync(
+                                lineage.TargetForParentScope, forParent, ct);
+                        }
+
+                        if (forSelf.Count > 0)
+                        {
+                            await _workRepo.WriteExternalIdentifiersAsync(
+                                lineage.TargetForSelfScope, forSelf, ct);
+                        }
+                    }
 
                     // Sequential: accumulate bridge IDs for next provider
                     if (strategy == ProviderStrategy.Sequential)

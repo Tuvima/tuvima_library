@@ -9,6 +9,7 @@ using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
@@ -37,6 +38,9 @@ public sealed class WikidataBridgeWorker
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IScoringEngine _scoringEngine;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IWorkRepository _workRepo;
+    private readonly WorkClaimRouter _claimRouter;
+    private readonly CatalogUpsertService _catalogUpsert;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
@@ -61,6 +65,9 @@ public sealed class WikidataBridgeWorker
         ICanonicalValueRepository canonicalRepo,
         IScoringEngine scoringEngine,
         IConfigurationLoader configLoader,
+        IWorkRepository workRepo,
+        WorkClaimRouter claimRouter,
+        CatalogUpsertService catalogUpsert,
         ILogger<WikidataBridgeWorker> logger)
     {
         _jobRepo = jobRepo;
@@ -74,6 +81,9 @@ public sealed class WikidataBridgeWorker
         _canonicalRepo = canonicalRepo;
         _scoringEngine = scoringEngine;
         _configLoader = configLoader;
+        _workRepo = workRepo;
+        _claimRouter = claimRouter;
+        _catalogUpsert = catalogUpsert;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -497,6 +507,11 @@ public sealed class WikidataBridgeWorker
                     job.EntityId, ctx.AdditionalClaims, reconAdapter.ProviderId,
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                     logger: _logger);
+
+                // Phase 3b: route any container-level structural data (the album
+                // QID, child entity manifests) onto the parent Work.
+                await RouteToWorksAsync(job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                    ctx.AdditionalClaims, ct);
             }
 
             // Persist collected bridge IDs (non-music bridge resolution only).
@@ -561,6 +576,11 @@ public sealed class WikidataBridgeWorker
                         job.EntityId, fullClaims, reconAdapter.ProviderId,
                         _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                         logger: _logger);
+
+                    // Phase 3b: route the QID and container fields onto the
+                    // correct Work, then upsert any catalog children.
+                    await RouteToWorksAsync(job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                        fullClaims, ct);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -616,6 +636,9 @@ public sealed class WikidataBridgeWorker
                                 job.EntityId, fallbackClaims, reconAdapter.ProviderId,
                                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                                 logger: _logger);
+
+                            await RouteToWorksAsync(job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                                fallbackClaims, ct);
 
                             await _timeline.RecordTitleFallbackResolvedAsync(
                                 job.EntityId, ctx.ResolvedQid, job.IngestionRunId, ct);
@@ -877,6 +900,102 @@ public sealed class WikidataBridgeWorker
             _logger.LogWarning(ex,
                 "Full property fetch failed for QID {Qid} (entity {EntityId})",
                 qid, entityId);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Phase 3b: lineage-aware Work routing
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Routes Wikidata structural facts onto the correct Work row using the
+    /// asset → edition → work lineage. The wikidata_qid plus any container-level
+    /// bridge IDs (album collection id, etc.) get merged into the parent Work's
+    /// <c>external_identifiers</c> JSON; track/episode-level identifiers go to
+    /// the asset's own Work. When the claim batch contains a
+    /// <c>child_entities_json</c> manifest, this also fans out to
+    /// <see cref="CatalogUpsertService"/> to create catalog rows for any
+    /// children Wikidata knows about but the library doesn't yet own.
+    ///
+    /// All work is best-effort: failures are logged but never break the
+    /// surrounding pipeline.
+    /// </summary>
+    private async Task RouteToWorksAsync(
+        Guid assetId,
+        MediaType mediaType,
+        string? resolvedQid,
+        IReadOnlyList<ProviderClaim> claims,
+        CancellationToken ct)
+    {
+        try
+        {
+            var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct);
+            if (lineage is null) return;
+
+            // Build an identifier dict from the resolved QID plus any bridge-id
+            // claims that came back with the Wikidata response. The router
+            // partitions them by ClaimScope.
+            var ids = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(resolvedQid))
+                ids[BridgeIdKeys.WikidataQid] = resolvedQid;
+
+            foreach (var claim in claims)
+            {
+                if (string.IsNullOrWhiteSpace(claim.Key) ||
+                    string.IsNullOrWhiteSpace(claim.Value))
+                    continue;
+
+                // Only route well-known external identifier keys; everything
+                // else (title, year, genre, etc.) is handled by the existing
+                // canonical-value persistence path.
+                if (BridgeIdKeys.All.Contains(claim.Key))
+                    ids.TryAdd(claim.Key, claim.Value);
+            }
+
+            if (ids.Count > 0)
+            {
+                var (forParent, forSelf) = _claimRouter.SplitBridgeIds(lineage, ids);
+
+                if (forParent.Count > 0)
+                    await _workRepo.WriteExternalIdentifiersAsync(
+                        lineage.TargetForParentScope, forParent, ct);
+
+                if (forSelf.Count > 0)
+                    await _workRepo.WriteExternalIdentifiersAsync(
+                        lineage.TargetForSelfScope, forSelf, ct);
+            }
+
+            // Catalog upsert: if Wikidata returned a child manifest, create
+            // catalog rows for tracks/episodes/issues we don't own yet.
+            var childJson = claims
+                .FirstOrDefault(c => string.Equals(c.Key,
+                    MetadataFieldConstants.ChildEntitiesJson,
+                    StringComparison.OrdinalIgnoreCase))?.Value;
+
+            if (!string.IsNullOrWhiteSpace(childJson))
+            {
+                try
+                {
+                    var inserted = await _catalogUpsert.UpsertChildrenAsync(
+                        lineage.TargetForParentScope, mediaType, childJson, ct);
+
+                    if (inserted > 0)
+                        _logger.LogInformation(
+                            "Wikidata: catalog upsert added {Count} {MediaType} children under parent Work {ParentWorkId}",
+                            inserted, mediaType, lineage.TargetForParentScope);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Catalog upsert failed for parent Work {ParentWorkId}",
+                        lineage.TargetForParentScope);
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Phase 3b Work routing failed for asset {AssetId}", assetId);
         }
     }
 
