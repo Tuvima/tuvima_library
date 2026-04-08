@@ -42,6 +42,7 @@
   },
   "preserve_html_tags": ["b", "i", "em", "strong", "p", "br"],
   "wikidata_batch_size": 50,
+  "use_library_stage2_resolver": true,
   "local_match_enabled": true,
   "local_match_fuzzy_threshold": 0.95,
 

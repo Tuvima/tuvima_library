@@ -1179,6 +1179,414 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Library-backed Stage 2 path (Phase 2 of the adapter slimdown remediation).
+    //
+    // When HydrationSettings.UseLibraryStage2Resolver is true, the public
+    // ResolveAsync / ResolveBatchAsync methods dispatch into this region instead
+    // of the legacy ResolveBridgeAsync / ResolveMusicAlbumAsync block. Both code
+    // paths produce the same WikidataResolveResult shape — including Claims and
+    // CollectedBridgeIds — so flipping the flag is a behaviour-preserving toggle.
+    // The legacy path is removed in the final commit of the slimdown sequence.
+    // See: .claude/plans/adapter-slimdown-remediation.md
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Reads <c>HydrationSettings.UseLibraryStage2Resolver</c> at call time.
+    /// Defaults to <c>false</c> when the configuration loader is unavailable
+    /// (e.g. test fixtures that construct the adapter without one).
+    /// </summary>
+    private bool UseLibraryStage2Resolver
+    {
+        get
+        {
+            if (_configLoader is null) return false;
+            try { return _configLoader.LoadHydration().UseLibraryStage2Resolver; }
+            catch { return false; }
+        }
+    }
+
+    /// <summary>
+    /// Bridge identifiers that the legacy <c>ResolveBridgeAsync</c> collects via
+    /// Data Extension. Duplicated here so the new path produces an identical
+    /// <c>CollectedBridgeIds</c> dictionary. Both copies are reduced to a single
+    /// definition when the legacy path is deleted.
+    /// </summary>
+    private static readonly IReadOnlyList<string> Stage2BridgePCodes =
+    [
+        "P212",  // ISBN-13
+        "P5848", // Apple Books ID
+        "P5749", // ASIN
+        "P4947", // TMDB movie ID
+        "P345",  // IMDb ID
+        "P9586", // Apple TV movie ID
+        "P9750", // Apple TV show ID
+        "P4857", // Apple Music ID
+        "P1243", // ISRC
+        "P5849", // Apple Podcasts ID
+        "P434",  // MusicBrainz artist ID
+        "P436",  // MusicBrainz release ID
+        "P5905", // Comic Vine ID
+        "P2969", // Goodreads ID
+        "P1085", // LibraryThing ID
+    ];
+
+    /// <summary>
+    /// Builds the appropriate <see cref="IStage2Request"/> subtype for a
+    /// <see cref="WikidataResolveRequest"/>. Returns <c>null</c> when none of
+    /// the three branches (music, bridge, text) is applicable, in which case
+    /// the caller leaves the result as <see cref="WikidataResolveResult.NotFound"/>.
+    /// </summary>
+    private IStage2Request? BuildStage2Request(WikidataResolveRequest r)
+    {
+        var language = TryGetMetadataLanguage();
+
+        // ── Music branch — album-aware grouping ─────────────────────────────
+        if (r.MediaType == MediaType.Music && !string.IsNullOrWhiteSpace(r.AlbumTitle))
+        {
+            return Stage2Request.Music(
+                correlationKey: r.CorrelationKey,
+                albumTitle:     r.AlbumTitle!,
+                artist:         r.Artist,
+                language:       language);
+        }
+
+        // ── Bridge branch — at least one real (non-sentinel) external ID ────
+        // Sentinel keys (those starting with '_') are stripped here so the
+        // library's strict bridge resolver doesn't trip on them.
+        var realBridgeIds = r.BridgeIds?
+            .Where(kvp => !kvp.Key.StartsWith('_') && !string.IsNullOrWhiteSpace(kvp.Value))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal);
+
+        if (realBridgeIds is { Count: > 0 } && r.WikidataProperties is { Count: > 0 })
+        {
+            // Edition pivot rule per media type. Inline now; Phase 3 of the
+            // slimdown extracts these into config/edition-pivot.json.
+            EditionPivotRule? pivot = null;
+            if (r.IsEditionAware)
+            {
+                pivot = r.MediaType switch
+                {
+                    MediaType.Audiobooks => new EditionPivotRule
+                    {
+                        WorkClasses    = ["Q7725634", "Q571"],            // literary work, novel
+                        EditionClasses = ["Q122731938", "Q106833962"],    // audiobook edition variants
+                    },
+                    MediaType.Books => new EditionPivotRule
+                    {
+                        WorkClasses    = ["Q7725634", "Q8261", "Q571"],   // literary work, novel
+                        EditionClasses = ["Q3331189"],                    // version, edition, or translation
+                    },
+                    MediaType.Music => new EditionPivotRule
+                    {
+                        WorkClasses    = ["Q482994"],                     // album
+                        EditionClasses = ["Q2031291"],                    // album release
+                    },
+                    _ => null,
+                };
+            }
+
+            return Stage2Request.Bridge(
+                correlationKey:     r.CorrelationKey,
+                bridgeIds:          realBridgeIds,
+                wikidataProperties: r.WikidataProperties,
+                editionPivot:       pivot,
+                language:           language);
+        }
+
+        // ── Text fallback — only when title and a known media type are present ─
+        if (!string.IsNullOrWhiteSpace(r.Title) && r.MediaType != MediaType.Unknown)
+        {
+            var cirrusTypes = GetCirrusTypesForMediaType(r.MediaType);
+            if (cirrusTypes.Count == 0) return null;
+
+            return Stage2Request.Text(
+                correlationKey:    r.CorrelationKey,
+                title:             r.Title!,
+                cirrusSearchTypes: cirrusTypes,
+                author:            r.Author,
+                queryCleaners:     QueryCleaners.All(),
+                language:          language,
+                acceptThreshold:   ReviewThreshold / 100.0); // adapter uses 0–100, library uses 0–1
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Hard-coded P31 type filters for text reconciliation, mirroring the
+    /// per-media-type allow-list embedded in <c>config/providers/wikidata_reconciliation.json</c>.
+    /// Phase 3 of the slimdown extracts these into <c>config/cirrus-type-filters.json</c>.
+    /// </summary>
+    private static IReadOnlyList<string> GetCirrusTypesForMediaType(MediaType mediaType) => mediaType switch
+    {
+        MediaType.Books      => ["Q571", "Q7725634", "Q8261"],
+        MediaType.Movies     => ["Q11424"],
+        MediaType.TV         => ["Q5398426", "Q21191270"],
+        MediaType.Music      => ["Q105543609", "Q482994"],
+        MediaType.Comics     => ["Q1004"],
+        MediaType.Podcasts   => ["Q24634210"],
+        MediaType.Audiobooks => ["Q106833962", "Q7725634"],
+        _ => [],
+    };
+
+    private static ResolveStrategy MapStage2MatchedStrategy(Stage2MatchedStrategy m) => m switch
+    {
+        Stage2MatchedStrategy.BridgeId           => ResolveStrategy.BridgeId,
+        Stage2MatchedStrategy.MusicAlbum         => ResolveStrategy.MusicAlbum,
+        Stage2MatchedStrategy.TextReconciliation => ResolveStrategy.TextReconciliation,
+        Stage2MatchedStrategy.NotResolved        => ResolveStrategy.NotResolved,
+        _                                        => ResolveStrategy.NotResolved,
+    };
+
+    private string? TryGetMetadataLanguage()
+    {
+        if (_configLoader is null) return null;
+        try { return _configLoader.LoadCore().Language?.Metadata; }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// After Stage2Service resolves a QID, fetches its bridge property claims
+    /// via Data Extension and produces the same <see cref="ProviderClaim"/> list
+    /// + <c>CollectedBridgeIds</c> dictionary that the legacy
+    /// <c>ResolveBridgeAsync</c> path produces. Stage2Result deliberately does
+    /// not carry claims, so this follow-up call is required for parity with
+    /// the consumer contract (<c>WikidataBridgeWorker.AdditionalClaims</c>).
+    /// </summary>
+    private async Task<(IReadOnlyList<ProviderClaim> Claims, IReadOnlyDictionary<string, string> CollectedBridgeIds)>
+        BuildClaimsForResolvedQidAsync(
+            string resolvedQid,
+            bool isEdition,
+            string? workQid,
+            string? editionQid,
+            CancellationToken ct)
+    {
+        var collectedBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var claims = new List<ProviderClaim>();
+        var language = TryGetMetadataLanguage();
+
+        try
+        {
+            var extensions = await ExtendAsync([resolvedQid], Stage2BridgePCodes, ct).ConfigureAwait(false);
+
+            if (extensions.TryGetValue(resolvedQid, out var resolvedProps))
+            {
+                foreach (var pCode in Stage2BridgePCodes)
+                {
+                    if (!resolvedProps.TryGetValue(pCode, out var pValues) || pValues.Count == 0)
+                        continue;
+
+                    var firstVal = pValues[0].Value;
+                    if (firstVal is null) continue;
+
+                    var rawVal = firstVal.RawValue ?? firstVal.EntityId;
+                    if (string.IsNullOrWhiteSpace(rawVal)) continue;
+
+                    var normalized = IdentifierNormalizationService.NormalizeRaw(pCode, rawVal);
+                    if (!string.IsNullOrWhiteSpace(normalized))
+                        collectedBridgeIds[pCode] = normalized;
+                }
+
+                claims.AddRange(ExtensionToClaims(
+                    resolvedQid,
+                    resolvedProps,
+                    _config.DataExtension.PropertyLabels,
+                    isWork: true,
+                    castMemberLimit: _config.Reconciliation.CastMemberLimit,
+                    metadataLanguage: language));
+            }
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "{Provider}: BuildClaimsForResolvedQidAsync — Data Extension failed for {QID}",
+                Name, resolvedQid);
+        }
+
+        // Always emit the wikidata_qid claim for the work; matches the legacy
+        // path's "Insert(0, ...)" behaviour.
+        var effectiveWorkQid = workQid ?? resolvedQid;
+        claims.Insert(0, new ProviderClaim(BridgeIdKeys.WikidataQid, effectiveWorkQid, 1.0));
+
+        if (isEdition && !string.IsNullOrWhiteSpace(editionQid))
+            claims.Add(new ProviderClaim("edition_qid", editionQid, 1.0));
+
+        return (claims, collectedBridgeIds);
+    }
+
+    /// <summary>
+    /// Single-request entry point for the library-backed path. Wraps a single
+    /// <see cref="WikidataResolveRequest"/> in a one-element list and delegates
+    /// to <see cref="ResolveBatchAsyncViaLibraryAsync"/> so both code paths
+    /// share the same mapping + telemetry logic.
+    /// </summary>
+    private async Task<WikidataResolveResult> ResolveAsyncViaLibraryAsync(
+        WikidataResolveRequest request,
+        CancellationToken ct)
+    {
+        var batched = await ResolveBatchAsyncViaLibraryAsync([request], ct).ConfigureAwait(false);
+        return batched.TryGetValue(request.CorrelationKey, out var r) ? r : WikidataResolveResult.NotFound;
+    }
+
+    /// <summary>
+    /// Batched library-backed Stage 2 resolution.
+    /// 1) Builds an <see cref="IStage2Request"/> per input via <see cref="BuildStage2Request"/>.
+    /// 2) Dispatches the whole list to <c>_reconciler.Stage2.ResolveBatchAsync</c>
+    ///    (which natively groups by natural key — one round-trip per unique ISBN/album/text).
+    /// 3) For each resolved entry, calls <see cref="BuildClaimsForResolvedQidAsync"/>
+    ///    to populate the <c>Claims</c> + <c>CollectedBridgeIds</c> the consumer
+    ///    contract requires.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<string, WikidataResolveResult>> ResolveBatchAsyncViaLibraryAsync(
+        IReadOnlyList<WikidataResolveRequest> requests,
+        CancellationToken ct)
+    {
+        var results = new Dictionary<string, WikidataResolveResult>(StringComparer.Ordinal);
+        if (requests is null || requests.Count == 0 || _reconciler is null)
+            return results;
+
+        // Initialise every correlation key to NotFound so callers always get an entry.
+        foreach (var r in requests)
+            results[r.CorrelationKey] = WikidataResolveResult.NotFound;
+
+        // Build the library request set + remember which input each library request
+        // came from so the text-fallback pass can find it later.
+        var inputByCorrelationKey = requests.ToDictionary(r => r.CorrelationKey, StringComparer.Ordinal);
+        var libRequests = new List<IStage2Request>(requests.Count);
+        foreach (var r in requests)
+        {
+            var libReq = BuildStage2Request(r);
+            if (libReq is not null)
+                libRequests.Add(libReq);
+        }
+
+        if (libRequests.Count == 0) return results;
+
+        // ── Pass 1: dispatch built requests to the library ──────────────────
+        IReadOnlyDictionary<string, Stage2Result> libResults;
+        try
+        {
+            libResults = await _reconciler.Stage2.ResolveBatchAsync(libRequests, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "{Provider}: Stage2.ResolveBatchAsync failed", Name);
+            return results;
+        }
+
+        await PopulateResultsAsync(libResults, results, ct).ConfigureAwait(false);
+
+        // ── Pass 2: text fallback for bridge requests that came back empty ──
+        // The legacy ResolveBridgeAsync issued an inline text reconciliation when
+        // bridge ID lookups failed. The library's BridgeStage2Request does not,
+        // so we replicate the fallback here for parity. Skipped when the request
+        // was already a TextStage2Request or when no Title/Author is available.
+        var textFallbackRequests = new List<IStage2Request>();
+        foreach (var input in requests)
+        {
+            // Only consider entries that are still NotFound after pass 1.
+            if (results[input.CorrelationKey].Found) continue;
+            if (string.IsNullOrWhiteSpace(input.Title) || input.MediaType == MediaType.Unknown)
+                continue;
+
+            // Don't double-fire if pass 1 was already a text request — it failed
+            // there and would fail here too.
+            var hadRealBridgeIds = input.BridgeIds is { } b
+                && b.Any(kvp => !kvp.Key.StartsWith('_') && !string.IsNullOrWhiteSpace(kvp.Value));
+            var wasMusicAlbum = input.MediaType == MediaType.Music && !string.IsNullOrWhiteSpace(input.AlbumTitle);
+            if (!hadRealBridgeIds && !wasMusicAlbum) continue;
+
+            var cirrusTypes = GetCirrusTypesForMediaType(input.MediaType);
+            if (cirrusTypes.Count == 0) continue;
+
+            textFallbackRequests.Add(Stage2Request.Text(
+                correlationKey:    input.CorrelationKey,
+                title:             input.Title!,
+                cirrusSearchTypes: cirrusTypes,
+                author:            input.Author,
+                queryCleaners:     QueryCleaners.All(),
+                language:          TryGetMetadataLanguage(),
+                acceptThreshold:   ReviewThreshold / 100.0));
+        }
+
+        if (textFallbackRequests.Count > 0)
+        {
+            _logger.LogInformation(
+                "{Provider}: Stage2 — text-fallback pass for {Count} unresolved bridge/music request(s)",
+                Name, textFallbackRequests.Count);
+
+            try
+            {
+                var fallbackResults = await _reconciler.Stage2
+                    .ResolveBatchAsync(textFallbackRequests, ct).ConfigureAwait(false);
+                await PopulateResultsAsync(fallbackResults, results, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: Stage2 text-fallback batch failed", Name);
+            }
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Walks the result of a <c>Stage2.ResolveBatchAsync</c> call, fetches
+    /// claims for every resolved QID, and writes the mapped
+    /// <see cref="WikidataResolveResult"/> into the shared results dictionary.
+    /// Existing Found entries are NOT overwritten so callers can run a
+    /// pass 1 + pass 2 sequence safely.
+    /// </summary>
+    private async Task PopulateResultsAsync(
+        IReadOnlyDictionary<string, Stage2Result> libResults,
+        Dictionary<string, WikidataResolveResult> results,
+        CancellationToken ct)
+    {
+        foreach (var (correlationKey, libResult) in libResults)
+        {
+            if (results.TryGetValue(correlationKey, out var existing) && existing.Found)
+                continue;
+
+            if (!libResult.Found || string.IsNullOrWhiteSpace(libResult.Qid))
+            {
+                _logger.LogInformation(
+                    "{Provider}: Stage2 — {Key} not resolved", Name, correlationKey);
+                continue;
+            }
+
+            var (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
+                libResult.Qid!,
+                libResult.IsEdition,
+                libResult.WorkQid,
+                libResult.EditionQid,
+                ct).ConfigureAwait(false);
+
+            results[correlationKey] = new WikidataResolveResult
+            {
+                Found               = true,
+                Qid                 = libResult.Qid,
+                IsEdition           = libResult.IsEdition,
+                WorkQid             = libResult.WorkQid ?? libResult.Qid,
+                EditionQid          = libResult.EditionQid,
+                Claims              = claims,
+                CollectedBridgeIds  = collectedBridgeIds,
+                MatchedBy           = MapStage2MatchedStrategy(libResult.MatchedBy),
+                PrimaryBridgeIdType = libResult.PrimaryBridgeIdType,
+            };
+
+            _logger.LogInformation(
+                "{Provider}: Stage2 — resolved {Key} → {QID} via {Strategy} " +
+                "(isEdition={IsEdition}, claims={ClaimCount}, bridgeIds={BridgeCount})",
+                Name, correlationKey, libResult.Qid, libResult.MatchedBy,
+                libResult.IsEdition, claims.Count, collectedBridgeIds.Count);
+        }
+    }
+
     // ── Public Stage 2 facade ────────────────────────────────────────────────
 
     /// <summary>
@@ -1199,6 +1607,11 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        // Phase 2 dispatch — when the feature flag is on, route to the
+        // library-backed path. Old path stays intact below for parity testing.
+        if (UseLibraryStage2Resolver && _reconciler is not null)
+            return await ResolveAsyncViaLibraryAsync(request, ct).ConfigureAwait(false);
 
         var strategy = request.Strategy == ResolveStrategy.Auto
             ? AutoDetectStrategy(request)
@@ -1279,6 +1692,12 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         IReadOnlyList<WikidataResolveRequest> requests,
         CancellationToken ct = default)
     {
+        // Phase 2 dispatch — when the feature flag is on, route the entire
+        // batch to the library-backed path. Old grouping logic stays intact
+        // below for parity testing and is removed in the final commit.
+        if (UseLibraryStage2Resolver && _reconciler is not null)
+            return await ResolveBatchAsyncViaLibraryAsync(requests, ct).ConfigureAwait(false);
+
         var results = new Dictionary<string, WikidataResolveResult>(StringComparer.Ordinal);
         if (requests is null || requests.Count == 0)
             return results;

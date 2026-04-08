@@ -6,6 +6,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Models;
 using Tuvima.Wikidata;
 using Xunit.Abstractions;
@@ -222,6 +223,108 @@ public sealed class Stage2BaselineCapture : IDisposable
         await File.WriteAllTextAsync(path, json + Environment.NewLine);
 
         _output.WriteLine($"\nBaseline written to {path} ({baseline.Count} entries)");
+    }
+
+    /// <summary>
+    /// Phase 2 parity capture — runs the same fixture set through the
+    /// LIBRARY-BACKED Stage 2 path (HydrationSettings.UseLibraryStage2Resolver = true)
+    /// and writes the outcome to <c>tests/fixtures/stage2-baseline-v2.json</c>.
+    /// Diffing v2 against the v1 baseline is the parity gate for Commit B of
+    /// the adapter slimdown remediation.
+    ///
+    /// <para>
+    /// Constructs the adapter with a real <see cref="ConfigurationDirectoryLoader"/>
+    /// pointing at <c>{repoRoot}/config</c>, so the feature flag in
+    /// <c>config/hydration.json</c> is what actually drives the dispatch.
+    /// </para>
+    /// </summary>
+    [Fact(Skip = "Phase 2 parity capture — run manually with --filter \"FullyQualifiedName~CaptureStage2BaselineViaLibraryPath\". Requires live Wikidata. Re-run only when re-baselining v2.")]
+    [Trait("Category", "Baseline")]
+    public async Task CaptureStage2BaselineViaLibraryPath()
+    {
+        var adapter  = BuildAdapterWithLibraryPath();
+        var requests = BuildRequests();
+        var results  = await adapter.ResolveBatchAsync(requests);
+
+        var baseline = new SortedDictionary<string, BaselineEntry>(StringComparer.Ordinal);
+        foreach (var request in requests)
+        {
+            if (!results.TryGetValue(request.CorrelationKey, out var result))
+            {
+                baseline[request.CorrelationKey] = new BaselineEntry
+                {
+                    Found = false,
+                    MatchedBy = "MissingFromBatchResult",
+                };
+                _output.WriteLine($"⚠ {request.CorrelationKey}: missing from batch result");
+                continue;
+            }
+
+            baseline[request.CorrelationKey] = new BaselineEntry
+            {
+                Found               = result.Found,
+                Qid                 = result.Qid,
+                IsEdition           = result.IsEdition,
+                WorkQid             = result.WorkQid,
+                EditionQid          = result.EditionQid,
+                PrimaryBridgeIdType = result.PrimaryBridgeIdType,
+                MatchedBy           = result.MatchedBy.ToString(),
+                ClaimCount          = result.Claims.Count,
+                CollectedBridgeIdKeys = result.CollectedBridgeIds.Keys
+                    .OrderBy(k => k, StringComparer.Ordinal)
+                    .ToList(),
+            };
+
+            _output.WriteLine(
+                $"✓ {request.CorrelationKey}: {result.Qid ?? "<none>"} " +
+                $"via {result.MatchedBy} (claims={result.Claims.Count})");
+        }
+
+        var json = JsonSerializer.Serialize(baseline, new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+        });
+
+        var root = FindRepoRoot();
+        var dir  = Path.Combine(root, "tests", "fixtures");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, "stage2-baseline-v2.json");
+        await File.WriteAllTextAsync(path, json + Environment.NewLine);
+
+        _output.WriteLine($"\nLibrary-path baseline written to {path} ({baseline.Count} entries)");
+    }
+
+    private static ReconciliationAdapter BuildAdapterWithLibraryPath()
+    {
+        var root        = FindRepoRoot();
+        var configDir   = Path.Combine(root, "config");
+        var loader      = new ConfigurationDirectoryLoader(configDir);
+
+        var providerCfgPath = Path.Combine(configDir, "providers", "wikidata_reconciliation.json");
+        var providerCfgJson = File.ReadAllText(providerCfgPath);
+        var providerCfg     = JsonSerializer.Deserialize<ReconciliationProviderConfig>(providerCfgJson, s_jsonOptions)
+                              ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");
+        providerCfg.ThrottleMs = 100;
+
+        var factory         = BuildHttpFactory("wikidata_reconciliation", "headshot_download", "WikidataReconciliation");
+        var reconcilerHttp  = factory.CreateClient("WikidataReconciliation");
+        var reconciler      = new WikidataReconciler(reconcilerHttp, new WikidataReconcilerOptions
+        {
+            UserAgent             = "Tuvima Library/Stage2BaselineV2 (mailto:test@tuvima.dev)",
+            MaxLag                = 0,
+            TypeHierarchyDepth    = 3,
+            IncludeSitelinkLabels = true,
+        });
+
+        return new ReconciliationAdapter(
+            providerCfg,
+            factory,
+            NullLogger<ReconciliationAdapter>.Instance,
+            new StubFuzzyMatchingService(),
+            responseCache: null,
+            configLoader:  loader,
+            reconciler:    reconciler);
     }
 
     public void Dispose() { /* HttpClient owned by IHttpClientFactory */ }

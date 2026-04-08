@@ -1,0 +1,141 @@
+{
+  "audiobook-project-hail-mary-text": {
+    "Found": true,
+    "Qid": "Q106852836",
+    "IsEdition": false,
+    "WorkQid": "Q106852836",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 1,
+    "CollectedBridgeIdKeys": [
+      "P1085"
+    ]
+  },
+  "book-bachman-rage-text": {
+    "Found": true,
+    "Qid": "Q277260",
+    "IsEdition": false,
+    "WorkQid": "Q277260",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 1,
+    "CollectedBridgeIdKeys": [
+      "P1085"
+    ]
+  },
+  "book-dune-isbn": {
+    "Found": true,
+    "Qid": "Q190192",
+    "IsEdition": false,
+    "WorkQid": "Q190192",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 1,
+    "CollectedBridgeIdKeys": [
+      "P1085"
+    ]
+  },
+  "book-foundation-isbn": {
+    "Found": true,
+    "Qid": "Q753894",
+    "IsEdition": false,
+    "WorkQid": "Q753894",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 1,
+    "CollectedBridgeIdKeys": [
+      "P1085"
+    ]
+  },
+  "book-good-omens-text": {
+    "Found": true,
+    "Qid": "Q1052459",
+    "IsEdition": false,
+    "WorkQid": "Q1052459",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 1,
+    "CollectedBridgeIdKeys": [
+      "P1085"
+    ]
+  },
+  "book-leviathan-wakes-text": {
+    "Found": true,
+    "Qid": "Q6535598",
+    "IsEdition": false,
+    "WorkQid": "Q6535598",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 1,
+    "CollectedBridgeIdKeys": [
+      "P1085"
+    ]
+  },
+  "book-neuromancer-text": {
+    "Found": true,
+    "Qid": "Q662029",
+    "IsEdition": false,
+    "WorkQid": "Q662029",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 1,
+    "CollectedBridgeIdKeys": [
+      "P1085"
+    ]
+  },
+  "movie-dune-2021-tmdb": {
+    "Found": true,
+    "Qid": "Q60834962",
+    "IsEdition": false,
+    "WorkQid": "Q60834962",
+    "PrimaryBridgeIdType": "tmdb_id",
+    "MatchedBy": "BridgeId",
+    "ClaimCount": 4,
+    "CollectedBridgeIdKeys": [
+      "P1085",
+      "P345",
+      "P4947",
+      "P5905",
+      "P9586"
+    ]
+  },
+  "music-ok-computer-album": {
+    "Found": true,
+    "Qid": "Q202996",
+    "IsEdition": false,
+    "WorkQid": "Q202996",
+    "MatchedBy": "MusicAlbum",
+    "ClaimCount": 3,
+    "CollectedBridgeIdKeys": [
+      "P436",
+      "P5749"
+    ]
+  },
+  "music-ram-album": {
+    "Found": true,
+    "Qid": "Q8119033",
+    "IsEdition": false,
+    "WorkQid": "Q8119033",
+    "MatchedBy": "MusicAlbum",
+    "ClaimCount": 3,
+    "CollectedBridgeIdKeys": [
+      "P436",
+      "P5749"
+    ]
+  },
+  "tv-breaking-bad-text": {
+    "Found": true,
+    "Qid": "Q1079",
+    "IsEdition": false,
+    "WorkQid": "Q1079",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 2,
+    "CollectedBridgeIdKeys": [
+      "P345"
+    ]
+  },
+  "tv-shogun-text": {
+    "Found": true,
+    "Qid": "Q1778567",
+    "IsEdition": false,
+    "WorkQid": "Q1778567",
+    "MatchedBy": "TextReconciliation",
+    "ClaimCount": 2,
+    "CollectedBridgeIdKeys": [
+      "P345"
+    ]
+  }
+}
