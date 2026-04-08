@@ -365,21 +365,29 @@ public sealed class WikidataBridgeWorker
 
         if (textFallbackContexts.Count > 0)
         {
-            // Build unique (title, author) signatures — one reconciliation entry per signature.
+            // Build unique (title, author, mediaType) signatures — one reconciliation
+            // entry per signature. MediaType is part of the key so each signature
+            // can carry its own CirrusSearch type filter (TV titles must not match
+            // literary works, etc.).
             var uniqueSignatures = textFallbackContexts
-                .Select(ctx => TextFallbackKey(ctx.TitleHint!, ctx.AuthorHint))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(ctx => (Sig: TextFallbackKey(ctx.TitleHint!, ctx.AuthorHint, ctx.MediaType),
+                                MediaType: ctx.MediaType))
+                .GroupBy(x => x.Sig, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
                 .ToList();
 
             var batchRequests = uniqueSignatures
-                .Select(sig => (QueryId: sig, Query: sig.Split('\x1F')[0], PropertyConstraints: (Dictionary<string, string>?)null))
+                .Select(s => (QueryId: s.Sig,
+                              Query: s.Sig.Split('\x1F')[0],
+                              PropertyConstraints: (Dictionary<string, string>?)null,
+                              MediaType: s.MediaType))
                 .ToList();
 
             try
             {
                 var batchResults = await reconAdapter.ReconcileBatchAsync(batchRequests, ct);
 
-                foreach (var sig in uniqueSignatures)
+                foreach (var (sig, _) in uniqueSignatures)
                 {
                     textGroupResults[sig] = null; // default: no match
 
@@ -419,6 +427,19 @@ public sealed class WikidataBridgeWorker
                         ctx.ResolvedQid = musicResult.Qid;
                         ctx.AdditionalClaims.AddRange(musicResult.Claims);
                         ctx.MatchedBy = "music_album";
+
+                        // Ensure the album QID is persisted as a canonical on the
+                        // track's media_asset entity. ResolveMusicAlbumAsync returns
+                        // the album QID but doesn't always emit it as a wikidata_qid
+                        // claim — if it's missing, the track stalls because nothing
+                        // downstream sees a resolved QID on the asset.
+                        if (!string.IsNullOrWhiteSpace(musicResult.Qid)
+                            && !ctx.AdditionalClaims.Any(c => string.Equals(
+                                c.Key, BridgeIdKeys.WikidataQid, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            ctx.AdditionalClaims.Add(new ProviderClaim(
+                                BridgeIdKeys.WikidataQid, musicResult.Qid, 0.95));
+                        }
                     }
                 }
             }
@@ -441,7 +462,7 @@ public sealed class WikidataBridgeWorker
                 && !string.IsNullOrWhiteSpace(ctx.TitleHint)
                 && ctx.MediaType != MediaType.Unknown)
             {
-                var sig = TextFallbackKey(ctx.TitleHint!, ctx.AuthorHint);
+                var sig = TextFallbackKey(ctx.TitleHint!, ctx.AuthorHint, ctx.MediaType);
                 if (textGroupResults.TryGetValue(sig, out var textQid) && textQid is not null)
                 {
                     ctx.ResolvedQid = textQid;
@@ -736,8 +757,8 @@ public sealed class WikidataBridgeWorker
         return $"__text\x1F{ctx.TitleHint ?? ""}\x1F{ctx.AuthorHint ?? ""}";
     }
 
-    private static string TextFallbackKey(string title, string? author)
-        => $"{title.Trim()}\x1F{author?.Trim() ?? ""}";
+    private static string TextFallbackKey(string title, string? author, MediaType mediaType)
+        => $"{title.Trim()}\x1F{author?.Trim() ?? ""}\x1F{mediaType}";
 
     /// <summary>
     /// Returns true if the context's primary bridge group has a resolved QID.

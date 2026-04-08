@@ -429,7 +429,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <param name="ct">Cancellation token.</param>
     /// <returns>Dictionary keyed by QueryId.</returns>
     public async Task<Dictionary<string, IReadOnlyList<ReconciliationResult>>> ReconcileBatchAsync(
-        IReadOnlyList<(string QueryId, string Query, Dictionary<string, string>? PropertyConstraints)> requests,
+        IReadOnlyList<(string QueryId, string Query, Dictionary<string, string>? PropertyConstraints, MediaType MediaType)> requests,
         CancellationToken ct = default)
     {
         var result = new Dictionary<string, IReadOnlyList<ReconciliationResult>>(StringComparer.Ordinal);
@@ -437,15 +437,32 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return result;
 
         var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
-        var libRequests = requests.Select(r => new ReconciliationRequest
+        var libRequests = requests.Select(r =>
         {
-            Query = r.Query,
-            Limit = _config.Reconciliation.MaxCandidates,
-            Language = language,
-            DiacriticInsensitive = true,
-            Cleaners = QueryCleaners.All(),
-            Properties = r.PropertyConstraints?.Select(kvp =>
-                new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
+            // Per-request type filter from instance_of_classes config — same logic
+            // ReconcileAsync uses. Without this, text reconciliation can return a
+            // literary work for a TV episode title (the "Star of Edo" → Shogun
+            // novel mismatch).
+            IReadOnlyList<string>? typeQids = null;
+            if (r.MediaType != MediaType.Unknown)
+            {
+                var mediaTypeKey = r.MediaType.ToString();
+                if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+                    typeQids = classes;
+            }
+
+            return new ReconciliationRequest
+            {
+                Query = r.Query,
+                Limit = _config.Reconciliation.MaxCandidates,
+                Language = language,
+                DiacriticInsensitive = true,
+                Cleaners = QueryCleaners.All(),
+                Types = typeQids,
+                TypeHierarchyDepth = 1,
+                Properties = r.PropertyConstraints?.Select(kvp =>
+                    new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }).ToList()
+            };
         }).ToList();
 
         try

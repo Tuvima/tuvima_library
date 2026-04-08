@@ -610,6 +610,22 @@ public static class IntegrationTestEndpoints
     {
         var libConfig = configLoader.LoadLibraries();
         int total = 0;
+        int failed = 0;
+
+        async Task TryWriteAsync(string filePath, string title, Func<byte[]> build)
+        {
+            try
+            {
+                byte[] bytes = build();
+                await File.WriteAllBytesAsync(filePath, bytes);
+                total++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                logger.LogWarning(ex, "[Seed] Failed to create '{Title}' at {Path}", title, filePath);
+            }
+        }
 
         string? ResolveDir(string category)
         {
@@ -642,10 +658,9 @@ public static class IntegrationTestEndpoints
                     string fileName = $"{SanitizeFileName(book.Title)}.epub";
                     string filePath = Path.Combine(booksDir, fileName);
                     if (File.Exists(filePath)) continue;
-                    byte[] epub = EpubBuilder.Create(book.Title, book.Author, book.Isbn, book.Year, book.Description,
-                        book.Publisher, book.Language, book.AdditionalAuthors, book.Series, book.SeriesPosition);
-                    await File.WriteAllBytesAsync(filePath, epub);
-                    total++;
+                    await TryWriteAsync(filePath, book.Title, () =>
+                        EpubBuilder.Create(book.Title, book.Author, book.Isbn, book.Year, book.Description,
+                            book.Publisher, book.Language, book.AdditionalAuthors, book.Series, book.SeriesPosition));
                 }
             }
 
@@ -662,10 +677,9 @@ public static class IntegrationTestEndpoints
                     string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
                     string filePath = Path.Combine(audiobooksDir, fileName);
                     if (File.Exists(filePath)) continue;
-                    byte[] mp3 = Mp3Builder.Create(ab.Title, ab.Artist, narrator: ab.Narrator,
-                        year: ab.Year, language: ab.Language, series: ab.Series, seriesPosition: ab.SeriesPosition, asin: ab.Asin);
-                    await File.WriteAllBytesAsync(filePath, mp3);
-                    total++;
+                    await TryWriteAsync(filePath, ab.Title, () =>
+                        Mp3Builder.Create(ab.Title, ab.Artist, narrator: ab.Narrator,
+                            year: ab.Year, language: ab.Language, series: ab.Series, seriesPosition: ab.SeriesPosition, asin: ab.Asin));
                 }
             }
         }
@@ -680,9 +694,7 @@ public static class IntegrationTestEndpoints
                 string fileName = $"{SanitizeFileName(v.Title)} ({v.Year}).mp4";
                 string filePath = Path.Combine(moviesDir, fileName);
                 if (File.Exists(filePath)) continue;
-                byte[] mp4 = Mp4Builder.Create(v.Title, v.Director, v.Year);
-                await File.WriteAllBytesAsync(filePath, mp4);
-                total++;
+                await TryWriteAsync(filePath, v.Title, () => Mp4Builder.Create(v.Title, v.Director, v.Year));
             }
         }
 
@@ -698,13 +710,11 @@ public static class IntegrationTestEndpoints
                     : $"{SanitizeFileName(v.Title)} ({v.Year}).mp4";
                 string filePath = Path.Combine(tvDir, fileName);
                 if (File.Exists(filePath)) continue;
-                byte[] mp4 = Mp4Builder.Create(
+                await TryWriteAsync(filePath, v.Title, () => Mp4Builder.Create(
                     v.Title, v.Director, v.Year,
                     showName: v.Series,
                     seasonNumber: v.SeasonNumber,
-                    episodeNumber: v.EpisodeNumber);
-                await File.WriteAllBytesAsync(filePath, mp4);
-                total++;
+                    episodeNumber: v.EpisodeNumber));
             }
         }
 
@@ -718,9 +728,8 @@ public static class IntegrationTestEndpoints
                 string fileName = $"{SanitizeFileName(m.Artist)} - {SanitizeFileName(m.Title)}.flac";
                 string filePath = Path.Combine(musicDir, fileName);
                 if (File.Exists(filePath)) continue;
-                byte[] flac = FlacBuilder.Create(m.Title, m.Artist, m.Album, m.Year, m.Genre, m.TrackNumber);
-                await File.WriteAllBytesAsync(filePath, flac);
-                total++;
+                await TryWriteAsync(filePath, m.Title, () =>
+                    FlacBuilder.Create(m.Title, m.Artist, m.Album, m.Year, m.Genre, m.TrackNumber));
             }
         }
 
@@ -734,14 +743,13 @@ public static class IntegrationTestEndpoints
                 string fileName = $"{SanitizeFileName(c.Title)}.cbz";
                 string filePath = Path.Combine(comicsDir, fileName);
                 if (File.Exists(filePath)) continue;
-                byte[] cbz = CbzBuilder.Create(c.Title, c.Writer, c.Series, c.Number,
-                    c.Year, c.Genre, c.Summary, c.Publisher, c.Penciller);
-                await File.WriteAllBytesAsync(filePath, cbz);
-                total++;
+                await TryWriteAsync(filePath, c.Title, () =>
+                    CbzBuilder.Create(c.Title, c.Writer, c.Series, c.Number,
+                        c.Year, c.Genre, c.Summary, c.Publisher, c.Penciller));
             }
         }
 
-        logger.LogInformation("[Seed] {Count} test files created", total);
+        logger.LogInformation("[Seed] {Count} test files created ({Failed} failed)", total, failed);
 
         // Allow file handles to fully release before the filesystem watcher triggers.
         // Without this, the DebounceQueue's file-lock probe may fail repeatedly on

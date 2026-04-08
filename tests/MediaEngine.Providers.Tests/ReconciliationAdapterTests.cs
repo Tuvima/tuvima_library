@@ -79,11 +79,11 @@ public sealed class ReconciliationAdapterTests : IDisposable
     [Trait("Category", "Integration")]
     public async Task ReconcileBatch_MultipleQueries_ReturnsAllResults()
     {
-        var requests = new List<(string QueryId, string Query, Dictionary<string, string>? PropertyConstraints)>
+        var requests = new List<(string QueryId, string Query, Dictionary<string, string>? PropertyConstraints, MediaType MediaType)>
         {
-            ("q0", "Dune",        new Dictionary<string, string> { ["P50"] = "Frank Herbert" }),
-            ("q1", "Neuromancer", new Dictionary<string, string> { ["P50"] = "William Gibson" }),
-            ("q2", "Foundation",  new Dictionary<string, string> { ["P50"] = "Isaac Asimov" }),
+            ("q0", "Dune",        new Dictionary<string, string> { ["P50"] = "Frank Herbert" }, MediaType.Books),
+            ("q1", "Neuromancer", new Dictionary<string, string> { ["P50"] = "William Gibson" }, MediaType.Books),
+            ("q2", "Foundation",  new Dictionary<string, string> { ["P50"] = "Isaac Asimov" }, MediaType.Books),
         };
 
         var results = await _adapter.ReconcileBatchAsync(requests);
