@@ -62,8 +62,8 @@
     <PackageVersion Include="MudBlazor" Version="9.0.0" />
     <!-- Tuvima.Wikidata: unified Wikidata/Wikipedia API client and in-memory graph engine.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
-    <PackageVersion Include="Tuvima.Wikidata" Version="1.0.0" />
-    <PackageVersion Include="Tuvima.Wikidata.AspNetCore" Version="1.0.0" />
+    <PackageVersion Include="Tuvima.Wikidata" Version="2.4.1" />
+    <PackageVersion Include="Tuvima.Wikidata.AspNetCore" Version="2.4.1" />
   </ItemGroup>
   <ItemGroup Label="Test">
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />

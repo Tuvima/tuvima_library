@@ -594,6 +594,24 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
             .CreateClient("WikidataReconciliation");
         return new Tuvima.Wikidata.WikidataReconciler(httpClient, reconcilerOptions);
     });
+
+    // Sub-service registrations — Tuvima.Wikidata v2.4.1 exposes nine focused
+    // sub-services on the facade. Registering each as a singleton allows the
+    // adapter slimdown phases to inject narrow slices (Stage2Service,
+    // PersonsService, AuthorsService, ChildrenService, LabelsService) instead
+    // of the full reconciler. We do this manually rather than calling
+    // AddWikidataReconciliation() because we need the Polly resilience handler
+    // on our own named HttpClient (line above) — the AspNetCore extension
+    // registers its own client without it.
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Reconcile);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Entities);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Wikipedia);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Editions);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Children);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Authors);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Labels);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Persons);
+    builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Stage2);
 }
 
 // ReconciliationAdapter — Wikidata Reconciliation API + Data Extension API.

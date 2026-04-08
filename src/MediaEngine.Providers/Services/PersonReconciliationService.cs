@@ -3,6 +3,10 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Tuvima.Wikidata;
+// PersonSearchResult exists in both MediaEngine.Domain.Models and Tuvima.Wikidata (the
+// v2.1+ Persons sub-service). Until Phase 4 wraps the library type, the unqualified name
+// in this file always means the Domain DTO.
+using PersonSearchResult = MediaEngine.Domain.Models.PersonSearchResult;
 
 namespace MediaEngine.Providers.Services;
 
@@ -92,7 +96,7 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
             Query = name,
             Limit = 10,
             Language = language,
-            Type = HumanClassQid,
+            Types = [HumanClassQid],
             TypeHierarchyDepth = 1,
             DiacriticInsensitive = true,
         };
@@ -111,7 +115,7 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
                     Query = name,
                     Limit = 10,
                     Language = language,
-                    Type = MusicalGroupClassQid,
+                    Types = [MusicalGroupClassQid],
                     TypeHierarchyDepth = 1,
                     DiacriticInsensitive = true,
                 };
@@ -125,7 +129,7 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
                         Query = name,
                         Limit = 10,
                         Language = language,
-                        Type = MusicalEnsembleClassQid,
+                        Types = [MusicalEnsembleClassQid],
                         TypeHierarchyDepth = 1,
                         DiacriticInsensitive = true,
                     };
@@ -272,7 +276,7 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
                 Query               = u.Name,
                 Limit               = 10,
                 Language            = language,
-                Type                = HumanClassQid,
+                Types               = [HumanClassQid],
                 TypeHierarchyDepth  = 1,
                 DiacriticInsensitive = true,
             })

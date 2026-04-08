@@ -399,7 +399,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 allConstraints.AddRange(
                     propertyConstraints
                         .Where(kvp => !multiValuePIds.Contains(kvp.Key))
-                        .Select(kvp => new PropertyConstraint { PropertyId = kvp.Key, Value = kvp.Value }));
+                        .Select(kvp => new PropertyConstraint(kvp.Key, kvp.Value)));
             }
         }
 
@@ -2376,7 +2376,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             try
             {
-                var pseudonyms = await _reconciler.GetAuthorPseudonymsAsync(masterWorkQid, language, ct)
+                var pseudonyms = await GetAuthorPseudonymsLegacyAsync(masterWorkQid, language, ct)
                     .ConfigureAwait(false);
 
                 // Find a shared pseudonym (all co-authors have the same pen name)
@@ -2784,6 +2784,76 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private const int MaxChildEntities = 500;
     private const int MaxTvSeasons     = 20;
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Legacy shims — bridge v2.4.1 sub-services back to the v1 shapes used by
+    // the still-present hand-rolled blocks. Both this region and the call sites
+    // are deleted in Phase 5 (pseudonym block) and Phase 3 (child entities) of
+    // the adapter slimdown remediation.
+    // See: .claude/plans/adapter-slimdown-remediation.md
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /// <summary>Lightweight DTO matching the v1 PseudonymInfo shape.</summary>
+    private sealed record LegacyPseudonymInfo(string AuthorEntityId, IReadOnlyList<string> Pseudonyms);
+
+    /// <summary>
+    /// Phase 1 shim for the removed v1 <c>WikidataReconciler.GetAuthorPseudonymsAsync</c>.
+    /// Fetches the work's P50 author QIDs, then walks each author's P742 (pseudonym) string
+    /// claims via <c>Entities.GetPropertiesAsync</c>. Returns the same shape the original
+    /// hand-rolled Pattern 3 detection block expects. Deleted in Phase 5 along with the call site.
+    /// </summary>
+    private async Task<IReadOnlyList<LegacyPseudonymInfo>> GetAuthorPseudonymsLegacyAsync(
+        string workQid,
+        string? language,
+        CancellationToken ct)
+    {
+        if (_reconciler is null) return [];
+
+        // Step 1 — fetch the work's P50 (author) claims to get co-author QIDs.
+        var workProps = await _reconciler.Entities
+            .GetPropertiesAsync([workQid], ["P50"], language, ct)
+            .ConfigureAwait(false);
+
+        if (!workProps.TryGetValue(workQid, out var props)
+            || !props.TryGetValue("P50", out var authorClaims)
+            || authorClaims.Count == 0)
+        {
+            return [];
+        }
+
+        var authorQids = authorClaims
+            .Select(c => c.Value?.EntityId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Cast<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (authorQids.Count == 0) return [];
+
+        // Step 2 — fetch P742 (pseudonym) string claims for every co-author in one batch.
+        var authorProps = await _reconciler.Entities
+            .GetPropertiesAsync(authorQids, ["P742"], language, ct)
+            .ConfigureAwait(false);
+
+        var result = new List<LegacyPseudonymInfo>(authorQids.Count);
+        foreach (var authorQid in authorQids)
+        {
+            var pseudonyms = new List<string>();
+            if (authorProps.TryGetValue(authorQid, out var ap)
+                && ap.TryGetValue("P742", out var penNameClaims))
+            {
+                foreach (var claim in penNameClaims)
+                {
+                    var penName = claim.Value?.RawValue;
+                    if (!string.IsNullOrWhiteSpace(penName))
+                        pseudonyms.Add(penName);
+                }
+            }
+            result.Add(new LegacyPseudonymInfo(authorQid, pseudonyms));
+        }
+
+        return result;
+    }
+
     /// <summary>
     /// Discovers child entities (TV episodes, music tracks, comic issues) for a parent QID
     /// and returns them as <see cref="ProviderClaim"/> entries. The count claims and a
@@ -2804,9 +2874,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             case MediaType.TV:
             {
                 var tvCfg   = cfg.Tv;
-                var seasons = await _reconciler!.GetChildEntitiesAsync(
+                var seasons = await _reconciler!.Children.TraverseChildrenAsync(
                     parentQid,
                     tvCfg.SeasonProperty,
+                    Direction.Outgoing,
                     tvCfg.SeasonTypeFilter.Count > 0 ? tvCfg.SeasonTypeFilter : null,
                     ["P1476", "P1545"],
                     language,
@@ -2825,9 +2896,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 {
                     if (totalEpisodes >= MaxChildEntities) break;
 
-                    var episodes = await _reconciler!.GetChildEntitiesAsync(
+                    var episodes = await _reconciler!.Children.TraverseChildrenAsync(
                         season.EntityId,
                         tvCfg.EpisodeProperty,
+                        Direction.Outgoing,
                         tvCfg.EpisodeTypeFilter.Count > 0 ? tvCfg.EpisodeTypeFilter : null,
                         tvCfg.EpisodeProperties.Count > 0 ? tvCfg.EpisodeProperties : ["P1476", "P1545", "P577", "P2047", "P57"],
                         language,
@@ -2879,9 +2951,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     : ["P1476", "P1545", "P2047", "P175", "P577"];
 
                 // Try primary property first; fall back to secondary if no results.
-                var tracks = await _reconciler!.GetChildEntitiesAsync(
+                var tracks = await _reconciler!.Children.TraverseChildrenAsync(
                     parentQid,
                     musicCfg.TrackProperty,
+                    Direction.Outgoing,
                     musicCfg.TrackTypeFilter.Count > 0 ? musicCfg.TrackTypeFilter : null,
                     trackProps,
                     language,
@@ -2890,9 +2963,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 if (tracks.Count == 0 && !string.IsNullOrEmpty(musicCfg.TrackPropertyFallback)
                     && musicCfg.TrackPropertyFallback != musicCfg.TrackProperty)
                 {
-                    tracks = await _reconciler!.GetChildEntitiesAsync(
+                    tracks = await _reconciler!.Children.TraverseChildrenAsync(
                         parentQid,
                         musicCfg.TrackPropertyFallback,
+                        Direction.Outgoing,
                         musicCfg.TrackTypeFilter.Count > 0 ? musicCfg.TrackTypeFilter : null,
                         trackProps,
                         language,
@@ -2931,9 +3005,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     ? comicsCfg.IssueProperties
                     : ["P1476", "P1545", "P577"];
 
-                var issues = await _reconciler!.GetChildEntitiesAsync(
+                // Comics config historically encodes reverse traversal by prefixing the
+                // property with '^' (e.g. "^P179"). v2.4.1 replaces that string convention
+                // with the Direction enum. Phase 3 will move the direction into the config
+                // schema; for now we detect and translate at the call site.
+                var (issueProperty, issueDirection) = comicsCfg.IssueProperty.StartsWith('^')
+                    ? (comicsCfg.IssueProperty[1..], Direction.Incoming)
+                    : (comicsCfg.IssueProperty,      Direction.Outgoing);
+
+                var issues = await _reconciler!.Children.TraverseChildrenAsync(
                     parentQid,
-                    comicsCfg.IssueProperty,
+                    issueProperty,
+                    issueDirection,
                     comicsCfg.IssueTypeFilter.Count > 0 ? comicsCfg.IssueTypeFilter : null,
                     issueProps,
                     language,
