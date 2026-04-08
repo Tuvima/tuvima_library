@@ -38,11 +38,17 @@ public sealed class RegistryRepository : IRegistryRepository
                       AND ma.file_path_root NOT LIKE '%\.data\staging\%'
                       AND ma.file_path_root NOT LIKE '%/.data\staging/%'
             """;
+        // Visibility filter for non-IncludeAll queries. A work must either:
+        //   • have a resolved Wikidata QID, OR
+        //   • be in provisional/rejected curator state, OR
+        //   • have a pending review AND at least one non-staging asset
+        //     (reviews whose only files are still in staging stay hidden until
+        //     the file is organized; otherwise they'd leak into media tabs).
         var visibilityFilter = query.IncludeAll ? "" : """
                     WHERE (
                         (wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%')
-                        OR rd.review_id IS NOT NULL
                         OR wd.curator_state IN ('provisional', 'rejected')
+                        OR (rd.review_id IS NOT NULL AND ad.asset_id IS NOT NULL)
                     )
             """;
         // Phase 4 — lineage-aware reads. Two pivot CTEs:
@@ -294,8 +300,10 @@ public sealed class RegistryRepository : IRegistryRepository
                     COALESCE(ul.has_locks, 0) AS has_user_locks,
                     CASE
                         WHEN wd.curator_state = 'rejected' THEN 'Rejected'
-                        WHEN wd.curator_state = 'provisional' THEN 'Provisional'
+                        -- InReview is prioritised over Provisional so items
+                        -- in the Action Centre never leak into media tabs.
                         WHEN rd.review_id IS NOT NULL THEN 'InReview'
+                        WHEN wd.curator_state = 'provisional' THEN 'Provisional'
                         WHEN wd.curator_state = 'registered'
                              AND wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''
                              AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'Identified'
@@ -373,9 +381,13 @@ public sealed class RegistryRepository : IRegistryRepository
         else if (!query.IncludeAll)
         {
             // Default: exclude items that belong in the Action Centre.
-            // InReview and Rejected items are only shown when explicitly
-            // requested via the Action Centre's status filters.
-            conditions.Add("fd.status NOT IN ('InReview', 'Rejected')");
+            // InReview, Rejected and Provisional items are only shown when
+            // explicitly requested via the Action Centre's status filters.
+            // Also require the work to have at least one non-staging asset
+            // (asset_data applies the staging filter), so works whose only
+            // files are still in .data/staging/ never appear in media tabs.
+            conditions.Add("fd.status NOT IN ('InReview', 'Rejected', 'Provisional')");
+            conditions.Add("fd.file_path IS NOT NULL");
         }
         if (query.MinConfidence.HasValue)
             conditions.Add("fd.confidence >= @minConfidence");

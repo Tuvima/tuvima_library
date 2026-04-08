@@ -1376,6 +1376,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // (albums, shows, series, comic series, podcast shows).
         MigrateParentKey(conn);
 
+        // Migration M-083: ownership column on works. Adds TEXT column
+        // 'ownership' defaulting to 'Owned' and backfills 'Unowned' for all
+        // existing catalog rows (is_catalog_only = 1). Adds a composite index
+        // on (ownership, media_type) for fast unowned filtering.
+        MigrateOwnershipColumn(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2589,6 +2595,55 @@ public sealed class DatabaseConnection : IDatabaseConnection
         }
 
         System.Diagnostics.Debug.WriteLine("M-082: parent_key shadow column + index");
+    }
+
+    /// <summary>
+    /// Migration M-083: <c>works.ownership</c> TEXT column.
+    /// <list type="bullet">
+    ///   <item>Adds <c>ownership TEXT NOT NULL DEFAULT 'Owned'</c> to
+    ///     <c>works</c>. All existing rows default to 'Owned'.</item>
+    ///   <item>Backfills <c>ownership = 'Unowned'</c> for every row where
+    ///     <c>is_catalog_only = 1</c> (existing catalog children). This keeps
+    ///     the new column in sync with the legacy boolean flag.</item>
+    ///   <item>Creates a composite index <c>idx_works_ownership_media_type</c>
+    ///     on <c>(ownership, media_type)</c> for fast unowned-item queries.</item>
+    /// </list>
+    /// Idempotent: column addition is guarded by
+    /// <see cref="MigrateAddColumnIfMissing"/>; the index uses
+    /// <c>CREATE INDEX IF NOT EXISTS</c>.
+    /// </summary>
+    private static void MigrateOwnershipColumn(SqliteConnection conn)
+    {
+        // Step 1: add column
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "ownership",
+            ddl:    "ALTER TABLE works ADD COLUMN ownership TEXT NOT NULL DEFAULT 'Owned';");
+
+        // Step 2: backfill existing catalog rows
+        using (var backfillCmd = conn.CreateCommand())
+        {
+            backfillCmd.CommandText = """
+                UPDATE works
+                SET    ownership = 'Unowned'
+                WHERE  is_catalog_only = 1
+                  AND  (ownership IS NULL OR ownership = 'Owned');
+                """;
+            backfillCmd.ExecuteNonQuery();
+        }
+
+        // Step 3: composite index on (ownership, media_type)
+        using (var idxCmd = conn.CreateCommand())
+        {
+            idxCmd.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_works_ownership_media_type
+                    ON works(ownership, media_type);
+                """;
+            idxCmd.ExecuteNonQuery();
+        }
+
+        System.Diagnostics.Debug.WriteLine("M-083: ownership column on works");
     }
 
     /// <summary>

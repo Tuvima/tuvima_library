@@ -838,6 +838,23 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         bool isMissingPersonPseudonym,
         CancellationToken ct)
     {
+        // Fix 3: dedup — reuse an existing person row if the QID is already in the DB
+        // instead of creating a second "Unknown Person (Qxxx)" stub.
+        var existing = await _personRepo.FindByQidAsync(missingQid, ct).ConfigureAwait(false);
+        if (existing is not null)
+        {
+            _logger.LogDebug(
+                "CreateAndLinkStubPersonAsync: reusing existing person {Id} for QID {Qid}",
+                existing.Id, missingQid);
+
+            if (isMissingPersonPseudonym)
+                await _personRepo.LinkAliasAsync(existing.Id, existingPersonId, ct).ConfigureAwait(false);
+            else
+                await _personRepo.LinkAliasAsync(existingPersonId, existing.Id, ct).ConfigureAwait(false);
+
+            return;
+        }
+
         var stubId = Guid.NewGuid();
         var stub = new Person
         {
@@ -848,7 +865,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             CreatedAt = DateTimeOffset.UtcNow,
             IsPseudonym = isMissingPersonPseudonym
         };
-        
+
         await _personRepo.CreateAsync(stub, ct).ConfigureAwait(false);
         
         if (isMissingPersonPseudonym)

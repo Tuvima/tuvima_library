@@ -939,25 +939,26 @@ public static class HubEndpoints
                 work_data AS (
                     SELECT
                         mw.work_id,
-                        MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS title,
-                        MAX(CASE WHEN cv.key = 'episode_title' THEN cv.value END) AS episode_title,
-                        MAX(CASE WHEN cv.key = 'show_name' THEN cv.value END) AS show_name,
-                        MAX(CASE WHEN cv.key = 'season_number' THEN cv.value END) AS season_number,
-                        MAX(CASE WHEN cv.key = 'episode_number' THEN cv.value END) AS episode_number,
-                        MAX(CASE WHEN cv.key = 'series' THEN cv.value END) AS series,
-                        MAX(CASE WHEN cv.key = 'series_index' THEN cv.value END) AS series_index,
-                        MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS album,
-                        MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS artist,
-                        MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS author,
-                        MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS director,
-                        MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS track_number,
-                        MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END) AS release_year,
-                        MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
-                        MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
-                        MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
-                        MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover,
-                        MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
-                        MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS network
+                        MAX(CASE WHEN cv.key = 'title'               THEN cv.value END) AS title,
+                        MAX(CASE WHEN cv.key = 'episode_title'       THEN cv.value END) AS episode_title,
+                        MAX(CASE WHEN cv.key = 'show_name'           THEN cv.value END) AS show_name,
+                        MAX(CASE WHEN cv.key = 'season_number'       THEN cv.value END) AS season_number,
+                        MAX(CASE WHEN cv.key = 'episode_number'      THEN cv.value END) AS episode_number,
+                        MAX(CASE WHEN cv.key = 'series'              THEN cv.value END) AS series,
+                        MAX(CASE WHEN cv.key = 'series_index'        THEN cv.value END) AS series_index,
+                        MAX(CASE WHEN cv.key = 'album'               THEN cv.value END) AS album,
+                        MAX(CASE WHEN cv.key = 'artist'              THEN cv.value END) AS artist,
+                        MAX(CASE WHEN cv.key = 'author'              THEN cv.value END) AS author,
+                        MAX(CASE WHEN cv.key = 'director'            THEN cv.value END) AS director,
+                        MAX(CASE WHEN cv.key = 'track_number'        THEN cv.value END) AS track_number,
+                        MAX(CASE WHEN cv.key = 'release_year'        THEN cv.value END) AS release_year,
+                        MAX(CASE WHEN cv.key = 'year'                THEN cv.value END) AS year_val,
+                        MAX(CASE WHEN cv.key = 'duration'            THEN cv.value END) AS duration,
+                        MAX(CASE WHEN cv.key = 'runtime'             THEN cv.value END) AS runtime,
+                        MAX(CASE WHEN cv.key = 'cover_url'           THEN cv.value END) AS cover,
+                        MAX(CASE WHEN cv.key = 'genre'               THEN cv.value END) AS genre,
+                        MAX(CASE WHEN cv.key = 'network'             THEN cv.value END) AS network,
+                        MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json
                     FROM matched_works mw
                     INNER JOIN editions e ON e.work_id = mw.work_id
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -986,6 +987,8 @@ public static class HubEndpoints
             }
 
             using var reader = cmd.ExecuteReader();
+            // sectionKey → owned HubGroupWorkDtos. Unowned items are merged after
+            // the reader loop using child_entities_json from the parent.
             var sectionMap = new Dictionary<string, List<HubGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
             string? combinedCreator = null;
             string? combinedCover = null;
@@ -993,6 +996,8 @@ public static class HubEndpoints
             string? combinedNetwork = null;
             var allYears = new List<string>();
             int totalItems = 0;
+            // Collect child_entities_json from any owned work that carries it.
+            string? collectedChildJson = null;
 
             while (reader.Read())
             {
@@ -1008,6 +1013,11 @@ public static class HubEndpoints
                 var episodeNum = reader.IsDBNull(reader.GetOrdinal("episode_number")) ? null : reader.GetString(reader.GetOrdinal("episode_number"));
                 var trackNum = reader.IsDBNull(reader.GetOrdinal("track_number")) ? null : reader.GetString(reader.GetOrdinal("track_number"));
                 var seqIndex = reader.IsDBNull(reader.GetOrdinal("series_index")) ? null : reader.GetString(reader.GetOrdinal("series_index"));
+                var childJson = reader.IsDBNull(reader.GetOrdinal("child_entities_json")) ? null : reader.GetString(reader.GetOrdinal("child_entities_json"));
+
+                // Accumulate the first non-null child_entities_json we encounter —
+                // it may appear on any owned sibling in the same group.
+                collectedChildJson ??= string.IsNullOrWhiteSpace(childJson) ? null : childJson;
 
                 // Determine creator (author, director, artist, or network for TV)
                 var creator = reader.IsDBNull(reader.GetOrdinal("author")) ? null : reader.GetString(reader.GetOrdinal("author"));
@@ -1056,11 +1066,26 @@ public static class HubEndpoints
                     CoverUrl     = cover,
                     Episode      = episodeNum,
                     TrackNumber  = trackNum,
-                    Ordinal = int.TryParse(seqIndex, out var si) ? si : null,
+                    Ordinal      = int.TryParse(seqIndex, out var si) ? si : null,
                     Status       = "Provisional",
+                    IsOwned      = true,
                 });
 
                 totalItems++;
+            }
+
+            // M-083: Merge unowned items from child_entities_json.
+            // For TV shows the JSON has an "episodes" array grouped by season;
+            // for music it has "tracks"; for comics "issues". We use the same
+            // child-entity parsing used by MergeUnownedMusicTracks.
+            if (!string.IsNullOrWhiteSpace(collectedChildJson))
+            {
+                MergeUnownedChildEntities(
+                    sectionMap,
+                    collectedChildJson,
+                    groupField,
+                    secondaryGroup,
+                    combinedCover);
             }
 
             var years = allYears.Distinct().OrderBy(y => y).ToList();
@@ -1074,6 +1099,9 @@ public static class HubEndpoints
             // Build seasons/sections if we have a secondary group
             List<HubGroupSeasonDto> seasons;
             List<HubGroupWorkDto> flatWorks;
+
+            // Recalculate totalItems to include unowned rows added during merge.
+            totalItems = sectionMap.Values.Sum(v => v.Count);
 
             if (secondaryGroup is not null && sectionMap.Count > 0 && !sectionMap.ContainsKey("_flat"))
             {
@@ -1254,41 +1282,77 @@ public static class HubEndpoints
                 // Build IN clause for entity IDs
                 var idList = string.Join(",", entityIds.Select(id => $"'{id}'"));
 
-                // Group entity_ids by the group_by_field from canonical_values
+                // Group entity_ids by the group_by_field from canonical_values.
+                // Many grouping fields (album, artist, show_name, series) are
+                // Parent-scoped — after the retail/Wikidata workers run they are
+                // stored on the topmost Work row (album, show, series), NOT on
+                // the media_asset row.  The work_assets CTE therefore also
+                // computes root_work_id (COALESCE up two parent_work_id hops),
+                // and both asset_id and root_work_id are checked when joining
+                // canonical_values so the grouping works regardless of whether
+                // the field is Self-scoped (on the asset) or Parent-scoped (on
+                // the topmost Work).
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = $"""
                     WITH work_assets AS (
-                        SELECT e.work_id, ma.id AS asset_id
+                        SELECT
+                            e.work_id,
+                            ma.id AS asset_id,
+                            COALESCE(gp.id, p.id, w.id) AS root_work_id
                         FROM editions e
                         INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        INNER JOIN works w  ON w.id  = e.work_id
+                        LEFT  JOIN works p  ON p.id  = w.parent_work_id
+                        LEFT  JOIN works gp ON gp.id = p.parent_work_id
                         WHERE e.work_id IN ({idList})
                     ),
                     grouped AS (
                         SELECT
                             cv_group.value                          AS group_name,
                             COUNT(DISTINCT wa.work_id)              AS work_count,
-                            MIN(wa.asset_id)                        AS first_asset_id
+                            MIN(wa.asset_id)                        AS first_asset_id,
+                            MIN(wa.root_work_id)                    AS first_root_work_id
                         FROM work_assets wa
-                        INNER JOIN canonical_values cv_group ON cv_group.entity_id = wa.asset_id
+                        INNER JOIN canonical_values cv_group
+                          ON (cv_group.entity_id = wa.asset_id
+                              OR cv_group.entity_id = wa.root_work_id)
                         WHERE cv_group.key = @GroupField
                         GROUP BY cv_group.value
                     )
                     SELECT
                         g.group_name,
                         g.work_count,
-                        (
-                            SELECT cv_cover.value
-                            FROM canonical_values cv_cover
-                            WHERE cv_cover.entity_id = g.first_asset_id
-                              AND cv_cover.key = 'cover_url'
-                            LIMIT 1
+                        COALESCE(
+                            (
+                                SELECT cv_cover.value
+                                FROM canonical_values cv_cover
+                                WHERE cv_cover.entity_id = g.first_root_work_id
+                                  AND cv_cover.key = 'cover_url'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_cover2.value
+                                FROM canonical_values cv_cover2
+                                WHERE cv_cover2.entity_id = g.first_asset_id
+                                  AND cv_cover2.key = 'cover_url'
+                                LIMIT 1
+                            )
                         )                                           AS cover_url,
-                        (
-                            SELECT cv_creator.value
-                            FROM canonical_values cv_creator
-                            WHERE cv_creator.entity_id = g.first_asset_id
-                              AND cv_creator.key IN ('artist','author','director')
-                            LIMIT 1
+                        COALESCE(
+                            (
+                                SELECT cv_creator.value
+                                FROM canonical_values cv_creator
+                                WHERE cv_creator.entity_id = g.first_root_work_id
+                                  AND cv_creator.key IN ('artist','author','director')
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_creator2.value
+                                FROM canonical_values cv_creator2
+                                WHERE cv_creator2.entity_id = g.first_asset_id
+                                  AND cv_creator2.key IN ('artist','author','director')
+                                LIMIT 1
+                            )
                         )                                           AS creator
                     FROM grouped g
                     ORDER BY g.group_name
@@ -1552,6 +1616,50 @@ public static class HubEndpoints
         .WithName("ResolveHub")
         .WithSummary("Evaluate a hub's rules and return matching items.")
         .Produces<List<HubResolvedItemDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        // GET /hubs/resolve/by-name?name=All%20Songs&limit=200
+        // Resolves a System hub by display name and returns matching items.
+        // Unlike /registry/items, this path bypasses the registry visibility filter so
+        // items that are still in the pipeline (no QID, no review) are included.
+        // Used by the Vault flat views (All Songs) to show music even before the
+        // retail/Wikidata pipeline completes.  Fields are read from both the asset-level
+        // and the root parent Work-level canonical_values rows so that parent-scoped
+        // fields (artist, album, cover_url) are correctly resolved.
+        group.MapGet("/resolve/by-name", async (
+            string? name,
+            int? limit,
+            IHubRepository hubRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return Results.BadRequest("name parameter is required");
+
+            // Find the first System hub with this display name (case-insensitive).
+            var systemHubs = await hubRepo.GetByTypeAsync("System", ct);
+            var hub = systemHubs.FirstOrDefault(h =>
+                string.Equals(h.DisplayName, name, StringComparison.OrdinalIgnoreCase));
+
+            if (hub is null)
+                return Results.NotFound($"No System hub found with name '{name}'");
+
+            var predicates = HubRuleEvaluator.ParseRules(hub.RuleJson);
+            if (predicates.Count == 0)
+                return Results.Ok(new List<HubResolvedItemDto>());
+
+            var evaluator = new HubRuleEvaluator(db);
+            var entityIds = evaluator.Evaluate(
+                predicates, hub.MatchMode, hub.SortField, hub.SortDirection, limit ?? 200);
+
+            var resolved = ResolveEntityMetadataWithLineage(db, entityIds);
+            return Results.Ok(resolved);
+        })
+        .WithName("ResolveHubByName")
+        .WithSummary("Resolves a System hub by display name and returns items, reading both asset-level and parent-Work-level canonical values. Bypasses the registry visibility filter so in-flight items are included.")
+        .Produces<List<HubResolvedItemDto>>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -1957,6 +2065,140 @@ public static class HubEndpoints
         }
     }
 
+    /// <summary>
+    /// Merges Wikidata-discovered child entities (from <c>child_entities_json</c>)
+    /// into <paramref name="sectionMap"/> as unowned rows, deduplicating against
+    /// owned rows by case-insensitive title. Supports TV (episodes grouped by
+    /// season), music (tracks in flat "_flat" section), and comics (issues).
+    ///
+    /// Called by <c>system-view-detail</c> after the owned-works reader loop.
+    /// </summary>
+    private static void MergeUnownedChildEntities(
+        Dictionary<string, List<HubGroupWorkDto>> sectionMap,
+        string childEntitiesJson,
+        string groupField,
+        string? secondaryGroup,
+        string? fallbackCover)
+    {
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(childEntitiesJson);
+            var root = doc.RootElement;
+
+            // Determine which array key to read. Mirrors ReconciliationAdapter conventions.
+            // "tracks" for music, "episodes" for TV (flat or grouped), "issues" for comics.
+            string[]? arrayKeys = groupField.ToLowerInvariant() switch
+            {
+                "show_name" => ["episodes", "seasons"],
+                "album"     => ["tracks"],
+                "series"    => ["issues"],
+                _           => null,
+            };
+
+            if (arrayKeys is null) return;
+
+            // TV episodes may be nested: root.seasons[].episodes[].
+            if (groupField.Equals("show_name", StringComparison.OrdinalIgnoreCase)
+                && root.TryGetProperty("seasons", out var seasonsArr)
+                && seasonsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var seasonEl in seasonsArr.EnumerateArray())
+                {
+                    var seasonNum = seasonEl.TryGetProperty("season_number", out var snEl)
+                        && snEl.ValueKind == System.Text.Json.JsonValueKind.Number
+                        ? snEl.GetInt32().ToString()
+                        : null;
+
+                    if (!seasonEl.TryGetProperty("episodes", out var epArr)
+                        || epArr.ValueKind != System.Text.Json.JsonValueKind.Array)
+                        continue;
+
+                    MergeChildArray(sectionMap, epArr, seasonNum ?? "Unknown",
+                        isEpisode: true, fallbackCover);
+                }
+                return;
+            }
+
+            // Flat structure: tracks, issues, or flat episodes.
+            foreach (var key in arrayKeys)
+            {
+                if (root.TryGetProperty(key, out var arr)
+                    && arr.ValueKind == System.Text.Json.JsonValueKind.Array)
+                {
+                    MergeChildArray(sectionMap, arr, "_flat",
+                        isEpisode: key == "episodes", fallbackCover);
+                    return;
+                }
+            }
+        }
+        catch
+        {
+            // Malformed JSON — leave sectionMap as-is (owned only).
+        }
+    }
+
+    /// <summary>
+    /// Adds unowned rows from <paramref name="childArray"/> into
+    /// <paramref name="sectionMap"/>[<paramref name="sectionKey"/>],
+    /// skipping entries whose title already appears as an owned row.
+    /// </summary>
+    private static void MergeChildArray(
+        Dictionary<string, List<HubGroupWorkDto>> sectionMap,
+        System.Text.Json.JsonElement childArray,
+        string sectionKey,
+        bool isEpisode,
+        string? fallbackCover)
+    {
+        // Build a set of owned titles in this section for O(1) dedup.
+        var ownedTitles = sectionMap.TryGetValue(sectionKey, out var existing)
+            ? existing
+                .Where(w => w.IsOwned && !string.IsNullOrWhiteSpace(w.Title))
+                .Select(w => w.Title.Trim().ToLowerInvariant())
+                .ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!sectionMap.ContainsKey(sectionKey))
+            sectionMap[sectionKey] = [];
+
+        int wikiOrdinal = 0;
+        foreach (var el in childArray.EnumerateArray())
+        {
+            wikiOrdinal++;
+            var title = el.TryGetProperty("title", out var tEl)
+                && tEl.ValueKind == System.Text.Json.JsonValueKind.String
+                ? tEl.GetString()
+                : null;
+            if (string.IsNullOrWhiteSpace(title)) continue;
+
+            // Skip if an owned row with the same title is already in this section.
+            if (ownedTitles.Contains(title.Trim().ToLowerInvariant())) continue;
+
+            var ordinal = el.TryGetProperty("ordinal", out var oEl)
+                && oEl.ValueKind == System.Text.Json.JsonValueKind.Number
+                ? oEl.GetInt32()
+                : wikiOrdinal;
+
+            var episodeNumStr = isEpisode
+                ? (el.TryGetProperty("episode_number", out var enEl)
+                   && enEl.ValueKind == System.Text.Json.JsonValueKind.Number
+                       ? enEl.GetInt32().ToString()
+                       : ordinal.ToString())
+                : null;
+
+            sectionMap[sectionKey].Add(new HubGroupWorkDto
+            {
+                WorkId      = Guid.Empty,
+                Title       = title,
+                Ordinal     = ordinal,
+                Episode     = episodeNumStr,
+                TrackNumber = isEpisode ? null : ordinal.ToString(),
+                CoverUrl    = fallbackCover,
+                Status      = "Unowned",
+                IsOwned     = false,
+            });
+        }
+    }
+
     private static List<HubResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)
     {
         if (entityIds.Count == 0) return [];
@@ -2009,6 +2251,101 @@ public static class HubEndpoints
                 MediaType = mediaType ?? "Unknown",
                 CoverUrl = cover,
                 Year = year,
+            });
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Lineage-aware variant of <see cref="ResolveEntityMetadata"/> used by the
+    /// <c>/resolve/by-name</c> endpoint.  For each Work this reads canonical values
+    /// from both the asset row (Self-scoped fields: title, track_number) and from
+    /// the topmost parent Work row (Parent-scoped fields: artist, album, cover_url,
+    /// genre, year).  This mirrors the two-CTE approach in RegistryRepository so
+    /// that music items have correct artist/album/cover values even after the
+    /// lineage-aware write splits them onto the album Work's entity_id.
+    /// </summary>
+    private static List<HubResolvedItemDto> ResolveEntityMetadataWithLineage(
+        IDatabaseConnection db,
+        IReadOnlyList<Guid> entityIds)
+    {
+        if (entityIds.Count == 0) return [];
+
+        using var conn = db.CreateConnection();
+        var result = new List<HubResolvedItemDto>(entityIds.Count);
+
+        foreach (var entityId in entityIds)
+        {
+            using var cmd = conn.CreateCommand();
+            // Union 1: Self-scoped canonical values stored on the media_asset row.
+            // Union 2: Parent-scoped canonical values stored on the topmost Work row
+            //          (COALESCE walks parent_work_id up two levels — covers TV
+            //           episode → show and music track → album).
+            // Union 3: media_type read directly from the works table (not canonical_values).
+            cmd.CommandText = """
+                -- Self-scoped: canonical_values keyed on media_asset.id
+                SELECT cv.key, cv.value, 0 AS priority
+                FROM editions e
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                WHERE e.work_id = @EntityId
+                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover_url', 'year', 'album')
+                UNION ALL
+                -- Parent-scoped: canonical_values keyed on root parent Work id
+                SELECT cv.key, cv.value, 1 AS priority
+                FROM works w
+                LEFT  JOIN works p  ON p.id  = w.parent_work_id
+                LEFT  JOIN works gp ON gp.id = p.parent_work_id
+                INNER JOIN canonical_values cv
+                  ON cv.entity_id = COALESCE(gp.id, p.id, w.id)
+                WHERE w.id = @EntityId
+                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover_url', 'year', 'album')
+                UNION ALL
+                -- media_type from works table
+                SELECT 'media_type', w2.media_type, 0
+                FROM works w2 WHERE w2.id = @EntityId
+                """;
+            var p = cmd.CreateParameter();
+            p.ParameterName = "@EntityId";
+            p.Value = entityId.ToString();
+            cmd.Parameters.Add(p);
+
+            // Collect all rows; for each key keep the first (priority 0 = asset-level
+            // for Self-scope, priority 1 = parent-level for Parent-scope).
+            // Self-scope rows win for title/episode fields; Parent-scope rows win for
+            // artist/album/cover because they are emitted first from Union 1 only when
+            // the value actually lives on the asset (pre-lineage ingestion).
+            var seen = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var key = reader.GetString(0);
+                var val = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                if (string.IsNullOrEmpty(val)) continue;
+                // First occurrence of each key wins (Union order = Self then Parent).
+                if (!seen.ContainsKey(key))
+                    seen[key] = val;
+            }
+
+            seen.TryGetValue("title",      out var title);
+            seen.TryGetValue("author",     out var author);
+            seen.TryGetValue("director",   out var director);
+            seen.TryGetValue("artist",     out var artist);
+            seen.TryGetValue("cover_url",  out var cover);
+            seen.TryGetValue("year",       out var year);
+            seen.TryGetValue("media_type", out var mediaType);
+
+            var creator = artist ?? author ?? director;
+
+            result.Add(new HubResolvedItemDto
+            {
+                EntityId  = entityId,
+                Title     = !string.IsNullOrEmpty(title) ? title : "Unknown",
+                Creator   = creator,
+                MediaType = !string.IsNullOrEmpty(mediaType) ? mediaType : "Unknown",
+                CoverUrl  = cover,
+                Year      = year,
             });
         }
 

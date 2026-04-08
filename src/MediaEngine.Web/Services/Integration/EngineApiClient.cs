@@ -3422,6 +3422,23 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<HubResolvedItemViewModel>> ResolveHubByNameAsync(string name, int? limit = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = $"/hubs/resolve/by-name?name={Uri.EscapeDataString(name)}";
+            if (limit.HasValue) url += $"&limit={limit}";
+            return await _http.GetFromJsonAsync<List<HubResolvedItemViewModel>>(url, ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /hubs/resolve/by-name failed for hub '{Name}'", name);
+            LastError = ex.Message;
+            return [];
+        }
+    }
+
     // ── Universe health + character data ─────────────────────────────────────
 
     public async Task<UniverseHealthDto?> GetUniverseHealthAsync(string qid, CancellationToken ct = default)

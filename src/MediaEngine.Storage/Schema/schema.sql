@@ -110,13 +110,21 @@ CREATE TABLE IF NOT EXISTS works (
     -- Populated for parent Works only (work_kind = 'parent') as a normalized
     -- "key1|key2" string the HierarchyResolver uses to dedup albums, shows, and
     -- series before any QID is known. NULL on standalone/child/catalog rows.
-    parent_key           TEXT
+    parent_key           TEXT,
+
+    -- M-083: ownership flag. 'Owned' = file is in the library;
+    -- 'Unowned' = catalog-only row discovered from Wikidata or a retail
+    -- provider but not yet ingested. Kept in sync with is_catalog_only.
+    ownership            TEXT NOT NULL DEFAULT 'Owned'
 );
 
 CREATE INDEX IF NOT EXISTS idx_works_parent_work_id ON works(parent_work_id);
 CREATE INDEX IF NOT EXISTS idx_works_work_kind      ON works(work_kind) WHERE work_kind != 'standalone';
 CREATE INDEX IF NOT EXISTS idx_works_parent_key
     ON works(media_type, parent_key) WHERE parent_key IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_works_ownership_media_type
+    ON works(ownership, media_type);
 
 CREATE TABLE IF NOT EXISTS editions (
     id           TEXT NOT NULL PRIMARY KEY,  -- UUID

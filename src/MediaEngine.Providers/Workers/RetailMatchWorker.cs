@@ -980,8 +980,12 @@ public sealed class RetailMatchWorker
         double retailAmbiguousThreshold,
         CancellationToken ct)
     {
-        var fileTitle         = fileHints.GetValueOrDefault(MetadataFieldConstants.Title)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.EpisodeTitle);
+        // For TV scoring: prefer episode_title over the generic title claim.
+        // VideoProcessor sets title = episode_title when available, but fileHints may
+        // still carry the old show-name title for files ingested before the fix.
+        // Explicitly preferring episode_title here ensures episode-vs-episode comparison.
+        var fileTitle         = fileHints.GetValueOrDefault(MetadataFieldConstants.EpisodeTitle)
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var fileEpisodeNumber = fileHints.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber)
             ?? fileHints.GetValueOrDefault("episode");
         var fileSeason        = fileHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
@@ -1054,10 +1058,42 @@ public sealed class RetailMatchWorker
         var retailScore = _retailScoring.ScoreCandidate(
             fileHints, candidateTitle, candidateAuthor, candidateYear, MediaType.TV);
 
+        // ── Structural S/E number signal ─────────────────────────────────────
+        // Season+episode number matching is a very strong structural indicator
+        // that dwarfs title fuzziness (episode titles may be absent or ambiguous).
+        // Apply a boost/penalty to the composite after base scoring.
+        var candidateEpisodeNum = bestEpisode["episode_number"]?.GetValue<long?>()?.ToString();
+        var candidateSeasonNum  = bestEpisode["season_number"]?.GetValue<long?>()?.ToString()
+            ?? bestEpisode["season"]?.GetValue<string>();
+
+        bool seasonMatches  = !string.IsNullOrWhiteSpace(fileSeason)
+            && !string.IsNullOrWhiteSpace(candidateSeasonNum)
+            && string.Equals(fileSeason.Trim(), candidateSeasonNum.Trim(), StringComparison.Ordinal);
+        bool episodeMatches = !string.IsNullOrWhiteSpace(fileEpisodeNumber)
+            && !string.IsNullOrWhiteSpace(candidateEpisodeNum)
+            && string.Equals(fileEpisodeNumber.Trim(), candidateEpisodeNum.Trim(), StringComparison.Ordinal);
+
+        double structuralAdjustment = 0.0;
+        if (seasonMatches && episodeMatches)
+            structuralAdjustment = +0.20;   // S+E both match — very strong signal
+        else if (episodeMatches && !seasonMatches)
+            structuralAdjustment = +0.05;   // Episode matches but season differs — weak
+        else if (!string.IsNullOrWhiteSpace(fileEpisodeNumber) && !string.IsNullOrWhiteSpace(candidateEpisodeNum))
+            structuralAdjustment = -0.30;   // Episode number present but doesn't match — strong mismatch
+
+        var adjustedComposite = Math.Round(
+            Math.Clamp(retailScore.CompositeScore + structuralAdjustment, 0.0, 1.0), 4);
+
+        if (structuralAdjustment != 0.0)
+            _logger.LogDebug(
+                "TV structural adjustment: S{FileSeason}E{FileEp} vs candidate S{CandSeason}E{CandEp} → {Adj:+0.00;-0.00} (base {Base:F2} → adjusted {Adj2:F2}) [entity {EntityId}]",
+                fileSeason, fileEpisodeNumber, candidateSeasonNum, candidateEpisodeNum,
+                structuralAdjustment, retailScore.CompositeScore, adjustedComposite, job.EntityId);
+
         string outcome;
-        if (retailScore.CompositeScore >= retailAcceptThreshold)
+        if (adjustedComposite >= retailAcceptThreshold)
             outcome = "AutoAccepted";
-        else if (retailScore.CompositeScore >= retailAmbiguousThreshold)
+        else if (adjustedComposite >= retailAmbiguousThreshold)
             outcome = "Ambiguous";
         else
             outcome = "Rejected";
@@ -1078,13 +1114,14 @@ public sealed class RetailMatchWorker
             Title              = candidateTitle ?? "(unknown)",
             Creator            = candidateAuthor,
             Year               = candidateYear,
-            ScoreTotal         = retailScore.CompositeScore,
+            ScoreTotal         = adjustedComposite,
             ScoreBreakdownJson = JsonSerializer.Serialize(new
             {
-                title  = retailScore.TitleScore,
-                author = retailScore.AuthorScore,
-                year   = retailScore.YearScore,
-                format = retailScore.FormatScore,
+                title              = retailScore.TitleScore,
+                author             = retailScore.AuthorScore,
+                year               = retailScore.YearScore,
+                format             = retailScore.FormatScore,
+                structural_boost   = structuralAdjustment,
             }),
             BridgeIdsJson      = bridgeIdsJson,
             ImageUrl           = BuildTmdbImageUrl(bestEpisode["still_path"]?.GetValue<string>()),
@@ -1136,21 +1173,21 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "TV: '{ShowName}' S{Season}E{Episode} — '{EpisodeTitle}' matched on TMDB (score {Score:F2}) [entity {EntityId}]",
                 showName ?? "(unknown)", fileSeason, fileEpisodeNumber ?? "?",
-                candidateTitle, retailScore.CompositeScore, job.EntityId);
+                candidateTitle, adjustedComposite, job.EntityId);
         }
         else if (outcome == "Ambiguous")
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, candidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatchedNeedsReview, ct: ct);
             await _outcomeFactory.CreateRetailAmbiguousAsync(
-                job.EntityId, job.MediaType, retailScore.CompositeScore, job.IngestionRunId, null, ct);
+                job.EntityId, job.MediaType, adjustedComposite, job.IngestionRunId, null, ct);
             await _timeline.RecordRetailMatchedAsync(
                 job.EntityId, "tmdb", 1, job.IngestionRunId, ct);
 
             _logger.LogInformation(
                 "TV: '{ShowName}' S{Season}E{Episode} — '{EpisodeTitle}' ambiguous on TMDB (score {Score:F2}, needs review) [entity {EntityId}]",
                 showName ?? "(unknown)", fileSeason, fileEpisodeNumber ?? "?",
-                candidateTitle, retailScore.CompositeScore, job.EntityId);
+                candidateTitle, adjustedComposite, job.EntityId);
         }
         else
         {
@@ -1163,7 +1200,7 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "TV: '{ShowName}' S{Season}E{Episode} rejected — score {Score:F2} below thresholds [entity {EntityId}]",
                 showName ?? "(unknown)", fileSeason, fileEpisodeNumber ?? "?",
-                retailScore.CompositeScore, job.EntityId);
+                adjustedComposite, job.EntityId);
         }
     }
 

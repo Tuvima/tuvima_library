@@ -1,4 +1,5 @@
 using System.Text;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
@@ -29,7 +30,10 @@ public static class DevSeedEndpoints
         string[]? AdditionalAuthors = null,
         string? Series = null,
         int? SeriesPosition = null,
-        string? TestCategory = null);
+        string? TestCategory = null,
+        bool ExpectIdentified = true,
+        string? ExpectedReviewTrigger = null,
+        string? ExpectedReason = null);
 
     /// <summary>A seed MP3 audiobook definition.</summary>
     private sealed record SeedAudiobook(
@@ -41,7 +45,10 @@ public static class DevSeedEndpoints
         string? Series = null,
         int? SeriesPosition = null,
         string? Asin = null,
-        string? TestCategory = null);
+        string? TestCategory = null,
+        bool ExpectIdentified = true,
+        string? ExpectedReviewTrigger = null,
+        string? ExpectedReason = null);
 
     /// <summary>A seed MP4 movie/TV definition.</summary>
     private sealed record SeedVideo(
@@ -52,7 +59,10 @@ public static class DevSeedEndpoints
         string? Series = null,
         int? SeasonNumber = null,
         int? EpisodeNumber = null,
-        string? TestCategory = null);
+        string? TestCategory = null,
+        bool ExpectIdentified = true,
+        string? ExpectedReviewTrigger = null,
+        string? ExpectedReason = null);
 
     /// <summary>A seed FLAC music track definition.</summary>
     private sealed record SeedMusic(
@@ -62,7 +72,10 @@ public static class DevSeedEndpoints
         int Year = 0,
         string? Genre = null,
         int? TrackNumber = null,
-        string? TestCategory = null);
+        string? TestCategory = null,
+        bool ExpectIdentified = true,
+        string? ExpectedReviewTrigger = null,
+        string? ExpectedReason = null);
 
     /// <summary>A seed CBZ comic definition.</summary>
     private sealed record SeedComic(
@@ -75,7 +88,10 @@ public static class DevSeedEndpoints
         string? Summary = null,
         string? Publisher = null,
         string? Penciller = null,
-        string? TestCategory = null);
+        string? TestCategory = null,
+        bool ExpectIdentified = true,
+        string? ExpectedReviewTrigger = null,
+        string? ExpectedReason = null);
 
     // ── EPUB Seed definitions ────────────────────────────────────────────────
     // Real ISBNs so the hydration pipeline can fetch real cover art and metadata.
@@ -205,13 +221,19 @@ public static class DevSeedEndpoints
             "Unknown",
             "", 0,
             "",
-            TestCategory: "Edge — minimal metadata: no ISBN, no year, no description"),
+            TestCategory: "Edge — minimal metadata: no ISBN, no year, no description",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.PlaceholderTitle,
+            ExpectedReason: "Placeholder title 'Untitled Book' with no real metadata should trigger review"),
 
         new("A",
             "B",
             "9780140449136", 2000,
             "A very short title.",
-            TestCategory: "Edge — extremely short title and author"),
+            TestCategory: "Edge — extremely short title and author",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.PlaceholderTitle,
+            ExpectedReason: "Single-character title and author should trigger placeholder review"),
 
         new("The Extraordinary & Fantastical Adventures of Dr. Enid Hartwell-Smythe III: A Most Peculiar Chronicle",
             "Reginald Fortescue-Pemberton IV",
@@ -1241,5 +1263,84 @@ public static class DevSeedEndpoints
             sb.Append(invalid.Contains(c) ? '_' : c);
         }
         return sb.ToString();
+    }
+
+    // ── Seed expectation model ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Flattened expectation derived from a seed fixture, used by the integration
+    /// test reconciliation pass to compare expected vs. actual pipeline outcomes.
+    /// </summary>
+    public sealed record SeedExpectation(
+        string Title,
+        string MediaType,
+        string? Author,
+        bool ExpectIdentified,
+        string? ExpectedReviewTrigger,
+        string? ExpectedReason);
+
+    /// <summary>
+    /// Returns all seed fixtures as a flat list of expectations.
+    /// Called by IntegrationTestEndpoints to build its reconciliation pass without
+    /// duplicating the seed data.
+    /// </summary>
+    public static IReadOnlyList<SeedExpectation> GetAllExpectations()
+    {
+        var result = new List<SeedExpectation>();
+
+        // Books
+        foreach (var b in SeedBooks)
+            result.Add(new SeedExpectation(
+                Title: b.Title,
+                MediaType: "Books",
+                Author: b.Author,
+                ExpectIdentified: b.ExpectIdentified,
+                ExpectedReviewTrigger: b.ExpectedReviewTrigger,
+                ExpectedReason: b.ExpectedReason));
+
+        // Audiobooks
+        foreach (var a in SeedAudiobooks)
+            result.Add(new SeedExpectation(
+                Title: a.Title,
+                MediaType: "Audiobooks",
+                Author: a.Artist,
+                ExpectIdentified: a.ExpectIdentified,
+                ExpectedReviewTrigger: a.ExpectedReviewTrigger,
+                ExpectedReason: a.ExpectedReason));
+
+        // Videos — split by MediaType field
+        foreach (var v in SeedVideos)
+        {
+            string mt = v.MediaType == "TV" ? "TV" : "Movies";
+            result.Add(new SeedExpectation(
+                Title: v.Title,
+                MediaType: mt,
+                Author: v.Director,
+                ExpectIdentified: v.ExpectIdentified,
+                ExpectedReviewTrigger: v.ExpectedReviewTrigger,
+                ExpectedReason: v.ExpectedReason));
+        }
+
+        // Music
+        foreach (var m in SeedMusicTracks)
+            result.Add(new SeedExpectation(
+                Title: m.Title,
+                MediaType: "Music",
+                Author: m.Artist,
+                ExpectIdentified: m.ExpectIdentified,
+                ExpectedReviewTrigger: m.ExpectedReviewTrigger,
+                ExpectedReason: m.ExpectedReason));
+
+        // Comics
+        foreach (var c in SeedComics)
+            result.Add(new SeedExpectation(
+                Title: c.Title,
+                MediaType: "Comics",
+                Author: c.Writer,
+                ExpectIdentified: c.ExpectIdentified,
+                ExpectedReviewTrigger: c.ExpectedReviewTrigger,
+                ExpectedReason: c.ExpectedReason));
+
+        return result;
     }
 }

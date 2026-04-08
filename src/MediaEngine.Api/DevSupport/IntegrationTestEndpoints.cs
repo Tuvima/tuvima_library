@@ -111,6 +111,7 @@ public static class IntegrationTestEndpoints
         public HashSet<string> ActiveTypes { get; set; } = [];
         public Dictionary<string, string> SkippedTypes { get; set; } = [];
         public Dictionary<string, bool> ProviderHealth { get; set; } = [];
+        public ReconciliationSummary? Reconciliation { get; set; }
     }
 
     /// <summary>Per-item Vault display validation result.</summary>
@@ -140,6 +141,37 @@ public static class IntegrationTestEndpoints
         public string Check { get; set; } = "";
         public bool Pass { get; set; }
         public string? Detail { get; set; }
+    }
+
+    // ── Reconciliation models ─────────────────────────────────────────────
+
+    private sealed class ReconciliationItemResult
+    {
+        public string Title { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        /// <summary>What the seed fixture declared (Identified or InReview with trigger).</summary>
+        public string Expected { get; set; } = "";
+        /// <summary>What the pipeline actually produced.</summary>
+        public string Actual { get; set; } = "";
+        /// <summary>Match / UnexpectedReview / UnexpectedIdentified / WrongTrigger / NotFound</summary>
+        public string Classification { get; set; } = "";
+        /// <summary>Human-readable explanation from the seed fixture, or a generated note.</summary>
+        public string? Reason { get; set; }
+    }
+
+    private sealed class ReconciliationSummary
+    {
+        public int ExpectedTotal { get; set; }
+        public int Matched { get; set; }
+        public List<ReconciliationItemResult> Mismatches { get; set; } = [];
+        public Dictionary<string, int> ByClassification { get; set; } = new()
+        {
+            ["Match"] = 0,
+            ["UnexpectedReview"] = 0,
+            ["UnexpectedIdentified"] = 0,
+            ["WrongTrigger"] = 0,
+            ["NotFound"] = 0,
+        };
     }
 
     private sealed class MediaTypeResult
@@ -420,6 +452,10 @@ public static class IntegrationTestEndpoints
         // ── Phase 4c: Stage Gating Validation ───────────────────────────
         logger.LogInformation("[Phase 4c] Stage gating validation...");
         await ValidateStageGatingAsync(registryRepo, report, stages, logger, ct);
+
+        // ── Phase 4d: Reconciliation — expected vs. actual outcomes ─────────
+        logger.LogInformation("[Phase 4d] Running reconciliation pass...");
+        await RunReconciliationAsync(db, report, logger, ct);
 
         // ── Phase 5: Test manual search for review items ──────────────────
         logger.LogInformation("[Phase 5] Testing manual search on review items...");
@@ -1284,6 +1320,192 @@ public static class IntegrationTestEndpoints
         }
     }
 
+    // ── Reconciliation pass ───────────────────────────────────────────────
+
+    /// <summary>Dapper result row for the reconciliation SQL query.</summary>
+    private sealed class WorkReconRow
+    {
+        public string TitleLower { get; set; } = "";
+        public string MediaTypeLower { get; set; } = "";
+        public string? WikidataQid { get; set; }
+        public string? CuratorState { get; set; }
+        public string? ReviewTrigger { get; set; }
+    }
+
+    /// <summary>
+    /// Compares each seed fixture's declared expectation against the actual
+    /// post-ingestion state of the corresponding Work row. Produces a
+    /// <see cref="ReconciliationSummary"/> stored on the report.
+    /// </summary>
+    private static async Task RunReconciliationAsync(
+        IDatabaseConnection db,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var expectations = DevSeedEndpoints.GetAllExpectations();
+        var summary = new ReconciliationSummary { ExpectedTotal = expectations.Count };
+
+        // Build a lookup of (title_lower, media_type_lower) → (wikidata_qid, curator_state, review_trigger)
+        // from the live database. TV episodes share the same show title so we may have
+        // duplicates — we treat any row for that (title, type) pair as "one Work" for
+        // reconciliation purposes (first resolved row wins for identified check).
+
+        // Dapper anonymous class for SQL projection
+        IEnumerable<WorkReconRow> dbRows;
+        using (var conn = db.CreateConnection())
+        {
+            dbRows = await conn.QueryAsync<WorkReconRow>(
+                """
+                SELECT
+                    LOWER(COALESCE(
+                        (SELECT cv.claim_value FROM canonical_values cv
+                         WHERE cv.entity_id = w.id AND cv.key = 'title'
+                         LIMIT 1),
+                        (SELECT mc.claim_value FROM metadata_claims mc
+                         WHERE mc.entity_id = (SELECT ma.id FROM media_assets ma
+                                               INNER JOIN editions e ON e.id = ma.edition_id
+                                               WHERE e.work_id = w.id LIMIT 1)
+                           AND mc.claim_key = 'title'
+                         LIMIT 1),
+                        w.display_name,
+                        ''
+                    ))                       AS TitleLower,
+                    LOWER(w.media_type)      AS MediaTypeLower,
+                    w.wikidata_qid           AS WikidataQid,
+                    w.curator_state          AS CuratorState,
+                    (SELECT rq.trigger FROM review_queue rq
+                     INNER JOIN media_assets ma ON ma.id = rq.entity_id
+                     INNER JOIN editions e ON e.id = ma.edition_id
+                     WHERE e.work_id = w.id AND rq.status = 'Pending'
+                     ORDER BY rq.created_at DESC LIMIT 1) AS ReviewTrigger
+                FROM works w
+                """);
+        }
+
+        // Index by "title_lower|media_type_lower" → (wikidata_qid, curator_state, review_trigger)
+        // When multiple rows share the same key (e.g. TV episodes, audiobook editions),
+        // prefer rows that have a QID so "Identified" beats "Unresolved".
+        var index = new Dictionary<string, (string? WikidataQid, string? CuratorState, string? ReviewTrigger)>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in dbRows)
+        {
+            string key = $"{row.TitleLower}|{row.MediaTypeLower}";
+            if (!index.TryGetValue(key, out var existing) ||
+                (!string.IsNullOrWhiteSpace(row.WikidataQid) && string.IsNullOrWhiteSpace(existing.WikidataQid)))
+            {
+                index[key] = (WikidataQid: row.WikidataQid, CuratorState: row.CuratorState, ReviewTrigger: row.ReviewTrigger);
+            }
+        }
+
+        foreach (var exp in expectations)
+        {
+            string titleLower = exp.Title.ToLowerInvariant();
+            string mediaTypeLower = exp.MediaType.ToLowerInvariant();
+
+            string expectedDesc = exp.ExpectIdentified
+                ? "Identified"
+                : $"InReview ({exp.ExpectedReviewTrigger ?? "any"})";
+
+            // Not all active types were seeded — skip expectations for skipped types
+            string typeKey = mediaTypeLower switch
+            {
+                "audiobooks" => "audiobooks",
+                "movies"     => "movies",
+                "tv"         => "tv",
+                "music"      => "music",
+                "comics"     => "comics",
+                _            => "books",
+            };
+            if (report.SkippedTypes.ContainsKey(typeKey))
+            {
+                // Don't penalise for skipped types — exclude from reconciliation total
+                summary.ExpectedTotal--;
+                continue;
+            }
+
+            if (!index.TryGetValue($"{titleLower}|{mediaTypeLower}", out var actual))
+            {
+                // No matching Work row found
+                var item = new ReconciliationItemResult
+                {
+                    Title          = exp.Title,
+                    MediaType      = exp.MediaType,
+                    Expected       = expectedDesc,
+                    Actual         = "NotFound",
+                    Classification = "NotFound",
+                    Reason         = "No Work row found in database after ingestion",
+                };
+                summary.Mismatches.Add(item);
+                summary.ByClassification["NotFound"]++;
+                logger.LogWarning("[Reconciliation] NotFound: '{Title}' ({Type})", exp.Title, exp.MediaType);
+                continue;
+            }
+
+            bool hasQid       = !string.IsNullOrWhiteSpace(actual.WikidataQid) &&
+                                 !actual.WikidataQid!.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+            bool hasReview    = !string.IsNullOrWhiteSpace(actual.ReviewTrigger);
+            string actualTrigger = actual.ReviewTrigger ?? "";
+
+            string actualDesc = hasQid   ? "Identified"
+                              : hasReview ? $"InReview ({actualTrigger})"
+                              : "Unresolved";
+
+            string classification;
+            if (exp.ExpectIdentified)
+            {
+                classification = hasQid ? "Match" : "UnexpectedReview";
+            }
+            else
+            {
+                if (hasReview)
+                {
+                    bool triggerMatches = string.IsNullOrWhiteSpace(exp.ExpectedReviewTrigger) ||
+                        actualTrigger.Equals(exp.ExpectedReviewTrigger, StringComparison.OrdinalIgnoreCase);
+                    classification = triggerMatches ? "Match" : "WrongTrigger";
+                }
+                else if (hasQid)
+                {
+                    classification = "UnexpectedIdentified";
+                }
+                else
+                {
+                    // Unresolved but expected InReview — treat as WrongTrigger
+                    classification = "WrongTrigger";
+                    actualDesc     = "Unresolved (no QID, no review entry)";
+                }
+            }
+
+            summary.ByClassification[classification]++;
+            if (classification == "Match")
+            {
+                summary.Matched++;
+                logger.LogInformation("[Reconciliation] Match: '{Title}' ({Type}) — {Actual}",
+                    exp.Title, exp.MediaType, actualDesc);
+            }
+            else
+            {
+                var item = new ReconciliationItemResult
+                {
+                    Title          = exp.Title,
+                    MediaType      = exp.MediaType,
+                    Expected       = expectedDesc,
+                    Actual         = actualDesc,
+                    Classification = classification,
+                    Reason         = exp.ExpectedReason,
+                };
+                summary.Mismatches.Add(item);
+                logger.LogWarning("[Reconciliation] {Class}: '{Title}' ({Type}) — expected={Expected}, actual={Actual}",
+                    classification, exp.Title, exp.MediaType, expectedDesc, actualDesc);
+            }
+        }
+
+        report.Reconciliation = summary;
+        logger.LogInformation("[Reconciliation] Complete: {Matched}/{Total} matched, {Mismatches} mismatches",
+            summary.Matched, summary.ExpectedTotal, summary.Mismatches.Count);
+    }
+
     // ── HTML Report Generator ─────────────────────────────────────────────
 
     private static string GenerateHtmlReport(TestReport report)
@@ -1365,6 +1587,8 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
         SummaryCard(sb, report.VaultChecks.Count(v => v.Pass).ToString() + "/" + report.VaultChecks.Count, "Vault Checks", "#22D3EE");
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
+        if (report.Reconciliation is not null)
+            SummaryCard(sb, report.Reconciliation.Matched + "/" + report.Reconciliation.ExpectedTotal, "Reconciliation", "#F472B6");
         if (report.SkippedTypes.Count > 0)
             SummaryCard(sb, report.SkippedTypes.Count.ToString(), "Skipped Types", "#94A3B8");
         sb.AppendLine("</div>");
@@ -1516,6 +1740,73 @@ public static class IntegrationTestEndpoints
                 sb.AppendLine($"<tr><td>{Esc(g.Title)}</td><td>{Esc(g.Check)}</td><td>{resultBadge}</td><td class=\"mono\">{Esc(g.Detail ?? "")}</td></tr>");
             }
             sb.AppendLine("</table>");
+        }
+
+        // Reconciliation section
+        if (report.Reconciliation is not null)
+        {
+            var recon = report.Reconciliation;
+            int mismatches = recon.Mismatches.Count;
+            string reconBadge = mismatches == 0
+                ? "<span class=\"badge badge-pass\">ALL MATCH</span>"
+                : $"<span class=\"badge badge-fail\">{mismatches} MISMATCH{(mismatches == 1 ? "" : "ES")}</span>";
+            sb.AppendLine($"<h2>Reconciliation — Seed Expectations vs. Pipeline Outcomes {reconBadge}</h2>");
+            sb.AppendLine($"<p class=\"subtitle\">{recon.Matched}/{recon.ExpectedTotal} seed fixtures matched their expected outcome · ");
+            sb.AppendLine(string.Join(" · ", recon.ByClassification
+                .Where(kv => kv.Value > 0)
+                .Select(kv => $"{Esc(kv.Key)}: {kv.Value}")));
+            sb.AppendLine("</p>");
+
+            // ── Matched section (collapsed by default) ──────────────────────
+            var matched = recon.ExpectedTotal - mismatches;
+            sb.AppendLine($"<details><summary style=\"cursor:pointer;color:#5DCAA5;font-weight:600\">&#x2713; Matched Expected ({matched})</summary>");
+            // Reconstruct matched items by re-running the DB data (we only stored mismatches)
+            // Instead enumerate expectations again to build the full set, but since we only have
+            // mismatches stored, derive matched count via total - mismatches. Show a simple
+            // summary table for mismatches and a collapsed table for everything else.
+            sb.AppendLine("<p style=\"color:rgba(255,255,255,0.4);font-size:12px;padding:8px 0\">" +
+                $"{matched} item(s) produced the outcome declared in their seed fixture.</p>");
+            sb.AppendLine("</details>");
+
+            // ── Mismatch sections by classification ─────────────────────────
+            var classOrder = new[] { "UnexpectedReview", "UnexpectedIdentified", "WrongTrigger", "NotFound" };
+            var classLabels = new Dictionary<string, string>
+            {
+                ["UnexpectedReview"]    = "Unexpected Review (expected Identified, got InReview)",
+                ["UnexpectedIdentified"] = "Unexpected Identified (expected InReview, got Identified)",
+                ["WrongTrigger"]        = "Wrong Trigger (in review, but wrong trigger)",
+                ["NotFound"]            = "Not Found (no Work row in database)",
+            };
+            var classColors = new Dictionary<string, string>
+            {
+                ["UnexpectedReview"]    = "#E24B4A",
+                ["UnexpectedIdentified"] = "#E24B4A",
+                ["WrongTrigger"]        = "#EF9F27",
+                ["NotFound"]            = "#94A3B8",
+            };
+
+            foreach (var cls in classOrder)
+            {
+                var items = recon.Mismatches.Where(m => m.Classification == cls).ToList();
+                if (items.Count == 0) continue;
+
+                string color = classColors.GetValueOrDefault(cls, "#888");
+                sb.AppendLine($"<details open><summary style=\"cursor:pointer;color:{color};font-weight:600\">&#x2717; {Esc(classLabels[cls])} ({items.Count})</summary>");
+                sb.AppendLine("<table>");
+                sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Expected</th><th>Actual</th><th>Reason</th></tr>");
+                foreach (var item in items.OrderBy(i => i.MediaType).ThenBy(i => i.Title))
+                {
+                    sb.AppendLine($"<tr>" +
+                        $"<td>{Esc(item.Title)}</td>" +
+                        $"<td>{Esc(item.MediaType)}</td>" +
+                        $"<td class=\"mono\">{Esc(item.Expected)}</td>" +
+                        $"<td class=\"mono\" style=\"color:{color}\">{Esc(item.Actual)}</td>" +
+                        $"<td style=\"color:rgba(255,255,255,0.5);font-size:12px\">{Esc(item.Reason ?? "—")}</td>" +
+                        $"</tr>");
+                }
+                sb.AppendLine("</table>");
+                sb.AppendLine("</details>");
+            }
         }
 
         // Footer

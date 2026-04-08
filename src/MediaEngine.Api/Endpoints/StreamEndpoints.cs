@@ -104,6 +104,10 @@ public static class StreamEndpoints
                 ?.Value;
 
             var newCoverPath  = imagePathService.GetWorkCoverPath(wikidataQid, assetId);
+            // Pending fallback: images downloaded before the QID was resolved live in
+            // _pending/{assetId12}/ until SweepPendingToQid moves them. Serve from there
+            // when the QID-keyed path doesn't exist yet.
+            var pendingCoverPath = imagePathService.GetWorkCoverPath(null, assetId);
             var legacyCoverPath = string.IsNullOrEmpty(asset.FilePathRoot)
                 ? null
                 : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "cover.jpg");
@@ -111,6 +115,8 @@ public static class StreamEndpoints
             string? coverPath = null;
             if (File.Exists(newCoverPath))
                 coverPath = newCoverPath;
+            else if (File.Exists(pendingCoverPath))
+                coverPath = pendingCoverPath;
             else if (!string.IsNullOrEmpty(legacyCoverPath) && File.Exists(legacyCoverPath))
                 coverPath = legacyCoverPath;
 
@@ -160,15 +166,30 @@ public static class StreamEndpoints
                 }
                 else
                 {
-                    // Legacy fallback: cover.jpg alongside the media file.
-                    var legacyPath = string.IsNullOrEmpty(asset.FilePathRoot)
-                        ? null
-                        : Path.Combine(
-                            Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty,
-                            "cover.jpg");
-                    if (string.IsNullOrEmpty(legacyPath) || !File.Exists(legacyPath))
-                        return Results.NotFound("No cover art found for this asset.");
-                    thumbPath = legacyPath;
+                    // Pending fallback: images downloaded before QID resolution live in
+                    // _pending/{assetId12}/ until SweepPendingToQid promotes them.
+                    var pendingThumbPath = imagePathService.GetWorkCoverThumbPath(null, assetId);
+                    var pendingCoverPath = imagePathService.GetWorkCoverPath(null, assetId);
+                    if (File.Exists(pendingThumbPath))
+                    {
+                        thumbPath = pendingThumbPath;
+                    }
+                    else if (File.Exists(pendingCoverPath))
+                    {
+                        thumbPath = pendingCoverPath;
+                    }
+                    else
+                    {
+                        // Legacy fallback: cover.jpg alongside the media file.
+                        var legacyPath = string.IsNullOrEmpty(asset.FilePathRoot)
+                            ? null
+                            : Path.Combine(
+                                Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty,
+                                "cover.jpg");
+                        if (string.IsNullOrEmpty(legacyPath) || !File.Exists(legacyPath))
+                            return Results.NotFound("No cover art found for this asset.");
+                        thumbPath = legacyPath;
+                    }
                 }
             }
 

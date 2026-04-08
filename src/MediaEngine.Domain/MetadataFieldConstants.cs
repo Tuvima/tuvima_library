@@ -52,6 +52,7 @@ public static class MetadataFieldConstants
     public const string EpisodeTitle    = "episode_title";
     public const string PodcastName     = "podcast_name";
     public const string Network         = "network";
+    public const string Biography       = "biography";
 
     // ── Child entity discovery claims ────────────────────────────────────────
     public const string SeasonCount       = "season_count";

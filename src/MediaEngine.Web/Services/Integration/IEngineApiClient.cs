@@ -687,6 +687,13 @@ public interface IEngineApiClient
     /// <summary>GET /hubs/resolve/{id} — evaluate hub rules and return items.</summary>
     Task<List<HubResolvedItemViewModel>> ResolveHubAsync(Guid hubId, int? limit = null, CancellationToken ct = default);
 
+    /// <summary>
+    /// GET /hubs/resolve/by-name?name=...&amp;limit=... — resolves a System hub by display name.
+    /// Bypasses the registry visibility filter so in-flight items are included.
+    /// Reads both asset-level and root-parent-Work-level canonical values (lineage-aware).
+    /// </summary>
+    Task<List<HubResolvedItemViewModel>> ResolveHubByNameAsync(string name, int? limit = null, CancellationToken ct = default);
+
     // ── Vault Preferences (/settings/ui/vault-preferences) ──────────────────
 
     /// <summary>GET /settings/ui/vault-preferences — vault display preferences (view modes, show unowned).</summary>

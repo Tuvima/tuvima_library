@@ -267,10 +267,12 @@ public sealed class WorkRepository : IWorkRepository
         cmd.CommandText = """
             INSERT INTO works
                 (id, hub_id, media_type, work_kind, parent_work_id,
-                 ordinal, is_catalog_only, external_identifiers, wikidata_status)
+                 ordinal, is_catalog_only, external_identifiers, wikidata_status,
+                 ownership)
             VALUES
                 (@id, NULL, @mediaType, 'catalog', @parentId,
-                 @ordinal, 1, @ids, 'pending');
+                 @ordinal, 1, @ids, 'pending',
+                 'Unowned');
             """;
         cmd.Parameters.AddWithValue("@id",        workId.ToString());
         cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
@@ -294,7 +296,8 @@ public sealed class WorkRepository : IWorkRepository
         cmd.CommandText = """
             UPDATE works
             SET    work_kind       = 'child',
-                   is_catalog_only = 0
+                   is_catalog_only = 0,
+                   ownership       = 'Owned'
             WHERE  id              = @id
               AND  work_kind       = 'catalog';
             """;

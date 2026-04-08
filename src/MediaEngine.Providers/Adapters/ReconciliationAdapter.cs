@@ -2654,7 +2654,10 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // ── Wikipedia description ─────────────────────────────────────────────
         // Fetch a rich Wikipedia description for this person using the resolved QID.
         // Failures never block — an empty list is returned and execution continues.
-        var wikiPersonClaims = await FetchWikipediaDescriptionAsync(qid, language, ct)
+        // Use "biography" as the claim key so MetadataHarvestingService.HandlePersonEnrichmentAsync
+        // can locate the value — it looks for key "biography", not "description".
+        var wikiPersonClaims = await FetchWikipediaDescriptionAsync(qid, language, ct,
+            claimKey: MetadataFieldConstants.Biography)
             .ConfigureAwait(false);
         claims.AddRange(wikiPersonClaims);
 
@@ -2668,14 +2671,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
     /// <summary>
     /// Fetches a rich Wikipedia description for the given Wikidata QID.
-    /// Returns up to three claims: "description" (confidence 0.90), "wikipedia_url" (1.0),
+    /// Returns up to three claims: the description claim (confidence 0.90), "wikipedia_url" (1.0),
     /// and optionally "plot_summary". Uses language fallback built into the library.
     /// Always returns an empty list on failure — never throws.
     /// </summary>
+    /// <param name="claimKey">
+    /// The claim key to use for the primary description claim.
+    /// Pass <c>"biography"</c> when fetching for a Person; defaults to <c>"description"</c> for Works.
+    /// </param>
     private async Task<IReadOnlyList<ProviderClaim>> FetchWikipediaDescriptionAsync(
         string qid,
         string language,
-        CancellationToken ct)
+        CancellationToken ct,
+        string claimKey = MetadataFieldConstants.Description)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(qid))
             return [];
@@ -2706,7 +2714,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             var resultClaims = new List<ProviderClaim>
             {
-                new(MetadataFieldConstants.Description, StripLeadingMediaWikiHeadings(summary.Extract), ClaimConfidence.Description),
+                new(claimKey, StripLeadingMediaWikiHeadings(summary.Extract), ClaimConfidence.Description),
                 new("wikipedia_url", summary.ArticleUrl ?? "", 1.0),
             };
 

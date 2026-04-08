@@ -611,6 +611,33 @@
         var offset = append ? _loadedCount : 0;
         var isNewTab = _activeTab == "new";
 
+        // For flat hub views (e.g. "All Songs"), bypass the registry visibility filter
+        // so items that are still in the pipeline (no QID, no review) are included.
+        // Only used on the first page load (append=false) — pagination falls back to
+        // the registry path to avoid duplicates.
+        var flatHubName = GetSystemViewFlatHubName();
+        if (flatHubName is not null && !append && statusFilter is null && string.IsNullOrWhiteSpace(_searchText))
+        {
+            var hubItems = await ApiClient.ResolveHubByNameAsync(flatHubName, limit: 200);
+            _mediaItems = hubItems
+                .Select(h => new VaultItemViewModel
+                {
+                    EntityId  = h.EntityId,
+                    Title     = h.Title,
+                    CoverUrl  = h.CoverUrl,
+                    MediaType = h.MediaType,
+                    Author    = h.Creator,
+                    Artist    = h.MediaType.Equals("Music", StringComparison.OrdinalIgnoreCase)
+                                    ? h.Creator : null,
+                    Year      = h.Year,
+                })
+                .ToList();
+            _hasMore = false; // hub resolve returns all items up to limit
+            _loadedCount = _mediaItems.Count;
+            _loading = false;
+            return;
+        }
+
         var response = await ApiClient.GetRegistryItemsAsync(
             offset: offset, limit: 50,
             search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
@@ -659,6 +686,20 @@
         ("audiobooks", "series") => "series",
         ("comics", "series")    => "series",
         _                       => null,
+    };
+
+    /// <summary>
+    /// Maps tab + view mode to the name of a System flat hub (no grouping field).
+    /// When this returns a non-null name, <see cref="LoadMediaItems"/> resolves the
+    /// named hub via <c>GET /hubs/resolve/by-name</c> instead of the registry
+    /// endpoint.  This bypasses the registry visibility filter so music items that
+    /// are still in the pipeline (no QID, no review, no provisional state) are
+    /// included in the "All Songs" view rather than being silently hidden.
+    /// </summary>
+    private string? GetSystemViewFlatHubName() => (_activeTab, _viewMode) switch
+    {
+        ("music", "all") => "All Songs",
+        _                => null,
     };
 
     /// <summary>Loads content groups for the current tab's container view and converts to display items.</summary>

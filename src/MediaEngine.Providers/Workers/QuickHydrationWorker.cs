@@ -2,6 +2,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ public sealed class QuickHydrationWorker
     private readonly ILogger<QuickHydrationWorker> _logger;
     private readonly PostPipelineService _postPipeline;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ImagePathService? _imagePathService;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
 
@@ -41,13 +43,15 @@ public sealed class QuickHydrationWorker
         PostPipelineService postPipeline,
         ICanonicalValueRepository canonicalRepo,
         IConfigurationLoader configLoader,
-        ILogger<QuickHydrationWorker> logger)
+        ILogger<QuickHydrationWorker> logger,
+        ImagePathService? imagePathService = null)
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
         _hubAssignment = hubAssignment;
         _postPipeline = postPipeline;
         _canonicalRepo = canonicalRepo;
+        _imagePathService = imagePathService;
         _logger = logger;
 
         _batchSize = Math.Max(1, configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
@@ -111,6 +115,17 @@ public sealed class QuickHydrationWorker
             string.IsNullOrWhiteSpace(authorForLog) ? string.Empty : $" by {authorForLog}",
             job.ResolvedQid,
             job.EntityId);
+
+        // Sweep any images already downloaded to the _pending slot into the QID-keyed
+        // location before CoverArtWorker runs. This promotes images downloaded during an
+        // earlier (pre-QID) pass, making them visible without re-downloading.
+        if (_imagePathService is not null)
+        {
+            var swept = _imagePathService.SweepPendingToQid(job.EntityId, job.ResolvedQid);
+            if (swept)
+                _logger.LogInformation(
+                    "Swept pending images {EntityId} → {Qid}", job.EntityId, job.ResolvedQid);
+        }
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
 

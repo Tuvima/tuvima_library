@@ -165,18 +165,6 @@ public sealed class CoverArtWorker
             }
         }
 
-        // Persist cover_url canonical as local streaming path
-        await _canonicalRepo.UpsertBatchAsync(
-        [
-            new CanonicalValue
-            {
-                EntityId = entityId,
-                Key = MetadataFieldConstants.CoverUrl,
-                Value = $"/stream/{entityId}/cover",
-                LastScoredAt = DateTimeOffset.UtcNow,
-            },
-        ], ct);
-
         // Generate hero banner
         await GenerateHeroBannerAsync(entityId, coverPath, imageDir, ct);
 

@@ -1,5 +1,6 @@
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Helpers;
@@ -23,6 +24,7 @@ public sealed class PersonEnrichmentWorker
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IRecursiveIdentityService _identity;
     private readonly IMetadataHarvestingService _harvesting;
+    private readonly IPersonRepository _personRepo;
     private readonly PersonReconciliationService? _personReconciliation;
     private readonly ILogger<PersonEnrichmentWorker> _logger;
 
@@ -31,6 +33,7 @@ public sealed class PersonEnrichmentWorker
         ICanonicalValueRepository canonicalRepo,
         IRecursiveIdentityService identity,
         IMetadataHarvestingService harvesting,
+        IPersonRepository personRepo,
         ILogger<PersonEnrichmentWorker> logger,
         PersonReconciliationService? personReconciliation = null)
     {
@@ -38,6 +41,7 @@ public sealed class PersonEnrichmentWorker
         _canonicalRepo = canonicalRepo;
         _identity = identity;
         _harvesting = harvesting;
+        _personRepo = personRepo;
         _logger = logger;
         _personReconciliation = personReconciliation;
     }
@@ -118,6 +122,12 @@ public sealed class PersonEnrichmentWorker
                         _logger.LogDebug(
                             "Reconciled person '{Name}' → {Qid} (role: {Role})",
                             unlinked.Name, searchResult.WikidataQid, unlinked.Role);
+
+                        // Fix 3: persist the resolved QID/name and create the person record
+                        // so the People tab shows the real name instead of "Unknown Person (Qxxx)".
+                        await PersistReconciledPersonAsync(
+                            entityId, unlinked.Name, unlinked.Role,
+                            searchResult.WikidataQid, searchResult.Name, ct);
                     }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -127,6 +137,66 @@ public sealed class PersonEnrichmentWorker
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Creates or locates a Person record for a name-only person reference that was
+    /// successfully reconciled to a Wikidata QID by <see cref="PersonReconciliationService"/>,
+    /// writes back the resolved QID + canonical name, and writes a
+    /// <c>person_media_links</c> row so the detail drawer shows library presence.
+    ///
+    /// Idempotent: uses INSERT OR IGNORE semantics via <see cref="IPersonRepository.LinkToMediaAssetAsync"/>.
+    /// </summary>
+    private async Task PersistReconciledPersonAsync(
+        Guid mediaAssetId,
+        string rawName,
+        string role,
+        string resolvedQid,
+        string resolvedName,
+        CancellationToken ct)
+    {
+        // Check whether a Person row already exists for this QID (created by a prior run
+        // or by RecursiveIdentityService for a QID-linked reference from the same asset).
+        var existing = await _personRepo.FindByQidAsync(resolvedQid, ct).ConfigureAwait(false);
+
+        Guid personId;
+        if (existing is not null)
+        {
+            personId = existing.Id;
+            // Update name in case the existing record was created as a stub with the raw name.
+            if (!string.Equals(existing.Name, resolvedName, StringComparison.OrdinalIgnoreCase))
+            {
+                await _personRepo.UpdateEnrichmentAsync(existing.Id, resolvedQid,
+                    headshotUrl: null, biography: null, name: resolvedName, ct).ConfigureAwait(false);
+            }
+
+            await _personRepo.AddRoleAsync(existing.Id, role, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            // No existing record — create a new Person stub with the resolved name + QID.
+            // RecursiveIdentityService will enrich it on the next pass via the harvest queue.
+            var newPerson = await _personRepo.CreateAsync(new Person
+            {
+                Name        = resolvedName,
+                Roles       = [role],
+                WikidataQid = resolvedQid,
+            }, ct).ConfigureAwait(false);
+
+            personId = newPerson.Id;
+
+            _logger.LogDebug(
+                "Created person record for reconciled '{RawName}' → '{ResolvedName}' ({Qid}), id={Id}",
+                rawName, resolvedName, resolvedQid, personId);
+        }
+
+        // Link the person to the media asset so the detail drawer shows library presence.
+        await _personRepo.LinkToMediaAssetAsync(mediaAssetId, personId, role, ct)
+            .ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Persisted reconciled person '{Name}' ({Qid}) linked to asset {AssetId} as {Role}",
+            resolvedName, resolvedQid, mediaAssetId, role);
     }
 
     /// <summary>

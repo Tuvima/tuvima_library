@@ -152,6 +152,63 @@ public sealed class ImagePathService
         }
     }
 
+    /// <summary>
+    /// Sweeps any images already downloaded to the pending slot into the QID-keyed location.
+    /// Call this at the start of Quick Hydration, before <see cref="CoverArtWorker"/> runs,
+    /// so images downloaded during an earlier (pre-QID) pass become visible immediately.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> if images were moved; <c>false</c> if there was nothing to move,
+    /// the target already had files, or the QID was invalid.
+    /// </returns>
+    public bool SweepPendingToQid(Guid entityId, string? wikidataQid)
+    {
+        if (string.IsNullOrEmpty(wikidataQid) ||
+            wikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var assetSlot  = entityId.ToString("N")[..12];
+        var pendingDir = Path.Combine(_imagesRoot, "works", "_pending", assetSlot);
+
+        if (!Directory.Exists(pendingDir))
+            return false;
+
+        var targetDir = Path.Combine(_imagesRoot, "works", wikidataQid, assetSlot);
+
+        // If the target already has files, don't overwrite — the QID path is authoritative.
+        if (Directory.Exists(targetDir) && Directory.GetFiles(targetDir).Length > 0)
+            return false;
+
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(targetDir)!);
+
+            if (!Directory.Exists(targetDir))
+            {
+                // Fast path: atomic directory rename.
+                Directory.Move(pendingDir, targetDir);
+            }
+            else
+            {
+                // Target dir exists but is empty — move files individually.
+                foreach (var file in Directory.GetFiles(pendingDir))
+                {
+                    var dest = Path.Combine(targetDir, Path.GetFileName(file));
+                    if (!File.Exists(dest))
+                        File.Move(file, dest);
+                }
+                try { Directory.Delete(pendingDir, recursive: false); } catch { /* best-effort */ }
+            }
+
+            return true;
+        }
+        catch
+        {
+            // Non-critical — caller continues regardless.
+            return false;
+        }
+    }
+
     /// <summary>Ensures the directory containing the given file path exists.</summary>
     public static void EnsureDirectory(string filePath)
     {

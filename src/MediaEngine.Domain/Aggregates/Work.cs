@@ -3,6 +3,8 @@ using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Domain.Aggregates;
 
+// M-083: OwnershipStatus surfaced here as a typed enum.
+
 /// <summary>
 /// The intellectual representation of a single title — the "what" of the media,
 /// independent of any specific physical copy or encoding.
@@ -77,6 +79,21 @@ public sealed class Work
     /// when their files are ingested.
     /// </summary>
     public bool IsCatalogOnly { get; set; }
+
+    /// <summary>
+    /// Typed ownership status derived from <see cref="IsCatalogOnly"/>.
+    /// <see cref="OwnershipStatus.Unowned"/> when no file is present;
+    /// <see cref="OwnershipStatus.Owned"/> otherwise.
+    ///
+    /// Also backed by the <c>works.ownership</c> TEXT column (added in
+    /// migration M-083) which stores 'Owned' or 'Unowned' and is kept in
+    /// sync with <c>is_catalog_only</c> by the migration backfill.
+    /// </summary>
+    public OwnershipStatus Ownership
+    {
+        get => IsCatalogOnly ? OwnershipStatus.Unowned : OwnershipStatus.Owned;
+        set => IsCatalogOnly = value == OwnershipStatus.Unowned;
+    }
 
     /// <summary>
     /// Provider-specific identifiers for this Work (e.g.
