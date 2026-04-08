@@ -5,6 +5,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
@@ -1084,6 +1085,21 @@ public sealed class RetailMatchWorker
         var adjustedComposite = Math.Round(
             Math.Clamp(retailScore.CompositeScore + structuralAdjustment, 0.0, 1.0), 4);
 
+        // ── TV identity override ────────────────────────────────────────────
+        // When we matched the show on TMDB by name AND the file's season+episode
+        // exactly match a TMDB episode, the episode is uniquely identified by
+        // (show_name, season, episode). The title fuzzy match contributes nothing
+        // because TMDB's episode title rarely matches what the user named the
+        // file (and is often missing from the file altogether). Promote to a
+        // high-confidence accept so the pipeline continues to Stage 2.
+        if (seasonMatches && episodeMatches)
+        {
+            adjustedComposite = Math.Max(adjustedComposite, 0.90);
+            _logger.LogDebug(
+                "TV identity override: S{Season}E{Ep} matched on tv_id={TvId} — promoting score to {Score:F2} [entity {EntityId}]",
+                fileSeason, fileEpisodeNumber, tvId, adjustedComposite, job.EntityId);
+        }
+
         if (structuralAdjustment != 0.0)
             _logger.LogDebug(
                 "TV structural adjustment: S{FileSeason}E{FileEp} vs candidate S{CandSeason}E{CandEp} → {Adj:+0.00;-0.00} (base {Base:F2} → adjusted {Adj2:F2}) [entity {EntityId}]",
@@ -1632,12 +1648,26 @@ public sealed class RetailMatchWorker
         else
         {
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
-            await _outcomeFactory.CreateRetailFailedAsync(
-                job.EntityId, job.MediaType, job.IngestionRunId, null, ct);
 
-            var titleHint = hints.GetValueOrDefault(MetadataFieldConstants.Title) ?? "(unknown)";
+            var titleHint = hints.GetValueOrDefault(MetadataFieldConstants.Title);
+
+            // If the file has a placeholder title with no bridge IDs, route to a
+            // dedicated PlaceholderTitle review trigger instead of the generic
+            // RetailMatchFailed bucket — these items will never match retail.
+            if (PlaceholderTitleDetector.IsPlaceholder(titleHint)
+                && !PlaceholderTitleDetector.HasBridgeId(hints))
+            {
+                await _outcomeFactory.CreatePlaceholderTitleAsync(
+                    job.EntityId, titleHint, job.IngestionRunId, null, ct);
+            }
+            else
+            {
+                await _outcomeFactory.CreateRetailFailedAsync(
+                    job.EntityId, job.MediaType, job.IngestionRunId, null, ct);
+            }
+
             await _timeline.RecordRetailNoMatchAsync(
-                job.EntityId, titleHint, job.IngestionRunId, ct);
+                job.EntityId, titleHint ?? "(unknown)", job.IngestionRunId, ct);
 
             _logger.LogInformation(
                 "No retail match for entity {EntityId} — {CandidateCount} candidates evaluated, best score: {Score:F2}",

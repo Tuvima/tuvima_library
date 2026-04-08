@@ -168,6 +168,28 @@ public sealed class StageOutcomeFactory
     }
 
     /// <summary>
+    /// Creates a <see cref="ReviewTrigger.PlaceholderTitle"/> review item when
+    /// the file's title looks like a placeholder ("Unknown", "Untitled", "Track 01")
+    /// and there are no bridge IDs to fall back on.
+    /// </summary>
+    public Task<Guid?> CreatePlaceholderTitleAsync(
+        Guid entityId,
+        string? title,
+        Guid? ingestionRunId = null,
+        Action<Guid?>? onBatchAdjust = null,
+        CancellationToken ct = default)
+    {
+        return CreateCoreAsync(
+            entityId,
+            ReviewTrigger.PlaceholderTitle,
+            0.0,
+            $"Title \"{title ?? "(blank)"}\" appears to be a placeholder with no ISBN, ASIN, or QID",
+            ingestionRunId,
+            onBatchAdjust,
+            ct);
+    }
+
+    /// <summary>
     /// Creates a <see cref="ReviewTrigger.LowConfidence"/> review item when
     /// the entity's overall confidence falls below the auto-review threshold.
     /// </summary>

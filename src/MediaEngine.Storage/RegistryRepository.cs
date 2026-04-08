@@ -266,7 +266,16 @@ public sealed class RegistryRepository : IRegistryRepository
                     COALESCE(wd.title, 'Untitled') AS title,
                     wd.year,
                     wd.media_type,
-                    wd.cover_url,
+                    -- cover_url is synthesised at query time from the work's media
+                    -- asset id. The /stream/asset_id/cover endpoint resolves the
+                    -- on-disk path (QID directory or _pending/) and returns 404 when
+                    -- no cover has been downloaded yet — the UI handles missing images
+                    -- gracefully. Storing this as a canonical was removed because it
+                    -- collided with the provider's original cover_url claim.
+                    CASE WHEN ad.asset_id IS NOT NULL
+                         THEN '/stream/' || ad.asset_id || '/cover'
+                         ELSE NULL
+                    END AS cover_url,
                     wd.hero_url,
                     wd.author,
                     wd.director,
@@ -312,7 +321,7 @@ public sealed class RegistryRepository : IRegistryRepository
                              THEN 'Confirmed'
                         WHEN rd.review_id IS NULL
                              AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
-                             AND wd.cover_url IS NOT NULL AND wd.cover_url != ''
+                             AND ad.asset_id IS NOT NULL
                              THEN 'AwaitingStage2'
                         WHEN wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''
                              AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'Identified'

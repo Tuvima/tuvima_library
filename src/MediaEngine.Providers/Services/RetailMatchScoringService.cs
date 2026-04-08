@@ -46,15 +46,16 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         var weights = hydration.FuzzyMatchWeights;
 
         // ── Title score ──────────────────────────────────────────────────
+        // For TV episodes, prefer episode_title so we score against the candidate
+        // episode name (e.g. "Pilot") rather than the show name (e.g. "Breaking Bad").
+        // Show name is still used for the upstream provider URL via ShowName/{title}
+        // substitution and is verified separately via the structural S/E boost.
         double titleScore = 0.0;
-        var fileTitle = fileHints.GetValueOrDefault("title");
+        var fileTitle = mediaType == MediaType.TV
+            ? (fileHints.GetValueOrDefault("episode_title") ?? fileHints.GetValueOrDefault("title"))
+            : fileHints.GetValueOrDefault("title");
 
-        if (string.IsNullOrWhiteSpace(fileTitle) ||
-            string.Equals(fileTitle, "unknown", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(fileTitle, "untitled", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(fileTitle, "untitled book", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(fileTitle, "new recording", StringComparison.OrdinalIgnoreCase) ||
-            System.Text.RegularExpressions.Regex.IsMatch(fileTitle ?? string.Empty, @"^track\s*\d+$", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+        if (MediaEngine.Domain.Services.PlaceholderTitleDetector.IsPlaceholder(fileTitle))
         {
             return new FieldMatchScores
             {
