@@ -306,7 +306,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <c>ReconciliationRequest</c> instances by hand in new code; extend the
     /// builder instead. Parity is enforced by <c>WikidataParityTests</c>.
     /// </remarks>
-    public async Task<IReadOnlyList<ReconciliationResult>> ReconcileAsync(
+    internal async Task<IReadOnlyList<ReconciliationResult>> ReconcileAsync(
         string query,
         Dictionary<string, string>? propertyConstraints = null,
         CancellationToken ct = default,
@@ -431,7 +431,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <c>ReconciliationRequest</c> instances by hand in new code; extend the
     /// builder instead. Parity is enforced by <c>WikidataParityTests</c>.
     /// </remarks>
-    public async Task<IReadOnlyList<ReconciliationResult>> ReconcileMultiLanguageAsync(
+    internal async Task<IReadOnlyList<ReconciliationResult>> ReconcileMultiLanguageAsync(
         string query,
         string? fileLanguage,
         Dictionary<string, string>? propertyConstraints = null,
@@ -469,7 +469,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <c>ReconciliationRequest</c> instances by hand in new code; extend the
     /// builder instead. Parity is enforced by <c>WikidataParityTests</c>.
     /// </remarks>
-    public async Task<Dictionary<string, IReadOnlyList<ReconciliationResult>>> ReconcileBatchAsync(
+    internal async Task<Dictionary<string, IReadOnlyList<ReconciliationResult>>> ReconcileBatchAsync(
         IReadOnlyList<(string QueryId, string Query, Dictionary<string, string>? PropertyConstraints, MediaType MediaType)> requests,
         CancellationToken ct = default)
     {
@@ -1179,6 +1179,360 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
     }
 
+    // ── Public Stage 2 facade ────────────────────────────────────────────────
+
+    /// <summary>
+    /// Single-request Stage 2 resolution. Dispatches to the appropriate underlying
+    /// strategy (bridge ID, music album, or text reconciliation) based on
+    /// <see cref="WikidataResolveRequest.Strategy"/> — or auto-detects from the
+    /// populated fields when <see cref="ResolveStrategy.Auto"/> is set.
+    ///
+    /// <para>
+    /// This is the public entry point for Stage 2 work. The <c>ResolveBridgeAsync</c>,
+    /// <c>ResolveMusicAlbumAsync</c>, and <c>Reconcile*</c> methods are internal
+    /// implementation details — callers outside the adapter must go through this
+    /// facade so future scoring/grouping changes have a single place to live.
+    /// </para>
+    /// </summary>
+    public async Task<WikidataResolveResult> ResolveAsync(
+        WikidataResolveRequest request,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var strategy = request.Strategy == ResolveStrategy.Auto
+            ? AutoDetectStrategy(request)
+            : request.Strategy;
+
+        switch (strategy)
+        {
+            case ResolveStrategy.MusicAlbum:
+            {
+                if (string.IsNullOrWhiteSpace(request.AlbumTitle))
+                    return WikidataResolveResult.NotFound;
+
+                var albumResult = await ResolveMusicAlbumAsync(
+                    request.AlbumTitle, request.Artist, ct).ConfigureAwait(false);
+                return ToResolveResult(albumResult, ResolveStrategy.MusicAlbum, primaryBridgeIdType: null);
+            }
+
+            case ResolveStrategy.BridgeId:
+            {
+                if (request.BridgeIds is null
+                    || request.WikidataProperties is null
+                    || request.BridgeIds.Count == 0)
+                    return WikidataResolveResult.NotFound;
+
+                var bridgeResult = await ResolveBridgeAsync(
+                    request.BridgeIds,
+                    request.WikidataProperties,
+                    request.MediaType,
+                    request.IsEditionAware,
+                    ct).ConfigureAwait(false);
+
+                var primaryType = request.BridgeIds.Keys
+                    .FirstOrDefault(k => !k.StartsWith('_'));
+                return ToResolveResult(bridgeResult, ResolveStrategy.BridgeId, primaryType);
+            }
+
+            case ResolveStrategy.TextReconciliation:
+            {
+                if (string.IsNullOrWhiteSpace(request.Title)
+                    || request.MediaType == MediaType.Unknown)
+                    return WikidataResolveResult.NotFound;
+
+                var (qid, label) = await ResolveByTextAsync(
+                    request.Title!, request.Author, request.MediaType, ct).ConfigureAwait(false);
+                if (qid is null)
+                    return WikidataResolveResult.NotFound;
+
+                return new WikidataResolveResult
+                {
+                    Found     = true,
+                    Qid       = qid,
+                    WorkQid   = qid,
+                    Claims    = [],
+                    MatchedBy = ResolveStrategy.TextReconciliation,
+                };
+            }
+
+            default:
+                return WikidataResolveResult.NotFound;
+        }
+    }
+
+    /// <summary>
+    /// Batch Stage 2 resolution. Internally groups requests by their natural key
+    /// (music album → <c>album|artist</c>; bridge ID → primary bridge value;
+    /// text → <c>title|author|mediaType</c>) so N requests produce far fewer than
+    /// N Wikidata calls. Each result is keyed by the caller-supplied
+    /// <see cref="WikidataResolveRequest.CorrelationKey"/>.
+    ///
+    /// <para>
+    /// This is the batched form of <see cref="ResolveAsync"/>. Use it from
+    /// pipeline workers that lease many jobs at once. Single-call sites
+    /// (manual user search, single-job synchronous resolution) should call
+    /// <see cref="ResolveAsync"/> instead.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, WikidataResolveResult>> ResolveBatchAsync(
+        IReadOnlyList<WikidataResolveRequest> requests,
+        CancellationToken ct = default)
+    {
+        var results = new Dictionary<string, WikidataResolveResult>(StringComparer.Ordinal);
+        if (requests is null || requests.Count == 0)
+            return results;
+
+        // Resolve effective strategy for each request once.
+        var effective = requests
+            .Select(r => (Request: r,
+                          Strategy: r.Strategy == ResolveStrategy.Auto
+                              ? AutoDetectStrategy(r)
+                              : r.Strategy))
+            .ToList();
+
+        // Initialise every correlation key to NotFound so callers always get an entry.
+        foreach (var (req, _) in effective)
+            results[req.CorrelationKey] = WikidataResolveResult.NotFound;
+
+        // ── Music album group: one ResolveMusicAlbumAsync per unique album ───
+        var musicGroups = effective
+            .Where(e => e.Strategy == ResolveStrategy.MusicAlbum
+                        && !string.IsNullOrWhiteSpace(e.Request.AlbumTitle))
+            .GroupBy(e => MusicAlbumGroupKey(e.Request.AlbumTitle!, e.Request.Artist),
+                     StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in musicGroups)
+        {
+            var rep = group.First().Request;
+            WikidataResolveResult resolved;
+            try
+            {
+                var albumResult = await ResolveMusicAlbumAsync(
+                    rep.AlbumTitle!, rep.Artist, ct).ConfigureAwait(false);
+                resolved = ToResolveResult(albumResult, ResolveStrategy.MusicAlbum, primaryBridgeIdType: null);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: ResolveBatchAsync — music album group '{Album}' by '{Artist}' failed",
+                    Name, rep.AlbumTitle, rep.Artist);
+                resolved = WikidataResolveResult.NotFound;
+            }
+
+            foreach (var sibling in group)
+                results[sibling.Request.CorrelationKey] = resolved;
+        }
+
+        // ── Bridge ID group: one ResolveBridgeAsync per unique primary bridge ID ──
+        var bridgeGroups = effective
+            .Where(e => e.Strategy == ResolveStrategy.BridgeId
+                        && e.Request.BridgeIds is { Count: > 0 }
+                        && e.Request.WikidataProperties is { Count: > 0 })
+            .GroupBy(e => PrimaryBridgeGroupKey(e.Request),
+                     StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in bridgeGroups)
+        {
+            var rep = group.First().Request;
+            WikidataResolveResult resolved;
+            try
+            {
+                var bridgeResult = await ResolveBridgeAsync(
+                    rep.BridgeIds!, rep.WikidataProperties!, rep.MediaType,
+                    rep.IsEditionAware, ct).ConfigureAwait(false);
+
+                var primaryType = rep.BridgeIds!.Keys
+                    .FirstOrDefault(k => !k.StartsWith('_'));
+                resolved = ToResolveResult(bridgeResult, ResolveStrategy.BridgeId, primaryType);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: ResolveBatchAsync — bridge group '{Key}' failed", Name, group.Key);
+                resolved = WikidataResolveResult.NotFound;
+            }
+
+            foreach (var sibling in group)
+                results[sibling.Request.CorrelationKey] = resolved;
+        }
+
+        // ── Text fallback: collect all still-NotFound non-music requests with a title ──
+        // This includes both (a) explicit TextReconciliation strategy requests and
+        // (b) BridgeId requests whose bridge resolution returned NotFound.
+        var textFallback = effective
+            .Where(e =>
+                e.Request.MediaType != MediaType.Unknown
+                && e.Strategy != ResolveStrategy.MusicAlbum
+                && !results[e.Request.CorrelationKey].Found
+                && !string.IsNullOrWhiteSpace(GetTextQuery(e.Request)))
+            .ToList();
+
+        if (textFallback.Count > 0)
+        {
+            var uniqueSignatures = textFallback
+                .Select(e => new
+                {
+                    Sig       = TextSignatureKey(GetTextQuery(e.Request)!, e.Request.Author, e.Request.MediaType),
+                    Query     = GetTextQuery(e.Request)!,
+                    MediaType = e.Request.MediaType,
+                })
+                .GroupBy(x => x.Sig, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .ToList();
+
+            var batchInput = uniqueSignatures
+                .Select(s => (QueryId: s.Sig,
+                              Query:   s.Query,
+                              PropertyConstraints: (Dictionary<string, string>?)null,
+                              MediaType: s.MediaType))
+                .ToList();
+
+            Dictionary<string, IReadOnlyList<ReconciliationResult>>? batchResults = null;
+            try
+            {
+                batchResults = await ReconcileBatchAsync(batchInput, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: ResolveBatchAsync — text fallback batch of {Count} signatures failed",
+                    Name, uniqueSignatures.Count);
+            }
+
+            if (batchResults is not null)
+            {
+                var sigToQid = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+                foreach (var sig in uniqueSignatures)
+                {
+                    sigToQid[sig.Sig] = null;
+                    if (!batchResults.TryGetValue(sig.Sig, out var candidates) || candidates.Count == 0)
+                        continue;
+
+                    var top = candidates[0];
+                    if (top.Score >= ReviewThreshold)
+                        sigToQid[sig.Sig] = top.Id;
+                }
+
+                foreach (var entry in textFallback)
+                {
+                    var sig = TextSignatureKey(GetTextQuery(entry.Request)!, entry.Request.Author, entry.Request.MediaType);
+                    if (sigToQid.TryGetValue(sig, out var qid) && qid is not null)
+                    {
+                        results[entry.Request.CorrelationKey] = new WikidataResolveResult
+                        {
+                            Found     = true,
+                            Qid       = qid,
+                            WorkQid   = qid,
+                            Claims    = [],
+                            MatchedBy = ResolveStrategy.TextReconciliation,
+                        };
+                    }
+                }
+            }
+        }
+
+        _logger.LogInformation(
+            "{Provider}: ResolveBatchAsync — {Total} request(s) resolved {Resolved} via {Music} music + {Bridge} bridge + {Text} text fallback",
+            Name, requests.Count,
+            results.Count(kvp => kvp.Value.Found),
+            musicGroups.Count(),
+            bridgeGroups.Count(),
+            textFallback.Count);
+
+        return results;
+    }
+
+    // ── Helpers for the public facade ────────────────────────────────────────
+
+    private static ResolveStrategy AutoDetectStrategy(WikidataResolveRequest r)
+    {
+        if (r.MediaType == MediaType.Music && !string.IsNullOrWhiteSpace(r.AlbumTitle))
+            return ResolveStrategy.MusicAlbum;
+
+        if (r.BridgeIds is { Count: > 0 }
+            && r.WikidataProperties is { Count: > 0 }
+            && r.BridgeIds.Keys.Any(k => !k.StartsWith('_')))
+        {
+            return ResolveStrategy.BridgeId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(r.Title) && r.MediaType != MediaType.Unknown)
+            return ResolveStrategy.TextReconciliation;
+
+        return ResolveStrategy.NotResolved;
+    }
+
+    private static string MusicAlbumGroupKey(string album, string? artist)
+        => $"{album.Trim().ToUpperInvariant()}\x1F{artist?.Trim().ToUpperInvariant() ?? ""}";
+
+    private static string PrimaryBridgeGroupKey(WikidataResolveRequest r)
+    {
+        if (r.BridgeIds is null) return $"__none\x1F{r.CorrelationKey}";
+        foreach (var (idType, idValue) in r.BridgeIds)
+        {
+            if (!idType.StartsWith('_'))
+                return $"{idType}\x1F{idValue}";
+        }
+        // Sentinel-only — unique per request so it doesn't share a group.
+        return $"__sentinel\x1F{r.CorrelationKey}";
+    }
+
+    private static string TextSignatureKey(string title, string? author, MediaType mediaType)
+        => $"{title.Trim()}\x1F{author?.Trim() ?? ""}\x1F{mediaType}";
+
+    private static string? GetTextQuery(WikidataResolveRequest r)
+    {
+        // Bridge requests can also fall through to text — prefer the explicit Title,
+        // but accept the title sentinel from the bridge dict if Title isn't set.
+        if (!string.IsNullOrWhiteSpace(r.Title)) return r.Title;
+        if (r.BridgeIds is not null && r.BridgeIds.TryGetValue("_title", out var t) && !string.IsNullOrWhiteSpace(t))
+            return t;
+        return null;
+    }
+
+    private async Task<(string? Qid, string? Label)> ResolveByTextAsync(
+        string title, string? author, MediaType mediaType, CancellationToken ct)
+    {
+        var query = string.IsNullOrWhiteSpace(author) ? title : $"{title} {author}";
+        var candidates = await ReconcileAsync(query, propertyConstraints: null, ct, mediaType).ConfigureAwait(false);
+        if (candidates.Count == 0)
+            return (null, null);
+
+        var filtered = await FilterByMediaTypeAsync(
+            candidates, mediaType, ct, title, author, isbnHint: null).ConfigureAwait(false);
+        if (filtered.Count == 0)
+            return (null, null);
+
+        var top = filtered[0];
+        if (top.Score < ReviewThreshold)
+            return (null, null);
+
+        return (top.Id, top.Name);
+    }
+
+    private static WikidataResolveResult ToResolveResult(
+        BridgeResolutionResult inner,
+        ResolveStrategy matchedBy,
+        string? primaryBridgeIdType)
+    {
+        if (!inner.Found)
+            return WikidataResolveResult.NotFound;
+
+        return new WikidataResolveResult
+        {
+            Found               = true,
+            Qid                 = inner.Qid,
+            IsEdition           = inner.IsEdition,
+            WorkQid             = inner.WorkQid,
+            EditionQid          = inner.EditionQid,
+            Claims              = inner.Claims,
+            CollectedBridgeIds  = inner.CollectedBridgeIds,
+            MatchedBy           = matchedBy,
+            PrimaryBridgeIdType = primaryBridgeIdType,
+        };
+    }
+
     /// <summary>
     /// Resolves retail bridge IDs to Wikidata edition and/or work QIDs.
     ///
@@ -1214,7 +1568,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// and all collected bridge IDs; or <see cref="BridgeResolutionResult.NotFound"/>
     /// when no match is found.
     /// </returns>
-    public async Task<BridgeResolutionResult> ResolveBridgeAsync(
+    internal async Task<BridgeResolutionResult> ResolveBridgeAsync(
         IReadOnlyDictionary<string, string> bridgeIds,
         IReadOnlyDictionary<string, string> wikidataProperties,
         MediaType mediaType,
@@ -1600,7 +1954,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// A <see cref="BridgeResolutionResult"/> with <c>series_qid</c> + <c>series</c>
     /// claims (and no <c>wikidata_qid</c>), or <see cref="BridgeResolutionResult.NotFound"/>.
     /// </returns>
-    public async Task<BridgeResolutionResult> ResolveMusicAlbumAsync(
+    internal async Task<BridgeResolutionResult> ResolveMusicAlbumAsync(
         string albumTitle,
         string? artist,
         CancellationToken ct)

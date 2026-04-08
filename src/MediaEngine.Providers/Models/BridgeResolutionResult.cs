@@ -1,10 +1,11 @@
 namespace MediaEngine.Providers.Models;
 
 /// <summary>
-/// Result of resolving retail bridge IDs to Wikidata entities.
-/// Produced by <c>ReconciliationAdapter.ResolveBridgeAsync</c> during Stage 2.
+/// Internal result of resolving retail bridge IDs to Wikidata entities.
+/// Produced by the (internal) <c>ReconciliationAdapter.ResolveBridgeAsync</c>
+/// and converted to <see cref="WikidataResolveResult"/> at the public boundary.
 /// </summary>
-public sealed class BridgeResolutionResult
+internal sealed class BridgeResolutionResult
 {
     /// <summary>Whether a Wikidata entity was found for any bridge ID.</summary>
     public bool Found { get; init; }
