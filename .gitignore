@@ -98,3 +98,10 @@ src/MediaEngine.Api/DevSupport/integration-test-report.html
 # Cloudflare Worker — Node dependencies and local dev secrets
 tools/cloudflare-api-gateway/node_modules/
 tools/cloudflare-api-gateway/.dev.vars
+
+# Local scratch directory (engine/dashboard logs during ad-hoc runs)
+.tmp/
+
+# Runtime-generated user preference files (written by the Dashboard)
+config/ui/vault-preferences.json
+config/ui/vault-preferences.json.bak
