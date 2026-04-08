@@ -2867,6 +2867,87 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             }
         }
 
+        // ── Pattern 1 + Pattern 2 detection via Authors.ResolveAsync ──────────
+        // Phase 5 of the slimdown remediation. The legacy block above handles
+        // Pattern 3 (collective pseudonyms — "James S.A. Corey" → real authors)
+        // by walking the work's P50 author QIDs. The library's v2.4
+        // Authors.ResolveAsync also handles:
+        //   • Pattern 1 — "Richard Bachman" → Stephen King via reverse P742
+        //                 CirrusSearch lookup. The legacy adapter never knew
+        //                 about this pattern at all.
+        //   • Pattern 2 — Stephen King → ["Richard Bachman", "John Swithen"]
+        //                 enumerated via P742 string claims. The legacy
+        //                 GetAuthorPseudonymsLegacyAsync helper computes the
+        //                 same data on demand for the Pattern 3 path; here we
+        //                 just emit the raw pen names so downstream consumers
+        //                 (search aliasing, "also known as" displays) can use
+        //                 them without an extra API call.
+        //
+        // This block is purely additive — it does not re-key existing claims,
+        // it does not duplicate the canonical author claim, and it skips
+        // entirely when request.Author is empty. Failure is silent — pen name
+        // detection is best-effort and must never break the main pipeline.
+        if (!string.IsNullOrWhiteSpace(request.Author) && _reconciler is not null)
+        {
+            try
+            {
+                var authorResolution = await _reconciler.Authors.ResolveAsync(
+                    new AuthorResolutionRequest
+                    {
+                        RawAuthorString  = request.Author,
+                        WorkQidHint      = masterWorkQid,
+                        Language         = language,
+                        DetectPseudonyms = true,
+                    }, ct).ConfigureAwait(false);
+
+                foreach (var resolved in authorResolution.Authors)
+                {
+                    if (string.IsNullOrWhiteSpace(resolved.Qid))
+                        continue;
+
+                    // Pattern 1 — solo pen name resolved via reverse P742.
+                    // Example: "Richard Bachman" → resolved.RealNameQid is
+                    // Stephen King's QID (Q39829), and resolved.Qid is set to
+                    // the same value (no separate entity for the pen name).
+                    if (!string.IsNullOrWhiteSpace(resolved.RealNameQid))
+                    {
+                        claims.Add(new ProviderClaim(
+                            BridgeIdKeys.AuthorRealNameQid,
+                            resolved.RealNameQid,
+                            ClaimConfidence.WikidataProperty));
+                        _logger.LogInformation(
+                            "{Provider}: Pattern 1 pen name — '{Pseudonym}' → real author QID {RealQid}",
+                            Name, resolved.OriginalName, resolved.RealNameQid);
+                    }
+
+                    // Pattern 2 — author has P742 (pseudonym) string claims.
+                    // Example: "Stephen King" → resolved.Pseudonyms = ["Richard Bachman", ...].
+                    if (resolved.Pseudonyms is { Count: > 0 })
+                    {
+                        foreach (var penName in resolved.Pseudonyms)
+                        {
+                            if (string.IsNullOrWhiteSpace(penName)) continue;
+                            claims.Add(new ProviderClaim(
+                                BridgeIdKeys.AuthorPseudonym,
+                                penName,
+                                ClaimConfidence.WikidataProperty));
+                        }
+                        _logger.LogInformation(
+                            "{Provider}: Pattern 2 P742 enumeration — '{Author}' uses pen name(s): {PenNames}",
+                            Name, resolved.CanonicalName ?? resolved.OriginalName,
+                            string.Join(", ", resolved.Pseudonyms));
+                    }
+                }
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex,
+                    "{Provider}: Authors.ResolveAsync pseudonym augmentation failed for '{Author}'",
+                    Name, request.Author);
+            }
+        }
+
         // ── Pen name preservation via embedded-author mismatch ────────────────
         // Safety net for when P742 data is missing or the pen name detection
         // block above could not resolve a shared pen name. If the request carries

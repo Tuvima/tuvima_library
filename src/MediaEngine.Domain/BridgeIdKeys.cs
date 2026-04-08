@@ -29,6 +29,18 @@ public static class BridgeIdKeys
     public const string AppleMusicCollectionId = "apple_music_collection_id";
     public const string AppleArtistId = "apple_artist_id";
 
+    // ── Pseudonym detection (Tuvima.Wikidata v2.4 patterns) ─────────────
+    // Set on the work's claim list when ReconciliationAdapter detects a pen
+    // name relationship. AuthorRealNameQid fires for Pattern 1 (reverse P742
+    // — "Richard Bachman" → Stephen King's QID); AuthorPseudonym fires for
+    // Pattern 2 (P742 enumeration — Stephen King → ["Richard Bachman", ...]).
+
+    /// <summary>The QID of the real author behind a pen name. Pattern 1.</summary>
+    public const string AuthorRealNameQid = "author_real_name_qid";
+
+    /// <summary>A pen name (P742 string value) used by the resolved author. Pattern 2.</summary>
+    public const string AuthorPseudonym = "author_pseudonym";
+
     /// <summary>All known bridge ID keys, for validation and enumeration.</summary>
     public static readonly HashSet<string> All = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -36,6 +48,7 @@ public static class BridgeIdKeys
         AppleBooksId, AudibleId, GoodreadsId, MusicBrainzId,
         MusicBrainzRecordingId, MusicBrainzReleaseGroupId,
         ComicVineId, SpotifyId, PodcastIndexId, OpenLibraryId,
-        AppleMusicId, AppleMusicCollectionId, AppleArtistId
+        AppleMusicId, AppleMusicCollectionId, AppleArtistId,
+        AuthorRealNameQid, AuthorPseudonym
     };
 }
