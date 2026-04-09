@@ -46,7 +46,7 @@ else
         @if (_activeSubFilter is "All" or "Music")
         {
             <div class="listen-view-toggle">
-                @foreach (var view in new[] { "Albums", "Artists", "All Songs" })
+                @foreach (var view in new[] { "Albums", "Artists", FlatViewLabel })
                 {
                     <button class="listen-view-btn @(_viewMode == view ? "active" : "")"
                             style="@(_viewMode == view ? $"background: {Accent}; color: #000;" : "")"
@@ -62,7 +62,7 @@ else
             <div class="listen-search">
                 <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Search" Size="Size.Small"
                          Style="font-size: 14px; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(148,163,184,0.50);" />
-                <input type="text" placeholder="Search songs, albums, artists..."
+                <input type="text" placeholder="@(_activeSubFilter == "Music" ? "Search songs, albums, artists..." : "Search your audio library...")"
                        value="@_searchText" @oninput="OnSearchInput" class="listen-search-input" />
             </div>
         </div>
@@ -110,8 +110,8 @@ else
             </div>
         }
 
-        @* ── All Songs flat list ── *@
-        @if (_viewMode == "All Songs" && _activeSubFilter is "All" or "Music")
+        @* ── Flat list (All Songs / All Audio) ── *@
+        @if (IsFlatView && _activeSubFilter is "All" or "Music")
         {
             <div class="listen-tracks">
                 <div class="listen-tracks-header">
@@ -137,7 +137,7 @@ else
                     <div class="listen-empty">
                         <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MusicNote"
                                  Style="font-size: 48px; color: rgba(248,248,248,0.15);" />
-                        <p>No tracks match your search.</p>
+                        <p>@(_activeSubFilter == "Music" ? "No tracks match your search." : "Nothing matches your search.")</p>
                     </div>
                 }
             </div>
@@ -192,6 +192,12 @@ else
     private string _spotlightEyebrow = "Featured";
 
     private bool HasTextFilter => !string.IsNullOrWhiteSpace(_searchText);
+
+    // "All Songs" only fits pure music. When the sub-filter is "All", the flat
+    // list can include audiobook chapters and podcast episodes, so we relabel
+    // it "All Audio" — a neutral term that covers all three media kinds.
+    private string FlatViewLabel => _activeSubFilter == "Music" ? "All Songs" : "All Audio";
+    private bool IsFlatView => _viewMode is "All Songs" or "All Audio";
 
     private sealed record NamedGroup(string Name, IReadOnlyList<PosterItemViewModel> Items);
 
@@ -301,6 +307,9 @@ else
     {
         _activeSubFilter = filter;
         if (filter is "Audiobooks" or "Podcasts") _viewMode = "Albums";
+        // Keep the flat view mode in sync with its context-aware label so the
+        // highlighted pill always matches what the user sees.
+        else if (IsFlatView) _viewMode = FlatViewLabel;
         ApplyFilters();
     }
 
