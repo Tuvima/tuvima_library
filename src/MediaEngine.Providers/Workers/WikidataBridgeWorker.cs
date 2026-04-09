@@ -405,16 +405,18 @@ public sealed class WikidataBridgeWorker
             }
 
             // Persist collected bridge IDs (non-music bridge resolution only).
+            // ReconciliationAdapter.BuildClaimsForResolvedQidAsync now emits the dictionary
+            // keyed by bridge claim key (e.g. "isbn_13", "tmdb_id"), not raw P-code.
             if (ctx.CollectedBridgeIds is { Count: > 0 })
             {
                 var collectedEntries = ctx.CollectedBridgeIds
                     .Select(kvp => new BridgeIdEntry
                     {
                         EntityId         = job.EntityId,
-                        IdType           = _bridgeIdHelper.GetClaimKey(kvp.Key),
+                        IdType           = kvp.Key,
                         IdValue          = kvp.Value,
                         ProviderId       = reconAdapter.ProviderId.ToString(),
-                        WikidataProperty = kvp.Key,
+                        WikidataProperty = _bridgeIdHelper.GetPCode(kvp.Key),
                     }).ToList();
 
                 await _bridgeIdRepo.UpsertBatchAsync(collectedEntries, ct);

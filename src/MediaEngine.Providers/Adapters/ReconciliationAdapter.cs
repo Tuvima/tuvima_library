@@ -7,6 +7,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Domain.Services;
@@ -1298,8 +1299,23 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     if (string.IsNullOrWhiteSpace(rawVal)) continue;
 
                     var normalized = IdentifierNormalizationService.NormalizeRaw(pCode, rawVal);
-                    if (!string.IsNullOrWhiteSpace(normalized))
-                        collectedBridgeIds[pCode] = normalized;
+                    if (string.IsNullOrWhiteSpace(normalized))
+                        continue;
+
+                    // Convert P-code → bridge claim key (e.g. "P212" → "isbn_13") so the
+                    // dictionary stores the same keys that bridge_ids.id_type uses.
+                    // P-codes without a label mapping (e.g. P1085 LibraryThing) are
+                    // stored as the raw P-code, which BridgeIdHelper.IsBridgeId rejects
+                    // — those are not Stage 2 bridge identifiers we care about.
+                    var claimKey = pCode;
+                    if (_config.DataExtension.PropertyLabels.TryGetValue(pCode, out var label)
+                        && !string.IsNullOrWhiteSpace(label))
+                        claimKey = label;
+
+                    if (!BridgeIdHelper.IsBridgeId(claimKey))
+                        continue;
+
+                    collectedBridgeIds[claimKey] = normalized;
                 }
 
                 claims.AddRange(ExtensionToClaims(

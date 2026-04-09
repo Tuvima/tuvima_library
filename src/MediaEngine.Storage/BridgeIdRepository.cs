@@ -28,7 +28,13 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
     {
         using var conn = _db.CreateConnection();
         var rows = conn.Query<BridgeIdRow>("""
-            SELECT id, entity_id, id_type, id_value, wikidata_property, provider_id, created_at
+            SELECT id                AS Id,
+                   entity_id         AS EntityId,
+                   id_type           AS IdType,
+                   id_value          AS IdValue,
+                   wikidata_property AS WikidataProperty,
+                   provider_id       AS ProviderId,
+                   created_at        AS CreatedAt
             FROM   bridge_ids
             WHERE  entity_id = @entityId
             ORDER BY id_type;
@@ -53,7 +59,13 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
 
         using var conn = _db.CreateConnection();
         var rows = conn.Query<BridgeIdRow>("""
-            SELECT id, entity_id, id_type, id_value, wikidata_property, provider_id, created_at
+            SELECT id                AS Id,
+                   entity_id         AS EntityId,
+                   id_type           AS IdType,
+                   id_value          AS IdValue,
+                   wikidata_property AS WikidataProperty,
+                   provider_id       AS ProviderId,
+                   created_at        AS CreatedAt
             FROM   bridge_ids
             WHERE  entity_id IN @entityIds
             ORDER BY entity_id, id_type;
@@ -76,7 +88,13 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
 
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<BridgeIdRow>("""
-            SELECT id, entity_id, id_type, id_value, wikidata_property, provider_id, created_at
+            SELECT id                AS Id,
+                   entity_id         AS EntityId,
+                   id_type           AS IdType,
+                   id_value          AS IdValue,
+                   wikidata_property AS WikidataProperty,
+                   provider_id       AS ProviderId,
+                   created_at        AS CreatedAt
             FROM   bridge_ids
             WHERE  entity_id = @entityId
             AND    id_type   = @idType
@@ -94,7 +112,13 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
 
         using var conn = _db.CreateConnection();
         var rows = conn.Query<BridgeIdRow>("""
-            SELECT id, entity_id, id_type, id_value, wikidata_property, provider_id, created_at
+            SELECT id                AS Id,
+                   entity_id         AS EntityId,
+                   id_type           AS IdType,
+                   id_value          AS IdValue,
+                   wikidata_property AS WikidataProperty,
+                   provider_id       AS ProviderId,
+                   created_at        AS CreatedAt
             FROM   bridge_ids
             WHERE  id_type  = @idType
             AND    id_value = @idValue;
