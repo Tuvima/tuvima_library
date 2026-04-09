@@ -1,0 +1,34 @@
+{
+  "Books": [
+    "title", "author", "year", "genre", "description",
+    "isbn", "asin", "apple_books_id", "google_books_id", "open_library_id", "wikidata_qid"
+  ],
+  "Audiobooks": [
+    "title", "author", "narrator", "series", "series_position",
+    "year", "genre", "description",
+    "isbn", "asin", "audible_id", "apple_books_id", "wikidata_qid"
+  ],
+  "Movies": [
+    "title", "director", "year", "genre", "description",
+    "imdb_id", "tmdb_id", "apple_itunes_id", "wikidata_qid"
+  ],
+  "TV": [
+    "title", "show_name", "season_number", "episode_number",
+    "episode_title", "network", "year", "genre", "description",
+    "imdb_id", "tmdb_id", "tvdb_id", "apple_itunes_id", "wikidata_qid", "show_wikidata_qid"
+  ],
+  "Music": [
+    "title", "artist", "album", "track_number",
+    "year", "genre",
+    "apple_music_id", "apple_music_collection_id", "apple_artist_id", "musicbrainz_id", "wikidata_qid"
+  ],
+  "Podcasts": [
+    "title", "show_name", "episode_number", "year",
+    "genre", "description",
+    "podcast_index_id", "apple_podcasts_id", "wikidata_qid"
+  ],
+  "Comics": [
+    "title", "series", "year", "publisher", "illustrator",
+    "metron_id", "wikidata_qid"
+  ]
+}

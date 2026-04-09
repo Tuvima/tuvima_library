@@ -16,6 +16,42 @@ public sealed class AudioMetadataTagger : IMetadataTagger
         ".mp3", ".m4b", ".m4a", ".flac", ".ogg", ".opus", ".wma",
     };
 
+    /// <summary>
+    /// Identifier claim keys written as custom tag fields. For ID3v2 these become
+    /// <c>TXXX:{KEY}</c> frames; for MP4 they become reverse-DNS
+    /// <c>----:com.tuvima:{key}</c> atoms. Embedding these lets re-ingestion
+    /// short-circuit the matching cascade.
+    /// </summary>
+    private static readonly string[] CustomIdKeys =
+    [
+        "isbn", "asin", "audible_id",
+        "apple_books_id", "apple_music_id", "apple_music_collection_id",
+        "apple_artist_id", "musicbrainz_id", "wikidata_qid",
+    ];
+
+    private static void WriteCustomId(TagLib.File file, string key, string value)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+
+        if (file.GetTag(TagLib.TagTypes.Id3v2, false) is TagLib.Id3v2.Tag id3v2)
+        {
+            var frame = TagLib.Id3v2.UserTextInformationFrame.Get(id3v2, key.ToUpperInvariant(), true);
+            frame.Text = [value];
+            return;
+        }
+
+        if (file.GetTag(TagLib.TagTypes.Apple, false) is TagLib.Mpeg4.AppleTag appleTag)
+        {
+            appleTag.SetDashBox("com.tuvima", key, value);
+            return;
+        }
+
+        if (file.GetTag(TagLib.TagTypes.Xiph, false) is TagLib.Ogg.XiphComment xiph)
+        {
+            xiph.SetField("TUVIMA:" + key.ToUpperInvariant(), value);
+        }
+    }
+
     private readonly ILogger<AudioMetadataTagger> _logger;
 
     public AudioMetadataTagger(ILogger<AudioMetadataTagger> logger)
@@ -57,6 +93,15 @@ public sealed class AudioMetadataTagger : IMetadataTagger
             if (tags.TryGetValue("author", out var author))
                 file.Tag.Performers = [author];
 
+            if (tags.TryGetValue("artist", out var artist))
+                file.Tag.Performers = [artist];
+
+            if (tags.TryGetValue("album", out var albumName))
+                file.Tag.Album = albumName;
+
+            if (tags.TryGetValue("track_number", out var trackStr) && uint.TryParse(trackStr, out var trackNo))
+                file.Tag.Track = trackNo;
+
             if (tags.TryGetValue("narrator", out var narrator))
             {
                 // Write narrator to TXXX:NARRATOR — the same custom frame that
@@ -95,6 +140,13 @@ public sealed class AudioMetadataTagger : IMetadataTagger
                 // TagLib doesn't have a dedicated publisher property;
                 // store in the first available custom field.
                 file.Tag.Publisher = publisher;
+            }
+
+            // Custom identifier fields — round-trippable on re-ingest.
+            foreach (var key in CustomIdKeys)
+            {
+                if (tags.TryGetValue(key, out var idValue))
+                    WriteCustomId(file, key, idValue);
             }
 
             file.Save();

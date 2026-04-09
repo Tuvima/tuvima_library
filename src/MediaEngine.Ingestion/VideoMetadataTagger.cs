@@ -16,6 +16,24 @@ public sealed class VideoMetadataTagger : IMetadataTagger
         ".mkv", ".mp4", ".avi", ".webm", ".mov",
     };
 
+    /// <summary>
+    /// Identifier claim keys written as iTunes reverse-DNS atoms
+    /// (<c>----:com.tuvima:{key}</c>). Embedding these in the file lets
+    /// re-ingestion short-circuit the matching cascade.
+    /// </summary>
+    private static readonly string[] CustomIdKeys =
+    [
+        "imdb_id", "tmdb_id", "tvdb_id", "apple_itunes_id",
+        "wikidata_qid", "show_wikidata_qid",
+    ];
+
+    private static void SetAppleText(TagLib.Mpeg4.AppleTag appleTag, string fourCc, string value)
+    {
+        if (string.IsNullOrEmpty(value)) return;
+        var box = TagLib.ByteVector.FromString(fourCc, TagLib.StringType.Latin1);
+        appleTag.SetText(box, value);
+    }
+
     private readonly ILogger<VideoMetadataTagger> _logger;
 
     public VideoMetadataTagger(ILogger<VideoMetadataTagger> logger)
@@ -74,6 +92,27 @@ public sealed class VideoMetadataTagger : IMetadataTagger
 
             if (tags.TryGetValue("year", out var yearStr) && uint.TryParse(yearStr, out var year))
                 file.Tag.Year = year;
+
+            // MP4-specific TV atoms and custom identifiers via the iTunes AppleTag.
+            // Matroska files only get the standard Tag fields above; rich custom
+            // tagging on MKV is deferred until we add a SimpleTag writer.
+            var appleTag = file.GetTag(TagLib.TagTypes.Apple, false) as TagLib.Mpeg4.AppleTag;
+            if (appleTag is not null)
+            {
+                if (tags.TryGetValue("show_name", out var showName))
+                    SetAppleText(appleTag, "tvsh", showName);
+                if (tags.TryGetValue("episode_title", out var episodeTitle))
+                    SetAppleText(appleTag, "tven", episodeTitle);
+                if (tags.TryGetValue("network", out var network))
+                    SetAppleText(appleTag, "tvnn", network);
+
+                // Custom identifier atoms (reverse-DNS) — round-trippable on re-ingest.
+                foreach (var key in CustomIdKeys)
+                {
+                    if (tags.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                        appleTag.SetDashBox("com.tuvima", key, value);
+                }
+            }
 
             try
             {

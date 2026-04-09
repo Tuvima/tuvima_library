@@ -20,6 +20,7 @@ public sealed class WriteBackService : IWriteBackService
 {
     private readonly IMediaAssetRepository         _assetRepo;
     private readonly ICanonicalValueRepository     _canonicalRepo;
+    private readonly IWorkRepository               _workRepo;
     private readonly IConfigurationLoader          _configLoader;
     private readonly IEnumerable<IMetadataTagger>  _taggers;
     private readonly ISystemActivityRepository     _activityRepo;
@@ -28,6 +29,7 @@ public sealed class WriteBackService : IWriteBackService
     public WriteBackService(
         IMediaAssetRepository         assetRepo,
         ICanonicalValueRepository     canonicalRepo,
+        IWorkRepository               workRepo,
         IConfigurationLoader          configLoader,
         IEnumerable<IMetadataTagger>  taggers,
         ISystemActivityRepository     activityRepo,
@@ -35,6 +37,7 @@ public sealed class WriteBackService : IWriteBackService
     {
         _assetRepo     = assetRepo;
         _canonicalRepo = canonicalRepo;
+        _workRepo      = workRepo;
         _configLoader  = configLoader;
         _taggers       = taggers;
         _activityRepo  = activityRepo;
@@ -117,23 +120,34 @@ public sealed class WriteBackService : IWriteBackService
             return;
         }
 
+        // Resolve the asset's media type via its Work lineage so we can look up
+        // the per-media-type writable field list from writeback-fields.json.
+        var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct);
+        var mediaType = lineage?.MediaType.ToString();
+
+        // Load the per-media-type field catalogue (single source of truth for
+        // both display in the Vault drawer and file write-back).
+        var fieldsConfig = _configLoader.LoadConfig<WritebackFieldsConfiguration>("", "writeback-fields")
+                           ?? new WritebackFieldsConfiguration();
+        var allowedFields = new HashSet<string>(
+            fieldsConfig.GetFieldsFor(mediaType),
+            StringComparer.OrdinalIgnoreCase);
+
+        if (allowedFields.Count == 0)
+        {
+            _logger.LogDebug("WriteBack: no writable fields configured for media type {MediaType} — skipping {AssetId}",
+                mediaType ?? "(unknown)", assetId);
+            return;
+        }
+
         // Build the tag dictionary, applying field filtering.
         var tags = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var excludeFields = new HashSet<string>(config.ExcludeFields, StringComparer.OrdinalIgnoreCase);
-        var writeAll = string.Equals(config.FieldsToWrite, "all", StringComparison.OrdinalIgnoreCase);
-
-        HashSet<string>? allowedFields = null;
-        if (!writeAll)
-        {
-            allowedFields = new HashSet<string>(
-                config.FieldsToWrite.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
-                StringComparer.OrdinalIgnoreCase);
-        }
 
         foreach (var cv in canonicals)
         {
             if (excludeFields.Contains(cv.Key)) continue;
-            if (allowedFields is not null && !allowedFields.Contains(cv.Key)) continue;
+            if (!allowedFields.Contains(cv.Key)) continue;
             tags[cv.Key] = cv.Value;
         }
 

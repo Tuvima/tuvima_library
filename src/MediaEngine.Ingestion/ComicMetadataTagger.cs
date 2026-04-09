@@ -18,6 +18,15 @@ public sealed class ComicMetadataTagger : IMetadataTagger
 {
     private const string ComicInfoEntry = "ComicInfo.xml";
 
+    /// <summary>
+    /// Identifier claim keys written as custom <c>&lt;Tuvima_{key}&gt;</c>
+    /// elements alongside the standard ComicInfo.xml fields.
+    /// </summary>
+    private static readonly string[] CustomIdKeys =
+    [
+        "metron_id", "wikidata_qid",
+    ];
+
     private readonly ILogger<ComicMetadataTagger> _logger;
 
     public ComicMetadataTagger(ILogger<ComicMetadataTagger> logger)
@@ -87,6 +96,14 @@ public sealed class ComicMetadataTagger : IMetadataTagger
 
             if (tags.TryGetValue("page_count", out var pages) && int.TryParse(pages, out _))
                 SetElementDirect(root, "PageCount", pages);
+
+            // Custom identifier fields — written as <Tuvima_{Key}> elements so
+            // re-ingestion can short-circuit the matching cascade.
+            foreach (var key in CustomIdKeys)
+            {
+                if (tags.TryGetValue(key, out var idValue) && !string.IsNullOrWhiteSpace(idValue))
+                    SetElementDirect(root, "Tuvima_" + key, idValue);
+            }
 
             // Remove existing entry and re-add with updated content.
             entry?.Delete();
