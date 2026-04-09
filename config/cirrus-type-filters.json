@@ -1,0 +1,12 @@
+{
+  "$schema_hint": "Per-media-type Wikidata P31 allow-lists applied to CirrusSearch text reconciliation. Consumed by ReconciliationAdapter.BuildStage2Request via CirrusTypeFilterConfiguration. When a media type is missing from this map, the adapter falls back to 'no text fallback' — the library's TextStage2Request requires a non-empty cirrus_search_types list. Media type key names are lower-cased and must match the MediaType enum after ToLowerInvariant().",
+  "filters": {
+    "books":      ["Q571", "Q7725634", "Q8261"],
+    "movies":     ["Q11424"],
+    "tv":         ["Q5398426", "Q21191270"],
+    "music":      ["Q105543609", "Q482994"],
+    "comics":     ["Q1004"],
+    "podcasts":   ["Q24634210"],
+    "audiobooks": ["Q106833962", "Q7725634"]
+  }
+}

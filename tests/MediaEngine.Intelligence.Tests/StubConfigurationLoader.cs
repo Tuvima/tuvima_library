@@ -18,6 +18,8 @@ internal sealed class StubConfigurationLoader : IConfigurationLoader
     public void SaveMaintenance(MaintenanceSettings settings) { }
     public HydrationSettings LoadHydration() => new();
     public void SaveHydration(HydrationSettings settings) { }
+    public EditionPivotConfiguration LoadEditionPivot() => new();
+    public CirrusTypeFilterConfiguration LoadCirrusTypeFilters() => new();
     public ProviderSlotConfiguration LoadSlots() => new();
     public void SaveSlots(ProviderSlotConfiguration slots) { }
     public PipelineConfiguration LoadPipelines() => new();

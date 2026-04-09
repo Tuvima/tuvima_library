@@ -1,0 +1,20 @@
+{
+  "$schema_hint": "Maps each media type to the Wikidata P31 classes that identify work-level vs edition-level entities. Consumed by ReconciliationAdapter.BuildStage2Request via EditionPivotConfiguration. prefer_edition=true means the Stage 2 resolver walks P747 from the work to find a preferred edition. Media types not listed here (movies, tv, comics, podcasts) return no pivot rule and are resolved at the work level.",
+  "rules": {
+    "audiobooks": {
+      "work_classes":    ["Q7725634", "Q571"],
+      "edition_classes": ["Q122731938", "Q106833962"],
+      "prefer_edition":  true
+    },
+    "books": {
+      "work_classes":    ["Q7725634", "Q8261", "Q571"],
+      "edition_classes": ["Q3331189"],
+      "prefer_edition":  false
+    },
+    "music": {
+      "work_classes":    ["Q482994"],
+      "edition_classes": ["Q2031291"],
+      "prefer_edition":  false
+    }
+  }
+}

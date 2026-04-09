@@ -50,6 +50,14 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     // Parsed once at construction.
     private readonly Guid _providerId;
 
+    // Lazy caches for the Stage 2 config files. Loaded on first use and kept
+    // for the lifetime of the adapter so BuildStage2Request doesn't hit the
+    // filesystem once per call. The nullable loader fall-through means tests
+    // that construct the adapter without a config loader fall back to empty
+    // configurations (no pivot, no text-fallback cirrus filter).
+    private EditionPivotConfiguration? _editionPivotCache;
+    private CirrusTypeFilterConfiguration? _cirrusTypeFiltersCache;
+
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -1250,31 +1258,9 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         if (realBridgeIds is { Count: > 0 } && r.WikidataProperties is { Count: > 0 })
         {
-            // Edition pivot rule per media type. Inline now; Phase 3 of the
-            // slimdown extracts these into config/edition-pivot.json.
-            EditionPivotRule? pivot = null;
-            if (r.IsEditionAware)
-            {
-                pivot = r.MediaType switch
-                {
-                    MediaType.Audiobooks => new EditionPivotRule
-                    {
-                        WorkClasses    = ["Q7725634", "Q571"],            // literary work, novel
-                        EditionClasses = ["Q122731938", "Q106833962"],    // audiobook edition variants
-                    },
-                    MediaType.Books => new EditionPivotRule
-                    {
-                        WorkClasses    = ["Q7725634", "Q8261", "Q571"],   // literary work, novel
-                        EditionClasses = ["Q3331189"],                    // version, edition, or translation
-                    },
-                    MediaType.Music => new EditionPivotRule
-                    {
-                        WorkClasses    = ["Q482994"],                     // album
-                        EditionClasses = ["Q2031291"],                    // album release
-                    },
-                    _ => null,
-                };
-            }
+            EditionPivotRule? pivot = r.IsEditionAware
+                ? BuildEditionPivotRule(r.MediaType)
+                : null;
 
             return Stage2Request.Bridge(
                 correlationKey:     r.CorrelationKey,
@@ -1304,21 +1290,36 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Hard-coded P31 type filters for text reconciliation, mirroring the
-    /// per-media-type allow-list embedded in <c>config/providers/wikidata_reconciliation.json</c>.
-    /// Phase 3 of the slimdown extracts these into <c>config/cirrus-type-filters.json</c>.
+    /// Translates a media-type edition-pivot entry from <c>config/edition-pivot.json</c>
+    /// into the library's <see cref="EditionPivotRule"/>. Returns <c>null</c> when the
+    /// config file is missing the media type (movies, TV, comics, podcasts) or when the
+    /// config loader is unavailable (test fixtures).
     /// </summary>
-    private static IReadOnlyList<string> GetCirrusTypesForMediaType(MediaType mediaType) => mediaType switch
+    private EditionPivotRule? BuildEditionPivotRule(MediaType mediaType)
     {
-        MediaType.Books      => ["Q571", "Q7725634", "Q8261"],
-        MediaType.Movies     => ["Q11424"],
-        MediaType.TV         => ["Q5398426", "Q21191270"],
-        MediaType.Music      => ["Q105543609", "Q482994"],
-        MediaType.Comics     => ["Q1004"],
-        MediaType.Podcasts   => ["Q24634210"],
-        MediaType.Audiobooks => ["Q106833962", "Q7725634"],
-        _ => [],
-    };
+        _editionPivotCache ??= _configLoader?.LoadEditionPivot() ?? new EditionPivotConfiguration();
+        var entry = _editionPivotCache.GetRuleFor(mediaType);
+        if (entry is null) return null;
+
+        return new EditionPivotRule
+        {
+            WorkClasses    = entry.WorkClasses,
+            EditionClasses = entry.EditionClasses,
+            PreferEdition  = entry.PreferEdition,
+        };
+    }
+
+    /// <summary>
+    /// Reads the per-media-type CirrusSearch P31 allow-list from
+    /// <c>config/cirrus-type-filters.json</c>. Returns an empty list when the
+    /// media type is missing from the config or when the loader is unavailable
+    /// (in which case text fallback is skipped entirely for this media type).
+    /// </summary>
+    private IReadOnlyList<string> GetCirrusTypesForMediaType(MediaType mediaType)
+    {
+        _cirrusTypeFiltersCache ??= _configLoader?.LoadCirrusTypeFilters() ?? new CirrusTypeFilterConfiguration();
+        return _cirrusTypeFiltersCache.GetTypesFor(mediaType);
+    }
 
     private static ResolveStrategy MapStage2MatchedStrategy(Stage2MatchedStrategy m) => m switch
     {

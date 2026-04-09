@@ -76,6 +76,8 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string TranscodingFileName      = "transcoding.json";
     private const string FieldPrioritiesFileName  = "field_priorities.json";
     private const string PipelinesFileName        = "pipelines.json";
+    private const string EditionPivotFileName     = "edition-pivot.json";
+    private const string CirrusTypeFiltersFileName = "cirrus-type-filters.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -237,6 +239,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     /// <inheritdoc/>
     public void SaveHydration(HydrationSettings settings) =>
         SaveFile(HydrationFileName, settings);
+
+    /// <inheritdoc/>
+    public EditionPivotConfiguration LoadEditionPivot() =>
+        LoadFile<EditionPivotConfiguration>(EditionPivotFileName) ?? new();
+
+    /// <inheritdoc/>
+    public CirrusTypeFilterConfiguration LoadCirrusTypeFilters() =>
+        LoadFile<CirrusTypeFilterConfiguration>(CirrusTypeFiltersFileName) ?? new();
 
     /// <inheritdoc/>
     public DisambiguationSettings LoadDisambiguation() =>

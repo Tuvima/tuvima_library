@@ -835,6 +835,8 @@ public sealed class DurablePipelineTests : IDisposable
         };
 
         public HydrationSettings LoadHydration() => new();
+        public EditionPivotConfiguration LoadEditionPivot() => new();
+        public CirrusTypeFilterConfiguration LoadCirrusTypeFilters() => new();
         public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
         public ScoringSettings LoadScoring() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;

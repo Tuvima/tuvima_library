@@ -323,6 +323,8 @@ public sealed class ScoringHelperLineageTests
 
         public PipelineConfiguration LoadPipelines() => new();
         public HydrationSettings LoadHydration() => new();
+        public EditionPivotConfiguration LoadEditionPivot() => new();
+        public CirrusTypeFilterConfiguration LoadCirrusTypeFilters() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
         public CoreConfiguration LoadCore() => throw new NotImplementedException();
         public void SaveCore(CoreConfiguration config) => throw new NotImplementedException();
