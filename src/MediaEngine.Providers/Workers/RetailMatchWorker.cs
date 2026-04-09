@@ -786,14 +786,20 @@ public sealed class RetailMatchWorker
             ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var seasonStr   = representativeHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
             ?? representativeHints.GetValueOrDefault("season");
+        var yearStr     = representativeHints.GetValueOrDefault(MetadataFieldConstants.Year);
+        int? yearHint   = int.TryParse(yearStr, out var parsedYear) && parsedYear > 1900
+            ? parsedYear
+            : null;
         var lang        = "en";
         var country     = "US";
 
         // Step 1: Search TMDB for the show to get tv_id.
         _logger.LogInformation(
-            "TV: searching TMDB for show '{ShowName}' — {EpisodeCount} episode(s) queued",
-            showName ?? "(unknown)", groupJobs.Count);
-        var tvId = await SearchTmdbShowAsync(showName, tmdbApiKey, lang, country, ct);
+            "TV: searching TMDB for show '{ShowName}'{YearHint} — {EpisodeCount} episode(s) queued",
+            showName ?? "(unknown)",
+            yearHint.HasValue ? $" (year={yearHint.Value})" : "",
+            groupJobs.Count);
+        var tvId = await SearchTmdbShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
 
         if (tvId is null)
         {
@@ -861,15 +867,22 @@ public sealed class RetailMatchWorker
 
     /// <summary>
     /// Searches TMDB for a TV show by name. Returns the tv_id string, or null if not found.
+    /// When <paramref name="yearHint"/> is supplied, the search is filtered server-side by
+    /// <c>first_air_date_year</c> and a year-match bonus is added during local scoring so
+    /// shows with the right premiere year outrank similarly-named shows from other eras.
+    /// Falls back to an unfiltered search if the year filter returns nothing.
     /// </summary>
     private async Task<string?> SearchTmdbShowAsync(
-        string? showName, string apiKey, string lang, string country, CancellationToken ct)
+        string? showName, int? yearHint, string apiKey, string lang, string country, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(showName))
             return null;
 
-        var query = Uri.EscapeDataString(showName.Trim());
-        var url = $"https://api.themoviedb.org/3/search/tv?query={query}&include_adult=false&language={lang}-{country}&page=1&api_key={apiKey}";
+        var query   = Uri.EscapeDataString(showName.Trim());
+        var baseUrl = $"https://api.themoviedb.org/3/search/tv?query={query}&include_adult=false&language={lang}-{country}&page=1&api_key={apiKey}";
+        var url     = yearHint.HasValue
+            ? $"{baseUrl}&first_air_date_year={yearHint.Value}"
+            : baseUrl;
 
         await ThrottleTmdbAsync(ct);
 
@@ -877,12 +890,23 @@ public sealed class RetailMatchWorker
         {
             using var client = _httpFactory.CreateClient("tmdb");
             var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
-
             var results = json?["results"]?.AsArray();
+
+            // If year-filtered search returned nothing, retry unfiltered (year may be wrong/missing on TMDB).
+            if ((results is null || results.Count == 0) && yearHint.HasValue)
+            {
+                _logger.LogInformation(
+                    "TV: TMDB year-filtered search returned 0 results for '{ShowName}' (year={Year}); retrying unfiltered",
+                    showName, yearHint.Value);
+                await ThrottleTmdbAsync(ct);
+                json = await client.GetFromJsonAsync<JsonNode>(baseUrl, ct);
+                results = json?["results"]?.AsArray();
+            }
+
             if (results is null || results.Count == 0)
                 return null;
 
-            // Pick the best match by show name similarity.
+            // Pick the best match by show name similarity, biased by year proximity.
             double bestScore = 0.0;
             string? bestId = null;
 
@@ -897,7 +921,31 @@ public sealed class RetailMatchWorker
                 if (string.IsNullOrWhiteSpace(resultName) || resultId is null)
                     continue;
 
-                var score = ComputeWordOverlap(showName, resultName);
+                var nameScore = ComputeWordOverlap(showName, resultName);
+
+                // Year bonus: +0.25 for exact match, +0.10 for ±1, -0.20 for >5 years off.
+                // This is enough to outrank a slightly higher name-similarity hit from
+                // the wrong era (e.g. "Shogun 2024" vs "Abarenbō Shōgun 1978").
+                var yearBonus = 0.0;
+                if (yearHint.HasValue)
+                {
+                    var firstAirDate = result["first_air_date"]?.GetValue<string>();
+                    if (!string.IsNullOrWhiteSpace(firstAirDate)
+                        && firstAirDate.Length >= 4
+                        && int.TryParse(firstAirDate.AsSpan(0, 4), out var resultYear))
+                    {
+                        var diff = Math.Abs(resultYear - yearHint.Value);
+                        yearBonus = diff switch
+                        {
+                            0     => 0.25,
+                            1     => 0.10,
+                            <= 5  => 0.0,
+                            _     => -0.20,
+                        };
+                    }
+                }
+
+                var score = Math.Clamp(nameScore + yearBonus, 0.0, 1.0);
                 if (score > bestScore)
                 {
                     bestScore = score;
@@ -908,8 +956,9 @@ public sealed class RetailMatchWorker
             if (bestScore >= 0.40)
             {
                 _logger.LogInformation(
-                    "TV: TMDB show search matched tv_id={Id} (score={Score:F2}) for '{ShowName}'",
-                    bestId, bestScore, showName);
+                    "TV: TMDB show search matched tv_id={Id} (score={Score:F2}) for '{ShowName}'{YearHint}",
+                    bestId, bestScore, showName,
+                    yearHint.HasValue ? $" (year={yearHint.Value})" : "");
                 return bestId;
             }
 

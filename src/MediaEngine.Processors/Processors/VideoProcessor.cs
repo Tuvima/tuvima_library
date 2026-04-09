@@ -233,6 +233,12 @@ public sealed class VideoProcessor : IMediaProcessor
                 }
                 if (!string.IsNullOrWhiteSpace(episodeTitle))
                     claims.Add(Claim("episode_title", episodeTitle, 0.55));
+
+                // Year from containing folder (e.g. "Shogun (2024)/Season 01/...") —
+                // disambiguates same-titled shows from different eras during retail match.
+                var folderYear = InferYearFromPath(filePath);
+                if (!string.IsNullOrWhiteSpace(folderYear))
+                    claims.Add(Claim("year", folderYear, 0.55));
             }
             else if (seasonNum.HasValue)
             {
@@ -258,6 +264,11 @@ public sealed class VideoProcessor : IMediaProcessor
                 }
                 if (!string.IsNullOrWhiteSpace(episodeTitle))
                     claims.Add(Claim("episode_title", episodeTitle, 0.55));
+
+                // Year from containing folder — same disambiguation as filename-with-show branch.
+                var folderYear = InferYearFromPath(filePath);
+                if (!string.IsNullOrWhiteSpace(folderYear))
+                    claims.Add(Claim("year", folderYear, 0.55));
             }
             else if (!string.IsNullOrWhiteSpace(basicTitle))
             {
@@ -387,6 +398,28 @@ public sealed class VideoProcessor : IMediaProcessor
     private static string CleanSeriesTitle(string raw)
     {
         return raw.TrimEnd('.', '-', '_', ' ');
+    }
+
+    /// <summary>
+    /// Walks up from the file's parent folder (skipping "Season XX") and returns the
+    /// first 4-digit year inside parentheses found on a containing folder name.
+    /// Used to disambiguate same-titled shows from different eras (e.g. Shōgun 1980 vs 2024).
+    /// </summary>
+    private static string? InferYearFromPath(string filePath)
+    {
+        var dir = Path.GetDirectoryName(filePath);
+        for (var i = 0; i < 4 && !string.IsNullOrWhiteSpace(dir); i++)
+        {
+            var dirName = Path.GetFileName(dir);
+            if (!string.IsNullOrWhiteSpace(dirName)
+                && !Regex.IsMatch(dirName, @"^Season\s+\d{1,2}$", RegexOptions.IgnoreCase))
+            {
+                var m = Regex.Match(dirName, @"\((\d{4})\)");
+                if (m.Success) return m.Groups[1].Value;
+            }
+            dir = Path.GetDirectoryName(dir);
+        }
+        return null;
     }
 
     /// <summary>
