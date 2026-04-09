@@ -18,6 +18,7 @@ public sealed class CoverArtWorker
 {
     private readonly IMediaAssetRepository _assetRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly IWorkRepository _workRepo;
     private readonly IImageCacheRepository _imageCache;
     private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IHttpClientFactory _httpFactory;
@@ -28,6 +29,7 @@ public sealed class CoverArtWorker
     public CoverArtWorker(
         IMediaAssetRepository assetRepo,
         ICanonicalValueRepository canonicalRepo,
+        IWorkRepository workRepo,
         IImageCacheRepository imageCache,
         IHeroBannerGenerator heroGenerator,
         IHttpClientFactory httpFactory,
@@ -37,6 +39,7 @@ public sealed class CoverArtWorker
     {
         _assetRepo = assetRepo;
         _canonicalRepo = canonicalRepo;
+        _workRepo = workRepo;
         _imageCache = imageCache;
         _heroGenerator = heroGenerator;
         _httpFactory = httpFactory;
@@ -53,15 +56,40 @@ public sealed class CoverArtWorker
     {
         var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
 
-        // Find cover URL from canonicals
-        var coverUrl = canonicals
-            .Where(c => string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase))
-            .Select(c => c.Value)
-            .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-            ?? canonicals
-            .Where(c => string.Equals(c.Key, MetadataFieldConstants.Cover, StringComparison.OrdinalIgnoreCase))
-            .Select(c => c.Value)
-            .FirstOrDefault(v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+        // Find cover URL from the asset's own canonicals.
+        var coverUrl = FindCoverUrl(canonicals);
+
+        // Parent-scope fallback. For TV / Movies / Music / Comics / Podcasts,
+        // ClaimScopeRegistry routes `cover` and `cover_url` to ClaimScope.Parent,
+        // so the retail provider's cover URL lands on the parent Work id
+        // (album / show / movie Work) — not the media asset id. Without this
+        // fallback, every one of those media types silently returns "No cover
+        // URL found" and the Vault shows a placeholder.
+        if (string.IsNullOrEmpty(coverUrl))
+        {
+            try
+            {
+                var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+                if (lineage is not null && lineage.RootParentWorkId != entityId)
+                {
+                    var parentCanonicals = await _canonicalRepo.GetByEntityAsync(
+                        lineage.RootParentWorkId, ct);
+                    coverUrl = FindCoverUrl(parentCanonicals);
+                    if (!string.IsNullOrEmpty(coverUrl))
+                    {
+                        _logger.LogDebug(
+                            "Cover art: asset {EntityId} had no cover canonical; using parent Work {ParentId} cover URL",
+                            entityId, lineage.RootParentWorkId);
+                    }
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogDebug(ex,
+                    "Cover art: parent lineage lookup failed for entity {EntityId} — proceeding with self-scope only",
+                    entityId);
+            }
+        }
 
         if (string.IsNullOrEmpty(coverUrl))
         {
@@ -188,6 +216,22 @@ public sealed class CoverArtWorker
                 "Cover art: downloaded poster for '{Title}' ({SizeKB:F1} KB) → {LocalPath}",
                 titleForDone, bytes.Length / 1024.0, coverPath);
         }
+    }
+
+    /// <summary>
+    /// Finds the first HTTP(S) cover URL in a list of canonical values,
+    /// checking <c>cover_url</c> first and falling back to <c>cover</c>.
+    /// </summary>
+    private static string? FindCoverUrl(IReadOnlyList<CanonicalValue> canonicals)
+    {
+        return canonicals
+            .Where(c => string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Value)
+            .FirstOrDefault(v => !string.IsNullOrEmpty(v) && v.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            ?? canonicals
+            .Where(c => string.Equals(c.Key, MetadataFieldConstants.Cover, StringComparison.OrdinalIgnoreCase))
+            .Select(c => c.Value)
+            .FirstOrDefault(v => !string.IsNullOrEmpty(v) && v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
     }
 
     private async Task GenerateHeroBannerAsync(

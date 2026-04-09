@@ -116,6 +116,9 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("network")]
     public string? Network { get; set; }
 
+    [JsonPropertyName("top_cast")]
+    public string? TopCast { get; set; }
+
     [JsonPropertyName("track_count")]
     public string? TrackCount { get; set; }
 

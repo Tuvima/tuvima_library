@@ -463,9 +463,12 @@ else
                                             </div>
                                             <div class="vmt-media-info">
                                                 <p class="vmt-title">@item.Title</p>
-                                                @if (!string.IsNullOrEmpty(item.Author))
+                                                @{
+                                                    var subtitle = GetContainerSubtitle(item);
+                                                }
+                                                @if (!string.IsNullOrEmpty(subtitle))
                                                 {
-                                                    <p class="vmt-subtitle">@item.Author</p>
+                                                    <p class="vmt-subtitle">@subtitle</p>
                                                 }
                                             </div>
                                         </div>
@@ -637,6 +640,19 @@ else
     {
         var color = VaultHelpers.GetMediaTypeColor(mediaType ?? "");
         return $"color: {color}; background: {VaultHelpers.HexToRgba(color, 0.12)}; border-color: {VaultHelpers.HexToRgba(color, 0.2)};";
+    }
+
+    /// <summary>
+    /// Subtitle shown under the container title in ContainerCell cells.
+    /// TV shows display the top billed cast (from P161) so the row reads
+    /// "Breaking Bad / Bryan Cranston, Aaron Paul, Anna Gunn" rather than
+    /// repeating the director. Other media types keep the author/creator line.
+    /// </summary>
+    private static string? GetContainerSubtitle(VaultItemViewModel item)
+    {
+        if (string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            return item.TopCast;
+        return item.Author;
     }
 
     private static string GetTextValue(VaultItemViewModel item, string? propertyName) =>

@@ -146,6 +146,17 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN wcv.key = 'album'        THEN wcv.value END) AS album,
                     MAX(CASE WHEN wcv.key = 'show_name'    THEN wcv.value END) AS show_name,
                     MAX(CASE WHEN wcv.key = 'network'      THEN wcv.value END) AS network,
+                    -- Top 3 billed cast members for TV shows / movies, joined with commas.
+                    -- cast_member is Parent-scoped (P161) so read from the topmost Work id.
+                    (SELECT GROUP_CONCAT(sub.value, ', ')
+                     FROM (SELECT cva.value
+                           FROM canonical_value_arrays cva
+                           LEFT JOIN works pw  ON pw.id  = w.parent_work_id
+                           LEFT JOIN works gpw ON gpw.id = pw.parent_work_id
+                           WHERE cva.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                             AND cva.key = 'cast_member'
+                           ORDER BY cva.ordinal
+                           LIMIT 3) sub) AS top_cast,
                     -- wikidata_qid is Self-scoped (default): for TV the QID is the
                     -- episode's QID, for music it's the track's QID, for movies it
                     -- collapses onto the movie's own Work but is still routed to the
@@ -294,6 +305,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.show_name,
                     wd.episode_title,
                     wd.network,
+                    wd.top_cast,
                     wd.duration,
                     wd.retail_match_detail,
                     wd.file_name,
@@ -441,7 +453,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.series, fd.series_position, fd.narrator, fd.genre,
                 fd.runtime, fd.rating, fd.album, fd.track_number,
                 fd.season_number, fd.episode_number,
-                fd.show_name, fd.duration, fd.episode_title, fd.network
+                fd.show_name, fd.duration, fd.episode_title, fd.network, fd.top_cast
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -498,6 +510,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 Duration          = reader.IsDBNull(35) ? null : reader.GetString(35),
                 EpisodeTitle      = reader.IsDBNull(36) ? null : reader.GetString(36),
                 Network           = reader.IsDBNull(37) ? null : reader.GetString(37),
+                TopCast           = reader.IsDBNull(38) ? null : reader.GetString(38),
             });
         }
 

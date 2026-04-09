@@ -37,6 +37,7 @@ public sealed class VaultItemViewModel
     public string? ShowName { get; init; }
     public string? EpisodeTitle { get; init; }
     public string? Network { get; init; }
+    public string? TopCast { get; init; }
     public string? TrackCount { get; init; }
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
@@ -119,6 +120,7 @@ public sealed class VaultItemViewModel
         ShowName = r.ShowName,
         EpisodeTitle = r.EpisodeTitle,
         Network = r.Network,
+        TopCast = r.TopCast,
         TrackCount = r.TrackCount,
         Year = r.Year,
         MediaType = r.MediaType,

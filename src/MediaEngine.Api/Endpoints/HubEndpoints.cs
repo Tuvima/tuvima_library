@@ -366,6 +366,8 @@ public static class HubEndpoints
             Guid hubId,
             IHubRepository hubRepo,
             ICanonicalValueRepository canonicalRepo,
+            ICanonicalValueArrayRepository canonicalArrayRepo,
+            IPersonRepository personRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -531,6 +533,38 @@ public static class HubEndpoints
                 flatWorks = workDtos;
             }
 
+            // Top billed cast for TV and Movies — read the Parent-scoped
+            // cast_member array (P161) and resolve each entry to a Person
+            // record so the Dashboard can open the people drawer on click.
+            // Capped at 10 entries to match the design.
+            var topCast = new List<HubGroupPersonDto>();
+            bool hasCast = (isTv || string.Equals(primaryMediaType, "Movies", StringComparison.OrdinalIgnoreCase))
+                           && rootParentWorkId.HasValue;
+            if (hasCast)
+            {
+                var castEntries = await canonicalArrayRepo.GetValuesAsync(
+                    rootParentWorkId!.Value, "cast_member", ct);
+                foreach (var entry in castEntries.OrderBy(e => e.Ordinal).Take(10))
+                {
+                    if (string.IsNullOrWhiteSpace(entry.Value)) continue;
+
+                    Person? person = null;
+                    if (!string.IsNullOrWhiteSpace(entry.ValueQid))
+                        person = await personRepo.FindByQidAsync(entry.ValueQid, ct);
+                    person ??= await personRepo.FindByNameAsync(entry.Value, ct);
+
+                    topCast.Add(new HubGroupPersonDto
+                    {
+                        PersonId     = person?.Id,
+                        Name         = person?.Name ?? entry.Value,
+                        WikidataQid  = entry.ValueQid ?? person?.WikidataQid,
+                        HeadshotUrl  = !string.IsNullOrEmpty(person?.LocalHeadshotPath)
+                                       ? $"/stream/person/{person.Id}/headshot-thumb"
+                                       : person?.HeadshotUrl,
+                    });
+                }
+            }
+
             var response = new HubGroupDetailDto
             {
                 HubId            = hub.Id,
@@ -542,6 +576,7 @@ public static class HubEndpoints
                 YearRange        = yearRange,
                 Genre            = hubGenre,
                 Network          = hubNetwork,
+                TopCast          = topCast,
                 TotalItems       = hub.Works.Count,
                 Seasons          = seasons,
                 Works            = flatWorks,

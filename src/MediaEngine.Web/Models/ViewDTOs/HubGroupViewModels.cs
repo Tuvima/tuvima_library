@@ -50,6 +50,10 @@ public sealed class HubGroupDetailViewModel
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; set; }
 
+    /// <summary>Top billed cast (actors) for TV shows / movies. Capped at 10 entries.</summary>
+    [JsonPropertyName("top_cast")]
+    public List<HubGroupPersonViewModel> TopCast { get; set; } = [];
+
     /// <summary>TV only — works grouped by season.</summary>
     [JsonPropertyName("seasons")]
     public List<HubGroupSeasonViewModel> Seasons { get; set; } = [];
@@ -57,6 +61,22 @@ public sealed class HubGroupDetailViewModel
     /// <summary>Flat list for music/books/movies.</summary>
     [JsonPropertyName("works")]
     public List<HubGroupWorkViewModel> Works { get; set; } = [];
+}
+
+/// <summary>Lightweight person reference used by cast chips on MediaGroupPage.</summary>
+public sealed class HubGroupPersonViewModel
+{
+    [JsonPropertyName("person_id")]
+    public Guid? PersonId { get; set; }
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("headshot_url")]
+    public string? HeadshotUrl { get; set; }
 }
 
 /// <summary>A single TV season (or album within an artist view) within a group detail view.</summary>

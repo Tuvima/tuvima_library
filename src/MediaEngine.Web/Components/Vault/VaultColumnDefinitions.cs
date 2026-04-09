@@ -327,6 +327,7 @@ public static class VaultColumnDefinitions
     [
         Checkbox(),
         new() { Key = "container", Label = "Show",     Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
+        new() { Key = "network",   Label = "Network",   Width = "auto", Sortable = true, SortKey = "network",    RenderType = ColumnRenderType.Text, PropertyName = "Network" },
         new() { Key = "seasons",   Label = "Seasons",   Width = "80px", Align = "center", RenderType = ColumnRenderType.Count, PropertyName = "SeasonCount" },
         new() { Key = "episodes",  Label = "Episodes",  Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
         new() { Key = "year",      Label = "Year",      Width = "80px", Align = "center", RenderType = ColumnRenderType.Text, PropertyName = "Year" },

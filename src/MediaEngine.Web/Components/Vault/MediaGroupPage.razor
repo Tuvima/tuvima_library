@@ -71,8 +71,13 @@ else
             {
                 <h1 class="mgp-title">@_detail.DisplayName</h1>
             }
-            @* Suppress creator line when it would simply duplicate the title (e.g. artist views). *@
-            @if (!string.IsNullOrEmpty(_detail.Creator)
+            @* Suppress creator line when it would simply duplicate the title (e.g. artist views).
+               TV shows also suppress the creator line — the show's top billed cast is shown as
+               clickable chips below the meta-line, and the show's network is displayed as a
+               badge next to the year/genre. Showing "Director: …" on a TV row is misleading
+               because TV direction is episode-scoped. *@
+            @if (GroupType != "tv-show"
+                 && !string.IsNullOrEmpty(_detail.Creator)
                  && !string.Equals(_detail.Creator, _detail.DisplayName, StringComparison.OrdinalIgnoreCase))
             {
                 <p class="mgp-creator">@_detail.Creator</p>
@@ -99,6 +104,31 @@ else
                     <span class="mgp-network-badge">@_detail.Network</span>
                 }
             </div>
+            @if ((GroupType == "tv-show" || GroupType == "movie-series") && _detail.TopCast.Count > 0)
+            {
+                <div class="mgp-cast-chips">
+                    @foreach (var actor in _detail.TopCast)
+                    {
+                        var clickable = actor.PersonId.HasValue;
+                        <button class="mgp-cast-chip @(clickable ? "mgp-cast-chip--clickable" : "")"
+                                disabled="@(!clickable)"
+                                @onclick="() => HandleCastChipClick(actor)"
+                                title="@actor.Name">
+                            @if (!string.IsNullOrEmpty(actor.HeadshotUrl))
+                            {
+                                <img src="@actor.HeadshotUrl" alt="@actor.Name" class="mgp-cast-chip-photo" />
+                            }
+                            else
+                            {
+                                <div class="mgp-cast-chip-photo mgp-cast-chip-photo--placeholder">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 14px; opacity: 0.4;" />
+                                </div>
+                            }
+                            <span class="mgp-cast-chip-name">@actor.Name</span>
+                        </button>
+                    }
+                </div>
+            }
             <div class="mgp-actions">
                 @if (GroupType is "tv-show" or "album" or "podcast-show" or "comic-series" or "book-series" or "movie-series")
                 {
@@ -373,6 +403,12 @@ else
     private async Task HandleArtistPhotoClick()
     {
         if (_detail?.ArtistPersonId is { } personId && OnPersonClicked.HasDelegate)
+            await OnPersonClicked.InvokeAsync(personId);
+    }
+
+    private async Task HandleCastChipClick(HubGroupPersonViewModel actor)
+    {
+        if (actor.PersonId is { } personId && OnPersonClicked.HasDelegate)
             await OnPersonClicked.InvokeAsync(personId);
     }
 
@@ -822,6 +858,58 @@ else
         background: rgba(201, 146, 46, 0.12);
         color: #C9922E;
         border: 1px solid rgba(201, 146, 46, 0.2);
+    }
+
+    .mgp-cast-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
+        max-width: 760px;
+    }
+
+    .mgp-cast-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 12px 4px 4px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: default;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
+
+    .mgp-cast-chip--clickable {
+        cursor: pointer;
+    }
+
+    .mgp-cast-chip--clickable:hover {
+        background: rgba(201, 146, 46, 0.12);
+        border-color: rgba(201, 146, 46, 0.3);
+        color: #fff;
+    }
+
+    .mgp-cast-chip-photo {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .mgp-cast-chip-photo--placeholder {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mgp-cast-chip-name {
+        white-space: nowrap;
     }
 
     .mgp-actions {
