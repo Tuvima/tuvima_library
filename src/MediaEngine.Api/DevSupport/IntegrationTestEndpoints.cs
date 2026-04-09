@@ -961,7 +961,10 @@ public static class IntegrationTestEndpoints
             // items WITHOUT a retail match should NOT have a QID.
             foreach (var item in allItems.Items)
             {
-                bool hasRetail = !string.IsNullOrWhiteSpace(item.RetailMatch) && item.RetailMatch != "none";
+                // Only "matched" counts as a successful retail match. "failed" means
+                // the provider ran but returned nothing; "none" means no provider ran
+                // at all. Both should suppress the "QID expected" gating assertion.
+                bool hasRetail = string.Equals(item.RetailMatch, "matched", StringComparison.OrdinalIgnoreCase);
                 bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid);
 
                 if (hasRetail)
