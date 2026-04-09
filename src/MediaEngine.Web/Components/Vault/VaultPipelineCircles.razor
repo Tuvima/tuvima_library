@@ -84,6 +84,8 @@
 
     private async Task OnStageSelected(int stage)
     {
+        // Stage 0 (File) is informational only — file metadata lives in the top-level Details section now.
+        if (stage == 0) return;
         SelectedStage = stage;
         await SelectedStageChanged.InvokeAsync(stage);
     }

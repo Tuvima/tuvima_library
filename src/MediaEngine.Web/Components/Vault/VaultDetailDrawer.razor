@@ -160,7 +160,7 @@
                         <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; color: #EF9F27; flex-shrink: 0;" />
                         <span class="vdd-problem-banner-msg">@VaultHelpers.GetReviewTriggerLabel(MediaItem.ReviewTrigger)</span>
                     </div>
-                    <p class="vdd-problem-banner-hint">You can search for a match in the Pipeline section below, or check the File Info for clues.</p>
+                    <p class="vdd-problem-banner-hint">You can search for a match in the Pipeline section below, or check the Details section for clues.</p>
                 </div>
             }
 
@@ -181,10 +181,105 @@
                 </div>
             }
 
-            @* ── Pipeline (circles + File/Retail/Wikidata tabs) ── *@
+            var hasPipelineProblem = !IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid);
+
+            @* ── Details (file path + Current / Original metadata tabs) ── *@
+            <DrawerSection @key="@($"details-{MediaItem.EntityId}")" Title="Details" Icon="@Icons.Material.Outlined.Description"
+                           DefaultOpen="@(!hasPipelineProblem)">
+                @{
+                    var detailsFolder = MediaItem.FilePath;
+                    if (!string.IsNullOrEmpty(MediaItem.FileName)
+                        && !string.IsNullOrEmpty(detailsFolder)
+                        && detailsFolder.EndsWith(MediaItem.FileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        detailsFolder = detailsFolder[..^MediaItem.FileName.Length].TrimEnd('/', '\\');
+                    }
+                }
+
+                @* Pinned file path header *@
+                <div class="vdd-details-path">
+                    <div class="vdd-details-path-name">
+                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px; color: rgba(255,255,255,0.35);" />
+                        <span>@(MediaItem.FileName ?? "—")</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(detailsFolder))
+                    {
+                        <div class="vdd-details-path-folder" title="@detailsFolder">@detailsFolder</div>
+                    }
+                </div>
+
+                @* Tab switcher *@
+                <div class="vdd-details-tabs">
+                    <button class="vdd-details-tab @(_detailsTab == 0 ? "vdd-details-tab--active" : "")"
+                            @onclick="() => _detailsTab = 0">
+                        Current Metadata
+                    </button>
+                    <button class="vdd-details-tab @(_detailsTab == 1 ? "vdd-details-tab--active" : "")"
+                            @onclick="() => _detailsTab = 1">
+                        Original Metadata
+                    </button>
+                </div>
+
+                @if (_detailsTab == 0)
+                {
+                    <div class="vdd-tab-content">
+                        <div class="vdd-metadata-list">
+                            @foreach (var (label, val) in GetCurrentMetadataRows())
+                            {
+                                <div class="vdd-claim-row">
+                                    <span class="vdd-field-label">@label</span>
+                                    <span class="vdd-field-value">@val</span>
+                                </div>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(MediaItem?.CoverUrl))
+                        {
+                            <div class="vdd-file-cover">
+                                <span class="vdd-field-label">Cover Art</span>
+                                <img src="@MediaItem.CoverUrl" alt="Cover" class="vdd-file-cover-img" loading="lazy" />
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="vdd-tab-content">
+                        <div class="vdd-metadata-list">
+                            @if (_claimsLoading)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else
+                            {
+                                var fileClaims = _claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)).ToList();
+                                @if (fileClaims.Count == 0)
+                                {
+                                    <p class="vdd-stage-hint">No file metadata extracted yet.</p>
+                                }
+                                else
+                                {
+                                    @foreach (var group in fileClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                    {
+                                        var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                        <div class="vdd-claim-row">
+                                            <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                            <span class="vdd-field-value">@bestClaim.ClaimValue</span>
+                                        </div>
+                                    }
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </DrawerSection>
+
+            @* ── Pipeline (circles + Retail/Wikidata tabs) ── *@
             <DrawerSection @key="@($"pipeline-{MediaItem.EntityId}")" Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
-                           HasProblem="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))"
-                           DefaultOpen="@(!IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid))">
+                           HasProblem="@hasPipelineProblem"
+                           DefaultOpen="@hasPipelineProblem">
 
                 @* Pipeline stage circles *@
                 <div class="vdd-pipeline-circles-wrap">
@@ -210,62 +305,6 @@
                 }
                 @switch (ActiveTab)
                 {
-                    case 0:
-                        @* ── FILE TAB ── *@
-                        <div class="vdd-tab-content">
-                            <h4 class="vdd-tab-heading">Current Metadata</h4>
-                            <div class="vdd-metadata-list">
-                                @foreach (var (label, val) in GetCurrentMetadataRows())
-                                {
-                                    <div class="vdd-claim-row">
-                                        <span class="vdd-field-label">@label</span>
-                                        <span class="vdd-field-value">@val</span>
-                                    </div>
-                                }
-                            </div>
-
-                            @if (!string.IsNullOrEmpty(MediaItem?.CoverUrl))
-                            {
-                                <div class="vdd-file-cover">
-                                    <span class="vdd-field-label">Cover Art</span>
-                                    <img src="@MediaItem.CoverUrl" alt="Cover" class="vdd-file-cover-img" loading="lazy" />
-                                </div>
-                            }
-
-                            @* Collapsed original metadata *@
-                            <details class="vdd-original-meta">
-                                <summary class="vdd-original-meta-summary">Original File Metadata</summary>
-                                <div class="vdd-metadata-list" style="margin-top: 8px;">
-                                    @if (_claimsLoading)
-                                    {
-                                        <div style="padding: 8px 0; text-align: center;">
-                                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        var fileClaims = _claims.Where(c => VaultHelpers.IsFileSource(c.ProviderId) || VaultHelpers.IsUserSource(c.ProviderId)).ToList();
-                                        @if (fileClaims.Count == 0)
-                                        {
-                                            <p class="vdd-stage-hint">No file metadata extracted yet.</p>
-                                        }
-                                        else
-                                        {
-                                            @foreach (var group in fileClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
-                                            {
-                                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
-                                                <div class="vdd-claim-row">
-                                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
-                                                    <span class="vdd-field-value">@bestClaim.ClaimValue</span>
-                                                </div>
-                                            }
-                                        }
-                                    }
-                                </div>
-                            </details>
-                        </div>
-                        break;
-
                     case 1:
                         @* ── RETAIL TAB ── *@
                         <div class="vdd-tab-content">
@@ -809,18 +848,6 @@
                 }
             </DrawerSection>
 
-            <DrawerSection @key="@($"fileinfo-{MediaItem.EntityId}")" Title="File Information" Icon="@Icons.Material.Outlined.InsertDriveFile" DefaultOpen="false">
-                <div class="vdd-file-info">
-                    @foreach (var row in GetFileInfoRows())
-                    {
-                        <div class="vdd-file-info-row">
-                            <span class="vdd-file-info-label">@row.Label</span>
-                            <span class="vdd-file-info-value">@row.Value</span>
-                        </div>
-                    }
-                </div>
-            </DrawerSection>
-
             <DrawerSection @key="@($"history-{MediaItem.EntityId}")" Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
                 <VaultTimeline EntityId="@MediaItem.EntityId" />
             </DrawerSection>
@@ -1085,7 +1112,8 @@
     [Parameter] public EventCallback<string> OnCreatorClicked { get; set; }
 
     private bool _confirmPurge;
-    private int _selectedStage = 0;
+    private int _selectedStage = 1;
+    private int _detailsTab = 0;  // 0=Current Metadata, 1=Original Metadata
     private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
     private bool _searching;
     private bool _hasSearched;
@@ -1167,7 +1195,7 @@
         return null;
     }
 
-    private int ActiveTab => _selectedStage;  // 0=File, 1=Retail, 2=Wikidata, 3=Universe
+    private int ActiveTab => _selectedStage;  // 1=Retail, 2=Wikidata, 3=Universe
 
     private async Task NavigateToCreatorPerson(string creatorName)
     {
@@ -1177,7 +1205,8 @@
     protected override async Task OnParametersSetAsync()
     {
         _confirmPurge = false;
-        _selectedStage = 0;
+        _selectedStage = 1;
+        _detailsTab = 0;
         _searchResults = [];
         _aliases = null;
         _personWorks = null;
@@ -1406,83 +1435,6 @@
             rows.Add(("Size", VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)));
 
         return rows;
-    }
-
-    /// <summary>Returns rows for the File Information drawer section.</summary>
-    private List<(string Label, string Value)> GetFileInfoRows()
-    {
-        var rows = new List<(string Label, string Value)>();
-        if (MediaItem is null) return rows;
-
-        if (!string.IsNullOrEmpty(MediaItem.FileName))
-            rows.Add(("File Name", MediaItem.FileName));
-
-        if (!string.IsNullOrEmpty(MediaItem.FilePath))
-        {
-            var folder = MediaItem.FilePath;
-            // Show the folder path (strip the filename if it's at the end)
-            if (!string.IsNullOrEmpty(MediaItem.FileName) && folder.EndsWith(MediaItem.FileName, StringComparison.OrdinalIgnoreCase))
-                folder = folder[..^MediaItem.FileName.Length].TrimEnd('/', '\\');
-            if (!string.IsNullOrEmpty(folder))
-                rows.Add(("Folder", folder));
-        }
-
-        if (MediaItem.FileSizeBytes.HasValue && MediaItem.FileSizeBytes.Value > 0)
-            rows.Add(("Size", VaultHelpers.FormatFileSize(MediaItem.FileSizeBytes)));
-
-        // Format: derive from file extension
-        if (!string.IsNullOrEmpty(MediaItem.FileName))
-        {
-            var ext = System.IO.Path.GetExtension(MediaItem.FileName)?.TrimStart('.').ToUpperInvariant();
-            if (!string.IsNullOrEmpty(ext))
-                rows.Add(("Format", ext));
-        }
-
-        // Movies: show quality info from resolution summary or filename patterns
-        if (MediaItem.MediaType is "Movies" or "TV")
-        {
-            var quality = DetectVideoQuality(MediaItem.FileName, MediaItem.ResolutionSummary);
-            if (!string.IsNullOrEmpty(quality))
-                rows.Add(("Quality", quality));
-        }
-
-        if (!string.IsNullOrEmpty(MediaItem.Duration))
-            rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
-
-        return rows;
-    }
-
-    /// <summary>Detect video quality from filename patterns (REMUX, 4K, 1080p, etc.).</summary>
-    private static string? DetectVideoQuality(string? fileName, string? resolutionSummary)
-    {
-        if (string.IsNullOrEmpty(fileName)) return null;
-        var parts = new List<string>();
-        var upper = fileName.ToUpperInvariant();
-
-        if (upper.Contains("2160P") || upper.Contains("4K") || upper.Contains("UHD"))
-            parts.Add("4K");
-        else if (upper.Contains("1080P"))
-            parts.Add("1080p");
-        else if (upper.Contains("720P"))
-            parts.Add("720p");
-
-        if (upper.Contains("REMUX"))
-            parts.Add("REMUX");
-        else if (upper.Contains("BLURAY") || upper.Contains("BLU-RAY"))
-            parts.Add("Blu-ray");
-        else if (upper.Contains("WEBDL") || upper.Contains("WEB-DL"))
-            parts.Add("WEB-DL");
-        else if (upper.Contains("WEBRIP") || upper.Contains("WEB-RIP"))
-            parts.Add("WEBRip");
-
-        if (upper.Contains("HDR10+"))
-            parts.Add("HDR10+");
-        else if (upper.Contains("HDR"))
-            parts.Add("HDR");
-        else if (upper.Contains("DOLBY VISION") || upper.Contains("DV"))
-            parts.Add("DV");
-
-        return parts.Count > 0 ? string.Join(" · ", parts) : null;
     }
 
     /// <summary>Returns a display name for the retail provider that matched this item.</summary>
@@ -4082,5 +4034,61 @@
         margin-top: 12px;
         padding-top: 12px;
         border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    /* ── Details section: pinned file path + Current/Original tabs ── */
+    .vdd-details-path {
+        padding: 8px 12px 10px;
+        margin: 0 0 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .vdd-details-path-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
+        word-break: break-all;
+    }
+
+    .vdd-details-path-folder {
+        margin-top: 2px;
+        padding-left: 20px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.4);
+        word-break: break-all;
+    }
+
+    .vdd-details-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 0 8px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .vdd-details-tab {
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.5);
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+    }
+
+    .vdd-details-tab:hover {
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .vdd-details-tab--active {
+        color: #C9922E;
+        border-bottom-color: #C9922E;
     }
 </style>
