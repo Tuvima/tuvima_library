@@ -122,6 +122,8 @@ public static class IntegrationTestEndpoints
             ["UnexpectedIdentified"] = 0,
             ["WrongTrigger"] = 0,
             ["NotFound"] = 0,
+            ["WrongQid"] = 0,
+            ["MissingCoverArt"] = 0,
         };
     }
 
@@ -1375,6 +1377,19 @@ public static class IntegrationTestEndpoints
                 """);
         }
 
+        // Cover-art lookup built from the Vault display validation pass (Phase 4b).
+        // Keyed by "title_lower|media_type_lower" → HasCoverArt flag. Used below
+        // to enforce per-seed ExpectedCoverArt assertions.
+        var coverArtByKey = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var check in report.VaultChecks)
+        {
+            string k = $"{check.Title.ToLowerInvariant()}|{check.MediaType.ToLowerInvariant()}";
+            // Prefer the "has cover art" result if any duplicate key already exists —
+            // matches the "first resolved wins" semantics used for QID below.
+            if (!coverArtByKey.TryGetValue(k, out var existing) || (check.HasCoverArt && !existing))
+                coverArtByKey[k] = check.HasCoverArt;
+        }
+
         // Index by "title_lower|media_type_lower" → (wikidata_qid, curator_state, review_trigger)
         // When multiple rows share the same key (e.g. TV episodes, audiobook editions),
         // prefer rows that have a QID so "Identified" beats "Unresolved".
@@ -1397,7 +1412,7 @@ public static class IntegrationTestEndpoints
             string mediaTypeLower = exp.MediaType.ToLowerInvariant();
 
             string expectedDesc = exp.ExpectIdentified
-                ? "Identified"
+                ? (string.IsNullOrWhiteSpace(exp.ExpectedQid) ? "Identified" : $"Identified as {exp.ExpectedQid}")
                 : $"InReview ({exp.ExpectedReviewTrigger ?? "any"})";
 
             // Not all active types were seeded — skip expectations for skipped types
@@ -1466,6 +1481,33 @@ public static class IntegrationTestEndpoints
                     // Unresolved but expected InReview — treat as WrongTrigger
                     classification = "WrongTrigger";
                     actualDesc     = "Unresolved (no QID, no review entry)";
+                }
+            }
+
+            // ── Layered strictness checks ────────────────────────────────────
+            // Only run if the base classification was Match — a mismatched
+            // review/identified state is a bigger problem than a QID/cover drift.
+            if (classification == "Match" && exp.ExpectIdentified)
+            {
+                // WrongQid: seed declares a specific expected QID, actual differs.
+                if (!string.IsNullOrWhiteSpace(exp.ExpectedQid) &&
+                    !string.IsNullOrWhiteSpace(actual.WikidataQid) &&
+                    !string.Equals(exp.ExpectedQid, actual.WikidataQid, StringComparison.OrdinalIgnoreCase))
+                {
+                    classification = "WrongQid";
+                    actualDesc     = $"Identified as {actual.WikidataQid} (expected {exp.ExpectedQid})";
+                }
+                // MissingCoverArt: seed declares ExpectedCoverArt=true, Vault check
+                // reports no cover URL for this title. Only applies to identified items
+                // (we never expect cover art on placeholder/review-queue entries).
+                else if (exp.ExpectedCoverArt)
+                {
+                    string coverKey = $"{titleLower}|{mediaTypeLower}";
+                    if (coverArtByKey.TryGetValue(coverKey, out var hasCover) && !hasCover)
+                    {
+                        classification = "MissingCoverArt";
+                        actualDesc     = $"Identified{(actual.WikidataQid is { Length: > 0 } q ? $" as {q}" : "")} but no cover art downloaded";
+                    }
                 }
             }
 
@@ -1796,12 +1838,14 @@ public static class IntegrationTestEndpoints
             sb.AppendLine("</details>");
 
             // ── Mismatch sections by classification ─────────────────────────
-            var classOrder = new[] { "UnexpectedReview", "UnexpectedIdentified", "WrongTrigger", "NotFound" };
+            var classOrder = new[] { "UnexpectedReview", "UnexpectedIdentified", "WrongTrigger", "WrongQid", "MissingCoverArt", "NotFound" };
             var classLabels = new Dictionary<string, string>
             {
                 ["UnexpectedReview"]    = "Unexpected Review (expected Identified, got InReview)",
                 ["UnexpectedIdentified"] = "Unexpected Identified (expected InReview, got Identified)",
                 ["WrongTrigger"]        = "Wrong Trigger (in review, but wrong trigger)",
+                ["WrongQid"]            = "Wrong Wikidata QID (resolved, but to the wrong entity)",
+                ["MissingCoverArt"]     = "Missing Cover Art (identified, but no cover downloaded)",
                 ["NotFound"]            = "Not Found (no Work row in database)",
             };
             var classColors = new Dictionary<string, string>
@@ -1809,6 +1853,8 @@ public static class IntegrationTestEndpoints
                 ["UnexpectedReview"]    = "#E24B4A",
                 ["UnexpectedIdentified"] = "#E24B4A",
                 ["WrongTrigger"]        = "#EF9F27",
+                ["WrongQid"]            = "#E24B4A",
+                ["MissingCoverArt"]     = "#EF9F27",
                 ["NotFound"]            = "#94A3B8",
             };
 

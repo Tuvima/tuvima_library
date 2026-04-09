@@ -19,6 +19,15 @@ namespace MediaEngine.Api.DevSupport;
 public static class DevSeedEndpoints
 {
     /// <summary>A seed EPUB definition.</summary>
+    /// <remarks>
+    /// <para><c>ExpectedQid</c> — when set, the reconciliation pass asserts the
+    /// resolved Wikidata QID exactly matches this value. Leave null for fixtures
+    /// where any QID (or no QID) is acceptable.</para>
+    /// <para><c>ExpectedCoverArt</c> — when true (default), the Vault display
+    /// validation asserts that cover art was successfully downloaded for this
+    /// item. Set to false for fixtures where no cover art is expected (e.g.
+    /// placeholder titles or review-queue items).</para>
+    /// </remarks>
     private sealed record SeedBook(
         string Title,
         string Author,
@@ -34,7 +43,9 @@ public static class DevSeedEndpoints
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
         string? ExpectedReason = null,
-        string? ExpectedProvider = null);
+        string? ExpectedProvider = null,
+        string? ExpectedQid = null,
+        bool ExpectedCoverArt = true);
 
     /// <summary>A seed MP3 audiobook definition.</summary>
     private sealed record SeedAudiobook(
@@ -50,7 +61,9 @@ public static class DevSeedEndpoints
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
         string? ExpectedReason = null,
-        string? ExpectedProvider = null);
+        string? ExpectedProvider = null,
+        string? ExpectedQid = null,
+        bool ExpectedCoverArt = true);
 
     /// <summary>A seed MP4 movie/TV definition.</summary>
     private sealed record SeedVideo(
@@ -67,7 +80,9 @@ public static class DevSeedEndpoints
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
         string? ExpectedReason = null,
-        string? ExpectedProvider = null);
+        string? ExpectedProvider = null,
+        string? ExpectedQid = null,
+        bool ExpectedCoverArt = true);
 
     /// <summary>A seed FLAC music track definition.</summary>
     private sealed record SeedMusic(
@@ -81,7 +96,9 @@ public static class DevSeedEndpoints
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
         string? ExpectedReason = null,
-        string? ExpectedProvider = null);
+        string? ExpectedProvider = null,
+        string? ExpectedQid = null,
+        bool ExpectedCoverArt = true);
 
     /// <summary>A seed CBZ comic definition.</summary>
     private sealed record SeedComic(
@@ -98,7 +115,9 @@ public static class DevSeedEndpoints
         bool ExpectIdentified = true,
         string? ExpectedReviewTrigger = null,
         string? ExpectedReason = null,
-        string? ExpectedProvider = null);
+        string? ExpectedProvider = null,
+        string? ExpectedQid = null,
+        bool ExpectedCoverArt = true);
 
     // ── EPUB Seed definitions ────────────────────────────────────────────────
     // Real ISBNs so the hydration pipeline can fetch real cover art and metadata.
@@ -111,19 +130,22 @@ public static class DevSeedEndpoints
             "Frank Herbert",
             "9780441013593", 1965,
             "Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides, heir to a noble family tasked with ruling an inhospitable world where the only thing of value is a spice capable of extending life and expanding consciousness.",
-            TestCategory: "Standard"),
+            TestCategory: "Standard",
+            ExpectedQid: "Q170924"),
 
         new("Project Hail Mary",
             "Andy Weir",
             "9780593135204", 2021,
             "Ryland Grace is the sole survivor on a desperate, last-chance mission. If he fails, humanity and the earth itself will perish.",
-            TestCategory: "Standard"),
+            TestCategory: "Standard",
+            ExpectedQid: "Q100565415"),
 
         new("The Hobbit",
             "J.R.R. Tolkien",
             "9780547928227", 1937,
             "Bilbo Baggins is a hobbit who enjoys a comfortable, unambitious life, rarely travelling further than the pantry of his hobbit-hole in Bag End.",
-            TestCategory: "Standard"),
+            TestCategory: "Standard",
+            ExpectedQid: "Q74287"),
 
         // ── Category 2: Pen Names ──────────────────────────────────────────
 
@@ -145,13 +167,15 @@ public static class DevSeedEndpoints
             "Stephen King",
             "9780307743657", 1977,
             "Jack Torrance's new job at the Overlook Hotel is the perfect chance for a fresh start. But as the harsh winter weather sets in, the idyllic location feels ever more sinister.",
-            TestCategory: "PenName — author also writes as Richard Bachman"),
+            TestCategory: "PenName — author also writes as Richard Bachman",
+            ExpectedQid: "Q181136"),
 
         new("The Long Walk",
             "Richard Bachman",
             "9781501143823", 1979,
             "On the first day of May, one hundred teenage boys meet for an annual walking contest called The Long Walk.",
-            TestCategory: "PenName — Stephen King writing as Richard Bachman"),
+            TestCategory: "PenName — Stephen King writing as Richard Bachman",
+            ExpectedQid: "Q2625614"),
 
         // ── Category 3: Foreign Language ───────────────────────────────────
 
@@ -160,7 +184,8 @@ public static class DevSeedEndpoints
             "9782070612758", 1943,
             "Un pilote, forcé d'atterrir dans le Sahara, rencontre un petit garçon venu d'une autre planète.",
             Language: "fr",
-            TestCategory: "Foreign — French, accented author name"),
+            TestCategory: "Foreign — French, accented author name",
+            ExpectedQid: "Q25338"),
 
         new("Cien años de soledad",
             "Gabriel García Márquez",
@@ -190,7 +215,8 @@ public static class DevSeedEndpoints
             "9780747532699", 1997,
             "Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive.",
             Series: "Harry Potter", SeriesPosition: 1,
-            TestCategory: "Series — position 1"),
+            TestCategory: "Series — position 1",
+            ExpectedQid: "Q102438"),
 
         new("Harry Potter and the Chamber of Secrets",
             "J.K. Rowling",
@@ -204,7 +230,8 @@ public static class DevSeedEndpoints
             "9780547928210", 1954,
             "In ancient times the Rings of Power were crafted by the Elven-smiths, and Sauron, the Dark Lord, forged the One Ring, filling it with his own power so that he could rule all others.",
             Series: "The Lord of the Rings", SeriesPosition: 1,
-            TestCategory: "Series — same author as The Hobbit, different series"),
+            TestCategory: "Series — same author as The Hobbit, different series",
+            ExpectedQid: "Q165637"),
 
         // ── Category 5: Multiple Authors (co-authored, not pen name) ───────
 
@@ -231,7 +258,8 @@ public static class DevSeedEndpoints
             TestCategory: "Edge — minimal metadata: no ISBN, no year, no description",
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.PlaceholderTitle,
-            ExpectedReason: "Placeholder title 'Untitled Book' with no real metadata should trigger review"),
+            ExpectedReason: "Placeholder title 'Untitled Book' with no real metadata should trigger review",
+            ExpectedCoverArt: false),
 
         new("A",
             "B",
@@ -240,7 +268,8 @@ public static class DevSeedEndpoints
             TestCategory: "Edge — extremely short title and author, no bridge IDs",
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.PlaceholderTitle,
-            ExpectedReason: "Single-character title with no ISBN should trigger placeholder review"),
+            ExpectedReason: "Single-character title with no ISBN should trigger placeholder review",
+            ExpectedCoverArt: false),
 
         new("The Extraordinary & Fantastical Adventures of Dr. Enid Hartwell-Smythe III: A Most Peculiar Chronicle",
             "Reginald Fortescue-Pemberton IV",
@@ -350,22 +379,28 @@ public static class DevSeedEndpoints
         // ── Movies ──────────────────────────────────────────────────────────
 
         new("Blade Runner 2049", "Denis Villeneuve", 2017, "Movie",
-            TestCategory: "Movie — same director as Dune films, strong TMDB match"),
+            TestCategory: "Movie — same director as Dune films, strong TMDB match",
+            ExpectedQid: "Q21500755"),
 
         new("The Matrix", "Lana Wachowski", 1999, "Movie",
-            TestCategory: "Movie — classic, strong Wikidata presence"),
+            TestCategory: "Movie — classic, strong Wikidata presence",
+            ExpectedQid: "Q83495"),
 
         new("Arrival", "Denis Villeneuve", 2016, "Movie",
-            TestCategory: "Movie — same director as Blade Runner, cross-reference test"),
+            TestCategory: "Movie — same director as Blade Runner, cross-reference test",
+            ExpectedQid: "Q20980244"),
 
         new("Spirited Away", "Hayao Miyazaki", 2001, "Movie",
-            TestCategory: "Movie — Japanese film, foreign language metadata"),
+            TestCategory: "Movie — Japanese film, foreign language metadata",
+            ExpectedQid: "Q200392"),
 
         new("Interstellar", "Christopher Nolan", 2014, "Movie",
-            TestCategory: "Movie — strong TMDB match, popular film"),
+            TestCategory: "Movie — strong TMDB match, popular film",
+            ExpectedQid: "Q17738"),
 
         new("The Shawshank Redemption", "Frank Darabont", 1994, "Movie",
-            TestCategory: "Movie — Stephen King adaptation (cross-ref with books)"),
+            TestCategory: "Movie — Stephen King adaptation (cross-ref with books)",
+            ExpectedQid: "Q172241"),
 
         // ── TV Episodes ─────────────────────────────────────────────────────
 
@@ -1397,7 +1432,9 @@ public static class DevSeedEndpoints
         bool ExpectIdentified,
         string? ExpectedReviewTrigger,
         string? ExpectedReason,
-        string? ExpectedProvider = null);
+        string? ExpectedProvider = null,
+        string? ExpectedQid = null,
+        bool ExpectedCoverArt = true);
 
     /// <summary>
     /// Returns all seed fixtures as a flat list of expectations.
@@ -1417,7 +1454,9 @@ public static class DevSeedEndpoints
                 ExpectIdentified: b.ExpectIdentified,
                 ExpectedReviewTrigger: b.ExpectedReviewTrigger,
                 ExpectedReason: b.ExpectedReason,
-                ExpectedProvider: b.ExpectedProvider));
+                ExpectedProvider: b.ExpectedProvider,
+                ExpectedQid: b.ExpectedQid,
+                ExpectedCoverArt: b.ExpectedCoverArt));
 
         // Audiobooks
         foreach (var a in SeedAudiobooks)
@@ -1428,7 +1467,9 @@ public static class DevSeedEndpoints
                 ExpectIdentified: a.ExpectIdentified,
                 ExpectedReviewTrigger: a.ExpectedReviewTrigger,
                 ExpectedReason: a.ExpectedReason,
-                ExpectedProvider: a.ExpectedProvider));
+                ExpectedProvider: a.ExpectedProvider,
+                ExpectedQid: a.ExpectedQid,
+                ExpectedCoverArt: a.ExpectedCoverArt));
 
         // Videos — split by MediaType field
         foreach (var v in SeedVideos)
@@ -1441,7 +1482,9 @@ public static class DevSeedEndpoints
                 ExpectIdentified: v.ExpectIdentified,
                 ExpectedReviewTrigger: v.ExpectedReviewTrigger,
                 ExpectedReason: v.ExpectedReason,
-                ExpectedProvider: v.ExpectedProvider));
+                ExpectedProvider: v.ExpectedProvider,
+                ExpectedQid: v.ExpectedQid,
+                ExpectedCoverArt: v.ExpectedCoverArt));
         }
 
         // Music
@@ -1453,7 +1496,9 @@ public static class DevSeedEndpoints
                 ExpectIdentified: m.ExpectIdentified,
                 ExpectedReviewTrigger: m.ExpectedReviewTrigger,
                 ExpectedReason: m.ExpectedReason,
-                ExpectedProvider: m.ExpectedProvider));
+                ExpectedProvider: m.ExpectedProvider,
+                ExpectedQid: m.ExpectedQid,
+                ExpectedCoverArt: m.ExpectedCoverArt));
 
         // Comics
         foreach (var c in SeedComics)
@@ -1464,7 +1509,9 @@ public static class DevSeedEndpoints
                 ExpectIdentified: c.ExpectIdentified,
                 ExpectedReviewTrigger: c.ExpectedReviewTrigger,
                 ExpectedReason: c.ExpectedReason,
-                ExpectedProvider: c.ExpectedProvider));
+                ExpectedProvider: c.ExpectedProvider,
+                ExpectedQid: c.ExpectedQid,
+                ExpectedCoverArt: c.ExpectedCoverArt));
 
         return result;
     }
