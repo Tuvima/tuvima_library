@@ -576,6 +576,7 @@ public static class HubEndpoints
                 YearRange        = yearRange,
                 Genre            = hubGenre,
                 Network          = hubNetwork,
+                SeasonCount      = isTv ? seasons.Count : null,
                 TopCast          = topCast,
                 TotalItems       = hub.Works.Count,
                 Seasons          = seasons,

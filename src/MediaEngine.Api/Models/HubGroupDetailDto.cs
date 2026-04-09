@@ -39,6 +39,10 @@ public sealed class HubGroupDetailDto
     [JsonPropertyName("network")]
     public string? Network { get; init; }
 
+    /// <summary>Number of distinct seasons. Populated for TV media type only.</summary>
+    [JsonPropertyName("season_count")]
+    public int? SeasonCount { get; init; }
+
     /// <summary>Artist photo URL (headshot). Populated for artist drill-down only.</summary>
     [JsonPropertyName("artist_photo_url")]
     public string? ArtistPhotoUrl { get; init; }

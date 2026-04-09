@@ -87,9 +87,17 @@ else
                 {
                     <span>@_detail.YearRange</span>
                 }
+                @if (GroupType == "tv-show" && !string.IsNullOrEmpty(_detail.Network))
+                {
+                    <span>· <span class="mgp-network-badge">@_detail.Network</span></span>
+                }
                 @if (!string.IsNullOrEmpty(_detail.Genre))
                 {
                     <span>· @_detail.Genre</span>
+                }
+                @if (GroupType == "tv-show" && _detail.SeasonCount is int sc && sc > 0)
+                {
+                    <span>· @sc @(sc == 1 ? "season" : "seasons")</span>
                 }
                 @if (_detail.TotalItems > 0)
                 {
@@ -98,10 +106,6 @@ else
                 @if (!string.IsNullOrEmpty(_detail.TotalDuration))
                 {
                     <span>· @_detail.TotalDuration</span>
-                }
-                @if (GroupType == "tv-show" && !string.IsNullOrEmpty(_detail.Network))
-                {
-                    <span class="mgp-network-badge">@_detail.Network</span>
                 }
             </div>
             @if ((GroupType == "tv-show" || GroupType == "movie-series") && _detail.TopCast.Count > 0)

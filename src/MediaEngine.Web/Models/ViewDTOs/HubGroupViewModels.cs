@@ -42,6 +42,10 @@ public sealed class HubGroupDetailViewModel
     [JsonPropertyName("network")]
     public string? Network { get; set; }
 
+    /// <summary>Number of distinct seasons. Populated for TV shows only.</summary>
+    [JsonPropertyName("season_count")]
+    public int? SeasonCount { get; set; }
+
     /// <summary>Artist photo URL (headshot). Populated for artist drill-down only.</summary>
     [JsonPropertyName("artist_photo_url")]
     public string? ArtistPhotoUrl { get; set; }

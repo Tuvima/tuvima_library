@@ -1415,7 +1415,10 @@
             if (!string.IsNullOrEmpty(MediaItem.ShowName)) rows.Add(("Show", MediaItem.ShowName));
             if (!string.IsNullOrEmpty(MediaItem.Season)) rows.Add(("Season", MediaItem.Season));
             if (!string.IsNullOrEmpty(MediaItem.Episode)) rows.Add(("Episode", MediaItem.Episode));
+            if (!string.IsNullOrEmpty(MediaItem.EpisodeTitle)) rows.Add(("Episode Title", MediaItem.EpisodeTitle));
+            if (!string.IsNullOrEmpty(MediaItem.Network)) rows.Add(("Network", MediaItem.Network));
             if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Runtime", FormatDuration(MediaItem.Duration)));
+            if (!string.IsNullOrEmpty(MediaItem.TopCast)) rows.Add(("Top Cast", MediaItem.TopCast));
         }
 
         // Audiobooks
