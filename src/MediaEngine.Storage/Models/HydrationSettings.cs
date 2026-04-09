@@ -297,20 +297,6 @@ public sealed class HydrationSettings
     [JsonPropertyName("wikidata_batch_size")]
     public int WikidataBatchSize { get; set; } = 50;
 
-    /// <summary>
-    /// When <c>true</c>, <c>ReconciliationAdapter.ResolveAsync</c> /
-    /// <c>ResolveBatchAsync</c> dispatch through the Tuvima.Wikidata v2.4.1
-    /// <see cref="Tuvima.Wikidata.Services.Stage2Service"/> sub-service instead of
-    /// the hand-rolled <c>ResolveBridgeAsync</c> / <c>ResolveMusicAlbumAsync</c>
-    /// path. Both code paths produce the same result shape, including
-    /// <see cref="MediaEngine.Providers.Models.WikidataResolveResult.Claims"/>
-    /// (the new path follows up with a Data Extension call to populate them).
-    /// Defaults to <c>false</c> until the slimdown is fully validated; flipping
-    /// to <c>true</c> is one config change away. The legacy path is removed in
-    /// the final commit of the slimdown sequence.
-    /// </summary>
-    [JsonPropertyName("use_library_stage2_resolver")]
-    public bool UseLibraryStage2Resolver { get; set; }
 
     // ── Chronicle Engine ──────────────────────────────────────────────
 

@@ -5,7 +5,8 @@ namespace MediaEngine.Providers.Models;
 /// <c>ReconciliationAdapter.ResolveAsync</c> and <c>ResolveBatchAsync</c>.
 ///
 /// <para>
-/// Replaces the older <c>BridgeResolutionResult</c> as the public surface.
+/// The public Stage 2 result type — populated by ReconciliationAdapter via
+/// the Tuvima.Wikidata Stage2Service sub-service plus a Data Extension follow-up.
 /// Carries the resolved QID, claims fetched via Data Extension, any platform
 /// IDs collected from Wikidata, and a tag identifying which strategy matched.
 /// </para>
