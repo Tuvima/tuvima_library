@@ -1036,83 +1036,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
     }
 
-    /// <summary>
-    /// Resolves the Wikidata Q-identifier of the audiobook edition of a master work.
-    ///
-    /// <para>
-    /// This is Step 2 of the 3-step audiobook pivot strategy:
-    /// <list type="number">
-    ///   <item>Step 1 — Match master work: Reconciliation API returns the novel/story QID (e.g. Dune = Q190192).</item>
-    ///   <item>Step 2 — Pivot to audio edition: this method queries P747 (has_edition_or_translation) on the
-    ///     master work and filters by P31 (instance_of) = audiobook class, returning the edition QID.</item>
-    ///   <item>Step 3 — Harvest audiobook ISBN: caller uses the edition QID with Data Extension to get P212.</item>
-    /// </list>
-    /// </para>
-    ///
-    /// <para>
-    /// When <paramref name="narratorHint"/> is provided and multiple audiobook editions exist,
-    /// the edition whose narrator best matches the hint is returned first.
-    /// </para>
-    /// </summary>
-    /// <param name="masterWorkQid">The Wikidata Q-identifier of the master work (novel/story).</param>
-    /// <param name="narratorHint">Optional narrator name for edition disambiguation.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns>The audiobook edition QID, or <c>null</c> if no audiobook edition is found in Wikidata.</returns>
-    public async Task<string?> ResolveAudiobookEditionQidAsync(
-        string masterWorkQid,
-        string? narratorHint = null,
-        CancellationToken ct = default)
-    {
-        if (string.IsNullOrWhiteSpace(masterWorkQid) || _reconciler is null)
-            return null;
-
-        try
-        {
-            var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
-                ? classes
-                : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
-
-            var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
-            var editions = await _reconciler.GetEditionsAsync(
-                masterWorkQid, audiobookClasses, language, ct).ConfigureAwait(false);
-
-            if (editions.Count == 0)
-            {
-                _logger.LogDebug("{Provider}: no audiobook editions found for master work {QID}", Name, masterWorkQid);
-                return null;
-            }
-
-            // If narrator hint provided and multiple editions, rank by narrator match
-            if (!string.IsNullOrWhiteSpace(narratorHint) && editions.Count > 1)
-            {
-                var ranked = editions
-                    .Select(e =>
-                    {
-                        var narrator = GetEditionNarrator(e);
-                        var score = _fuzzy.ComputeTokenSetRatio(narratorHint, narrator ?? "");
-                        return (Edition: e, Score: score);
-                    })
-                    .OrderByDescending(x => x.Score)
-                    .First();
-
-                _logger.LogInformation(
-                    "{Provider}: audiobook pivot — selected edition {QID} for master work {MasterQID} (narrator hint: '{Narrator}', {Count} candidates ranked)",
-                    Name, ranked.Edition.EntityId, masterWorkQid, narratorHint, editions.Count);
-                return ranked.Edition.EntityId;
-            }
-
-            _logger.LogInformation("{Provider}: audiobook pivot — resolved edition {QID} for master work {MasterQID}",
-                Name, editions[0].EntityId, masterWorkQid);
-            return editions[0].EntityId;
-        }
-        catch (OperationCanceledException) { throw; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "{Provider}: ResolveAudiobookEditionQidAsync failed for master work {QID}", Name, masterWorkQid);
-            return null;
-        }
-    }
-
     private static string? GetEditionNarrator(EditionInfo edition)
     {
         if (!edition.Claims.TryGetValue("P175", out var narratorClaims) || narratorClaims.Count == 0)
@@ -1784,24 +1707,61 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         string masterWorkQid = qid; // preserve the master work QID for claims
         string? audiobookEditionQid = null;
 
-        if (request.MediaType == MediaType.Audiobooks)
+        if (request.MediaType == MediaType.Audiobooks && _reconciler is not null)
         {
+            // Walk P747 (has_edition_or_translation) from the master work to find
+            // audiobook editions, then rank by narrator match when a hint is provided.
+            // Previously a standalone ResolveAudiobookEditionQidAsync helper; inlined
+            // in G2 of the slimdown follow-up because the caller is single-use and
+            // Stage 2 already ran upstream for the master work QID.
             var narratorHint = request.Narrator;
-            audiobookEditionQid = await ResolveAudiobookEditionQidAsync(qid, narratorHint, ct)
-                .ConfigureAwait(false);
 
-            if (!string.IsNullOrWhiteSpace(audiobookEditionQid))
+            try
             {
-                _logger.LogInformation(
-                    "{Provider}: audiobook 3-step pivot — master work {MasterQID} → edition {EditionQID}; " +
-                    "Data Extension will target the edition for audiobook-specific bridge IDs",
-                    Name, qid, audiobookEditionQid);
+                var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
+                    ? classes
+                    : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
+
+                var pivotLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
+                var editions = await _reconciler.Editions
+                    .GetEditionsAsync(qid, audiobookClasses, pivotLanguage, ct)
+                    .ConfigureAwait(false);
+
+                if (editions.Count == 0)
+                {
+                    _logger.LogDebug(
+                        "{Provider}: audiobook 3-step pivot — no edition found for master work {MasterQID}; " +
+                        "falling back to master work for Data Extension",
+                        Name, qid);
+                }
+                else if (!string.IsNullOrWhiteSpace(narratorHint) && editions.Count > 1)
+                {
+                    // Rank by narrator fuzzy match on P175 (performer) of each edition.
+                    var ranked = editions
+                        .Select(e => (Edition: e, Score: _fuzzy.ComputeTokenSetRatio(narratorHint, GetEditionNarrator(e) ?? "")))
+                        .OrderByDescending(x => x.Score)
+                        .First();
+
+                    audiobookEditionQid = ranked.Edition.EntityId;
+                    _logger.LogInformation(
+                        "{Provider}: audiobook 3-step pivot — master work {MasterQID} → edition {EditionQID} " +
+                        "(narrator hint: '{Narrator}', {Count} candidates ranked)",
+                        Name, qid, audiobookEditionQid, narratorHint, editions.Count);
+                }
+                else
+                {
+                    audiobookEditionQid = editions[0].EntityId;
+                    _logger.LogInformation(
+                        "{Provider}: audiobook 3-step pivot — master work {MasterQID} → edition {EditionQID}; " +
+                        "Data Extension will target the edition for audiobook-specific bridge IDs",
+                        Name, qid, audiobookEditionQid);
+                }
             }
-            else
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
             {
-                _logger.LogDebug(
-                    "{Provider}: audiobook 3-step pivot — no edition found for master work {MasterQID}; " +
-                    "falling back to master work for Data Extension",
+                _logger.LogWarning(ex,
+                    "{Provider}: audiobook edition pivot failed for master work {QID}",
                     Name, qid);
             }
         }
