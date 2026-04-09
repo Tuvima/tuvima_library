@@ -131,14 +131,14 @@ public static class DevSeedEndpoints
             "9780441013593", 1965,
             "Set on the desert planet Arrakis, Dune is the story of the boy Paul Atreides, heir to a noble family tasked with ruling an inhospitable world where the only thing of value is a spice capable of extending life and expanding consciousness.",
             TestCategory: "Standard",
-            ExpectedQid: "Q170924"),
+            ExpectedQid: "Q190192"),
 
         new("Project Hail Mary",
             "Andy Weir",
             "9780593135204", 2021,
             "Ryland Grace is the sole survivor on a desperate, last-chance mission. If he fails, humanity and the earth itself will perish.",
             TestCategory: "Standard",
-            ExpectedQid: "Q100565415"),
+            ExpectedQid: "Q106852836"),
 
         new("The Hobbit",
             "J.R.R. Tolkien",
@@ -168,14 +168,14 @@ public static class DevSeedEndpoints
             "9780307743657", 1977,
             "Jack Torrance's new job at the Overlook Hotel is the perfect chance for a fresh start. But as the harsh winter weather sets in, the idyllic location feels ever more sinister.",
             TestCategory: "PenName — author also writes as Richard Bachman",
-            ExpectedQid: "Q181136"),
+            ExpectedQid: "Q470937"),
 
         new("The Long Walk",
             "Richard Bachman",
             "9781501143823", 1979,
             "On the first day of May, one hundred teenage boys meet for an annual walking contest called The Long Walk.",
             TestCategory: "PenName — Stephen King writing as Richard Bachman",
-            ExpectedQid: "Q2625614"),
+            ExpectedQid: "Q384160"),
 
         // ── Category 3: Foreign Language ───────────────────────────────────
 
@@ -216,7 +216,7 @@ public static class DevSeedEndpoints
             "Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive.",
             Series: "Harry Potter", SeriesPosition: 1,
             TestCategory: "Series — position 1",
-            ExpectedQid: "Q102438"),
+            ExpectedQid: "Q43361"),
 
         new("Harry Potter and the Chamber of Secrets",
             "J.K. Rowling",
@@ -231,7 +231,7 @@ public static class DevSeedEndpoints
             "In ancient times the Rings of Power were crafted by the Elven-smiths, and Sauron, the Dark Lord, forged the One Ring, filling it with his own power so that he could rule all others.",
             Series: "The Lord of the Rings", SeriesPosition: 1,
             TestCategory: "Series — same author as The Hobbit, different series",
-            ExpectedQid: "Q165637"),
+            ExpectedQid: "Q208002"),
 
         // ── Category 5: Multiple Authors (co-authored, not pen name) ───────
 
@@ -275,7 +275,11 @@ public static class DevSeedEndpoints
             "Reginald Fortescue-Pemberton IV",
             "9780000000001", 2020,
             "A book with an extraordinarily long title and author name designed to test truncation, file naming, and display in constrained UI elements.",
-            TestCategory: "Edge — very long title and author, special chars (& : .)"),
+            TestCategory: "Edge — very long title and author, special chars (& : .)",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
+            ExpectedReason: "Fictional book with synthetic ISBN correctly fails retail provider matching",
+            ExpectedCoverArt: false),
 
         new("1Q84",
             "Haruki Murakami",
@@ -388,15 +392,15 @@ public static class DevSeedEndpoints
 
         new("Arrival", "Denis Villeneuve", 2016, "Movie",
             TestCategory: "Movie — same director as Blade Runner, cross-reference test",
-            ExpectedQid: "Q20980244"),
+            ExpectedQid: "Q20382729"),
 
         new("Spirited Away", "Hayao Miyazaki", 2001, "Movie",
             TestCategory: "Movie — Japanese film, foreign language metadata",
-            ExpectedQid: "Q200392"),
+            ExpectedQid: "Q155653"),
 
         new("Interstellar", "Christopher Nolan", 2014, "Movie",
             TestCategory: "Movie — strong TMDB match, popular film",
-            ExpectedQid: "Q17738"),
+            ExpectedQid: "Q13417189"),
 
         new("The Shawshank Redemption", "Frank Darabont", 1994, "Movie",
             TestCategory: "Movie — Stephen King adaptation (cross-ref with books)",
@@ -422,9 +426,6 @@ public static class DevSeedEndpoints
         new("Shogun", null, 2024, "TV",
             Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1,
             TestCategory: "TV — recent series, cross-media potential",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Recent (2024) episode 'The Star of Edo' lacks individual Wikidata entry",
             ExpectedProvider: "tmdb"),
 
         // ── New TV fixtures: filename pattern coverage (Phase: scoring fix) ──
@@ -480,10 +481,7 @@ public static class DevSeedEndpoints
 
         new("Clair de Lune", "Claude Debussy",
             Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3,
-            TestCategory: "Music — classical, foreign artist name",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Classical works rarely reconcile to Wikidata Q105543609 musical work via Apple ID"),
+            TestCategory: "Music — classical, foreign artist name"),
 
         new("Lose Yourself", "Eminem",
             Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
@@ -491,17 +489,11 @@ public static class DevSeedEndpoints
 
         new("Nuvole Bianche", "Ludovico Einaudi",
             Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6,
-            TestCategory: "Music — contemporary classical, Italian artist",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Contemporary classical pieces rarely have Q105543609 entries on Wikidata"),
+            TestCategory: "Music — contemporary classical, Italian artist"),
 
         new("Across the Stars", "John Williams",
             Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3,
-            TestCategory: "Music — film soundtrack, franchise cross-ref",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Film score tracks not reliably typed as Q105543609 musical work on Wikidata"),
+            TestCategory: "Music — film soundtrack, franchise cross-ref"),
 
         // ── Category 2: Album grouping (multiple tracks, same album) ──────
         new("You're My Best Friend", "Queen",
@@ -531,10 +523,7 @@ public static class DevSeedEndpoints
 
         new("Für Elise", "Ludwig van Beethoven",
             Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1,
-            TestCategory: "Music — German umlaut in title, historical classical",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Public-domain classical pieces rarely typed as Q105543609 on Wikidata"),
+            TestCategory: "Music — German umlaut in title, historical classical"),
 
         new("99 Luftballons", "Nena",
             Album: "99 Luftballons", Year: 1983, Genre: "New Wave", TrackNumber: 1,
@@ -552,25 +541,16 @@ public static class DevSeedEndpoints
         // ── Category 6: Instrumental / soundtrack / orchestral ────────────
         new("The Imperial March", "John Williams",
             Album: "Star Wars: The Empire Strikes Back", Year: 1980, Genre: "Soundtrack", TrackNumber: 3,
-            TestCategory: "Music — same artist as Across the Stars, different franchise entry",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Film score tracks not reliably typed as Q105543609 on Wikidata"),
+            TestCategory: "Music — same artist as Across the Stars, different franchise entry"),
 
         new("In the Hall of the Mountain King", "Edvard Grieg",
             Album: "Peer Gynt Suite No. 1", Year: 1875, Genre: "Classical", TrackNumber: 4,
-            TestCategory: "Music — public domain classical, Norwegian composer",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Public-domain classical pieces rarely typed as Q105543609 on Wikidata"),
+            TestCategory: "Music — public domain classical, Norwegian composer"),
 
         // ── Category 7: Edge cases ────────────────────────────────────────
         new("4'33\"", "John Cage",
             Album: "John Cage: 4'33\"", Year: 1952, Genre: "Avant-Garde", TrackNumber: 1,
-            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Avant-garde compositions rarely typed as Q105543609 on Wikidata"),
+            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece"),
 
         new("MMMBop", "Hanson",
             Album: "Middle of Nowhere", Year: 1997, Genre: "Pop", TrackNumber: 1,
@@ -1435,6 +1415,152 @@ public static class DevSeedEndpoints
         string? ExpectedProvider = null,
         string? ExpectedQid = null,
         bool ExpectedCoverArt = true);
+
+    /// <summary>
+    /// Seeds every canonical test fixture (Books, Audiobooks, Movies, TV, Music, Comics)
+    /// into the configured Watch Folders. Mirrors the file-creation logic of
+    /// <see cref="SeedLibraryAsync"/> but returns a simple file-count instead of an
+    /// HTTP result so the integration-test harness can drive seeding without going
+    /// through the HTTP endpoint.
+    ///
+    /// <para>
+    /// Critical: this helper is the single source of truth for test-fixture seeding.
+    /// IntegrationTestEndpoints must never maintain its own shadow copy of the seed
+    /// arrays — doing so causes silent "NotFound" drift when fixtures are added to
+    /// <see cref="DevSeedEndpoints"/> but not mirrored in the harness.
+    /// </para>
+    /// </summary>
+    internal static async Task<int> SeedAllAsync(
+        IOptions<IngestionOptions> options,
+        IConfigurationLoader configLoader,
+        HashSet<string> activeTypes,
+        ILogger logger)
+    {
+        int created = 0;
+
+        // Books (EPUB)
+        string? booksDir = ResolveWatchDirectory(configLoader, options, "Books");
+        if (activeTypes.Contains("books") && !string.IsNullOrWhiteSpace(booksDir))
+        {
+            EnsureDirectory(booksDir, logger);
+            foreach (SeedBook book in SeedBooks)
+            {
+                string fileName = $"{SanitizeFileName(book.Title)}.epub";
+                string filePath = Path.Combine(booksDir, fileName);
+                if (File.Exists(filePath)) continue;
+                byte[] bytes = EpubBuilder.Create(
+                    book.Title, book.Author, book.Isbn, book.Year, book.Description,
+                    book.Publisher, book.Language, book.AdditionalAuthors,
+                    book.Series, book.SeriesPosition);
+                await File.WriteAllBytesAsync(filePath, bytes);
+                created++;
+            }
+        }
+
+        // Audiobooks (MP3) — share the Books folder so the library prior applies
+        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
+        {
+            foreach (SeedAudiobook ab in SeedAudiobooks)
+            {
+                string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
+                string filePath = Path.Combine(booksDir, fileName);
+                if (File.Exists(filePath)) continue;
+                byte[] bytes = Mp3Builder.Create(
+                    ab.Title, ab.Artist, narrator: ab.Narrator,
+                    year: ab.Year, language: ab.Language,
+                    series: ab.Series, seriesPosition: ab.SeriesPosition,
+                    asin: ab.Asin);
+                await File.WriteAllBytesAsync(filePath, bytes);
+                created++;
+            }
+        }
+
+        // Movies + TV (MP4) — SeedVideos carries MediaType = "Movie" or "TV"
+        foreach (SeedVideo video in SeedVideos)
+        {
+            string typeKey = video.MediaType == "TV" ? "tv" : "movies";
+            if (!activeTypes.Contains(typeKey)) continue;
+            string category = video.MediaType == "TV" ? "TV" : "Movies";
+            string? videoDir = ResolveWatchDirectory(configLoader, options, category);
+            if (string.IsNullOrWhiteSpace(videoDir)) continue;
+            EnsureDirectory(videoDir, logger);
+
+            string fileName;
+            string filePath;
+            if (!string.IsNullOrWhiteSpace(video.FileNameOverride))
+            {
+                var rel = video.FileNameOverride.Replace('/', Path.DirectorySeparatorChar);
+                filePath = Path.Combine(videoDir, rel);
+                fileName = Path.GetFileName(filePath);
+                var parentDir = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrWhiteSpace(parentDir))
+                    EnsureDirectory(parentDir, logger);
+            }
+            else
+            {
+                if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
+                    fileName = $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4";
+                else
+                    fileName = $"{SanitizeFileName(video.Title)} ({video.Year}).mp4";
+                filePath = Path.Combine(videoDir, fileName);
+            }
+
+            if (File.Exists(filePath)) continue;
+            byte[] bytes = Mp4Builder.Create(
+                video.Title, video.Director, video.Year,
+                showName: video.MediaType == "TV" ? video.Series : null,
+                seasonNumber: video.SeasonNumber,
+                episodeNumber: video.EpisodeNumber);
+            await File.WriteAllBytesAsync(filePath, bytes);
+            created++;
+        }
+
+        // Music (FLAC)
+        string? musicDir = ResolveWatchDirectory(configLoader, options, "Music");
+        if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
+        {
+            EnsureDirectory(musicDir, logger);
+            foreach (SeedMusic track in SeedMusicTracks)
+            {
+                string fileName = $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac";
+                string filePath = Path.Combine(musicDir, fileName);
+                if (File.Exists(filePath)) continue;
+                byte[] bytes = FlacBuilder.Create(
+                    track.Title, track.Artist, track.Album,
+                    track.Year, track.Genre, track.TrackNumber);
+                await File.WriteAllBytesAsync(filePath, bytes);
+                created++;
+            }
+        }
+
+        // Comics (CBZ)
+        string? comicsDir = ResolveWatchDirectory(configLoader, options, "Comics");
+        if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
+        {
+            EnsureDirectory(comicsDir, logger);
+            foreach (SeedComic comic in SeedComics)
+            {
+                string fileName = $"{SanitizeFileName(comic.Title)}.cbz";
+                string filePath = Path.Combine(comicsDir, fileName);
+                if (File.Exists(filePath)) continue;
+                byte[] bytes = CbzBuilder.Create(
+                    comic.Title, comic.Writer, comic.Series, comic.Number,
+                    comic.Year, comic.Genre, comic.Summary, comic.Publisher, comic.Penciller);
+                await File.WriteAllBytesAsync(filePath, bytes);
+                created++;
+            }
+        }
+
+        logger.LogInformation("[SeedAllAsync] {Count} seed files written across active types {Types}",
+            created, string.Join(",", activeTypes));
+
+        // Allow file handles to fully release before the filesystem watcher fires.
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        await Task.Delay(3000);
+
+        return created;
+    }
 
     /// <summary>
     /// Returns all seed fixtures as a flat list of expectations.

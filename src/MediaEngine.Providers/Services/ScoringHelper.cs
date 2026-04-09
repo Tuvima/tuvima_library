@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Contracts;
@@ -280,8 +281,28 @@ public static class ScoringHelper
         // 2. Parent-Work write — only parent-scope claims, always against the
         //    topmost Work id (collapses to the movie's own Work for standalone
         //    media, so the data lives on works.id rather than media_assets.id).
+        //
+        //    Title synthesis for hierarchical parent Works: when the parent
+        //    Work is a distinct entity from the asset (album, TV show, comic
+        //    series, book/audiobook series, podcast show), the inbound claims
+        //    never include a top-level "title" because title is Self-scoped
+        //    (a track's title, an episode's title — not the container's).
+        //    Without intervention, the parent Work has rich canonicals for
+        //    album/show_name/series but no title, and the Registry surfaces
+        //    it as "Untitled". Here we mint a synthetic title claim from the
+        //    appropriate container field so every parent Work has a title.
+        //
+        //    Movies are skipped — they are standalone, title is Self-scoped,
+        //    and the movie's own asset row already holds the title canonical.
+        // Always attempt title synthesis — even when parentClaims is empty,
+        // because for standalone media (Books, Audiobooks, Movies) the Work
+        // row itself receives no claims at all (self-scope → asset, no
+        // parent-scope claims), leaving the Work as "Untitled" in the Vault.
+        MaybeSynthesizeParentTitle(claims, parentClaims, lineage, logger);
+
         if (parentClaims.Count > 0)
         {
+
             try
             {
                 await PersistClaimsAndScoreAsync(
@@ -304,6 +325,112 @@ public static class ScoringHelper
         }
 
         return assetResult;
+    }
+
+    /// <summary>
+    /// Mints a synthetic <c>title</c> claim for a hierarchical parent Work
+    /// (album, TV show, comic series, book/audiobook series, podcast show)
+    /// when the inbound parent-scope claims don't already carry one.
+    ///
+    /// Why this exists: <c>title</c> is Self-scoped by default — a track's
+    /// title belongs to the track, not the album. As a result, parent Works
+    /// accumulate rich canonicals (album, artist, year, cover_url, genre,
+    /// apple IDs…) but no title, and the Registry surfaces them as
+    /// "Untitled". Rather than teach every reader to fall back to the
+    /// appropriate container field per media type, we write a canonical
+    /// <c>title</c> on the parent Work at score-time, sourced from the
+    /// appropriate container field:
+    ///
+    ///   • Music     → album
+    ///   • TV        → show_name
+    ///   • Podcasts  → show_name / podcast_name
+    ///   • Comics    → series
+    ///   • Books     → series
+    ///   • Audiobooks → series
+    ///
+    /// Skipped when (a) the parent target collapses to the self target
+    /// (standalone media — movies, single-volume books) because the asset's
+    /// own title already lives on that row; (b) the parent claims already
+    /// contain a title; or (c) no suitable container field is present.
+    /// Confidence matches the source claim so Tier-D tie-breaks still work.
+    /// </summary>
+    private static void MaybeSynthesizeParentTitle(
+        IReadOnlyList<ProviderClaim> allClaims,
+        List<ProviderClaim> parentClaims,
+        WorkLineage lineage,
+        ILogger? logger)
+    {
+        // Already has a title claim in the parent batch — nothing to do.
+        if (parentClaims.Any(c =>
+                string.Equals(c.Key, MetadataFieldConstants.Title,
+                    StringComparison.OrdinalIgnoreCase)))
+            return;
+
+        var isStandalone = lineage.TargetForParentScope == lineage.TargetForSelfScope;
+
+        ProviderClaim? source = null;
+        string? sourceKey = null;
+
+        if (isStandalone)
+        {
+            // Standalone media (Books, Audiobooks, Movies, podcasts-no-show):
+            // title is self-scoped and went to the asset row, not the Work
+            // row. Copy it from the full claim list so the Work row renders
+            // with a real title instead of "Untitled".
+            source = allClaims
+                .Where(c => string.Equals(c.Key, MetadataFieldConstants.Title,
+                                StringComparison.OrdinalIgnoreCase)
+                            && !string.IsNullOrWhiteSpace(c.Value))
+                .OrderByDescending(c => c.Confidence)
+                .FirstOrDefault();
+            sourceKey = MetadataFieldConstants.Title;
+        }
+        else
+        {
+            // Hierarchical parent (album, TV show, comic series, book
+            // series, podcast show): mint a title from the container field.
+            sourceKey = lineage.MediaType switch
+            {
+                MediaType.Music       => MetadataFieldConstants.Album,
+                MediaType.TV          => MetadataFieldConstants.ShowName,
+                MediaType.Podcasts    => MetadataFieldConstants.ShowName,
+                MediaType.Comics      => MetadataFieldConstants.Series,
+                MediaType.Books       => MetadataFieldConstants.Series,
+                MediaType.Audiobooks  => MetadataFieldConstants.Series,
+                _                     => null,
+            };
+            if (sourceKey is null)
+                return;
+
+            source = parentClaims
+                .Where(c => string.Equals(c.Key, sourceKey, StringComparison.OrdinalIgnoreCase)
+                            && !string.IsNullOrWhiteSpace(c.Value))
+                .OrderByDescending(c => c.Confidence)
+                .FirstOrDefault();
+
+            // Podcasts: also try podcast_name as a fallback.
+            if (source is null && lineage.MediaType == MediaType.Podcasts)
+            {
+                source = parentClaims
+                    .Where(c => string.Equals(c.Key, MetadataFieldConstants.PodcastName,
+                                    StringComparison.OrdinalIgnoreCase)
+                                && !string.IsNullOrWhiteSpace(c.Value))
+                    .OrderByDescending(c => c.Confidence)
+                    .FirstOrDefault();
+            }
+        }
+
+        if (source is null)
+            return;
+
+        parentClaims.Add(new ProviderClaim(
+            Key:        MetadataFieldConstants.Title,
+            Value:      source.Value,
+            Confidence: source.Confidence));
+
+        logger?.LogDebug(
+            "Synthesized parent-Work title '{Title}' from {SourceKey} for parent {ParentWorkId} ({MediaType}, standalone={Standalone})",
+            source.Value, sourceKey, lineage.TargetForParentScope, lineage.MediaType, isStandalone);
     }
 
     /// <summary>

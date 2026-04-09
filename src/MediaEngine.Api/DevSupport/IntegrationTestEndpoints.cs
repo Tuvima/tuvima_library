@@ -554,165 +554,21 @@ public static class IntegrationTestEndpoints
     }
 
     // ── Internal seed ────────────────────────────────────────────────────
+    //
+    // Delegates entirely to DevSeedEndpoints.SeedAllAsync, which is the single
+    // source of truth for fixture seeding. This wrapper exists only so the
+    // integration-test Phase 2 can call it without the HTTP endpoint plumbing.
+    //
+    // CRITICAL: do not reintroduce inline seed arrays here. They will silently
+    // drift from the canonical DevSeedEndpoints data and cause "NotFound" false
+    // negatives in the reconciliation pass.
 
-    private static async Task<int> SeedInternalAsync(
+    private static Task<int> SeedInternalAsync(
         IOptions<IngestionOptions> options,
         IConfigurationLoader configLoader,
         HashSet<string> activeTypes,
         ILogger logger)
-    {
-        var libConfig = configLoader.LoadLibraries();
-        int total = 0;
-        int failed = 0;
-
-        async Task TryWriteAsync(string filePath, string title, Func<byte[]> build)
-        {
-            try
-            {
-                byte[] bytes = build();
-                await File.WriteAllBytesAsync(filePath, bytes);
-                total++;
-            }
-            catch (Exception ex)
-            {
-                failed++;
-                logger.LogWarning(ex, "[Seed] Failed to create '{Title}' at {Path}", title, filePath);
-            }
-        }
-
-        string? ResolveDir(string category)
-        {
-            var lib = libConfig.Libraries.FirstOrDefault(l =>
-                l.Category.Equals(category, StringComparison.OrdinalIgnoreCase));
-            if (lib is not null && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                return lib.SourcePath;
-            return libConfig.Libraries.Count > 0 ? libConfig.Libraries[0].SourcePath : options.Value.WatchDirectory;
-        }
-
-        void EnsureDir(string? path)
-        {
-            if (!string.IsNullOrWhiteSpace(path) && !Directory.Exists(path))
-                Directory.CreateDirectory(path);
-        }
-
-        // Log resolved directories for debugging.
-        logger.LogInformation("[Seed] Resolved directories: Books={Books}, Movies={Movies}, TV={TV}, Music={Music}",
-            ResolveDir("Books"), ResolveDir("Movies"), ResolveDir("TV"), ResolveDir("Music"));
-
-        // Books
-        var booksDir = ResolveDir("Books");
-        if (!string.IsNullOrWhiteSpace(booksDir))
-        {
-            EnsureDir(booksDir);
-            if (activeTypes.Contains("books"))
-            {
-                foreach (var book in DevSeedEndpoints_SeedBooks())
-                {
-                    string fileName = $"{SanitizeFileName(book.Title)}.epub";
-                    string filePath = Path.Combine(booksDir, fileName);
-                    if (File.Exists(filePath)) continue;
-                    await TryWriteAsync(filePath, book.Title, () =>
-                        EpubBuilder.Create(book.Title, book.Author, book.Isbn, book.Year, book.Description,
-                            book.Publisher, book.Language, book.AdditionalAuthors, book.Series, book.SeriesPosition));
-                }
-            }
-
-            if (activeTypes.Contains("audiobooks"))
-            {
-                // Audiobooks share the Books library folder so the folder prior
-                // (config/libraries.json media_types: ["Books", "Audiobooks"]) applies.
-                // Using the same booksDir ensures the IngestionEngine's folder-matching
-                // StartsWith check finds the configured folder and boosts audiobook
-                // classification confidence.
-                var audiobooksDir = booksDir;
-                foreach (var ab in DevSeedEndpoints_SeedAudiobooks())
-                {
-                    string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
-                    string filePath = Path.Combine(audiobooksDir, fileName);
-                    if (File.Exists(filePath)) continue;
-                    await TryWriteAsync(filePath, ab.Title, () =>
-                        Mp3Builder.Create(ab.Title, ab.Artist, narrator: ab.Narrator,
-                            year: ab.Year, language: ab.Language, series: ab.Series, seriesPosition: ab.SeriesPosition, asin: ab.Asin));
-                }
-            }
-        }
-
-        // Movies
-        var moviesDir = ResolveDir("Movies");
-        if (activeTypes.Contains("movies") && !string.IsNullOrWhiteSpace(moviesDir))
-        {
-            EnsureDir(moviesDir);
-            foreach (var v in DevSeedEndpoints_SeedVideos().Where(v => v.MediaType == "Movie"))
-            {
-                string fileName = $"{SanitizeFileName(v.Title)} ({v.Year}).mp4";
-                string filePath = Path.Combine(moviesDir, fileName);
-                if (File.Exists(filePath)) continue;
-                await TryWriteAsync(filePath, v.Title, () => Mp4Builder.Create(v.Title, v.Director, v.Year));
-            }
-        }
-
-        // TV
-        var tvDir = ResolveDir("TV");
-        if (activeTypes.Contains("tv") && !string.IsNullOrWhiteSpace(tvDir))
-        {
-            EnsureDir(tvDir);
-            foreach (var v in DevSeedEndpoints_SeedVideos().Where(v => v.MediaType == "TV"))
-            {
-                string fileName = v.SeasonNumber is not null && v.EpisodeNumber is not null
-                    ? $"{SanitizeFileName(v.Series ?? v.Title)} S{v.SeasonNumber:D2}E{v.EpisodeNumber:D2}.mp4"
-                    : $"{SanitizeFileName(v.Title)} ({v.Year}).mp4";
-                string filePath = Path.Combine(tvDir, fileName);
-                if (File.Exists(filePath)) continue;
-                await TryWriteAsync(filePath, v.Title, () => Mp4Builder.Create(
-                    v.Title, v.Director, v.Year,
-                    showName: v.Series,
-                    seasonNumber: v.SeasonNumber,
-                    episodeNumber: v.EpisodeNumber));
-            }
-        }
-
-        // Music
-        var musicDir = ResolveDir("Music");
-        if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
-        {
-            EnsureDir(musicDir);
-            foreach (var m in DevSeedEndpoints_SeedMusic())
-            {
-                string fileName = $"{SanitizeFileName(m.Artist)} - {SanitizeFileName(m.Title)}.flac";
-                string filePath = Path.Combine(musicDir, fileName);
-                if (File.Exists(filePath)) continue;
-                await TryWriteAsync(filePath, m.Title, () =>
-                    FlacBuilder.Create(m.Title, m.Artist, m.Album, m.Year, m.Genre, m.TrackNumber));
-            }
-        }
-
-        // Comics
-        var comicsDir = ResolveDir("Comics");
-        if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
-        {
-            EnsureDir(comicsDir);
-            foreach (var c in DevSeedEndpoints_SeedComics())
-            {
-                string fileName = $"{SanitizeFileName(c.Title)}.cbz";
-                string filePath = Path.Combine(comicsDir, fileName);
-                if (File.Exists(filePath)) continue;
-                await TryWriteAsync(filePath, c.Title, () =>
-                    CbzBuilder.Create(c.Title, c.Writer, c.Series, c.Number,
-                        c.Year, c.Genre, c.Summary, c.Publisher, c.Penciller));
-            }
-        }
-
-        logger.LogInformation("[Seed] {Count} test files created ({Failed} failed)", total, failed);
-
-        // Allow file handles to fully release before the filesystem watcher triggers.
-        // Without this, the DebounceQueue's file-lock probe may fail repeatedly on
-        // MP3 and EPUB files that are still held by the OS write cache.
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        await Task.Delay(3000);
-
-        return total;
-    }
+        => DevSeedEndpoints.SeedAllAsync(options, configLoader, activeTypes, logger);
 
     // ── Wait for ingestion ────────────────────────────────────────────────
 
@@ -1907,113 +1763,6 @@ public static class IntegrationTestEndpoints
         if (s.Contains("FAIL") || s.Contains("QUARANTINE")) return "status-failed";
         return "status-unknown";
     }
-
-    // ── Seed data accessors (mirrors DevSeedEndpoints private data) ──────
-    // These provide the seed definitions without duplicating the data.
-
-    internal sealed record SeedBookInfo(string Title, string Author, string Isbn, int Year, string Description,
-        string? Publisher = null, string Language = "en", string[]? AdditionalAuthors = null,
-        string? Series = null, int? SeriesPosition = null);
-
-    internal sealed record SeedAudiobookInfo(string Title, string Artist, string Narrator, int Year,
-        string Language = "eng", string? Series = null, int? SeriesPosition = null, string? Asin = null);
-
-    internal sealed record SeedVideoInfo(string Title, string? Director, int Year, string MediaType,
-        string? Series = null, int? SeasonNumber = null, int? EpisodeNumber = null);
-
-    internal sealed record SeedMusicInfo(string Title, string Artist, string? Album = null,
-        int Year = 0, string? Genre = null, int? TrackNumber = null);
-
-    internal static SeedBookInfo[] DevSeedEndpoints_SeedBooks() =>
-    [
-        new("Dune", "Frank Herbert", "9780441013593", 1965, "Set on the desert planet Arrakis."),
-        new("Project Hail Mary", "Andy Weir", "9780593135204", 2021, "Ryland Grace is the sole survivor on a desperate mission."),
-        new("The Hobbit", "J.R.R. Tolkien", "9780547928227", 1937, "Bilbo Baggins is a hobbit who enjoys a comfortable life."),
-        new("Leviathan Wakes", "James S. A. Corey", "9780316129084", 2011, "Humanity has colonized the solar system.",
-            Series: "The Expanse", SeriesPosition: 1),
-        new("The Shining", "Stephen King", "9780307743657", 1977, "Jack Torrance's new job at the Overlook Hotel."),
-        new("Harry Potter and the Philosopher's Stone", "J.K. Rowling", "9780747532699", 1997, "Harry Potter has never heard of Hogwarts.",
-            Series: "Harry Potter", SeriesPosition: 1),
-        new("Harry Potter and the Chamber of Secrets", "J.K. Rowling", "9780747538486", 1998, "Harry Potter's summer has included the worst birthday ever.",
-            Series: "Harry Potter", SeriesPosition: 2),
-        new("The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", 1954, "In ancient times the Rings of Power were crafted.",
-            Series: "The Lord of the Rings", SeriesPosition: 1),
-        new("Good Omens", "Terry Pratchett", "9780060853983", 1990, "The world will end on a Saturday.", AdditionalAuthors: ["Neil Gaiman"]),
-        new("Neuromancer", "William Gibson", "9780441569595", 1984, "The sky above the port was the color of television."),
-        new("The Road", "Cormac McCarthy", "9780307387899", 2006, "A father and his son walk alone through burned America."),
-    ];
-
-    internal static SeedAudiobookInfo[] DevSeedEndpoints_SeedAudiobooks() =>
-    [
-        new("Dune", "Frank Herbert", "Simon Vance", 1965, Series: "Dune Chronicles", SeriesPosition: 1),
-        new("Project Hail Mary", "Andy Weir", "Ray Porter", 2021),
-        new("The Hobbit", "J.R.R. Tolkien", "Andy Serkis", 1937),
-        new("Harry Potter and the Philosopher's Stone", "J.K. Rowling", "Stephen Fry", 1997, Series: "Harry Potter", SeriesPosition: 1),
-        new("The Fellowship of the Ring", "J.R.R. Tolkien", "Rob Inglis", 1954, Series: "The Lord of the Rings", SeriesPosition: 1),
-        new("Neuromancer", "William Gibson", "Robertson Dean", 1984),
-    ];
-
-    internal static SeedVideoInfo[] DevSeedEndpoints_SeedVideos() =>
-    [
-        new("Blade Runner 2049", "Denis Villeneuve", 2017, "Movie"),
-        new("The Matrix", "Lana Wachowski", 1999, "Movie"),
-        new("Interstellar", "Christopher Nolan", 2014, "Movie"),
-        new("Spirited Away", "Hayao Miyazaki", 2001, "Movie"),
-        new("The Shawshank Redemption", "Frank Darabont", 1994, "Movie"),
-        new("Breaking Bad", null, 2008, "TV", Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 1),
-        new("Breaking Bad", null, 2008, "TV", Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 2),
-        new("The Expanse", null, 2015, "TV", Series: "The Expanse", SeasonNumber: 1, EpisodeNumber: 1),
-        new("Shogun", null, 2024, "TV", Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1),
-    ];
-
-    internal static SeedMusicInfo[] DevSeedEndpoints_SeedMusic() =>
-    [
-        new("Bohemian Rhapsody", "Queen", Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11),
-        new("Clair de Lune", "Claude Debussy", Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3),
-        new("Lose Yourself", "Eminem", Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1),
-        new("Nuvole Bianche", "Ludovico Einaudi", Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6),
-        new("Across the Stars", "John Williams", Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3),
-        new("You're My Best Friend", "Queen", Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 4),
-        new("Death on Two Legs", "Queen", Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 1),
-        new("Under Pressure", "Queen & David Bowie", Album: "Hot Space", Year: 1982, Genre: "Rock", TrackNumber: 11),
-        new("Stan", "Eminem", Album: "The Marshall Mathers LP", Year: 2000, Genre: "Hip-Hop", TrackNumber: 3),
-        new("La Vie en rose", "Édith Piaf", Album: "La Vie en rose", Year: 1947, Genre: "Chanson", TrackNumber: 1),
-        new("Für Elise", "Ludwig van Beethoven", Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1),
-        new("99 Luftballons", "Nena", Album: "99 Luftballons", Year: 1983, Genre: "New Wave", TrackNumber: 1),
-        new("Yesterday", "The Beatles", Album: "Help!", Year: 1965, Genre: "Pop", TrackNumber: 13),
-        new("Imagine", "John Lennon", Album: "Imagine", Year: 1971, Genre: "Pop", TrackNumber: 1),
-        new("The Imperial March", "John Williams", Album: "Star Wars: The Empire Strikes Back", Year: 1980, Genre: "Soundtrack", TrackNumber: 3),
-        new("In the Hall of the Mountain King", "Edvard Grieg", Album: "Peer Gynt Suite No. 1", Year: 1875, Genre: "Classical", TrackNumber: 4),
-        new("4'33\"", "John Cage", Album: "John Cage: 4'33\"", Year: 1952, Genre: "Avant-Garde", TrackNumber: 1),
-        new("MMMBop", "Hanson", Album: "Middle of Nowhere", Year: 1997, Genre: "Pop", TrackNumber: 1),
-        new("Take Five", "Dave Brubeck", Album: "Time Out", Year: 1959, Genre: "Jazz", TrackNumber: 4),
-        new("Smells Like Teen Spirit", "Nirvana", Album: "Nevermind", Year: 1991, Genre: "Grunge", TrackNumber: 1),
-    ];
-
-    internal sealed record SeedComicInfo(string Title, string? Writer = null,
-        string? Series = null, int? Number = null, int Year = 0,
-        string? Genre = null, string? Summary = null, string? Publisher = null,
-        string? Penciller = null);
-
-    internal static SeedComicInfo[] DevSeedEndpoints_SeedComics() =>
-    [
-        new("Batman: Year One Part 1", Writer: "Frank Miller",
-            Series: "Batman", Number: 404, Year: 1987, Genre: "Superhero",
-            Summary: "Bruce Wayne returns to Gotham City after years abroad.",
-            Publisher: "DC Comics", Penciller: "David Mazzucchelli"),
-        new("Saga Chapter One", Writer: "Brian K. Vaughan",
-            Series: "Saga", Number: 1, Year: 2012, Genre: "Science Fiction, Fantasy",
-            Summary: "A new epic from the creators of Y: The Last Man.",
-            Publisher: "Image Comics", Penciller: "Fiona Staples"),
-        new("The Sandman: Sleep of the Just", Writer: "Neil Gaiman",
-            Series: "The Sandman", Number: 1, Year: 1989, Genre: "Fantasy, Horror",
-            Summary: "Morpheus, the King of Dreams, is captured and held prisoner for 70 years.",
-            Publisher: "DC Comics/Vertigo", Penciller: "Sam Kieth"),
-        new("Akira Vol 1", Writer: "Katsuhiro Otomo",
-            Series: "Akira", Number: 1, Year: 1982, Genre: "Science Fiction",
-            Summary: "In the year 2019, Neo-Tokyo has risen from the ashes of World War III.",
-            Publisher: "Kodansha", Penciller: "Katsuhiro Otomo"),
-    ];
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
