@@ -127,16 +127,20 @@ Stage 1 never waits on Stage 2. Cover art is written to disk during Stage 1 (`co
 
 ### Stage 2 â€” WikidataBridge
 
-The `ReconciliationAdapter` runs second, using bridge IDs deposited by Stage 1 for precise QID resolution:
+The `ReconciliationAdapter` runs second, using bridge IDs deposited by Stage 1 for precise QID resolution. The adapter is now a thin orchestrator over `Tuvima.Wikidata` v2.4.1 sub-services — the hand-rolled bridge resolution / music album resolution / text reconciliation helpers were deleted in the adapter slimdown remediation (see `.claude/plans/adapter-slimdown-remediation.md`):
 
-1. **Bridge ID lookup (edition-first):** The adapter searches for editions matching the deposited bridge IDs (ISBN, ASIN, TMDB ID, etc.). Audiobook editions get audiobook-edition ISBNs; book editions get print ISBNs. This is filtered by P31 (instance_of) to ensure the returned QID matches the right media type.
-2. **Text fallback (gated):** If all bridge ID lookups fail, a text-based reconciliation with type filtering is attempted — but **only when at least one real bridge ID lookup was attempted**. If the call contains only sentinel keys (`_title`, `_author`) with no real bridge IDs, text fallback is blocked and the item returns `NotFound` (routes to review).
-3. **Auto-accept:** Score ≥ 95 and `match: true` → QID accepted automatically.
-4. **Multiple candidates:** Multiple candidates without auto-accept â†’ `MultipleQidMatches` review item. Conservative matching â€” no auto-accept when ambiguous.
-5. **Data Extension fetch:** After QID confirmation, a single Data Extension API POST fetches all configured properties from `config/universe/wikidata.json`.
-6. **Wikipedia descriptions:** Fetched via `_reconciler.GetWikipediaSummariesAsync` as part of Stage 2.
+1. **Stage 2 dispatch:** The public `ReconciliationAdapter.ResolveAsync` / `ResolveBatchAsync` are 4-line pass-throughs that build a discriminated `IStage2Request` (one of `BridgeStage2Request`, `MusicStage2Request`, or `TextStage2Request`) and call `_reconciler.Stage2.ResolveBatchAsync`. The library natively groups requests by natural key (one round-trip per unique ISBN / album / text signature) and handles edition pivoting via `EditionPivotRule`.
+2. **Bridge ID lookup (edition-first):** `BridgeStage2Request` carries the deposited bridge IDs (ISBN, ASIN, TMDB ID, etc.) plus a media-type-specific `EditionPivotRule` (work classes Q7725634/Q571, edition classes Q122731938/Q3331189, etc.). When the resolved entity is an edition, the library walks P629 to surface the work QID via `Stage2Result.WorkQid`. Sentinel keys (`_title`, `_author`) are stripped before dispatch so the library's strict bridge resolver doesn't trip on them.
+3. **Text fallback (gated):** When a `BridgeStage2Request` returns NotFound and the input still has a Title + non-Unknown MediaType, the adapter issues a second-pass `TextStage2Request` with the appropriate `CirrusSearchTypes` filter. This mirrors the legacy `ResolveBridgeAsync`'s "if bridge IDs fail, try title+author" behaviour for parity. Sentinel-only requests (no real bridge IDs at all) return NotFound and route to review — **no retail = no Wikidata**.
+4. **Auto-accept:** Score ≥ ReviewThreshold (0.70 by default for text, the library's own bridge confidence for ISBN matches) → QID accepted automatically.
+5. **Multiple candidates:** Multiple candidates without auto-accept â†’ `MultipleQidMatches` review item. Conservative matching â€” no auto-accept when ambiguous.
+6. **Data Extension fetch:** After every successful Stage 2 resolution, the adapter calls `BuildClaimsForResolvedQidAsync` which runs a single Data Extension POST (`ExtendAsync`) over `Stage2BridgePCodes` (15 well-known external identifier P-codes) and converts the response to `ProviderClaim` entries via `ExtensionToClaims`. The library's `Stage2Result` deliberately does not carry property claims, so this follow-up call is required for parity with the consumer contract (`WikidataBridgeWorker` reads both `WikidataResolveResult.Claims` and `CollectedBridgeIds`).
+7. **Wikipedia descriptions:** Fetched via `_reconciler.GetWikipediaSummariesAsync` as part of Stage 2.
+8. **Pseudonym detection:** After Data Extension, `FetchWorkAsync` calls `_reconciler.Authors.ResolveAsync(request.Author)` to detect Pattern 1 (reverse P742 — "Richard Bachman" → Stephen King's QID, emitted as `BridgeIdKeys.AuthorRealNameQid`) and Pattern 2 (P742 enumeration — Stephen King → ["Richard Bachman", ...], emitted as `BridgeIdKeys.AuthorPseudonym`). Pattern 3 (collective pseudonyms — "James S.A. Corey" → Daniel Abraham + Ty Franck) is still handled by the legacy block that reads the resolved work's P50 and walks each author's P742 directly via `Entities.GetPropertiesAsync`.
 
 Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Currently only `ReconciliationAdapter` participates in Stage 2.
+
+**Parity baseline:** `tests/fixtures/stage2-baseline-v2.json` is the authoritative snapshot of the library-backed Stage 2 path against a 12-request fixture (books, movies, TV, music, audiobooks, plus Pattern 1/3 edge cases). The `Stage2BaselineCapture.CaptureStage2BaselineViaLibraryPath` xUnit fixture (Skip'd by default) re-captures the baseline on demand against live Wikidata.
 
 **Pipeline continuation on failure:** If Stage 2 fails to resolve a QID and `continue_pipeline_on_authority_failure` is `true`, the pipeline continues (the file retains its Stage 1 metadata). An `AuthorityMatchFailed` review item is created for manual resolution.
 
