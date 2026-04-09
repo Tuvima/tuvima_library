@@ -2523,59 +2523,133 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         {
             case MediaType.TV:
             {
-                // Manifest children are flat: top-level entries (Parent == null) are
-                // seasons; nested entries carry Parent = season.Ordinal. Re-shape into
-                // the nested {seasons: [{episodes: [...]}]} blob the Vault parser expects.
-                var seasonsList = manifest.Children
-                    .Where(c => c.Parent is null)
-                    .OrderBy(c => c.Ordinal ?? int.MaxValue)
-                    .ToList();
+                // Tuvima.Wikidata 2.4.1 returns a flat children list with both
+                // Ordinal and Parent NULL on every TV entry, so we can't rely on
+                // the library's nesting hints. Use the manifest's PrimaryCount as
+                // the season slice (seasons are emitted before episodes, in
+                // season order), then re-walk P527 (has parts) on each season to
+                // recover episode order — Wikidata stores the season→episode
+                // hierarchy on the season's P527 statement, not on episodes.
+                var seasonCount  = Math.Min(manifest.PrimaryCount, manifest.Children.Count);
+                var seasonsList  = manifest.Children.Take(seasonCount).ToList();
+                var episodePool  = manifest.Children
+                    .Skip(seasonCount)
+                    .ToDictionary(c => c.Qid, c => c, StringComparer.Ordinal);
 
-                var episodesBySeasonOrdinal = manifest.Children
-                    .Where(c => c.Parent is not null)
-                    .GroupBy(c => c.Parent!.Value)
-                    .ToDictionary(
-                        g => g.Key,
-                        g => g.OrderBy(c => c.Ordinal ?? int.MaxValue).ToList());
+                // Batch fetch P527 for every season in one round-trip.
+                IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>> seasonProps =
+                    new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>>();
+                if (seasonsList.Count > 0)
+                {
+                    try
+                    {
+                        seasonProps = await _reconciler.Entities
+                            .GetPropertiesAsync(
+                                seasonsList.Select(s => s.Qid).ToList(),
+                                ["P527"],
+                                language,
+                                ct)
+                            .ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) { throw; }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex,
+                            "{Provider}: child entity discovery — failed to fetch season P527 for {QID}; episodes will be flat",
+                            Name, parentQid);
+                    }
+                }
 
                 var totalEpisodes = 0;
-                var seasonNodes = new List<object>(seasonsList.Count);
-                foreach (var season in seasonsList)
-                {
-                    var episodesForSeason = season.Ordinal is int seasonOrd
-                        && episodesBySeasonOrdinal.TryGetValue(seasonOrd, out var eps)
-                            ? eps
-                            : new List<ChildEntityRef>();
+                var seasonNodes   = new List<object>(seasonsList.Count);
+                var assignedEpisodeQids = new HashSet<string>(StringComparer.Ordinal);
 
-                    var episodeNodes = episodesForSeason.Select(ep => new
+                for (var seasonIndex = 0; seasonIndex < seasonsList.Count; seasonIndex++)
+                {
+                    var season       = seasonsList[seasonIndex];
+                    var seasonNumber = seasonIndex + 1;
+                    var episodeNodes = new List<object>();
+
+                    if (seasonProps.TryGetValue(season.Qid, out var props)
+                        && props.TryGetValue("P527", out var hasParts))
                     {
-                        qid              = ep.Qid,
-                        title            = ep.Title,
-                        ordinal          = ep.Ordinal,
-                        air_date         = ep.ReleaseDate?.ToString("yyyy-MM-dd"),
-                        duration_minutes = ep.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
-                        director         = ep.Creators?.GetValueOrDefault("Director"),
-                    }).ToList();
+                        var episodeNumber = 0;
+                        foreach (var partClaim in hasParts)
+                        {
+                            var epQid = partClaim.Value?.EntityId;
+                            if (string.IsNullOrWhiteSpace(epQid)) continue;
+                            if (!episodePool.TryGetValue(epQid, out var ep)) continue;
+
+                            episodeNumber++;
+                            assignedEpisodeQids.Add(epQid);
+                            episodeNodes.Add(new
+                            {
+                                qid              = ep.Qid,
+                                title            = ep.Title,
+                                ordinal          = episodeNumber,
+                                episode_number   = episodeNumber,
+                                air_date         = ep.ReleaseDate?.ToString("yyyy-MM-dd"),
+                                duration_minutes = ep.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
+                                director         = ep.Creators?.GetValueOrDefault("Director"),
+                            });
+                        }
+                    }
 
                     totalEpisodes += episodeNodes.Count;
 
                     seasonNodes.Add(new
                     {
-                        qid     = season.Qid,
-                        label   = season.Title,
-                        ordinal = season.Ordinal,
-                        episodes = episodeNodes,
+                        qid           = season.Qid,
+                        label         = season.Title,
+                        ordinal       = seasonNumber,
+                        season_number = seasonNumber,
+                        episodes      = episodeNodes,
+                    });
+                }
+
+                // Anything in the episode pool that we couldn't assign via
+                // season P527 — surface as an "Unassigned" pseudo-season so the
+                // count and the Vault drill-down still see them.
+                var unassigned = episodePool.Values
+                    .Where(c => !assignedEpisodeQids.Contains(c.Qid))
+                    .ToList();
+                if (unassigned.Count > 0)
+                {
+                    var unassignedNodes = new List<object>(unassigned.Count);
+                    var idx = 0;
+                    foreach (var ep in unassigned)
+                    {
+                        idx++;
+                        unassignedNodes.Add(new
+                        {
+                            qid              = ep.Qid,
+                            title            = ep.Title,
+                            ordinal          = idx,
+                            episode_number   = idx,
+                            air_date         = ep.ReleaseDate?.ToString("yyyy-MM-dd"),
+                            duration_minutes = ep.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
+                            director         = ep.Creators?.GetValueOrDefault("Director"),
+                        });
+                    }
+                    totalEpisodes += unassignedNodes.Count;
+                    seasonNodes.Add(new
+                    {
+                        qid           = (string?)null,
+                        label         = "Unassigned",
+                        ordinal       = (int?)null,
+                        season_number = (int?)null,
+                        episodes      = unassignedNodes,
                     });
                 }
 
                 var jsonBlob = JsonSerializer.Serialize(new { seasons = seasonNodes });
-                claims.Add(new ProviderClaim(MetadataFieldConstants.SeasonCount,       seasonsList.Count.ToString(),   ClaimConfidence.WikidataProperty));
-                claims.Add(new ProviderClaim(MetadataFieldConstants.EpisodeCount,      totalEpisodes.ToString(),       ClaimConfidence.WikidataProperty));
-                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob,                       ClaimConfidence.WikidataProperty));
+                claims.Add(new ProviderClaim(MetadataFieldConstants.SeasonCount,       seasonsList.Count.ToString(), ClaimConfidence.WikidataProperty));
+                claims.Add(new ProviderClaim(MetadataFieldConstants.EpisodeCount,      totalEpisodes.ToString(),     ClaimConfidence.WikidataProperty));
+                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob,                     ClaimConfidence.WikidataProperty));
 
                 _logger.LogInformation(
-                    "{Provider}: child entity discovery — TV {QID}: {SeasonCount} seasons, {EpisodeCount} episodes",
-                    Name, parentQid, seasonsList.Count, totalEpisodes);
+                    "{Provider}: child entity discovery — TV {QID}: {SeasonCount} seasons, {EpisodeCount} episodes ({Unassigned} unassigned)",
+                    Name, parentQid, seasonsList.Count, totalEpisodes, unassigned.Count);
                 break;
             }
 

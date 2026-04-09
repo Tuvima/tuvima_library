@@ -178,6 +178,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 FROM works w
                 LEFT JOIN asset_cv acv ON acv.work_id = w.id
                 LEFT JOIN work_cv  wcv ON wcv.work_id = w.id
+                WHERE w.work_kind != 'parent'
                 GROUP BY w.id, w.media_type, w.wikidata_status, w.curator_state
             ),
             asset_data AS (
