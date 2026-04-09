@@ -1,0 +1,526 @@
+@page "/listen"
+@inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
+@implements IDisposable
+@using MediaEngine.Web.Models.ViewDTOs
+
+<PageTitle>Listen — Tuvima</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
+                       Style="border-radius: 4px;" />
+}
+else
+{
+    <GlobalBackground ImageUrl="@_spotlight?.CoverUrl" Color="@Accent" />
+
+    <div class="listen-page">
+
+        @* ── Spotlight (Square) ── *@
+        @if (_spotlight is not null)
+        {
+            <CompactHero Data="@_spotlight"
+                         Mode="CompactHero.SpotlightMode.Square"
+                         AccentColor="@Accent"
+                         Eyebrow="@_spotlightEyebrow"
+                         FallbackLabel="Play"
+                         FallbackIcon="@MudBlazor.Icons.Material.Filled.PlayArrow"
+                         OnClicked="HandleSpotlightClick"
+                         OnCtaClicked="HandleSpotlightCta" />
+        }
+
+        @* ── Sub-filter tabs ── *@
+        <div class="listen-tabs">
+            @foreach (var opt in _subFilters)
+            {
+                <button class="listen-tab @(_activeSubFilter == opt ? "active" : "")"
+                        style="@(_activeSubFilter == opt ? $"color: {Accent}; border-bottom-color: {Accent};" : "")"
+                        @onclick="() => OnSubFilterChanged(opt)">
+                    @opt
+                </button>
+            }
+        </div>
+
+        @* ── View mode (Music only) ── *@
+        @if (_activeSubFilter is "All" or "Music")
+        {
+            <div class="listen-view-toggle">
+                @foreach (var view in new[] { "Albums", "Artists", "All Songs" })
+                {
+                    <button class="listen-view-btn @(_viewMode == view ? "active" : "")"
+                            style="@(_viewMode == view ? $"background: {Accent}; color: #000;" : "")"
+                            @onclick="() => OnViewModeChanged(view)">
+                        @view
+                    </button>
+                }
+            </div>
+        }
+
+        @* ── Search ── *@
+        <div class="listen-filters">
+            <div class="listen-search">
+                <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Search" Size="Size.Small"
+                         Style="font-size: 14px; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(148,163,184,0.50);" />
+                <input type="text" placeholder="Search songs, albums, artists..."
+                       value="@_searchText" @oninput="OnSearchInput" class="listen-search-input" />
+            </div>
+        </div>
+
+        @* ── Albums view (default) ── *@
+        @if (_viewMode == "Albums" && _activeSubFilter is "All" or "Music")
+        {
+            @if (_recentlyPlayed.Count > 0 && !HasTextFilter)
+            {
+                <PosterSwimlane Title="Recently Played" Items="@_recentlyPlayed" OnItemSelected="HandleItemSelected" />
+            }
+            @if (_newReleases.Count > 0 && !HasTextFilter)
+            {
+                <PosterSwimlane Title="New Releases" Items="@_newReleases" OnItemSelected="HandleItemSelected" />
+            }
+
+            <div class="listen-grid-section">
+                <div class="listen-grid-header">
+                    <h3 class="listen-grid-title">@(HasTextFilter ? $"Results ({_filteredWorks.Count})" : "All Albums")</h3>
+                </div>
+                <div class="listen-album-grid">
+                    @foreach (var work in _filteredWorks.Take(60))
+                    {
+                        var item = PosterItemViewModel.FromWork(work);
+                        <LibraryCard Item="@item" OnItemSelected="HandleItemSelected" />
+                    }
+                </div>
+            </div>
+        }
+
+        @* ── Artists view ── *@
+        @if (_viewMode == "Artists" && _activeSubFilter is "All" or "Music")
+        {
+            <div class="listen-artist-list">
+                @foreach (var artist in _byArtist.Take(40))
+                {
+                    <div class="listen-artist-row">
+                        <div class="listen-artist-header">
+                            <h4 class="listen-artist-name">@artist.Name</h4>
+                            <span class="listen-artist-count">@artist.Items.Count tracks</span>
+                        </div>
+                        <PosterSwimlane Title="@artist.Name" Items="@artist.Items" OnItemSelected="HandleItemSelected" />
+                    </div>
+                }
+            </div>
+        }
+
+        @* ── All Songs flat list ── *@
+        @if (_viewMode == "All Songs" && _activeSubFilter is "All" or "Music")
+        {
+            <div class="listen-tracks">
+                <div class="listen-tracks-header">
+                    <div>#</div>
+                    <div></div>
+                    <div>Title</div>
+                    <div class="listen-tracks-album">Album</div>
+                    <div class="listen-tracks-duration">Time</div>
+                </div>
+                <div class="listen-tracks-body">
+                    @{ var idx = 1; }
+                    @foreach (var work in _filteredWorks.Take(200))
+                    {
+                        var item = PosterItemViewModel.FromWork(work);
+                        <TrackRow Item="@item" Index="@idx"
+                                  Album="@work.Series"
+                                  OnItemSelected="HandleItemSelected" />
+                        idx++;
+                    }
+                </div>
+                @if (_filteredWorks.Count == 0)
+                {
+                    <div class="listen-empty">
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MusicNote"
+                                 Style="font-size: 48px; color: rgba(248,248,248,0.15);" />
+                        <p>No tracks match your search.</p>
+                    </div>
+                }
+            </div>
+        }
+
+        @* ── Audiobooks / Podcasts flat grid ── *@
+        @if (_activeSubFilter is "Audiobooks" or "Podcasts")
+        {
+            <div class="listen-grid-section">
+                <div class="listen-grid-header">
+                    <h3 class="listen-grid-title">All @_activeSubFilter</h3>
+                </div>
+                <div class="listen-album-grid">
+                    @foreach (var work in _filteredWorks)
+                    {
+                        var item = PosterItemViewModel.FromWork(work);
+                        <LibraryCard Item="@item" OnItemSelected="HandleItemSelected" />
+                    }
+                </div>
+                @if (_filteredWorks.Count == 0)
+                {
+                    <div class="listen-empty">
+                        <MudIcon Icon="@MudBlazor.Icons.Material.Filled.Headphones"
+                                 Style="font-size: 48px; color: rgba(248,248,248,0.15);" />
+                        <p>No titles in this collection yet.</p>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private const string Accent = "#A78BFA";
+    private static readonly string[] _mediaTypes = ["Music", "Audiobook", "m4b", "Podcast"];
+    private static readonly string[] _subFilters = ["All", "Music", "Audiobooks", "Podcasts"];
+
+    private bool _loading = true;
+    private string _activeSubFilter = "All";
+    private string _viewMode = "Albums";
+    private string _searchText = "";
+
+    private List<WorkViewModel> _allWorks = [];
+    private List<WorkViewModel> _filteredWorks = [];
+    private List<JourneyItemViewModel> _journeyItems = [];
+
+    private List<PosterItemViewModel> _recentlyPlayed = [];
+    private List<PosterItemViewModel> _newReleases = [];
+    private List<NamedGroup> _byArtist = [];
+
+    private HeroData? _spotlight;
+    private string _spotlightEyebrow = "Featured";
+
+    private bool HasTextFilter => !string.IsNullOrWhiteSpace(_searchText);
+
+    private sealed record NamedGroup(string Name, IReadOnlyList<PosterItemViewModel> Items);
+
+    protected override async Task OnInitializedAsync()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        await Orchestrator.StartSignalRAsync();
+        await LoadAsync();
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (new Uri(e.Location).AbsolutePath.Trim('/') == "listen")
+        {
+            await LoadAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var works = await Orchestrator.GetLibraryWorksAsync();
+            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
+
+            _allWorks = works
+                .Where(w => _mediaTypes.Any(mt =>
+                    (w.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+
+            BuildSpotlight();
+            BuildSwimlanes();
+            ApplyFilters();
+        }
+        catch { /* Engine unreachable — show empty */ }
+        finally { _loading = false; }
+    }
+
+    private void BuildSpotlight()
+    {
+        // Journey data is books-only today — fall back to recently added with cover art.
+        var newest = _allWorks
+            .Where(w => !string.IsNullOrEmpty(w.CoverUrl))
+            .OrderByDescending(w =>
+                w.CanonicalValues.Select(cv => cv.LastScoredAt).DefaultIfEmpty(DateTimeOffset.MinValue).Max())
+            .FirstOrDefault();
+
+        _spotlight = newest is not null ? HeroData.FromWork(newest, null) : null;
+        _spotlightEyebrow = "Featured";
+    }
+
+    private void BuildSwimlanes()
+    {
+        _recentlyPlayed = _allWorks
+            .Where(w => !string.IsNullOrEmpty(w.CoverUrl))
+            .OrderByDescending(w =>
+                w.CanonicalValues.Select(cv => cv.LastScoredAt).DefaultIfEmpty(DateTimeOffset.MinValue).Max())
+            .Take(12)
+            .Select(w => PosterItemViewModel.FromWork(w))
+            .ToList();
+
+        _newReleases = _allWorks
+            .OrderByDescending(w => w.Year ?? "0000")
+            .Take(15)
+            .Select(w => PosterItemViewModel.FromWork(w))
+            .ToList();
+
+        _byArtist = _allWorks
+            .Where(w => !string.IsNullOrEmpty(w.Author))
+            .GroupBy(w => w.Author!, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() >= 2)
+            .OrderByDescending(g => g.Count())
+            .Take(10)
+            .Select(g => new NamedGroup(g.Key,
+                g.OrderByDescending(w => w.Year ?? "0000")
+                 .Select(w => PosterItemViewModel.FromWork(w)).ToList()))
+            .ToList();
+    }
+
+    private void ApplyFilters()
+    {
+        var works = _allWorks.AsEnumerable();
+
+        if (_activeSubFilter == "Music")
+            works = works.Where(w => (w.MediaType ?? "").Contains("music", StringComparison.OrdinalIgnoreCase));
+        else if (_activeSubFilter == "Audiobooks")
+            works = works.Where(w => (w.MediaType ?? "").Contains("audiobook", StringComparison.OrdinalIgnoreCase)
+                                   || (w.MediaType ?? "").Contains("m4b", StringComparison.OrdinalIgnoreCase));
+        else if (_activeSubFilter == "Podcasts")
+            works = works.Where(w => (w.MediaType ?? "").Contains("podcast", StringComparison.OrdinalIgnoreCase));
+
+        if (HasTextFilter)
+        {
+            var term = _searchText.Trim();
+            works = works.Where(w =>
+                (w.Title?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (w.Author?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (w.Series?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        _filteredWorks = works.OrderBy(w => w.Title).ToList();
+    }
+
+    private void OnSubFilterChanged(string filter)
+    {
+        _activeSubFilter = filter;
+        if (filter is "Audiobooks" or "Podcasts") _viewMode = "Albums";
+        ApplyFilters();
+    }
+
+    private void OnViewModeChanged(string view) { _viewMode = view; }
+    private void OnSearchInput(ChangeEventArgs e) { _searchText = e.Value?.ToString() ?? ""; ApplyFilters(); }
+
+    private void HandleItemSelected(PosterItemViewModel item) => Nav.NavigateTo(item.NavigationUrl);
+    private void HandleSpotlightClick() { if (_spotlight?.EntityId is { } id) Nav.NavigateTo($"/book/{id}"); }
+    private void HandleSpotlightCta()    { if (_spotlight?.EntityId is { } id) Nav.NavigateTo($"/book/{id}"); }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+}
+
+<style>
+    .listen-page {
+        padding: 0 1.5rem 5rem;
+    }
+
+    @@media (min-width: 768px) {
+        .listen-page {
+            padding: 0 4rem 5rem;
+        }
+    }
+
+    /* ── Sub-filter tabs ── */
+    .listen-tabs {
+        display: flex;
+        gap: 28px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        margin-bottom: 1.25rem;
+        margin-top: 0.5rem;
+    }
+
+    .listen-tab {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(148, 163, 184, 0.65);
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        padding: 10px 0;
+        cursor: pointer;
+        transition: color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .listen-tab:hover { color: rgba(248, 248, 248, 0.85); }
+    .listen-tab.active { font-weight: 700; }
+
+    /* ── View toggle ── */
+    .listen-view-toggle {
+        display: flex;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        padding: 4px;
+        border-radius: 999px;
+        width: fit-content;
+        margin-bottom: 1.25rem;
+    }
+
+    .listen-view-btn {
+        padding: 7px 18px;
+        border-radius: 999px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: rgba(148, 163, 184, 0.85);
+        background: transparent;
+    }
+
+    .listen-view-btn:hover { color: white; }
+    .listen-view-btn.active { color: #000 !important; }
+
+    /* ── Search ── */
+    .listen-filters {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        margin-bottom: 2rem;
+    }
+
+    .listen-search {
+        position: relative;
+        flex: 1;
+        min-width: 180px;
+        max-width: 280px;
+    }
+
+    .listen-search-input {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 9px 18px 9px 38px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 12px;
+        color: white;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .listen-search-input::placeholder { color: rgba(148, 163, 184, 0.50); }
+    .listen-search-input:focus {
+        border-color: rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    /* ── Album grid ── */
+    .listen-grid-section { margin-top: 1rem; }
+
+    .listen-grid-header {
+        padding-left: 16px;
+        margin-bottom: 1rem;
+    }
+
+    .listen-grid-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(1.25rem, 1.4vw, 1.55rem);
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.90);
+        margin: 0;
+    }
+
+    .listen-album-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2rem 1.5rem;
+        padding-left: 16px;
+    }
+
+    @@media (min-width: 640px)  { .listen-album-grid { grid-template-columns: repeat(3, 1fr); } }
+    @@media (min-width: 768px)  { .listen-album-grid { grid-template-columns: repeat(4, 1fr); } }
+    @@media (min-width: 1024px) { .listen-album-grid { grid-template-columns: repeat(5, 1fr); } }
+    @@media (min-width: 1280px) { .listen-album-grid { grid-template-columns: repeat(6, 1fr); } }
+
+    /* ── Artist view ── */
+    .listen-artist-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .listen-artist-row {
+        margin-bottom: 1rem;
+    }
+
+    .listen-artist-header {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        padding-left: 16px;
+        margin-bottom: 4px;
+    }
+
+    .listen-artist-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.95);
+        margin: 0;
+    }
+
+    .listen-artist-count {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: rgba(148, 163, 184, 0.55);
+    }
+
+    /* ── Tracks table (All Songs view) ── */
+    .listen-tracks {
+        padding-left: 16px;
+    }
+
+    .listen-tracks-header {
+        display: grid;
+        grid-template-columns: 36px 44px 1fr 1.2fr 60px;
+        align-items: center;
+        gap: 14px;
+        padding: 8px 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: rgba(148, 163, 184, 0.55);
+    }
+
+    .listen-tracks-duration { text-align: right; }
+
+    .listen-tracks-body {
+        display: flex;
+        flex-direction: column;
+        padding-top: 6px;
+    }
+
+    @@media (max-width: 900px) {
+        .listen-tracks-header {
+            grid-template-columns: 28px 40px 1fr 50px;
+            gap: 10px;
+        }
+        .listen-tracks-album {
+            display: none;
+        }
+    }
+
+    .listen-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 3rem 1rem;
+        color: rgba(248, 248, 248, 0.45);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+    }
+</style>

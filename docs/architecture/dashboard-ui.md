@@ -79,6 +79,35 @@ The banner displays metadata badges (year, media type), Series title, and author
 
 ---
 
+## Browse Pages (Read / Watch / Listen)
+
+The three action-grouped browse pages share a common layout recipe but each is tuned to its medium.
+
+**Shared recipe:**
+1. `GlobalBackground` ambient gradient tinted with the page accent.
+2. `CompactHero` spotlight strip at the top (max height ~280 px, scrolls away with the page).
+3. Sub-filter tabs (All / Books / Comics for Read, All / Movies / TV for Watch, All / Music / Audiobooks / Podcasts for Listen).
+4. Contextual filter strip â€” search plus whatever status/view toggles make sense for the medium.
+5. Content sections â€” `PosterSwimlane` rows when unfiltered, `LibraryCard` grid when filtered.
+
+**Per-page accents and inspiration:**
+
+| Page | Route | Accent | Inspiration | Spotlight mode |
+|---|---|---|---|---|
+| Read | `/read` | `#5DCAA5` (green) | Kindle | Portrait (2:3) |
+| Watch | `/watch` | `#60A5FA` (blue) | Netflix / Disney+ | Landscape (16:9) |
+| Listen | `/listen` | `#A78BFA` (purple) | Spotify / Apple Music | Square (1:1) |
+
+**CompactHero** (in `Components/Universe/CompactHero.razor`) is a shared spotlight strip with a `SpotlightMode` enum (`Auto` / `Portrait` / `Landscape` / `Square`) driving the cover aspect ratio. The backdrop is a blurred, vignetted copy of the cover art; the foreground shows cover, eyebrow, title, meta line, optional progress bar, and a pill CTA tinted with the page accent.
+
+**Listen specifics:** the Music view has three display modes â€” **Albums** (swimlanes + grid), **Artists** (accordion of per-artist swimlanes), and **All Songs** (Spotify-style flat list using `TrackRow`). Audiobooks and Podcasts use the album grid only. `TrackRow` (in `Components/Universe/TrackRow.razor`) is a compact grid row `[index] [cover] [title + artist] [album] [duration]` that swaps the index number for a play icon on hover; the album column collapses below 900 px.
+
+**Watch specifics:** Trending / New Movies / TV Shows / top genre swimlanes when unfiltered; filtered grid otherwise. Spotlight falls back to "most recently added title with cover art" because journey data is currently books-only.
+
+**Read specifics:** Currently Reading (from journey) / Recently Added / By Author swimlanes when unfiltered; "Your Library" grid otherwise. Status filter (All / In Progress / Finished) drawn from journey progress.
+
+---
+
 ## Poster Swimlanes
 
 The main content presentation layer: horizontal-scrolling rows of poster-art cards.

@@ -1,0 +1,173 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@* TrackRow — Compact Spotify-style row used by ListenPage "All Songs".
+   Layout: [index] [cover] [title + artist] [album] [duration] [play hover].
+   The Album and Duration columns collapse on narrow viewports. *@
+
+<div class="track-row" @onclick="HandleClick">
+    <div class="track-row-index">
+        <span class="track-row-number">@(Index?.ToString() ?? "\u2022")</span>
+        <MudIcon Icon="@MudBlazor.Icons.Material.Filled.PlayArrow"
+                 Class="track-row-play" Style="font-size: 18px;" />
+    </div>
+
+    <div class="track-row-cover">
+        @if (!string.IsNullOrEmpty(Item.CoverUrl))
+        {
+            <img src="@Item.CoverUrl" alt="@Item.Title" loading="lazy" />
+        }
+        else
+        {
+            <MudIcon Icon="@MudBlazor.Icons.Material.Filled.MusicNote"
+                     Style="font-size: 18px; color: rgba(255,255,255,0.25);" />
+        }
+    </div>
+
+    <div class="track-row-primary">
+        <span class="track-row-title">@Item.Title</span>
+        @if (!string.IsNullOrEmpty(Item.Subtitle))
+        {
+            <span class="track-row-artist">@Item.Subtitle</span>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(Album))
+    {
+        <div class="track-row-album" title="@Album">@Album</div>
+    }
+    else
+    {
+        <div class="track-row-album"></div>
+    }
+
+    <div class="track-row-duration">@(Duration ?? "")</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public PosterItemViewModel Item { get; set; } = default!;
+    [Parameter] public int? Index { get; set; }
+    [Parameter] public string? Album { get; set; }
+    [Parameter] public string? Duration { get; set; }
+    [Parameter] public EventCallback<PosterItemViewModel> OnItemSelected { get; set; }
+
+    private async Task HandleClick() => await OnItemSelected.InvokeAsync(Item);
+}
+
+<style>
+    .track-row {
+        display: grid;
+        grid-template-columns: 36px 44px 1fr 1.2fr 60px;
+        align-items: center;
+        gap: 14px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .track-row:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .track-row-index {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        color: rgba(248, 248, 248, 0.45);
+    }
+
+    .track-row-number {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 500;
+        transition: opacity 0.15s ease;
+    }
+
+    .track-row-play {
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        color: rgba(248, 248, 248, 0.95);
+        opacity: 0;
+        transition: opacity 0.15s ease;
+    }
+
+    .track-row:hover .track-row-number { opacity: 0; }
+    .track-row:hover .track-row-play   { opacity: 1; }
+
+    .track-row-cover {
+        width: 44px;
+        height: 44px;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #0D1230;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .track-row-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .track-row-primary {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .track-row-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.95);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .track-row-artist {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.76rem;
+        font-weight: 400;
+        color: rgba(148, 163, 184, 0.80);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .track-row-album {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 400;
+        color: rgba(148, 163, 184, 0.72);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .track-row-duration {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: rgba(148, 163, 184, 0.70);
+        text-align: right;
+    }
+
+    @@media (max-width: 900px) {
+        .track-row {
+            grid-template-columns: 28px 40px 1fr 50px;
+            gap: 10px;
+        }
+
+        .track-row-album {
+            display: none;
+        }
+    }
+</style>

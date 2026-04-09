@@ -570,6 +570,8 @@ src/MediaEngine.Web/
 ├── Components/
 │   ├── Universe/             ← Universe/Series-related visual components
 │   │   ├── HubHero.razor               Cinematic hero: blurred cover art + vignette + badges
+│   │   ├── CompactHero.razor           Shared spotlight strip (Portrait/Landscape/Square) used by Read/Watch/Listen
+│   │   ├── TrackRow.razor              Spotify-style compact row for Listen's "All Songs" view
 │   │   ├── MetadataChips.razor          Multi-valued fields as MudChip elements
 │   │   ├── PosterCard.razor            Poster art tile: cover, title, badges
 │   │   ├── PosterSwimlane.razor        Horizontal scrolling row of PosterCards
@@ -642,6 +644,9 @@ src/MediaEngine.Web/
 │   └── Pages/                ← Full-page views (routed)
 │       ├── Home.razor                  Personalised dashboard: mixes + system list shortcuts
 │       ├── MediaLanePage.razor         Content-type lanes: /books, /video, /music, etc.
+│       ├── ReadPage.razor              Browse page /read — Kindle-inspired, Portrait spotlight, green accent
+│       ├── WatchPage.razor             Browse page /watch — Netflix-inspired, Landscape spotlight, blue accent
+│       ├── ListenPage.razor            Browse page /listen — Spotify-inspired, Square spotlight, purple accent, TrackRow all-songs view
 │       ├── MyLibrary.razor             Personal space: system lists + playlists + creation
 │       ├── Vault.razor                 Library Vault: unified management (10 tabs)
 │       ├── Settings.razor              Unified settings: 16 screens in 5 groups
