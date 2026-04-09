@@ -184,6 +184,12 @@ public sealed class FileWatcher : IFileWatcher
 
     private void OnChanged(object _, System.IO.FileSystemEventArgs e)
     {
+        // Directory writes (e.g. file added under a folder) fire Changed on the
+        // folder itself — we only ingest files, so skip them here. Without this
+        // guard the lock probe later opens the directory path as a file, fails
+        // 8 retries, and quarantines the folder.
+        if (Directory.Exists(e.FullPath)) return;
+
         RecordOsEvent();
         Raise(new FileEvent
         {
@@ -206,6 +212,10 @@ public sealed class FileWatcher : IFileWatcher
 
     private void OnRenamed(object _, System.IO.RenamedEventArgs e)
     {
+        // Directory renames are not ingestion events. Skip them so the lock
+        // probe doesn't try to open the directory as a file.
+        if (Directory.Exists(e.FullPath)) return;
+
         RecordOsEvent();
         Raise(new FileEvent
         {

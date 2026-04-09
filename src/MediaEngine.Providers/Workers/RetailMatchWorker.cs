@@ -786,10 +786,20 @@ public sealed class RetailMatchWorker
             ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var seasonStr   = representativeHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
             ?? representativeHints.GetValueOrDefault("season");
-        var yearStr     = representativeHints.GetValueOrDefault(MetadataFieldConstants.Year);
-        int? yearHint   = int.TryParse(yearStr, out var parsedYear) && parsedYear > 1900
-            ? parsedYear
-            : null;
+        // Scan ALL jobs in the group for a year claim — any episode-folder year
+        // (e.g. "Shogun (2024)/Season 01/...") is enough to disambiguate the show,
+        // even if the representative job's filename had no year.
+        int? yearHint = null;
+        foreach (var job in groupJobs)
+        {
+            if (!jobHints.TryGetValue(job.EntityId, out var hints)) continue;
+            var candidate = hints.GetValueOrDefault(MetadataFieldConstants.Year);
+            if (int.TryParse(candidate, out var parsedYear) && parsedYear > 1900)
+            {
+                yearHint = parsedYear;
+                break;
+            }
+        }
         var lang        = "en";
         var country     = "US";
 
@@ -1415,10 +1425,30 @@ public sealed class RetailMatchWorker
 
     private static HashSet<string> Tokenize(string text)
     {
-        return [.. text.ToLowerInvariant()
+        return [.. StripDiacritics(text).ToLowerInvariant()
             .Split([' ', ',', '.', '-', ':', ';', '\'', '"', '(', ')', '[', ']'],
                    StringSplitOptions.RemoveEmptyEntries)
             .Where(w => w.Length >= 2)];
+    }
+
+    /// <summary>
+    /// Strips Unicode combining marks so "Shōgun" matches "Shogun" during
+    /// name comparison. Used by Tokenize to avoid losing matches to diacritics
+    /// in TMDB localized titles.
+    /// </summary>
+    private static string StripDiacritics(string text)
+    {
+        var normalized = text.Normalize(System.Text.NormalizationForm.FormD);
+        var sb = new System.Text.StringBuilder(normalized.Length);
+        foreach (var c in normalized)
+        {
+            if (System.Globalization.CharUnicodeInfo.GetUnicodeCategory(c)
+                != System.Globalization.UnicodeCategory.NonSpacingMark)
+            {
+                sb.Append(c);
+            }
+        }
+        return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
     // ── Per-item fallback (Books, Audiobooks, Movies, Comics, Podcasts) ──────

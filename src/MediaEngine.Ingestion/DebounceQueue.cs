@@ -191,6 +191,28 @@ public sealed class DebounceQueue : IDisposable
     /// </summary>
     private async Task ProbeWithBackoffAsync(string key, FileEvent fileEvent, CancellationToken ct)
     {
+        // Fast path: directory events are not ingestable. Drop them silently
+        // instead of running the full retry/backoff loop and quarantining.
+        // The FileWatcher already filters most directory events at the source;
+        // this guard catches anything that slips through (e.g. path that became
+        // a directory between the OS event and probe time).
+        if (Directory.Exists(fileEvent.Path))
+        {
+            CleanupEntry(key);
+            return;
+        }
+
+        // Fast path: file no longer exists at probe time. This happens when
+        // a stale Created/Modified event for a file that was already processed
+        // and moved to staging finally fires its settle timer — the original
+        // path is gone. Drop silently instead of running the full retry/backoff
+        // loop and quarantining a file that was already successfully ingested.
+        if (!File.Exists(fileEvent.Path))
+        {
+            CleanupEntry(key);
+            return;
+        }
+
         for (int attempt = 0; attempt <= _options.MaxProbeAttempts; attempt++)
         {
             if (ct.IsCancellationRequested) return;
@@ -267,6 +289,10 @@ public sealed class DebounceQueue : IDisposable
     /// </summary>
     private static bool IsFileAccessible(string path)
     {
+        // Fast-fail on directories: a stray directory event should not enter the
+        // probe loop at all, but if one slips through, treat it as inaccessible
+        // immediately rather than burning 8 retries before quarantining.
+        if (Directory.Exists(path)) return false;
         if (!File.Exists(path)) return false;
 
         try
