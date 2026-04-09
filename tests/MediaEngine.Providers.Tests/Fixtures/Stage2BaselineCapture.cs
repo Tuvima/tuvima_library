@@ -226,16 +226,17 @@ public sealed class Stage2BaselineCapture : IDisposable
     }
 
     /// <summary>
-    /// Phase 2 parity capture — runs the same fixture set through the
-    /// LIBRARY-BACKED Stage 2 path (HydrationSettings.UseLibraryStage2Resolver = true)
-    /// and writes the outcome to <c>tests/fixtures/stage2-baseline-v2.json</c>.
-    /// Diffing v2 against the v1 baseline is the parity gate for Commit B of
-    /// the adapter slimdown remediation.
+    /// Runs the 12-request fixture set through the current Stage 2 path and
+    /// writes the outcome to <c>tests/fixtures/stage2-baseline-v2.json</c>.
+    /// After Commit F2 of the adapter slimdown remediation, the legacy
+    /// hand-rolled path has been deleted and <c>ResolveBatchAsync</c> is a
+    /// thin pass-through to <c>Tuvima.Wikidata.Stage2Service</c>.
     ///
     /// <para>
     /// Constructs the adapter with a real <see cref="ConfigurationDirectoryLoader"/>
-    /// pointing at <c>{repoRoot}/config</c>, so the feature flag in
-    /// <c>config/hydration.json</c> is what actually drives the dispatch.
+    /// pointing at <c>{repoRoot}/config</c>. Re-run this fixture to re-baseline
+    /// when the library version changes or when Stage 2 behaviour intentionally
+    /// shifts.
     /// </para>
     /// </summary>
     [Fact(Skip = "Phase 2 parity capture — run manually with --filter \"FullyQualifiedName~CaptureStage2BaselineViaLibraryPath\". Requires live Wikidata. Re-run only when re-baselining v2.")]
