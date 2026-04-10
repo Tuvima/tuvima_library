@@ -228,4 +228,149 @@ public sealed class ImagePathService
         if (!string.IsNullOrEmpty(dir))
             Directory.CreateDirectory(dir);
     }
+
+    // ── Per-file image paths (Plex / Jellyfin / ABS conventions) ──────────
+    //
+    // Side-by-side-with-Plex plan §D. Per-work imagery lives next to the
+    // media file, in one of two layouts:
+    //
+    //   • Dedicated folder — the media file is alone in its folder
+    //     (the Plex/Jellyfin convention created by the new templates).
+    //     Artwork uses folder-based names: poster.jpg, fanart.jpg, etc.
+    //
+    //   • Shared folder    — the media file shares its folder with other
+    //     media files (the messy `F:\Mess\bladerunner.mkv` case).
+    //     Artwork uses filename-based names: bladerunner-poster.jpg, etc.
+    //     Both Plex and Jellyfin natively read this format.
+    //
+    // The decision is made per file by scanning the parent directory for
+    // sibling media files. The result is a small value type so callers can
+    // resolve the scope once and pass it to multiple path methods.
+
+    /// <summary>
+    /// Resolves the artwork scope (dedicated vs shared) for a media file's
+    /// parent folder by scanning for sibling media files. Empty or missing
+    /// parent folders default to <see cref="MediaFileArtScope.Dedicated"/>.
+    /// </summary>
+    public static MediaFileArtScope GetMediaFileArtScope(string mediaFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            return MediaFileArtScope.Dedicated;
+
+        var dir = Path.GetDirectoryName(mediaFilePath);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+            return MediaFileArtScope.Dedicated;
+
+        int siblingCount = 0;
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(dir))
+            {
+                if (string.Equals(file, mediaFilePath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (!IsMediaExtension(Path.GetExtension(file))) continue;
+
+                siblingCount++;
+                if (siblingCount > 0) break; // any sibling makes it shared
+            }
+        }
+        catch
+        {
+            // Permissions / IO error — assume dedicated and let callers proceed.
+            return MediaFileArtScope.Dedicated;
+        }
+
+        return siblingCount > 0 ? MediaFileArtScope.Shared : MediaFileArtScope.Dedicated;
+    }
+
+    /// <summary>
+    /// Returns the canonical poster path next to the media file. In a
+    /// dedicated folder this is <c>poster.jpg</c>; in a shared folder this
+    /// is <c>{basename}-poster.jpg</c>. Read by Plex and Jellyfin natively.
+    /// </summary>
+    public static string GetMediaFilePosterPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "poster", ".jpg");
+
+    /// <summary>
+    /// Returns the canonical backdrop / fanart path next to the media file.
+    /// </summary>
+    public static string GetMediaFileFanartPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "fanart", ".jpg");
+
+    /// <summary>
+    /// Returns the canonical clear-logo path next to the media file (PNG
+    /// for transparency, the Plex/Jellyfin convention).
+    /// </summary>
+    public static string GetMediaFileLogoPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "logo", ".png");
+
+    /// <summary>
+    /// Returns the canonical banner path next to the media file.
+    /// </summary>
+    public static string GetMediaFileBannerPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "banner", ".jpg");
+
+    /// <summary>
+    /// Returns the canonical 200px-wide thumbnail path next to the media
+    /// file. Tuvima-specific (other media managers ignore it) — used by
+    /// the Dashboard for fast list rendering.
+    /// </summary>
+    public static string GetMediaFileThumbPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "poster-thumb", ".jpg");
+
+    private static string BuildSiblingPath(string mediaFilePath, string artKind, string extension)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            throw new ArgumentException("Media file path is required.", nameof(mediaFilePath));
+
+        var dir = Path.GetDirectoryName(mediaFilePath) ?? ".";
+        var scope = GetMediaFileArtScope(mediaFilePath);
+
+        if (scope == MediaFileArtScope.Dedicated)
+        {
+            return Path.Combine(dir, artKind + extension);
+        }
+
+        // Shared folder — namespace the artwork by the media file's basename.
+        var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
+        return Path.Combine(dir, $"{basename}-{artKind}{extension}");
+    }
+
+    private static bool IsMediaExtension(string extension)
+    {
+        if (string.IsNullOrEmpty(extension)) return false;
+        // Lowercased single-shot match. Covers the formats CLAUDE.md §3.16
+        // lists as supported library types. Conservative — anything missing
+        // simply means the folder is treated as dedicated, which is safe.
+        return extension.ToLowerInvariant() switch
+        {
+            ".mkv" or ".mp4" or ".m4v" or ".avi" or ".mov" or ".wmv" or ".webm" or ".ts" => true,
+            ".m4b" or ".mp3" or ".flac" or ".m4a" or ".ogg" or ".opus" or ".wav" or ".aac" => true,
+            ".epub" or ".pdf" => true,
+            ".cbz" or ".cbr" or ".cb7" => true,
+            _ => false,
+        };
+    }
+}
+
+/// <summary>
+/// Whether a media file's parent folder is dedicated to that file (Plex
+/// dedicated-folder convention) or shared with sibling media files (the
+/// flat-dump case). Drives the artwork naming scheme used by
+/// <see cref="ImagePathService"/>.
+/// </summary>
+public enum MediaFileArtScope
+{
+    /// <summary>
+    /// The media file is alone in its folder. Artwork uses
+    /// folder-based names (<c>poster.jpg</c>, <c>fanart.jpg</c>).
+    /// </summary>
+    Dedicated,
+
+    /// <summary>
+    /// The media file shares its folder with other media files. Artwork
+    /// uses filename-based names (<c>{basename}-poster.jpg</c>) so it
+    /// doesn't collide across siblings.
+    /// </summary>
+    Shared,
 }

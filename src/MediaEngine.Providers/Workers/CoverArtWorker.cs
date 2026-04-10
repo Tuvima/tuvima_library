@@ -97,24 +97,45 @@ public sealed class CoverArtWorker
             return;
         }
 
-        // Resolve output path
+        // Resolve output path.
+        //
+        // Side-by-side-with-Plex plan §D — prefer the per-file location next
+        // to the media file (Plex/Jellyfin convention) so the same disk path
+        // serves Tuvima, Plex, and Jellyfin without duplication. Fall back to
+        // the legacy QID/asset-id-keyed location under .data/images/ when
+        // the asset has no resolvable file path (e.g. pre-organize states or
+        // entities that aren't backed by a file).
         string coverPath;
         string imageDir;
-        if (_imagePathService is not null)
+
+        // Look up the asset's current file path. The lookup is cheap (single
+        // row by id) and is the gate that decides "per-file" vs "legacy".
+        var assetForPath = await _assetRepo.FindByIdAsync(entityId, ct);
+        var assetFilePath = assetForPath?.FilePathRoot;
+        bool hasFilePath = !string.IsNullOrWhiteSpace(assetFilePath) && File.Exists(assetFilePath);
+
+        if (hasFilePath)
+        {
+            coverPath = ImagePathService.GetMediaFilePosterPath(assetFilePath!);
+            imageDir  = Path.GetDirectoryName(coverPath) ?? ".";
+            ImagePathService.EnsureDirectory(coverPath);
+        }
+        else if (_imagePathService is not null)
         {
             if (!string.IsNullOrEmpty(wikidataQid))
                 _imagePathService.PromoteToQid(entityId, wikidataQid);
 
             coverPath = _imagePathService.GetWorkCoverPath(wikidataQid, entityId);
-            imageDir = _imagePathService.GetWorkImageDir(wikidataQid, entityId);
+            imageDir  = _imagePathService.GetWorkImageDir(wikidataQid, entityId);
             ImagePathService.EnsureDirectory(coverPath);
         }
         else
         {
-            var asset = await _assetRepo.FindByIdAsync(entityId, ct);
-            var fileDir = asset is not null ? Path.GetDirectoryName(asset.FilePathRoot) ?? "." : ".";
+            // Last-ditch fallback: write next to whatever path the asset
+            // exposes, even if the file no longer exists on disk.
+            var fileDir = Path.GetDirectoryName(assetFilePath) ?? ".";
             coverPath = Path.Combine(fileDir, "cover.jpg");
-            imageDir = fileDir;
+            imageDir  = fileDir;
         }
 
         // Skip if cover already exists
@@ -196,8 +217,15 @@ public sealed class CoverArtWorker
         // Generate hero banner
         await GenerateHeroBannerAsync(entityId, coverPath, imageDir, ct);
 
-        // Generate thumbnail
-        if (_imagePathService is not null)
+        // Generate thumbnail. When we wrote the cover next to the media file,
+        // the thumbnail belongs next to it as well so the Dashboard's thumb
+        // route can find it without a separate cache lookup.
+        if (hasFilePath)
+        {
+            var thumbPath = ImagePathService.GetMediaFileThumbPath(assetFilePath!);
+            GenerateThumbnail(coverPath, thumbPath);
+        }
+        else if (_imagePathService is not null)
         {
             var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid, entityId);
             GenerateThumbnail(coverPath, thumbPath);
