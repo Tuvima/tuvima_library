@@ -222,8 +222,10 @@ public sealed class RetailMatchWorker
     }
 
     /// <summary>
-    /// Processes a group of Music jobs (all from the same album) with a single
-    /// Apple API album search + lookup call. Each job receives its per-track claims.
+    /// Processes a group of Music jobs (all from the same album) with a track-first
+    /// strategy: search Apple by the representative track to discover the correct
+    /// collectionId, fetch the full album, then distribute tracks to all queued jobs.
+    /// Falls back to album-name search, then per-track individual search.
     /// </summary>
     private async Task ProcessMusicGroupAsync(
         IReadOnlyList<IdentityJob> groupJobs,
@@ -238,27 +240,43 @@ public sealed class RetailMatchWorker
         var retailAcceptThreshold   = hydrationConfig.RetailAutoAcceptThreshold;
         var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;
 
-        // Use the first job's hints for the album-level search.
         var representativeHints = jobHints[groupJobs[0].EntityId];
         var artist = representativeHints.GetValueOrDefault(MetadataFieldConstants.Artist)
             ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Author);
         var album  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Album);
+        var title  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var country = "us";
         var lang    = "en";
 
-        // Step 1: Search Apple for the album entity to get collectionId.
+        // ── Step 1: Track-first — search by track name to discover the collectionId.
+        // A track search returns the exact track + its collectionId, so even when the
+        // album name is ambiguous (remastered editions, deluxe versions), the track
+        // anchors us to the correct album.
+        string? collectionId = null;
+        var resolvedVia = "track search";
+
         _logger.LogInformation(
-            "Music: searching Apple iTunes for album '{Album}' by '{Artist}' ({TrackCount} queued track(s))",
-            album ?? "(unknown album)", artist ?? "(unknown artist)", groupJobs.Count);
-        var collectionId = await SearchAppleAlbumAsync(artist, album, country, lang, ct);
+            "Music: searching Apple iTunes by track '{Title}' / '{Artist}' ({TrackCount} queued track(s))",
+            title ?? "(unknown)", artist ?? "(unknown artist)", groupJobs.Count);
+        collectionId = await SearchAppleTrackAsync(artist, title, country, lang, ct);
+
+        // ── Step 2: Fall back to album-name search if track search failed.
+        if (collectionId is null && !string.IsNullOrWhiteSpace(album))
+        {
+            _logger.LogInformation(
+                "Music: track search failed — falling back to album search for '{Album}' by '{Artist}'",
+                album, artist ?? "(unknown)");
+            collectionId = await SearchAppleAlbumAsync(artist, album, country, lang, ct);
+            resolvedVia = "album search";
+        }
 
         if (collectionId is null)
         {
             _logger.LogInformation(
-                "Music: no album match for '{Album}' by '{Artist}' on Apple iTunes — falling back to per-track search for {TrackCount} job(s)",
-                album ?? "(no album)", artist ?? "(no artist)", groupJobs.Count);
+                "Music: no match for '{Title}' / '{Album}' by '{Artist}' on Apple iTunes — falling back to per-track individual search for {TrackCount} job(s)",
+                title ?? "(no title)", album ?? "(no album)", artist ?? "(no artist)", groupJobs.Count);
 
-            // Fall back: process each job individually via the standard per-track path.
+            // Last resort: process each job individually via ConfigDrivenAdapter.
             foreach (var job in groupJobs)
             {
                 try { await ProcessJobAsync(job, ct); }
@@ -272,7 +290,7 @@ public sealed class RetailMatchWorker
             return;
         }
 
-        // Step 2: Fetch all tracks for the album via lookup?id={collectionId}&entity=song.
+        // ── Step 3: Fetch all tracks for the album via lookup?id={collectionId}&entity=song.
         var allTracks = await FetchAppleAlbumTracksAsync(collectionId, country, lang, ct);
 
         if (allTracks.Count == 0)
@@ -293,13 +311,13 @@ public sealed class RetailMatchWorker
         }
 
         _logger.LogInformation(
-            "Music: matched album '{Album}' on Apple iTunes (collectionId={CollectionId}, {TrackCount} tracks from API) — distributing to {JobCount} queued track(s)",
-            album ?? "(unknown)", collectionId, allTracks.Count, groupJobs.Count);
+            "Music: resolved album via {Strategy} — collectionId={CollectionId}, {TrackCount} tracks from API — distributing to {JobCount} queued track(s)",
+            resolvedVia, collectionId, allTracks.Count, groupJobs.Count);
 
         var appleProvider = _providers.FirstOrDefault(p =>
             string.Equals(p.Name, "apple_api", StringComparison.OrdinalIgnoreCase));
 
-        // Step 3: For each job, find the best-matching track and apply its claims.
+        // ── Step 4: For each job, find the best-matching track and apply its claims.
         foreach (var job in groupJobs)
         {
             var hints = jobHints[job.EntityId];
@@ -316,6 +334,86 @@ public sealed class RetailMatchWorker
                     job.Id, job.EntityId);
                 await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, ex.Message, ct);
             }
+        }
+    }
+
+    /// <summary>
+    /// Searches Apple iTunes by track name (entity=musicTrack) to discover the
+    /// correct collectionId. Returns the collectionId from the best-matching track,
+    /// or null if no match passes the threshold.
+    /// </summary>
+    private async Task<string?> SearchAppleTrackAsync(
+        string? artist, string? trackTitle, string country, string lang, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(trackTitle))
+            return null;
+
+        var query = Uri.EscapeDataString($"{trackTitle} {artist}".Trim());
+        var url = $"https://itunes.apple.com/search?term={query}&entity=musicTrack&limit=10&country={country}&lang={lang}_{country}";
+
+        await ThrottleItunesAsync(ct);
+
+        try
+        {
+            using var client = _httpFactory.CreateClient("apple_api");
+            var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
+
+            var results = json?["results"]?.AsArray();
+            if (results is null || results.Count == 0)
+                return null;
+
+            double bestScore = 0.0;
+            string? bestCollectionId = null;
+            string? bestTrackName = null;
+
+            foreach (var result in results)
+            {
+                if (result is null) continue;
+
+                var resultTrackName = result["trackName"]?.GetValue<string>();
+                var resultArtist    = result["artistName"]?.GetValue<string>();
+                var resultId        = result["collectionId"]?.GetValue<long?>() is { } id
+                    ? id.ToString()
+                    : null;
+
+                if (string.IsNullOrWhiteSpace(resultTrackName) || resultId is null)
+                    continue;
+
+                // Score by track title + artist name.
+                var titleScore  = ComputeWordOverlap(trackTitle, resultTrackName);
+                var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
+                    ? ComputeWordOverlap(artist, resultArtist)
+                    : 0.0;
+
+                // Combined: track title is primary (0.6), artist is secondary (0.4).
+                var combined = titleScore * 0.6 + artistScore * 0.4;
+                if (combined > bestScore)
+                {
+                    bestScore = combined;
+                    bestCollectionId = resultId;
+                    bestTrackName = resultTrackName;
+                }
+            }
+
+            if (bestScore >= 0.50)
+            {
+                _logger.LogInformation(
+                    "Music: Apple iTunes track search matched '{TrackName}' → collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Title}'",
+                    bestTrackName, bestCollectionId, bestScore, artist ?? "—", trackTitle);
+                return bestCollectionId;
+            }
+
+            _logger.LogInformation(
+                "Music: Apple iTunes track search — best score {Score:F2} below threshold for '{Artist}' / '{Title}'",
+                bestScore, artist ?? "—", trackTitle);
+            return null;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "RetailMatchWorker: Apple track search failed for '{Artist}' / '{Title}'",
+                artist ?? "—", trackTitle ?? "—");
+            return null;
         }
     }
 
