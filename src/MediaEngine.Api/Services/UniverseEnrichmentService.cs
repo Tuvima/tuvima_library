@@ -74,23 +74,13 @@ public sealed class UniverseEnrichmentService : BackgroundService
             _manualTrigger.Reset();
 
             // Reload config each iteration so schedule changes take effect.
-            // Prefer the centralised Schedules["universe_enrichment"] key in maintenance.json;
-            // fall back to the legacy Stage3ScheduleCron in hydration.json for backward compatibility.
             string cron;
             try
             {
                 using var configScope = _scopeFactory.CreateScope();
                 var configLoader = configScope.ServiceProvider.GetRequiredService<IConfigurationLoader>();
                 var maintenance = configLoader.LoadMaintenance();
-                cron = maintenance.Schedules.GetValueOrDefault("universe_enrichment", string.Empty);
-                if (string.IsNullOrWhiteSpace(cron))
-                {
-                    // Legacy fallback: read from hydration.json
-#pragma warning disable CS0618 // Stage3ScheduleCron is intentionally read here for backward compatibility
-                    var hydration = configLoader.LoadHydration();
-                    cron = hydration.Stage3ScheduleCron;
-#pragma warning restore CS0618
-                }
+                cron = maintenance.Schedules.TryGetValue("universe_enrichment", out var s) ? s : "0 3 * * *";
             }
             catch
             {

@@ -1,5 +1,6 @@
 using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
 
@@ -11,19 +12,23 @@ public sealed class TasteProfileBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AiSettings _settings;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<TasteProfileBackgroundService> _logger;
 
     public TasteProfileBackgroundService(
         IServiceScopeFactory scopeFactory,
         AiSettings settings,
+        IConfigurationLoader configLoader,
         ILogger<TasteProfileBackgroundService> logger)
     {
         ArgumentNullException.ThrowIfNull(scopeFactory);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
 
         _scopeFactory = scopeFactory;
         _settings     = settings;
+        _configLoader = configLoader;
         _logger       = logger;
     }
 
@@ -43,9 +48,9 @@ public sealed class TasteProfileBackgroundService : BackgroundService
                 _logger.LogError(ex, "TasteProfileService failed");
             }
 
-            var delay = CronScheduler.UntilNext(
-                _settings.Scheduling.TasteProfileUpdateCron,
-                TimeSpan.FromDays(7));
+            var maintenance = _configLoader.LoadMaintenance();
+            var cron = maintenance.Schedules.TryGetValue("taste_profile_update", out var s) ? s : "0 5 * * 0";
+            var delay = CronScheduler.UntilNext(cron, TimeSpan.FromDays(7));
 
             _logger.LogInformation("TasteProfileService: next run in {Delay}", delay);
             await Task.Delay(delay, stoppingToken);

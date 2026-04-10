@@ -161,8 +161,8 @@ public sealed class HydrationSettings
 
     /// <summary>
     /// Seconds to wait between idle checks before processing Pass 2 items.
-    /// The service checks <c>IHydrationPipelineService.PendingCount</c> on
-    /// this interval and only processes when the count is zero.
+    /// The service queries <c>IIdentityJobRepository.CountActiveAsync</c> on
+    /// this interval and only processes when the active job count is zero.
     /// </summary>
     [JsonPropertyName("pass2_idle_delay_seconds")]
     public int Pass2IdleDelaySeconds { get; set; } = 10;
@@ -173,15 +173,6 @@ public sealed class HydrationSettings
     /// </summary>
     [JsonPropertyName("pass2_rate_limit_ms")]
     public int Pass2RateLimitMs { get; set; } = 2000;
-
-    /// <summary>
-    /// Cron expression for the nightly sweep of stale Pass 2 items.
-    /// Only the hour and minute fields are used (simple parsing).
-    /// Default: <c>"0 2 * * *"</c> (2:00 AM daily).
-    /// </summary>
-    [JsonPropertyName("pass2_nightly_cron")]
-    [System.Obsolete("Use MaintenanceSettings.Schedules[\"pass2_nightly_sweep\"] instead. This property is kept for backward compatibility with existing hydration.json files.")]
-    public string Pass2NightlyCron { get; set; } = "0 2 * * *";
 
     /// <summary>
     /// Hours after which a pending Pass 2 item is considered stale.
@@ -336,14 +327,6 @@ public sealed class HydrationSettings
     /// </summary>
     [JsonPropertyName("stage3_enabled")]
     public bool Stage3Enabled { get; set; } = true;
-
-    /// <summary>
-    /// Cron expression for the Universe Enrichment sweep.
-    /// Default: <c>"0 3 * * *"</c> (3:00 AM daily).
-    /// </summary>
-    [JsonPropertyName("stage3_schedule_cron")]
-    [System.Obsolete("Use MaintenanceSettings.Schedules[\"universe_enrichment\"] instead. This property is kept for backward compatibility with existing hydration.json files.")]
-    public string Stage3ScheduleCron { get; set; } = "0 3 * * *";
 
     /// <summary>
     /// Milliseconds to delay between each work during a Stage 3 sweep.

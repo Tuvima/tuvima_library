@@ -14,9 +14,9 @@ namespace MediaEngine.Providers.Services;
 /// enrichment requests.
 ///
 /// <list type="bullet">
-///   <item><b>Idle detection:</b> checks <see cref="IHydrationPipelineService.PendingCount"/>
-///     every <c>pass2_idle_delay_seconds</c>. Processes only when the ingestion
-///     pipeline is idle (count = 0).</item>
+///   <item><b>Idle detection:</b> queries <see cref="IIdentityJobRepository.CountActiveAsync"/>
+///     every <c>pass2_idle_delay_seconds</c>. Processes only when the identity pipeline
+///     has no active jobs (count = 0), yielding to Pass 1 ingestion.</item>
 ///   <item><b>Rate limiting:</b> delays <c>pass2_rate_limit_ms</c> between each item
 ///     to respect external API rate limits.</item>
 ///   <item><b>Manual trigger:</b> <see cref="TriggerImmediateProcessingAsync"/> bypasses
@@ -36,6 +36,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
 {
     private readonly IDeferredEnrichmentRepository _repo;
     private readonly IHydrationPipelineService _pipeline;
+    private readonly IIdentityJobRepository _jobRepo;
     private readonly IConfigurationLoader _config;
     private readonly IEntityTimelineRepository _timelineRepo;
     private readonly ILogger<DeferredEnrichmentService> _logger;
@@ -52,12 +53,14 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
     public DeferredEnrichmentService(
         IDeferredEnrichmentRepository repo,
         IHydrationPipelineService pipeline,
+        IIdentityJobRepository jobRepo,
         IConfigurationLoader config,
         IEntityTimelineRepository timelineRepo,
         ILogger<DeferredEnrichmentService> logger)
     {
         _repo         = repo         ?? throw new ArgumentNullException(nameof(repo));
         _pipeline     = pipeline     ?? throw new ArgumentNullException(nameof(pipeline));
+        _jobRepo      = jobRepo      ?? throw new ArgumentNullException(nameof(jobRepo));
         _config       = config       ?? throw new ArgumentNullException(nameof(config));
         _timelineRepo = timelineRepo ?? throw new ArgumentNullException(nameof(timelineRepo));
         _logger       = logger       ?? throw new ArgumentNullException(nameof(logger));
@@ -134,7 +137,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
                 }
 
                 // ── Idle check ────────────────────────────────────────────
-                if (_pipeline.PendingCount == 0)
+                if (await _jobRepo.CountActiveAsync(_cts.Token).ConfigureAwait(false) == 0)
                 {
                     var pending = await _repo.CountPendingAsync(_cts.Token).ConfigureAwait(false);
                     if (pending > 0)
@@ -185,7 +188,7 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
             if (ct.IsCancellationRequested) break;
 
             // Pause if Pass 1 work arrived (ingestion takes priority).
-            if (_pipeline.PendingCount > 0 && !_manualTrigger.IsSet)
+            if (await _jobRepo.CountActiveAsync(ct).ConfigureAwait(false) > 0 && !_manualTrigger.IsSet)
             {
                 _logger.LogInformation(
                     "Pass 2 paused — Pass 1 work arrived ({Processed}/{Total} processed)",
@@ -212,22 +215,6 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
 
         _logger.LogInformation("Pass 2 batch complete: {Processed}/{Total} processed",
             processed, batch.Count);
-    }
-
-    /// <summary>
-    /// Re-checks items matched at "work" level for edition-aware media types.
-    /// Retries bridge resolution to see if a Wikidata edition entity has been created.
-    /// Called by the nightly sweep or weekly sync.
-    /// </summary>
-    private async Task RecheckEditionsAsync(CancellationToken ct)
-    {
-        // TODO: Query works WHERE match_level = 'work'
-        //   AND media_type IN (edition_aware_media_types from config)
-        //   AND wikidata_checked_at < DateTimeOffset.UtcNow.AddDays(-recheckInterval)
-        // For each: load bridge IDs, retry ResolveBridgeAsync
-        // If found: update match_level = 'edition', link edition QID
-        _logger.LogDebug("Edition re-check: stub — not yet implemented");
-        await Task.CompletedTask.ConfigureAwait(false);
     }
 
     private async Task ProcessStaleAsync(HydrationSettings settings, CancellationToken ct)
@@ -356,7 +343,11 @@ public sealed class DeferredEnrichmentService : IDeferredEnrichmentService, IAsy
     {
         try
         {
-            var parts = settings.Pass2NightlyCron.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var maintenance = _config.LoadMaintenance();
+            var cronExpr = maintenance.Schedules.TryGetValue("pass2_nightly_sweep", out var s)
+                ? s
+                : "0 2 * * *";
+            var parts = cronExpr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length < 2) return false;
 
             if (!int.TryParse(parts[0], out var minute) || !int.TryParse(parts[1], out var hour))

@@ -265,44 +265,14 @@ public sealed class AiVibeVocabulary
     };
 }
 
-/// <summary>Cron schedules for background AI tasks.</summary>
+/// <summary>Scheduling configuration for background AI tasks.</summary>
 public sealed class AiScheduling
 {
     /// <summary>
-    /// Cron for AI vibe tagging batch.
+    /// Number of hours within which a Whisper bake job may be deferred
+    /// after the scheduled start time. Jobs triggered outside this window
+    /// are skipped until the next scheduled run.
     /// </summary>
-    [JsonPropertyName("vibe_batch_cron")]
-    [System.Obsolete("Use MaintenanceSettings.Schedules[\"vibe_batch\"] instead. This property is kept for backward compatibility with existing ai.json files.")]
-    public string VibeBatchCron { get; set; } = "0 4 * * *";
-
-    /// <summary>
-    /// Cron for AI series alignment check.
-    /// </summary>
-    [JsonPropertyName("series_check_cron")]
-    [System.Obsolete("Use MaintenanceSettings.Schedules[\"series_check\"] instead. This property is kept for backward compatibility with existing ai.json files.")]
-    public string SeriesCheckCron { get; set; } = "0 3 * * *";
-
-    /// <summary>
-    /// Cron for Whisper audio bake.
-    /// </summary>
-    [JsonPropertyName("whisper_bake_cron")]
-    [System.Obsolete("Use MaintenanceSettings.Schedules[\"whisper_bake\"] instead. This property is kept for backward compatibility with existing ai.json files.")]
-    public string WhisperBakeCron { get; set; } = "0 2 * * *";
-
     [JsonPropertyName("whisper_bake_window_hours")]
     public int WhisperBakeWindowHours { get; set; } = 4;
-
-    /// <summary>
-    /// Cron for taste profile update.
-    /// </summary>
-    [JsonPropertyName("taste_profile_update_cron")]
-    [System.Obsolete("Use MaintenanceSettings.Schedules[\"taste_profile_update\"] instead. This property is kept for backward compatibility with existing ai.json files.")]
-    public string TasteProfileUpdateCron { get; set; } = "0 5 * * 0";
-
-    /// <summary>
-    /// Cron for description intelligence batch.
-    /// </summary>
-    [JsonPropertyName("description_intelligence")]
-    [System.Obsolete("Use MaintenanceSettings.Schedules[\"description_intelligence\"] instead. This property is kept for backward compatibility with existing ai.json files.")]
-    public string DescriptionIntelligenceCron { get; set; } = "*/15 * * * *";
 }

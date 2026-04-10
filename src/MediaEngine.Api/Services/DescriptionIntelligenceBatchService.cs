@@ -25,19 +25,23 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AiSettings _settings;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<DescriptionIntelligenceBatchService> _logger;
 
     public DescriptionIntelligenceBatchService(
         IServiceScopeFactory scopeFactory,
         AiSettings settings,
+        IConfigurationLoader configLoader,
         ILogger<DescriptionIntelligenceBatchService> logger)
     {
         ArgumentNullException.ThrowIfNull(scopeFactory);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
 
         _scopeFactory = scopeFactory;
         _settings     = settings;
+        _configLoader = configLoader;
         _logger       = logger;
     }
 
@@ -58,9 +62,9 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                 _logger.LogError(ex, "[DESCRIPTION-INTEL-BATCH] Batch run failed");
             }
 
-            var delay = CronScheduler.UntilNext(
-                _settings.Scheduling.DescriptionIntelligenceCron,
-                TimeSpan.FromMinutes(15));
+            var maintenance = _configLoader.LoadMaintenance();
+            var cron = maintenance.Schedules.TryGetValue("description_intelligence", out var s) ? s : "*/15 * * * *";
+            var delay = CronScheduler.UntilNext(cron, TimeSpan.FromMinutes(15));
 
             _logger.LogInformation("[DESCRIPTION-INTEL-BATCH] Next run in {Delay}", delay);
             await Task.Delay(delay, stoppingToken);

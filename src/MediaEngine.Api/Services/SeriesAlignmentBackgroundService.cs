@@ -2,6 +2,7 @@ using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
 
@@ -14,19 +15,23 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly AiSettings _settings;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<SeriesAlignmentBackgroundService> _logger;
 
     public SeriesAlignmentBackgroundService(
         IServiceScopeFactory scopeFactory,
         AiSettings settings,
+        IConfigurationLoader configLoader,
         ILogger<SeriesAlignmentBackgroundService> logger)
     {
         ArgumentNullException.ThrowIfNull(scopeFactory);
         ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
 
         _scopeFactory = scopeFactory;
         _settings     = settings;
+        _configLoader = configLoader;
         _logger       = logger;
     }
 
@@ -46,9 +51,9 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                 _logger.LogError(ex, "SeriesAlignmentService batch failed");
             }
 
-            var delay = CronScheduler.UntilNext(
-                _settings.Scheduling.SeriesCheckCron,
-                TimeSpan.FromHours(24));
+            var maintenance = _configLoader.LoadMaintenance();
+            var cron = maintenance.Schedules.TryGetValue("series_check", out var s) ? s : "0 3 * * *";
+            var delay = CronScheduler.UntilNext(cron, TimeSpan.FromHours(24));
 
             _logger.LogInformation("SeriesAlignmentService: next run in {Delay}", delay);
             await Task.Delay(delay, stoppingToken);
