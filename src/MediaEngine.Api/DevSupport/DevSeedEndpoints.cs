@@ -1282,8 +1282,12 @@ public static class DevSeedEndpoints
             }
         }
 
+        // Legacy watch folder scan — only if no per-library source paths were scanned.
+        // When source_paths are configured, the legacy scan is redundant (the watch
+        // folder is typically the parent of all source paths) and doubles the event
+        // count, slowing down the pipeline.
         string? watchDir = options.Value.WatchDirectory;
-        if (!string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
+        if (scannedPaths.Count == 0 && !string.IsNullOrWhiteSpace(watchDir) && Directory.Exists(watchDir))
         {
             ingestionEngine.ScanDirectory(watchDir);
             scannedPaths.Add(watchDir);

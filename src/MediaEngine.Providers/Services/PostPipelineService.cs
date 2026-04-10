@@ -93,29 +93,42 @@ public sealed class PostPipelineService
 
         var scored = await _scoringEngine.ScoreEntityAsync(scoringContext, ct);
 
+        // QID-presence boost: a confirmed Wikidata identity is strong evidence
+        // of correct identification. Apply a modest boost (+0.10) to overall
+        // confidence so enriched-but-sparse items (e.g. video stubs with only
+        // title + year) clear the post-hydration organize threshold.
+        double effectiveConfidence = scored.OverallConfidence;
+        if (wikidataQid is not null && effectiveConfidence < 1.0)
+        {
+            effectiveConfidence = Math.Min(1.0, effectiveConfidence + 0.10);
+            _logger.LogDebug(
+                "QID-presence boost for entity {EntityId}: {Raw:F2} → {Boosted:F2} (QID {Qid})",
+                entityId, scored.OverallConfidence, effectiveConfidence, wikidataQid);
+        }
+
         _logger.LogInformation(
             "Post-pipeline confidence for entity {EntityId}: {Confidence:F2}",
-            entityId, scored.OverallConfidence);
+            entityId, effectiveConfidence);
 
         // 2. Low confidence → review
-        if (scored.OverallConfidence < hydration.AutoReviewConfidenceThreshold)
+        if (effectiveConfidence < hydration.AutoReviewConfidenceThreshold)
         {
             _logger.LogInformation(
                 "Entity {EntityId} below confidence threshold ({Confidence:F2} < {Threshold:F2})",
-                entityId, scored.OverallConfidence, hydration.AutoReviewConfidenceThreshold);
+                entityId, effectiveConfidence, hydration.AutoReviewConfidenceThreshold);
             return;
         }
 
         // 3. Auto-resolve stale review items
-        await TryAutoResolveStaleReviewItemsAsync(entityId, scored.OverallConfidence, ct);
-        await TryAutoResolveMetadataConflictsAsync(entityId, scored.OverallConfidence, ct);
+        await TryAutoResolveStaleReviewItemsAsync(entityId, effectiveConfidence, ct);
+        await TryAutoResolveMetadataConflictsAsync(entityId, effectiveConfidence, ct);
 
         // 4. Organization gate
         double organizeThreshold = wikidataQid is not null
             ? hydration.PostHydrationOrganizeThreshold
             : scoring.AutoLinkThreshold;
 
-        if (scored.OverallConfidence >= organizeThreshold)
+        if (effectiveConfidence >= organizeThreshold)
         {
             _logger.LogInformation(
                 "Entity {EntityId} meets organization threshold ({Confidence:F2} >= {Threshold:F2}), promoting",
@@ -144,6 +157,7 @@ public sealed class PostPipelineService
             nameof(ReviewTrigger.LowConfidence),
             nameof(ReviewTrigger.WikidataBridgeFailed),
             nameof(ReviewTrigger.MissingQid),
+            nameof(ReviewTrigger.WritebackFailed),
         };
 
         foreach (var review in pendingReviews)

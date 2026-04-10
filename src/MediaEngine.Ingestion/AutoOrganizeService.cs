@@ -140,11 +140,15 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         var pendingReviews = await _reviewRepo.GetPendingByEntityAsync(assetId, ct)
             .ConfigureAwait(false);
 
-        if (pendingReviews.Any())
+        var blockingReviews = pendingReviews
+            .Where(r => !string.Equals(r.Trigger, nameof(ReviewTrigger.WritebackFailed), StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (blockingReviews.Any())
         {
             _logger.LogInformation(
                 "Auto-organize blocked for {Id}: pending review '{Trigger}' must be resolved first",
-                assetId, pendingReviews[0].Trigger);
+                assetId, blockingReviews[0].Trigger);
             return;
         }
 

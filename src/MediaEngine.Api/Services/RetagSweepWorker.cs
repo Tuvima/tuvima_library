@@ -158,6 +158,15 @@ public sealed class RetagSweepWorker : BackgroundService
                 ct.ThrowIfCancellationRequested();
                 totalProcessed++;
 
+                // Skip files still in staging — writeback is meaningless there
+                // and creates blocking reviews that prevent promotion.
+                if (stale.FilePathRoot?.Contains(".data/staging", StringComparison.OrdinalIgnoreCase) == true
+                    || stale.FilePathRoot?.Contains(".data\\staging", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    _logger.LogDebug("RetagSweepWorker: skipping staged asset {Id} at {Path}", stale.AssetId, stale.FilePathRoot);
+                    continue;
+                }
+
                 try
                 {
                     await _writeBackService.WriteMetadataAsync(stale.AssetId, "config_change", ct);
