@@ -227,6 +227,12 @@ builder.Services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>
 // data_directory override is wired in a later slice of the side-by-side-with-Plex plan.
 builder.Services.AddSingleton<MediaEngine.Domain.Services.TuvimaDataPaths>(
     _ => new MediaEngine.Domain.Services.TuvimaDataPaths(configuredPath: null));
+// Multi-path library resolver — longest-prefix match across all configured
+// SourcePaths so a file arriving from any drive in a multi-path library
+// is attributed to the same logical library. Plan §F.
+builder.Services.AddSingleton<
+    MediaEngine.Ingestion.Contracts.ILibraryFolderResolver,
+    MediaEngine.Ingestion.Services.LibraryFolderResolver>();
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
 builder.Services.AddSingleton<IHubPlacementRepository, HubPlacementRepository>();
 builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.AudioFingerprintRepository>();
@@ -354,18 +360,41 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
     {
         var libraries = configLoader.LoadLibraries();
         opts.LibraryFolders = libraries.Libraries
-            .Where(l => !string.IsNullOrWhiteSpace(l.SourcePath))
-            .Select(l => new MediaEngine.Ingestion.Models.LibraryFolderEntry
+            .Select(l =>
             {
-                SourcePath = l.SourcePath,
-                MediaTypes = l.MediaTypes
-                    .Select(s => ParseMediaTypeFromConfig(s))
-                    .Where(mt => mt != MediaEngine.Domain.Enums.MediaType.Unknown)
-                    .ToList(),
+                // Build effective source path list: prefer the new `source_paths`
+                // array; fall back to legacy `source_path` for backward compat.
+                // Side-by-side-with-Plex plan §F — multi-path libraries.
+                var paths = (l.SourcePaths is { Count: > 0 } ? l.SourcePaths : new List<string>())
+                    .Concat(string.IsNullOrWhiteSpace(l.SourcePath) ? Array.Empty<string>() : new[] { l.SourcePath })
+                    .Where(p => !string.IsNullOrWhiteSpace(p))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                return new MediaEngine.Ingestion.Models.LibraryFolderEntry
+                {
+                    SourcePath  = paths.FirstOrDefault() ?? string.Empty,
+                    SourcePaths = paths,
+                    MediaTypes  = l.MediaTypes
+                        .Select(s => ParseMediaTypeFromConfig(s))
+                        .Where(mt => mt != MediaEngine.Domain.Enums.MediaType.Unknown)
+                        .ToList(),
+                };
             })
-            .Where(e => e.MediaTypes.Count > 0)
+            .Where(e => e.EffectiveSourcePaths.Count > 0 && e.MediaTypes.Count > 0)
             .ToList();
 
+        // Reject overlapping source paths between distinct libraries — loud at
+        // startup is better than silent at first file. Plan §F.
+        try
+        {
+            MediaEngine.Ingestion.Services.LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Console.Error.WriteLine($"[ERROR] config/libraries.json: {ex.Message}");
+            throw;
+        }
     }
     catch
     {
@@ -380,12 +409,22 @@ try
 {
     var libsForSubfolders = configLoader.LoadLibraries();
     var mediaTypeSubfolders = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" };
-    foreach (var lib in libsForSubfolders.Libraries.Where(l => !string.IsNullOrWhiteSpace(l.SourcePath)))
+    foreach (var lib in libsForSubfolders.Libraries)
     {
-        if (Directory.Exists(lib.SourcePath))
+        // Walk both the new source_paths array and the legacy source_path field
+        // so multi-path libraries get subfolders auto-created on every drive.
+        var allPaths = (lib.SourcePaths is { Count: > 0 } ? lib.SourcePaths : new List<string>())
+            .Concat(string.IsNullOrWhiteSpace(lib.SourcePath) ? Array.Empty<string>() : new[] { lib.SourcePath })
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var path in allPaths)
         {
-            foreach (var sub in mediaTypeSubfolders)
-                Directory.CreateDirectory(Path.Combine(lib.SourcePath, sub));
+            if (Directory.Exists(path))
+            {
+                foreach (var sub in mediaTypeSubfolders)
+                    Directory.CreateDirectory(Path.Combine(path, sub));
+            }
         }
     }
 }

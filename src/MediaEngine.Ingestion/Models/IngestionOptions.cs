@@ -11,8 +11,34 @@ namespace MediaEngine.Ingestion.Models;
 /// </summary>
 public sealed class LibraryFolderEntry
 {
-    /// <summary>Source path monitored by this library folder.</summary>
+    /// <summary>
+    /// Legacy single source path monitored by this library folder.
+    /// New code should prefer <see cref="SourcePaths"/> (which includes this path
+    /// as its first element when set). Kept as an <c>init</c> property so existing
+    /// call sites that construct entries with a single path continue to compile.
+    /// </summary>
     public string SourcePath { get; init; } = string.Empty;
+
+    /// <summary>
+    /// All source paths belonging to this logical library. A single library can
+    /// span multiple drives (e.g. <c>D:\Movies</c> and <c>E:\Movies</c> as one
+    /// Movies library), the same way Plex and Jellyfin already allow. Files always
+    /// reorganise in place within whichever source path they already live in —
+    /// Tuvima never moves files across source paths during organise.
+    /// Spec: side-by-side-with-Plex plan §F.
+    /// </summary>
+    public IReadOnlyList<string> SourcePaths { get; init; } = [];
+
+    /// <summary>
+    /// The effective list of source paths. Prefers <see cref="SourcePaths"/>
+    /// when populated; otherwise returns a singleton list derived from the
+    /// legacy <see cref="SourcePath"/> field. Always use this when walking
+    /// a library's paths.
+    /// </summary>
+    public IReadOnlyList<string> EffectiveSourcePaths =>
+        SourcePaths.Count > 0
+            ? SourcePaths
+            : (string.IsNullOrWhiteSpace(SourcePath) ? [] : new[] { SourcePath });
 
     /// <summary>
     /// Media types configured for this library folder (e.g. Epub, Audiobook).

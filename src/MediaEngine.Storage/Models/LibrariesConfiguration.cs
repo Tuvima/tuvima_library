@@ -32,9 +32,24 @@ public sealed class LibraryFolderConfig
     [JsonPropertyName("media_types")]
     public List<string> MediaTypes { get; set; } = [];
 
-    /// <summary>Absolute path of the folder monitored or imported by the Engine.</summary>
+    /// <summary>
+    /// Absolute path of the folder monitored or imported by the Engine.
+    /// Legacy single-path form. New installs should prefer <see cref="SourcePaths"/>.
+    /// When both are present, <see cref="SourcePaths"/> wins and this field is ignored.
+    /// </summary>
     [JsonPropertyName("source_path")]
     public string SourcePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Absolute paths of all folders that belong to this logical library.
+    /// Multi-path libraries let a single library span several drives
+    /// (e.g. <c>D:\Movies</c> and <c>E:\Movies</c> as one Movies library),
+    /// the same way Plex and Jellyfin allow. When null or empty, the loader
+    /// falls back to <see cref="SourcePath"/> for backward compatibility.
+    /// Spec: side-by-side-with-Plex plan §F.
+    /// </summary>
+    [JsonPropertyName("source_paths")]
+    public List<string>? SourcePaths { get; set; }
 
     /// <summary>Absolute path of the organised library destination.</summary>
     [JsonPropertyName("library_root")]
