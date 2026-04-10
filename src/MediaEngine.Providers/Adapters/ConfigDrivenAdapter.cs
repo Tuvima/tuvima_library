@@ -883,7 +883,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             ? request.ShowName
             : request.Title;
         var searchTitle = CleanTitleForSearch(rawTitle) ?? rawTitle;
-        var yearFromTitle = ExtractYearFromTitle(request.Title);
+        var yearFromTitle = ExtractYearFromTitle(request.Title)
+            ?? request.Hints?.GetValueOrDefault("year");
 
         // Build {query} placeholder from query_template if specified.
         var query = string.Empty;
@@ -1050,12 +1051,30 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             {
                 if (node is null) continue;
 
-                var nodeTitle  = ExtractFirstString(node, titlePaths);
+                // Try ALL title paths and keep the best score. This handles
+                // providers like Metron where "issue" (e.g. "Saga (2012) #1")
+                // scores lower than "series.name" (e.g. "Saga") against the
+                // query title "Saga Chapter One".
+                var bestTitleScore = 0.0;
+                string? bestNodeTitle = null;
+                foreach (var tp in titlePaths)
+                {
+                    var val = JsonPathEvaluator.Evaluate(node, tp);
+                    if (val is null) continue;
+                    var s = JsonPathEvaluator.GetStringValue(val);
+                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    var score = ComputeWordOverlap(cleanedQueryTitle, s);
+                    if (score > bestTitleScore)
+                    {
+                        bestTitleScore = score;
+                        bestNodeTitle = s;
+                    }
+                }
                 var nodeAuthor = ExtractFirstString(node, authorPaths);
 
-                if (string.IsNullOrWhiteSpace(nodeTitle)) continue;
+                if (string.IsNullOrWhiteSpace(bestNodeTitle)) continue;
 
-                var titleScore  = ComputeWordOverlap(cleanedQueryTitle, nodeTitle);
+                var titleScore  = bestTitleScore;
                 var authorScore = !string.IsNullOrWhiteSpace(queryAuthor) && !string.IsNullOrWhiteSpace(nodeAuthor)
                     ? ComputeWordOverlap(queryAuthor, nodeAuthor)
                     : 0.0;
@@ -1522,9 +1541,17 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         if (direct is not null)
             return direct;
 
-        return request.PriorProviderBridgeIds?.TryGetValue(fieldName.ToLowerInvariant(), out var bridgeValue) == true
-            ? bridgeValue
-            : null;
+        if (request.PriorProviderBridgeIds?.TryGetValue(fieldName.ToLowerInvariant(), out var bridgeValue) == true)
+            return bridgeValue;
+
+        // Fall back to the hints dictionary for any remaining fields (year,
+        // series_position, etc.) so config-driven URL templates can reference
+        // arbitrary claim keys without code changes.
+        if (request.Hints?.TryGetValue(fieldName.ToLowerInvariant(), out var hintValue) == true
+            && !string.IsNullOrWhiteSpace(hintValue))
+            return hintValue;
+
+        return null;
     }
 
     // ── Media type filtering ────────────────────────────────────────────────

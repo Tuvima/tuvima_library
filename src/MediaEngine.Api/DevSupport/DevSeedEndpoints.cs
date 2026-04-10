@@ -1,4 +1,5 @@
 using System.Text;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -787,6 +788,9 @@ public static class DevSeedEndpoints
 
         group.MapPost("/full-test", FullTestAsync)
             .WithSummary("Wipe everything → seed test files → return per-type summary (?types= to filter; ?wipe=false to skip wipe and add files to existing DB)");
+
+        group.MapGet("/pipeline-status", PipelineStatusAsync)
+            .WithSummary("Show identity job counts by state + details of non-Completed jobs");
     }
 
     // ── GET /dev/check-keys ─────────────────────────────────────────────────
@@ -1651,5 +1655,54 @@ public static class DevSeedEndpoints
                 ExpectedCoverArt: c.ExpectedCoverArt));
 
         return result;
+    }
+
+    // ── GET /dev/pipeline-status ────────────────────────────────────────────
+
+    private static async Task<IResult> PipelineStatusAsync(
+        IIdentityJobRepository jobRepo,
+        ILogger<Program> logger,
+        CancellationToken ct)
+    {
+        var allStates = Enum.GetValues<IdentityJobState>();
+        var counts = new Dictionary<string, int>();
+        var nonTerminalDetails = new List<object>();
+
+        foreach (var state in allStates)
+        {
+            var jobs = await jobRepo.GetByStateAsync(state, 500, ct);
+            counts[state.ToString()] = jobs.Count;
+
+            // Show details for non-terminal states (not Completed)
+            if (state != IdentityJobState.Completed && jobs.Count > 0)
+            {
+                foreach (var job in jobs)
+                {
+                    nonTerminalDetails.Add(new
+                    {
+                        job.Id,
+                        job.EntityId,
+                        State = job.State,
+                        job.AttemptCount,
+                        job.LastError,
+                        job.LeaseOwner,
+                        job.LeaseExpiresAt,
+                        job.ResolvedQid,
+                        job.UpdatedAt
+                    });
+                }
+            }
+        }
+
+        var total = counts.Values.Sum();
+        logger.LogInformation("[PipelineStatus] {Total} total jobs: {Counts}",
+            total, string.Join(", ", counts.Where(c => c.Value > 0).Select(c => $"{c.Key}={c.Value}")));
+
+        return Results.Ok(new
+        {
+            total,
+            counts,
+            non_terminal_details = nonTerminalDetails
+        });
     }
 }

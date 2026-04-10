@@ -66,37 +66,59 @@
       "media_types": ["Comics"]
     },
     {
-      "name": "issue_by_series",
+      "name": "issue_by_series_year_number",
       "priority": 1,
+      "required_fields": ["series", "year", "series_position"],
+      "url_template": "{base_url}/issue/?series_name={series}&series_year_began={year}&number={series_position}&limit={limit}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "fetch_limit": 25,
+      "max_results": 25
+    },
+    {
+      "name": "issue_by_series_year",
+      "priority": 2,
+      "required_fields": ["series", "year"],
+      "url_template": "{base_url}/issue/?series_name={series}&series_year_began={year}&limit={limit}",
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "fetch_limit": 25,
+      "max_results": 25
+    },
+    {
+      "name": "issue_by_series",
+      "priority": 3,
       "required_fields": ["series"],
       "url_template": "{base_url}/issue/?series_name={series}&limit={limit}",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,
-      "fetch_limit": 5,
-      "max_results": 10
+      "fetch_limit": 50,
+      "max_results": 50
     },
     {
       "name": "issue_by_title",
-      "priority": 2,
+      "priority": 4,
       "required_fields": ["title"],
       "url_template": "{base_url}/issue/?series_name={title}&limit={limit}",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,
-      "fetch_limit": 5,
-      "max_results": 10
+      "fetch_limit": 50,
+      "max_results": 50
     },
     {
       "name": "series_search",
-      "priority": 3,
+      "priority": 5,
       "required_fields": ["title"],
       "url_template": "{base_url}/series/?name={title}&limit={limit}",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,
-      "fetch_limit": 5,
-      "max_results": 10
+      "fetch_limit": 25,
+      "max_results": 25
     }
   ],
 
