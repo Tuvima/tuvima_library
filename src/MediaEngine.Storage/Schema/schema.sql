@@ -141,7 +141,21 @@ CREATE TABLE IF NOT EXISTS media_assets (
     content_hash   TEXT NOT NULL UNIQUE,       -- reconciliation key; SHA-256 hex, lowercase
     file_path_root TEXT NOT NULL,              -- FS path, no BLOBs
     status         TEXT NOT NULL DEFAULT 'Normal'
-                       CHECK (status IN ('Normal', 'Conflicted', 'Orphaned'))
+                       CHECK (status IN ('Normal', 'Conflicted', 'Orphaned')),
+
+    -- ── Auto re-tag sweep state (M-084) ──────────────────────────────
+    -- writeback_fields_hash: SHA-256 of (writeback-fields.json slice for
+    -- this asset's media type) + tagger version constant. NULL when the
+    -- asset has never been re-tagged through the sweep.
+    writeback_fields_hash    TEXT,
+    -- writeback_status: 'ok' | 'pending' | 'retry' | 'failed'. NULL until
+    -- the sweep first touches the asset.
+    writeback_status         TEXT,
+    writeback_last_error     TEXT,
+    writeback_attempts       INTEGER NOT NULL DEFAULT 0,
+    -- writeback_next_retry_at: unix epoch seconds — used by the sweep
+    -- worker to skip rows whose retry window hasn't opened yet.
+    writeback_next_retry_at  INTEGER
 );
 
 

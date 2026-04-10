@@ -430,6 +430,7 @@ builder.Services.AddSingleton<IMetadataTagger, EpubMetadataTagger>();
 builder.Services.AddSingleton<IMetadataTagger, AudioMetadataTagger>();
 builder.Services.AddSingleton<IMetadataTagger, VideoMetadataTagger>();
 builder.Services.AddSingleton<IMetadataTagger, ComicMetadataTagger>();
+builder.Services.AddSingleton<MediaEngine.Ingestion.Services.WritebackConfigState>();
 builder.Services.AddSingleton<IWriteBackService, MediaEngine.Ingestion.Services.WriteBackService>();
 builder.Services.AddSingleton<IBackgroundWorker, BackgroundWorker>();
 
@@ -737,6 +738,7 @@ builder.Services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>()
 builder.Services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
 builder.Services.AddHostedService<ActivityPruningService>();
 builder.Services.AddHostedService<RejectedFileCleanupService>();
+builder.Services.AddHostedService<RetagSweepWorker>();
 builder.Services.AddHostedService<MissingUniverseSweepService>();
 builder.Services.AddHostedService<HydrationStartupSweepService>();
 builder.Services.AddHostedService<EditionRecheckService>();
@@ -884,6 +886,7 @@ if (app.Environment.IsDevelopment())
 // ── Endpoint registration ─────────────────────────────────────────────────────
 app.MapHub<CommunicationHub>(SignalREvents.HubPath);
 app.MapSystemEndpoints();
+app.MapMaintenanceEndpoints();
 app.MapAdminEndpoints();
 app.MapHubEndpoints();
 app.MapLibraryEndpoints();

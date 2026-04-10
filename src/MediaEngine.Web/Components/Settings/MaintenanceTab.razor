@@ -1,7 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
+@implements IDisposable
 
 @* Maintenance — Housekeeping tools: library reconciliation, crawl, and weekly sync.
    Activity timeline and retention policy have moved to the dedicated Activity tab
@@ -81,6 +84,91 @@
         </MudStack>
     </MudPaper>
 
+    @* ── Section 3: Auto Re-tag Sweep ───────────────────────────────────── *@
+
+    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Outlined.LabelImportant"
+                     Color="Color.Default" Class="mr-2" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                Auto Re-tag Sweep
+            </MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Walks every matched file and re-applies metadata whenever
+            <code>writeback-fields.json</code> changes or a tagger version is bumped.
+            Locked files are retried in the next off-hours window; permanent
+            failures are routed to the Action Center.
+        </MudText>
+
+        @if (_retagState is { HasPendingDiff: true, PendingDiff.Count: > 0 })
+        {
+            <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Class="mb-3" Dense="true">
+                <MudText Typo="Typo.body2" Style="font-weight: 600;">
+                    A change to <code>writeback-fields.json</code> is waiting for you to Apply.
+                </MudText>
+                <MudText Typo="Typo.caption">
+                    Click Apply to re-tag every file affected by the change below.
+                    Nothing will touch the library until you do.
+                </MudText>
+            </MudAlert>
+
+            <MudStack Spacing="1" Class="mb-3">
+                @foreach (var d in _retagState.PendingDiff)
+                {
+                    <div style="border-left: 2px solid var(--app-accent); padding-left: 12px;">
+                        <MudText Typo="Typo.body2" Style="font-weight: 600;">@d.MediaType</MudText>
+                        @if (d.AddedFields.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption" Style="color: #7cb342;">
+                                + @string.Join(", ", d.AddedFields)
+                            </MudText>
+                        }
+                        @if (d.RemovedFields.Count > 0)
+                        {
+                            <MudText Typo="Typo.caption" Style="color: #e57373;">
+                                − @string.Join(", ", d.RemovedFields)
+                            </MudText>
+                        }
+                    </div>
+                }
+            </MudStack>
+        }
+
+        @if (_retagRunning && _retagProgress is not null)
+        {
+            <MudStack Spacing="1" Class="mb-3">
+                <MudProgressLinear Indeterminate="@(!_retagProgress.IsFinal)"
+                                   Color="Color.Primary"
+                                   Value="@(_retagProgress.IsFinal ? 100 : 0)" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Processed @_retagProgress.Processed ·
+                    @_retagProgress.Succeeded written ·
+                    @_retagProgress.Transient retrying ·
+                    @_retagProgress.Terminal failed
+                </MudText>
+            </MudStack>
+        }
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                  Class="maintenance-action-row">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Check"
+                       OnClick="@ApplyRetagPendingAsync"
+                       Disabled="@(_retagBusy || _retagState?.HasPendingDiff != true)">
+                Apply
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Default"
+                       StartIcon="@Icons.Material.Filled.PlayArrow"
+                       OnClick="@RunRetagNowAsync"
+                       Disabled="@_retagBusy">
+                Run Now
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
     @* ── Section 4: Library Crawl (stub) ────────────────────────────────── *@
 
     <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
@@ -130,11 +218,89 @@
     private Pass2StatusDto? _pass2Status;
     private bool _pass2Loading;
 
+    private RetagSweepStateDto? _retagState;
+    private RetagSweepProgressDto? _retagProgress;
+    private bool _retagBusy;
+    private bool _retagRunning;
+
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
     {
         _pass2Status = await Orchestrator.GetPass2StatusAsync();
+        _retagState  = await Orchestrator.GetRetagSweepStateAsync();
+
+        Orchestrator.OnRetagSweepProgress  += HandleRetagProgress;
+        Orchestrator.OnRetagSweepCompleted += HandleRetagCompleted;
+    }
+
+    public void Dispose()
+    {
+        Orchestrator.OnRetagSweepProgress  -= HandleRetagProgress;
+        Orchestrator.OnRetagSweepCompleted -= HandleRetagCompleted;
+    }
+
+    private void HandleRetagProgress(RetagSweepProgressDto ev)
+    {
+        _retagProgress = ev;
+        _retagRunning  = !ev.IsFinal;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async void HandleRetagCompleted(RetagSweepProgressDto ev)
+    {
+        _retagProgress = ev;
+        _retagRunning  = false;
+        // Refresh the pending diff — after a successful pass the hashes are current.
+        _retagState = await Orchestrator.GetRetagSweepStateAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    // ── Retag Sweep Actions ──────────────────────────────────────────────────────
+
+    private async Task ApplyRetagPendingAsync()
+    {
+        _retagBusy = true;
+        try
+        {
+            var ok = await Orchestrator.ApplyRetagSweepPendingAsync();
+            if (ok)
+            {
+                _retagRunning = true;
+                Snackbar.Add("Applied — the re-tag sweep is starting.", Severity.Success);
+                _retagState = await Orchestrator.GetRetagSweepStateAsync();
+            }
+            else
+            {
+                Snackbar.Add("Apply failed — see Engine logs.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _retagBusy = false;
+        }
+    }
+
+    private async Task RunRetagNowAsync()
+    {
+        _retagBusy = true;
+        try
+        {
+            var ok = await Orchestrator.RunRetagSweepNowAsync();
+            if (ok)
+            {
+                _retagRunning = true;
+                Snackbar.Add("Re-tag sweep triggered.", Severity.Info);
+            }
+            else
+            {
+                Snackbar.Add("Could not trigger the sweep.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _retagBusy = false;
+        }
     }
 
     // ── Actions ──────────────────────────────────────────────────────────────────

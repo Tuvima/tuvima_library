@@ -98,6 +98,20 @@ public interface IEngineApiClient
     /// <summary>POST /metadata/pass2/trigger — trigger immediate Pass 2 (Universe Lookup) processing.</summary>
     Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default);
 
+    // ── Retag Sweep (auto re-tag) ─────────────────────────────────────────────
+
+    /// <summary>GET /maintenance/retag-sweep/state — returns the pending diff + current hashes.</summary>
+    Task<RetagSweepStateDto?> GetRetagSweepStateAsync(CancellationToken ct = default);
+
+    /// <summary>POST /maintenance/retag-sweep/apply — commits the staged pending diff.</summary>
+    Task<bool> ApplyRetagSweepPendingAsync(CancellationToken ct = default);
+
+    /// <summary>POST /maintenance/retag-sweep/run-now — wakes the sweep worker immediately.</summary>
+    Task<bool> RunRetagSweepNowAsync(CancellationToken ct = default);
+
+    /// <summary>POST /maintenance/retag-sweep/retry/{assetId} — re-queues a single terminal-failed asset.</summary>
+    Task<bool> RetryRetagForAssetAsync(Guid assetId, CancellationToken ct = default);
+
     // ── QID Label Resolution (/metadata/labels) ────────────────────────────────
 
     /// <summary>POST /metadata/labels/resolve — batch-resolve QIDs to display labels.</summary>

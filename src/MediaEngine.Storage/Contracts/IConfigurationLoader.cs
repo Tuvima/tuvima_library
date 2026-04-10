@@ -21,6 +21,14 @@ namespace MediaEngine.Storage.Contracts;
 /// </summary>
 public interface IConfigurationLoader
 {
+    /// <summary>
+    /// Absolute path to the configuration directory. Exposed so services that
+    /// need to watch individual config files (e.g. <c>WritebackConfigState</c>
+    /// for <c>writeback-fields.json</c>) can attach a <see cref="System.IO.FileSystemWatcher"/>
+    /// without duplicating the resolution logic.
+    /// </summary>
+    string ConfigDirectoryPath => string.Empty;
+
     // ── Core ─────────────────────────────────────────────────────────────────
 
     /// <summary>Load core settings (paths, schema version, organisation template).</summary>

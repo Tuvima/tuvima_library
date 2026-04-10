@@ -434,6 +434,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Fires when the active profile is updated (display name or avatar colour).</summary>
     public event Action? OnProfileChanged;
 
+    /// <summary>Fires on every re-tag sweep progress tick broadcast by the Engine.</summary>
+    public event Action<RetagSweepProgressDto>? OnRetagSweepProgress;
+
+    /// <summary>Fires once per sweep pass after the final progress event.</summary>
+    public event Action<RetagSweepProgressDto>? OnRetagSweepCompleted;
+
     // ── Metadata Override ────────────────────────────────────────────────
 
     /// <summary>Overrides metadata fields for an entity and invalidates the hub cache.</summary>
@@ -466,6 +472,24 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Triggers immediate Pass 2 (Universe Lookup) processing for all pending items.</summary>
     public Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default)
         => _api.TriggerPass2NowAsync(ct);
+
+    // ── Retag Sweep (auto re-tag) ───────────────────────────────────────────
+
+    /// <summary>Returns the current re-tag sweep state (pending diff + hashes).</summary>
+    public Task<RetagSweepStateDto?> GetRetagSweepStateAsync(CancellationToken ct = default)
+        => _api.GetRetagSweepStateAsync(ct);
+
+    /// <summary>Commits the staged pending diff so the sweep worker picks it up.</summary>
+    public Task<bool> ApplyRetagSweepPendingAsync(CancellationToken ct = default)
+        => _api.ApplyRetagSweepPendingAsync(ct);
+
+    /// <summary>Wakes the sweep worker immediately for an out-of-band pass.</summary>
+    public Task<bool> RunRetagSweepNowAsync(CancellationToken ct = default)
+        => _api.RunRetagSweepNowAsync(ct);
+
+    /// <summary>Re-queues a single asset after terminal writeback failure.</summary>
+    public Task<bool> RetryRetagForAssetAsync(Guid assetId, CancellationToken ct = default)
+        => _api.RetryRetagForAssetAsync(assetId, ct);
 
     // ── Provider slots ──────────────────────────────────────────────────────
 
@@ -854,6 +878,25 @@ public sealed class UIOrchestratorService : IAsyncDisposable
                 "Intercom ← BatchProgress: {Done}/{Total} ({Pct}%) ~{Eta}s remaining",
                 ev.FilesProcessed, ev.FilesTotal, ev.ProgressPercent, ev.EstimatedSecondsRemaining);
             _state.PushBatchProgress(ev);
+        });
+
+        // ── "RetagSweepProgress" ─────────────────────────────────────────────
+        // Periodic progress tick while the auto re-tag sweep is running.
+        _hubConnection.On<RetagSweepProgressDto>(SignalREvents.RetagSweepProgress, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← RetagSweepProgress: {Processed} processed ({Ok} ok, {Retry} retry, {Fail} failed){Final}",
+                ev.Processed, ev.Succeeded, ev.Transient, ev.Terminal, ev.IsFinal ? " [final]" : string.Empty);
+            OnRetagSweepProgress?.Invoke(ev);
+        });
+
+        // ── "RetagSweepCompleted" ────────────────────────────────────────────
+        _hubConnection.On<RetagSweepProgressDto>(SignalREvents.RetagSweepCompleted, ev =>
+        {
+            _logger.LogInformation(
+                "Intercom ← RetagSweepCompleted: {Processed} processed, {Ok} ok, {Retry} retry, {Fail} failed",
+                ev.Processed, ev.Succeeded, ev.Transient, ev.Terminal);
+            OnRetagSweepCompleted?.Invoke(ev);
         });
 
         // ── "MetadataHarvested" ───────────────────────────────────────────────

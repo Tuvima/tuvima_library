@@ -24,6 +24,7 @@ public sealed class WriteBackService : IWriteBackService
     private readonly IConfigurationLoader          _configLoader;
     private readonly IEnumerable<IMetadataTagger>  _taggers;
     private readonly ISystemActivityRepository     _activityRepo;
+    private readonly WritebackConfigState?         _hashState;
     private readonly ILogger<WriteBackService>     _logger;
 
     public WriteBackService(
@@ -33,7 +34,8 @@ public sealed class WriteBackService : IWriteBackService
         IConfigurationLoader          configLoader,
         IEnumerable<IMetadataTagger>  taggers,
         ISystemActivityRepository     activityRepo,
-        ILogger<WriteBackService>     logger)
+        ILogger<WriteBackService>     logger,
+        WritebackConfigState?         hashState = null)
     {
         _assetRepo     = assetRepo;
         _canonicalRepo = canonicalRepo;
@@ -41,6 +43,7 @@ public sealed class WriteBackService : IWriteBackService
         _configLoader  = configLoader;
         _taggers       = taggers;
         _activityRepo  = activityRepo;
+        _hashState     = hashState;
         _logger        = logger;
     }
 
@@ -57,12 +60,15 @@ public sealed class WriteBackService : IWriteBackService
             return;
         }
 
-        // Check trigger-specific flags.
+        // Check trigger-specific flags. The "config_change" trigger is the
+        // auto re-tag sweep — defaults to enabled (mirrors WriteOnAutoMatch)
+        // because the user has just edited writeback-fields.json and clicked Apply.
         var allowed = trigger switch
         {
             "auto_match"           => config.WriteOnAutoMatch,
             "manual_override"      => config.WriteOnManualOverride,
             "universe_enrichment"  => config.WriteOnUniverseEnrichment,
+            "config_change"        => config.WriteOnAutoMatch,
             _                      => config.Enabled,
         };
 
@@ -165,6 +171,19 @@ public sealed class WriteBackService : IWriteBackService
             _logger.LogInformation("WriteBack: wrote {Count} fields to {Path} (trigger: {Trigger})",
                 tags.Count, asset.FilePathRoot, trigger);
 
+            // Stamp the per-media-type writeback hash so the auto re-tag sweep
+            // skips this asset on the next pass. The 30-day refresh path also
+            // funnels through here, which is how it stays in sync without a
+            // separate touchpoint.
+            if (_hashState is not null && !string.IsNullOrEmpty(mediaType))
+            {
+                var hash = _hashState.ComputeHashFor(mediaType);
+                if (!string.IsNullOrEmpty(hash))
+                {
+                    await _assetRepo.UpdateWritebackHashAsync(assetId, hash, ct);
+                }
+            }
+
             // Log to activity ledger.
             await _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
             {
@@ -173,6 +192,15 @@ public sealed class WriteBackService : IWriteBackService
                 Detail     = $"Write-back ({trigger}): {tags.Count} field(s) written to {Path.GetFileName(asset.FilePathRoot)}.",
                 IngestionRunId = ingestionRunId,
             }, ct);
+        }
+        catch (Exception ex) when (trigger == "config_change")
+        {
+            // For sweep-driven writes, the caller (RetagSweepWorker) is
+            // responsible for failure classification and retry routing.
+            // Re-throw so the worker sees the original exception.
+            _logger.LogWarning(ex, "WriteBack: sweep failed for {Path} — caller will classify",
+                asset.FilePathRoot);
+            throw;
         }
         catch (Exception ex)
         {

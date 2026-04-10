@@ -324,6 +324,14 @@ public sealed class MaintenanceSettings
     public int EditionRecheckIntervalDays { get; set; } = 7;
 
     /// <summary>
+    /// Auto re-tag sweep parameters. The sweep walks media_assets whose
+    /// per-media-type writeback hash differs from the current expected hash
+    /// and re-writes their tags during the configured off-hours window.
+    /// </summary>
+    [JsonPropertyName("retag_sweep")]
+    public RetagSweepSettings RetagSweep { get; set; } = new();
+
+    /// <summary>
     /// Cron expressions for all background services. Keys are service names,
     /// values are standard 5-field cron expressions. Centralised here so all
     /// schedules are visible and tuneable in one place.
@@ -360,7 +368,45 @@ public sealed class MaintenanceSettings
         ["whisper_bake"]             = "0 2 * * *",
         ["taste_profile_update"]     = "0 5 * * 0",
         ["description_intelligence"] = "*/15 * * * *",
+        ["retag_sweep"]              = "0 3 * * *",
     };
+}
+
+/// <summary>
+/// Auto re-tag sweep parameters. The sweep walks media_assets whose
+/// per-media-type writeback hash differs from the current expected hash
+/// and re-writes their tags during the configured off-hours window.
+/// Locked files are scheduled for retry; corrupt or exhausted files are
+/// routed to the Action Center as <see cref="MediaEngine.Domain.Enums.ReviewTrigger.WritebackFailed"/>.
+/// </summary>
+public sealed class RetagSweepSettings
+{
+    /// <summary>Master switch for the sweep. When false, the worker idles.</summary>
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Local-time start of the off-hours retry window (HH:mm).</summary>
+    [JsonPropertyName("off_hours_start")]
+    public string OffHoursStart { get; set; } = "02:00";
+
+    /// <summary>Local-time end of the off-hours retry window (HH:mm).</summary>
+    [JsonPropertyName("off_hours_end")]
+    public string OffHoursEnd { get; set; } = "06:00";
+
+    /// <summary>
+    /// Maximum number of times a single asset will be retried before being
+    /// promoted to a permanent <c>WritebackFailed</c> review item.
+    /// </summary>
+    [JsonPropertyName("max_retry_attempts")]
+    public int MaxRetryAttempts { get; set; } = 3;
+
+    /// <summary>Number of stale assets to lease per worker tick.</summary>
+    [JsonPropertyName("batch_size")]
+    public int BatchSize { get; set; } = 50;
+
+    /// <summary>Milliseconds to pause between writes within a batch.</summary>
+    [JsonPropertyName("batch_delay_ms")]
+    public int BatchDelayMs { get; set; } = 200;
 }
 
 /// <summary>

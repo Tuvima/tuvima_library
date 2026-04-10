@@ -2,5 +2,13 @@
   "activity_retention_days": 60,
   "vacuum_interval_hours": 168,
   "sync_interval_hours": 24,
-  "edition_recheck_interval_days": 7
+  "edition_recheck_interval_days": 7,
+  "retag_sweep": {
+    "enabled": true,
+    "off_hours_start": "02:00",
+    "off_hours_end": "06:00",
+    "max_retry_attempts": 3,
+    "batch_size": 50,
+    "batch_delay_ms": 200
+  }
 }

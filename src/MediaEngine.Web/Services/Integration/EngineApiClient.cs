@@ -2027,6 +2027,99 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── Retag Sweep (Auto re-tag) ─────────────────────────────────────────────
+
+    public async Task<RetagSweepStateDto?> GetRetagSweepStateAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.GetAsync("/maintenance/retag-sweep/state", ct);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            using var stream = await resp.Content.ReadAsStreamAsync(ct);
+            using var doc    = await System.Text.Json.JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var root = doc.RootElement;
+
+            var hasPending = root.TryGetProperty("has_pending_diff", out var hpd) && hpd.GetBoolean();
+
+            var diffList = new List<RetagFieldDiffDto>();
+            if (root.TryGetProperty("pending_diff", out var pd) && pd.ValueKind == System.Text.Json.JsonValueKind.Array)
+            {
+                foreach (var item in pd.EnumerateArray())
+                {
+                    var mt = item.GetProperty("media_type").GetString() ?? string.Empty;
+                    var added = item.TryGetProperty("added_fields", out var af) && af.ValueKind == System.Text.Json.JsonValueKind.Array
+                        ? af.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList()
+                        : new List<string>();
+                    var removed = item.TryGetProperty("removed_fields", out var rf) && rf.ValueKind == System.Text.Json.JsonValueKind.Array
+                        ? rf.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList()
+                        : new List<string>();
+                    diffList.Add(new RetagFieldDiffDto(mt, added, removed));
+                }
+            }
+
+            var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            if (root.TryGetProperty("current_hashes", out var ch) && ch.ValueKind == System.Text.Json.JsonValueKind.Object)
+            {
+                foreach (var prop in ch.EnumerateObject())
+                    hashes[prop.Name] = prop.Value.GetString() ?? string.Empty;
+            }
+
+            return new RetagSweepStateDto(hasPending, diffList, hashes);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /maintenance/retag-sweep/state failed");
+            return null;
+        }
+    }
+
+    public async Task<bool> ApplyRetagSweepPendingAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsync("/maintenance/retag-sweep/apply", content: null, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /maintenance/retag-sweep/apply failed");
+            return false;
+        }
+    }
+
+    public async Task<bool> RunRetagSweepNowAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsync("/maintenance/retag-sweep/run-now", content: null, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /maintenance/retag-sweep/run-now failed");
+            return false;
+        }
+    }
+
+    public async Task<bool> RetryRetagForAssetAsync(Guid assetId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsync($"/maintenance/retag-sweep/retry/{assetId}", content: null, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /maintenance/retag-sweep/retry/{Id} failed", assetId);
+            return false;
+        }
+    }
+
     // ── Universe Graph (Chronicle Explorer) ───────────────────────────────────
 
     public async Task<UniverseGraphResponse?> GetUniverseGraphAsync(

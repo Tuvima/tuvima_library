@@ -131,4 +131,12 @@ public static class ReviewTrigger
     /// confirm the media type.
     /// </summary>
     public const string RootWatchFolder = "RootWatchFolder";
+
+    /// <summary>
+    /// The auto re-tag sweep tried to write metadata to a file and either
+    /// the file was corrupt, the tagger threw an unrecoverable error, or
+    /// retry attempts were exhausted. The user must decide whether to retry
+    /// the write or skip the file permanently.
+    /// </summary>
+    public const string WritebackFailed = "WritebackFailed";
 }

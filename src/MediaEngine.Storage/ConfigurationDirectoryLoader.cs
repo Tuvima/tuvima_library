@@ -112,6 +112,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         EnsureInitialized();
     }
 
+    /// <inheritdoc/>
+    public string ConfigDirectoryPath => _configDir;
+
     // ═══════════════════════════════════════════════════════════════════════════
     //  IStorageManifest — Backward Compatibility
     // ═══════════════════════════════════════════════════════════════════════════

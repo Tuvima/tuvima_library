@@ -295,6 +295,54 @@ After Stage 1 hydration (retail providers), if 3 or more claims are returned, th
 
 ---
 
+## Writeback & Auto Re-tag Sweep
+
+Once a file is identified and enriched, `WriteBackService` embeds the canonical metadata back into the file itself so external players, re-ingestion, and library rebuilds see it without consulting the database. The per-media-type field list lives in `config/writeback-fields.json` — the single source of truth shared by the taggers and the Vault detail drawer.
+
+### Per-media-type writeback hash
+
+Every media asset carries a `writeback_fields_hash` column (migration **M-084**) that combines:
+
+1. The SHA-256 of the JSON slice for the asset's media type in `writeback-fields.json`.
+2. The version constant of the specific tagger that wrote the file (`VideoMetadataTagger.TaggerVersion`, `AudioMetadataTagger.TaggerVersion`, `EpubMetadataTagger.TaggerVersion`, `ComicMetadataTagger.TaggerVersion`).
+
+A file is considered stale when its stored hash differs from the currently-computed hash. Bumping a tagger version or editing the field list for that media type invalidates the hash for every matching file.
+
+### Pending diff + Apply flow
+
+`WritebackConfigState` (singleton) watches `writeback-fields.json` via `IConfigurationLoader`. When the file changes, the state computes a **pending diff** (added and removed fields per media type) and surfaces it without running anything. The Auto Re-tag Sweep card on the Maintenance settings tab shows the diff and two buttons:
+
+- **Apply** — commits the pending diff to `CurrentHashes` and signals the worker to start a sweep.
+- **Run Now** — re-runs the sweep against the current hashes without applying a new diff (useful if a tagger version was bumped).
+
+No files are touched until the user clicks Apply or Run Now.
+
+### RetagSweepWorker
+
+A `BackgroundService` that wakes on either a cron schedule (`config/maintenance.json` → `schedules.retag_sweep`, default `0 3 * * *`) or the `PendingApplied` signal from `WritebackConfigState`. Each pass:
+
+1. Calls `IMediaAssetRepository.GetStaleForRetagAsync` to find identified assets whose `writeback_fields_hash` differs from the current hash (or is NULL).
+2. Processes in batches, calling `WriteBackService.WriteMetadataAsync(assetId, "config_change")` for each asset. On success, the service stamps the new hash on the row.
+3. Classifies failures via `RetagFailureClassifier`:
+   - **Locked** / **IoFailed** → `ScheduleRetagRetryAsync` with the next off-hours window start. The sweep picks these up on the next run.
+   - **Corrupt** / **Unknown** (after retries exhausted) → inserts a `ReviewQueueEntry` with trigger `WritebackFailed`, routing the file to the Action Center.
+4. Broadcasts live progress via SignalR (`RetagSweepProgress` and `RetagSweepCompleted` events) so the Maintenance tab shows a processed / succeeded / transient / terminal counter during a sweep.
+
+### Endpoints
+
+| Route | Role | Purpose |
+|---|---|---|
+| `GET /maintenance/retag-sweep/state` | Admin or Curator | Returns pending diff + current hashes |
+| `POST /maintenance/retag-sweep/apply` | Admin | Commits pending diff, signals worker |
+| `POST /maintenance/retag-sweep/run-now` | Admin | Signals worker without applying a diff |
+| `POST /maintenance/retag-sweep/retry/{assetId}` | Admin | Manual retry for a specific failed asset |
+
+### Action Center integration
+
+The Vault Action Center surfaces `WritebackFailed` review items alongside other review triggers. The message reads "Re-tag failed — file may be locked or corrupt"; resolving the item either manually (fix the file, click retry) or via a successful next-sweep-pass clears the review row.
+
+---
+
 ## Supported Library Types
 
 | Library Type | Formats | Notes |

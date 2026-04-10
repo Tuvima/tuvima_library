@@ -94,4 +94,58 @@ public interface IMediaAssetRepository
     /// once and discarded — callers should not cache it.
     /// </summary>
     Task<HashSet<string>> GetAllFilePathsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns assets whose <c>writeback_fields_hash</c> does not match the
+    /// expected hash for their media type — these are the assets the auto
+    /// re-tag sweep needs to process. Skips assets whose
+    /// <c>writeback_next_retry_at</c> is in the future (still in retry cooldown)
+    /// and assets in <c>writeback_status = 'failed'</c>.
+    /// </summary>
+    /// <param name="expectedHashesByMediaType">
+    /// Per-media-type expected writeback hashes (e.g. "TV" → "abc123…").
+    /// </param>
+    /// <param name="batchSize">Maximum number of stale assets to return.</param>
+    /// <param name="nowEpochSeconds">Current unix epoch — used to filter out cooldown rows.</param>
+    Task<IReadOnlyList<StaleRetagAsset>> GetStaleForRetagAsync(
+        IReadOnlyDictionary<string, string> expectedHashesByMediaType,
+        int batchSize,
+        long nowEpochSeconds,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Stamps the writeback hash and clears retry state after a successful
+    /// re-tag write. Sets <c>writeback_status='ok'</c> and resets attempts/error.
+    /// </summary>
+    Task UpdateWritebackHashAsync(Guid assetId, string newHash, CancellationToken ct = default);
+
+    /// <summary>
+    /// Records a transient failure (e.g. file locked) and schedules the next
+    /// retry attempt. Sets <c>writeback_status='retry'</c>, increments
+    /// <c>writeback_attempts</c>, and stores the next retry epoch.
+    /// </summary>
+    Task ScheduleRetagRetryAsync(
+        Guid assetId,
+        long nextRetryAtEpochSeconds,
+        string error,
+        CancellationToken ct = default);
+
+    /// <summary>
+    /// Marks an asset as permanently failed for re-tag (corrupt file or
+    /// retry attempts exhausted). Sets <c>writeback_status='failed'</c>.
+    /// The Action Center will surface a <see cref="ReviewTrigger.WritebackFailed"/>
+    /// review item for these rows.
+    /// </summary>
+    Task MarkRetagFailedAsync(Guid assetId, string error, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Projection returned by <see cref="IMediaAssetRepository.GetStaleForRetagAsync"/>.
+/// Carries enough state for the worker to attempt a write and route failures.
+/// </summary>
+public sealed record StaleRetagAsset(
+    Guid AssetId,
+    string FilePathRoot,
+    string MediaType,
+    string? CurrentHash,
+    int Attempts);

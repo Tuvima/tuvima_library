@@ -16,6 +16,14 @@ namespace MediaEngine.Ingestion;
 /// </summary>
 public sealed class ComicMetadataTagger : IMetadataTagger
 {
+    /// <summary>
+    /// Bumped manually whenever this tagger gains a new write or changes the
+    /// way an existing field is written. Combined with the per-media-type
+    /// JSON slice from <c>writeback-fields.json</c> to compute the writeback
+    /// hash that the auto re-tag sweep uses to detect stale files.
+    /// </summary>
+    public const int Version = 1;
+
     private const string ComicInfoEntry = "ComicInfo.xml";
 
     /// <summary>

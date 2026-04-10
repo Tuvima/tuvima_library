@@ -1382,6 +1382,27 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // on (ownership, media_type) for fast unowned filtering.
         MigrateOwnershipColumn(conn);
 
+        // Migration M-084: auto re-tag sweep state on media_assets. Tracks the
+        // per-media-type writeback hash, status, retry scheduling, and error.
+        // Enables the RetagSweepWorker to detect stale assets after a
+        // writeback-fields.json change and route failures appropriately.
+        MigrateAddColumnIfMissing(conn, "media_assets", "writeback_fields_hash",
+            "ALTER TABLE media_assets ADD COLUMN writeback_fields_hash TEXT;");
+        MigrateAddColumnIfMissing(conn, "media_assets", "writeback_status",
+            "ALTER TABLE media_assets ADD COLUMN writeback_status TEXT;");
+        MigrateAddColumnIfMissing(conn, "media_assets", "writeback_last_error",
+            "ALTER TABLE media_assets ADD COLUMN writeback_last_error TEXT;");
+        MigrateAddColumnIfMissing(conn, "media_assets", "writeback_attempts",
+            "ALTER TABLE media_assets ADD COLUMN writeback_attempts INTEGER NOT NULL DEFAULT 0;");
+        MigrateAddColumnIfMissing(conn, "media_assets", "writeback_next_retry_at",
+            "ALTER TABLE media_assets ADD COLUMN writeback_next_retry_at INTEGER;");
+
+        // Migration M-085: Side-by-side-with-Plex foundations. Adds
+        // library_id / is_orphaned / orphaned_at to media_assets and creates
+        // the file_hash_cache table used by the initial sweep. See plan
+        // .claude/plans/wise-rolling-beacon.md Slice 1.
+        MigrateLibraryIdAndHashCache(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2644,6 +2665,88 @@ public sealed class DatabaseConnection : IDatabaseConnection
         }
 
         System.Diagnostics.Debug.WriteLine("M-083: ownership column on works");
+    }
+
+    /// <summary>
+    /// Migration M-085: Side-by-side-with-Plex foundations.
+    /// <list type="bullet">
+    ///   <item>Adds <c>library_id TEXT</c> (nullable) to <c>media_assets</c>
+    ///     so assets can be attributed to the logical library that owns
+    ///     their source path. NULL for pre-migration rows — backfilled
+    ///     lazily by the ingestion pipeline once
+    ///     <see cref="ILibraryFolderResolver"/> is wired in.</item>
+    ///   <item>Adds <c>is_orphaned INTEGER NOT NULL DEFAULT 0</c> and
+    ///     <c>orphaned_at TEXT</c> as the soft-delete flag for files that
+    ///     disappear from disk (NAS unmount, user reorganised in Plex).
+    ///     The asset row survives so user progress + metadata are preserved.</item>
+    ///   <item>Creates the <c>file_hash_cache</c> table keyed on
+    ///     <c>(absolute_path, size_bytes, mtime_utc) → sha256</c>, used by
+    ///     the initial sweep to avoid re-hashing files that haven't changed.</item>
+    ///   <item>Creates two indexes:
+    ///     <c>idx_media_assets_library_id</c> for per-library queries and a
+    ///     partial index <c>idx_media_assets_orphaned</c> over
+    ///     <c>is_orphaned = 1</c> rows for fast orphan reconciliation.</item>
+    /// </list>
+    /// Idempotent: all column additions are guarded by
+    /// <see cref="MigrateAddColumnIfMissing"/>; the table uses
+    /// <c>CREATE TABLE IF NOT EXISTS</c>; the indexes use
+    /// <c>CREATE INDEX IF NOT EXISTS</c>.
+    /// </summary>
+    private static void MigrateLibraryIdAndHashCache(SqliteConnection conn)
+    {
+        // Step 1: new columns on media_assets.
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "media_assets",
+            column: "library_id",
+            ddl:    "ALTER TABLE media_assets ADD COLUMN library_id TEXT;");
+
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "media_assets",
+            column: "is_orphaned",
+            ddl:    "ALTER TABLE media_assets ADD COLUMN is_orphaned INTEGER NOT NULL DEFAULT 0;");
+
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "media_assets",
+            column: "orphaned_at",
+            ddl:    "ALTER TABLE media_assets ADD COLUMN orphaned_at TEXT;");
+
+        // Step 2: indexes. Full index on library_id for per-library scans;
+        // partial index on is_orphaned filtered to 1 for cheap orphan sweeps.
+        using (var idxCmd = conn.CreateCommand())
+        {
+            idxCmd.CommandText = """
+                CREATE INDEX IF NOT EXISTS idx_media_assets_library_id
+                    ON media_assets(library_id) WHERE library_id IS NOT NULL;
+                CREATE INDEX IF NOT EXISTS idx_media_assets_orphaned
+                    ON media_assets(is_orphaned) WHERE is_orphaned = 1;
+                """;
+            idxCmd.ExecuteNonQuery();
+        }
+
+        // Step 3: file_hash_cache table. Not FK-linked to anything —
+        // entries may outlive the assets they describe (e.g. during
+        // re-sweep after a delete-and-restore cycle).
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "file_hash_cache",
+            probeColumn: "absolute_path",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS file_hash_cache (
+                    absolute_path TEXT    NOT NULL PRIMARY KEY,
+                    size_bytes    INTEGER NOT NULL,
+                    mtime_utc     TEXT    NOT NULL,
+                    sha256        TEXT    NOT NULL,
+                    cached_at     TEXT    NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_file_hash_cache_sha256
+                    ON file_hash_cache(sha256);
+                """);
+
+        System.Diagnostics.Debug.WriteLine(
+            "M-085: library_id + is_orphaned on media_assets, file_hash_cache table");
     }
 
     /// <summary>
