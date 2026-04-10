@@ -2075,8 +2075,18 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             {
                 // Check whether the embedded author matches ANY of the Wikidata author labels.
                 var embeddedAuthor = request.Author;
-                bool embeddedMatchesAnyWikiAuthor = wikiAuthorClaims
-                    .Any(c => _fuzzy.ComputeTokenSetRatio(embeddedAuthor, c.Value) >= 0.80);
+
+                // Cross-script detection: if the embedded author and the Wikidata
+                // labels use fundamentally different scripts (e.g. CJK vs Latin),
+                // this is a language/script mismatch — NOT a pen name situation.
+                // The Wikidata English label should win through Tier A normally.
+                bool isCrossScriptMismatch = wikiAuthorClaims.Count > 0
+                    && ContainsNonLatinScript(embeddedAuthor)
+                       != ContainsNonLatinScript(wikiAuthorClaims[0].Value);
+
+                bool embeddedMatchesAnyWikiAuthor = isCrossScriptMismatch
+                    || wikiAuthorClaims
+                        .Any(c => _fuzzy.ComputeTokenSetRatio(embeddedAuthor, c.Value) >= 0.80);
 
                 if (!embeddedMatchesAnyWikiAuthor)
                 {
@@ -3214,6 +3224,41 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     {
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
         return Convert.ToHexString(bytes).ToLowerInvariant();
+    }
+
+    /// <summary>
+    /// Returns <c>true</c> when <paramref name="text"/> contains characters from
+    /// non-Latin scripts (CJK, Cyrillic, Arabic, Devanagari, etc.).
+    /// Used to detect cross-script mismatches that should NOT trigger pen name logic.
+    /// </summary>
+    private static bool ContainsNonLatinScript(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        foreach (var ch in text)
+        {
+            var cat = char.GetUnicodeCategory(ch);
+            if (cat is not System.Globalization.UnicodeCategory.OtherLetter) continue;
+            // OtherLetter covers CJK ideographs, Hangul, Arabic, Devanagari, Thai, etc.
+            // — anything outside the Latin/Greek/Cyrillic Letter categories.
+            return true;
+        }
+        // Also check for Cyrillic and Greek which are UppercaseLetter/LowercaseLetter
+        // but different scripts from Latin.
+        foreach (var ch in text)
+        {
+            // Cyrillic: U+0400–U+04FF; Greek: U+0370–U+03FF
+            if (ch >= '\u0400' && ch <= '\u04FF') return true;
+            if (ch >= '\u0370' && ch <= '\u03FF') return true;
+            // CJK Unified Ideographs: U+4E00–U+9FFF
+            if (ch >= '\u4E00' && ch <= '\u9FFF') return true;
+            // Hiragana: U+3040–U+309F; Katakana: U+30A0–U+30FF
+            if (ch >= '\u3040' && ch <= '\u30FF') return true;
+            // Hangul Syllables: U+AC00–U+D7AF
+            if (ch >= '\uAC00' && ch <= '\uD7AF') return true;
+            // Arabic: U+0600–U+06FF
+            if (ch >= '\u0600' && ch <= '\u06FF') return true;
+        }
+        return false;
     }
 
     // ── Public: Entity staleness check ───────────────────────────────────────

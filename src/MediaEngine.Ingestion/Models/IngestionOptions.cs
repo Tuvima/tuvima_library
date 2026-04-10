@@ -113,18 +113,18 @@ public sealed class IngestionOptions
     public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
         ["default"]    = "{Category}/{Title} ({Year})/{Title}{Ext}",
-        // Movies: Plex convention — `Title (Year) {imdb-tt...}`
-        ["Movies"]     = "Movies/{Title} ({Year}) {{imdb-{ImdbId}}}/{Title} ({Year}){Ext}",
-        // TV: Plex convention — `Show (Year) {tvdb-...}/Season XX/Show - sXXeYY - Title`
-        ["TV"]         = "TV/{Series} ({Year}) {{tvdb-{TvdbId}}}/Season {Season}/{Series} - s{Season}e{Episode} - {EpisodeTitle}{Ext}",
+        // Movies: Plex convention — `Title (Year)/Title (Year)`
+        ["Movies"]     = "Movies/{Title} ({Year})/{Title} ({Year}){Ext}",
+        // TV: Plex convention — `Show (Year)/Season XX/Show - sXXeYY - Title`
+        ["TV"]         = "TV/{Series} ({Year})/Season {Season}/{Series} - s{Season}e{Episode} - {EpisodeTitle}{Ext}",
         // Music: Picard / Plex convention — `Artist/Album (Year)/[Disc]## - Title`
         // {Disc?} optional segment expands to e.g. "Disc 02/" for multi-disc
         // releases and collapses entirely for single-disc albums.
         ["Music"]      = "Music/{Artist}/{Album} ({Year})/{TrackNumber} - {Title}{Ext}",
-        // Audiobooks: Audiobookshelf convention — `Author/[Series]/Year - Title/Title`
-        ["Audiobooks"] = "Audiobooks/{Author}/{Series?}/{Year} - {Title}/{Title}{Ext}",
-        // Books: Calibre-compatible — `Author/[Series]/Title (Year)`
-        ["Books"]      = "Books/{Author}/{Series?}/{Title} ({Year}){Ext}",
+        // Audiobooks: Author/Title (Year)/Title — matches Music pattern
+        ["Audiobooks"] = "Audiobooks/{Author}/{Title} ({Year})/{Title}{Ext}",
+        // Books: Author/Title (Year)/Title (Year) — matches Music pattern
+        ["Books"]      = "Books/{Author}/{Title} ({Year})/{Title} ({Year}){Ext}",
         // Podcasts: Audiobookshelf / Jellyfin convention — flat per show
         ["Podcasts"]   = "Podcasts/{Series}/{Title}{Ext}",
         // Comics: Komga / Mylar / Kavita convention — `Series/Series - NNN (Year)`

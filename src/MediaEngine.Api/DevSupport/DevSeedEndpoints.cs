@@ -562,10 +562,7 @@ public static class DevSeedEndpoints
 
         new("Smells Like Teen Spirit", "Nirvana",
             Album: "Nevermind", Year: 1991, Genre: "Grunge", TrackNumber: 1,
-            TestCategory: "Music — 90s rock, strong Wikidata QID presence",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
-            ExpectedReason: "Apple Music search occasionally returns ambiguous results for short common titles"),
+            TestCategory: "Music — 90s rock, strong Wikidata QID presence"),
     ];
 
     // ── CBZ Comic Seed definitions ─────────────────────────────────────────

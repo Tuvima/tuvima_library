@@ -1504,6 +1504,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             "title" => request.Title,
             "author" => request.Author,
             "narrator" => request.Narrator,
+            "artist" => request.Artist,
+            "album" => request.Album,
             "series" => request.Series,
             BridgeIdKeys.Isbn => request.Isbn,
             BridgeIdKeys.Asin => request.Asin,
