@@ -420,7 +420,7 @@ public sealed class FileOrganizer : IFileOrganizer
             ["Ext"]       = ext,     // includes the dot — e.g. ".epub"
             ["Series"]    = meta.GetValueOrDefault(MetadataFieldConstants.Series,    "") is { Length: > 0 } sv
                               ? sv
-                              : meta.GetValueOrDefault("show_name", "Unknown"),
+                              : meta.GetValueOrDefault("show_name", string.Empty),
             ["Publisher"] = meta.GetValueOrDefault(MetadataFieldConstants.PublisherField, "Unknown"),
             // ── Hub-First template tokens ────────────────────────────────────────
             ["Category"]  = ResolveCategoryFromMediaType(candidate.DetectedMediaType),

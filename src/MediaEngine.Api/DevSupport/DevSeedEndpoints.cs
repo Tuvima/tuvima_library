@@ -1075,17 +1075,26 @@ public static class DevSeedEndpoints
         var libConfig = configLoader.LoadLibraries();
         foreach (var lib in libConfig.Libraries)
         {
-            if (!string.IsNullOrWhiteSpace(lib.SourcePath) && Directory.Exists(lib.SourcePath))
+            // Prefer SourcePaths (multi-path); fall back to legacy SourcePath.
+            var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
+                        ?? new List<string>();
+            if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
+                paths.Add(lib.SourcePath);
+
+            foreach (var srcPath in paths)
             {
-                try
+                if (Directory.Exists(srcPath))
                 {
-                    int count = WipeDirectoryContents(lib.SourcePath, logger);
-                    wiped.Add($"Library source ({lib.SourcePath}): {count} items deleted");
-                }
-                catch (Exception ex)
-                {
-                    wiped.Add($"Library source ({lib.SourcePath}): FAILED — {ex.Message}");
-                    logger.LogError(ex, "[Wipe] Failed to wipe library source {Path}", lib.SourcePath);
+                    try
+                    {
+                        int count = WipeDirectoryContents(srcPath, logger);
+                        wiped.Add($"Library source ({srcPath}): {count} items deleted");
+                    }
+                    catch (Exception ex)
+                    {
+                        wiped.Add($"Library source ({srcPath}): FAILED — {ex.Message}");
+                        logger.LogError(ex, "[Wipe] Failed to wipe library source {Path}", srcPath);
+                    }
                 }
             }
         }
@@ -1256,11 +1265,20 @@ public static class DevSeedEndpoints
         var scannedPaths = new List<string>();
         foreach (var lib in libConfig.Libraries)
         {
-            if (!string.IsNullOrWhiteSpace(lib.SourcePath) && Directory.Exists(lib.SourcePath))
+            // Prefer SourcePaths (multi-path); fall back to legacy SourcePath.
+            var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
+                        ?? new List<string>();
+            if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
+                paths.Add(lib.SourcePath);
+
+            foreach (var srcPath in paths)
             {
-                ingestionEngine.ScanDirectory(lib.SourcePath, lib.IncludeSubdirectories);
-                scannedPaths.Add(lib.SourcePath);
-                logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", lib.SourcePath);
+                if (Directory.Exists(srcPath))
+                {
+                    ingestionEngine.ScanDirectory(srcPath, lib.IncludeSubdirectories);
+                    scannedPaths.Add(srcPath);
+                    logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", srcPath);
+                }
             }
         }
 
