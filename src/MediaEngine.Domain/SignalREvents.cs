@@ -52,4 +52,9 @@ public static class SignalREvents
     public const string WritebackConfigChanged = "WritebackConfigChanged";
     public const string RetagSweepProgress     = "RetagSweepProgress";
     public const string RetagSweepCompleted    = "RetagSweepCompleted";
+
+    // ── Initial sweep (side-by-side-with-Plex plan §M) ───────────────
+    public const string InitialSweepStarted  = "InitialSweepStarted";
+    public const string InitialSweepProgress = "InitialSweepProgress";
+    public const string InitialSweepCompleted = "InitialSweepCompleted";
 }

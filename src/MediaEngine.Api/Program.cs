@@ -233,6 +233,13 @@ builder.Services.AddSingleton<MediaEngine.Domain.Services.TuvimaDataPaths>(
 builder.Services.AddSingleton<
     MediaEngine.Ingestion.Contracts.ILibraryFolderResolver,
     MediaEngine.Ingestion.Services.LibraryFolderResolver>();
+
+// InitialSweepService — hashes every media file under every configured source
+// path and persists the result in file_hash_cache. On-demand (not started at
+// boot) so the user can trigger it from the Libraries settings tab. Plan §M.
+builder.Services.AddSingleton<
+    MediaEngine.Ingestion.Services.IInitialSweepService,
+    MediaEngine.Ingestion.Services.InitialSweepService>();
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
 builder.Services.AddSingleton<IHubPlacementRepository, HubPlacementRepository>();
 builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.AudioFingerprintRepository>();

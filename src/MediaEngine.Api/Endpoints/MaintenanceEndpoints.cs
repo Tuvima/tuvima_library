@@ -91,6 +91,35 @@ public static class MaintenanceEndpoints
         .WithSummary("Clears the terminal re-tag failure flag on a single asset so the worker retries it.")
         .RequireAdmin();
 
+        // ── POST /maintenance/initial-sweep/run ───────────────────────────
+        // Runs the hash-everything-up-front sweep across every configured
+        // library source path. Fire-and-forget — progress is reported over
+        // SignalR (InitialSweep{Started,Progress,Completed}). The POST returns
+        // as soon as the background task is kicked off.
+        // Spec: side-by-side-with-Plex plan §M.
+        app.MapPost("/maintenance/initial-sweep/run", (
+            IInitialSweepService sweep,
+            ILogger<Program> logger) =>
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await sweep.RunAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Initial sweep failed");
+                }
+            });
+
+            return Results.Accepted(value: new { started = true });
+        })
+        .WithTags("Maintenance")
+        .WithName("RunInitialSweep")
+        .WithSummary("Runs the SHA-256 initial sweep across every configured library source path.")
+        .RequireAdmin();
+
         return app;
     }
 }
