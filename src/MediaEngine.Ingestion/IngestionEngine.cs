@@ -11,6 +11,7 @@ using MediaEngine.Domain.Events;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
+using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
@@ -597,6 +598,50 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         // Step 6: process.
         var result = await _processors.ProcessAsync(candidate.Path, ct).ConfigureAwait(false);
+
+        // Step 6a: organisation-hint prescan.
+        // Side-by-side-with-Plex plan §G. Pulls Plex / Jellyfin bridge ID
+        // brackets (`{imdb-tt...}`, `[tvdbid-...]`, etc.) and the Tuvima
+        // legacy `(Q12345)` marker straight out of the path and injects
+        // them as high-confidence claims. When the library is curated,
+        // retail Stage 1 and Wikidata Stage 2 can short-circuit external
+        // lookups using the seeded IDs.
+        var pathHints = OrganizationHintParser.Parse(candidate.Path);
+        if (pathHints.HasHints && pathHints.BridgeIds.Count > 0)
+        {
+            var hintedClaims = new List<Processors.Models.ExtractedClaim>(result.Claims);
+            foreach (var (key, value) in pathHints.BridgeIds)
+            {
+                // Don't overwrite a bridge ID the processor already extracted
+                // from embedded tags — embedded data is at least as reliable.
+                if (hintedClaims.Any(c => c.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                hintedClaims.Add(new Processors.Models.ExtractedClaim
+                {
+                    Key        = key,
+                    Value      = value,
+                    Confidence = ClaimConfidence.BridgeId,
+                });
+            }
+
+            result = new Processors.Models.ProcessorResult
+            {
+                FilePath            = result.FilePath,
+                DetectedType        = result.DetectedType,
+                Claims              = hintedClaims,
+                CoverImage          = result.CoverImage,
+                CoverImageMimeType  = result.CoverImageMimeType,
+                IsCorrupt           = result.IsCorrupt,
+                CorruptReason       = result.CorruptReason,
+                MediaTypeCandidates = result.MediaTypeCandidates,
+            };
+
+            _logger.LogInformation(
+                "OrganizationHintParser: seeded {Count} bridge ID claim(s) from path for {File} — {Keys}",
+                pathHints.BridgeIds.Count, Path.GetFileName(candidate.Path),
+                string.Join(", ", pathHints.BridgeIds.Keys));
+        }
 
         {
             var extractedTitle = result.Claims
