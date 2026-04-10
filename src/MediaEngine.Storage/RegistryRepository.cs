@@ -996,6 +996,18 @@ public sealed class RegistryRepository : IRegistryRepository
             INNER JOIN editions e     ON e.work_id = w.id
             INNER JOIN media_assets ma ON ma.edition_id = e.id
             WHERE w.media_type IS NOT NULL AND w.media_type != ''
+              AND COALESCE(w.curator_state, '') NOT IN ('rejected', 'provisional')
+              AND ma.file_path_root NOT LIKE '%/.data/staging/%'
+              AND ma.file_path_root NOT LIKE '%\.data\staging\%'
+              AND ma.file_path_root NOT LIKE '%/.data\staging/%'
+              AND NOT EXISTS (
+                  SELECT 1 FROM review_queue rq
+                  INNER JOIN media_assets ma_r ON ma_r.id = rq.entity_id
+                  INNER JOIN editions e_r ON e_r.id = ma_r.edition_id
+                  WHERE e_r.work_id = w.id
+                    AND rq.status = 'Pending'
+                    AND rq.trigger != 'WritebackFailed'
+              )
             GROUP BY w.media_type
             """);
         return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));

@@ -234,13 +234,11 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         string editionFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
 
         // Move cover/hero companion files from staging to the library edition folder.
-        // When ImagePathService is active, images live in .images/ (not alongside media files)
-        // so no companion file move is needed. Legacy libraries (no ImagePathService) still
-        // keep cover.jpg/hero.jpg next to the media file.
-        if (_imagePathService is null)
-        {
-            MoveCompanionFiles(stagingFolder, editionFolder, "cover.jpg", "hero.jpg");
-        }
+        // CoverArtWorker writes poster.jpg next to the media file (even in staging) via
+        // ImagePathService.GetMediaFilePosterPath, so companion files must always be moved
+        // on promotion — regardless of whether ImagePathService is active.
+        MoveCompanionFiles(stagingFolder, editionFolder,
+            "poster.jpg", "poster-thumb.jpg", "cover.jpg", "hero.jpg");
 
         // Generate cinematic hero banner from cover art.
         await GenerateHeroBannerAsync(assetId, editionFolder, ct).ConfigureAwait(false);
@@ -359,9 +357,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             await _assetRepo.UpdateFilePathAsync(assetId, newDest, ct).ConfigureAwait(false);
 
             var newFolder = Path.GetDirectoryName(newDest) ?? string.Empty;
-            // Images live in .images/ when ImagePathService is active — no companion move needed.
-            if (_imagePathService is null)
-                MoveCompanionFiles(oldFolder, newFolder, "cover.jpg", "hero.jpg");
+            MoveCompanionFiles(oldFolder, newFolder,
+                "poster.jpg", "poster-thumb.jpg", "cover.jpg", "hero.jpg");
 
             CleanEmptyParents(oldFolder, _options.LibraryRoot);
 
@@ -413,9 +410,12 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             coverPath    = _imagePathService.GetWorkCoverPath(wikidataQid, assetId);
             heroOutputDir = _imagePathService.GetWorkImageDir(wikidataQid, assetId);
 
-            // Fallback: if .images/ cover doesn't exist, try legacy path
+            // Fallback: if .images/ cover doesn't exist, try legacy paths.
+            // CoverArtWorker writes poster.jpg (via GetMediaFilePosterPath), not cover.jpg.
             if (!File.Exists(coverPath))
                 coverPath = Path.Combine(editionFolder, "cover.jpg");
+            if (!File.Exists(coverPath))
+                coverPath = Path.Combine(editionFolder, "poster.jpg");
         }
         else
         {
