@@ -41,14 +41,13 @@ public sealed class RegistryRepository : IRegistryRepository
         // Visibility filter for non-IncludeAll queries. A work must either:
         //   • have a resolved Wikidata QID, OR
         //   • be in provisional/rejected curator state, OR
-        //   • have a pending review AND at least one non-staging asset
-        //     (reviews whose only files are still in staging stay hidden until
-        //     the file is organized; otherwise they'd leak into media tabs).
+        //   • have a pending review (even if all assets are still in staging —
+        //     review items must be visible in the Action Center per design).
         var visibilityFilter = query.IncludeAll ? "" : """
                     WHERE (
                         (wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%')
                         OR wd.curator_state IN ('provisional', 'rejected')
-                        OR (rd.review_id IS NOT NULL AND ad.asset_id IS NOT NULL)
+                        OR rd.review_id IS NOT NULL
                     )
             """;
         // Phase 4 — lineage-aware reads. Two pivot CTEs:

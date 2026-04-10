@@ -434,7 +434,6 @@ file sealed class IntegrationConfigLoader : IConfigurationLoader
     public void SaveMaintenance(MaintenanceSettings settings) { }
     public HydrationSettings LoadHydration() => new();
     public EditionPivotConfiguration LoadEditionPivot() => new();
-    public CirrusTypeFilterConfiguration LoadCirrusTypeFilters() => new();
     public void SaveHydration(HydrationSettings settings) { }
     public ProviderSlotConfiguration LoadSlots() => new();
     public void SaveSlots(ProviderSlotConfiguration slots) { }

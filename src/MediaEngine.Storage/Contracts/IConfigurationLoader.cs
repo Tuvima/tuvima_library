@@ -71,15 +71,6 @@ public interface IConfigurationLoader
     /// </summary>
     EditionPivotConfiguration LoadEditionPivot();
 
-    /// <summary>
-    /// Load the per-media-type CirrusSearch P31 allow-list from
-    /// <c>config/cirrus-type-filters.json</c>. Consumed by
-    /// <c>ReconciliationAdapter.BuildStage2Request</c> when falling back to
-    /// text reconciliation. Returns an empty configuration (no filters) when
-    /// the file is missing.
-    /// </summary>
-    CirrusTypeFilterConfiguration LoadCirrusTypeFilters();
-
     // ── Provider Slots ──────────────────────────────────────────────────────
 
     /// <summary>Load provider slot assignments per media type from <c>config/slots.json</c>.</summary>

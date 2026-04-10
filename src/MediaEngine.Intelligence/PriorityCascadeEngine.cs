@@ -192,6 +192,33 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
             if (wikidataClaim is not null)
             {
+                // For the "author" field, P50 claims are emitted at reduced
+                // confidence (0.75) specifically so that embedded pen names
+                // (0.95) can win. Honour confidence ordering for this field
+                // so the pen name safety net in ReconciliationAdapter works
+                // as designed — the higher-confidence claim wins.
+                if (string.Equals(group.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
+                {
+                    var bestNonWikidata = claimsForField
+                        .Where(c => c.ProviderId != WikidataProviderId)
+                        .OrderByDescending(c => c.Confidence)
+                        .ThenByDescending(c => c.ClaimedAt)
+                        .FirstOrDefault();
+
+                    if (bestNonWikidata is not null && bestNonWikidata.Confidence > wikidataClaim.Confidence)
+                    {
+                        fieldScores.Add(new FieldScore
+                        {
+                            Key               = group.Key,
+                            WinningValue      = bestNonWikidata.ClaimValue,
+                            Confidence        = bestNonWikidata.Confidence,
+                            WinningProviderId = bestNonWikidata.ProviderId,
+                            IsConflicted      = false,
+                        });
+                        continue;
+                    }
+                }
+
                 fieldScores.Add(new FieldScore
                 {
                     Key               = group.Key,

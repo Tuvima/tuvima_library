@@ -238,7 +238,7 @@ public sealed class PriorityCascadeRestrictionTests
     }
 
     [Fact]
-    public async Task WikidataAlwaysWins_ForAuthor()
+    public async Task WikidataWins_ForAuthor_WhenHigherConfidence()
     {
         var engine = CreateEngine();
         var context = new ScoringContext
@@ -246,7 +246,7 @@ public sealed class PriorityCascadeRestrictionTests
             EntityId = EntityId,
             Claims =
             [
-                MakeClaim("author", "Frank Herbert (retail)", ProviderA, 1.0),
+                MakeClaim("author", "Frank Herbert (retail)", ProviderA, 0.85),
                 MakeClaim("author", "Frank Herbert", WikidataProviderId, 0.9),
             ],
             ProviderWeights = new Dictionary<Guid, double>
@@ -261,6 +261,65 @@ public sealed class PriorityCascadeRestrictionTests
 
         var authorScore = result.FieldScores.First(f => f.Key == "author");
         Assert.Equal("Frank Herbert", authorScore.WinningValue);
+        Assert.Equal(WikidataProviderId, authorScore.WinningProviderId);
+    }
+
+    [Fact]
+    public async Task PenNameAuthor_HigherConfidenceEmbedded_WinsOverLowerWikidata()
+    {
+        // When ReconciliationAdapter's pen name safety net fires, it emits the
+        // pen name at 0.95 (EmbeddedAuthor) and the P50 real name at 0.75
+        // (WikidataAuthorRaw). The pen name must win because its confidence is
+        // higher — this is the deliberate design of the reduced P50 confidence.
+        var engine = CreateEngine();
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            Claims =
+            [
+                MakeClaim("author", "James S.A. Corey", ProviderA, 0.95),          // pen name from file
+                MakeClaim("author", "Daniel Abraham", WikidataProviderId, 0.75),    // P50 real name
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [ProviderA]          = 1.0,
+                [WikidataProviderId] = 1.0,
+            },
+            Configuration = DefaultConfig,
+        };
+
+        var result = await engine.ScoreEntityAsync(context);
+
+        var authorScore = result.FieldScores.First(f => f.Key == "author");
+        Assert.Equal("James S.A. Corey", authorScore.WinningValue);
+        Assert.Equal(ProviderA, authorScore.WinningProviderId);
+    }
+
+    [Fact]
+    public async Task Author_EqualConfidence_WikidataWins()
+    {
+        // When confidences are equal, Wikidata authority takes precedence.
+        var engine = CreateEngine();
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            Claims =
+            [
+                MakeClaim("author", "Retail Author", ProviderA, 0.90),
+                MakeClaim("author", "Wikidata Author", WikidataProviderId, 0.90),
+            ],
+            ProviderWeights = new Dictionary<Guid, double>
+            {
+                [ProviderA]          = 1.0,
+                [WikidataProviderId] = 1.0,
+            },
+            Configuration = DefaultConfig,
+        };
+
+        var result = await engine.ScoreEntityAsync(context);
+
+        var authorScore = result.FieldScores.First(f => f.Key == "author");
+        Assert.Equal("Wikidata Author", authorScore.WinningValue);
         Assert.Equal(WikidataProviderId, authorScore.WinningProviderId);
     }
 

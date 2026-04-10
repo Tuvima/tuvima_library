@@ -57,8 +57,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     // that construct the adapter without a config loader fall back to empty
     // configurations (no pivot, no text-fallback cirrus filter).
     private EditionPivotConfiguration? _editionPivotCache;
-    private CirrusTypeFilterConfiguration? _cirrusTypeFiltersCache;
-
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -1234,15 +1232,17 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Reads the per-media-type CirrusSearch P31 allow-list from
-    /// <c>config/cirrus-type-filters.json</c>. Returns an empty list when the
-    /// media type is missing from the config or when the loader is unavailable
+    /// Returns the per-media-type CirrusSearch P31 allow-list from
+    /// <c>instance_of_classes</c> in the reconciliation provider config.
+    /// Returns an empty list when the media type has no configured classes
     /// (in which case text fallback is skipped entirely for this media type).
     /// </summary>
     private IReadOnlyList<string> GetCirrusTypesForMediaType(MediaType mediaType)
     {
-        _cirrusTypeFiltersCache ??= _configLoader?.LoadCirrusTypeFilters() ?? new CirrusTypeFilterConfiguration();
-        return _cirrusTypeFiltersCache.GetTypesFor(mediaType);
+        var mediaTypeKey = mediaType.ToString();
+        if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+            return classes;
+        return [];
     }
 
     private static ResolveStrategy MapStage2MatchedStrategy(Stage2MatchedStrategy m) => m switch

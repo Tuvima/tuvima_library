@@ -1,0 +1,175 @@
+using System.Text.Json;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Storage.Models;
+
+namespace MediaEngine.Storage.Tests;
+
+/// <summary>
+/// Regression tests for four pipeline bugs discovered 2026-04-10:
+///
+/// <list type="number">
+///   <item>Bug 1 — field_priorities.json referenced non-existent provider names, blocking cover art.</item>
+///   <item>Bug 2 — visibility filter excluded staging-only review items from the Action Center list.</item>
+///   <item>Bug 3 — Priority Cascade Tier C ignored confidence for authors, breaking pen names (tested in PriorityCascadeRestrictionTests).</item>
+///   <item>Bug 4 — cirrus-type-filters.json was a stale snapshot; consolidated into instance_of_classes.</item>
+/// </list>
+/// </summary>
+public sealed class PipelineBugRegressionTests
+{
+    private static readonly JsonSerializerOptions s_jsonOpts = new()
+    {
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+    };
+
+    // ── Bug 1: field_priorities.json must reference real provider names ──
+
+    [Fact]
+    public void FieldPriorities_AllProviderNamesExistInProviderConfigs()
+    {
+        var root = FindRepoRoot();
+
+        // Collect all provider names from config/providers/*.json
+        var providerDir = Path.Combine(root, "config", "providers");
+        var providerNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in Directory.GetFiles(providerDir, "*.json"))
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(file));
+            if (doc.RootElement.TryGetProperty("name", out var nameProp))
+                providerNames.Add(nameProp.GetString()!);
+        }
+
+        // Parse field_priorities.json and verify every referenced provider exists
+        var fpPath = Path.Combine(root, "config", "field_priorities.json");
+        Assert.True(File.Exists(fpPath), $"field_priorities.json not found at {fpPath}");
+
+        using var fpDoc = JsonDocument.Parse(File.ReadAllText(fpPath));
+        var overrides = fpDoc.RootElement.GetProperty("field_overrides");
+
+        foreach (var field in overrides.EnumerateObject())
+        {
+            if (!field.Value.TryGetProperty("priority", out var priorityArr))
+                continue;
+
+            foreach (var providerRef in priorityArr.EnumerateArray())
+            {
+                var name = providerRef.GetString()!;
+                Assert.True(providerNames.Contains(name),
+                    $"field_priorities.json field \"{field.Name}\" references provider " +
+                    $"\"{name}\" which does not exist in config/providers/. " +
+                    $"Known providers: [{string.Join(", ", providerNames.Order())}]");
+            }
+        }
+    }
+
+    [Fact]
+    public void FieldPriorities_CoverFieldHasAtLeastOneProvider()
+    {
+        var root = FindRepoRoot();
+        var json = File.ReadAllText(Path.Combine(root, "config", "field_priorities.json"));
+        using var doc = JsonDocument.Parse(json);
+
+        var cover = doc.RootElement.GetProperty("field_overrides").GetProperty("cover");
+        var providers = cover.GetProperty("priority");
+
+        Assert.True(providers.GetArrayLength() >= 1,
+            "Cover field priority must list at least one provider for cover art to download.");
+    }
+
+    // ── Bug 4: instance_of_classes must include manga for Comics ─────────
+
+    [Fact]
+    public void InstanceOfClasses_ComicsIncludesManga()
+    {
+        var root = FindRepoRoot();
+        var json = File.ReadAllText(
+            Path.Combine(root, "config", "providers", "wikidata_reconciliation.json"));
+        var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOpts);
+        Assert.NotNull(config);
+
+        Assert.True(config!.InstanceOfClasses.ContainsKey("Comics"),
+            "instance_of_classes must contain a 'Comics' key.");
+
+        var comicTypes = config.InstanceOfClasses["Comics"];
+
+        // Q1004 = comics, Q838795 = comic (alternative), Q21198342 = manga
+        Assert.Contains("Q1004", comicTypes);     // western comics
+        Assert.Contains("Q21198342", comicTypes);  // manga — was missing in the stale cirrus-type-filters.json
+    }
+
+    [Fact]
+    public void InstanceOfClasses_CoversAllResolvableMediaTypes()
+    {
+        var root = FindRepoRoot();
+        var json = File.ReadAllText(
+            Path.Combine(root, "config", "providers", "wikidata_reconciliation.json"));
+        var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOpts);
+        Assert.NotNull(config);
+
+        // Every media type that the adapter resolves via text fallback must
+        // have at least one P31 class in instance_of_classes.
+        var resolvableTypes = new[]
+        {
+            MediaType.Books, MediaType.Audiobooks, MediaType.Movies,
+            MediaType.TV, MediaType.Music, MediaType.Comics, MediaType.Podcasts,
+        };
+
+        foreach (var mt in resolvableTypes)
+        {
+            var key = mt.ToString();
+            Assert.True(
+                config!.InstanceOfClasses.ContainsKey(key) && config.InstanceOfClasses[key].Count > 0,
+                $"instance_of_classes must contain a non-empty entry for \"{key}\". " +
+                $"Without it, CirrusSearch text fallback is disabled for {mt}.");
+        }
+    }
+
+    [Fact]
+    public void CirrusTypeFiltersJson_DoesNotExist()
+    {
+        // The stale config file was consolidated into instance_of_classes.
+        // If it's ever re-created, it will drift again.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "cirrus-type-filters.json");
+        Assert.False(File.Exists(staleFile),
+            "cirrus-type-filters.json must not exist — CirrusSearch type filters " +
+            "are consolidated into instance_of_classes in wikidata_reconciliation.json.");
+    }
+
+    // ── Bug 2: visibility filter regression (structural) ────────────────
+
+    [Fact]
+    public void VisibilityFilter_ReviewItemsDoNotRequireNonStagingAsset()
+    {
+        // This is a structural test that reads the RegistryRepository source
+        // to verify the visibility filter doesn't re-introduce the staging
+        // asset requirement for review items. The old bug required
+        // `rd.review_id IS NOT NULL AND ad.asset_id IS NOT NULL` which
+        // excluded items whose only files were still in .data/staging/.
+        var root = FindRepoRoot();
+        var repoSource = File.ReadAllText(
+            Path.Combine(root, "src", "MediaEngine.Storage", "RegistryRepository.cs"));
+
+        // The visibility filter must allow review items without the asset gate.
+        Assert.Contains("OR rd.review_id IS NOT NULL", repoSource);
+
+        // The old buggy pattern must NOT be present.
+        Assert.DoesNotContain(
+            "rd.review_id IS NOT NULL AND ad.asset_id IS NOT NULL",
+            repoSource);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static string FindRepoRoot()
+    {
+        var dir = Path.GetDirectoryName(typeof(PipelineBugRegressionTests).Assembly.Location);
+        while (dir is not null)
+        {
+            if (Directory.Exists(Path.Combine(dir, ".git")))
+                return dir;
+            dir = Path.GetDirectoryName(dir);
+        }
+        throw new InvalidOperationException("Could not find repository root (.git directory)");
+    }
+}
