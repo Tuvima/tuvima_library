@@ -154,7 +154,13 @@ public static class ProviderAccentMap
     public static string GetIconImagePath(string providerKey) =>
         $"images/providers/{providerKey}.png";
 
-    private static string FormatProviderName(string key) =>
+    /// <summary>
+    /// Converts a snake_case provider config name to Title Case display text
+    /// (e.g. "podcast_index" → "Podcast Index").
+    /// Exposed as public so <see cref="ProviderCatalogueService"/> can delegate
+    /// to this single implementation instead of maintaining its own copy.
+    /// </summary>
+    public static string FormatProviderName(string key) =>
         string.Join(' ', key.Split('_')
             .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
 }

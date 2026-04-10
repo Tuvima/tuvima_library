@@ -453,6 +453,11 @@ public sealed class WorkerPipelineTests
             }
             return Task.CompletedTask;
         }
+
+        public Task<int> CountActiveAsync(CancellationToken ct = default)
+            => Task.FromResult(_jobs.Count(j =>
+                j.State != IdentityJobState.Completed.ToString() &&
+                j.State != IdentityJobState.Failed.ToString()));
     }
 
     // ── StubRetailCandidateRepository ────────────────────────────────────

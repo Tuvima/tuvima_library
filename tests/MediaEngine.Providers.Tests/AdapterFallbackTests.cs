@@ -55,12 +55,6 @@ public sealed class AdapterFallbackTests
         Assert.Empty(claims);
     }
 
-    // ── Wikidata — TaskCanceledException (simulated timeout) ─────────────────
-    // TODO: Phase 3 - Wikidata fallback test disabled (WikidataAdapter removed in SPARQL cleanup)
-    // Will be replaced with ReconciliationAdapter fallback test in Phase 3
-    // [Fact]
-    // public async Task Wikidata_Returns_Empty_On_Timeout() { ... }
-
     // ── Config loading ───────────────────────────────────────────────────────
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()

@@ -76,7 +76,7 @@ field_mappings        JSON path extraction rules with named transforms, confiden
 
 **Media-type scoping on strategies and field mappings:** A single provider config can serve multiple media types. Individual `search_strategies` and `field_mappings` entries carry an optional `media_types` array. When a request includes a media type, only matching entries are used. Entries with no `media_types` array are universal. `MediaType.Unknown` acts as a wildcard.
 
-**ReconciliationAdapter** uses the `Tuvima.Wikidata` NuGet package. Its configuration lives in `config/providers/wikidata_reconciliation.json` (provider scoring config: weight, field weights, throttle, enabled) and `config/universe/wikidata.json` (knowledge model: property map, bridge lookup order, value transforms, instance_of class mappings, scope exclusions).
+**ReconciliationAdapter** uses the `Tuvima.Wikidata` NuGet package. Its configuration lives in `config/providers/wikidata_reconciliation.json` (all Wikidata settings: provider scoring config, property map, bridge lookup order, value transforms, instance_of class mappings, edition pivot rules, scope exclusions).
 
 **ValueTransformRegistry** provides named transform functions applied to raw API values: `to_string`, `strip_html`, `url_template`, `regex_replace`, `prefer_isbn13`, `array_join`, `array_nested_join`, `first_n_chars`, `fallback_key`, `title_case`. Transform assignment lives in config; transform implementations live in code.
 
@@ -97,7 +97,7 @@ File ingested
      â”‚
      â–¼
 Stage 1: RetailIdentification
-  â”œâ”€ Retail providers run in waterfall order (config/slots.json)
+  â”œâ”€ Retail providers run in ranked pipeline order (config/pipelines.json)
   â”œâ”€ Deposit: cover art, descriptions, ratings, bridge IDs
   â””â”€ Result: cover.jpg on disk, bridge IDs in metadata_claims
      â”‚
@@ -117,7 +117,7 @@ Post-pipeline confidence check
 
 ### Stage 1 â€” RetailIdentification
 
-Retail providers run in waterfall order defined in `config/slots.json`. Each slot has a Primary, Secondary, and Tertiary provider per media type. The first provider that returns a result for each field wins; later providers are not called for that field.
+Retail providers run in ranked pipeline order defined in `config/pipelines.json`. Each media type has an ordered list of providers with a configurable execution strategy (Waterfall, Cascade, or Sequential). In Waterfall mode, the first provider that returns a result wins; later providers are not called for that field.
 
 Providers participate in Stage 1 by declaring `"hydration_stages": [1]` in their config.
 
@@ -144,7 +144,7 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 
 **Pipeline continuation on failure:** If Stage 2 fails to resolve a QID and `continue_pipeline_on_authority_failure` is `true`, the pipeline continues (the file retains its Stage 1 metadata). An `AuthorityMatchFailed` review item is created for manual resolution.
 
-### Slot Assignments (config/slots.json)
+### Provider Pipeline Assignments (config/pipelines.json)
 
 | Media Type | Primary | Secondary | Tertiary | Bridge to Wikidata |
 |---|---|---|---|---|
@@ -201,7 +201,7 @@ Result: the file appears on the Dashboard within seconds with title, author, cov
 
 Pass 2 runs in the background and handles everything that makes the library intelligent:
 
-- Full Data Extension deep hydration â€” all 50+ properties from `config/universe/wikidata.json`
+- Full Data Extension deep hydration â€” all 50+ properties from `config/providers/wikidata_reconciliation.json`
 - Hub Intelligence â€” franchise resolution, narrative root assignment (P1434, P8345, P179)
 - Fictional entity discovery â€” characters, locations, organisations
 - Relationship population â€” father, spouse, member_of, performer links (depth limit configurable via `lineage_depth`, default 2)
@@ -515,7 +515,7 @@ Pipeline configuration lives in `config/pipelines.json`:
 }
 ```
 
-Falls back to `slots.json` auto-conversion via `PipelineConfiguration.FromLegacySlots()`.
+Provider pipeline configuration is read from `config/pipelines.json` via `PipelineConfiguration`.
 
 ### Sequential Bridge ID Passing
 

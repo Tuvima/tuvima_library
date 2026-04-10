@@ -65,7 +65,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly IPersonRepository _personRepo;
     private readonly IFictionalEntityRepository _fictionalEntityRepo;
     private readonly IRelationshipPopulationService _relPopService;
-    private readonly IUniverseGraphWriterService _universeWriter;
     private readonly IScoringEngine _scoringEngine;
     private readonly IEventPublisher _eventPublisher;
     private readonly IConfigurationLoader _configLoader;
@@ -86,7 +85,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         IPersonRepository personRepo,
         IFictionalEntityRepository fictionalEntityRepo,
         IRelationshipPopulationService relPopService,
-        IUniverseGraphWriterService universeWriter,
         IScoringEngine scoringEngine,
         IEventPublisher eventPublisher,
         IConfigurationLoader configLoader,
@@ -104,7 +102,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(fictionalEntityRepo);
         ArgumentNullException.ThrowIfNull(relPopService);
-        ArgumentNullException.ThrowIfNull(universeWriter);
         ArgumentNullException.ThrowIfNull(scoringEngine);
         ArgumentNullException.ThrowIfNull(eventPublisher);
         ArgumentNullException.ThrowIfNull(configLoader);
@@ -120,7 +117,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _personRepo           = personRepo;
         _fictionalEntityRepo  = fictionalEntityRepo;
         _relPopService        = relPopService;
-        _universeWriter       = universeWriter;
         _scoringEngine        = scoringEngine;
         _eventPublisher       = eventPublisher;
         _configLoader         = configLoader;
@@ -435,12 +431,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 new FictionalEntityEnrichedEvent(request.EntityId, label, entitySubType, universeQid),
                 ct).ConfigureAwait(false);
 
-            // Trigger debounced universe.xml write.
-            if (!string.IsNullOrWhiteSpace(universeQid))
-            {
-                await _universeWriter.NotifyEntityEnrichedAsync(universeQid, ct)
-                    .ConfigureAwait(false);
-            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -638,10 +628,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         await ResolvePseudonymsAsync(request.EntityId, claims, isPseudonym, ct)
             .ConfigureAwait(false);
 
-        // Group membership resolution: link group members (P527) or group affiliations (P463).
-        await ResolveGroupMembersAsync(request.EntityId, claims, isGroup, ct)
-            .ConfigureAwait(false);
-
         // Wikipedia description is now fetched by ReconciliationAdapter.FetchPersonAsync
         // (folded in as part of Task 1 cleanup). No separate call needed here.
 
@@ -758,23 +744,17 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             {
                 foreach (var realQidList in attributedTo)
                 {
-                    // DEPRECATED: |||  safety net for legacy SPARQL data. New Reconciliation API
-                    // emits individual claims — this split is a no-op for new data.
-                    var qids = realQidList.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    foreach (var rawQid in qids)
+                    var realQid = realQidList.Split("::")[0];
+                    var realPerson = await _personRepo.FindByQidAsync(realQid, ct)
+                        .ConfigureAwait(false);
+                    if (realPerson is not null)
                     {
-                        var realQid = rawQid.Split("::")[0];
-                        var realPerson = await _personRepo.FindByQidAsync(realQid, ct)
+                        await _personRepo.LinkAliasAsync(personId, realPerson.Id, ct)
                             .ConfigureAwait(false);
-                        if (realPerson is not null)
-                        {
-                            await _personRepo.LinkAliasAsync(personId, realPerson.Id, ct)
-                                .ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            await CreateAndLinkStubPersonAsync(personId, realQid, false, ct).ConfigureAwait(false);
-                        }
+                    }
+                    else
+                    {
+                        await CreateAndLinkStubPersonAsync(personId, realQid, false, ct).ConfigureAwait(false);
                     }
                 }
             }
@@ -788,22 +768,17 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
             foreach (var penQidList in pseudonymQids)
             {
-                // DEPRECATED: ||| safety net for legacy SPARQL data.
-                var qids = penQidList.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                foreach (var rawQid in qids)
+                var penQid = penQidList.Split("::")[0];
+                var penPerson = await _personRepo.FindByQidAsync(penQid, ct)
+                    .ConfigureAwait(false);
+                if (penPerson is not null)
                 {
-                    var penQid = rawQid.Split("::")[0];
-                    var penPerson = await _personRepo.FindByQidAsync(penQid, ct)
+                    await _personRepo.LinkAliasAsync(penPerson.Id, personId, ct)
                         .ConfigureAwait(false);
-                    if (penPerson is not null)
-                    {
-                        await _personRepo.LinkAliasAsync(penPerson.Id, personId, ct)
-                            .ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        await CreateAndLinkStubPersonAsync(personId, penQid, true, ct).ConfigureAwait(false);
-                    }
+                }
+                else
+                {
+                    await CreateAndLinkStubPersonAsync(personId, penQid, true, ct).ConfigureAwait(false);
                 }
             }
         }
@@ -812,24 +787,6 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             _logger.LogWarning(ex,
                 "Pseudonym resolution failed for person {Id}; continuing", personId);
         }
-    }
-
-    /// <summary>
-    /// Group membership resolution via P527 (has part) and P463 (member of) is
-    /// intentionally disabled. Musical groups are stored as a single Person record
-    /// with <c>IsGroup = true</c>; individual members are not fetched or linked.
-    ///
-    /// The method is kept as a no-op so call sites do not need to change.
-    /// Re-enable by restoring the expansion logic if member-level data is required.
-    /// </summary>
-    private static Task ResolveGroupMembersAsync(
-        Guid personId,
-        IReadOnlyList<ProviderClaim> claims,
-        bool isGroup,
-        CancellationToken ct)
-    {
-        // Member expansion disabled — groups are stored as-is (IsGroup = true).
-        return Task.CompletedTask;
     }
 
     private async Task CreateAndLinkStubPersonAsync(

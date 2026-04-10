@@ -256,6 +256,15 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         return Task.FromResult(result);
     }
 
+    public Task<int> CountActiveAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var count = conn.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Completed', 'Failed')");
+        return Task.FromResult(count);
+    }
+
     public Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

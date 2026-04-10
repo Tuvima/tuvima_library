@@ -281,6 +281,13 @@ public static class VaultHelpers
     /// Builds a clickable external URL for a given bridge ID key and value.
     /// Returns null if no URL template is known for the key.
     /// </summary>
+    /// <remarks>
+    /// The URL switch arms here intentionally mirror the hardcoded fallback in
+    /// <c>ProviderCatalogueService.GetExternalUrl</c>. VaultHelpers is a static class
+    /// and cannot inject services, so both must stay in sync if new bridge IDs are added.
+    /// The primary source of truth is <c>ProviderCatalogueService.GetExternalUrl</c>,
+    /// which prefers live catalogue URL templates over the hardcoded fallbacks.
+    /// </remarks>
     public static (string Label, string Url)? BuildProviderUrl(string key, string value, string? mediaType = null)
     {
         if (string.IsNullOrWhiteSpace(value)) return null;

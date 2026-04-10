@@ -182,12 +182,6 @@ public sealed class ProviderIntegrationTests
         }
     }
 
-    // ── Wikidata ─────────────────────────────────────────────────────────────
-    // TODO: Phase 3 - Wikidata integration test disabled (WikidataAdapter removed in SPARQL cleanup)
-    // Will be replaced with ReconciliationAdapter integration test in Phase 3
-    // [Fact]
-    // public async Task Wikidata_Returns_Claims_For_FellowshipOfTheRing() { ... }
-
     // ── Search tests (multi-result SearchAsync) ─────────────────────────────
 
     [Fact(Skip = "Requires live Apple API network access. Run locally with: dotnet test --filter Category=Integration")]
@@ -265,11 +259,6 @@ public sealed class ProviderIntegrationTests
         if (results.Count > 0)
             Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
     }
-
-    // TODO: Phase 3 - Wikidata_Search_Returns_QidClaims test disabled (WikidataAdapter removed in SPARQL cleanup)
-    // Will be replaced with ReconciliationAdapter search test in Phase 3
-    // [Fact]
-    // public async Task Wikidata_Search_Returns_QidClaims() { ... }
 
     // ── Config-driven adapter builder ───────────────────────────────────────
 

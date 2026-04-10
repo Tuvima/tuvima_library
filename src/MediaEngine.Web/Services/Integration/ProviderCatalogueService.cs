@@ -1,3 +1,4 @@
+using MediaEngine.Web.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -10,6 +11,8 @@ namespace MediaEngine.Web.Services.Integration;
 /// <para>
 /// The catalogue is loaded lazily on first use and cached in memory for the session.
 /// All lookup methods return safe fallback values when the Engine is unreachable.
+/// Fallback display names and accent colours are sourced from <see cref="ProviderAccentMap"/>
+/// — the single authoritative static map — rather than being duplicated here.
 /// </para>
 /// </summary>
 public sealed class ProviderCatalogueService
@@ -17,39 +20,6 @@ public sealed class ProviderCatalogueService
     private readonly IEngineApiClient _api;
     private IReadOnlyList<ProviderCatalogueDto>? _catalogue;
     private readonly SemaphoreSlim _loadLock = new(1, 1);
-
-    // ── Well-known provider GUIDs → display names (fallback when catalogue unavailable) ──────
-    private static readonly IReadOnlyDictionary<string, string> FallbackDisplayNames =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["apple_api"]                  = "Apple API",
-            ["apple_podcasts"]             = "Apple Podcasts",
-            ["tmdb"]                       = "TMDB",
-            ["musicbrainz"]                = "MusicBrainz",
-            ["metron"]                     = "Metron",
-            ["podcast_index"]              = "Podcast Index",
-            ["open_library"]               = "Open Library",
-            ["fanart_tv"]                  = "Fanart.tv",
-            ["wikidata_reconciliation"]    = "Wikidata",
-            ["wikidata"]                   = "Wikidata",
-            ["local_filesystem"]           = "Local Filesystem",
-        };
-
-    private static readonly IReadOnlyDictionary<string, string> FallbackAccentColors =
-        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["apple_api"]                  = "#FF2D55",
-            ["apple_podcasts"]             = "#9B59B6",
-            ["tmdb"]                       = "#01B4E4",
-            ["musicbrainz"]                = "#BA478F",
-            ["metron"]                     = "#E91E63",
-            ["podcast_index"]              = "#F7931E",
-            ["open_library"]               = "#4CAF50",
-            ["fanart_tv"]                  = "#19C1CC",
-            ["wikidata_reconciliation"]    = "#339966",
-            ["wikidata"]                   = "#339966",
-            ["local_filesystem"]           = "#90A4AE",
-        };
 
     public ProviderCatalogueService(IEngineApiClient api)
     {
@@ -98,25 +68,24 @@ public sealed class ProviderCatalogueService
 
     /// <summary>
     /// Returns the hex accent colour for a provider config name.
-    /// Falls back to a hardcoded map when the catalogue is not yet loaded.
+    /// Falls back to <see cref="ProviderAccentMap.GetAccent"/> when the catalogue is not yet loaded.
     /// </summary>
     public string GetAccentColor(string providerName)
     {
         var entry = GetByName(providerName);
         if (entry is not null) return entry.AccentColor;
-        return FallbackAccentColors.TryGetValue(providerName, out var c) ? c : "#90A4AE";
+        return ProviderAccentMap.GetAccent(providerName).Color;
     }
 
     /// <summary>
     /// Returns the display name for a provider config name.
-    /// Falls back to a hardcoded map when the catalogue is not yet loaded.
+    /// Falls back to <see cref="ProviderAccentMap.GetDisplayName"/> when the catalogue is not yet loaded.
     /// </summary>
     public string GetDisplayName(string providerName)
     {
         var entry = GetByName(providerName);
         if (entry is not null) return entry.DisplayName;
-        if (FallbackDisplayNames.TryGetValue(providerName, out var n)) return n;
-        return FormatProviderName(providerName);
+        return ProviderAccentMap.GetDisplayName(providerName);
     }
 
     /// <summary>Returns the Material icon name for a provider config name.</summary>
@@ -205,10 +174,6 @@ public sealed class ProviderCatalogueService
     public void Invalidate() => _catalogue = null;
 
     // ── Private helpers ───────────────────────────────────────────────────────
-
-    private static string FormatProviderName(string key) =>
-        string.Join(' ', key.Split('_')
-            .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
 
     private static string ResolveMediaTypePath(string? mediaType)
     {

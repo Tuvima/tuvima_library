@@ -709,7 +709,6 @@ builder.Services.AddSingleton<INarrativeRootRepository,         NarrativeRootRep
 builder.Services.AddSingleton<INarrativeRootResolver,           NarrativeRootResolver>();
 builder.Services.AddSingleton<IRecursiveFictionalEntityService, RecursiveFictionalEntityService>();
 builder.Services.AddSingleton<IRelationshipPopulationService,   RelationshipPopulationService>();
-builder.Services.AddSingleton<IUniverseGraphWriterService,      UniverseGraphWriterService>();
 builder.Services.AddSingleton<IUniverseGraphQueryService,       UniverseGraphQueryService>();
 builder.Services.AddSingleton<ICharacterPortraitRepository,      CharacterPortraitRepository>();
 builder.Services.AddSingleton<IEntityAssetRepository,            EntityAssetRepository>();

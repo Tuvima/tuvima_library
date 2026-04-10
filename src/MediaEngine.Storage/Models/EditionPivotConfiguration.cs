@@ -4,7 +4,7 @@ using MediaEngine.Domain.Enums;
 namespace MediaEngine.Storage.Models;
 
 /// <summary>
-/// Media-type → edition-pivot rule map loaded from <c>config/edition-pivot.json</c>.
+/// Media-type → edition-pivot rule map loaded from the <c>edition_pivot</c> section of <c>config/providers/wikidata_reconciliation.json</c>.
 /// Consumed by <c>ReconciliationAdapter.BuildStage2Request</c> to produce the
 /// per-request <c>Tuvima.Wikidata.EditionPivotRule</c> that tells the
 /// <c>Stage2Service</c> sub-service which Wikidata P31 classes identify work-level

@@ -58,7 +58,7 @@ public sealed class ProviderConfiguration
     /// Complete list of canonical claim keys this provider can supply.
     /// Used by the Dashboard to show all fields available from each provider
     /// and allow users to toggle which fields are active.
-    /// Keys reference entries in <c>config/field_normalization.json</c>.
+    /// Keys reference the canonical claim key constants in <c>MetadataFieldConstants</c>.
     /// </summary>
     [JsonPropertyName("available_fields")]
     public List<string> AvailableFields { get; set; } = [];

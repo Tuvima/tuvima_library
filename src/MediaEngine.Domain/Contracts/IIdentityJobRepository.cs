@@ -67,4 +67,10 @@ public interface IIdentityJobRepository
 
     /// <summary>Releases the lease on a job without changing state (e.g. on graceful shutdown).</summary>
     Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the count of identity jobs in non-terminal states (active pipeline work).
+    /// Used by DeferredEnrichmentService to yield to Pass 1 ingestion.
+    /// </summary>
+    Task<int> CountActiveAsync(CancellationToken ct = default);
 }

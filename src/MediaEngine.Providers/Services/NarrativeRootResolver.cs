@@ -158,10 +158,6 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
             qid = rawQid.Contains('/') ? rawQid.Split('/')[^1] : rawQid;
         }
 
-        // DEPRECATED: ||| safety net for legacy SPARQL data. New claims are individual values.
-        if (qid.Contains("|||"))
-            qid = qid.Split("|||")[0].Trim();
-
         // Strip "::Label" suffix produced by WikidataAdapter.StripEntityUri().
         // Canonical _qid values may store "Q18417290::Cormoran Strike" — we need
         // the bare QID for folder names and database keys.
@@ -177,7 +173,7 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         // Grab the human-readable label
         if (lookup.TryGetValue(claimKey, out var labelValue) && !string.IsNullOrWhiteSpace(labelValue))
         {
-            var raw = labelValue.Contains("|||") ? labelValue.Split("|||")[0].Trim() : labelValue;
+            var raw = labelValue;
             // Strip any "QID::Label" prefix if the label claim carried the compound format
             label = raw.Contains("::") ? raw.Split("::", 2)[^1].Trim() : raw;
             // If the label is a bare QID (e.g. "Q3041974"), prefer the ::suffix we stripped earlier
@@ -197,8 +193,6 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         if (lookup.TryGetValue($"{claimKey}_qid", out var val) && !string.IsNullOrWhiteSpace(val))
         {
             var qid = val.Contains('/') ? val.Split('/')[^1] : val;
-            // DEPRECATED: ||| safety net for legacy data.
-            if (qid.Contains("|||")) qid = qid.Split("|||")[0].Trim();
             if (qid.Contains("::")) qid = qid.Split("::", 2)[0];
             return qid;
         }

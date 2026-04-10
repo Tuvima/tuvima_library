@@ -41,8 +41,6 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         _logger = logger;
     }
 
-    public int PendingCount => 0;
-
     /// <summary>
     /// Creates an <c>identity_jobs</c> row for asynchronous processing by the
     /// hosted service workers.
@@ -159,21 +157,6 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             job.EntityId, job.State, job.ResolvedQid);
 
         return BuildResult(job);
-    }
-
-    /// <summary>
-    /// Creates identity jobs for batch bridge resolution. The workers process
-    /// them asynchronously.
-    /// </summary>
-    public async Task RunBatchBridgeResolutionAsync(Guid batchId, CancellationToken ct = default)
-    {
-        var jobs = await _jobRepo.GetByStateAsync(IdentityJobState.RetailMatched, 500, ct);
-
-        _logger.LogInformation(
-            "Batch bridge resolution: {Count} jobs eligible for Stage 2",
-            jobs.Count);
-
-        // Workers will pick these up automatically — no additional action needed.
     }
 
     private HydrationResult BuildResult(IdentityJob job)

@@ -168,11 +168,7 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                 string.IsNullOrWhiteSpace(rawQidValue))
                 continue;
 
-            // DEPRECATED: ||| safety net for legacy SPARQL GROUP_CONCAT data.
-            // New Reconciliation API emits individual claims — this split is a no-op for new data.
-            var qids = rawQidValue.Contains("|||")
-                ? rawQidValue.Split("|||", StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                : [rawQidValue];
+            var qids = new[] { rawQidValue };
 
             foreach (var rawQid in qids)
             {

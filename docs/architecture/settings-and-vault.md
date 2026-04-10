@@ -53,7 +53,7 @@ Available to every user regardless of role.
 
 **Provider Connections** â€” One card per configured provider. Each card shows: provider name, health status indicator, enabled toggle, and an expand button for detailed configuration (endpoint URL, API key entry, timeout, per-field trust weights, test connection button).
 
-**Provider Priority per Media Type** â€” Drag-and-drop slot assignment sourced from `config/slots.json`. Three priority slots per media type (Primary, Secondary, Tertiary). All providers appear in every media-type tab â€” dragging creates a copy of the provider into the slot; the provider remains in the available pool. Users can mix providers freely across media types.
+**Provider Priority per Media Type** â€” Drag-and-drop ranked provider assignment sourced from `config/pipelines.json`. Each media type has an ordered list of providers with a configurable execution strategy (Waterfall, Cascade, or Sequential). All providers appear in every media-type tab â€” dragging reorders the provider list; users can mix providers freely across media types.
 
 **Wikidata Configuration** â€” Controls for Stage 2 (identity resolution) and Stage 3 (universe data) behavior. Includes enable/disable toggles and confidence thresholds for automated acceptance.
 
@@ -106,7 +106,7 @@ The following settings are intentionally not exposed in the GUI. They are edited
 | `config/description_matching.json` | Candidate re-ranking match types, field weights, extract-then-compare patterns |
 | `config/disambiguation.json` | Media type heuristic weights, duration bands, bitrate thresholds, path keywords, TV filename patterns, auto-assign and review thresholds |
 | Provider config deep fields | Per-provider: throttle delay, max concurrency, cache TTL, individual field weights beyond the UI sliders |
-| `config/universe/wikidata.json` | Full Wikidata property map, bridge lookup priority order, value transform assignments, scope exclusions, instance_of class mappings |
+| `config/providers/wikidata_reconciliation.json` | Full Wikidata property map, bridge lookup priority order, value transform assignments, scope exclusions, instance_of class mappings, edition pivot rules |
 | `config/writeback.json` | Embedded metadata writeback behavior: which fields are written back to file tags, and in which format |
 | `config/signal_extraction.json` | Description signal extraction regex patterns, role assignments, Wikidata occupation class identifiers for verification |
 | `config/ui/devices/{class}.json` | Device profile constraints â€” modifying these changes what entire device classes can see and do |

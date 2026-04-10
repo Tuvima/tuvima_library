@@ -174,6 +174,68 @@ public sealed class PipelineBugRegressionTests
             "instance_of_classes consolidated into wikidata_reconciliation.json.");
     }
 
+    // ── Dead config files: never re-create these ─────────────────────────
+
+    [Fact]
+    public void DescriptionMatchingJson_DoesNotExist()
+    {
+        // description_matching.json was dead configuration (nothing loaded it).
+        // Removed to prevent stale config from drifting silently.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "description_matching.json");
+        Assert.False(File.Exists(staleFile),
+            "config/description_matching.json must not exist — it was dead configuration " +
+            "with no loader. Do not re-create it.");
+    }
+
+    [Fact]
+    public void FieldNormalizationJson_DoesNotExist()
+    {
+        // field_normalization.json was dead configuration (nothing loaded it).
+        // FieldDictionary.cs (Web) was the in-code equivalent and has also been removed.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "field_normalization.json");
+        Assert.False(File.Exists(staleFile),
+            "config/field_normalization.json must not exist — it was dead configuration " +
+            "with no loader. Do not re-create it.");
+    }
+
+    [Fact]
+    public void HubsJson_DoesNotExist()
+    {
+        // hubs.json was dead configuration (nothing loaded it).
+        // HubDisplaySettings.cs (Storage) was the corresponding unused model and has also been removed.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "hubs.json");
+        Assert.False(File.Exists(staleFile),
+            "config/hubs.json must not exist — it was dead configuration " +
+            "with no loader. Do not re-create it.");
+    }
+
+    [Fact]
+    public void MediaTypeIdsJson_DoesNotExist()
+    {
+        // media_type_ids.json was dead configuration (nothing loaded it).
+        // Removed to prevent stale config from drifting silently.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "media_type_ids.json");
+        Assert.False(File.Exists(staleFile),
+            "config/media_type_ids.json must not exist — it was dead configuration " +
+            "with no loader. Do not re-create it.");
+    }
+
+    [Fact]
+    public void TanasteJson_DoesNotExist()
+    {
+        // tanaste.json was dead configuration (nothing loaded it).
+        // Removed to prevent stale config from drifting silently.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "tanaste.json");
+        Assert.False(File.Exists(staleFile),
+            "config/tanaste.json must not exist — it was dead configuration " +
+            "with no loader. Do not re-create it.");
+    }
+
     [Fact]
     public void WikidataReconciliation_ContainsEditionPivot()
     {

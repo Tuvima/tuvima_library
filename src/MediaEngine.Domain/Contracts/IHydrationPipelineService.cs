@@ -16,14 +16,12 @@ namespace MediaEngine.Domain.Contracts;
 ///     complete Stage 1. Links editions to works, works to universes.</item>
 /// </list>
 ///
-/// Three entry points:
+/// Two entry points:
 /// <list type="bullet">
 ///   <item><see cref="EnqueueAsync"/> — non-blocking, queues to an internal channel
 ///     for background processing (used by the ingestion pipeline).</item>
 ///   <item><see cref="RunSynchronousAsync"/> — blocking, bypasses the queue for
 ///     immediate results (used by user-triggered hydration and review resolution).</item>
-///   <item><see cref="RunBatchBridgeResolutionAsync"/> — runs Stage 2 for all files
-///     in an ingestion batch after Stage 1 completes.</item>
 /// </list>
 ///
 /// Implementations live in <c>MediaEngine.Providers</c>.
@@ -57,19 +55,4 @@ public interface IHydrationPipelineService
     Task<HydrationResult> RunSynchronousAsync(
         HarvestRequest request,
         CancellationToken ct = default);
-
-    /// <summary>
-    /// Runs Stage 2 (Wikidata Bridge Resolution) for all files in an ingestion
-    /// batch. Called after all files complete Stage 1. Deduplicates shared
-    /// entities so each Wikidata QID is resolved only once per batch.
-    /// </summary>
-    /// <param name="batchId">The ingestion batch identifier.</param>
-    /// <param name="ct">Cancellation token.</param>
-    Task RunBatchBridgeResolutionAsync(Guid batchId, CancellationToken ct = default);
-
-    /// <summary>
-    /// The approximate number of harvest requests currently waiting in the
-    /// background queue. Useful for monitoring and diagnostics only.
-    /// </summary>
-    int PendingCount { get; }
 }

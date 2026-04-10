@@ -7,7 +7,7 @@ namespace MediaEngine.Providers.Models;
 /// the Engine tracks, at what confidence, and whether the property represents
 /// an external bridge identifier or a descriptive metadata field.
 ///
-/// Per-instance overrides live in the universe config (<c>config/universe/wikidata.json</c>).
+/// Wikidata configuration is consolidated in <c>config/providers/wikidata_reconciliation.json</c>.
 /// </summary>
 public sealed record WikidataProperty
 {

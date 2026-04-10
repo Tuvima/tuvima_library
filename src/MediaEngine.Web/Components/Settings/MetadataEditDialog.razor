@@ -1,6 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
 @using Microsoft.AspNetCore.Components.Forms
-@using MediaEngine.Web.Models
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
@@ -26,10 +25,10 @@
         @foreach (var field in _editableFields)
         {
             <MudTextField T="string" @bind-Value="field.Value"
-                          Label="@FieldDictionary.GetDisplayName(field.Key)"
+                          Label="@GetFieldDisplayName(field.Key)"
                           Variant="Variant.Outlined" Margin="Margin.Dense" Class="mb-2"
                           Adornment="Adornment.Start"
-                          AdornmentIcon="@FieldDictionary.GetIcon(field.Key)"
+                          AdornmentIcon="@GetFieldIcon(field.Key)"
                           Lines="@(field.Key == "description" ? 3 : 1)" />
         }
 
@@ -162,7 +161,7 @@
         {
             if (added.Contains(key)) continue;
             // Skip bridge/internal fields — users shouldn't edit these directly.
-            if (FieldDictionary.GetCategory(key) == "Bridge") continue;
+            if (GetFieldCategory(key) == "Bridge") continue;
 
             _editableFields.Add(new EditableField
             {
@@ -293,4 +292,59 @@
         public string Key { get; init; } = string.Empty;
         public string? Value { get; set; }
     }
+
+    // ── Inline field metadata helpers (replaces the removed FieldDictionary) ─────
+
+    private static readonly IReadOnlyDictionary<string, (string DisplayName, string Category, string Icon)> s_fieldMap =
+        new Dictionary<string, (string, string, string)>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["title"]              = ("Title",           "Core",   Icons.Material.Filled.Title),
+            ["author"]             = ("Author",          "Core",   Icons.Material.Filled.Person),
+            ["year"]               = ("Year",            "Core",   Icons.Material.Filled.CalendarMonth),
+            ["description"]        = ("Description",     "Core",   Icons.Material.Filled.Description),
+            ["cover"]              = ("Cover Art",       "Core",   Icons.Material.Filled.Image),
+            ["rating"]             = ("Rating",          "Core",   Icons.Material.Filled.Star),
+            ["isbn"]               = ("ISBN",            "Core",   Icons.Material.Filled.QrCode),
+            ["asin"]               = ("ASIN",            "Core",   Icons.Material.Filled.QrCode2),
+            ["series"]             = ("Series",          "Core",   Icons.Material.Filled.LibraryBooks),
+            ["series_position"]    = ("Series Position", "Core",   Icons.Material.Filled.FormatListNumbered),
+            ["publisher"]          = ("Publisher",       "Core",   Icons.Material.Filled.Business),
+            ["page_count"]         = ("Page Count",      "Core",   Icons.Material.Filled.MenuBook),
+            ["genre"]              = ("Genre",           "Core",   Icons.Material.Filled.Category),
+            ["language"]           = ("Language",        "Core",   Icons.Material.Filled.Translate),
+            ["narrator"]           = ("Narrator",        "People", Icons.Material.Filled.RecordVoiceOver),
+            ["director"]           = ("Director",        "People", Icons.Material.Filled.Movie),
+            ["cast_member"]        = ("Cast",            "People", Icons.Material.Filled.Groups),
+            ["illustrator"]        = ("Illustrator",     "People", Icons.Material.Filled.Brush),
+            ["voice_actor"]        = ("Voice Actor",     "People", Icons.Material.Filled.Mic),
+            ["screenwriter"]       = ("Screenwriter",    "People", Icons.Material.Filled.EditNote),
+            ["composer"]           = ("Composer",        "People", Icons.Material.Filled.MusicNote),
+            ["franchise"]          = ("Franchise",       "Lore",   Icons.Material.Filled.AccountTree),
+            ["characters"]         = ("Characters",      "Lore",   Icons.Material.Filled.Face),
+            ["narrative_location"] = ("Setting",         "Lore",   Icons.Material.Filled.Place),
+            ["main_subject"]       = ("Subject",         "Lore",   Icons.Material.Filled.Topic),
+            ["fictional_universe"] = ("Universe",        "Lore",   Icons.Material.Filled.Public),
+            ["wikidata_qid"]       = ("Wikidata QID",    "Bridge", Icons.Material.Filled.Hub),
+            ["tmdb_id"]            = ("TMDB ID",         "Bridge", Icons.Material.Filled.Theaters),
+            ["imdb_id"]            = ("IMDb ID",         "Bridge", Icons.Material.Filled.LocalMovies),
+            ["goodreads_id"]       = ("Goodreads ID",    "Bridge", Icons.Material.Filled.AutoStories),
+            ["apple_books_id"]     = ("Apple Books ID",  "Bridge", Icons.Material.Filled.MenuBook),
+            ["audible_id"]         = ("Audible ID",      "Bridge", Icons.Material.Filled.Headphones),
+            ["musicbrainz_id"]     = ("MusicBrainz ID",  "Bridge", Icons.Material.Filled.Album),
+            ["spotify_id"]         = ("Spotify ID",      "Bridge", Icons.Material.Filled.GraphicEq),
+            ["comicvine_id"]       = ("ComicVine ID",    "Bridge", Icons.Material.Filled.MenuBook),
+        };
+
+    private static string GetFieldDisplayName(string key)
+    {
+        if (s_fieldMap.TryGetValue(key, out var info)) return info.DisplayName;
+        return string.Join(' ', key.Split('_')
+            .Select(w => w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w));
+    }
+
+    private static string GetFieldIcon(string key) =>
+        s_fieldMap.TryGetValue(key, out var info) ? info.Icon : Icons.Material.Filled.DataObject;
+
+    private static string GetFieldCategory(string key) =>
+        s_fieldMap.TryGetValue(key, out var info) ? info.Category : "Other";
 }
