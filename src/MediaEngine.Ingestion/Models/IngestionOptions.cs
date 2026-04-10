@@ -51,7 +51,7 @@ public sealed class IngestionOptions
     /// the entire group (parentheses + leading space) is collapsed.
     /// </summary>
     public string OrganizationTemplate { get; set; } =
-        "{Category}/{Title} ({Qid})/{Title}{Ext}";
+        "{Category}/{Title} ({Year})/{Title}{Ext}";
 
     /// <summary>
     /// Per-media-type organisation templates.  Keys are media type names
@@ -60,22 +60,33 @@ public sealed class IngestionOptions
     /// Fallback chain: media-type-specific → "default" → <see cref="OrganizationTemplate"/>
     /// → hardcoded <c>{Category}/{Title}/{Title}{Ext}</c>.
     /// </summary>
+    // ──────────────────────────────────────────────────────────────────
+    // Default templates: Plex / Jellyfin / Audiobookshelf compatible.
+    // Side-by-side-with-Plex plan §A. Bridge-ID groups (`{{imdb-{ImdbId}}}`)
+    // collapse cleanly when the ID is missing because the inner token resolves
+    // to empty and the surrounding literal `{...}` becomes `{}` which the
+    // outer cleanup pass strips. The legacy `{Qid}` token stays available for
+    // power users but is no longer in the defaults.
+    // ──────────────────────────────────────────────────────────────────
     public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["default"]    = "{Category}/{Title} ({Qid})/{Title}{Ext}",
-        // Books & Audiobooks: separate top-level folders
-        ["Books"]      = "Books/{Title} ({Qid})/{Title}{Ext}",
-        ["Audiobooks"] = "Audiobooks/{Title} ({Qid})/{Title}{Ext}",
-        // Movies: flat title folder
-        ["Movies"]     = "Movies/{Title} ({Qid})/{Title}{Ext}",
-        // TV: Plex convention — Show/Season XX/SxxExx - Episode
-        ["TV"]         = "TV/{Series} ({Qid})/Season {Season}/S{Season}E{Episode} - {Title}{Ext}",
-        // Comics: flat title folder
-        ["Comic"]      = "Comics/{Title} ({Qid})/{Title}{Ext}",
-        // Music: Plex convention — Artist/Album/TrackNum - Title
-        ["Music"]      = "Music/{Artist}/{Album} ({Qid})/{TrackNumber} - {Title}{Ext}",
-        // Podcasts: flat show folder
-        ["Podcasts"]   = "Podcasts/{Title} ({Qid})/{Title}{Ext}",
+        ["default"]    = "{Category}/{Title} ({Year})/{Title}{Ext}",
+        // Movies: Plex convention — `Title (Year) {imdb-tt...}`
+        ["Movies"]     = "Movies/{Title} ({Year}) {{imdb-{ImdbId}}}/{Title} ({Year}){Ext}",
+        // TV: Plex convention — `Show (Year) {tvdb-...}/Season XX/Show - sXXeYY - Title`
+        ["TV"]         = "TV/{Series} ({Year}) {{tvdb-{TvdbId}}}/Season {Season}/{Series} - s{Season}e{Episode} - {EpisodeTitle}{Ext}",
+        // Music: Picard / Plex convention — `Artist/Album (Year)/[Disc]## - Title`
+        // {Disc?} optional segment expands to e.g. "Disc 02/" for multi-disc
+        // releases and collapses entirely for single-disc albums.
+        ["Music"]      = "Music/{Artist}/{Album} ({Year})/{TrackNumber} - {Title}{Ext}",
+        // Audiobooks: Audiobookshelf convention — `Author/[Series]/Year - Title/Title`
+        ["Audiobooks"] = "Audiobooks/{Author}/{Series?}/{Year} - {Title}/{Title}{Ext}",
+        // Books: Calibre-compatible — `Author/[Series]/Title (Year)`
+        ["Books"]      = "Books/{Author}/{Series?}/{Title} ({Year}){Ext}",
+        // Podcasts: Audiobookshelf / Jellyfin convention — flat per show
+        ["Podcasts"]   = "Podcasts/{Series}/{Title}{Ext}",
+        // Comics: Komga / Mylar / Kavita convention — `Series/Series - NNN (Year)`
+        ["Comic"]      = "Comics/{Series}/{Series} - {IssueNumber} ({Year}){Ext}",
     };
 
     /// <summary>

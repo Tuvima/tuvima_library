@@ -18,13 +18,32 @@ namespace MediaEngine.Ingestion;
 ///  the literal string "Unknown".
 ///
 ///  Built-in tokens:
-///   {Title}      — title claim (confidence-winner)
-///   {Author}     — author claim
-///   {Year}       — year claim (4-digit integer)
-///   {MediaType}  — MediaType enum name (Movies, Books, Comic, …)
-///   {Extension}  — file extension WITHOUT leading dot (e.g. "mp4", "epub")
-///   {Series}     — series claim
-///   {Publisher}  — publisher claim
+///   {Title}        — title claim (confidence-winner)
+///   {Author}       — author claim
+///   {Year}         — year claim (4-digit integer)
+///   {MediaType}    — MediaType enum name (Movies, Books, Comic, …)
+///   {Extension}    — file extension WITHOUT leading dot (e.g. "mp4", "epub")
+///   {Ext}          — file extension WITH leading dot (e.g. ".mp4")
+///   {Series}       — series claim (also accepts the legacy "show_name" key)
+///   {Publisher}    — publisher claim
+///   {Category}     — top-level category folder (Movies, TV, Music, …)
+///   {Artist}       — music artist
+///   {Album}        — music album
+///   {TrackNumber}  — zero-padded track number
+///   {Disc}         — zero-padded disc number for multi-disc albums (empty when single-disc — pair with conditional `({Disc})`)
+///   {Season}       — zero-padded TV season
+///   {Episode}      — zero-padded TV episode
+///   {EpisodeTitle} — TV episode title (falls back to {Title})
+///   {IssueNumber}  — comic issue number
+///   {ImdbId}       — IMDB id (e.g. "tt1856101"); empty when unknown
+///   {TmdbId}       — TheMovieDB id; empty when unknown
+///   {TvdbId}       — TheTVDB id; empty when unknown
+///   {Qid}          — Wikidata QID (legacy Tuvima identifier)
+///
+///  Side-by-side-with-Plex plan §A: bridge ID tokens enable Plex / Jellyfin
+///  compatible folder names like `{Title} ({Year}) {{imdb-{ImdbId}}}`. Use
+///  the conditional group syntax `({Token})` to collapse missing tokens
+///  cleanly so unknown IDs don't leave stray brackets in the path.
 ///
 ///  Custom tokens may be injected via the <c>IReadOnlyDictionary</c> overload
 ///  of <see cref="CalculatePath"/>.
@@ -67,9 +86,37 @@ public sealed class FileOrganizer : IFileOrganizer
         @"\s?\(\{([^}]+)\}\)",
         System.Text.RegularExpressions.RegexOptions.Compiled);
 
+    // Matches an optional leading space followed by `{{prefix-{Token}}}` — the
+    // Plex / Jellyfin bridge-ID literal-brace convention used by templates like
+    //     `{Title} ({Year}) {{imdb-{ImdbId}}}`
+    // Group 1 captures the prefix (e.g. "imdb-"); group 2 captures the inner
+    // token name (e.g. "ImdbId"). When the token resolves to a non-empty value
+    // the whole match expands to ` {imdb-tt1856101}` using SENTINEL braces that
+    // get unescaped in the cleanup pass — this prevents the unresolved-token
+    // regex from mistaking the result for a missing template token. When the
+    // token is empty/missing the entire group collapses (incl. leading space).
+    // Side-by-side-with-Plex plan §A.
+    private static readonly System.Text.RegularExpressions.Regex BridgeIdGroupRegex = new(
+        @"\s?\{\{([^{}]+)\{([^}]+)\}\}\}",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    // Sentinel characters used to stand in for literal `{` and `}` while the
+    // template is being resolved. They are unescaped in the cleanup pass.
+    // Using control characters that cannot legally appear in any path segment.
+    private const char OpenBraceSentinel  = '\u0001';
+    private const char CloseBraceSentinel = '\u0002';
+
     // Matches any remaining {Token} references not inside parentheses.
     private static readonly System.Text.RegularExpressions.Regex UnresolvedTokenRegex = new(
         @"\{[^}]+\}",
+        System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    // Matches an optional token of the form `{Token?}` — group 1 captures the
+    // bare token name. Optional tokens that resolve to empty produce an empty
+    // string (rather than "Unknown") and any path segment they leave empty is
+    // dropped in the cleanup pass.
+    private static readonly System.Text.RegularExpressions.Regex OptionalTokenRegex = new(
+        @"\{([A-Za-z0-9_]+)\?\}",
         System.Text.RegularExpressions.RegexOptions.Compiled);
 
     // Matches two or more consecutive whitespace characters.
@@ -135,6 +182,12 @@ public sealed class FileOrganizer : IFileOrganizer
             ["TrackNumber"] = "01",
             ["Season"]      = "01",
             ["Episode"]     = "01",
+            ["EpisodeTitle"] = "Pilot",
+            ["Disc"]        = string.Empty,
+            ["IssueNumber"] = "001",
+            ["ImdbId"]      = "tt1234567",
+            ["TmdbId"]      = "12345",
+            ["TvdbId"]      = "67890",
             ["Hash6"]       = "a1b2c3",
         };
 
@@ -245,10 +298,49 @@ public sealed class FileOrganizer : IFileOrganizer
     /// </summary>
     private static string ResolveTemplate(string template, Dictionary<string, string> tokens)
     {
+        // Pass -1 — Optional tokens: `{Token?}`. Resolves the token directly to
+        // its value (empty when missing) so empty path segments can be dropped
+        // in the cleanup pass. We sidestep the unresolved-token regex by
+        // resolving these BEFORE pass 2 fires.
+        string template1 = OptionalTokenRegex.Replace(template, match =>
+        {
+            string tokenName = match.Groups[1].Value;
+            if (tokens.TryGetValue(tokenName, out var value)
+                && !string.IsNullOrWhiteSpace(value))
+            {
+                string sanitized = Sanitize(value);
+                return string.IsNullOrWhiteSpace(sanitized) ? string.Empty : sanitized;
+            }
+            return string.Empty;
+        });
+
+        // Pass 0 — Bridge-ID literal-brace groups: ` {{imdb-{ImdbId}}}`.
+        // Resolved to ` {imdb-VALUE}` (using sentinel braces) when the inner
+        // token is non-empty, or collapsed entirely when empty.
+        string resolved = BridgeIdGroupRegex.Replace(template1, match =>
+        {
+            string prefix    = match.Groups[1].Value;
+            string tokenName = match.Groups[2].Value;
+            bool hasLeadingSpace = match.Value.Length > 0 && char.IsWhiteSpace(match.Value[0]);
+
+            if (tokens.TryGetValue(tokenName, out var value)
+                && !string.IsNullOrWhiteSpace(value))
+            {
+                string sanitized = Sanitize(value);
+                if (!string.IsNullOrWhiteSpace(sanitized) && sanitized != "Unknown")
+                {
+                    string body = $"{OpenBraceSentinel}{prefix}{sanitized}{CloseBraceSentinel}";
+                    return hasLeadingSpace ? " " + body : body;
+                }
+            }
+
+            return string.Empty;
+        });
+
         // Pass 1 — Conditional groups: ` ({Token})` or `({Token})`
         // If the token value is empty/whitespace, remove the entire group (incl. leading space).
         // If the token has content, replace with ` (Value)` preserving the leading space.
-        string resolved = ConditionalGroupRegex.Replace(template, match =>
+        resolved = ConditionalGroupRegex.Replace(resolved, match =>
         {
             string tokenName = match.Groups[1].Value;
             bool hasLeadingSpace = match.Value.Length > 0 && char.IsWhiteSpace(match.Value[0]);
@@ -280,11 +372,26 @@ public sealed class FileOrganizer : IFileOrganizer
         // Pass 3 — Cleanup.
         resolved = MultiSpaceRegex.Replace(resolved, " ");
 
-        // Trim each path segment individually.
+        // Unescape bridge-ID sentinel braces back to literal `{` / `}`.
+        resolved = resolved
+            .Replace(OpenBraceSentinel,  '{')
+            .Replace(CloseBraceSentinel, '}');
+
+        // Trim each path segment individually, then drop any segment that
+        // collapsed to empty (left behind by an optional `{Token?}` that had
+        // no value). The final filename segment is preserved even if empty so
+        // a malformed template fails loudly rather than silently producing a
+        // directory path.
         var segments = resolved.Split('/');
+        var kept = new List<string>(segments.Length);
         for (int i = 0; i < segments.Length; i++)
-            segments[i] = segments[i].Trim();
-        resolved = string.Join('/', segments);
+        {
+            string trimmed = segments[i].Trim();
+            bool isLast = i == segments.Length - 1;
+            if (trimmed.Length == 0 && !isLast) continue;
+            kept.Add(trimmed);
+        }
+        resolved = string.Join('/', kept);
 
         return resolved;
     }
@@ -327,6 +434,29 @@ public sealed class FileOrganizer : IFileOrganizer
             ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault(MetadataFieldConstants.TrackNumber, string.Empty)),
             ["Season"]      = PadNumeric(meta.GetValueOrDefault("season",  "") is { Length: > 0 } sn ? sn : meta.GetValueOrDefault("season_number",  string.Empty)),
             ["Episode"]     = PadNumeric(meta.GetValueOrDefault("episode", "") is { Length: > 0 } ep ? ep : meta.GetValueOrDefault("episode_number", string.Empty)),
+            // ── TV episode title (Plex/Jellyfin filename convention) ─────────────
+            ["EpisodeTitle"] = meta.GetValueOrDefault("episode_title", "") is { Length: > 0 } et
+                                  ? et
+                                  : meta.GetValueOrDefault(MetadataFieldConstants.Title, string.Empty),
+            // ── Multi-disc music albums ──────────────────────────────────────────
+            // Optional segment — collapses cleanly when used with the conditional
+            // group syntax `({Disc})` so single-disc albums don't get a stray
+            // "Disc 01/" subfolder.
+            ["Disc"]        = meta.GetValueOrDefault("disc", "") is { Length: > 0 } d
+                                  ? PadNumeric(d)
+                                  : meta.GetValueOrDefault("disc_number", string.Empty) is { Length: > 0 } dn
+                                      ? PadNumeric(dn)
+                                      : string.Empty,
+            // ── Comics ───────────────────────────────────────────────────────────
+            ["IssueNumber"] = PadNumeric(meta.GetValueOrDefault("issue_number", string.Empty)),
+            // ── External bridge IDs (Plex/Jellyfin folder name convention) ───────
+            // Used by templates like `{Title} ({Year}) {{imdb-{ImdbId}}}` so files
+            // organized by Tuvima drop straight into Plex / Jellyfin without further
+            // intervention. Bridge IDs are populated into the metadata bag by the
+            // ConfigDrivenAdapter / hydration pipeline using the BridgeIdKeys names.
+            ["ImdbId"]      = meta.GetValueOrDefault(BridgeIdKeys.ImdbId, string.Empty),
+            ["TmdbId"]      = meta.GetValueOrDefault(BridgeIdKeys.TmdbId, string.Empty),
+            ["TvdbId"]      = meta.GetValueOrDefault(BridgeIdKeys.TvdbId, string.Empty),
             // ── Content hash token for collision avoidance ──────────────────────
             ["Hash6"]       = meta.TryGetValue("content_hash", out var hash) && hash.Length >= 6
                                   ? hash[..6]
