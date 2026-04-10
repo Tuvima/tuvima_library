@@ -221,6 +221,12 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 
 builder.Services.AddSingleton<ITransactionJournal, TransactionJournal>();
 builder.Services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
+builder.Services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>();
+// Global Tuvima data folder (people / universes / characters / fictional / hash cache).
+// Resolution order: TUVIMA_DATA_DIR env var → platform default. The core.json
+// data_directory override is wired in a later slice of the side-by-side-with-Plex plan.
+builder.Services.AddSingleton<MediaEngine.Domain.Services.TuvimaDataPaths>(
+    _ => new MediaEngine.Domain.Services.TuvimaDataPaths(configuredPath: null));
 builder.Services.AddSingleton<IHubRepository, HubRepository>();
 builder.Services.AddSingleton<IHubPlacementRepository, HubPlacementRepository>();
 builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.AudioFingerprintRepository>();

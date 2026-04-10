@@ -27,7 +27,10 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         string EditionId,
         string ContentHash,
         string FilePathRoot,
-        string Status);
+        string Status,
+        string? LibraryId,
+        long IsOrphaned,
+        string? OrphanedAt);
 
     private static MediaAsset ToAsset(MediaAssetRow r) => new()
     {
@@ -36,6 +39,11 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         ContentHash  = r.ContentHash,
         FilePathRoot = r.FilePathRoot,
         Status       = Enum.Parse<AssetStatus>(r.Status, ignoreCase: true),
+        LibraryId    = r.LibraryId,
+        IsOrphaned   = r.IsOrphaned != 0,
+        OrphanedAt   = string.IsNullOrEmpty(r.OrphanedAt)
+            ? null
+            : DateTimeOffset.Parse(r.OrphanedAt, System.Globalization.CultureInfo.InvariantCulture),
     };
 
     private const string SelectColumns = """
@@ -43,7 +51,10 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         edition_id     AS EditionId,
         content_hash   AS ContentHash,
         file_path_root AS FilePathRoot,
-        status         AS Status
+        status         AS Status,
+        library_id     AS LibraryId,
+        is_orphaned    AS IsOrphaned,
+        orphaned_at    AS OrphanedAt
         """;
 
     public MediaAssetRepository(IDatabaseConnection db)
@@ -123,9 +134,9 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         // Step 1: attempt the insert.
         conn.Execute("""
             INSERT OR IGNORE INTO media_assets
-                (id, edition_id, content_hash, file_path_root, status)
+                (id, edition_id, content_hash, file_path_root, status, library_id, is_orphaned, orphaned_at)
             VALUES
-                (@id, @editionId, @contentHash, @filePathRoot, @status);
+                (@id, @editionId, @contentHash, @filePathRoot, @status, @libraryId, @isOrphaned, @orphanedAt);
             """,
             new
             {
@@ -134,6 +145,9 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
                 contentHash  = asset.ContentHash,
                 filePathRoot = asset.FilePathRoot,
                 status       = asset.Status.ToString(),
+                libraryId    = asset.LibraryId,
+                isOrphaned   = asset.IsOrphaned ? 1 : 0,
+                orphanedAt   = asset.OrphanedAt?.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             });
 
         // Step 2: changes() returns 1 if a row was inserted, 0 if IGNORE fired.
@@ -221,7 +235,10 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
                    ma.edition_id     AS EditionId,
                    ma.content_hash   AS ContentHash,
                    ma.file_path_root AS FilePathRoot,
-                   ma.status         AS Status
+                   ma.status         AS Status,
+                   ma.library_id     AS LibraryId,
+                   ma.is_orphaned    AS IsOrphaned,
+                   ma.orphaned_at    AS OrphanedAt
             FROM   media_assets ma
             JOIN   editions e ON e.id = ma.edition_id
             WHERE  e.work_id = @workId
@@ -370,6 +387,60 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             WHERE  id = @id;
             """,
             new { error = error ?? string.Empty, id = assetId.ToString() });
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task SetLibraryIdAsync(Guid id, string? libraryId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE media_assets
+            SET    library_id = @libraryId
+            WHERE  id         = @id;
+            """,
+            new { libraryId, id = id.ToString() });
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task MarkOrphanedAsync(Guid id, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE media_assets
+            SET    is_orphaned = 1,
+                   orphaned_at = @now
+            WHERE  id          = @id;
+            """,
+            new
+            {
+                now = DateTimeOffset.UtcNow.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                id  = id.ToString(),
+            });
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task ClearOrphanedAsync(Guid id, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE media_assets
+            SET    is_orphaned = 0,
+                   orphaned_at = NULL
+            WHERE  id          = @id;
+            """,
+            new { id = id.ToString() });
 
         return Task.CompletedTask;
     }

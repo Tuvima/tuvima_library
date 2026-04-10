@@ -54,4 +54,30 @@ public sealed class MediaAsset
     /// Spec: "MUST be treated as a single MediaAsset via a MediaManifest."
     /// </summary>
     public MediaManifest? Manifest { get; set; }
+
+    /// <summary>
+    /// Stable identifier of the logical library that owns this asset's source
+    /// path. <see langword="null"/> for rows written before Migration M-085, and
+    /// for assets ingested before the <c>ILibraryFolderResolver</c> is wired in.
+    /// Side-by-side-with-Plex plan §F: one library can span multiple source
+    /// paths, and every asset records which library attributed it.
+    /// </summary>
+    public string? LibraryId { get; set; }
+
+    /// <summary>
+    /// Soft-delete flag. Set to <see langword="true"/> by the watcher when a
+    /// file disappears from disk (NAS unmount, user reorganised in Plex).
+    /// The asset row is retained so user progress and metadata survive; a
+    /// background reconciler clears the flag if the same hash reappears
+    /// within the grace window.
+    /// Side-by-side-with-Plex plan §L.
+    /// </summary>
+    public bool IsOrphaned { get; set; }
+
+    /// <summary>
+    /// UTC timestamp at which <see cref="IsOrphaned"/> was most recently set
+    /// to <see langword="true"/>. <see langword="null"/> when the asset has
+    /// never been orphaned (or has been reconciled back to normal).
+    /// </summary>
+    public DateTimeOffset? OrphanedAt { get; set; }
 }

@@ -137,6 +137,27 @@ public interface IMediaAssetRepository
     /// review item for these rows.
     /// </summary>
     Task MarkRetagFailedAsync(Guid assetId, string error, CancellationToken ct = default);
+
+    /// <summary>
+    /// Stamps the owning library on an asset. Called by ingestion once
+    /// <c>ILibraryFolderResolver</c> has mapped the file's source path to a
+    /// logical library. Side-by-side-with-Plex plan §F.
+    /// </summary>
+    Task SetLibraryIdAsync(Guid id, string? libraryId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Marks an asset as orphaned (file disappeared from disk). Sets
+    /// <c>is_orphaned = 1</c> and stamps <c>orphaned_at</c> with the current
+    /// UTC time. Side-by-side-with-Plex plan §L.
+    /// </summary>
+    Task MarkOrphanedAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    /// Clears the orphan flag on an asset — used by the reconciler when the
+    /// same content hash reappears within the grace window. Side-by-side-with-Plex
+    /// plan §L.
+    /// </summary>
+    Task ClearOrphanedAsync(Guid id, CancellationToken ct = default);
 }
 
 /// <summary>
