@@ -1432,10 +1432,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
             (WellKnownProviders.MusicBrainz.ToString(),     "musicbrainz",          "1.0"),
             (WellKnownProviders.Tmdb.ToString(),            "tmdb",                 "1.0"),
             (WellKnownProviders.Metron.ToString(),          "metron",               "1.0"),
+            (WellKnownProviders.ComicVine.ToString(),       "comicvine",            "1.0"),
             (WellKnownProviders.ApplePodcasts.ToString(),   "apple_podcasts",       "1.0"),
             (WellKnownProviders.PodcastIndex.ToString(),    "podcast_index",        "1.0"),
             (WellKnownProviders.UserManual.ToString(),      "user_manual",          "1.0"),
-            (WellKnownProviders.AiProvider.ToString(),      "fanart_tv",            "1.0"),
+            (WellKnownProviders.FanartTv.ToString(),        "fanart_tv",            "1.0"),
+            (WellKnownProviders.AiProvider.ToString(),      "ai_provider",          "1.0"),
         ];
 
         using var cmd = conn.CreateCommand();

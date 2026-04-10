@@ -573,10 +573,12 @@ public static class DevSeedEndpoints
     [
         // Comics expectations: all four are marked ExpectIdentified=false because the
         // Metron provider requires credentials that are not present in the default
-        // config/secrets/. When Metron credentials are added, flip these back to
-        // ExpectIdentified=true. The expected trigger is RetailMatchFailed because
-        // RetailMatchWorker routes "no candidates" to that bucket when the provider
-        // returns nothing.
+        // ComicVine is the active comics provider. Distinctive titles (Akira,
+        // Sandman) resolve via retail + Wikidata text reconciliation to auto-accept.
+        // "Batman: Year One Part 1" fails retail — the "Part 1" suffix throws off
+        // word overlap scoring against the collected edition title. "Saga Chapter One"
+        // gets a retail match but Wikidata bridge fails (P5905 issue-level ID mismatch).
+        // Both land in the Action Center for manual review.
         new("Batman: Year One Part 1", Writer: "Frank Miller",
             Series: "Batman", Number: 404, Year: 1987, Genre: "Superhero",
             Summary: "Bruce Wayne returns to Gotham City after years abroad.",
@@ -584,7 +586,7 @@ public static class DevSeedEndpoints
             TestCategory: "Comic — classic DC, series with issue number",
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
-            ExpectedReason: "Metron credentials not configured in config/secrets/"),
+            ExpectedReason: "Title 'Part 1' suffix reduces word overlap below match threshold"),
 
         new("Saga Chapter One", Writer: "Brian K. Vaughan",
             Series: "Saga", Number: 1, Year: 2012, Genre: "Science Fiction, Fantasy",
@@ -592,26 +594,22 @@ public static class DevSeedEndpoints
             Publisher: "Image Comics", Penciller: "Fiona Staples",
             TestCategory: "Comic — Image Comics, multi-genre",
             ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
-            ExpectedReason: "Metron credentials not configured in config/secrets/"),
+            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
+            ExpectedReason: "ComicVine issue-level ID not in Wikidata P5905"),
 
         new("The Sandman: Sleep of the Just", Writer: "Neil Gaiman",
             Series: "The Sandman", Number: 1, Year: 1989, Genre: "Fantasy, Horror",
             Summary: "Morpheus, the King of Dreams, is captured and held prisoner for 70 years.",
             Publisher: "DC Comics/Vertigo", Penciller: "Sam Kieth",
             TestCategory: "Comic — Neil Gaiman (cross-ref with Good Omens book)",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
-            ExpectedReason: "Metron credentials not configured in config/secrets/"),
+            ExpectIdentified: true),
 
         new("Akira Vol 1", Writer: "Katsuhiro Otomo",
             Series: "Akira", Number: 1, Year: 1982, Genre: "Science Fiction",
             Summary: "In the year 2019, Neo-Tokyo has risen from the ashes of World War III.",
             Publisher: "Kodansha", Penciller: "Katsuhiro Otomo",
             TestCategory: "Comic — manga, Japanese creator",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
-            ExpectedReason: "Metron credentials not configured in config/secrets/"),
+            ExpectIdentified: true),
     ];
 
     // ── Supported test media types and their provider health-check URLs ────

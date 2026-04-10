@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Intelligence;
@@ -179,7 +180,7 @@ public static class IdNormalization
         MediaType.Music      => ["isrc"],
         MediaType.Movies     => ["tmdb_id", "imdb_id"],
         MediaType.TV         => ["tmdb_id", "imdb_id"],
-        MediaType.Comics    => ["comicvine_id"],
+        MediaType.Comics    => [BridgeIdKeys.ComicVineId],
         _                   => [],
     };
 

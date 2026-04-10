@@ -55,7 +55,7 @@ public sealed class WorkViewModel
             if (mt.Contains("music"))
                 return Canonical("musicbrainz_id") ?? WikidataQid;
             if (mt.Contains("comic"))
-                return Canonical("comicvine_id") ?? WikidataQid;
+                return Canonical(BridgeIdKeys.ComicVineId) ?? WikidataQid;
             return WikidataQid;
         }
     }
@@ -81,7 +81,7 @@ public sealed class WorkViewModel
                 return "QID";
             }
             if (mt.Contains("music")) return Canonical("musicbrainz_id") is not null ? "MusicBrainz" : "QID";
-            if (mt.Contains("comic")) return Canonical("comicvine_id") is not null ? "Comic Vine" : "QID";
+            if (mt.Contains("comic")) return Canonical(BridgeIdKeys.ComicVineId) is not null ? "Comic Vine" : "QID";
             return "QID";
         }
     }

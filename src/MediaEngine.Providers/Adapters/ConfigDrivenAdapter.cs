@@ -563,7 +563,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 case BridgeIdKeys.AudibleId:
                 case BridgeIdKeys.TmdbId:
                 case BridgeIdKeys.ImdbId:
-                case "comicvine_id":
+                case BridgeIdKeys.ComicVineId:
                 case BridgeIdKeys.MusicBrainzId:
                 case BridgeIdKeys.SpotifyId:
                     providerItemId ??= raw;
