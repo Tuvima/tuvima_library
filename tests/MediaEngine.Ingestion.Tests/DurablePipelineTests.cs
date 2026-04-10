@@ -657,6 +657,9 @@ public sealed class DurablePipelineTests : IDisposable
             if (job is not null) { job.LeaseOwner = null; job.LeaseExpiresAt = null; }
             return Task.CompletedTask;
         }
+
+        public Task<int> CountActiveAsync(CancellationToken ct = default)
+            => Task.FromResult(_jobs.Count(j => j.State != "Completed" && j.State != "Failed"));
     }
 
     // ── InMemoryRetailCandidateRepository ────────────────────────────────

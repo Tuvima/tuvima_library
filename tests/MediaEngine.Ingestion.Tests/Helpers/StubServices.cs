@@ -105,6 +105,9 @@ internal sealed class StubIdentityJobRepository : IIdentityJobRepository
 
     public Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default)
         => Task.CompletedTask;
+
+    public Task<int> CountActiveAsync(CancellationToken ct = default)
+        => Task.FromResult(0);
 }
 
 // ── Recursive Identity Stub ───────────────────────────────────────────────────
