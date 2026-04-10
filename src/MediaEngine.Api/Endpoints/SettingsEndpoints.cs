@@ -150,6 +150,29 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
+        // ── GET /settings/libraries ─────────────────────────────────────────────
+        // Returns the current per-library config from config/libraries.json so
+        // the Dashboard can display source paths, ReadOnly, and WritebackOverride.
+        // Spec: side-by-side-with-Plex plan §I / Slice 7.
+
+        grp.MapGet("/libraries", (IConfigurationLoader configLoader) =>
+        {
+            var libs = configLoader.LoadLibraries();
+            return Results.Ok(libs.Libraries.Select(l => new
+            {
+                name         = l.Category,
+                media_types  = l.MediaTypes,
+                source_path  = l.SourcePath,
+                source_paths = l.SourcePaths ?? new List<string>(),
+                read_only    = l.ReadOnly,
+                writeback_override = l.WritebackOverride,
+                notes        = l.Notes,
+            }));
+        })
+        .WithName("GetLibraries")
+        .WithSummary("Returns configured library folders (source paths, ReadOnly, writeback) from config/libraries.json.")
+        .RequireAdmin();
+
         // ── POST /settings/test-path ────────────────────────────────────────────
 
         grp.MapPost("/test-path", (TestPathRequest request) =>

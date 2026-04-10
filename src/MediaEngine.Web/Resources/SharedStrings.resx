@@ -377,6 +377,8 @@
   <data name="Libraries_ReadWriteConfirmed" xml:space="preserve"><value>Read &amp; Write access confirmed</value></data>
   <data name="Libraries_ReadOnly" xml:space="preserve"><value>Read only — cannot write</value></data>
   <data name="Libraries_AccessDenied" xml:space="preserve"><value>Access denied</value></data>
+  <data name="Libraries_ConfiguredLibraries" xml:space="preserve"><value>Configured Libraries</value></data>
+  <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve"><value>Libraries defined in config/libraries.json. Each library can span multiple source paths across different drives. Edit the config file directly to add or modify libraries.</value></data>
 
   <!-- ── Status Dashboard Tab ───────────────────────────────────────────── -->
   <data name="Status_StatusDashboard" xml:space="preserve"><value>Status Dashboard</value></data>

@@ -169,7 +169,64 @@
         </MudStack>
     </MudPaper>
 
-    @* ── Section 4: Library Crawl (stub) ────────────────────────────────── *@
+    @* ── Section 4: Initial Library Sweep ─────────────────────────────── *@
+
+    <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+            <MudIcon Icon="@Icons.Material.Outlined.Fingerprint"
+                     Color="Color.Default" Class="mr-2" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                Library Hash Sweep
+            </MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Fingerprints every media file across all configured library source paths.
+            The hash cache lets Tuvima detect moved and renamed files without re-reading
+            every byte — subsequent sweeps only re-hash files whose size or modification
+            time have changed.
+        </MudText>
+
+        @if (_sweepRunning && _sweepProgress is not null)
+        {
+            <MudStack Spacing="1" Class="mb-3">
+                <MudProgressLinear Color="Color.Primary"
+                                    Value="@SweepPercent"
+                                    Max="100"
+                                    Rounded="true"
+                                    Size="Size.Medium" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @_sweepProgress.Processed / @_sweepProgress.Discovered files ·
+                    @_sweepProgress.Hashed hashed ·
+                    @_sweepProgress.Cached cached ·
+                    @_sweepProgress.Failed failed ·
+                    @FormatBytes(_sweepProgress.BytesHashed)
+                </MudText>
+            </MudStack>
+        }
+        else if (_sweepComplete && _sweepProgress is not null)
+        {
+            <MudAlert Severity="Severity.Success" Variant="Variant.Text" Dense="true" Class="mb-3">
+                Completed — @_sweepProgress.Discovered files discovered,
+                @_sweepProgress.Hashed hashed,
+                @_sweepProgress.Cached from cache,
+                @_sweepProgress.Failed failed
+                (@_sweepProgress.ElapsedSeconds.ToString("F1")s)
+            </MudAlert>
+        }
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                  Class="maintenance-action-row">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PlayArrow"
+                       OnClick="@RunInitialSweepAsync"
+                       Disabled="@_sweepRunning">
+                @(_sweepRunning ? "Sweeping…" : "Run Sweep Now")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Section 5: Library Crawl (stub) ────────────────────────────────── *@
 
     <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mb-6">
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
@@ -223,6 +280,11 @@
     private bool _retagBusy;
     private bool _retagRunning;
 
+    // Initial sweep state
+    private InitialSweepProgressDto? _sweepProgress;
+    private bool _sweepRunning;
+    private bool _sweepComplete;
+
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()
@@ -232,12 +294,16 @@
 
         Orchestrator.OnRetagSweepProgress  += HandleRetagProgress;
         Orchestrator.OnRetagSweepCompleted += HandleRetagCompleted;
+        Orchestrator.OnInitialSweepProgress  += HandleSweepProgress;
+        Orchestrator.OnInitialSweepCompleted += HandleSweepCompleted;
     }
 
     public void Dispose()
     {
         Orchestrator.OnRetagSweepProgress  -= HandleRetagProgress;
         Orchestrator.OnRetagSweepCompleted -= HandleRetagCompleted;
+        Orchestrator.OnInitialSweepProgress  -= HandleSweepProgress;
+        Orchestrator.OnInitialSweepCompleted -= HandleSweepCompleted;
     }
 
     private void HandleRetagProgress(RetagSweepProgressDto ev)
@@ -326,6 +392,54 @@
             Snackbar.Add(L["Maintenance_ReconciliationError"], Severity.Error);
         }
     }
+
+    // ── Initial Sweep Actions ────────────────────────────────────────────────────
+
+    private double SweepPercent =>
+        _sweepProgress is { Discovered: > 0 }
+            ? Math.Min(100, 100.0 * _sweepProgress.Processed / _sweepProgress.Discovered)
+            : 0;
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        < 1024             => $"{bytes} B",
+        < 1024 * 1024      => $"{bytes / 1024.0:F1} KB",
+        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _                  => $"{bytes / (1024.0 * 1024 * 1024):F2} GB",
+    };
+
+    private void HandleSweepProgress(InitialSweepProgressDto ev)
+    {
+        _sweepProgress = ev;
+        _sweepRunning  = true;
+        _sweepComplete = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleSweepCompleted(InitialSweepProgressDto ev)
+    {
+        _sweepProgress = ev;
+        _sweepRunning  = false;
+        _sweepComplete = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task RunInitialSweepAsync()
+    {
+        _sweepRunning  = true;
+        _sweepComplete = false;
+        _sweepProgress = null;
+        StateHasChanged();
+
+        var ok = await Orchestrator.RunInitialSweepAsync();
+        if (!ok)
+        {
+            _sweepRunning = false;
+            Snackbar.Add("Could not start the sweep — check Engine connection.", Severity.Error);
+        }
+    }
+
+    // ── Pass 2 Actions ───────────────────────────────────────────────────────────
 
     private async Task TriggerPass2Async()
     {

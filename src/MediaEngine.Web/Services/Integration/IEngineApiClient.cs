@@ -112,6 +112,11 @@ public interface IEngineApiClient
     /// <summary>POST /maintenance/retag-sweep/retry/{assetId} — re-queues a single terminal-failed asset.</summary>
     Task<bool> RetryRetagForAssetAsync(Guid assetId, CancellationToken ct = default);
 
+    // ── Initial Sweep (side-by-side-with-Plex plan §M) ───────────────────────
+
+    /// <summary>POST /maintenance/initial-sweep/run — fire-and-forget hash sweep.</summary>
+    Task<bool> RunInitialSweepAsync(CancellationToken ct = default);
+
     // ── QID Label Resolution (/metadata/labels) ────────────────────────────────
 
     /// <summary>POST /metadata/labels/resolve — batch-resolve QIDs to display labels.</summary>
@@ -141,6 +146,9 @@ public interface IEngineApiClient
 
     /// <summary>GET /settings/folders — current Watch Folder + Library Folder paths.</summary>
     Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /settings/libraries — per-library config (source paths, ReadOnly, writeback override).</summary>
+    Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default);
 
     /// <summary>PUT /settings/folders — save paths to manifest and hot-swap the FileSystemWatcher.</summary>
     Task<bool> UpdateFolderSettingsAsync(FolderSettingsDto settings, CancellationToken ct = default);

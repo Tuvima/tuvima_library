@@ -225,6 +225,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default)
         => _api.GetFolderSettingsAsync(ct);
 
+    /// <summary>Returns per-library config (source paths, ReadOnly, writeback).</summary>
+    public Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default)
+        => _api.GetLibrariesAsync(ct);
+
     /// <summary>Saves updated folder paths to the Engine manifest and hot-swaps the file watcher.</summary>
     public Task<bool> UpdateFolderSettingsAsync(FolderSettingsDto settings, CancellationToken ct = default)
         => _api.UpdateFolderSettingsAsync(settings, ct);
@@ -440,6 +444,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Fires once per sweep pass after the final progress event.</summary>
     public event Action<RetagSweepProgressDto>? OnRetagSweepCompleted;
 
+    /// <summary>Fires on initial sweep progress ticks (plan §M).</summary>
+    public event Action<InitialSweepProgressDto>? OnInitialSweepProgress;
+
+    /// <summary>Fires when the initial sweep finishes.</summary>
+    public event Action<InitialSweepProgressDto>? OnInitialSweepCompleted;
+
     // ── Metadata Override ────────────────────────────────────────────────
 
     /// <summary>Overrides metadata fields for an entity and invalidates the hub cache.</summary>
@@ -490,6 +500,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Re-queues a single asset after terminal writeback failure.</summary>
     public Task<bool> RetryRetagForAssetAsync(Guid assetId, CancellationToken ct = default)
         => _api.RetryRetagForAssetAsync(assetId, ct);
+
+    // ── Initial Sweep (side-by-side-with-Plex plan §M) ────────────────────
+
+    /// <summary>Triggers the fire-and-forget initial hash sweep.</summary>
+    public Task<bool> RunInitialSweepAsync(CancellationToken ct = default)
+        => _api.RunInitialSweepAsync(ct);
 
     // ── Provider slots ──────────────────────────────────────────────────────
 
@@ -897,6 +913,24 @@ public sealed class UIOrchestratorService : IAsyncDisposable
                 "Intercom ← RetagSweepCompleted: {Processed} processed, {Ok} ok, {Retry} retry, {Fail} failed",
                 ev.Processed, ev.Succeeded, ev.Transient, ev.Terminal);
             OnRetagSweepCompleted?.Invoke(ev);
+        });
+
+        // ── "InitialSweepProgress" ────────────────────────────────────────────
+        _hubConnection.On<InitialSweepProgressDto>(SignalREvents.InitialSweepProgress, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← InitialSweepProgress: {Processed}/{Discovered} ({Hashed} hashed, {Cached} cached)",
+                ev.Processed, ev.Discovered, ev.Hashed, ev.Cached);
+            OnInitialSweepProgress?.Invoke(ev);
+        });
+
+        // ── "InitialSweepCompleted" ───────────────────────────────────────────
+        _hubConnection.On<InitialSweepProgressDto>(SignalREvents.InitialSweepCompleted, ev =>
+        {
+            _logger.LogInformation(
+                "Intercom ← InitialSweepCompleted: {Discovered} discovered, {Hashed} hashed, {Cached} cached, {Failed} failed",
+                ev.Discovered, ev.Hashed, ev.Cached, ev.Failed);
+            OnInitialSweepCompleted?.Invoke(ev);
         });
 
         // ── "MetadataHarvested" ───────────────────────────────────────────────

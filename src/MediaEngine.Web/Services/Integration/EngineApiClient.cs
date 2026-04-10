@@ -555,6 +555,20 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<LibraryFolderDto>>("/settings/libraries", ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/libraries failed");
+            LastError = ex.Message;
+            return null;
+        }
+    }
+
     public async Task<bool> UpdateFolderSettingsAsync(
         FolderSettingsDto settings,
         CancellationToken ct = default)
@@ -2101,6 +2115,21 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /maintenance/retag-sweep/run-now failed");
+            return false;
+        }
+    }
+
+    public async Task<bool> RunInitialSweepAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsync("/maintenance/initial-sweep/run", content: null, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /maintenance/initial-sweep/run failed");
             return false;
         }
     }

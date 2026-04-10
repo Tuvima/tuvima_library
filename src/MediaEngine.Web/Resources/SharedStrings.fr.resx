@@ -377,6 +377,8 @@
   <data name="Libraries_ReadWriteConfirmed" xml:space="preserve"><value>Accès lecture &amp; écriture confirmé</value></data>
   <data name="Libraries_ReadOnly" xml:space="preserve"><value>Lecture seule — écriture impossible</value></data>
   <data name="Libraries_AccessDenied" xml:space="preserve"><value>Accès refusé</value></data>
+  <data name="Libraries_ConfiguredLibraries" xml:space="preserve"><value>Bibliothèques configurées</value></data>
+  <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve"><value>Bibliothèques définies dans config/libraries.json. Chaque bibliothèque peut couvrir plusieurs chemins source. Modifiez le fichier de configuration directement pour ajouter ou modifier des bibliothèques.</value></data>
 
   <!-- ── Status Dashboard Tab ───────────────────────────────────────────── -->
   <data name="Status_StatusDashboard" xml:space="preserve"><value>Tableau de bord</value></data>

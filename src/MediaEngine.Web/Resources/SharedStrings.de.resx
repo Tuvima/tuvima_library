@@ -377,6 +377,8 @@
   <data name="Libraries_ReadWriteConfirmed" xml:space="preserve"><value>Lese- &amp; Schreibzugriff bestätigt</value></data>
   <data name="Libraries_ReadOnly" xml:space="preserve"><value>Nur lesen — kein Schreiben möglich</value></data>
   <data name="Libraries_AccessDenied" xml:space="preserve"><value>Zugriff verweigert</value></data>
+  <data name="Libraries_ConfiguredLibraries" xml:space="preserve"><value>Konfigurierte Bibliotheken</value></data>
+  <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve"><value>In config/libraries.json definierte Bibliotheken. Jede Bibliothek kann mehrere Quellpfade umfassen. Bearbeiten Sie die Konfigurationsdatei direkt, um Bibliotheken hinzuzufügen oder zu ändern.</value></data>
 
   <!-- ── Status Dashboard Tab ───────────────────────────────────────────── -->
   <data name="Status_StatusDashboard" xml:space="preserve"><value>Status-Dashboard</value></data>

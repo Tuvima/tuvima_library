@@ -377,6 +377,8 @@
   <data name="Libraries_ReadWriteConfirmed" xml:space="preserve"><value>Acceso de lectura y escritura confirmado</value></data>
   <data name="Libraries_ReadOnly" xml:space="preserve"><value>Solo lectura — no se puede escribir</value></data>
   <data name="Libraries_AccessDenied" xml:space="preserve"><value>Acceso denegado</value></data>
+  <data name="Libraries_ConfiguredLibraries" xml:space="preserve"><value>Bibliotecas configuradas</value></data>
+  <data name="Libraries_ConfiguredLibrariesHint" xml:space="preserve"><value>Bibliotecas definidas en config/libraries.json. Cada biblioteca puede abarcar múltiples rutas de origen. Edite el archivo de configuración directamente para agregar o modificar bibliotecas.</value></data>
 
   <!-- ── Status Dashboard Tab ───────────────────────────────────────────── -->
   <data name="Status_StatusDashboard" xml:space="preserve"><value>Panel de estado</value></data>

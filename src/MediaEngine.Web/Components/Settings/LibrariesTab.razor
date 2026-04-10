@@ -102,6 +102,69 @@ else
 
     <MudDivider Class="my-6" />
 
+    @* ── Configured Libraries (from config/libraries.json) ──────────────── *@
+    @if (_libraries is { Count: > 0 })
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Outlined.Storage" Color="Color.Default" />
+            <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_ConfiguredLibraries"]</MudText>
+        </MudStack>
+        <MudText Typo="Typo.caption" Style="color: var(--app-text-soft); margin-bottom: 12px; display: block;">
+            @L["Libraries_ConfiguredLibrariesHint"]
+        </MudText>
+
+        @foreach (var lib in _libraries)
+        {
+            <MudPaper Elevation="0" Style="@LibraryCardStyle" Class="mb-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@lib.Name</MudText>
+                    @foreach (var mt in lib.MediaTypes)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                                 Style="font-size: 0.7rem; opacity: 0.8;">@mt</MudChip>
+                    }
+                    @if (lib.ReadOnly)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning"
+                                 Icon="@Icons.Material.Outlined.Lock"
+                                 Style="font-size: 0.7rem;">Read-only</MudChip>
+                    }
+                    @{
+                        var wbLabel = lib.WritebackOverride switch
+                        {
+                            true  => "Writeback: On",
+                            false => "Writeback: Off",
+                            null  => "Writeback: Global default",
+                        };
+                        var wbColor = lib.WritebackOverride switch
+                        {
+                            true  => Color.Success,
+                            false => Color.Error,
+                            null  => Color.Default,
+                        };
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="@wbColor"
+                             Style="font-size: 0.7rem;">@wbLabel</MudChip>
+                </MudStack>
+
+                @foreach (var path in lib.EffectiveSourcePaths)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="ml-2 mb-1">
+                        <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small"
+                                 Style="color: var(--app-text-soft); font-size: 1rem;" />
+                        <MudText Typo="Typo.body2"
+                                 Style="font-family: monospace; font-size: 0.8rem; color: var(--app-text-soft);">
+                            @path
+                        </MudText>
+                    </MudStack>
+                }
+            </MudPaper>
+        }
+
+        <MudDivider Class="my-6" />
+    }
+
+
     @* ── File Organization — token-chip path builder ──────────────────────── *@
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
         <MudText Typo="Typo.subtitle2" Style="font-weight: 600;">@L["Libraries_FileOrganization"]</MudText>
@@ -309,6 +372,12 @@ else
         ["{Ext}"]       = ".epub",
     };
 
+    private const string LibraryCardStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 16px;";
+
     private const string PreviewStyle =
         "background: var(--app-glass-inner-bg); " +
         "border: 1px solid var(--app-glass-inner-border); " +
@@ -328,6 +397,9 @@ else
 
     // Template state
     private string              _organizationTemplate  = string.Empty;
+
+    // Configured libraries from config/libraries.json (read-only view)
+    private List<LibraryFolderDto>? _libraries;
 
     // Original (saved) values — used to detect unsaved changes and to reset
     private string              _savedWatchDir         = string.Empty;
@@ -380,6 +452,9 @@ else
         // Load organization template.
         var tmpl = await Orchestrator.GetOrganizationTemplateAsync();
         _organizationTemplate = tmpl?.Template ?? DefaultOrganizationTemplate;
+
+        // Load configured libraries (source paths, ReadOnly, writeback override).
+        _libraries = await Orchestrator.GetLibrariesAsync();
 
         // Capture the loaded values so we can detect unsaved changes and reset.
         SnapSavedValues();
