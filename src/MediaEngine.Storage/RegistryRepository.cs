@@ -323,7 +323,10 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN wd.curator_state = 'rejected' THEN 'Rejected'
                         -- InReview is prioritised over Provisional so items
                         -- in the Action Centre never leak into media tabs.
-                        WHEN rd.review_id IS NOT NULL THEN 'InReview'
+                        -- WritebackFailed is non-critical (tag writeback only) — items
+                        -- with a QID and no other pending review still appear in media
+                        -- tabs as Identified. They remain visible in the Action Center.
+                        WHEN rd.review_id IS NOT NULL AND rd.trigger != 'WritebackFailed' THEN 'InReview'
                         WHEN wd.curator_state = 'provisional' THEN 'Provisional'
                         WHEN wd.curator_state = 'registered'
                              AND wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != ''

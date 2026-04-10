@@ -63,11 +63,11 @@
   "Comics": {
     "strategy": "Waterfall",
     "providers": [
-      { "rank": 1, "name": "metron" }
+      { "rank": 1, "name": "comicvine" }
     ],
     "field_priorities": {
-      "cover": ["metron"],
-      "description": ["metron"]
+      "cover": ["comicvine"],
+      "description": ["comicvine"]
     }
   },
   "Podcasts": {

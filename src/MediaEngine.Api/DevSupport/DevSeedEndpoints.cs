@@ -624,14 +624,14 @@ public static class DevSeedEndpoints
     {
         ["apple_api"]   = ["books", "audiobooks", "music"],
         ["tmdb"]        = ["movies", "tv"],
-        ["metron"]      = ["comics"],
+        ["comicvine"]   = ["comics"],
     };
 
     private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
         ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
-        ["metron"]      = "https://metron.cloud/api/issue/?series_name=test&limit=1",
+        ["comicvine"]   = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
     };
 
     /// <summary>

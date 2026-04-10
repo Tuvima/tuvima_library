@@ -109,9 +109,18 @@ public static class StreamEndpoints
             // _pending/{assetId12}/ until SweepPendingToQid moves them. Serve from there
             // when the QID-keyed path doesn't exist yet.
             var pendingCoverPath = imagePathService.GetWorkCoverPath(null, assetId);
-            var legacyCoverPath = string.IsNullOrEmpty(asset.FilePathRoot)
+            var coverDir = string.IsNullOrEmpty(asset.FilePathRoot)
                 ? null
-                : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "cover.jpg");
+                : Path.GetDirectoryName(asset.FilePathRoot);
+            var legacyCoverPath = coverDir is null ? null : Path.Combine(coverDir, "cover.jpg");
+            // CoverArtWorker writes poster.jpg (via ImagePathService.GetMediaFilePosterPath),
+            // not cover.jpg — fall back to poster.jpg when cover.jpg doesn't exist.
+            if (legacyCoverPath is not null && !File.Exists(legacyCoverPath))
+            {
+                var posterPath = Path.Combine(coverDir!, "poster.jpg");
+                if (File.Exists(posterPath))
+                    legacyCoverPath = posterPath;
+            }
 
             string? coverPath = null;
             bool servedFromPending = false;
@@ -198,12 +207,22 @@ public static class StreamEndpoints
                     }
                     else
                     {
-                        // Legacy fallback: cover.jpg alongside the media file.
-                        var legacyPath = string.IsNullOrEmpty(asset.FilePathRoot)
+                        // Legacy fallback: cover.jpg alongside the media file, then
+                        // poster.jpg (what CoverArtWorker actually writes via
+                        // ImagePathService.GetMediaFilePosterPath), then poster-thumb.jpg.
+                        var legacyDir = string.IsNullOrEmpty(asset.FilePathRoot)
                             ? null
-                            : Path.Combine(
-                                Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty,
-                                "cover.jpg");
+                            : Path.GetDirectoryName(asset.FilePathRoot);
+                        var legacyPath = legacyDir is null ? null : Path.Combine(legacyDir, "cover.jpg");
+                        if (legacyPath is not null && !File.Exists(legacyPath))
+                        {
+                            var posterThumbPath = Path.Combine(legacyDir!, "poster-thumb.jpg");
+                            var posterPath      = Path.Combine(legacyDir!, "poster.jpg");
+                            if (File.Exists(posterThumbPath))
+                                legacyPath = posterThumbPath;
+                            else if (File.Exists(posterPath))
+                                legacyPath = posterPath;
+                        }
                         if (string.IsNullOrEmpty(legacyPath) || !File.Exists(legacyPath))
                             return Results.NotFound("No cover art found for this asset.");
                         thumbPath = legacyPath;

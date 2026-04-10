@@ -55,6 +55,9 @@ public static class WellKnownProviders
     /// <summary>Fanart.tv — rich imagery (backdrops, logos, banners, character art).</summary>
     public static readonly Guid FanartTv = Guid.Parse("bc00000c-0000-4000-8000-000000000013");
 
+    /// <summary>Comic Vine — comic book metadata and cover art.</summary>
+    public static readonly Guid ComicVine = Guid.Parse("b9000009-0000-4000-8000-000000000014");
+
     /// <summary>Returns true if the provider is a file/local source (LocalProcessor or LibraryScanner).</summary>
     public static bool IsFileSource(Guid providerId) =>
         providerId == LocalProcessor || providerId == LibraryScanner;

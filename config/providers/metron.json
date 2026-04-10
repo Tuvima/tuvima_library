@@ -1,7 +1,7 @@
 {
   "name": "metron",
   "version": "1.0",
-  "enabled": true,
+  "enabled": false,
   "weight": 0.8,
   "domain": "Comic",
   "icon": "images/providers/metron.svg",

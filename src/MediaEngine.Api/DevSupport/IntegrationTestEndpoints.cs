@@ -181,14 +181,14 @@ public static class IntegrationTestEndpoints
     {
         ["apple_api"]   = ["books", "audiobooks", "music"],
         ["tmdb"]        = ["movies", "tv"],
-        ["metron"]      = ["comics"],
+        ["comicvine"]   = ["comics"],
     };
 
     private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
         ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
-        ["metron"]      = "https://metron.cloud/api/issue/?series_name=test&limit=1",
+        ["comicvine"]   = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
     };
 
     private static HashSet<string> ParseTypes(HttpContext context)
@@ -214,13 +214,6 @@ public static class IntegrationTestEndpoints
         {
             try
             {
-                if (kvp.Key.Equals("metron", StringComparison.OrdinalIgnoreCase))
-                {
-                    var creds = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes("Shyatic:fgn4vfg*wqx_MZK@cup"));
-                    httpClient.DefaultRequestHeaders.Authorization =
-                        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", creds);
-                }
-
                 using var response = await httpClient.GetAsync(kvp.Value);
                 bool ok = response.IsSuccessStatusCode || response.StatusCode == System.Net.HttpStatusCode.Unauthorized;
                 return (kvp.Key, Healthy: ok, Reason: ok ? "OK" : $"HTTP {(int)response.StatusCode}");
@@ -749,7 +742,7 @@ public static class IntegrationTestEndpoints
             ("Lose Yourself Eminem", "apple_api", "Music", MediaType.Music, "music"),
             ("Yesterday Beatles", "apple_api", "Music", MediaType.Music, "music"),
             ("Clair de Lune Debussy", "apple_api", "Music", MediaType.Music, "music"),
-            ("Batman Year One", "metron", "Comics", MediaType.Comics, "comics"),
+            ("Batman Year One", "comicvine", "Comics", MediaType.Comics, "comics"),
         };
         var searchTests = allSearchTests
             .Where(t => report.ActiveTypes.Contains(t.typeKey))
