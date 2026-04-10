@@ -51,11 +51,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     // Parsed once at construction.
     private readonly Guid _providerId;
 
-    // Lazy caches for the Stage 2 config files. Loaded on first use and kept
-    // for the lifetime of the adapter so BuildStage2Request doesn't hit the
-    // filesystem once per call. The nullable loader fall-through means tests
-    // that construct the adapter without a config loader fall back to empty
-    // configurations (no pivot, no text-fallback cirrus filter).
+    // Lazy cache for the edition pivot config. Built from _config on first use.
     private EditionPivotConfiguration? _editionPivotCache;
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -1075,9 +1071,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         try
         {
-            var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
-                ? classes
-                : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
+            var audiobookClasses = GetAudiobookEditionClasses();
 
             var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
             var editions = await _reconciler.GetEditionsAsync(
@@ -1212,14 +1206,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     }
 
     /// <summary>
-    /// Translates a media-type edition-pivot entry from <c>config/edition-pivot.json</c>
+    /// Translates a media-type edition-pivot entry from the reconciliation provider config
     /// into the library's <see cref="EditionPivotRule"/>. Returns <c>null</c> when the
-    /// config file is missing the media type (movies, TV, comics, podcasts) or when the
-    /// config loader is unavailable (test fixtures).
+    /// media type is not edition-aware (movies, TV, comics, podcasts).
     /// </summary>
     private EditionPivotRule? BuildEditionPivotRule(MediaType mediaType)
     {
-        _editionPivotCache ??= _configLoader?.LoadEditionPivot() ?? new EditionPivotConfiguration();
+        _editionPivotCache ??= _config.GetEditionPivotConfiguration();
         var entry = _editionPivotCache.GetRuleFor(mediaType);
         if (entry is null) return null;
 
@@ -1243,6 +1236,23 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
             return classes;
         return [];
+    }
+
+    /// <summary>
+    /// Returns the audiobook edition P31 classes from the edition_pivot config,
+    /// falling back to the instance_of_classes Audiobooks list.
+    /// </summary>
+    private IReadOnlyList<string> GetAudiobookEditionClasses()
+    {
+        _editionPivotCache ??= _config.GetEditionPivotConfiguration();
+        var rule = _editionPivotCache.GetRuleFor(MediaType.Audiobooks);
+        if (rule is not null && rule.EditionClasses.Count > 0)
+            return rule.EditionClasses;
+
+        // Fallback to instance_of_classes if edition_pivot is not configured.
+        return _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes) && classes.Count > 0
+            ? classes
+            : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
     }
 
     private static ResolveStrategy MapStage2MatchedStrategy(Stage2MatchedStrategy m) => m switch
@@ -1734,9 +1744,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             try
             {
-                var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
-                    ? classes
-                    : (IReadOnlyList<string>)["Q122731938", "Q106833962"];
+                var audiobookClasses = GetAudiobookEditionClasses();
 
                 var pivotLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
                 var editions = await _reconciler.Editions
@@ -2931,9 +2939,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (mediaType != MediaType.Audiobooks && mediaType != MediaType.Books)
             return editions;
 
-        var audiobookClasses = _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes)
-            ? new HashSet<string>(classes, StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(["Q122731938", "Q106833962"], StringComparer.OrdinalIgnoreCase);
+        var audiobookClasses = new HashSet<string>(GetAudiobookEditionClasses(), StringComparer.OrdinalIgnoreCase);
 
         var filtered = new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>>(StringComparer.OrdinalIgnoreCase);
         foreach (var (qid, props) in editions)

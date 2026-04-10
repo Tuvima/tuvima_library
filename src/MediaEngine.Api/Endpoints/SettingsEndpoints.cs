@@ -47,7 +47,6 @@ public static class SettingsEndpoints
             ["local_filesystem"]         = "Local Filesystem",
             ["open_library"]             = "Open Library",
             ["tmdb"]                     = "TMDB",
-            ["comic_vine"]               = "Comic Vine",
             ["metron"]                   = "Metron",
             ["musicbrainz"]              = "MusicBrainz",
             ["podcast_index"]            = "Podcast Index",
@@ -63,7 +62,6 @@ public static class SettingsEndpoints
             ["wikidata"]              = "wikidata_api",
             ["open_library"]          = "open_library",
             ["tmdb"]                  = "tmdb",
-            ["comic_vine"]            = "comic_vine",
             ["metron"]                = "metron",
             ["musicbrainz"]           = "musicbrainz",
         };
@@ -814,55 +812,6 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAdmin();
 
-        // ── GET /settings/provider-slots ──────────────────────────────────────
-        grp.MapGet("/provider-slots", (IConfigurationLoader configLoader) =>
-        {
-            var slots = configLoader.LoadSlots();
-            return Results.Ok(slots.Slots);
-        })
-        .WithName("GetProviderSlots")
-        .WithSummary("Load provider slot assignments per media type.")
-        .Produces<Dictionary<string, ProviderSlotConfig>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
-
-        // ── PUT /settings/provider-slots ──────────────────────────────────────
-        grp.MapPut("/provider-slots", (
-            Dictionary<string, ProviderSlotConfig> slots,
-            IConfigurationLoader configLoader) =>
-        {
-            if (slots is null || slots.Count == 0)
-                return Results.BadRequest(new { error = "Slot assignments cannot be empty." });
-
-            // Validate: no provider may occupy more than one slot per media type.
-            foreach (var (mediaType, slot) in slots)
-            {
-                var assigned = new List<string>(3);
-                if (!string.IsNullOrWhiteSpace(slot.Primary))   assigned.Add(slot.Primary);
-                if (!string.IsNullOrWhiteSpace(slot.Secondary)) assigned.Add(slot.Secondary);
-                if (!string.IsNullOrWhiteSpace(slot.Tertiary))  assigned.Add(slot.Tertiary);
-
-                var duplicate = assigned
-                    .GroupBy(n => n, StringComparer.OrdinalIgnoreCase)
-                    .FirstOrDefault(g => g.Count() > 1)?.Key;
-
-                if (duplicate is not null)
-                    return Results.BadRequest(new
-                    {
-                        error = $"Provider '{duplicate}' appears in multiple slots for '{mediaType}'. Each provider may only occupy one slot per media type."
-                    });
-            }
-
-            var config = new ProviderSlotConfiguration { Slots = slots };
-            configLoader.SaveSlots(config);
-
-            return Results.Ok(new { saved = true });
-        })
-        .WithName("SaveProviderSlots")
-        .WithSummary("Save provider slot assignments per media type.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
-
         // ── GET /settings/pipelines ──────────────────────────────────────
         grp.MapGet("/pipelines", (IConfigurationLoader configLoader) =>
         {
@@ -970,11 +919,6 @@ public static class SettingsEndpoints
 
             config.Types.Remove(existing);
             configLoader.SaveMediaTypes(config);
-
-            // Clean up orphaned slot assignments for this media type.
-            var slots = configLoader.LoadSlots();
-            if (slots.Slots.Remove(existing.DisplayName))
-                configLoader.SaveSlots(slots);
 
             return Results.NoContent();
         })

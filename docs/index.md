@@ -91,6 +91,7 @@ Set provider keys, language preferences, and library behavior without digging th
 
 - [Add Media to Your Library](guides/adding-media.md)
 - [Resolve Items That Need Review](guides/resolving-reviews.md)
+- [How the Entire Pipeline Works](explanation/how-the-pipeline-works.md)
 - [How Universes and Series Work](explanation/how-universes-work.md)
 - [How File Ingestion Works](explanation/how-ingestion-works.md)
 
@@ -128,6 +129,7 @@ The public reference section is optimized for quick lookup. The architecture sec
 - [Glossary](reference/glossary.md)
 - [Engine API Reference](reference/api-endpoints.md)
 - [Database Schema Reference](reference/database-schema.md)
+- [Wikidata Property Map](reference/wikidata-property-map.md)
 - [Architecture: Product Concepts and Deep Dives](architecture/ingestion-pipeline.md)
 
 ## Related

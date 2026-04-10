@@ -35,9 +35,11 @@ The two-stage design gets the best of both:
 
 ## Stage 1: Retail Identification
 
-Stage 1 runs retail providers in waterfall order â€” each provider is tried in sequence until a confident match is found, or all providers have been tried.
+Stage 1 runs retail providers according to a strategy that varies by media type. The strategy and ranked provider list are both configured in `config/pipelines.json`. Three strategies are used:
 
-The order is configurable per media type. For books you might prioritize Google Books first, then Open Library as a fallback. For films you'd prioritize TMDB. For music, MusicBrainz. The configuration lives in `config/providers/`.
+- **Waterfall** (first match wins) — used for Movies, TV, and Comics. Providers are tried in rank order until a confident match is found. Once one provider returns a good match, the rest are skipped.
+- **Cascade** (all providers run, claims merge) — used for Books and Podcasts. Every configured provider runs independently, and the resulting metadata claims are merged. This allows a book to pick up cover art from Google Books and structured data from Open Library in a single pass.
+- **Sequential** (chained, each feeds the next via bridge IDs) — used for Audiobooks and Music. Provider A runs first and passes its bridge IDs to Provider B, which uses them for a more precise lookup than a text search could achieve.
 
 Each provider returns:
 
@@ -52,6 +54,7 @@ Each provider returns:
 - ASIN (Amazon, primarily audiobooks)
 - TMDB ID (films and TV)
 - MusicBrainz Release ID (music)
+- Apple Music ID (music, for Stage 2 Wikidata lookup via P4857)
 
 These IDs are stored and carried forward to Stage 2.
 
@@ -66,6 +69,8 @@ The lookup sequence:
 2. From the edition item, walk up to the work item (P629 "edition of")
 3. If no ISBN match, try TMDB ID, ASIN, or MusicBrainz ID
 4. If no bridge ID matches, fall back to title + author text search
+
+Text search results are filtered by P31 (instance of) type allow-lists — configured in `instance_of_classes` in `config/providers/wikidata_reconciliation.json` — to prevent false matches (e.g., a movie matching a novel with the same title).
 
 ISBN-first lookup is significantly more precise than text search. "Dune" as a title search returns many candidates. The ISBN for a specific edition points to exactly one item.
 
@@ -86,6 +91,8 @@ Once the work QID is found, the Data Extension API fetches 50+ properties in a s
 - P212 (ISBN-13), P957 (ISBN-10)
 - P4947 (TMDB ID), P1260 (ASIN)
 - P349 (NDL identifier), P648 (Open Library ID)
+
+For books, audiobooks, and music, when a bridge ID resolves to an edition item rather than a work item, the Engine uses **edition pivot rules** (configured in the `edition_pivot` section of `wikidata_reconciliation.json`) to walk from the edition to its parent work. Audiobooks prefer the edition (P747 edition discovery); books and music resolve to the work.
 
 **Wikipedia descriptions** are also fetched via `GetWikipediaSummariesAsync` â€” the formatted introductory text from Wikipedia, which is rich narrative context the AI's Description Intelligence service can work with.
 
@@ -154,6 +161,7 @@ For technical details about provider configuration, waterfall priority configura
 
 ## Related
 
+- [How the Entire Pipeline Works](how-the-pipeline-works.md) — end-to-end pipeline overview
 - [Hydration Pipeline, Provider Architecture and Enrichment Strategy](../architecture/hydration-and-providers.md)
 - [Providers Reference](../reference/providers.md)
 - [How to Configure Metadata Providers](../guides/configuring-providers.md)

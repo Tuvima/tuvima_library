@@ -19,9 +19,6 @@ public static class WellKnownProviders
     /// <summary>Apple API (Books + Audiobooks) retail provider.</summary>
     public static readonly Guid AppleApi = Guid.Parse("b1000001-e000-4000-8000-000000000001");
 
-    /// <summary>Audnexus audiobook metadata (legacy, disabled).</summary>
-    public static readonly Guid Audnexus = Guid.Parse("b2000002-a000-4000-8000-000000000003");
-
     /// <summary>Wikidata Reconciliation — canonical authority for identity resolution.</summary>
     public static readonly Guid Wikidata = Guid.Parse("b3000003-d000-4000-8000-000000000004");
 

@@ -62,7 +62,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     // ── Subdirectory constants ────────────────────────────────────────────────
 
     private const string ProvidersSubdir = "providers";
-    private const string UniverseSubdir  = "universe";
 
     // ── File names ────────────────────────────────────────────────────────────
 
@@ -70,13 +69,11 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private const string ScoringFileName     = "scoring.json";
     private const string MaintenanceFileName = "maintenance.json";
     private const string HydrationFileName   = "hydration.json";
-    private const string SlotsFileName       = "slots.json";
     private const string MediaTypesFileName       = "media_types.json";
     private const string DisambiguationFileName   = "disambiguation.json";
     private const string TranscodingFileName      = "transcoding.json";
     private const string FieldPrioritiesFileName  = "field_priorities.json";
     private const string PipelinesFileName        = "pipelines.json";
-    private const string EditionPivotFileName     = "edition-pivot.json";
 
     // ── Endpoint distribution map for legacy migration ────────────────────────
 
@@ -87,7 +84,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     private static readonly Dictionary<string, string[]> EndpointToProviders = new(StringComparer.OrdinalIgnoreCase)
     {
         ["apple_api"]       = ["apple_api"],
-        ["audnexus"]        = ["audnexus"],
         ["wikidata_api"]    = ["wikidata"],
         ["wikidata_sparql"] = ["wikidata"],
     };
@@ -243,10 +239,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         SaveFile(HydrationFileName, settings);
 
     /// <inheritdoc/>
-    public EditionPivotConfiguration LoadEditionPivot() =>
-        LoadFile<EditionPivotConfiguration>(EditionPivotFileName) ?? new();
-
-    /// <inheritdoc/>
     public DisambiguationSettings LoadDisambiguation() =>
         LoadFile<DisambiguationSettings>(DisambiguationFileName) ?? new();
 
@@ -310,35 +302,13 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         LoadFile<LibrariesConfiguration>(LibrariesFileName) ?? new();
 
     /// <inheritdoc/>
-    public ProviderSlotConfiguration LoadSlots()
-    {
-        // Slots are stored as a flat dictionary in slots.json (not wrapped in ProviderSlotConfiguration).
-        var raw = LoadFile<Dictionary<string, ProviderSlotConfig>>(SlotsFileName);
-        if (raw is null || raw.Count == 0)
-            return new ProviderSlotConfiguration();
-
-        return new ProviderSlotConfiguration { Slots = raw };
-    }
-
-    /// <inheritdoc/>
-    public void SaveSlots(ProviderSlotConfiguration slots)
-    {
-        ArgumentNullException.ThrowIfNull(slots);
-        // Store as a flat dictionary (matching slots.json format).
-        SaveFile(SlotsFileName, slots.Slots);
-    }
-
-    /// <inheritdoc/>
     public PipelineConfiguration LoadPipelines()
     {
-        // Try pipelines.json first (new format).
         var pipelines = LoadFile<Dictionary<string, MediaTypePipeline>>(PipelinesFileName);
         if (pipelines is not null && pipelines.Count > 0)
             return new PipelineConfiguration { Pipelines = new Dictionary<string, MediaTypePipeline>(pipelines, StringComparer.OrdinalIgnoreCase) };
 
-        // Fall back to slots.json → auto-convert to Waterfall pipelines.
-        var slots = LoadSlots();
-        return PipelineConfiguration.FromLegacySlots(slots);
+        return new PipelineConfiguration();
     }
 
     /// <inheritdoc/>
@@ -645,7 +615,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         // Create the directory structure
         Directory.CreateDirectory(_configDir);
         Directory.CreateDirectory(Path.Combine(_configDir, ProvidersSubdir));
-        Directory.CreateDirectory(Path.Combine(_configDir, UniverseSubdir));
 
         // Write core config
         SaveCore(new CoreConfiguration
@@ -703,7 +672,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
     {
         Directory.CreateDirectory(_configDir);
         Directory.CreateDirectory(Path.Combine(_configDir, ProvidersSubdir));
-        Directory.CreateDirectory(Path.Combine(_configDir, UniverseSubdir));
         Directory.CreateDirectory(Path.Combine(_configDir, "ui"));
         Directory.CreateDirectory(Path.Combine(_configDir, "ui", "devices"));
         Directory.CreateDirectory(Path.Combine(_configDir, "ui", "profiles"));
@@ -712,15 +680,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
         SaveCore(new CoreConfiguration());
         SaveScoring(new ScoringSettings());
         SaveMaintenance(new MaintenanceSettings());
-        SaveSlots(new ProviderSlotConfiguration());
         SaveDisambiguation(new DisambiguationSettings());
         SaveFieldPriorities(new FieldPriorityConfiguration
         {
             FieldOverrides = new(StringComparer.OrdinalIgnoreCase)
             {
-                ["description"] = new() { Priority = ["wikipedia", "apple_api", "wikidata_reconciliation"], Note = "Rich Wikipedia summaries preferred over Wikidata one-liners" },
-                ["biography"]   = new() { Priority = ["wikipedia", "wikidata_reconciliation"], Note = "Rich Wikipedia bios for persons" },
-                ["cover"]       = new() { Priority = ["apple_api", "tmdb", "wikidata_reconciliation"], Note = "Retail providers have high-res commercial art" },
+                ["description"] = new() { Priority = ["apple_api", "google_books", "open_library", "tmdb", "Wikidata Reconciliation"], Note = "Rich Wikipedia summaries preferred over Wikidata one-liners" },
+                ["biography"]   = new() { Priority = ["Wikidata Reconciliation"], Note = "Rich Wikipedia bios for persons" },
+                ["cover"]       = new() { Priority = ["apple_api", "tmdb", "open_library", "google_books", "musicbrainz"], Note = "Retail providers have high-res commercial art" },
                 ["rating"]      = new() { Priority = ["apple_api", "tmdb"], Note = "Wikidata does not carry ratings" },
             }
         });
@@ -745,17 +712,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             FieldWeights   = new() { ["cover"] = 0.85, ["description"] = 0.85, ["rating"] = 0.7 },
             Endpoints      = new() { ["api"] = "https://itunes.apple.com" },
             ThrottleMs     = 300,
-        });
-
-        SaveProvider(new ProviderConfiguration
-        {
-            Name           = "audnexus",
-            Enabled        = true,
-            Weight         = 0.7,
-            Domain         = ProviderDomain.Audiobook,
-            CapabilityTags = ["cover", "narrator", "series"],
-            FieldWeights   = new() { ["cover"] = 0.9, ["narrator"] = 0.9, ["series"] = 0.9 },
-            Endpoints      = new() { ["audnexus"] = "https://api.audnexus.com" },
         });
 
         SaveProvider(new ProviderConfiguration

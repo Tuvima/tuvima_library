@@ -136,6 +136,91 @@ public sealed class PipelineBugRegressionTests
             "are consolidated into instance_of_classes in wikidata_reconciliation.json.");
     }
 
+    // ── Config consolidation: edition-pivot merged into wikidata_reconciliation ──
+
+    [Fact]
+    public void EditionPivotJson_DoesNotExist()
+    {
+        // edition-pivot.json was consolidated into wikidata_reconciliation.json.
+        // If it's ever re-created, it will drift.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "edition-pivot.json");
+        Assert.False(File.Exists(staleFile),
+            "edition-pivot.json must not exist — edition pivot rules are consolidated " +
+            "into the edition_pivot section of wikidata_reconciliation.json.");
+    }
+
+    [Fact]
+    public void SlotsJson_DoesNotExist()
+    {
+        // slots.json was fully superseded by pipelines.json.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "slots.json");
+        Assert.False(File.Exists(staleFile),
+            "slots.json must not exist — provider slot assignments are consolidated " +
+            "into pipelines.json with the ranked pipeline system.");
+    }
+
+    [Fact]
+    public void UniverseWikidataJson_DoesNotExist()
+    {
+        // config/universe/wikidata.json was dead configuration (nothing loaded it).
+        // Property map moved to docs/reference/wikidata-property-map.md.
+        // instance_of_classes consolidated into wikidata_reconciliation.json.
+        var root = FindRepoRoot();
+        var staleFile = Path.Combine(root, "config", "universe", "wikidata.json");
+        Assert.False(File.Exists(staleFile),
+            "config/universe/wikidata.json must not exist — property map is in docs, " +
+            "instance_of_classes consolidated into wikidata_reconciliation.json.");
+    }
+
+    [Fact]
+    public void WikidataReconciliation_ContainsEditionPivot()
+    {
+        // Verify the edition_pivot section exists in the consolidated config.
+        var root = FindRepoRoot();
+        var json = File.ReadAllText(
+            Path.Combine(root, "config", "providers", "wikidata_reconciliation.json"));
+        var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOpts);
+        Assert.NotNull(config);
+
+        var editionPivot = config!.GetEditionPivotConfiguration();
+        var audiobookRule = editionPivot.GetRuleFor(MediaType.Audiobooks);
+        Assert.NotNull(audiobookRule);
+        Assert.True(audiobookRule!.PreferEdition,
+            "Audiobooks must have prefer_edition = true for P747 edition discovery.");
+        Assert.Contains("Q122731938", audiobookRule.EditionClasses);
+
+        var bookRule = editionPivot.GetRuleFor(MediaType.Books);
+        Assert.NotNull(bookRule);
+        Assert.False(bookRule!.PreferEdition);
+
+        // Movies, TV, Comics, Podcasts should not have edition pivot rules.
+        Assert.Null(editionPivot.GetRuleFor(MediaType.Movies));
+        Assert.Null(editionPivot.GetRuleFor(MediaType.TV));
+        Assert.Null(editionPivot.GetRuleFor(MediaType.Comics));
+        Assert.Null(editionPivot.GetRuleFor(MediaType.Podcasts));
+    }
+
+    [Fact]
+    public void PipelinesJson_CoversAllMediaTypes()
+    {
+        var root = FindRepoRoot();
+        var json = File.ReadAllText(Path.Combine(root, "config", "pipelines.json"));
+        using var doc = JsonDocument.Parse(json);
+
+        var expectedTypes = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" };
+        foreach (var mt in expectedTypes)
+        {
+            Assert.True(doc.RootElement.TryGetProperty(mt, out var pipeline),
+                $"pipelines.json must contain a '{mt}' entry.");
+            Assert.True(pipeline.TryGetProperty("providers", out var providers),
+                $"pipelines.json '{mt}' must have a 'providers' array.");
+            Assert.True(providers.GetArrayLength() >= 1,
+                $"pipelines.json '{mt}' must have at least one provider.");
+        }
+    }
+
     // ── Bug 2: visibility filter regression (structural) ────────────────
 
     [Fact]

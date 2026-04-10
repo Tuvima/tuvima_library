@@ -61,29 +61,10 @@ public interface IConfigurationLoader
     /// <summary>Persist hydration settings to <c>config/hydration.json</c>.</summary>
     void SaveHydration(HydrationSettings settings);
 
-    // ── Wikidata Stage 2 ────────────────────────────────────────────────
-
-    /// <summary>
-    /// Load the media-type → edition pivot rule map from <c>config/edition-pivot.json</c>.
-    /// Consumed by <c>ReconciliationAdapter.BuildStage2Request</c> to produce the
-    /// per-request <c>Tuvima.Wikidata.EditionPivotRule</c>. Returns an empty configuration
-    /// (no rules) when the file is missing.
-    /// </summary>
-    EditionPivotConfiguration LoadEditionPivot();
-
-    // ── Provider Slots ──────────────────────────────────────────────────────
-
-    /// <summary>Load provider slot assignments per media type from <c>config/slots.json</c>.</summary>
-    ProviderSlotConfiguration LoadSlots();
-
-    /// <summary>Persist provider slot assignments to <c>config/slots.json</c>.</summary>
-    void SaveSlots(ProviderSlotConfiguration slots);
-
     // ── Pipeline Configuration ──────────────────────────────────────────────
 
     /// <summary>
     /// Load pipeline configuration from <c>config/pipelines.json</c>.
-    /// Falls back to <c>slots.json</c> (auto-converted to Waterfall pipelines) if not found.
     /// </summary>
     PipelineConfiguration LoadPipelines();
 

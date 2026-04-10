@@ -63,15 +63,8 @@ public sealed class MediaTypePipeline
 /// <summary>
 /// Complete pipeline configuration for all media types.
 ///
-/// Loaded from <c>config/pipelines.json</c>. Replaces the legacy
-/// <see cref="ProviderSlotConfiguration"/> (slots.json) with a more flexible
-/// model supporting unlimited ranked providers and three execution strategies.
-///
-/// <para>
-/// When <c>pipelines.json</c> does not exist, the loader falls back to
-/// <c>slots.json</c> and auto-converts it (all Waterfall, Primary=rank 1,
-/// Secondary=rank 2, Tertiary=rank 3).
-/// </para>
+/// Loaded from <c>config/pipelines.json</c>. Supports unlimited ranked
+/// providers per media type and three execution strategies.
 /// </summary>
 public sealed class PipelineConfiguration
 {
@@ -96,33 +89,6 @@ public sealed class PipelineConfiguration
     /// </summary>
     public MediaTypePipeline GetPipelineForMediaType(MediaType mediaType)
     {
-        return GetPipelineForMediaType(ProviderSlotConfiguration.MediaTypeToDisplayName(mediaType));
-    }
-
-    /// <summary>
-    /// Creates a <see cref="PipelineConfiguration"/> from a legacy
-    /// <see cref="ProviderSlotConfiguration"/>. All media types use Waterfall
-    /// strategy with Primary=rank 1, Secondary=rank 2, Tertiary=rank 3.
-    /// </summary>
-    public static PipelineConfiguration FromLegacySlots(ProviderSlotConfiguration slots)
-    {
-        var config = new PipelineConfiguration();
-
-        foreach (var (mediaType, slotConfig) in slots.Slots)
-        {
-            var pipeline = new MediaTypePipeline { Strategy = ProviderStrategy.Waterfall };
-            var rank = 1;
-
-            if (!string.IsNullOrWhiteSpace(slotConfig.Primary))
-                pipeline.Providers.Add(new PipelineProviderEntry { Rank = rank++, Name = slotConfig.Primary });
-            if (!string.IsNullOrWhiteSpace(slotConfig.Secondary))
-                pipeline.Providers.Add(new PipelineProviderEntry { Rank = rank++, Name = slotConfig.Secondary });
-            if (!string.IsNullOrWhiteSpace(slotConfig.Tertiary))
-                pipeline.Providers.Add(new PipelineProviderEntry { Rank = rank++, Name = slotConfig.Tertiary });
-
-            config.Pipelines[mediaType] = pipeline;
-        }
-
-        return config;
+        return GetPipelineForMediaType(mediaType.ToString());
     }
 }

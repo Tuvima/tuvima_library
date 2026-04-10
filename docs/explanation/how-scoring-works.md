@@ -62,6 +62,8 @@ Examples of sensible Tier B configurations:
 
 Tier B lets you express domain knowledge about which providers are trustworthy for which data types, without having to intervene on individual items.
 
+Tier B priorities can be configured at two levels: per-media-type overrides in `config/pipelines.json` (checked first), and global overrides in `config/field_priorities.json` (checked second).
+
 ### Tier C â€” Wikidata Authority
 
 For fields without a Tier B override, Wikidata claims win when present. This is the heart of the cascade's design philosophy.
@@ -71,6 +73,8 @@ Wikidata is the authority for **factual data**: canonical title, author, year of
 Retail providers like Apple API or Google Books have richer images and descriptions, but their structured data can be inconsistent â€” reprint dates rather than original publication dates, house style author name formatting, regional variations. Wikidata's data is more carefully curated and more stable.
 
 By default, if Wikidata has an opinion about a field, Wikidata wins.
+
+**The author exception:** For the `author` field only, there is one exception to Wikidata's authority. When a non-Wikidata claim (typically from the file's embedded metadata) has strictly higher confidence than the best Wikidata P50 author claim, the higher-confidence claim wins. This handles pen names — a file might carry “Richard Bachman” as the author at confidence 0.95, while Wikidata returns “Stephen King” via P50 at the deliberately reduced confidence of 0.75. The pen name embedded in the file should win, because it reflects the author's creative intent for that specific edition. For all other fields, Wikidata wins unconditionally in Tier C.
 
 ### Tier D â€” Confidence Cascade
 
@@ -128,6 +132,7 @@ For the technical details of the cascade implementation â€” scoring weights
 
 ## Related
 
+- [How the Entire Pipeline Works](how-the-pipeline-works.md) — end-to-end pipeline overview
 - [Priority Cascade Engine](../architecture/scoring-and-cascade.md)
 - [How to Resolve Items That Need Review](../guides/resolving-reviews.md)
 - [Database Schema Reference](../reference/database-schema.md)

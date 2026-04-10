@@ -6,16 +6,15 @@ using MediaEngine.Storage.Models;
 namespace MediaEngine.Storage.Tests;
 
 /// <summary>
-/// Unit tests for the Stage 2 configuration file:
-///
-/// <para><c>config/edition-pivot.json</c> → <see cref="EditionPivotConfiguration"/>.</para>
+/// Unit tests for the Stage 2 edition pivot configuration, now embedded in
+/// <c>config/providers/wikidata_reconciliation.json</c> under the
+/// <c>edition_pivot</c> section.
 ///
 /// <para>
 /// Verifies round-trip deserialisation, per-media-type lookups, and the
 /// coverage invariant that every media type the adapter could reasonably
-/// resolve at Stage 2 is either present in both configs or is deliberately
-/// absent (movies, TV, comics, podcasts skip edition pivot; none are
-/// excluded from the cirrus filters).
+/// resolve at Stage 2 is either present or deliberately absent (movies,
+/// TV, comics, podcasts skip edition pivot).
 /// </para>
 /// </summary>
 public sealed class Stage2ConfigTests
@@ -87,15 +86,18 @@ public sealed class Stage2ConfigTests
     [Fact]
     public void EditionPivot_ShippedConfigCoversExpectedMediaTypes()
     {
-        // Loading the actual config/edition-pivot.json file from the repo —
+        // Loading the edition_pivot section from wikidata_reconciliation.json —
         // this catches typos, missing keys, and drift between the documented
         // media-type list and the shipped file.
         var root = FindRepoRoot();
-        var path = Path.Combine(root, "config", "edition-pivot.json");
-        Assert.True(File.Exists(path), $"Shipped edition-pivot.json not found at {path}");
+        var path = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
+        Assert.True(File.Exists(path), $"wikidata_reconciliation.json not found at {path}");
 
-        var json   = File.ReadAllText(path);
-        var config = JsonSerializer.Deserialize<EditionPivotConfiguration>(json, s_jsonOpts);
+        var json = File.ReadAllText(path);
+        var reconConfig = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOpts);
+        Assert.NotNull(reconConfig);
+
+        var config = reconConfig!.GetEditionPivotConfiguration();
         Assert.NotNull(config);
 
         // Books, Audiobooks, Music are edition-aware and must have rules.

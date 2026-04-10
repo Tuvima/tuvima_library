@@ -157,7 +157,6 @@ public sealed class RetailParityTests
         public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
         public PipelineConfiguration LoadPipelines() => new();
         public HydrationSettings LoadHydration() => new();
-        public EditionPivotConfiguration LoadEditionPivot() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
         public CoreConfiguration LoadCore() => throw new NotImplementedException();
         public void SaveCore(CoreConfiguration config) => throw new NotImplementedException();
@@ -165,8 +164,6 @@ public sealed class RetailParityTests
         public MaintenanceSettings LoadMaintenance() => throw new NotImplementedException();
         public void SaveMaintenance(MaintenanceSettings settings) => throw new NotImplementedException();
         public void SaveHydration(HydrationSettings settings) => throw new NotImplementedException();
-        public ProviderSlotConfiguration LoadSlots() => throw new NotImplementedException();
-        public void SaveSlots(ProviderSlotConfiguration slots) => throw new NotImplementedException();
         public void SavePipelines(PipelineConfiguration config) => throw new NotImplementedException();
         public DisambiguationSettings LoadDisambiguation() => throw new NotImplementedException();
         public void SaveDisambiguation(DisambiguationSettings settings) => throw new NotImplementedException();

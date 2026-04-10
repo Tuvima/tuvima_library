@@ -29,7 +29,7 @@ public sealed class SearchService : ISearchService
     // Providers that should not be used for retail search
     private static readonly HashSet<string> ExcludedFromRetail = new(StringComparer.OrdinalIgnoreCase)
     {
-        "wikidata", "wikipedia"
+        "wikidata", "wikidata_reconciliation"
     };
 
     /// <summary>

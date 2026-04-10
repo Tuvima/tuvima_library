@@ -20,7 +20,7 @@ The user drops a file (book, movie, audiobook, comic) into a designated "Watch F
 7. **Organising** — If scoring confidence is high enough (≥85%) or the user has locked any metadata value, the file is moved to a clean, human-readable folder structure in the Library.
 8. **Sidecar writing** — A companion `library.xml` file is written alongside the organised file, preserving all metadata in a human-readable format.
 9. **Cover art** — The cover image is extracted and saved as `cover.jpg` next to the file.
-10. **Background enrichment** — External sources (Apple Books, Audnexus, Wikidata) are quietly queried for better metadata. Results pop in moments later.
+10. **Background enrichment** — External sources (Apple Books, Wikidata) are quietly queried for better metadata. Results pop in moments later.
 11. **Person enrichment** — Authors and narrators are identified, linked, and enriched with portraits from Wikidata.
 
 All of this happens without the user lifting a finger after the initial folder setup.

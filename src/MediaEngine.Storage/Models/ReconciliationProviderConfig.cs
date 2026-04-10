@@ -20,7 +20,18 @@ public sealed class ReconciliationProviderConfig
     [JsonPropertyName("instance_of_classes")] public Dictionary<string, List<string>> InstanceOfClasses { get; set; } = new();
     [JsonPropertyName("exclude_classes")] public Dictionary<string, List<string>> ExcludeClasses { get; set; } = new();
     [JsonPropertyName("child_entity_discovery")] public ChildEntityDiscoveryConfig ChildEntityDiscovery { get; set; } = new();
+    [JsonPropertyName("edition_pivot")] public Dictionary<string, EditionPivotRuleEntry> EditionPivot { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     [JsonPropertyName("data_extension")] public DataExtensionSettings DataExtension { get; set; } = new();
+
+    /// <summary>
+    /// Returns the edition pivot rules as an <see cref="EditionPivotConfiguration"/> for
+    /// consumption by <c>ReconciliationAdapter.BuildEditionPivotRule</c>. This replaces
+    /// the former standalone <c>config/edition-pivot.json</c> file.
+    /// </summary>
+    public EditionPivotConfiguration GetEditionPivotConfiguration() => new()
+    {
+        Rules = new Dictionary<string, EditionPivotRuleEntry>(EditionPivot, StringComparer.OrdinalIgnoreCase),
+    };
 }
 
 public sealed class ReconciliationEndpoints

@@ -135,6 +135,37 @@ Enrichment pipeline configuration. Controls timeouts, concurrency, and two-pass 
 
 ---
 
+## config/pipelines.json
+
+Defines the ranked provider list and execution strategy per media type. This file replaced the legacy `config/slots.json` fixed 3-slot system and supports unlimited ranked providers.
+
+| Field | Type | Description |
+|---|---|---|
+| `{MediaType}.strategy` | string | Execution strategy: `"Waterfall"` (first match wins), `"Cascade"` (all run, claims merge), or `"Sequential"` (chained, each feeds the next). |
+| `{MediaType}.providers` | array | Ordered list of provider entries. Each entry has `rank` (int, execution order) and `name` (string, must match provider config `name` field). |
+| `{MediaType}.field_priorities` | object | Per-field provider priority overrides for this media type. Key = claim key (e.g., "cover", "description"). Value = ordered list of provider names. Checked before global `field_priorities.json`. |
+
+Default strategies:
+- **Waterfall:** Movies, TV, Comics
+- **Cascade:** Books, Podcasts
+- **Sequential:** Audiobooks, Music
+
+All seven media types (Books, Audiobooks, Movies, TV, Music, Comics, Podcasts) must have at least one provider entry.
+
+---
+
+## config/field_priorities.json
+
+Global per-field provider priority overrides used by Tier B of the Priority Cascade. Per-media-type overrides in `config/pipelines.json` take precedence over these global settings.
+
+| Field | Type | Description |
+|---|---|---|
+| `field_overrides.{field}.priority` | string[] | Ordered list of provider names. First provider with a claim for this field wins. |
+
+Common fields configured here: `cover`, `description`, `rating`, `narrator`, `duration`, `page_count`. Structured fields (title, author, year, genre, series) are handled by Tier C (Wikidata authority) and typically do not need Tier B overrides.
+
+---
+
 ## config/libraries.json
 
 Defines the Library Folders the Engine monitors. Contains a `libraries` array; each entry is one folder configuration.
@@ -200,6 +231,24 @@ One JSON file per metadata provider. All provider files are self-contained â€
 | `local_filesystem.json` | Local file metadata (processors) | Stage 0 | `source` |
 | `fanart_tv.json` | Fanart.tv (artwork) | Stage 2 | `source` |
 
+### wikidata_reconciliation.json — Single Source of Truth
+
+This file is the authoritative configuration for all Wikidata-related behaviour. In addition to the common provider fields above, it contains:
+
+| Section | Description |
+|---|---|
+| `instance_of_classes` | Per-media-type P31 type allow-lists for CirrusSearch text fallback filtering. Previously stored separately in `cirrus-type-filters.json` (now removed). |
+| `edition_pivot` | Per-media-type rules for walking from Wikidata edition items to work items. Previously stored in `edition-pivot.json` (now removed). Keys: `audiobooks`, `books`, `music`. Each has `work_classes`, `edition_classes`, and `prefer_edition`. |
+| `exclude_classes` | P31 classes to exclude from reconciliation results. |
+| `child_entity_discovery` | Configuration for TV season/episode, music track, and comic issue discovery. |
+| `data_extension` | Properties fetched during the Data Extension API call after QID resolution. |
+
+**Removed config files (consolidated here):**
+- `config/cirrus-type-filters.json` — merged into `instance_of_classes`
+- `config/edition-pivot.json` — merged into `edition_pivot`
+- `config/universe/wikidata.json` — property map moved to `docs/reference/wikidata-property-map.md`; instance_of_classes already present here
+- `config/slots.json` — replaced by `config/pipelines.json`
+
 ### Common provider fields
 
 | Field | Type | Description |
@@ -246,3 +295,4 @@ Per-user UI preference overrides. Stored server-side and merged into the resolve
 - [How to Configure Metadata Providers](../guides/configuring-providers.md)
 - [How to Set Up Language Preferences](../guides/language-setup.md)
 - [Developer Setup](../tutorials/dev-setup.md)
+- [Wikidata Property Map](wikidata-property-map.md)

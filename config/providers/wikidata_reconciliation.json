@@ -60,6 +60,23 @@
       "issue_properties": ["P1476", "P1545", "P577"]
     }
   },
+  "edition_pivot": {
+    "audiobooks": {
+      "work_classes":    ["Q7725634", "Q571"],
+      "edition_classes": ["Q122731938", "Q106833962"],
+      "prefer_edition":  true
+    },
+    "books": {
+      "work_classes":    ["Q7725634", "Q8261", "Q571"],
+      "edition_classes": ["Q3331189"],
+      "prefer_edition":  false
+    },
+    "music": {
+      "work_classes":    ["Q482994"],
+      "edition_classes": ["Q2031291"],
+      "prefer_edition":  false
+    }
+  },
   "data_extension": {
     "work_properties": {
       "core": ["P31", "P50", "P57", "P58", "P86", "P110", "P161", "P175", "P577", "P1476", "P136", "P179", "P1545", "P449"],

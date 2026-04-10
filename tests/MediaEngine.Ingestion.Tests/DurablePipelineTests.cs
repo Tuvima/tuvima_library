@@ -262,7 +262,7 @@ public sealed class DurablePipelineTests : IDisposable
 
         var provider = new StubProvider
         {
-            Name       = "apple_books",
+            Name       = "apple_api",
             ProviderId = providerId,
             Claims     =
             [
@@ -827,7 +827,7 @@ public sealed class DurablePipelineTests : IDisposable
         {
             Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
             {
-                ["Books"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_books" }] },
+                ["Books"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_api" }] },
                 ["Movies"]     = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
                 ["TV"]         = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
                 ["Music"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
@@ -838,7 +838,6 @@ public sealed class DurablePipelineTests : IDisposable
         };
 
         public HydrationSettings LoadHydration() => new();
-        public EditionPivotConfiguration LoadEditionPivot() => new();
         public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
         public ScoringSettings LoadScoring() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
@@ -848,8 +847,6 @@ public sealed class DurablePipelineTests : IDisposable
         public MaintenanceSettings LoadMaintenance() => new();
         public void SaveMaintenance(MaintenanceSettings settings) { }
         public void SaveHydration(HydrationSettings settings) { }
-        public ProviderSlotConfiguration LoadSlots() => new();
-        public void SaveSlots(ProviderSlotConfiguration slots) { }
         public void SavePipelines(PipelineConfiguration config) { }
         public DisambiguationSettings LoadDisambiguation() => new();
         public void SaveDisambiguation(DisambiguationSettings settings) { }

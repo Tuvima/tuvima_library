@@ -48,7 +48,7 @@ public sealed class WorkerPipelineTests
 
         var provider = new StubExternalMetadataProvider
         {
-            Name = "apple_books",
+            Name = "apple_api",
             ProviderId = providerId,
             Claims =
             [
@@ -135,7 +135,7 @@ public sealed class WorkerPipelineTests
         // Provider returns empty claims
         var provider = new StubExternalMetadataProvider
         {
-            Name = "apple_books",
+            Name = "apple_api",
             ProviderId = Guid.NewGuid(),
             Claims = [],
         };
@@ -550,13 +550,12 @@ public sealed class WorkerPipelineTests
                 ["Books"] = new()
                 {
                     Strategy = ProviderStrategy.Waterfall,
-                    Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_books" }],
+                    Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_api" }],
                 },
             },
         };
 
         public HydrationSettings LoadHydration() => new();
-        public EditionPivotConfiguration LoadEditionPivot() => new();
         public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
         public ScoringSettings LoadScoring() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
@@ -568,8 +567,6 @@ public sealed class WorkerPipelineTests
         public MaintenanceSettings LoadMaintenance() => throw new NotImplementedException();
         public void SaveMaintenance(MaintenanceSettings settings) => throw new NotImplementedException();
         public void SaveHydration(HydrationSettings settings) => throw new NotImplementedException();
-        public ProviderSlotConfiguration LoadSlots() => throw new NotImplementedException();
-        public void SaveSlots(ProviderSlotConfiguration slots) => throw new NotImplementedException();
         public void SavePipelines(PipelineConfiguration config) => throw new NotImplementedException();
         public DisambiguationSettings LoadDisambiguation() => throw new NotImplementedException();
         public void SaveDisambiguation(DisambiguationSettings settings) => throw new NotImplementedException();

@@ -178,10 +178,7 @@ file sealed class StubConfigurationLoader : IConfigurationLoader
     public MaintenanceSettings LoadMaintenance() => new();
     public void SaveMaintenance(MaintenanceSettings settings) { }
     public HydrationSettings LoadHydration() => new();
-    public EditionPivotConfiguration LoadEditionPivot() => new();
     public void SaveHydration(HydrationSettings settings) { }
-    public ProviderSlotConfiguration LoadSlots() => new();
-    public void SaveSlots(ProviderSlotConfiguration slots) { }
     public PipelineConfiguration LoadPipelines() => new();
     public void SavePipelines(PipelineConfiguration config) { }
     public DisambiguationSettings LoadDisambiguation() => new();
