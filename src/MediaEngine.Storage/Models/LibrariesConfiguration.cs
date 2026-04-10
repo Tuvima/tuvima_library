@@ -66,4 +66,24 @@ public sealed class LibraryFolderConfig
     /// <summary>Optional free-text notes for the user. Not used by the Engine.</summary>
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
+
+    /// <summary>
+    /// Hard read-only gate. When true, Tuvima will not move, rename, or write
+    /// file tags for any file in this library — it indexes everything in place.
+    /// This is the escape hatch for users who want a strictly hands-off mirror
+    /// of an external library (e.g. a Plex library Tuvima should not touch).
+    /// Default: false. Spec: side-by-side-with-Plex plan §I.
+    /// </summary>
+    [JsonPropertyName("read_only")]
+    public bool ReadOnly { get; set; }
+
+    /// <summary>
+    /// Per-library override for metadata writeback. <c>null</c> means use the
+    /// global <c>metadata_writeback.enabled</c> flag; <c>true</c> or <c>false</c>
+    /// forces on/off for this library only. The user's way of saying
+    /// "Plex is my primary, don't touch tags on this one" without turning off
+    /// writeback globally. Spec: side-by-side-with-Plex plan §I.
+    /// </summary>
+    [JsonPropertyName("writeback_override")]
+    public bool? WritebackOverride { get; set; }
 }

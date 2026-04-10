@@ -379,6 +379,8 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
                         .Select(s => ParseMediaTypeFromConfig(s))
                         .Where(mt => mt != MediaEngine.Domain.Enums.MediaType.Unknown)
                         .ToList(),
+                    ReadOnly          = l.ReadOnly,
+                    WritebackOverride = l.WritebackOverride,
                 };
             })
             .Where(e => e.EffectiveSourcePaths.Count > 0 && e.MediaTypes.Count > 0)

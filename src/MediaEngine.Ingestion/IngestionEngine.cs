@@ -1339,9 +1339,20 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             mediaTypeNeedsReview,
             gateRelativePath);
 
+        // Side-by-side-with-Plex plan §C — skip the staging move when the file
+        // is already at the path Tuvima would have organised it to. This is how
+        // files arriving from an existing Plex / Jellyfin / ABS tree flow through
+        // the pipeline without being disturbed: they pass through hydration in
+        // place and never leave their source directory.
+        bool isAtTargetLocation = gateRelativePath is not null
+            && candidate.Path.Replace('\\', '/').EndsWith(
+                gateRelativePath.Replace('\\', '/'),
+                StringComparison.OrdinalIgnoreCase);
+
         string currentPath = candidate.Path;
         if (_options.AutoOrganize
-            && !string.IsNullOrWhiteSpace(_options.LibraryRoot))
+            && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
+            && !isAtTargetLocation)
         {
             string stagingSubcategory = gateResult.StagingSubcategory;
 

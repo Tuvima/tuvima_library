@@ -32,6 +32,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly IOrganizationGate        _gate;
     private readonly IngestionOptions         _options;
     private readonly ImagePathService?        _imagePathService;
+    private readonly ILibraryFolderResolver?  _libraryResolver;
     private readonly ILogger<AutoOrganizeService> _logger;
 
     public AutoOrganizeService(
@@ -45,7 +46,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         IOrganizationGate          gate,
         IOptions<IngestionOptions> options,
         ILogger<AutoOrganizeService> logger,
-        ImagePathService?          imagePathService = null)
+        ImagePathService?          imagePathService = null,
+        ILibraryFolderResolver?    libraryResolver  = null)
     {
         _assetRepo        = assetRepo;
         _canonicalRepo    = canonicalRepo;
@@ -57,6 +59,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _gate             = gate;
         _options          = options.Value;
         _imagePathService = imagePathService;
+        _libraryResolver  = libraryResolver;
         _logger           = logger;
     }
 
@@ -81,6 +84,19 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         {
             _logger.LogWarning(
                 "Auto-organize skipped for {Id}: file missing at {Path}",
+                assetId, asset.FilePathRoot);
+            return;
+        }
+
+        // ── Per-library ReadOnly gate ──────────────────────────────────────
+        // Side-by-side-with-Plex plan §C/§I. When the file belongs to a
+        // library marked ReadOnly (the user's "Plex owns this tree" opt-out),
+        // we never move, rename, or tag it — we index in place and return.
+        var owningLibrary = _libraryResolver?.ResolveForPath(asset.FilePathRoot);
+        if (owningLibrary is { ReadOnly: true })
+        {
+            _logger.LogDebug(
+                "Auto-organize skipped for {Id}: owning library is ReadOnly ({Path})",
                 assetId, asset.FilePathRoot);
             return;
         }

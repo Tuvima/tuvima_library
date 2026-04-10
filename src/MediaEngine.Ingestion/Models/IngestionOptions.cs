@@ -45,6 +45,22 @@ public sealed class LibraryFolderEntry
     /// Parsed from the JSON <c>media_types</c> string array at startup.
     /// </summary>
     public IReadOnlyList<MediaType> MediaTypes { get; init; } = [];
+
+    /// <summary>
+    /// Hard read-only gate. When <see langword="true"/>, the ingestion pipeline
+    /// will never move, rename, or tag files that belong to this library — they
+    /// are indexed in place. The escape hatch for users who want Tuvima to
+    /// mirror an external library (e.g. a Plex tree) without ever touching it.
+    /// Spec: side-by-side-with-Plex plan §I.
+    /// </summary>
+    public bool ReadOnly { get; init; }
+
+    /// <summary>
+    /// Per-library override for metadata writeback. <see langword="null"/> means
+    /// use the global writeback flag; <see langword="true"/> or <see langword="false"/>
+    /// forces on/off for this library only. Spec: side-by-side-with-Plex plan §I.
+    /// </summary>
+    public bool? WritebackOverride { get; init; }
 }
 
 /// <summary>
