@@ -1,10 +1,10 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Vault
 
-@* Large clickable pipeline circles for the detail drawer *@
+@* Clickable pipeline circles for the detail drawer — Retail / Wikidata / Universe *@
 
 <div class="pipeline-circles">
-    @for (int i = 0; i < 4; i++)
+    @for (int i = 0; i < 3; i++)
     {
         var stage = i;
         var stageInfo = GetStageInfo(stage);
@@ -19,7 +19,7 @@
             <span class="circle-label @(isSelected ? "selected" : "")">@GetStageName(stage)</span>
         </div>
 
-        @if (i < 3)
+        @if (i < 2)
         {
             <div class="pipeline-connector @GetConnectorClass(i)"></div>
         }
@@ -27,7 +27,6 @@
 </div>
 
 @code {
-    [Parameter] public VaultPipelineStage? Stage0 { get; set; }
     [Parameter] public VaultPipelineStage? Stage1 { get; set; }
     [Parameter] public VaultPipelineStage? Stage2 { get; set; }
     [Parameter] public VaultPipelineStage? Stage3 { get; set; }
@@ -36,24 +35,22 @@
 
     private VaultPipelineStage GetStageInfo(int stage) => stage switch
     {
-        0 => Stage0 ?? new() { State = VaultStageState.Completed, Label = "File" },
-        1 => Stage1 ?? new() { State = VaultStageState.Pending, Label = "Retail" },
-        2 => Stage2 ?? new() { State = VaultStageState.Pending, Label = "Wikidata" },
-        3 => Stage3 ?? new() { State = VaultStageState.Pending, Label = "Universe" },
+        0 => Stage1 ?? new() { State = VaultStageState.Pending, Label = "Retail" },
+        1 => Stage2 ?? new() { State = VaultStageState.Pending, Label = "Wikidata" },
+        2 => Stage3 ?? new() { State = VaultStageState.Pending, Label = "Universe" },
         _ => new() { State = VaultStageState.Pending, Label = "" },
     };
 
     private string GetStageName(int stage) => stage switch
     {
-        0 => "File", 1 => "Retail", 2 => "Wikidata", 3 => "Universe", _ => ""
+        0 => "Retail", 1 => "Wikidata", 2 => "Universe", _ => ""
     };
 
     private string GetStageIcon(int stage) => stage switch
     {
-        0 => "\U0001f4c4", // 📄
-        1 => "\U0001f3ea", // 🏪
-        2 => "\U0001f517", // 🔗
-        3 => "\U0001f30c", // 🌌
+        0 => "\U0001f3ea", // 🏪
+        1 => "\U0001f517", // 🔗
+        2 => "\U0001f30c", // 🌌
         _ => ""
     };
 
@@ -65,13 +62,8 @@
         _                         => "state-pending",
     };
 
-    /// <summary>
-    /// Connector between stage i and stage i+1 takes the colour of the completed stage.
-    /// If stage i+1 has started (not pending), the connector shows completed.
-    /// </summary>
     private string GetConnectorClass(int fromStage)
     {
-        // Connector colour follows the "from" stage state
         var fromInfo = GetStageInfo(fromStage);
         return fromInfo.State switch
         {
@@ -84,8 +76,6 @@
 
     private async Task OnStageSelected(int stage)
     {
-        // Stage 0 (File) is informational only — file metadata lives in the top-level Details section now.
-        if (stage == 0) return;
         SelectedStage = stage;
         await SelectedStageChanged.InvokeAsync(stage);
     }

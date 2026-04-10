@@ -284,7 +284,6 @@
                 @* Pipeline stage circles *@
                 <div class="vdd-pipeline-circles-wrap">
                     <VaultPipelineCircles
-                        Stage0="@(new VaultPipelineStage { State = VaultStageState.Completed, Label = "File scanned" })"
                         Stage1="@MediaItem.Stage1"
                         Stage2="@MediaItem.Stage2"
                         Stage3="@MediaItem.Stage3"
@@ -305,7 +304,7 @@
                 }
                 @switch (ActiveTab)
                 {
-                    case 1:
+                    case 0:
                         @* ── RETAIL TAB ── *@
                         <div class="vdd-tab-content">
                             @* Always-visible filter-based search (at the top) *@
@@ -599,7 +598,7 @@
                         </div>
                         break;
 
-                    case 2:
+                    case 1:
                         @* ── WIKIDATA TAB ── *@
                         <div class="vdd-tab-content">
                             @* Always-visible Wikidata search (at the top) *@
@@ -817,7 +816,7 @@
                         </div>
                         break;
 
-                    case 3:
+                    case 2:
                         @* ── UNIVERSE TAB ── *@
                         <div class="vdd-tab-content">
                             @if (!string.IsNullOrEmpty(MediaItem?.UniverseName))
@@ -1112,7 +1111,7 @@
     [Parameter] public EventCallback<string> OnCreatorClicked { get; set; }
 
     private bool _confirmPurge;
-    private int _selectedStage = 1;
+    private int _selectedStage = 0;
     private int _detailsTab = 0;  // 0=Current Metadata, 1=Original Metadata
     private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
     private bool _searching;
@@ -1195,7 +1194,7 @@
         return null;
     }
 
-    private int ActiveTab => _selectedStage;  // 1=Retail, 2=Wikidata, 3=Universe
+    private int ActiveTab => _selectedStage;  // 0=Retail, 1=Wikidata, 2=Universe
 
     private async Task NavigateToCreatorPerson(string creatorName)
     {
@@ -1604,7 +1603,7 @@
         _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
 
         // Switch to Wikidata tab — Wikidata lookup kicks off automatically after retail match
-        _selectedStage = 2;
+        _selectedStage = 1;
 
         await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
     }

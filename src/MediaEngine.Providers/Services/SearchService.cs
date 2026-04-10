@@ -496,7 +496,7 @@ public sealed class SearchService : ISearchService
         {
             "Epub"      => "Books",
             "Audiobook" => "Audiobooks",
-            "Comics"    => "Comic",
+            "Comics"    => "Comics",
             _           => mediaTypeStr.Trim(),
         };
         return Enum.TryParse<MediaType>(normalized, ignoreCase: true, out var mt) ? mt : MediaType.Unknown;
