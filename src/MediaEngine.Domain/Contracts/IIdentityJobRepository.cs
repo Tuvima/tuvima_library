@@ -50,6 +50,15 @@ public interface IIdentityJobRepository
     /// <summary>Returns jobs that have been stuck (lease expired, state not terminal) for retry.</summary>
     Task<IReadOnlyList<IdentityJob>> GetStaleAsync(TimeSpan age, int limit, CancellationToken ct = default);
 
+    /// <summary>
+    /// Finds jobs stuck in intermediate processing states (RetailSearching,
+    /// BridgeSearching, Hydrating) that have no active lease and have been
+    /// in that state for longer than <paramref name="stuckThreshold"/>.
+    /// Resets them to the appropriate "ready" state so the next poll picks
+    /// them up. Returns the number of jobs reclaimed.
+    /// </summary>
+    Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default);
+
     /// <summary>Returns jobs in a specific state, ordered by creation time.</summary>
     Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default);
 

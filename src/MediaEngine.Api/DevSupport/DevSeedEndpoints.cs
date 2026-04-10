@@ -1291,28 +1291,20 @@ public static class DevSeedEndpoints
             logger.LogInformation("[FullTest] ScanDirectory triggered for legacy watch folder {Path}", watchDir);
         }
 
-        // ── Step 4: Resume the FSW AFTER all files are enqueued ─────────────────
-        // Now that every seed file is already queued in the pipeline, the watcher
-        // can safely observe new arrivals. Any FSW events for the already-queued
-        // files are harmless: the hash-based duplicate check inside
-        // ProcessCandidateAsync short-circuits them instantly.
-        // ResumeWatcher() is used (not Start()) because the consumer loop was never
-        // stopped — only the FSW was paused by PauseWatcher() in WipeAsync.
-        try
-        {
-            ingestionEngine.ResumeWatcher();
-            logger.LogInformation("[FullTest] Ingestion engine FSW resumed — ready for live events");
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "[FullTest] Failed to resume ingestion engine after seeding");
-        }
+        // ── Step 4: Do NOT resume the FSW ─────────────────────────────────────
+        // ScanDirectory already enqueued every seed file directly into the pipeline.
+        // Resuming the FSW here causes a race: the watcher fires events for the
+        // same files that are already being processed, and the lock probe fails
+        // (the first processing attempt holds the file open), quarantining ~50
+        // files. The FSW stays paused until the engine is restarted or a manual
+        // POST /dev/resume-watcher is called.
+        logger.LogInformation("[FullTest] FSW intentionally left paused — ScanDirectory handles all seed files");
 
         return Results.Ok(new
         {
             message = wipe
-                ? "Full test initiated: database wiped, library cleared, seed files enqueued directly into the pipeline (race-free), FSW started."
-                : "Full test initiated (no wipe): seed files enqueued directly into the pipeline (race-free), FSW started.",
+                ? "Full test initiated: database wiped, library cleared, seed files enqueued directly into the pipeline (race-free), FSW paused."
+                : "Full test initiated (no wipe): seed files enqueued directly into the pipeline (race-free), FSW paused.",
             wipe_performed = wipe,
             wipe = wipeResult,
             seed = seedResult,

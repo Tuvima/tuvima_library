@@ -202,6 +202,32 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         return Task.FromResult(result);
     }
 
+    public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var cutoff = DateTimeOffset.UtcNow.Subtract(stuckThreshold).ToString("O");
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        using var conn = _db.CreateConnection();
+        var affected = conn.Execute("""
+            UPDATE identity_jobs
+            SET    state = CASE state
+                       WHEN 'RetailSearching' THEN 'Queued'
+                       WHEN 'BridgeSearching' THEN 'RetailMatched'
+                       WHEN 'Hydrating'       THEN 'QidResolved'
+                   END,
+                   lease_owner      = NULL,
+                   lease_expires_at = NULL,
+                   last_error       = 'Reclaimed from stuck intermediate state',
+                   updated_at       = @now
+            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating')
+              AND  lease_owner IS NULL
+              AND  updated_at < @cutoff
+              AND  attempt_count < 5;
+            """,
+            new { cutoff, now });
+        return Task.FromResult(affected);
+    }
+
     public Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

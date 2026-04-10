@@ -155,165 +155,199 @@ public sealed class WikidataBridgeWorker
             }
         }
 
-        // ── Phase 2: Load context (batch SQL) ─────────────────────────────────
-        // Two queries replace N×2 individual reads.
-        var entityIds = jobs.Select(j => j.EntityId).ToList();
-        var allBridgeIds = await _bridgeIdRepo.GetByEntitiesAsync(entityIds, ct);
-        var allCanonicals = await _canonicalRepo.GetByEntitiesAsync(entityIds, ct);
-
-        // ── Phase 3: Build job contexts ───────────────────────────────────────
         var contexts = new List<JobContext>(jobs.Count);
-        foreach (var job in jobs)
+
+        try
         {
-            if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
-                mediaType = MediaType.Unknown;
+            // ── Phase 2: Load context (batch SQL) ─────────────────────────────────
+            // Two queries replace N×2 individual reads.
+            var entityIds = jobs.Select(j => j.EntityId).ToList();
+            var allBridgeIds = await _bridgeIdRepo.GetByEntitiesAsync(entityIds, ct);
+            var allCanonicals = await _canonicalRepo.GetByEntitiesAsync(entityIds, ct);
 
-            var bridgeIds = allBridgeIds.TryGetValue(job.EntityId, out var b)
-                ? b
-                : (IReadOnlyList<BridgeIdEntry>)[];
-            var canonicals = allCanonicals.TryGetValue(job.EntityId, out var c)
-                ? c
-                : (IReadOnlyList<CanonicalValue>)[];
-
-            var bridgeDict  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var bridge in bridgeIds)
+            // ── Phase 3: Build job contexts ───────────────────────────────────────
+            foreach (var job in jobs)
             {
-                bridgeDict.TryAdd(bridge.IdType, bridge.IdValue);
+                if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
+                    mediaType = MediaType.Unknown;
 
-                var pCode = _bridgeIdHelper.GetPCode(bridge.IdType);
-                if (pCode is not null)
+                var bridgeIds = allBridgeIds.TryGetValue(job.EntityId, out var b)
+                    ? b
+                    : (IReadOnlyList<BridgeIdEntry>)[];
+                var canonicals = allCanonicals.TryGetValue(job.EntityId, out var c)
+                    ? c
+                    : (IReadOnlyList<CanonicalValue>)[];
+
+                var bridgeDict  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var bridge in bridgeIds)
                 {
-                    // Media-type aware: TMDB uses P4947 (movies) or P4983 (TV)
-                    if (string.Equals(bridge.IdType, BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase)
-                        && mediaType == MediaType.TV)
+                    bridgeDict.TryAdd(bridge.IdType, bridge.IdValue);
+
+                    var pCode = _bridgeIdHelper.GetPCode(bridge.IdType);
+                    if (pCode is not null)
                     {
-                        pCode = "P4983";
+                        // Media-type aware: TMDB uses P4947 (movies) or P4983 (TV)
+                        if (string.Equals(bridge.IdType, BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase)
+                            && mediaType == MediaType.TV)
+                        {
+                            pCode = "P4983";
+                        }
+                        wikidataProps.TryAdd(bridge.IdType, pCode);
                     }
-                    wikidataProps.TryAdd(bridge.IdType, pCode);
+                }
+
+                var titleHint = canonicals
+                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Title,
+                        StringComparison.OrdinalIgnoreCase))?.Value;
+                var authorHint = canonicals
+                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Author,
+                        StringComparison.OrdinalIgnoreCase))?.Value;
+
+                // For TV episodes, Wikidata typically has an entity for the SHOW, not the
+                // individual episode. If text fallback runs (because the show's tmdb_id
+                // wasn't indexed on Wikidata), use the show name — not the episode title —
+                // so we resolve to the show QID instead of failing on a bogus episode lookup.
+                if (mediaType == MediaType.TV)
+                {
+                    var showName = canonicals
+                        .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.ShowName,
+                            StringComparison.OrdinalIgnoreCase))?.Value
+                        ?? canonicals
+                            .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Series,
+                                StringComparison.OrdinalIgnoreCase))?.Value;
+                    if (!string.IsNullOrWhiteSpace(showName))
+                        titleHint = showName;
+                }
+
+                BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
+
+                string? albumHint  = null;
+                string? artistHint = null;
+                if (mediaType == MediaType.Music)
+                {
+                    albumHint = canonicals
+                        .FirstOrDefault(cv => string.Equals(cv.Key, "album",
+                            StringComparison.OrdinalIgnoreCase))?.Value;
+                    artistHint = canonicals
+                        .FirstOrDefault(cv => string.Equals(cv.Key, "artist",
+                            StringComparison.OrdinalIgnoreCase))?.Value
+                        ?? authorHint;
+                }
+
+                contexts.Add(new JobContext(
+                    Job: job,
+                    MediaType: mediaType,
+                    BridgeIds: bridgeIds,
+                    BridgeDict: bridgeDict,
+                    WikidataProps: wikidataProps,
+                    TitleHint: titleHint,
+                    AuthorHint: authorHint,
+                    AlbumHint: albumHint,
+                    ArtistHint: artistHint));
+            }
+
+            // ── Phase 4: Resolve QIDs via the unified facade ──────────────────────
+            // ResolveBatchAsync internally groups by music album / bridge ID / text
+            // signature so N jobs produce far fewer than N Wikidata calls.
+
+            {
+                var bridgeCount = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count > 0);
+                var textCount   = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count == 0 && !string.IsNullOrWhiteSpace(ctx.TitleHint));
+                var musicCount  = contexts.Count(ctx => ctx.MediaType == MediaType.Music);
+                _logger.LogInformation(
+                    "Wikidata: dispatching {TotalJobs} job(s) to ResolveBatchAsync — {MusicCount} music, {BridgeCount} with bridge IDs, {TextCount} text-only fallback",
+                    contexts.Count, musicCount, bridgeCount, textCount);
+            }
+
+            var resolveRequests = contexts
+                .Select(ctx => new WikidataResolveRequest
+                {
+                    CorrelationKey     = ctx.Job.Id.ToString(),
+                    MediaType          = ctx.MediaType,
+                    Strategy           = ResolveStrategy.Auto,
+                    BridgeIds          = ctx.BridgeDict,
+                    WikidataProperties = ctx.WikidataProps,
+                    IsEditionAware     = ctx.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Music,
+                    AlbumTitle         = ctx.AlbumHint,
+                    Artist             = ctx.ArtistHint,
+                    Title              = ctx.TitleHint,
+                    Author             = ctx.AuthorHint,
+                })
+                .ToList();
+
+            var resolveResults = await reconAdapter.ResolveBatchAsync(resolveRequests, ct);
+
+            // ── Phase 5: Distribute results onto each job context ──────────────────
+            foreach (var ctx in contexts)
+            {
+                if (!resolveResults.TryGetValue(ctx.Job.Id.ToString(), out var result) || !result.Found)
+                    continue;
+
+                ctx.ResolvedQid = result.WorkQid ?? result.Qid;
+                ctx.AdditionalClaims.AddRange(result.Claims);
+                ctx.CollectedBridgeIds = result.CollectedBridgeIds;
+                ctx.PrimaryBridgeIdType = result.PrimaryBridgeIdType;
+                ctx.MatchedBy = result.MatchedBy switch
+                {
+                    ResolveStrategy.MusicAlbum         => "music_album",
+                    ResolveStrategy.BridgeId           => "bridge_id",
+                    ResolveStrategy.TextReconciliation => "text_reconciliation",
+                    _                                  => null,
+                };
+
+                // Music tracks: ResolveMusicAlbumAsync returns the album QID but
+                // doesn't always emit it as a wikidata_qid claim — without this
+                // the track stalls because nothing downstream sees a resolved QID
+                // on the asset.
+                if (result.MatchedBy == ResolveStrategy.MusicAlbum
+                    && !string.IsNullOrWhiteSpace(ctx.ResolvedQid)
+                    && !ctx.AdditionalClaims.Any(c => string.Equals(
+                        c.Key, BridgeIdKeys.WikidataQid, StringComparison.OrdinalIgnoreCase)))
+                {
+                    ctx.AdditionalClaims.Add(new ProviderClaim(
+                        BridgeIdKeys.WikidataQid, ctx.ResolvedQid, 0.95));
                 }
             }
 
-            var titleHint = canonicals
-                .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Title,
-                    StringComparison.OrdinalIgnoreCase))?.Value;
-            var authorHint = canonicals
-                .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Author,
-                    StringComparison.OrdinalIgnoreCase))?.Value;
-
-            // For TV episodes, Wikidata typically has an entity for the SHOW, not the
-            // individual episode. If text fallback runs (because the show's tmdb_id
-            // wasn't indexed on Wikidata), use the show name — not the episode title —
-            // so we resolve to the show QID instead of failing on a bogus episode lookup.
-            if (mediaType == MediaType.TV)
+            // ── Phase 5 summary ───────────────────────────────────────────────────
             {
-                var showName = canonicals
-                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.ShowName,
-                        StringComparison.OrdinalIgnoreCase))?.Value
-                    ?? canonicals
-                        .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Series,
-                            StringComparison.OrdinalIgnoreCase))?.Value;
-                if (!string.IsNullOrWhiteSpace(showName))
-                    titleHint = showName;
-            }
-
-            BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
-
-            string? albumHint  = null;
-            string? artistHint = null;
-            if (mediaType == MediaType.Music)
-            {
-                albumHint = canonicals
-                    .FirstOrDefault(cv => string.Equals(cv.Key, "album",
-                        StringComparison.OrdinalIgnoreCase))?.Value;
-                artistHint = canonicals
-                    .FirstOrDefault(cv => string.Equals(cv.Key, "artist",
-                        StringComparison.OrdinalIgnoreCase))?.Value
-                    ?? authorHint;
-            }
-
-            contexts.Add(new JobContext(
-                Job: job,
-                MediaType: mediaType,
-                BridgeIds: bridgeIds,
-                BridgeDict: bridgeDict,
-                WikidataProps: wikidataProps,
-                TitleHint: titleHint,
-                AuthorHint: authorHint,
-                AlbumHint: albumHint,
-                ArtistHint: artistHint));
-        }
-
-        // ── Phase 4: Resolve QIDs via the unified facade ──────────────────────
-        // ResolveBatchAsync internally groups by music album / bridge ID / text
-        // signature so N jobs produce far fewer than N Wikidata calls.
-
-        {
-            var bridgeCount = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count > 0);
-            var textCount   = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count == 0 && !string.IsNullOrWhiteSpace(ctx.TitleHint));
-            var musicCount  = contexts.Count(ctx => ctx.MediaType == MediaType.Music);
-            _logger.LogInformation(
-                "Wikidata: dispatching {TotalJobs} job(s) to ResolveBatchAsync — {MusicCount} music, {BridgeCount} with bridge IDs, {TextCount} text-only fallback",
-                contexts.Count, musicCount, bridgeCount, textCount);
-        }
-
-        var resolveRequests = contexts
-            .Select(ctx => new WikidataResolveRequest
-            {
-                CorrelationKey     = ctx.Job.Id.ToString(),
-                MediaType          = ctx.MediaType,
-                Strategy           = ResolveStrategy.Auto,
-                BridgeIds          = ctx.BridgeDict,
-                WikidataProperties = ctx.WikidataProps,
-                IsEditionAware     = ctx.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Music,
-                AlbumTitle         = ctx.AlbumHint,
-                Artist             = ctx.ArtistHint,
-                Title              = ctx.TitleHint,
-                Author             = ctx.AuthorHint,
-            })
-            .ToList();
-
-        var resolveResults = await reconAdapter.ResolveBatchAsync(resolveRequests, ct);
-
-        // ── Phase 5: Distribute results onto each job context ──────────────────
-        foreach (var ctx in contexts)
-        {
-            if (!resolveResults.TryGetValue(ctx.Job.Id.ToString(), out var result) || !result.Found)
-                continue;
-
-            ctx.ResolvedQid = result.WorkQid ?? result.Qid;
-            ctx.AdditionalClaims.AddRange(result.Claims);
-            ctx.CollectedBridgeIds = result.CollectedBridgeIds;
-            ctx.PrimaryBridgeIdType = result.PrimaryBridgeIdType;
-            ctx.MatchedBy = result.MatchedBy switch
-            {
-                ResolveStrategy.MusicAlbum         => "music_album",
-                ResolveStrategy.BridgeId           => "bridge_id",
-                ResolveStrategy.TextReconciliation => "text_reconciliation",
-                _                                  => null,
-            };
-
-            // Music tracks: ResolveMusicAlbumAsync returns the album QID but
-            // doesn't always emit it as a wikidata_qid claim — without this
-            // the track stalls because nothing downstream sees a resolved QID
-            // on the asset.
-            if (result.MatchedBy == ResolveStrategy.MusicAlbum
-                && !string.IsNullOrWhiteSpace(ctx.ResolvedQid)
-                && !ctx.AdditionalClaims.Any(c => string.Equals(
-                    c.Key, BridgeIdKeys.WikidataQid, StringComparison.OrdinalIgnoreCase)))
-            {
-                ctx.AdditionalClaims.Add(new ProviderClaim(
-                    BridgeIdKeys.WikidataQid, ctx.ResolvedQid, 0.95));
+                var resolvedCount = contexts.Count(ctx => ctx.ResolvedQid is not null);
+                _logger.LogInformation(
+                    "Wikidata: distributing results — {Resolved} of {Total} job(s) have a resolved QID",
+                    resolvedCount, contexts.Count);
             }
         }
-
-        // ── Phase 5 summary ───────────────────────────────────────────────────
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            var resolvedCount = contexts.Count(ctx => ctx.ResolvedQid is not null);
-            _logger.LogInformation(
-                "Wikidata: distributing results — {Resolved} of {Total} job(s) have a resolved QID",
-                resolvedCount, contexts.Count);
+            _logger.LogError(ex,
+                "Wikidata: batch resolution failed for {Count} job(s) — resetting for retry",
+                jobs.Count);
+
+            // Reset all jobs from BridgeSearching back to their pre-lease state
+            // so the next poll cycle can retry them.
+            foreach (var job in jobs)
+            {
+                try
+                {
+                    // job.State still holds the pre-BridgeSearching value (RetailMatched
+                    // or RetailMatchedNeedsReview) because UpdateStateAsync only writes
+                    // to the DB, not the in-memory IdentityJob object.
+                    var resetState = Enum.TryParse<IdentityJobState>(job.State, true, out var s)
+                        ? s
+                        : IdentityJobState.RetailMatched;
+                    await _jobRepo.UpdateStateAsync(job.Id, resetState,
+                        $"Batch error (will retry): {ex.Message}", ct);
+                }
+                catch (Exception resetEx)
+                {
+                    _logger.LogWarning(resetEx,
+                        "Could not reset job {JobId} after batch failure", job.Id);
+                }
+            }
+
+            return jobs.Count;
         }
 
         // ── Phase 6: Per-job finalisation ─────────────────────────────────────

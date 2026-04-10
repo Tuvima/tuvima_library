@@ -1,3 +1,4 @@
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Providers.Workers;
 
 namespace MediaEngine.Api.Services;
@@ -13,6 +14,8 @@ public sealed class WikidataBridgeHostedService : BackgroundService
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan IdleInterval = TimeSpan.FromSeconds(30);
+
+    private DateTimeOffset _nextReclaimAt = DateTimeOffset.UtcNow;
 
     public WikidataBridgeHostedService(
         IServiceScopeFactory scopeFactory,
@@ -31,6 +34,19 @@ public sealed class WikidataBridgeHostedService : BackgroundService
             try
             {
                 using var scope = _scopeFactory.CreateScope();
+
+                // Reclaim jobs stuck in intermediate states every 30 seconds.
+                if (DateTimeOffset.UtcNow >= _nextReclaimAt)
+                {
+                    var jobRepo = scope.ServiceProvider.GetRequiredService<IIdentityJobRepository>();
+                    var reclaimed = await jobRepo.ReclaimStuckJobsAsync(
+                        TimeSpan.FromMinutes(5), stoppingToken);
+                    if (reclaimed > 0)
+                        _logger.LogInformation("{Service}: reclaimed {Count} stuck job(s)",
+                            nameof(WikidataBridgeHostedService), reclaimed);
+                    _nextReclaimAt = DateTimeOffset.UtcNow.AddSeconds(30);
+                }
+
                 var worker = scope.ServiceProvider.GetRequiredService<WikidataBridgeWorker>();
                 var processed = await worker.PollAsync(stoppingToken);
 

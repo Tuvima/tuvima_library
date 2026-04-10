@@ -648,6 +648,9 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 
+        public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
+            => Task.FromResult(0);
+
         public Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default)
         {
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
