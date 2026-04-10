@@ -485,8 +485,30 @@ public static class HubEndpoints
             // network) live on the root parent Work, not on individual child works.
             string? hubCreator  = ParentCv("author") ?? ParentCv("director") ?? ParentCv("artist");
             string? hubGenre    = ParentCv("genre");
-            string? hubCover    = ParentCv("cover") ?? ParentCv("cover_url");
             string? hubNetwork  = isTv ? ParentCv("network") : null;
+
+            // Resolve cover URL as a /stream/ endpoint. Cover art is downloaded
+            // to disk by CoverArtWorker and served via StreamEndpoints. We need
+            // the root parent work's asset_id to build the URL.
+            string? hubCover = null;
+            if (rootParentWorkId.HasValue)
+            {
+                using var coverConn = db.CreateConnection();
+                using var coverCmd = coverConn.CreateCommand();
+                coverCmd.CommandText = """
+                    SELECT MIN(ma.id)
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE e.work_id = @wid
+                    """;
+                var widParam = coverCmd.CreateParameter();
+                widParam.ParameterName = "@wid";
+                widParam.Value = rootParentWorkId.Value.ToString();
+                coverCmd.Parameters.Add(widParam);
+                var rootAssetObj = await coverCmd.ExecuteScalarAsync(ct);
+                if (rootAssetObj is string rootAssetStr)
+                    hubCover = $"/stream/{rootAssetStr}/cover";
+            }
 
             // Year range from all works.
             var years = workDtos
@@ -1347,7 +1369,9 @@ public static class HubEndpoints
                             cv_group.value                          AS group_name,
                             COUNT(DISTINCT wa.work_id)              AS work_count,
                             MIN(wa.asset_id)                        AS first_asset_id,
-                            MIN(wa.root_work_id)                    AS first_root_work_id
+                            MIN(wa.root_work_id)                    AS first_root_work_id,
+                            -- Count distinct albums for artist grouping (track_count = work_count)
+                            COUNT(DISTINCT wa.root_work_id)         AS album_count
                         FROM work_assets wa
                         INNER JOIN canonical_values cv_group
                           ON (cv_group.entity_id = wa.asset_id
@@ -1389,7 +1413,39 @@ public static class HubEndpoints
                                   AND cv_creator2.key IN ('artist','author','director')
                                 LIMIT 1
                             )
-                        )                                           AS creator
+                        )                                           AS creator,
+                        (
+                            SELECT cv_net.value
+                            FROM canonical_values cv_net
+                            WHERE cv_net.entity_id = g.first_root_work_id
+                              AND cv_net.key = 'network'
+                            LIMIT 1
+                        )                                           AS network,
+                        COALESCE(
+                            (
+                                SELECT cv_year.value
+                                FROM canonical_values cv_year
+                                WHERE cv_year.entity_id = g.first_root_work_id
+                                  AND cv_year.key = 'year'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_year2.value
+                                FROM canonical_values cv_year2
+                                WHERE cv_year2.entity_id = g.first_asset_id
+                                  AND cv_year2.key = 'year'
+                                LIMIT 1
+                            )
+                        )                                           AS year,
+                        (
+                            SELECT COUNT(DISTINCT cv_sn.value)
+                            FROM work_assets wa_sn
+                            INNER JOIN canonical_values cv_sn
+                              ON cv_sn.entity_id = wa_sn.asset_id
+                            WHERE wa_sn.root_work_id = g.first_root_work_id
+                              AND cv_sn.key = 'season_number'
+                        )                                           AS season_count,
+                        g.album_count
                     FROM grouped g
                     ORDER BY g.group_name
                     """;
@@ -1400,7 +1456,7 @@ public static class HubEndpoints
                 cmd.Parameters.Add(gp);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? Creator)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? Creator, string? Network, string? Year, int? SeasonCount, int AlbumCount)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1411,7 +1467,11 @@ public static class HubEndpoints
                             groupName,
                             reader.IsDBNull(1) ? 0 : reader.GetInt32(1),
                             reader.IsDBNull(2) ? null : reader.GetString(2),
-                            reader.IsDBNull(3) ? null : reader.GetString(3)
+                            reader.IsDBNull(3) ? null : reader.GetString(3),
+                            reader.IsDBNull(4) ? null : reader.GetString(4),
+                            reader.IsDBNull(5) ? null : reader.GetString(5),
+                            reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
+                            reader.IsDBNull(7) ? 0 : reader.GetInt32(7)
                         ));
                     }
                 }
@@ -1454,6 +1514,10 @@ public static class HubEndpoints
                         CreatedAt        = hub.CreatedAt,
                         ArtistPhotoUrl   = artistPhotoUrl,
                         ArtistPersonId   = artistPersonId,
+                        Network          = row.Network,
+                        Year             = row.Year,
+                        SeasonCount      = row.SeasonCount,
+                        AlbumCount       = row.AlbumCount > 0 ? row.AlbumCount : null,
                     });
                 }
             }

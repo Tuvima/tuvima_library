@@ -136,15 +136,7 @@
             }
             else if (IsMediaTab(_activeTab))
             {
-                @if (_activeTab == "music" && _viewMode == "albums")
-                {
-                    <VaultMusicGrid Items="@_mediaItems"
-                                    CardSize="@_posterSize"
-                                    Loading="@_loading"
-                                    OnCardClicked="OnMediaRowClicked"
-                                    OnAlbumNameClicked="OnAlbumNameClickedFromGroup" />
-                }
-                else if (IsContainerView)
+                @if (IsContainerView)
                 {
                     @* Container view: show content groups (shows, albums, series, artists) *@
                     <VaultConfigurableTable @ref="_configurableTableRef"
@@ -730,7 +722,10 @@
                 MediaType = g.PrimaryMediaType,
                 CoverUrl = g.CoverUrl,
                 Author   = g.Creator,
-                Year     = null,
+                Year     = g.Year,
+                Network  = g.Network,
+                SeasonCount = g.SeasonCount?.ToString(),
+                AlbumCount = g.AlbumCount?.ToString(),
                 TrackCount = g.WorkCount.ToString(),
                 ArtistPhotoUrl = g.ArtistPhotoUrl,
             }).ToList();

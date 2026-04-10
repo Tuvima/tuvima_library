@@ -219,4 +219,20 @@ public sealed class ContentGroupDto
     /// <summary>Person ID of the matched artist — populated alongside ArtistPhotoUrl.</summary>
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; init; }
+
+    /// <summary>Network name — populated for TV show groups.</summary>
+    [JsonPropertyName("network")]
+    public string? Network { get; init; }
+
+    /// <summary>Year — first air date year for the group.</summary>
+    [JsonPropertyName("year")]
+    public string? Year { get; init; }
+
+    /// <summary>Number of distinct seasons — populated for TV show groups.</summary>
+    [JsonPropertyName("season_count")]
+    public int? SeasonCount { get; init; }
+
+    /// <summary>Number of distinct albums — populated for Music artist groups.</summary>
+    [JsonPropertyName("album_count")]
+    public int? AlbumCount { get; init; }
 }

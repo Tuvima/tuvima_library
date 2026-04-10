@@ -178,9 +178,11 @@ public sealed class RegistryRepository : IRegistryRepository
                      INNER JOIN editions e_rt ON e_rt.id = ma_rt.edition_id
                      INNER JOIN provider_registry pr ON pr.id = mc_rt.provider_id
                      WHERE e_rt.work_id = w.id
-                       AND mc_rt.claim_key = 'title'
+                       AND mc_rt.claim_key IN ('title', 'episode_title', 'show_name', 'album')
                        AND mc_rt.provider_id != '{wikidataId}'
                        AND mc_rt.provider_id != 'local_filesystem'
+                       AND mc_rt.provider_id != '{localProcessorId}'
+                       AND mc_rt.provider_id != '{libraryScanId}'
                      ORDER BY mc_rt.confidence DESC
                      LIMIT 1
                     ) AS retail_match_detail,
@@ -202,6 +204,22 @@ public sealed class RegistryRepository : IRegistryRepository
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 {stagingFilter}
                 GROUP BY e.work_id
+            ),
+            parent_asset_data AS (
+                -- For child works (TV episodes, music tracks, comic issues),
+                -- resolve the root parent work's asset_id so the cover_url
+                -- points to the show/album/series cover instead of the episode.
+                SELECT
+                    w.id AS work_id,
+                    (SELECT MIN(ma_p.id)
+                     FROM editions e_p
+                     INNER JOIN media_assets ma_p ON ma_p.edition_id = e_p.id
+                     WHERE e_p.work_id = COALESCE(gp.id, p.id)
+                    ) AS parent_asset_id
+                FROM works w
+                LEFT JOIN works p  ON p.id  = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                WHERE w.parent_work_id IS NOT NULL
             ),
             ingest_date_data AS (
                 SELECT
@@ -278,13 +296,12 @@ public sealed class RegistryRepository : IRegistryRepository
                     wd.year,
                     wd.media_type,
                     -- cover_url is synthesised at query time from the work's media
-                    -- asset id. The /stream/asset_id/cover endpoint resolves the
-                    -- on-disk path (QID directory or _pending/) and returns 404 when
-                    -- no cover has been downloaded yet — the UI handles missing images
-                    -- gracefully. Storing this as a canonical was removed because it
-                    -- collided with the provider's original cover_url claim.
-                    CASE WHEN ad.asset_id IS NOT NULL
-                         THEN '/stream/' || ad.asset_id || '/cover'
+                    -- asset id. For child works (TV episodes, music tracks, comic
+                    -- issues), cover art is stored at the parent level (show, album,
+                    -- series), so we prefer the parent asset_id when available. The
+                    -- /stream/asset_id/cover endpoint resolves the on-disk path.
+                    CASE WHEN COALESCE(pad.parent_asset_id, ad.asset_id) IS NOT NULL
+                         THEN '/stream/' || COALESCE(pad.parent_asset_id, ad.asset_id) || '/cover'
                          ELSE NULL
                     END AS cover_url,
                     wd.hero_url,
@@ -370,6 +387,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     idd.first_claimed_at AS created_at
                 FROM work_data wd
                 LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
+                LEFT JOIN parent_asset_data pad ON pad.work_id = wd.entity_id
                 LEFT JOIN review_data rd ON rd.entity_id = wd.entity_id
                 LEFT JOIN user_lock_data ul ON ul.entity_id = ad.asset_id
                 LEFT JOIN ingest_date_data idd ON idd.work_id = wd.entity_id

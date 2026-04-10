@@ -39,6 +39,8 @@ public sealed class VaultItemViewModel
     public string? Network { get; init; }
     public string? TopCast { get; init; }
     public string? TrackCount { get; init; }
+    public string? SeasonCount { get; init; }
+    public string? AlbumCount { get; init; }
     public string? Year { get; init; }
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }

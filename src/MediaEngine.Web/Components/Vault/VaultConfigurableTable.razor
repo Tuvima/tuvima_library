@@ -684,8 +684,9 @@ else
             "PeopleCount"   => "—",                   // Universes tab
             "ItemCount"     => "—",                   // Hubs tab
             "Featured"      => "—",                   // Hubs tab
-            "WorkCount"     => item.TrackCount ?? "—", // container: work count
-            "SeasonCount"   => item.Season ?? "—",     // container: season count
+            "WorkCount"     => item.TrackCount ?? "—", // container: work/episode/issue count
+            "SeasonCount"   => item.SeasonCount ?? "—", // container: season count
+            "AlbumCount"    => item.AlbumCount ?? "—",  // container: album count for music artists
             "Creator"       => item.Author ?? "—",     // container: creator
             _ => "—",
         };

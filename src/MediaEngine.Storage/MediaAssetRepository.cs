@@ -309,7 +309,9 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         {
             if (!expectedHashesByMediaType.TryGetValue(r.MediaType, out var expected))
                 continue;
-            if (string.Equals(r.Hash, expected, StringComparison.Ordinal))
+            // NULL hash means file has never been written back — treat as up-to-date
+            // so newly ingested files are not immediately flagged as stale.
+            if (r.Hash is null || string.Equals(r.Hash, expected, StringComparison.Ordinal))
                 continue;
 
             stale.Add(new StaleRetagAsset(

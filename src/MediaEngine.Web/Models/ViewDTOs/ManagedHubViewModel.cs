@@ -42,6 +42,18 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; set; }
 
+    [JsonPropertyName("network")]
+    public string? Network { get; set; }
+
+    [JsonPropertyName("year")]
+    public string? Year { get; set; }
+
+    [JsonPropertyName("season_count")]
+    public int? SeasonCount { get; set; }
+
+    [JsonPropertyName("album_count")]
+    public int? AlbumCount { get; set; }
+
     // ── Computed display helpers ──
 
     public string MediaTypeIcon => PrimaryMediaType switch
