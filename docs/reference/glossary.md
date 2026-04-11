@@ -56,7 +56,7 @@ A configured directory entry in `config/libraries.json`. Each Library Folder tel
 A single file on disk (e.g., `dune.mkv`, `foundation.epub`, `gatsby.m4b`). The lowest level in the hierarchy. Each Media Asset has a SHA-256 fingerprint so the Engine can track it even if renamed or moved.
 
 **Media Type**
-The format category assigned to a file. The seven supported types are: Books, Audiobooks, Movies, TV, Music, Comics, and Podcasts. Ambiguous formats (MP3, MP4) are classified using heuristics and AI.
+The format category assigned to a file. The six supported types are: Books, Audiobooks, Movies, TV, Music, and Comics. Ambiguous formats (MP3, MP4) are classified using heuristics and AI.
 
 ## P
 

@@ -24,9 +24,6 @@ public sealed class WritebackFieldsConfiguration
     [JsonPropertyName("Music")]
     public List<string> Music { get; set; } = [];
 
-    [JsonPropertyName("Podcasts")]
-    public List<string> Podcasts { get; set; } = [];
-
     [JsonPropertyName("Comics")]
     public List<string> Comics { get; set; } = [];
 
@@ -41,8 +38,7 @@ public sealed class WritebackFieldsConfiguration
         "Movie" => Movies,
         "TV" => TV,
         "Music" => Music,
-        "Podcasts" => Podcasts,
-        "Podcast" => Podcasts,
+
         "Comics" => Comics,
         "Comic" => Comics,
         _ => []

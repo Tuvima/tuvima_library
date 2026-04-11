@@ -5,7 +5,7 @@ namespace MediaEngine.Domain.Models;
 /// <summary>
 /// A candidate media type produced by heuristic analysis during file processing.
 ///
-/// When a container format is ambiguous (e.g. MP3 can be Audiobook, Music, or Podcast),
+/// When a container format is ambiguous (e.g. MP3 can be Audiobook or Music),
 /// the processor emits multiple candidates with varying confidence values. The ingestion
 /// engine resolves the winner using the same Weighted Voter principles as metadata claims.
 /// </summary>

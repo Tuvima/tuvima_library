@@ -45,7 +45,7 @@ A hub's full rule set might look like:
 | Operator | Meaning | Example |
 |----------|---------|---------|
 | `eq` | Equals | `genre eq "Horror"` |
-| `neq` | Not equals | `media_type neq "Podcast"` |
+| `neq` | Not equals | `media_type neq "TV"` |
 | `contains` | Text contains substring | `title contains "Dune"` |
 | `gt` | Greater than | `user_rating gt 3` |
 | `lt` | Less than | `duration lt 480` |
@@ -151,7 +151,7 @@ Query-resolved hubs store their predicates in the `rule_json` column. Materializ
 
 ## ContentGroup Hubs — Created at Ingestion
 
-ContentGroup hubs represent natural groupings that emerge from the media itself: TV shows, music albums, book series, podcast shows, comic series. They are created **during ingestion** by `MediaEntityChainFactory`, not during Wikidata enrichment — so they work immediately when files are scanned.
+ContentGroup hubs represent natural groupings that emerge from the media itself: TV shows, music albums, book series, comic series. They are created **during ingestion** by `MediaEntityChainFactory`, not during Wikidata enrichment — so they work immediately when files are scanned.
 
 When a file is ingested:
 1. The processor extracts grouping metadata (show name, album name, series name).
@@ -173,7 +173,6 @@ These hubs power the **container views** in the Vault's media tabs. When you swi
 | Music | Album name (+ artist) | Track number ascending | "OK Computer — Radiohead" |
 | Books | Series name (+ author) | Sequence index ascending | "Dune Novels — Frank Herbert" |
 | Audiobooks | Series name (+ author) | Sequence index ascending | "First Law — Joe Abercrombie" |
-| Podcasts | Show name | Episode date descending | "Hardcore History" |
 | Comics | Series name | Issue number ascending | "Saga — Brian K. Vaughan" |
 | Movies | Franchise name | Release year ascending | "Star Wars" |
 
@@ -218,7 +217,7 @@ Pre-created lists for progress tracking. One per media type family, always prese
 | **Reading List** | Books, Comics | Always on | Books, Comics |
 | **Watchlist** | Movies | Always on | Movies |
 | **Currently Watching** | TV | Always on | TV |
-| **Listening Queue** | Audiobooks, Music, Podcasts | Always on | Audiobooks, Music, Podcasts |
+| **Listening Queue** | Audiobooks, Music | Always on | Audiobooks, Music |
 | **Favorites** | Any | Off | None (uses heart icon instead) |
 
 System lists support:
@@ -335,7 +334,7 @@ Adds to the default system list for that media type. The button label changes ba
 | Books, Comics | "Add to Reading List" | Reading List |
 | Movies | "Add to Watchlist" | Watchlist |
 | TV | "Add to Currently Watching" | Currently Watching |
-| Audiobooks, Music, Podcasts | "Add to Listening Queue" | Listening Queue |
+| Audiobooks, Music | "Add to Listening Queue" | Listening Queue |
 
 ### Heart action
 

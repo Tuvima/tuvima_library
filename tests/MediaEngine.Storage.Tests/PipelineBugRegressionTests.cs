@@ -111,7 +111,7 @@ public sealed class PipelineBugRegressionTests
         var resolvableTypes = new[]
         {
             MediaType.Books, MediaType.Audiobooks, MediaType.Movies,
-            MediaType.TV, MediaType.Music, MediaType.Comics, MediaType.Podcasts,
+            MediaType.TV, MediaType.Music, MediaType.Comics,
         };
 
         foreach (var mt in resolvableTypes)
@@ -257,11 +257,10 @@ public sealed class PipelineBugRegressionTests
         Assert.NotNull(bookRule);
         Assert.False(bookRule!.PreferEdition);
 
-        // Movies, TV, Comics, Podcasts should not have edition pivot rules.
+        // Movies, TV, Comics should not have edition pivot rules.
         Assert.Null(editionPivot.GetRuleFor(MediaType.Movies));
         Assert.Null(editionPivot.GetRuleFor(MediaType.TV));
         Assert.Null(editionPivot.GetRuleFor(MediaType.Comics));
-        Assert.Null(editionPivot.GetRuleFor(MediaType.Podcasts));
     }
 
     [Fact]
@@ -271,7 +270,7 @@ public sealed class PipelineBugRegressionTests
         var json = File.ReadAllText(Path.Combine(root, "config", "pipelines.json"));
         using var doc = JsonDocument.Parse(json);
 
-        var expectedTypes = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" };
+        var expectedTypes = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" };
         foreach (var mt in expectedTypes)
         {
             Assert.True(doc.RootElement.TryGetProperty(mt, out var pipeline),

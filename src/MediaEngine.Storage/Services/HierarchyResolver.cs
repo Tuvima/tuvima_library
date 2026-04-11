@@ -8,7 +8,7 @@ namespace MediaEngine.Storage.Services;
 
 /// <summary>
 /// Decides whether a newly-ingested file belongs under an existing parent
-/// Work (album, show, season, comic series, podcast show) or stands alone,
+/// Work (album, show, season, comic series) or stands alone,
 /// and returns the resolved <see cref="Guid"/> of the Work it should be
 /// attached to.
 ///
@@ -30,7 +30,6 @@ namespace MediaEngine.Storage.Services;
 ///   <item><b>Books / Audiobooks in series</b> — parent key = (series | author).
 ///     Volumes are children at <c>ordinal = series_position</c>. Items
 ///     without a series fall through to Standalone.</item>
-///   <item><b>Podcasts</b> — parent key = show_name. Episodes are children.</item>
 /// </list>
 ///
 /// The resolver is intentionally idempotent: calling
@@ -68,7 +67,7 @@ public sealed class HierarchyResolver
             MediaType.Music                          => await ResolveMusicAsync(metadata, ct),
             MediaType.TV                             => await ResolveTvAsync(metadata, ct),
             MediaType.Comics                         => await ResolveComicsAsync(metadata, ct),
-            MediaType.Podcasts                       => await ResolvePodcastAsync(metadata, ct),
+
             MediaType.Books or MediaType.Audiobooks  => await ResolveBookOrAudiobookAsync(mediaType, metadata, ct),
             _                                        => await ResolveStandaloneAsync(mediaType, ct),
         };
@@ -149,21 +148,6 @@ public sealed class HierarchyResolver
         var parentKey = MakeKey(series);
         var parentId  = await FindOrCreateParentAsync(MediaType.Comics, parentKey, null, null, ct);
         return await FindOrCreateChildAsync(MediaType.Comics, parentId, issue, title, ct);
-    }
-
-    private async Task<ResolverResult> ResolvePodcastAsync(
-        IReadOnlyDictionary<string, string> meta, CancellationToken ct)
-    {
-        var show     = Get(meta, "show_name") ?? Get(meta, "podcast") ?? Get(meta, "series");
-        var title    = Get(meta, "title") ?? Get(meta, "episode_title");
-        var epNumber = ParseInt(Get(meta, "episode_number") ?? Get(meta, "episode"));
-
-        if (string.IsNullOrWhiteSpace(show))
-            return await CreateStandaloneAsync(MediaType.Podcasts, ct);
-
-        var parentKey = MakeKey(show);
-        var parentId  = await FindOrCreateParentAsync(MediaType.Podcasts, parentKey, null, null, ct);
-        return await FindOrCreateChildAsync(MediaType.Podcasts, parentId, epNumber, title, ct);
     }
 
     private async Task<ResolverResult> ResolveBookOrAudiobookAsync(

@@ -15,7 +15,7 @@ public enum ProviderStrategy
     /// <summary>
     /// All providers run independently with the same file metadata as input. Claims from
     /// all providers are merged and scored using per-field priority configuration.
-    /// Used when providers complement each other (e.g. Apple Podcasts + Podcast Index).
+    /// Used when providers complement each other (e.g. Google Books + Open Library).
     /// </summary>
     Cascade,
 

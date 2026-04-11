@@ -23,7 +23,6 @@ public static class MediaTypeFieldRegistry
         MediaType.Movies => MovieFields,
         MediaType.TV => TvFields,
         MediaType.Comics => ComicFields,
-        MediaType.Podcasts => PodcastFields,
         _ => DefaultFields,
     };
 
@@ -39,7 +38,6 @@ public static class MediaTypeFieldRegistry
         MediaType.Movies => MovieSearchDisplay,
         MediaType.TV => TvSearchDisplay,
         MediaType.Comics => ComicSearchDisplay,
-        MediaType.Podcasts => PodcastSearchDisplay,
         _ => DefaultSearchDisplay,
     };
 
@@ -62,7 +60,6 @@ public static class MediaTypeFieldRegistry
         MediaType.Movies => MovieSearchableFields,
         MediaType.TV => TvSearchableFields,
         MediaType.Comics => ComicSearchableFields,
-        MediaType.Podcasts => PodcastSearchableFields,
         _ => DefaultSearchableFields,
     };
 
@@ -134,16 +131,6 @@ public static class MediaTypeFieldRegistry
         BridgeIdKeys.Isbn, BridgeIdKeys.ComicVineId,
     ];
 
-    private static readonly string[] PodcastFields =
-    [
-        MetadataFieldConstants.Title, MetadataFieldConstants.PodcastName,
-        MetadataFieldConstants.Author, MetadataFieldConstants.Year,
-        MetadataFieldConstants.Description, MetadataFieldConstants.Cover,
-        MetadataFieldConstants.Genre, MetadataFieldConstants.DurationField,
-        MetadataFieldConstants.Language, MetadataFieldConstants.EpisodeNumber,
-        MetadataFieldConstants.SeasonNumber,
-    ];
-
     private static readonly string[] DefaultFields =
     [
         MetadataFieldConstants.Title, MetadataFieldConstants.Author,
@@ -199,14 +186,6 @@ public static class MediaTypeFieldRegistry
         Tertiary: MetadataFieldConstants.Year,
         DetailFields: [MetadataFieldConstants.PublisherField, MetadataFieldConstants.SeriesPosition, MetadataFieldConstants.Series],
         BridgeLabels: [BridgeIdKeys.Isbn, BridgeIdKeys.ComicVineId]
-    );
-
-    private static readonly SearchDisplayConfig PodcastSearchDisplay = new(
-        Headline: MetadataFieldConstants.PodcastName,
-        Subline: MetadataFieldConstants.Author,
-        Tertiary: MetadataFieldConstants.Year,
-        DetailFields: [MetadataFieldConstants.EpisodeNumber, MetadataFieldConstants.SeasonNumber, MetadataFieldConstants.DurationField],
-        BridgeLabels: [BridgeIdKeys.PodcastIndexId, "apple_podcasts_id"]
     );
 
     private static readonly SearchDisplayConfig DefaultSearchDisplay = new(
@@ -282,14 +261,6 @@ public static class MediaTypeFieldRegistry
         new(MetadataFieldConstants.Author, "Writer"),
         new(BridgeIdKeys.Isbn, "ISBN"),
         new(BridgeIdKeys.ComicVineId, "Comic Vine ID"),
-    ];
-
-    private static readonly SearchableField[] PodcastSearchableFields =
-    [
-        new(MetadataFieldConstants.PodcastName, "Podcast Name", IsDefault: true),
-        new(MetadataFieldConstants.EpisodeNumber, "Episode #"),
-        new(MetadataFieldConstants.EpisodeTitle, "Episode Title"),
-        new(MetadataFieldConstants.Author, "Author"),
     ];
 
     private static readonly SearchableField[] DefaultSearchableFields =

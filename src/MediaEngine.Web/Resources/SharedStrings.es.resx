@@ -57,7 +57,6 @@
   <data name="Nav_Books" xml:space="preserve"><value>Libros</value></data>
   <data name="Nav_Video" xml:space="preserve"><value>Video</value></data>
   <data name="Nav_Music" xml:space="preserve"><value>Música</value></data>
-  <data name="Nav_Podcasts" xml:space="preserve"><value>Podcasts</value></data>
   <data name="Nav_Comics" xml:space="preserve"><value>Cómics</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Configuración</value></data>
   <data name="Nav_OpenNavigation" xml:space="preserve"><value>Abrir navegación</value></data>
@@ -645,7 +644,6 @@
   <data name="MediaLane_EmptyBooks" xml:space="preserve"><value>Su colección de libros y audiolibros aparecerá aquí. Suelte archivos EPUB o M4B en su carpeta vigilada para comenzar.</value></data>
   <data name="MediaLane_EmptyVideo" xml:space="preserve"><value>Sus películas y series de televisión aparecerán aquí. Suelte archivos MP4, MKV o AVI en su carpeta vigilada.</value></data>
   <data name="MediaLane_EmptyMusic" xml:space="preserve"><value>Su colección de música aparecerá aquí cuando el soporte de música esté disponible.</value></data>
-  <data name="MediaLane_EmptyPodcasts" xml:space="preserve"><value>Sus suscripciones a podcasts aparecerán aquí cuando el soporte de podcasts esté disponible.</value></data>
   <data name="MediaLane_EmptyComics" xml:space="preserve"><value>Sus cómics y manga aparecerán aquí. Suelte archivos CBZ o CBR en su carpeta vigilada.</value></data>
   <data name="MediaLane_EmptyDefault" xml:space="preserve"><value>El contenido aparecerá aquí una vez que haya sido agregado a su biblioteca.</value></data>
 

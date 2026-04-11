@@ -18,7 +18,6 @@ public sealed record LaneFilterConfig(
         "video"    => new(["All", "Movie", "TV Show"], "Director", "Franchise", true, "Director", "title"),
         "comics"   => new(["All"], "Artist", "Series", true, "Artist", "comic"),
         "music"    => new(["All"], "Artist", null, true, "Artist", "album"),
-        "podcasts" => new(["All"], "Host", null, false, "Host", "podcast"),
         _          => new(["All"], "Creator", null, true, "Creator", "item"),
     };
 }

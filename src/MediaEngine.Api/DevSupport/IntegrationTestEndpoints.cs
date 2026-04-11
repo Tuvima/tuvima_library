@@ -1557,7 +1557,7 @@ public static class IntegrationTestEndpoints
         var mtColors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["Books"] = "#5DCAA5", ["Audiobooks"] = "#A78BFA", ["Movies"] = "#60A5FA",
-            ["TV"] = "#FBBF24", ["Music"] = "#22D3EE", ["Podcasts"] = "#FB923C", ["Comics"] = "#7C4DFF",
+            ["TV"] = "#FBBF24", ["Music"] = "#22D3EE", ["Comics"] = "#7C4DFF",
         };
 
         foreach (var mt in report.MediaTypeResults.OrderByDescending(m => m.Count))

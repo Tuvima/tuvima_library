@@ -77,7 +77,7 @@ The processor extracts embedded metadata â€” title, author, year, cover art
 
 ## Step 4: Classifying Ambiguous Formats
 
-Some file types are genuinely ambiguous. An MP3 file could be a music track, an audiobook chapter, or a podcast episode. An MP4 could be a movie, a TV episode, a short film, or a recorded lecture.
+Some file types are genuinely ambiguous. An MP3 file could be a music track or an audiobook chapter. An MP4 could be a movie, a TV episode, a short film, or a recorded lecture.
 
 The Engine uses an AI component called the **MediaTypeAdvisor** to resolve this. It examines tag signals: the genre tag, whether a narrator field is present, whether an ASIN (Amazon's audiobook identifier) is embedded, and whether the duration is consistent with an audiobook (typically 30+ minutes per file) or a music track (3â€“5 minutes).
 

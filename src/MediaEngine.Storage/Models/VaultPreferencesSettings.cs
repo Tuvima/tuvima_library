@@ -18,7 +18,7 @@ public sealed class VaultPreferencesSettings
         ["music"] = "artists",
         ["books"] = "all",
         ["audiobooks"] = "all",
-        ["podcasts"] = "shows",
+
         ["comics"] = "series",
     };
 }

@@ -40,12 +40,6 @@ public static class WellKnownProviders
     /// <summary>Metron — comic book metadata.</summary>
     public static readonly Guid Metron = Guid.Parse("b8000008-0000-4000-8000-000000000009");
 
-    /// <summary>Apple Podcasts — podcast metadata and artwork.</summary>
-    public static readonly Guid ApplePodcasts = Guid.Parse("b9000009-0000-4000-8000-000000000010");
-
-    /// <summary>Podcast Index — open podcast directory.</summary>
-    public static readonly Guid PodcastIndex = Guid.Parse("ba00000a-0000-4000-8000-000000000011");
-
     /// <summary>AI-generated claims (Description Intelligence, TL;DR, Vibe Tags, etc.).</summary>
     public static readonly Guid AiProvider = Guid.Parse("bb00000b-0000-4000-8000-000000000012");
 

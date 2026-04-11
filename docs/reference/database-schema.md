@@ -57,7 +57,7 @@ A single title, independent of version or format.
 | `wikidata_qid` | TEXT | Wikidata entity identifier. Indexed. |
 | `title` | TEXT | Canonical display title |
 | `original_title` | TEXT | Title in the work's source language (Phase 2 localization) |
-| `media_type` | TEXT | `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`, `Podcasts` |
+| `media_type` | TEXT | `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics` |
 | `sort_title` | TEXT | Normalized for sorting |
 | `status` | TEXT | `Verified`, `Provisional`, `NeedsReview`, `Quarantined`, `Pending` |
 | `created_at` | TEXT | Timestamp |

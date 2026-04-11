@@ -38,7 +38,7 @@ The two-stage design gets the best of both:
 Stage 1 runs retail providers according to a strategy that varies by media type. The strategy and ranked provider list are both configured in `config/pipelines.json`. Three strategies are used:
 
 - **Waterfall** (first match wins) — used for Movies, TV, and Comics. Providers are tried in rank order until a confident match is found. Once one provider returns a good match, the rest are skipped.
-- **Cascade** (all providers run, claims merge) — used for Books and Podcasts. Every configured provider runs independently, and the resulting metadata claims are merged. This allows a book to pick up cover art from Google Books and structured data from Open Library in a single pass.
+- **Cascade** (all providers run, claims merge) — used for Books. Every configured provider runs independently, and the resulting metadata claims are merged. This allows a book to pick up cover art from Google Books and structured data from Open Library in a single pass.
 - **Sequential** (chained, each feeds the next via bridge IDs) — used for Audiobooks and Music. Provider A runs first and passes its bridge IDs to Provider B, which uses them for a more precise lookup than a text search could achieve.
 
 Each provider returns:

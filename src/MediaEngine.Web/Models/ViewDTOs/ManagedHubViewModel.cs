@@ -64,7 +64,6 @@ public sealed class ContentGroupViewModel
         "Audiobooks" => "Headphones",
         "Movies"     => "VideoLibrary",
         "Comics"     => "AutoStories",
-        "Podcasts"   => "Mic",
         _            => "Folder",
     };
 
@@ -76,7 +75,6 @@ public sealed class ContentGroupViewModel
         "Audiobooks" => "#A78BFA",
         "Movies"     => "#60A5FA",
         "Comics"     => "#FB923C",
-        "Podcasts"   => "#FB923C",
         _            => "#60A5FA",
     };
 }

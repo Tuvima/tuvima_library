@@ -26,7 +26,6 @@ public static class RegistryHelpers
             MediaType.TV         => Icons.Material.Outlined.Tv,
             MediaType.Music      => Icons.Material.Outlined.MusicNote,
             MediaType.Comics     => Icons.Material.Outlined.AutoStories,
-            MediaType.Podcasts   => Icons.Material.Outlined.Podcasts,
             _                    => Icons.Material.Outlined.InsertDriveFile,
         };
     }

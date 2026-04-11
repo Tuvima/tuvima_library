@@ -43,7 +43,7 @@ public sealed record HeroData
 
     /// <summary>
     /// True for Books, Comics, Audiobooks (portrait cover art).
-    /// False for Movies, TV, Music, Podcasts (landscape backdrop).
+    /// False for Movies, TV, Music (landscape backdrop).
     /// </summary>
     public bool IsPortraitMedia => FormatLabel(MediaTypeLabel) switch
     {
@@ -153,7 +153,6 @@ public sealed record HeroData
         if (t.Contains("video") || t.Contains("movie")) return Icons.Material.Filled.PlayArrow;
         if (t.Contains("comic") || t.Contains("cbz"))   return Icons.Material.Filled.AutoStories;
         if (t.Contains("music"))                         return Icons.Material.Filled.MusicNote;
-        if (t.Contains("podcast"))                       return Icons.Material.Filled.Podcasts;
         if (t.Contains("tv"))                            return Icons.Material.Filled.Tv;
         return Icons.Material.Filled.MenuBook;
     }

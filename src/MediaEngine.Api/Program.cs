@@ -417,7 +417,7 @@ builder.Services.PostConfigure<IngestionOptions>(opts =>
 try
 {
     var libsForSubfolders = configLoader.LoadLibraries();
-    var mediaTypeSubfolders = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" };
+    var mediaTypeSubfolders = new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" };
     foreach (var lib in libsForSubfolders.Libraries)
     {
         // Walk both the new source_paths array and the legacy source_path field
@@ -992,7 +992,7 @@ app.Run();
 /// </summary>
 static MediaEngine.Domain.Enums.MediaType ParseMediaTypeFromConfig(string configValue)
 {
-    // First try direct enum parse (handles "Books", "Movies", "TV", "Music", "Podcasts", "Comic").
+    // First try direct enum parse (handles "Books", "Movies", "TV", "Music", "Comic").
     if (Enum.TryParse<MediaEngine.Domain.Enums.MediaType>(configValue, ignoreCase: true, out var mt))
         return mt;
 
@@ -1003,7 +1003,6 @@ static MediaEngine.Domain.Enums.MediaType ParseMediaTypeFromConfig(string config
         "ebook"     => MediaEngine.Domain.Enums.MediaType.Books,
         "audiobook" => MediaEngine.Domain.Enums.MediaType.Audiobooks,
         "comics"    => MediaEngine.Domain.Enums.MediaType.Comics,
-        "podcast"   => MediaEngine.Domain.Enums.MediaType.Podcasts,
         "movie"     => MediaEngine.Domain.Enums.MediaType.Movies,
         _           => MediaEngine.Domain.Enums.MediaType.Unknown,
     };

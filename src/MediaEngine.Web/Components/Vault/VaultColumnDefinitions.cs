@@ -155,7 +155,6 @@ public static class VaultColumnDefinitions
             "music"      => MusicColumns(),
             "books"      => BooksColumns(),
             "audiobooks" => AudiobooksColumns(),
-            "podcasts"   => PodcastsColumns(),
             "comics"     => ComicsColumns(),
             "people"        => GetPeopleColumns(),
             "universes"     => GetUniverseColumns(),
@@ -259,19 +258,6 @@ public static class VaultColumnDefinitions
         new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
     ];
 
-    // ── Podcasts ─────────────────────────────────────────────────────────
-
-    private static List<VaultColumnDef> PodcastsColumns() =>
-    [
-        Checkbox(),
-        new() { Key = "media",    Label = "Episode",         Width = "30%",  Sortable = true, SortKey = "title",   RenderType = ColumnRenderType.MediaCell },
-        new() { Key = "show",     Label = "Publisher",      Width = "auto", Sortable = true, SortKey = "podcast", RenderType = ColumnRenderType.Text, PropertyName = "ShowName" },
-        new() { Key = "episode",  Label = "Episodes",       Width = "80px", RenderType = ColumnRenderType.Text,   PropertyName = "Episode", Align = "center" },
-        new() { Key = "duration", Label = "Duration",       Width = "auto", RenderType = ColumnRenderType.Duration },
-        new() { Key = "genre",    Label = "Genre",          Width = "auto", RenderType = ColumnRenderType.Text,   PropertyName = "Genre" },
-        new() { Key = "manage", Label = "", Width = "80px", Align = "center", RenderType = ColumnRenderType.ManageActions },
-    ];
-
     // ── Comics ───────────────────────────────────────────────────────────
 
     private static List<VaultColumnDef> ComicsColumns() =>
@@ -299,7 +285,6 @@ public static class VaultColumnDefinitions
             "music"      => MusicArtistContainerColumns(),
             "books"      => BookSeriesContainerColumns(),
             "audiobooks" => AudiobookSeriesContainerColumns(),
-            "podcasts"   => PodcastShowContainerColumns(),
             "comics"     => ComicSeriesContainerColumns(),
             _            => [],
         };
@@ -364,16 +349,6 @@ public static class VaultColumnDefinitions
         new() { Key = "container",  Label = "Series",     Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
         new() { Key = "author",     Label = "Author",      Width = "auto", Sortable = true, SortKey = "creator",    RenderType = ColumnRenderType.Text, PropertyName = "Creator" },
         new() { Key = "audiobooks", Label = "Audiobooks",  Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
-    ];
-
-    // ── Podcast Show containers ──────────────────────────────────────────
-
-    private static List<VaultColumnDef> PodcastShowContainerColumns() =>
-    [
-        Checkbox(),
-        new() { Key = "container", Label = "Podcast",   Width = "40%",  Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.ContainerCell },
-        new() { Key = "episodes",  Label = "Episodes",   Width = "80px", Align = "center", Sortable = true, SortKey = "work_count", RenderType = ColumnRenderType.Count, PropertyName = "WorkCount" },
-        new() { Key = "genre",     Label = "Genre",      Width = "auto", RenderType = ColumnRenderType.Text, PropertyName = "Genre" },
     ];
 
     // ── Comic Series containers ──────────────────────────────────────────

@@ -29,9 +29,6 @@ public enum MediaType
     /// <summary>Episodic television or web series.</summary>
     TV,
 
-    /// <summary>Audio podcast series or individual episode.</summary>
-    Podcasts,
-
     /// <summary>Music album or single track.</summary>
     Music,
 }

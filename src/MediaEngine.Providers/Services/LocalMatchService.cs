@@ -13,8 +13,8 @@ namespace MediaEngine.Providers.Services;
 ///
 /// <para>
 /// Bridge ID lookups are indexed on <c>(id_type, id_value)</c> making them
-/// sub-millisecond. For episodic content (TV episodes, album tracks, podcast
-/// episodes), a single Stage 0 hit avoids the full two-stage pipeline for
+/// sub-millisecond. For episodic content (TV episodes, album tracks), a
+/// single Stage 0 hit avoids the full two-stage pipeline for
 /// every sibling item.
 /// </para>
 ///

@@ -326,20 +326,6 @@ public sealed class VaultItemViewModel
                 }
                 return null;
 
-            case "podcasts":
-                if (!string.IsNullOrEmpty(FileName))
-                {
-                    var ext = Path.GetExtension(FileName).ToUpperInvariant();
-                    return ext switch
-                    {
-                        ".MP3" => "MP3",
-                        ".M4A" => "AAC",
-                        ".OGG" => "OGG",
-                        _ => ext.TrimStart('.'),
-                    };
-                }
-                return null;
-
             default:
                 return null;
         }

@@ -212,7 +212,6 @@ public class AggregateTests
     [InlineData(MediaType.Audiobooks)]
     [InlineData(MediaType.Comics)]
     [InlineData(MediaType.TV)]
-    [InlineData(MediaType.Podcasts)]
     [InlineData(MediaType.Music)]
     public void MediaType_AllValues_AreDefined(MediaType type)
     {

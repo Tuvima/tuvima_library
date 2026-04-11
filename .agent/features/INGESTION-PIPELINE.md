@@ -43,7 +43,7 @@ All of this happens without the user lifting a finger after the initial folder s
 | IPR-10 | Rapid-fire OS events for the same file are coalesced — only the final state is processed. | DebounceQueue (2-second settle delay) |
 | IPR-11 | Failed file-lock probes (file still in use after ~127 seconds) emit a failed candidate for logging, not a silent drop. | DebounceQueue (IsFailed flag) |
 | IPR-12 | On startup, existing files in the Watch Folder are scanned — the system reconciles its state without missing anything. | IngestionEngine (startup differential scan) |
-| IPR-13 | Ambiguous media types (MP3→Audiobook/Music/Podcast, MP4→Movie/TV) are resolved by heuristic signals. Confidence ≥0.70 = auto-accept; 0.40–0.70 = review queue; <0.40 = Unknown. | IngestionEngine (Step 6a) |
+| IPR-13 | Ambiguous media types (MP3→Audiobook/Music, MP4→Movie/TV) are resolved by heuristic signals. Confidence ≥0.70 = auto-accept; 0.40–0.70 = review queue; <0.40 = Unknown. | IngestionEngine (Step 6a) |
 | IPR-14 | Files with unresolved media type ambiguity are blocked from auto-organisation regardless of overall confidence. | IngestionEngine (auto-organize gate) |
 | IPR-15 | Post-hydration auto-resolve: if Stage 1 providers return ≥3 claims, pending AmbiguousMediaType review items are auto-resolved. | HydrationPipelineService |
 | IPR-16 | Users can reclassify media type at any time via `POST /metadata/{entityId}/reclassify`, which creates a user-locked claim and re-triggers hydration. | MetadataEndpoints |

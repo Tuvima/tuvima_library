@@ -28,7 +28,7 @@ Core Engine settings. Restart required for changes to take effect.
 | `watch_directory` | string | `""` | Legacy single-directory watch. Prefer `config/libraries.json` for multi-folder setups. |
 | `library_root` | string | `""` | Root directory where the Engine places organized media after promotion. |
 | `organization_template` | string | â€” | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
-| `organization_templates` | object | â€” | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`, `Podcasts`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
+| `organization_templates` | object | â€” | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
 | `server_name` | string | `"Tuvima Library"` | Display name shown in the Dashboard title bar and system status. |
 | `language` | object | â€” | Language preferences. See sub-fields below. |
 | `language.display` | string | `"en"` | UI display language (BCP-47 code). Controls Dashboard localization. |
@@ -147,10 +147,10 @@ Defines the ranked provider list and execution strategy per media type. This fil
 
 Default strategies:
 - **Waterfall:** Movies, TV, Comics
-- **Cascade:** Books, Podcasts
+- **Cascade:** Books
 - **Sequential:** Audiobooks, Music
 
-All seven media types (Books, Audiobooks, Movies, TV, Music, Comics, Podcasts) must have at least one provider entry.
+All six media types (Books, Audiobooks, Movies, TV, Music, Comics) must have at least one provider entry.
 
 ---
 
@@ -173,7 +173,7 @@ Defines the Library Folders the Engine monitors. Contains a `libraries` array; e
 | Field | Type | Description |
 |---|---|---|
 | `category` | string | Human-readable label for this library (e.g., "Ebooks", "Movies"). |
-| `media_types` | string[] | Media types expected in this folder. Accepted values: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`, `Podcasts`. |
+| `media_types` | string[] | Media types expected in this folder. Accepted values: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`. |
 | `source_path` | string | Absolute path to the folder to monitor. |
 | `library_root` | string | Destination root for promoted files from this library. Overrides the global `library_root` if set. |
 | `intake_mode` | string | `"watch"` â€” continuous file monitoring. `"import"` â€” one-time scan of existing collection. |
@@ -220,8 +220,6 @@ One JSON file per metadata provider. All provider files are self-contained â€
 | File | Provider | Stage | Language Strategy |
 |---|---|---|---|
 | `apple_api.json` | Apple API (books, audiobooks) | Stage 1 | `localized` |
-| `apple_podcasts.json` | Apple Podcasts | Stage 1 | `localized` |
-| `podcast_index.json` | Podcast Index | Stage 1 | `source` |
 | `open_library.json` | Open Library | Stage 1 | `source` |
 | `google_books.json` | Google Books | Stage 1 | `source` |
 | `metron.json` | Metron (comics) | Stage 1 | `source` |

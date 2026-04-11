@@ -284,7 +284,7 @@ public static class ScoringHelper
         //
         //    Title synthesis for hierarchical parent Works: when the parent
         //    Work is a distinct entity from the asset (album, TV show, comic
-        //    series, book/audiobook series, podcast show), the inbound claims
+        //    series, book/audiobook series), the inbound claims
         //    never include a top-level "title" because title is Self-scoped
         //    (a track's title, an episode's title — not the container's).
         //    Without intervention, the parent Work has rich canonicals for
@@ -329,7 +329,7 @@ public static class ScoringHelper
 
     /// <summary>
     /// Mints a synthetic <c>title</c> claim for a hierarchical parent Work
-    /// (album, TV show, comic series, book/audiobook series, podcast show)
+    /// (album, TV show, comic series, book/audiobook series)
     /// when the inbound parent-scope claims don't already carry one.
     ///
     /// Why this exists: <c>title</c> is Self-scoped by default — a track's
@@ -343,7 +343,6 @@ public static class ScoringHelper
     ///
     ///   • Music     → album
     ///   • TV        → show_name
-    ///   • Podcasts  → show_name / podcast_name
     ///   • Comics    → series
     ///   • Books     → series
     ///   • Audiobooks → series
@@ -373,7 +372,7 @@ public static class ScoringHelper
 
         if (isStandalone)
         {
-            // Standalone media (Books, Audiobooks, Movies, podcasts-no-show):
+            // Standalone media (Books, Audiobooks, Movies):
             // title is self-scoped and went to the asset row, not the Work
             // row. Copy it from the full claim list so the Work row renders
             // with a real title instead of "Untitled".
@@ -388,12 +387,11 @@ public static class ScoringHelper
         else
         {
             // Hierarchical parent (album, TV show, comic series, book
-            // series, podcast show): mint a title from the container field.
+            // series): mint a title from the container field.
             sourceKey = lineage.MediaType switch
             {
                 MediaType.Music       => MetadataFieldConstants.Album,
                 MediaType.TV          => MetadataFieldConstants.ShowName,
-                MediaType.Podcasts    => MetadataFieldConstants.ShowName,
                 MediaType.Comics      => MetadataFieldConstants.Series,
                 MediaType.Books       => MetadataFieldConstants.Series,
                 MediaType.Audiobooks  => MetadataFieldConstants.Series,
@@ -407,17 +405,6 @@ public static class ScoringHelper
                             && !string.IsNullOrWhiteSpace(c.Value))
                 .OrderByDescending(c => c.Confidence)
                 .FirstOrDefault();
-
-            // Podcasts: also try podcast_name as a fallback.
-            if (source is null && lineage.MediaType == MediaType.Podcasts)
-            {
-                source = parentClaims
-                    .Where(c => string.Equals(c.Key, MetadataFieldConstants.PodcastName,
-                                    StringComparison.OrdinalIgnoreCase)
-                                && !string.IsNullOrWhiteSpace(c.Value))
-                    .OrderByDescending(c => c.Confidence)
-                    .FirstOrDefault();
-            }
         }
 
         if (source is null)

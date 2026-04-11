@@ -9,9 +9,7 @@
     "large_file_mb": 100,
     "path_keywords_audiobook": ["audiobook", "audiobooks", "narrated"],
     "path_keywords_music": ["music", "songs", "albums", "tracks"],
-    "path_keywords_podcast": ["podcast", "podcasts", "episodes"],
-    "genre_audiobook": ["audiobook", "speech", "spoken word"],
-    "genre_podcast": ["podcast"]
+    "genre_audiobook": ["audiobook", "speech", "spoken word"]
   },
   "video_heuristics": {
     "tv_filename_patterns": ["S\\d{2}E\\d{2}", "\\d{1,2}x\\d{2}"],

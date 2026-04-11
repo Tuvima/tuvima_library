@@ -1138,7 +1138,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P9750", // Apple TV show ID
         "P4857", // Apple Music ID
         "P1243", // ISRC
-        "P5849", // Apple Podcasts ID
+
         "P434",  // MusicBrainz artist ID
         "P436",  // MusicBrainz release ID
         "P5905", // Comic Vine ID
@@ -1209,7 +1209,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// <summary>
     /// Translates a media-type edition-pivot entry from the reconciliation provider config
     /// into the library's <see cref="EditionPivotRule"/>. Returns <c>null</c> when the
-    /// media type is not edition-aware (movies, TV, comics, podcasts).
+    /// media type is not edition-aware (movies, TV, comics).
     /// </summary>
     private EditionPivotRule? BuildEditionPivotRule(MediaType mediaType)
     {
@@ -1243,7 +1243,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (pivotRule is not null && pivotRule.WorkClasses.Count > 0)
             return pivotRule.WorkClasses;
 
-        // Non-edition-aware types (Movies, TV, Comics, Podcasts) use instance_of_classes.
+        // Non-edition-aware types (Movies, TV, Comics) use instance_of_classes.
         var mediaTypeKey = mediaType.ToString();
         if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
             return classes;
@@ -1741,7 +1741,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     MediaType.TV         => "television series",
                     MediaType.Music      => "song music",
                     MediaType.Comics     => "comic manga",
-                    MediaType.Podcasts   => "podcast",
                     _                    => null
                 };
 
@@ -3276,7 +3275,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         "P5905" => true, // comic_vine_id
         "P434"  => true, // musicbrainz_artist_id
         "P436"  => true, // musicbrainz_release_id
-        "P5842" => true, // apple_podcasts_id
+
         _       => false,
     };
 

@@ -104,7 +104,6 @@ public sealed class MediaTypeAdvisor : IMediaTypeAdvisor
         "tv" => MediaType.TV,
         "music" => MediaType.Music,
         "comic" or "comics" => MediaType.Comics,
-        "podcast" or "podcasts" => MediaType.Podcasts,
         _ => MediaType.Unknown,
     };
 

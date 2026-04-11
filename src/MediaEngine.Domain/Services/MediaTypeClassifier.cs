@@ -25,7 +25,6 @@ public static class MediaTypeClassifier
         if (t is "tv") return MediaType.TV;
         if (t is "music") return MediaType.Music;
         if (t is "comics" or "comic") return MediaType.Comics;
-        if (t is "podcasts" or "podcast") return MediaType.Podcasts;
 
         // Extension / format substring matches
         if (t.Contains("epub")) return MediaType.Books;
@@ -36,7 +35,6 @@ public static class MediaTypeClassifier
         if (t.Contains("book")) return MediaType.Books;
         if (t.Contains("mp3") || t.Contains("flac") || t.Contains("aac") || t.Contains("m4a") || t.Contains("ogg") || t.Contains("wav")) return MediaType.Music;
         if (t.Contains("audio")) return MediaType.Music;
-        if (t.Contains("podcast")) return MediaType.Podcasts;
 
         return MediaType.Unknown;
     }
@@ -50,7 +48,6 @@ public static class MediaTypeClassifier
         MediaType.TV => "TV",
         MediaType.Music => "Music",
         MediaType.Comics => "Comic",
-        MediaType.Podcasts => "Podcast",
         _ => "Unknown",
     };
 
@@ -71,7 +68,6 @@ public static class MediaTypeClassifier
         MediaType.TV => "Tv",
         MediaType.Music => "MusicNote",
         MediaType.Comics => "AutoStories",
-        MediaType.Podcasts => "Podcasts",
         _ => "InsertDriveFile",
     };
 }

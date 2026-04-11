@@ -525,7 +525,7 @@ else
     {
         if (GroupBy == "type")
         {
-            var order = new[] { "Books", "Audiobooks", "Movies", "TV", "Comics", "Music", "Podcasts" };
+            var order = new[] { "Books", "Audiobooks", "Movies", "TV", "Comics", "Music" };
             var byType = Items.GroupBy(i => i.MediaType ?? "Unknown").ToDictionary(g => g.Key, g => g.ToList());
             var result = new List<TableGroup>();
             foreach (var mt in order)
@@ -671,8 +671,6 @@ else
             "Rating"         => item.Rating ?? "—",
             "Album"          => item.Album ?? "—",
             "TrackNumber"    => item.TrackNumber ?? "—",
-            "PodcastName"   => "—",                   // placeholder
-            "EpisodeNumber" => "—",                   // placeholder
             "Season"        => item.Season ?? "—",
             "Episode"       => item.Episode ?? "—",
             "Network"       => item.Network ?? "—",

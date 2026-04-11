@@ -2,7 +2,6 @@
 @page "/books-legacy"
 @page "/video-legacy"
 @page "/music-legacy"
-@page "/podcasts-legacy"
 @page "/comics-legacy"
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
@@ -252,7 +251,6 @@ else
         "books"    => L["MediaLane_ContinueReading"],
         "video"    => L["MediaLane_ContinueWatching"],
         "music"    => L["MediaLane_ContinueListening"],
-        "podcasts" => L["MediaLane_ContinueListening"],
         "comics"   => L["MediaLane_ContinueReading"],
         _          => L["MediaLane_Continue"],
     };
@@ -273,7 +271,7 @@ else
         await LoadAsync();
     }
 
-    // Blazor reuses this component when navigating between /books, /video, /podcasts etc.
+    // Blazor reuses this component when navigating between /books, /video, /comics etc.
     // because they all map to MediaLanePage with no [Parameter] attributes — so
     // OnParametersSetAsync never fires again. LocationChanged is the reliable hook.
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -600,7 +598,6 @@ else
         "books"    => L["MediaLane_EmptyBooks"],
         "video"    => L["MediaLane_EmptyVideo"],
         "music"    => L["MediaLane_EmptyMusic"],
-        "podcasts" => L["MediaLane_EmptyPodcasts"],
         "comics"   => L["MediaLane_EmptyComics"],
         _          => L["MediaLane_EmptyDefault"],
     };

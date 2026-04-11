@@ -34,7 +34,6 @@
                 <option value="TV">TV</option>
                 <option value="Music">Music</option>
                 <option value="Comics">Comic</option>
-                <option value="Podcasts">Podcast</option>
             </select>
             <button class="isearch-btn" @onclick="RunSearch" disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
                 @if (_searching)
@@ -250,7 +249,6 @@ else
                 <option value="TV">TV</option>
                 <option value="Music">Music</option>
                 <option value="Comics">Comic</option>
-                <option value="Podcasts">Podcast</option>
             </select>
             <button class="isearch-search-btn" @onclick="RunSearch" disabled="@(_searching || string.IsNullOrWhiteSpace(_query))">
                 @if (_searching)
@@ -880,7 +878,6 @@ else
     {
         "Movies" or "TV" => "Director",
         "Music" => "Artist",
-        "Podcasts" => "Host",
         _ => "Author"
     };
 

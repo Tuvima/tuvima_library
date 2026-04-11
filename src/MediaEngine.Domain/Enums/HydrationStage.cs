@@ -33,7 +33,7 @@ public enum HydrationStage
     /// <summary>
     /// Stage 2: Wikidata Bridge Resolution.
     /// Uses bridge IDs from Stage 1 to resolve Wikidata edition QID (for edition-aware
-    /// media types) or work QID (for TV/Podcasts). Runs as a deduplicated batch.
+    /// media types) or work QID (for TV). Runs as a deduplicated batch.
     /// Collects all platform IDs from the entity into the bridge_ids table.
     /// </summary>
     WikidataBridge = 2,

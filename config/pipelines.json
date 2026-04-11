@@ -69,16 +69,5 @@
       "cover": ["comicvine"],
       "description": ["comicvine"]
     }
-  },
-  "Podcasts": {
-    "strategy": "Waterfall",
-    "providers": [
-      { "rank": 1, "name": "apple_api" }
-    ],
-    "field_priorities": {
-      "cover": ["apple_api"],
-      "description": ["apple_api"],
-      "feed_url": ["apple_api"]
-    }
   }
 }

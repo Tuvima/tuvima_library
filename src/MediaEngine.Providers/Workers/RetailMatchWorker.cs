@@ -1544,7 +1544,7 @@ public sealed class RetailMatchWorker
         return sb.ToString().Normalize(System.Text.NormalizationForm.FormC);
     }
 
-    // ── Per-item fallback (Books, Audiobooks, Movies, Comics, Podcasts) ──────
+    // ── Per-item fallback (Books, Audiobooks, Movies, Comics) ──────
 
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {

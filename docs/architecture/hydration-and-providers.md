@@ -27,7 +27,7 @@ All providers divide cleanly into two categories:
 **Retail providers** â€” exist solely to supply matching data that aids identity resolution, plus media assets that Wikidata cannot host. Their output is never treated as canonical structured data. Retail providers contribute:
 - Cover art and promotional imagery (copyright-safe sources that Wikimedia cannot host)
 - Descriptions and ratings (for display and candidate ranking)
-- Bridge identifiers: ISBN, ASIN, TMDB ID, Apple Books ID, MusicBrainz ID, Comic Vine ID, Apple Podcasts ID â€” these are used by Stage 2 to resolve the QID precisely
+- Bridge identifiers: ISBN, ASIN, TMDB ID, Apple Books ID, MusicBrainz ID, Comic Vine ID â€” these are used by Stage 2 to resolve the QID precisely
 
 The distinction matters for trust: a title or author name from Apple API is a hint used to rank candidates, not a fact stored as canonical data. Only Wikidata-sourced claims become canonical values.
 
@@ -37,10 +37,9 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 
 | Provider | Media Types | What it contributes |
 |---|---|---|
-| Apple API | Books, Audiobooks, Podcasts | Cover art (up to 3000Ã—3000 via the 9999 trick), description, rating, Apple Books ID / Apple Podcasts ID |
+| Apple API | Books, Audiobooks | Cover art (up to 3000Ã—3000 via the 9999 trick), description, rating, Apple Books ID |
 | Open Library | Books | Cover art, ISBN, bridge IDs |
 | MusicBrainz | Music | Cover Art Archive images, MusicBrainz ID (MBID) |
-| Apple Podcasts | Podcasts | Cover art (up to 3000Ã—3000), Apple Podcasts ID |
 | Wikidata / Wikidata Reconciliation | All | QID, all structured properties, Wikipedia descriptions, person headshots (P18, persons only) |
 
 **Key-required providers (free API key):**
@@ -50,7 +49,6 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 | TMDB | Movies, TV | Cover art (up to 2000×3000 at w500/w1280), TMDB ID, IMDb ID, network (TV only) |
 | Google Books | Books, Audiobooks | Cover art, ISBN, Google Books ID |
 | Comic Vine | Comics | Cover art (super_url, ~900px), Comic Vine ID |
-| Podcast Index | Podcasts | Episode metadata, Podcast Index GUID |
 
 **Copyright constraint â€” P18 (Image):** Wikidata P18 is exclusively for Person entities (author/director headshots from Wikimedia Commons). P18 is never fetched for media items. Media cover art comes exclusively from retail providers.
 
@@ -155,7 +153,6 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 | TV | TMDB | â€” | â€” | TMDB TV ID (P4983), IMDb ID (P345) |
 | Comics | Comic Vine | â€” | â€” | Comic Vine ID (P5905) |
 | Music | MusicBrainz | â€” | â€” | MusicBrainz ID (P434/P436) |
-| Podcasts | Apple Podcasts | Podcast Index | â€” | Apple Podcasts ID (P5842) |
 
 ### Pipeline Configuration (config/hydration.json)
 
@@ -273,7 +270,7 @@ The response cache is a performance optimisation only. It is not part of the dat
 
 | Provider | Rate Limit | 10,000 files (uncached) | With Cache |
 |---|---|---|---|
-| Apple API / Podcasts | ~20 req/sec | ~33 min | ~5 min |
+| Apple API | ~20 req/sec | ~33 min | ~5 min |
 | TMDB | 50 req/sec | ~42 min | ~5 min |
 | MusicBrainz | 1 req/sec | ~3 hours | ~15 min |
 | Comic Vine | 200 req/hour | ~14 hours | ~2 hours |
@@ -302,7 +299,6 @@ Extraction rules are configured per media type with regex patterns, role assignm
 | Movies | Director, Cast Member, Producer | "Directed by", "Starring", "Produced by" |
 | TV | Director, Cast Member | "Directed by", "Starring" |
 | Comics | Author, Illustrator | "Written by", "Art by", "Pencils by" |
-| Podcasts | Host | "Hosted by", "Presented by" |
 | Music | Producer, Featured Artist | "Produced by", "feat." |
 
 Each extraction rule carries Wikidata occupation class Q-identifiers used to confirm the person works in the right role. For example, the Narrator role verifies against Q1622272 (narrator), Q33999 (actor), and Q2405480 (voice actor).
@@ -420,7 +416,7 @@ Identifiers flow between Wikidata (dashed ISBNs, mixed-case ASINs, full IMDb URL
 | `ToWikidataFormat` | Converts to Wikidata's expected format | Used when writing claims or comparing against Wikidata values |
 | `ToRetailFormat` | Strips to bare form | Used when calling retail provider APIs |
 
-**Supported identifier types:** ISBN-13, ISBN-10, ASIN, IMDb, Apple Books ID, TMDB, MusicBrainz, Goodreads, ComicVine, ISRC, LCCN, Apple Podcasts.
+**Supported identifier types:** ISBN-13, ISBN-10, ASIN, IMDb, Apple Books ID, TMDB, MusicBrainz, Goodreads, ComicVine, ISRC, LCCN.
 
 **Key aliases:** `isbn_13` â†’ `isbn`, `isbn_10` â†’ `isbn` (provided by `GetClaimKeyAlias`).
 
@@ -480,7 +476,6 @@ Cover art is never stored in the database. `cover.jpg` lives alongside the media
 | Movies & TV | TMDB | Up to 2000Ã—3000 | Backdrop available at w1280 |
 | Comics | Comic Vine | ~900px | `super_url` field |
 | Music | Cover Art Archive (MusicBrainz) | 500px | `front-500` path |
-| Podcasts | Apple Podcasts | Up to 3000Ã—3000 | Same 9999 trick as Apple API |
 
 **Cover art timing:** `cover.jpg` is written alongside the file in `.staging/` during Stage 1. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when `AutoOrganizeService` promotes the file from staging to the organised library.
 
@@ -495,7 +490,7 @@ Stage 1 retail identification now supports unlimited ranked providers per media 
 | Strategy | Behaviour | Default for |
 |---|---|---|
 | **Waterfall** | First provider to return a match wins; remaining providers are skipped | Movies, TV, Comics |
-| **Cascade** | All providers run independently; their claims are merged | Books, Podcasts |
+| **Cascade** | All providers run independently; their claims are merged | Books |
 | **Sequential** | Providers run in order; each passes its bridge IDs to the next | Audiobooks, Music |
 
 ### Configuration

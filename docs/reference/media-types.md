@@ -95,7 +95,7 @@ Books/{Title} ({Qid})/{Title}.epub
 Classification order for MP3 files:
 
 1. `TXXX:ASIN` tag present â†’ audiobook
-2. Genre tag contains "Audiobook", "Spoken Word", or "Podcast" â†’ classified accordingly
+2. Genre tag contains "Audiobook" or "Spoken Word" â†’ classified as Audiobook
 3. `TPE3` (narrator) tag present â†’ audiobook
 4. Duration > 20 minutes â†’ audiobook candidate
 5. AI `MediaTypeAdvisor` â€” final classification using all available signals
@@ -240,7 +240,7 @@ Classification order:
 
 1. MusicBrainz tags present â†’ music
 2. `track_number` present and duration < 15 minutes â†’ music candidate
-3. Genre tag is not "Audiobook", "Spoken Word", or "Podcast" â†’ music candidate
+3. Genre tag is not "Audiobook" or "Spoken Word" â†’ music candidate
 4. AI `MediaTypeAdvisor` â€” final arbiter
 
 ### Providers
@@ -310,45 +310,6 @@ ComicInfo.xml is the de facto standard metadata format for CBZ/CBR archives. Not
 
 ```
 Comics/{Title} ({Qid})/{Title}.cbz
-```
-
----
-
-## Podcasts
-
-**Processor:** `AudioProcessor` â€” priority 95
-
-### Supported formats
-
-| Extension | Format |
-|---|---|
-| `.mp3` | MPEG Audio Layer 3 |
-| `.m4a` | MPEG-4 Audio |
-
-### Extracted metadata
-
-| Field | Confidence | Notes |
-|---|---|---|
-| `title` | 0.90 | Episode title from ID3 `TIT2` |
-| `podcast_title` | 0.90 | Show name from ID3 `TALB` |
-| `episode_number` | 0.85 | From ID3 `TRCK` |
-| `description` | 0.85 | From ID3 `COMM` |
-| `year` | 0.90 | From ID3 `TDRC` |
-| `duration_sec` | 1.0 | |
-| `cover_image` | â€” | From embedded `APIC` frame |
-
-Podcast classification relies on genre tag ("Podcast") or manual Library Folder configuration specifying `"media_types": ["Podcasts"]`.
-
-### Providers
-
-1. Apple Podcasts â€” show and episode lookup; description, cover art, ratings
-2. Podcast Index â€” open podcast database; additional episode metadata
-3. Wikidata â€” Stage 2, QID resolution for notable shows
-
-### Organization template
-
-```
-Podcasts/{Title} ({Qid})/{Title}.mp3
 ```
 
 ---

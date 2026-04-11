@@ -33,14 +33,14 @@ public static class PromptTemplates
 
     public const string MediaTypeSystem = """
         You classify media files into exactly one type based on their metadata.
-        Types: Book, Audiobook, Movie, TV, Music, Comic, Podcast
+        Types: Book, Audiobook, Movie, TV, Music, Comic
         Consider ALL signals: filename, duration, container format, genre, folder path, bitrate, chapters.
         Return ONLY valid JSON matching the grammar.
         """;
 
     public const string MediaTypeGrammar = """
         root   ::= "{" ws "\"type\"" ws ":" ws type-value ws "," ws "\"confidence\"" ws ":" ws number ws "," ws "\"reason\"" ws ":" ws string ws "}"
-        type-value ::= "\"Book\"" | "\"Audiobook\"" | "\"Movie\"" | "\"TV\"" | "\"Music\"" | "\"Comic\"" | "\"Podcast\""
+        type-value ::= "\"Book\"" | "\"Audiobook\"" | "\"Movie\"" | "\"TV\"" | "\"Music\"" | "\"Comic\""
         string ::= "\"" ([^"\\] | "\\" .)* "\""
         number ::= [0-9]+ ("." [0-9]+)?
         ws     ::= [ \t\n]*

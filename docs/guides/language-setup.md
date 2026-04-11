@@ -114,9 +114,9 @@ Each provider has a language strategy that controls which language is used when 
 
 The three strategies are:
 
-**Source** â€” always query in English. These are providers whose catalogues are English-only or whose English data is significantly more complete. Examples: Open Library, Google Books, MusicBrainz, Podcast Index.
+**Source** â€” always query in English. These are providers whose catalogues are English-only or whose English data is significantly more complete. Examples: Open Library, Google Books, MusicBrainz.
 
-**Localized** â€” query in your metadata language. These providers have strong international catalogues and will return better results in your language. Examples: TMDB, Apple API, Apple Podcasts.
+**Localized** â€” query in your metadata language. These providers have strong international catalogues and will return better results in your language. Examples: TMDB, Apple API.
 
 **Both** â€” query in your metadata language first, then in English if the first query returns nothing. Results are merged and the best match is selected. Wikidata uses this strategy by default.
 

@@ -45,7 +45,6 @@ public sealed class SearchService : ISearchService
         ["TV"]         = ["television series", "web series", "animated series", "miniseries", "television film"],
         ["Music"]      = ["album", "single", "musical work", "song", "extended play"],
         ["Comics"]     = ["comic book", "manga", "graphic novel", "comic book series", "manhwa"],
-        ["Podcasts"]   = ["podcast", "podcast series", "podcast episode"],
     };
 
     public SearchService(
@@ -397,11 +396,10 @@ public sealed class SearchService : ISearchService
             if (searchFields is { Count: > 0 })
             {
                 searchFields.TryGetValue("title", out fieldTitle);
-                // Also check show_name and podcast_name as title sources
+                // Also check show_name as a title source
                 if (fieldTitle is null)
                 {
-                    if (!searchFields.TryGetValue("show_name", out fieldTitle))
-                        searchFields.TryGetValue("podcast_name", out fieldTitle);
+                    searchFields.TryGetValue("show_name", out fieldTitle);
                 }
                 if (!searchFields.TryGetValue("author", out fieldAuthor))
                     searchFields.TryGetValue("artist", out fieldAuthor);
@@ -550,7 +548,7 @@ public sealed class SearchService : ISearchService
         "television series", "television film", "web series", "animated series", "miniseries", "TV series",
         "album", "studio album", "compilation album", "live album", "EP", "single", "song", "musical work",
         "comic book", "comic book series", "graphic novel", "manga", "manhwa",
-        "podcast", "podcast series", "podcast episode",
+
         "video game",
     ];
 

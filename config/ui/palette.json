@@ -37,7 +37,6 @@
     "audiobook": "#A78BFA",
     "tv": "#FBBF24",
     "music": "#22D3EE",
-    "podcast": "#FB923C",
     "comic": "#7C4DFF",
     "unknown": "rgba(255,255,255,0.4)"
   },

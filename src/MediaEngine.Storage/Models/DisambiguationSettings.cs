@@ -64,14 +64,8 @@ public sealed class AudioHeuristicSettings
     [JsonPropertyName("path_keywords_music")]
     public List<string> PathKeywordsMusic { get; set; } = ["music", "songs", "albums", "tracks"];
 
-    [JsonPropertyName("path_keywords_podcast")]
-    public List<string> PathKeywordsPodcast { get; set; } = ["podcast", "podcasts", "episodes"];
-
     [JsonPropertyName("genre_audiobook")]
     public List<string> GenreAudiobook { get; set; } = ["audiobook", "speech", "spoken word"];
-
-    [JsonPropertyName("genre_podcast")]
-    public List<string> GenrePodcast { get; set; } = ["podcast"];
 }
 
 /// <summary>Configurable parameters for video media type disambiguation.</summary>

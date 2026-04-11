@@ -24,7 +24,6 @@ public sealed class BridgeIdHelperTests
     [InlineData(BridgeIdKeys.MusicBrainzId, true)]
     [InlineData(BridgeIdKeys.ComicVineId, true)]
     [InlineData("gcd_id", true)]
-    [InlineData("apple_podcasts_id", true)]
     [InlineData("apple_music_id", true)]
     public void IsBridgeId_KnownKeys_ReturnsTrue(string key, bool expected)
     {

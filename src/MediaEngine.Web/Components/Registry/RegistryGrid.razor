@@ -247,7 +247,7 @@ else
 
     private List<SectionGroup> GetMediaTypeGroups()
     {
-        var order = new[] { "Books", "Audiobooks", "Movies", "TV", "Comics", "Music", "Podcasts" };
+        var order = new[] { "Books", "Audiobooks", "Movies", "TV", "Comics", "Music" };
         var byType = Items.GroupBy(i => i.MediaType ?? "Unknown").ToDictionary(g => g.Key, g => g.ToList());
 
         var result = new List<SectionGroup>();

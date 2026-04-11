@@ -38,7 +38,7 @@ Before the Engine can watch or import anything, you need to tell it where your f
 4. Fill in the folder details:
    - **Source path** â€” the folder on your drive to watch or import (e.g. `D:\Downloads\Books`).
    - **Library root** â€” where the organised library should live after files are processed (e.g. `D:\Library`). This is where Tuvima moves files once they've been identified.
-   - **Category** â€” the type of media in this folder (Books, Movies, TV, Music, Comics, Podcasts).
+   - **Category** â€” the type of media in this folder (Books, Movies, TV, Music, Comics).
    - **Media types** â€” the specific formats to accept (e.g. EPUB and PDF for a Books folder). You can select multiple.
    - **Watch mode** â€” toggle this on if you want the folder monitored continuously.
 5. Click **Save**.
@@ -57,7 +57,6 @@ You can add as many folders as you need â€” one for each category, or one p
 | TV | MKV, MP4 |
 | Music | FLAC, MP3, AAC, M4A, OGG |
 | Comics | CBZ, CBR, PDF |
-| Podcasts | MP3, M4A |
 
 > **Note on MP3 and MP4:** These formats can belong to more than one library type â€” an MP3 might be an audiobook chapter or a music track; an MP4 might be a movie or a TV episode. The Engine uses AI classification and file metadata signals to decide. If it gets it wrong, you can correct it in the Library Vault.
 

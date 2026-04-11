@@ -27,7 +27,7 @@ Click **Add Folder**.
 You will be asked for:
 
 - **Folder path** â€” the full path to the folder on your machine. For example: `/media/books` or `D:\Media\Movies`.
-- **Category** â€” what kind of media lives here. Choose from: Books, TV, Movies, Music, Comics, or Podcasts. This tells the Engine what to expect and which providers to contact for enrichment.
+- **Category** â€” what kind of media lives here. Choose from: Books, TV, Movies, Music, or Comics. This tells the Engine what to expect and which providers to contact for enrichment.
 - **Media types** â€” the specific file types to watch for. The Engine suggests sensible defaults based on your category (for example, EPUB and PDF for Books, MKV and MP4 for Movies), but you can adjust these.
 
 Click **Save**. The Engine immediately begins watching this folder.

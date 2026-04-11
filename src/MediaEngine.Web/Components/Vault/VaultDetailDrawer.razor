@@ -320,7 +320,7 @@
                                             @if (_showMediaTypeDropdown)
                                             {
                                                 <div class="vdd-dropdown-menu">
-                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" })
+                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
                                                     {
                                                         <div class="vdd-dropdown-item" @onclick="() => SetRetailMediaType(mt)">@mt</div>
                                                     }
@@ -613,7 +613,7 @@
                                             @if (_showWikiMediaTypeDropdown)
                                             {
                                                 <div class="vdd-dropdown-menu">
-                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts" })
+                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
                                                     {
                                                         <div class="vdd-dropdown-item" @onclick="() => SetWikiMediaType(mt)">@mt</div>
                                                     }
@@ -1248,7 +1248,6 @@
             //   Comics → series (ComicVine volume_search)
             //   TV → show_name (TMDB show search)
             //   Music → artist (Apple API artistTerm)
-            //   Podcasts → podcast_name (Apple Podcasts / Podcast Index)
             //   Books/Audiobooks/Movies → title
             _searchFilters = [];
             switch (MediaItem.MediaType)
@@ -1284,15 +1283,6 @@
                         _searchFilters.Add(("title", MediaItem.Title));
                     if (!string.IsNullOrWhiteSpace(MediaItem.TrackNumber))
                         _searchFilters.Add(("track_number", MediaItem.TrackNumber));
-                    break;
-
-                case "Podcasts":
-                    _primarySearchField = "podcast_name";
-                    _primarySearchValue = MediaItem.ShowName ?? MediaItem.Title ?? "";
-                    if (!string.IsNullOrWhiteSpace(MediaItem.Episode))
-                        _searchFilters.Add(("episode_number", MediaItem.Episode));
-                    if (!string.IsNullOrWhiteSpace(MediaItem.Author))
-                        _searchFilters.Add(("author", MediaItem.Author));
                     break;
 
                 default: // Books, Audiobooks, Movies
@@ -1475,14 +1465,6 @@
         // Audiobooks
         if (MediaItem.MediaType == "Audiobooks" && !string.IsNullOrEmpty(MediaItem.Duration))
             rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
-
-        // Podcasts
-        if (MediaItem.MediaType == "Podcasts")
-        {
-            if (!string.IsNullOrEmpty(MediaItem.ShowName)) rows.Add(("Podcast", MediaItem.ShowName));
-            if (!string.IsNullOrEmpty(MediaItem.Episode)) rows.Add(("Episode", MediaItem.Episode));
-            if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
-        }
 
         if (!string.IsNullOrEmpty(MediaItem.FileName)) rows.Add(("File", MediaItem.FileName));
         if (MediaItem.FileSizeBytes.HasValue && MediaItem.FileSizeBytes.Value > 0)

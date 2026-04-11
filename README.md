@@ -8,7 +8,7 @@
 
 **Make your media collection discoverable.**
 
-*Tuvima Library is the first media platform that organizes by story, not by file type â€” unifying your books, audiobooks, movies, TV shows, music, comics, and podcasts into one intelligent library, with a cinematic dashboard and a built-in AI that runs entirely on your machine.*
+*Tuvima Library is the first media platform that organizes by story, not by file type â€” unifying your books, audiobooks, movies, TV shows, music, and comics into one intelligent library, with a cinematic dashboard and a built-in AI that runs entirely on your machine.*
 
 <br/>
 
@@ -26,7 +26,7 @@ Plex organizes your videos. Calibre organizes your books. Audiobookshelf organiz
 
 **Tuvima Library organizes by story, not by file type.**
 
-Drop your files into a folder. Tuvima reads each one, figures out what it is using a built-in AI and Wikidata (the knowledge database behind Wikipedia), downloads cover art and author photos, and files everything into a clean, organized library. Books, audiobooks, movies, TV shows, music, comics, and podcasts â€” all in one place.
+Drop your files into a folder. Tuvima reads each one, figures out what it is using a built-in AI and Wikidata (the knowledge database behind Wikipedia), downloads cover art and author photos, and files everything into a clean, organized library. Books, audiobooks, movies, TV shows, music, and comics â€” all in one place.
 
 ### One story, every format
 
@@ -43,7 +43,6 @@ Related Series are grouped into **Universes** â€” the Dune novels, the Dune
 | Audiobooks | No | No | Partial | Yes | **Yes** |
 | Music | Yes | Yes | No | No | **Yes** |
 | Comics | No | No | Partial | No | **Yes** |
-| Podcasts | No | No | No | No | **Yes** |
 | Cross-media linking | No | No | No | No | **Yes** |
 | Built-in AI | No | No | No | No | **Yes** |
 | Fully local (no cloud) | No | Yes | Yes | Yes | **Yes** |
@@ -73,7 +72,6 @@ Four local AI models (~9 GB total) handle filename parsing, media classification
 | **TV Shows** | MKV, MP4 |
 | **Music** | FLAC, MP3, AAC, OGG, WAV |
 | **Comics** | CBZ, CBR |
-| **Podcasts** | MP3, M4A |
 
 [Full format details, processors, and providers.](https://tuvima.github.io/tuvima_library/reference/media-types/)
 

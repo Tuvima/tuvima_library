@@ -876,9 +876,10 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         var template = strategy.UrlTemplate;
 
         // Clean the title for search: strip trailing (YYYY) and SxxExx patterns.
-        // For TV-specific strategies, prefer ShowName (the series title) over Title
+        // For TV strategies, prefer ShowName (the series/show title) over Title
         // (which may be the episode title extracted from the filename).
-        var rawTitle = strategy.MediaTypes?.Contains("TV") == true
+        var isEpisodicStrategy = strategy.MediaTypes?.Contains("TV") == true;
+        var rawTitle = isEpisodicStrategy
             && !string.IsNullOrWhiteSpace(request.ShowName)
             ? request.ShowName
             : request.Title;

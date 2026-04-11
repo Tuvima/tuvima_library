@@ -19,6 +19,7 @@ public static class Mp3Builder
         string? album = null,
         int year = 0,
         string language = "eng",
+        string? genre = null,
         string? narrator = null,
         string? asin = null,
         string? series = null,
@@ -37,8 +38,8 @@ public static class Mp3Builder
         if (year > 0) WriteTextFrame(frames, "TYER", year.ToString());
         WriteTextFrame(frames, "TLAN", language);
 
-        // Genre: "Audiobook" to help disambiguation heuristics.
-        WriteTextFrame(frames, "TCON", "Audiobook");
+        // Genre tag to help disambiguation heuristics.
+        WriteTextFrame(frames, "TCON", genre ?? "Audiobook");
 
         if (narrator is not null)
         {

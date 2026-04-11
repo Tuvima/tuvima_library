@@ -31,7 +31,7 @@ Runs automatically on first launch. Re-runnable from **Server > Setup**.
 
 1. **Welcome / Identity** â€” display name, locale, date/time format
 2. **Library Folders** â€” configure source paths, library root, category, media types, and intake mode (watch or import) for each folder
-3. **Provider API Keys** â€” enter optional free API keys for providers that require registration (TMDB, Comic Vine, Podcast Index, Google Books)
+3. **Provider API Keys** â€” enter optional free API keys for providers that require registration (TMDB, Comic Vine, Google Books)
 4. **AI Models** â€” select which text and audio models to download; shows RAM requirements; triggers background download
 5. **Ready** â€” summary of configuration choices; launches the Engine and opens the Dashboard
 
@@ -553,10 +553,10 @@ Providers differ significantly in what types of assets they return:
 | **Apple API** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
 | **Comic Vine** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
 | **File embedded** | Cover image | Tagged as **Embedded Original** | Whatever artwork was embedded in the file's metadata (EPUB cover, ID3 art, MKV poster). Always preserved. |
-| **Auto-generated** | Hero banner | Tagged as **Banner (Generated)** | SkiaSharp-rendered hero banner (blurred cover art + vignette). Auto-generated whenever cover art exists. Default banner for media types where no provider supplies real backdrops (books, audiobooks, comics, podcasts). For Universes and People, generated from the most representative child item's cover art. |
+| **Auto-generated** | Hero banner | Tagged as **Banner (Generated)** | SkiaSharp-rendered hero banner (blurred cover art + vignette). Auto-generated whenever cover art exists. Default banner for media types where no provider supplies real backdrops (books, audiobooks, comics). For Universes and People, generated from the most representative child item's cover art. |
 | **User upload** | Any type | **User selects** type on upload | User picks which type group (Cover Art, Headshot, Banner, Logo, Backdrop) when uploading. |
 
-**Result:** Films and TV have the richest asset pools (covers + banners + logos + backdrops from TMDB). Books, audiobooks, comics, and podcasts get Cover Art from providers plus an auto-generated hero Banner from SkiaSharp â€” so every item with cover art has at least a Cover Art and a Banner. User uploads fill remaining slots (Headshot, Logo, Backdrop). Universes and People build their pools from child items, auto-generated banners, and user uploads.
+**Result:** Films and TV have the richest asset pools (covers + banners + logos + backdrops from TMDB). Books, audiobooks, and comics get Cover Art from providers plus an auto-generated hero Banner from SkiaSharp â€” so every item with cover art has at least a Cover Art and a Banner. User uploads fill remaining slots (Headshot, Logo, Backdrop). Universes and People build their pools from child items, auto-generated banners, and user uploads.
 
 #### Asset Availability by Entity Level
 
@@ -565,7 +565,7 @@ All five asset types (Cover Art, Headshot, Banner, Logo, Backdrop) are available
 | Entity | Auto-populated | Typically user-uploaded |
 |--------|----------------|------------------------|
 | **Media item (film/TV)** | Cover Art, Banner, Logo, Backdrop (TMDB) + Banner Generated (SkiaSharp) | Headshot |
-| **Media item (book/audio/comic/podcast)** | Cover Art (retail + embedded) + Banner Generated (SkiaSharp from cover art) | Headshot, Logo, Backdrop |
+| **Media item (book/audio/comic)** | Cover Art (retail + embedded) + Banner Generated (SkiaSharp from cover art) | Headshot, Logo, Backdrop |
 | **Person** | Headshot (Wikidata P18) + Banner Generated (SkiaSharp from headshot) | Cover Art, Logo, Backdrop |
 | **Universe** | Inherited from child items + Banner Generated (SkiaSharp from best child cover) | All five types as needed |
 

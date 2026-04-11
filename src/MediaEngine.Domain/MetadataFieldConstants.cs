@@ -50,7 +50,6 @@ public static class MetadataFieldConstants
     public const string CoverUrl        = "cover_url";
     public const string ShowName        = "show_name";
     public const string EpisodeTitle    = "episode_title";
-    public const string PodcastName     = "podcast_name";
     public const string Network         = "network";
     public const string Biography       = "biography";
 

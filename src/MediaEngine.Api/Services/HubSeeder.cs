@@ -35,7 +35,7 @@ public static class HubSeeder
             ("Reading List",      "Books, Comics — per user, progress tracked",    "MenuBook",    "Books, Comics"),
             ("Watchlist",         "Movies — per user, progress tracked",            "Visibility",  "Movies"),
             ("Currently Watching","TV — per user, progress tracked",                "LiveTv",      "TV"),
-            ("Listening Queue",   "Audiobooks, Music, Podcasts — per user, progress tracked", "Headphones", "Audiobooks, Music, Podcasts"),
+            ("Listening Queue",   "Audiobooks, Music — per user, progress tracked", "Headphones", "Audiobooks, Music"),
             ("Favorites",         "Any media — per user",                           "Favorite",    "Any"),
         };
 
@@ -199,11 +199,6 @@ public static class HubSeeder
                 [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
                 null, "title"),
 
-            ("Podcasts by Show", "Podcast episodes grouped by show",
-                "Mic",
-                [new() { Field = "media_type", Op = "eq", Value = "Podcasts" }],
-                "show_name", "newest"),
-
             ("All Comics", "Every comic in your library",
                 "AutoStories",
                 [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
@@ -228,11 +223,6 @@ public static class HubSeeder
             ("All TV", "Every TV episode in your library",
                 "LiveTv",
                 [new() { Field = "media_type", Op = "eq", Value = "TV" }],
-                null, "title"),
-
-            ("All Podcasts", "Every podcast episode in your library",
-                "Mic",
-                [new() { Field = "media_type", Op = "eq", Value = "Podcasts" }],
                 null, "title"),
 
             // ── Creator-based views ─────────────────────────────────

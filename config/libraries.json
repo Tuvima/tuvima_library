@@ -62,18 +62,6 @@
       "notes": "Watch folder for comics and manga."
     },
     {
-      "category": "Podcasts",
-      "media_types": ["Podcasts"],
-      "source_path": "C:\\temp\\tuvima-watch\\podcasts",
-      "source_paths": ["C:\\temp\\tuvima-watch\\podcasts"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": true,
-      "read_only": false,
-      "writeback_override": null,
-      "notes": "Watch folder for podcast series and episodes."
-    },
-    {
       "category": "General",
       "media_types": [],
       "source_path": "C:\\temp\\tuvima-watch",

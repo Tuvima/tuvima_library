@@ -191,7 +191,6 @@ public sealed class WritebackConfigState : IDisposable
         "TV"         => VideoMetadataTagger.Version,
         "Music"      => AudioMetadataTagger.Version,
         "Audiobooks" => AudioMetadataTagger.Version,
-        "Podcasts"   => AudioMetadataTagger.Version,
         "Books"      => EpubMetadataTagger.Version,
         "Comics"     => ComicMetadataTagger.Version,
         _            => 0,
@@ -199,7 +198,7 @@ public sealed class WritebackConfigState : IDisposable
 
     private static readonly string[] MediaTypeKeys =
     [
-        "Books", "Audiobooks", "Movies", "TV", "Music", "Podcasts", "Comics",
+        "Books", "Audiobooks", "Movies", "TV", "Music", "Comics",
     ];
 
     private void TryStartWatcher()

@@ -105,7 +105,7 @@ A title extracted from a well-structured EPUB gets a higher confidence than one 
 
 ### Classifying Ambiguous Formats
 
-Some formats are genuinely ambiguous. An MP3 could be a music track, an audiobook chapter, or a podcast episode. The AI MediaTypeAdvisor examines tag signals — embedded ASIN (an audiobook indicator), narrator fields, duration patterns, genre tags — alongside the folder's configured category to resolve the ambiguity. If the AI cannot reach a confident classification, the item goes to the review queue for manual input.
+Some formats are genuinely ambiguous. An MP3 could be a music track or an audiobook chapter. The AI MediaTypeAdvisor examines tag signals — embedded ASIN (an audiobook indicator), narrator fields, duration patterns, genre tags — alongside the folder's configured category to resolve the ambiguity. If the AI cannot reach a confident classification, the item goes to the review queue for manual input.
 
 ### The Staging Area
 
@@ -124,7 +124,7 @@ Providers aren't all tried in the same way. The Engine supports three execution 
 | Strategy | Behaviour | Used for |
 |---|---|---|
 | **Waterfall** | Providers run in rank order. First confident match wins. | Movies, TV, Comics |
-| **Cascade** | All providers run independently. Claims are merged. | Books, Podcasts |
+| **Cascade** | All providers run independently. Claims are merged. | Books |
 | **Sequential** | Providers chain: each one passes its output as input to the next. | Audiobooks, Music |
 
 Why does this matter? Consider books. A Cascade run means both Google Books and Open Library run, and their results are merged. If Google Books has a better cover image but Open Library has a more precise ISBN, both are captured. The Priority Cascade later decides which values win — but first, both sources get to contribute.

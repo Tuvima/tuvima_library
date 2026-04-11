@@ -97,7 +97,7 @@ public sealed class IngestionOptions
 
     /// <summary>
     /// Per-media-type organisation templates.  Keys are media type names
-    /// (e.g. "Books", "Audiobooks", "Movies", "TV", "Comic", "Music", "Podcasts")
+    /// (e.g. "Books", "Audiobooks", "Movies", "TV", "Comic", "Music")
     /// or "default".  Values are tokenised path templates.
     /// Fallback chain: media-type-specific → "default" → <see cref="OrganizationTemplate"/>
     /// → hardcoded <c>{Category}/{Title}/{Title}{Ext}</c>.
@@ -125,8 +125,7 @@ public sealed class IngestionOptions
         ["Audiobooks"] = "Audiobooks/{Author}/{Title} ({Year})/{Title}{Ext}",
         // Books: Author/Title (Year)/Title (Year) — matches Music pattern
         ["Books"]      = "Books/{Author}/{Title} ({Year})/{Title} ({Year}){Ext}",
-        // Podcasts: Audiobookshelf / Jellyfin convention — flat per show
-        ["Podcasts"]   = "Podcasts/{Series}/{Title}{Ext}",
+
         // Comics: Komga / Mylar / Kavita convention — `Series/Series - NNN (Year)`
         ["Comic"]      = "Comics/{Series}/{Series} - {IssueNumber} ({Year}){Ext}",
     };

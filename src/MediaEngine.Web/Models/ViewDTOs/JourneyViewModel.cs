@@ -40,7 +40,7 @@ public sealed class JourneyItemViewModel
         MT.Books or MT.Comics   => "Continue Reading",
         MT.Audiobooks           => "Continue Listening",
         MT.Movies or MT.TV      => "Continue Watching",
-        MT.Music or MT.Podcasts => "Continue Listening",
+        MT.Music                => "Continue Listening",
         _                       => "Continue",
     };
 

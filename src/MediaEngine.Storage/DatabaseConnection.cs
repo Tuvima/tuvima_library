@@ -1324,7 +1324,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 UPDATE metadata_claims SET claim_value = 'Audiobooks' WHERE claim_key = 'media_type' AND claim_value IN ('Audiobook', 'audiobook');
                 UPDATE metadata_claims SET claim_value = 'Movies'     WHERE claim_key = 'media_type' AND claim_value IN ('Movie', 'movie', 'Video', 'video');
                 UPDATE metadata_claims SET claim_value = 'Comics'     WHERE claim_key = 'media_type' AND claim_value IN ('Comic', 'comic', 'Cbz', 'cbz', 'Cbr', 'cbr');
-                UPDATE metadata_claims SET claim_value = 'Podcasts'   WHERE claim_key = 'media_type' AND claim_value IN ('Podcast', 'podcast');
+
                 UPDATE metadata_claims SET claim_value = 'Music'      WHERE claim_key = 'media_type' AND claim_value IN ('music');
                 UPDATE metadata_claims SET claim_value = 'TV'         WHERE claim_key = 'media_type' AND claim_value IN ('tv', 'Television', 'television');
                 """;
@@ -1373,7 +1373,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         // Migration M-082: parent_key shadow column + index. Powers the
         // HierarchyResolver's indexed find-or-create lookup for parent Works
-        // (albums, shows, series, comic series, podcast shows).
+        // (albums, shows, series, comic series).
         MigrateParentKey(conn);
 
         // Migration M-083: ownership column on works. Adds TEXT column
@@ -1433,8 +1433,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             (WellKnownProviders.Tmdb.ToString(),            "tmdb",                 "1.0"),
             (WellKnownProviders.Metron.ToString(),          "metron",               "1.0"),
             (WellKnownProviders.ComicVine.ToString(),       "comicvine",            "1.0"),
-            (WellKnownProviders.ApplePodcasts.ToString(),   "apple_podcasts",       "1.0"),
-            (WellKnownProviders.PodcastIndex.ToString(),    "podcast_index",        "1.0"),
+
             (WellKnownProviders.UserManual.ToString(),      "user_manual",          "1.0"),
             (WellKnownProviders.FanartTv.ToString(),        "fanart_tv",            "1.0"),
             (WellKnownProviders.AiProvider.ToString(),      "ai_provider",          "1.0"),

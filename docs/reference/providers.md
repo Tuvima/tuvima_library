@@ -37,7 +37,6 @@ Retail providers are a **rich data source for matching** — descriptions, narra
 | TMDB | Movies, TV | Bearer token | 250ms, max 2 concurrent | Localized (user language) | Active (requires key) |
 | MusicBrainz | Music | None | 1100ms, max 1 concurrent | Source (English only) | Active |
 | Metron | Comics | Basic auth | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
-| Podcast Index | Podcasts | X-Auth-Key header | 300ms | Source (English only) | Active (requires key) |
 | Open Library | Books | None | 500ms | Source (English only) | Disabled (config kept) |
 | Google Books | Books | API key (query param) | 200ms | Localized | Removed |
 
@@ -88,15 +87,6 @@ Most providers only accept **Title** as a free-text search parameter. Author, Di
 
 **Notes:** ISBN lookup is exact match. Title is used as `series_name` parameter for issue search, `name` for series search. Author and Year are not query parameters. Returns rich comic metadata including publisher, credits, issue number, and series position.
 
-#### Podcast Index
-
-| Strategy | Priority | Required Fields | URL Pattern | Media Types |
-|---|---|---|---|---|
-| Podcast Search | 1 | `title` | `/search/byterm?q={title}&max=5` | Podcasts |
-| Episode Search | 2 | `title` | `/search/byterm?q={title}&type=episode&max=5` | Podcasts |
-
-**Notes:** Title only. Year is not a query parameter. Returns feed URL and podcast GUID as bridge identifiers. Runs in hydration Stage 2 (not Stage 1) — needs Wikidata QIDs first.
-
 #### Open Library (Disabled)
 
 | Strategy | Priority | Required Fields | URL Pattern | Media Types |
@@ -120,7 +110,6 @@ Each provider's config defines a `field_mappings` array that maps JSON response 
 | **TMDB** | 0.85 | -- | 0.90 | 0.90 (poster+backdrop) | 0.85 | 0.80 | -- | -- | 0.85 | 0.85 |
 | **MusicBrainz** | 0.80 | 0.80 (artist-credit) | 0.85 | 0.70 | -- | -- | -- | -- | -- | -- |
 | **Metron** | 0.85 | 0.80 (credits) | 0.85 | 0.85 | 0.80 | -- | 0.85 | 0.90 | -- | -- |
-| **Podcast Index** | 0.80 | 0.75 | -- | 0.75 | 0.80 | -- | -- | -- | -- | 0.80 |
 | **Open Library** | 0.75 | 0.80 | 0.85 | 0.70 | 0.60 | -- | 0.70 | -- | 0.65 | 0.70 |
 
 Numbers represent confidence values assigned to extracted claims. `--` means the provider does not return that field.
@@ -132,8 +121,8 @@ The `ValueTransformRegistry` applies transformations during extraction:
 | Transform | Purpose | Used By |
 |---|---|---|
 | `regex_replace` | Strip image size suffixes from cover URLs | Apple API |
-| `strip_html` | Clean HTML tags from descriptions | Apple API, Metron, Open Library, Podcast Index |
-| `to_string` | Convert numeric values (IDs, ratings) to strings | Apple API, TMDB, Metron, Podcast Index |
+| `strip_html` | Clean HTML tags from descriptions | Apple API, Metron, Open Library |
+| `to_string` | Convert numeric values (IDs, ratings) to strings | Apple API, TMDB, Metron |
 | `url_template` | Construct full image URLs from partial paths | TMDB, MusicBrainz, Open Library |
 | `first_n_chars(4)` | Extract 4-digit year from date strings | TMDB, MusicBrainz, Metron |
 | `prefer_isbn13` | Select ISBN-13 from array of ISBN formats | Open Library |
@@ -156,8 +145,6 @@ Bridge IDs are external platform identifiers that the Wikidata Reconciliation ad
 | **Metron** | Comic Vine ID | `comic_vine_id` | 0.95 | P5905 |
 | **Metron** | GCD ID | `gcd_id` | 0.95 | P11957 |
 | **Metron** | ISBN | `isbn` | 0.95 | P212 |
-| **Podcast Index** | Feed URL | `feed_url` | 1.0 | (no P-code; text fallback) |
-| **Podcast Index** | Podcast GUID | `podcast_guid` | 1.0 | P10553 |
 | **Open Library** | ISBN | `isbn` | 0.90 | P212 (ISBN-13) / P957 (ISBN-10) |
 
 ### Stage 2 Resolution Flow Per Bridge ID
@@ -183,7 +170,6 @@ The hydration config specifies which bridge IDs to try first per media type:
 | TV | `tmdb_id`, `imdb_id` |
 | Music | `musicbrainz_id`, `isrc` |
 | Comics | `comic_vine_id`, `gcd_id`, `isbn` |
-| Podcasts | `podcast_guid`, `feed_url` |
 
 ---
 

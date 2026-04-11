@@ -128,7 +128,7 @@ public static class UniverseMapper
             MediaType.Audiobooks               => MediaTypeBucket.Audio,
             MediaType.Movies or MediaType.TV   => MediaTypeBucket.Video,
             MediaType.Comics                   => MediaTypeBucket.Comic,
-            MediaType.Music or MediaType.Podcasts => MediaTypeBucket.Audio,
+            MediaType.Music                    => MediaTypeBucket.Audio,
             _                                  => MediaTypeBucket.Unknown,
         };
     }

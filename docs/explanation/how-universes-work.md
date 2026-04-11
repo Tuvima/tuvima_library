@@ -12,7 +12,7 @@ tags:
 
 # How Universes and Series Work
 
-Most media software organizes by format: books in one app, movies in another, music somewhere else. Tuvima Library organizes by *story*. The same creative world â€” whether you own it as a novel, a film, an audiobook, a graphic novel, or a podcast â€” lives together in one place. That place is a **Universe**.
+Most media software organizes by format: books in one app, movies in another, music somewhere else. Tuvima Library organizes by *story*. The same creative world â€” whether you own it as a novel, a film, an audiobook, a graphic novel, or a music soundtrack â€” lives together in one place. That place is a **Universe**.
 
 This page explains how the grouping model works, what the terminology means, and how the Engine figures out which items belong together.
 
@@ -20,9 +20,7 @@ This page explains how the grouping model works, what the terminology means, and
 
 ## The Idea Behind Universes
 
-Consider Dune. You might own Frank Herbert's original novels as EPUBs. You might have Denis Villeneuve's film adaptations as MKVs. You might have the audiobook narrations as M4Bs. You might have the graphic novel adaptations as CBZ files. You might subscribe to a podcast that discusses the Dune universe.
-
-These are all separate files in separate formats. A folder-based organizer would scatter them across Books, Videos, Audio, and Comics sections with no indication they're related. A Universe brings them forward as one creative world â€” exactly as they belong.
+Consider Dune. You might own Frank Herbert's original novels as EPUBs. You might have Denis Villeneuve's film adaptations as MKVs. You might have the audiobook narrations as M4Bs. You might have the graphic novel adaptations as CBZ files. These are all separate files in separate formats. A folder-based organizer would scatter them across Books, Videos, Audio, and Comics sections with no indication they're related. A Universe brings them forward as one creative world â€” exactly as they belong.
 
 This is the **Presentation** philosophy at the core of Tuvima Library. The stories already exist on your hard drive, fragmented. The Library's job is to find them, understand them, and surface the result as something coherent.
 
@@ -121,7 +119,7 @@ The Universe Graph tracks:
 - **Factions** â€” organizations, families, orders
 - **Narrative relationships** â€” which works are sequels, prequels, spin-offs, adaptations of each other
 
-This graph powers features beyond simple browsing. It's what enables "which actor played this character in which adaptation?" It's what connects a podcast episode discussing a fictional faction to the novel that introduced that faction. It's the infrastructure for the Chronicle Explorer â€” the visual graph at `/universe/{QID}/explore` where you can navigate these relationships interactively.
+This graph powers features beyond simple browsing. It's what enables "which actor played this character in which adaptation?" It's what connects a graphic novel adaptation to the novel that inspired it. It's the infrastructure for the Chronicle Explorer â€” the visual graph at `/universe/{QID}/explore` where you can navigate these relationships interactively.
 
 For now, Universe Graph data comes from Wikidata properties. The Tuvima.Wikidata.Graph module handles in-memory graph queries over this data so you can ask relationship questions without a network connection.
 

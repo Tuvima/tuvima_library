@@ -32,7 +32,6 @@ public static class IdentifierNormalizationService
             "P5905" => NormalizeComicVineId(rawValue),
             "P1243" => NormalizeIsrc(rawValue),
             "P244"  => NormalizeLccn(rawValue),
-            "P5842" => NormalizeApplePodcastsId(rawValue),
             _       => rawValue.Trim()
         };
     }
@@ -97,7 +96,7 @@ public static class IdentifierNormalizationService
         return providerName.ToLowerInvariant() switch
         {
             // Apple API uses underscore locale codes: "en" → "en_us", "es" → "es_mx", "fr" → "fr_fr".
-            "apple_api" or "apple_books" or "apple podcasts" or "apple_podcasts"
+            "apple_api" or "apple_books"
                 => $"{primary}_{primary}",
 
             // All other providers (Wikidata, Wikipedia, Google Books, Open Library, etc.)
@@ -303,17 +302,6 @@ public static class IdentifierNormalizationService
         // Normalize by stripping extra whitespace. Return trimmed result.
         var trimmed = rawValue.Trim();
         return string.IsNullOrEmpty(trimmed) ? null : trimmed;
-    }
-
-    #endregion
-
-    // -------------------------------------------------------------------------
-    #region Apple Podcasts (P5842)
-    // -------------------------------------------------------------------------
-
-    private static string? NormalizeApplePodcastsId(string rawValue)
-    {
-        return ExtractAppleNumericId(rawValue);
     }
 
     #endregion

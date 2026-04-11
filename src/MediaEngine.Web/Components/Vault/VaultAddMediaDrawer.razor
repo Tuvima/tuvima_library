@@ -125,7 +125,7 @@
     private IBrowserFile? _selectedFile;
 
     private static readonly string[] _mediaTypes =
-        ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts"];
+        ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics"];
 
     // Extensions that are unambiguous — auto-select media type.
     private static readonly Dictionary<string, string> _autoDetect =
@@ -219,7 +219,6 @@
         "TV"         => Icons.Material.Outlined.LiveTv,
         "Music"      => Icons.Material.Outlined.MusicNote,
         "Comics"     => Icons.Material.Outlined.AutoStories,
-        "Podcasts"   => Icons.Material.Outlined.Mic,
         _            => Icons.Material.Outlined.InsertDriveFile,
     };
 }

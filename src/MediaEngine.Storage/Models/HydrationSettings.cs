@@ -219,7 +219,7 @@ public sealed class HydrationSettings
     /// <summary>
     /// When <c>true</c>, Stage 0 (Local Match) checks the bridge_ids table and
     /// canonical_values for existing matches before making any external API calls.
-    /// Dramatically reduces external calls for episodic content (TV, music, podcasts).
+    /// Dramatically reduces external calls for episodic content (TV, music).
     /// </summary>
     [JsonPropertyName("local_match_enabled")]
     public bool LocalMatchEnabled { get; set; } = true;

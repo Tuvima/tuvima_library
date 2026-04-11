@@ -653,9 +653,7 @@
         new("TMDB",           "Retail", true,  ["Movies", "TV"],                                 110, 0.96),
         new("MusicBrainz",    "Open",   false, ["Music"],                                        210, 0.89),
         new("Metron",          "Open",   true,  ["Comics"],                                       200, 0.88, "basic"),
-        new("Apple Podcasts", "Retail", false, ["Podcasts"],                                     130, 0.93),
-        new("Podcast Index",  "Open",   false, ["Podcasts"],                                     200, 0.88),
-        new("Wikidata",       "Open",   false, ["Books","Movies","TV","Music","Comics","Audiobooks","Podcasts"], 300, 0.85),
+        new("Wikidata",       "Open",   false, ["Books","Movies","TV","Music","Comics","Audiobooks"], 300, 0.85),
         new("Fanart.tv",      "Image",  true,  ["Movies","TV","Music"],                           180, 0.91),
     ];
 
@@ -681,7 +679,6 @@
         ["TV"]         = "Waterfall",
         ["Music"]      = "Sequential",
         ["Comics"]     = "Waterfall",
-        ["Podcasts"]   = "Cascade",
     };
 
     private static readonly Dictionary<string, List<ProviderAssignment>> DefaultAssignments = new()
@@ -692,7 +689,6 @@
         ["TV"]         = [new() { Name = "TMDB", LanguageStrategy = "localized" }],
         ["Music"]      = [new() { Name = "MusicBrainz", LanguageStrategy = "source" }],
         ["Comics"]     = [new() { Name = "Metron", LanguageStrategy = "source" }],
-        ["Podcasts"]   = [new() { Name = "Apple Podcasts", LanguageStrategy = "localized" }, new() { Name = "Podcast Index", LanguageStrategy = "source" }],
     };
 
     private static readonly Dictionary<string, string[]> ProviderMediaTypes = new()
@@ -702,8 +698,6 @@
         ["TMDB"]           = ["Movies", "TV"],
         ["MusicBrainz"]    = ["Music"],
         ["Metron"]         = ["Comics"],
-        ["Apple Podcasts"] = ["Podcasts"],
-        ["Podcast Index"]  = ["Podcasts"],
         ["Wikidata"]       = ["All"],
         ["Fanart.tv"]      = ["Movies", "TV", "Music"],
     };
@@ -711,7 +705,7 @@
     // ── State ────────────────────────────────────────────────────────────────────
 
     private readonly string[] _mediaTypes =
-        ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics", "Podcasts"];
+        ["Books", "Audiobooks", "Movies", "TV", "Music", "Comics"];
 
     private string _activeTab = "Books";
 
@@ -1106,7 +1100,6 @@
         "TV"         => Icons.Material.Outlined.Tv,
         "Music"      => Icons.Material.Outlined.MusicNote,
         "Comics"     => Icons.Material.Outlined.AutoStories,
-        "Podcasts"   => Icons.Material.Outlined.Podcasts,
         _            => Icons.Material.Outlined.Category,
     };
 
@@ -1126,12 +1119,11 @@
         // Fallback switch for hardcoded catalogue entries (when Engine is unreachable)
         return provider switch
         {
-            "Apple API" or "Apple Podcasts" => Icons.Material.Outlined.MenuBook,
+            "Apple API"                     => Icons.Material.Outlined.MenuBook,
             "Open Library"                  => Icons.Material.Outlined.LocalLibrary,
             "TMDB"                          => Icons.Material.Outlined.Movie,
             "MusicBrainz"                   => Icons.Material.Outlined.MusicNote,
             "Metron"                        => Icons.Material.Outlined.AutoStories,
-            "Podcast Index"                 => Icons.Material.Outlined.Podcasts,
             "Wikidata"                      => Icons.Material.Outlined.Hub,
             "Fanart.tv"                     => Icons.Material.Outlined.Image,
             _                               => Icons.Material.Outlined.Storage,

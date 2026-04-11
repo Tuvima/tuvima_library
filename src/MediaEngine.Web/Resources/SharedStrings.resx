@@ -57,7 +57,6 @@
   <data name="Nav_Books" xml:space="preserve"><value>Books</value></data>
   <data name="Nav_Video" xml:space="preserve"><value>Video</value></data>
   <data name="Nav_Music" xml:space="preserve"><value>Music</value></data>
-  <data name="Nav_Podcasts" xml:space="preserve"><value>Podcasts</value></data>
   <data name="Nav_Comics" xml:space="preserve"><value>Comics</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Settings</value></data>
   <data name="Nav_OpenNavigation" xml:space="preserve"><value>Open navigation</value></data>
@@ -645,7 +644,6 @@
   <data name="MediaLane_EmptyBooks" xml:space="preserve"><value>Your book and audiobook collection will appear here. Drop EPUB or M4B files into your Watch Folder to get started.</value></data>
   <data name="MediaLane_EmptyVideo" xml:space="preserve"><value>Your movies and TV shows will appear here. Drop MP4, MKV, or AVI files into your Watch Folder.</value></data>
   <data name="MediaLane_EmptyMusic" xml:space="preserve"><value>Your music collection will appear here once music support is available.</value></data>
-  <data name="MediaLane_EmptyPodcasts" xml:space="preserve"><value>Your podcast subscriptions will appear here once podcast support is available.</value></data>
   <data name="MediaLane_EmptyComics" xml:space="preserve"><value>Your comics and manga will appear here. Drop CBZ or CBR files into your Watch Folder.</value></data>
   <data name="MediaLane_EmptyDefault" xml:space="preserve"><value>Content will appear here once it's been added to your library.</value></data>
 

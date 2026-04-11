@@ -36,7 +36,7 @@ These providers require no account, no sign-up, and no configuration. They are a
 |---|---|
 | **Wikidata** | Canonical identity, structured metadata, people, series, genre |
 | **Wikipedia** | Plain-language descriptions |
-| **Apple API** | Cover art, descriptions, ratings (books, audiobooks, music, podcasts) |
+| **Apple API** | Cover art, descriptions, ratings (books, audiobooks, music) |
 | **Open Library** | Book metadata, ISBN data |
 | **Google Books** | Book metadata, cover art, descriptions |
 | **MusicBrainz** | Music metadata, release data, artist information |
@@ -70,16 +70,6 @@ Comic Vine supplies metadata for comics â€” issue numbers, story arcs, publ
 4. In the Dashboard, go to **Settings â†’ Providers â†’ Connections**.
 5. Find Comic Vine and paste your key.
 6. Click **Save**.
-
-### Podcast Index
-
-Podcast Index supplies podcast metadata â€” episodes, descriptions, artwork, and feed URLs.
-
-1. Go to `https://api.podcastindex.org/signup` and register for a free account.
-2. You will receive an API key and secret.
-3. In the Dashboard, go to **Settings â†’ Providers â†’ Connections**.
-4. Find Podcast Index and enter both the key and the secret.
-5. Click **Save**.
 
 ---
 

@@ -40,7 +40,6 @@ public static class SettingsEndpoints
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
             ["apple_api"]                = "Apple API",
-            ["apple_podcasts"]           = "Apple Podcasts",
             // audnexus removed - config file deleted as part of SPARQL cleanup
             ["wikidata"]                 = "Wikidata",
             ["wikidata_reconciliation"]  = "Wikidata",
@@ -49,7 +48,6 @@ public static class SettingsEndpoints
             ["tmdb"]                     = "TMDB",
             ["metron"]                   = "Metron",
             ["musicbrainz"]              = "MusicBrainz",
-            ["podcast_index"]            = "Podcast Index",
             ["fanart_tv"]                = "Fanart.tv",
         };
 
@@ -516,7 +514,6 @@ public static class SettingsEndpoints
                 ProviderDomain.Video     => (MediaType.Movies, "The Lord of the Rings: The Fellowship of the Ring", "Peter Jackson", (string?)null, (string?)null),
                 ProviderDomain.Comic     => (MediaType.Comics, "Batman", "DC Comics", (string?)null, (string?)null),
                 ProviderDomain.Music     => (MediaType.Music, "Abbey Road", "The Beatles", (string?)null, (string?)null),
-                ProviderDomain.Podcasts  => (MediaType.Podcasts, "Serial", "", (string?)null, (string?)null),
                 _                        => (MediaType.Books, "The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", "B007978NPG"),
             };
 

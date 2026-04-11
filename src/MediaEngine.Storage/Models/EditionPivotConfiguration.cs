@@ -35,7 +35,7 @@ public sealed class EditionPivotConfiguration
 
     /// <summary>
     /// Returns the rule for the given media type, or <c>null</c> when the
-    /// media type is not edition-aware (movies, TV, comics, podcasts) or the
+    /// media type is not edition-aware (movies, TV, comics) or the
     /// config file is missing.
     /// </summary>
     public EditionPivotRuleEntry? GetRuleFor(MediaType mediaType)

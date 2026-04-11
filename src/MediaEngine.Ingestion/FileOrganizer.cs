@@ -511,7 +511,6 @@ public sealed class FileOrganizer : IFileOrganizer
         MediaType.TV         => "TV",
         MediaType.Audiobooks => "Audiobooks",
         MediaType.Music      => "Music",
-        MediaType.Podcasts   => "Podcasts",
         _                   => "Other",  // Unknown, null — caught by upstream guard
     };
 

@@ -22,11 +22,6 @@
     "year", "genre",
     "apple_music_id", "apple_music_collection_id", "apple_artist_id", "musicbrainz_id", "wikidata_qid"
   ],
-  "Podcasts": [
-    "title", "show_name", "episode_number", "year",
-    "genre", "description",
-    "podcast_index_id", "apple_podcasts_id", "wikidata_qid"
-  ],
   "Comics": [
     "title", "series", "year", "publisher", "illustrator",
     "metron_id", "wikidata_qid"

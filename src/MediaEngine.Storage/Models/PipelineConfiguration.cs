@@ -70,7 +70,7 @@ public sealed class PipelineConfiguration
 {
     /// <summary>
     /// Maps media type display names to their pipeline configuration.
-    /// Keys: "Books", "Audiobooks", "Comics", "Movies", "TV", "Music", "Podcasts".
+    /// Keys: "Books", "Audiobooks", "Comics", "Movies", "TV", "Music".
     /// </summary>
     [JsonPropertyName("pipelines")]
     public Dictionary<string, MediaTypePipeline> Pipelines { get; set; } = new(StringComparer.OrdinalIgnoreCase);

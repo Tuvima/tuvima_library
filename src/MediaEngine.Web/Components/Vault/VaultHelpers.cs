@@ -137,7 +137,6 @@ public static class VaultHelpers
         "AUDIOBOOK" or "AUDIOBOOKS" => ["Apple API"],
         "MUSIC" => ["MusicBrainz"],
         "COMICS" or "COMIC" => [],
-        "PODCASTS" or "PODCAST" => ["Apple Podcasts", "Podcast Index"],
         _ => [],
     };
 
@@ -169,7 +168,7 @@ public static class VaultHelpers
         "AuthorityMatchFailed"   => "The metadata authority couldn't verify this item's identity.",
         "ContentMatchFailed"     => "No content provider recognized this file.",
         "RetailMatchAmbiguous"   => "A possible match was found but it's not certain. Please verify.",
-        "AmbiguousMediaType"     => "The file type is ambiguous — it could be music, an audiobook, or a podcast.",
+        "AmbiguousMediaType"     => "The file type is ambiguous — it could be music or an audiobook.",
         "MissingQid"             => "A retail match was found but it hasn't been linked to Wikidata yet.",
         "StagedUnidentifiable"   => "This file couldn't be identified. Check the filename and embedded metadata.",
         "PlaceholderTitle"       => "The title appears to be a placeholder (e.g. 'Unknown'). Please provide the real title.",
@@ -216,8 +215,6 @@ public static class VaultHelpers
         [WellKnownProviders.MusicBrainz]     = "MusicBrainz",
         [WellKnownProviders.Tmdb]            = "TMDB",
         [WellKnownProviders.Metron]          = "Metron",
-        [WellKnownProviders.ApplePodcasts]   = "Apple Podcasts",
-        [WellKnownProviders.PodcastIndex]    = "Podcast Index",
         [WellKnownProviders.AiProvider]      = "Fanart.tv",
         [WellKnownProviders.UserManual]      = "Manual Match",
     };
@@ -247,8 +244,6 @@ public static class VaultHelpers
             "musicbrainz"              => "MusicBrainz",
             "tmdb"                     => "TMDB",
             "metron"                   => "Metron",
-            "apple_podcasts"           => "Apple Podcasts",
-            "podcast_index"            => "Podcast Index",
             "fanart_tv"                => "Fanart.tv",
             "local_filesystem"         => "File Scan",
             "library_scanner"          => "Library Scanner",
@@ -339,9 +334,7 @@ public static class VaultHelpers
         "apple_music_id"            => "Apple Music ID",
         "apple_music_collection_id" => "Apple Album ID",
         "apple_artist_id"           => "Apple Artist ID",
-        "apple_podcasts_id"         => "Apple Podcasts ID",
         "comic_vine_id"             => "Comic Vine ID",
-        "podcast_index_id"          => "Podcast Index ID",
         "wikidata_qid"              => "Wikidata QID",
         "show_name"                 => "Show Name",
         "episode_title"             => "Episode Title",
@@ -356,7 +349,6 @@ public static class VaultHelpers
         "publisher"                 => "Publisher",
         "language"                  => "Language",
         "page_count"                => "Pages",
-        "feed_url"                  => "Feed URL",
         "barcode"                   => "Barcode",
         "store_date"                => "Store Date",
         "explicit"                  => "Explicit",
@@ -378,7 +370,6 @@ public static class VaultHelpers
         if (t.Contains("audiobook")) return p.Audiobook;
         if (t == "tv") return p.TV;
         if (t.Contains("music")) return p.Music;
-        if (t.Contains("podcast")) return p.Podcast;
         if (t.Contains("comic")) return p.Comic;
         return p.Unknown;
     }

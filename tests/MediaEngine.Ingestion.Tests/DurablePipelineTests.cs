@@ -835,7 +835,6 @@ public sealed class DurablePipelineTests : IDisposable
                 ["TV"]         = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
                 ["Music"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
                 ["Audiobooks"] = new() { Strategy = ProviderStrategy.Sequential, Providers = [] },
-                ["Podcasts"]   = new() { Strategy = ProviderStrategy.Cascade,    Providers = [] },
                 ["Comics"]     = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
             },
         };

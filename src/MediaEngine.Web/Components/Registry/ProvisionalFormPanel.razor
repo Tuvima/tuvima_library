@@ -29,7 +29,6 @@
             <option value="TV">TV</option>
             <option value="Music">Music</option>
             <option value="Comics">Comic</option>
-            <option value="Podcasts">Podcast</option>
         </select>
     </div>
 
@@ -148,16 +147,6 @@
             </div>
         }
 
-        @* Podcast *@
-        @if (_mediaType == "Podcasts")
-        {
-            <div class="pfp-field pfp-field--half">
-                <label class="pfp-label">Host</label>
-                <input class="pfp-input" type="text" placeholder="Host name"
-                       @bind="_host" @bind:event="oninput" />
-            </div>
-        }
-
         @* Comic *@
         @if (_mediaType == "Comics")
         {
@@ -264,7 +253,6 @@
         "TV"         => "Creator",
         "Comics"     => "Writer",
         "Music"      => "Artist",
-        "Podcasts"   => "Host",
         _            => "Creator"
     };
 

@@ -304,7 +304,7 @@ public sealed partial class AudioProcessor : IMediaProcessor
             AudioContainer.Ogg  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "OGG format (music)" }],
             AudioContainer.Wav  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }],
 
-            // MP3 and M4A are ambiguous (could be audiobook, music, or podcast).
+            // MP3 and M4A are ambiguous (could be audiobook or music).
             // Use tag-based heuristics to produce candidates when signals are present.
             // When no signals are found, return empty — IngestionEngine will call MediaTypeAdvisor.
             _ => BuildAmbiguousAudioCandidates(tagFile),

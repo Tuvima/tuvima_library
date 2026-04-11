@@ -410,7 +410,6 @@
             ("music",      "Music",      Icons.Material.Outlined.MusicNote),
             ("books",      "Books",      Icons.Material.Outlined.MenuBook),
             ("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
-            ("podcasts",   "Podcasts",   Icons.Material.Outlined.Mic),
             ("comics",     "Comics",     Icons.Material.Outlined.AutoStories),
         ],
         ["people"] =
@@ -438,7 +437,6 @@
         ("music",      "Music",      Icons.Material.Outlined.MusicNote),
         ("books",      "Books",      Icons.Material.Outlined.MenuBook),
         ("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
-        ("podcasts",   "Podcasts",   Icons.Material.Outlined.Mic),
         ("comics",     "Comics",     Icons.Material.Outlined.AutoStories),
         ("people",     "People",     Icons.Material.Outlined.People),
         ("universes",  "Universes",  Icons.Material.Outlined.Public),
@@ -446,7 +444,7 @@
 
     // ── Tab helpers ──
 
-    private static readonly string[] _mediaTabIds = ["new", "movies", "tv", "music", "books", "audiobooks", "podcasts", "comics"];
+    private static readonly string[] _mediaTabIds = ["new", "movies", "tv", "music", "books", "audiobooks", "comics"];
 
     private static bool IsMediaTab(string tabId) => _mediaTabIds.Contains(tabId);
 
@@ -457,7 +455,6 @@
         "music"      => "Music",
         "books"      => "Books",
         "audiobooks" => "Audiobooks",
-        "podcasts"   => "Podcasts",
         "comics"     => "Comics",
         _            => null, // "new" tab — no type filter
     };
@@ -475,7 +472,6 @@
         return _vaultPrefs.ViewModes.TryGetValue(tabId, out var saved) ? saved : tabId switch
         {
             "music"     => "artists",
-            "podcasts"  => "shows",
             "comics"    => "series",
             _           => "all",
         };
@@ -490,7 +486,6 @@
         "music" when _viewMode == "albums" => "album",
         "books" => "book-series",
         "audiobooks" => "book-series",
-        "podcasts" => "podcast-show",
         "comics" => "comic-series",
         _ => null,
     };
@@ -502,7 +497,6 @@
         "music"            => _mediaTypeCounts.GetValueOrDefault("Music", 0),
         "books"            => _mediaTypeCounts.GetValueOrDefault("Books", 0),
         "audiobooks"       => _mediaTypeCounts.GetValueOrDefault("Audiobooks", 0),
-        "podcasts"         => _mediaTypeCounts.GetValueOrDefault("Podcasts", 0),
         "comics"           => _mediaTypeCounts.GetValueOrDefault("Comics", 0),
         "people_all"       => _people.Count,
         "universes_all"    => _universes.Count,
@@ -671,7 +665,6 @@
     private string? GetSystemViewGroupField() => (_activeTab, _viewMode) switch
     {
         ("tv", "shows")         => "show_name",
-        ("podcasts", "shows")   => "show_name",
         ("music", "artists")    => "artist",
         ("music", "albums")     => "album",
         ("books", "series")     => "series",

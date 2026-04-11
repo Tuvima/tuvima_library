@@ -13,7 +13,7 @@ namespace MediaEngine.Api.DevSupport;
 /// Registered conditionally when <c>ASPNETCORE_ENVIRONMENT == "Development"</c>.
 ///
 /// Endpoints:
-///   POST /dev/seed-library  — Drop test files into media-type-specific Watch Folders (comics excluded)
+///   POST /dev/seed-library  — Drop test files into media-type-specific Watch Folders
 ///   POST /dev/wipe           — Wipe DB, library root, watch folder, and reinitialize
 ///   POST /dev/full-test      — Wipe → Seed → return summary
 /// </summary>
@@ -482,7 +482,10 @@ public static class DevSeedEndpoints
 
         new("Clair de Lune", "Claude Debussy",
             Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3,
-            TestCategory: "Music — classical, foreign artist name"),
+            TestCategory: "Music — classical, foreign artist name — Apple bridge IDs lack Wikidata P-code mapping",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
+            ExpectedReason: "Apple Music bridge IDs (trackId/collectionId/artistId) do not resolve to Wikidata QID for classical compositions"),
 
         new("Lose Yourself", "Eminem",
             Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
@@ -551,7 +554,10 @@ public static class DevSeedEndpoints
         // ── Category 7: Edge cases ────────────────────────────────────────
         new("4'33\"", "John Cage",
             Album: "John Cage: 4'33\"", Year: 1952, Genre: "Avant-Garde", TrackNumber: 1,
-            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece"),
+            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece — ambiguous retail + no Wikidata bridge",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchAmbiguous,
+            ExpectedReason: "Special characters in title cause ambiguous retail match (78%); Wikidata bridge also fails"),
 
         new("MMMBop", "Hanson",
             Album: "Middle of Nowhere", Year: 1997, Genre: "Pop", TrackNumber: 1,

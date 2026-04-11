@@ -61,7 +61,7 @@ public sealed class BridgeIdHelper
         BridgeIdKeys.MusicBrainzId => true,
         BridgeIdKeys.ComicVineId => true,
         "gcd_id" => true,
-        "apple_podcasts_id" => true,
+
         "apple_music_id" => true,
         BridgeIdKeys.AppleMusicCollectionId => true,
         BridgeIdKeys.AppleArtistId => true,

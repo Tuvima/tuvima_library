@@ -179,7 +179,7 @@ All AI settings live in `config/ai.json`:
 
 - Model definitions per role (path, quantization, context window)
 - Per-feature enable flags
-- Per-category vibe vocabularies (Books, Movies, Music, Podcasts, Comics)
+- Per-category vibe vocabularies (Books, Movies, Music, Comics)
 - Scheduling parameters for background services
 - Idle unload timeout
 

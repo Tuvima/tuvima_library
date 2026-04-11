@@ -246,13 +246,6 @@ public sealed class AiVibeVocabulary
         "dark", "action-packed", "intimate", "surreal", "classic"
     ];
 
-    [JsonPropertyName("podcasts")]
-    public List<string> Podcasts { get; set; } =
-    [
-        "conversational", "investigative", "educational", "comedic", "narrative",
-        "thought-provoking", "casual", "deep-dive", "interview", "storytelling"
-    ];
-
     /// <summary>Get vocabulary for a media category string.</summary>
     public IReadOnlyList<string> GetForCategory(string category) => category.ToLowerInvariant() switch
     {
@@ -260,7 +253,6 @@ public sealed class AiVibeVocabulary
         "movies" or "tv" or "movies_tv" => MoviesTv,
         "music" => Music,
         "comics" => Comics,
-        "podcasts" => Podcasts,
         _ => Books, // default fallback
     };
 }

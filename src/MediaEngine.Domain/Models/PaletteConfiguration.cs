@@ -73,7 +73,6 @@ public sealed class MediaTypePalette
     [JsonPropertyName("audiobook")] public string Audiobook { get; set; } = "#A78BFA";
     [JsonPropertyName("tv")]        public string TV        { get; set; } = "#FBBF24";
     [JsonPropertyName("music")]     public string Music     { get; set; } = "#22D3EE";
-    [JsonPropertyName("podcast")]   public string Podcast   { get; set; } = "#FB923C";
     [JsonPropertyName("comic")]     public string Comic     { get; set; } = "#7C4DFF";
     [JsonPropertyName("unknown")]   public string Unknown   { get; set; } = "rgba(255,255,255,0.4)";
 }

@@ -57,7 +57,6 @@
   <data name="Nav_Books" xml:space="preserve"><value>Livres</value></data>
   <data name="Nav_Video" xml:space="preserve"><value>Vidéo</value></data>
   <data name="Nav_Music" xml:space="preserve"><value>Musique</value></data>
-  <data name="Nav_Podcasts" xml:space="preserve"><value>Podcasts</value></data>
   <data name="Nav_Comics" xml:space="preserve"><value>Comics</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Paramètres</value></data>
   <data name="Nav_OpenNavigation" xml:space="preserve"><value>Ouvrir la navigation</value></data>
@@ -645,7 +644,6 @@
   <data name="MediaLane_EmptyBooks" xml:space="preserve"><value>Votre collection de livres et livres audio apparaîtra ici. Déposez des fichiers EPUB ou M4B dans votre dossier surveillé pour commencer.</value></data>
   <data name="MediaLane_EmptyVideo" xml:space="preserve"><value>Vos films et séries apparaîtront ici. Déposez des fichiers MP4, MKV ou AVI dans votre dossier surveillé.</value></data>
   <data name="MediaLane_EmptyMusic" xml:space="preserve"><value>Votre collection musicale apparaîtra ici une fois la prise en charge de la musique disponible.</value></data>
-  <data name="MediaLane_EmptyPodcasts" xml:space="preserve"><value>Vos abonnements aux podcasts apparaîtront ici une fois la prise en charge des podcasts disponible.</value></data>
   <data name="MediaLane_EmptyComics" xml:space="preserve"><value>Vos comics et mangas apparaîtront ici. Déposez des fichiers CBZ ou CBR dans votre dossier surveillé.</value></data>
   <data name="MediaLane_EmptyDefault" xml:space="preserve"><value>Le contenu apparaîtra ici une fois ajouté à votre bibliothèque.</value></data>
 

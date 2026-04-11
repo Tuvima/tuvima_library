@@ -14,7 +14,7 @@ namespace MediaEngine.Storage.Tests;
 /// Verifies round-trip deserialisation, per-media-type lookups, and the
 /// coverage invariant that every media type the adapter could reasonably
 /// resolve at Stage 2 is either present or deliberately absent (movies,
-/// TV, comics, podcasts skip edition pivot).
+/// TV, comics skip edition pivot).
 /// </para>
 /// </summary>
 public sealed class Stage2ConfigTests
@@ -75,11 +75,10 @@ public sealed class Stage2ConfigTests
             },
         };
 
-        // Movies / TV / Comics / Podcasts are intentionally not edition-aware.
+        // Movies / TV / Comics are intentionally not edition-aware.
         Assert.Null(config.GetRuleFor(MediaType.Movies));
         Assert.Null(config.GetRuleFor(MediaType.TV));
         Assert.Null(config.GetRuleFor(MediaType.Comics));
-        Assert.Null(config.GetRuleFor(MediaType.Podcasts));
         Assert.Null(config.GetRuleFor(MediaType.Unknown));
     }
 
@@ -110,8 +109,8 @@ public sealed class Stage2ConfigTests
             Assert.NotEmpty(rule.EditionClasses);
         }
 
-        // Movies, TV, Comics, Podcasts, Unknown are deliberately opted out.
-        var optedOut = new[] { MediaType.Movies, MediaType.TV, MediaType.Comics, MediaType.Podcasts, MediaType.Unknown };
+        // Movies, TV, Comics, Unknown are deliberately opted out.
+        var optedOut = new[] { MediaType.Movies, MediaType.TV, MediaType.Comics, MediaType.Unknown };
         foreach (var mt in optedOut)
             Assert.Null(config!.GetRuleFor(mt));
     }

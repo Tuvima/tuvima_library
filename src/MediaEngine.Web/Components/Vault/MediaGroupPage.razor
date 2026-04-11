@@ -134,7 +134,7 @@ else
                 </div>
             }
             <div class="mgp-actions">
-                @if (GroupType is "tv-show" or "album" or "podcast-show" or "comic-series" or "book-series" or "movie-series")
+                @if (GroupType is "tv-show" or "album" or "comic-series" or "book-series" or "movie-series")
                 {
                     <button class="mgp-action-btn mgp-action-btn--delete" @onclick="DeleteContainer"
                             title="@($"Delete this {GetGroupTypeLabel().ToLowerInvariant()} and every file inside it")">
@@ -215,7 +215,7 @@ else
         }
         else
         {
-            @* Music / Books / Movies / Podcasts / Comics: flat sorted list *@
+            @* Music / Books / Movies / Comics: flat sorted list *@
             @RenderWorkList(_detail.Works,
                 showTrackNumber: GroupType is "album",
                 showSequence: GroupType is "book-series" or "movie-series")
@@ -232,7 +232,7 @@ else
 @code {
     // ── Parameters ──────────────────────────────────────────────────────────────
 
-    /// <summary>Discriminator: "tv-show" | "album" | "book-series" | "movie-series" | "artist" | "podcast-show" | "comic-series"</summary>
+    /// <summary>Discriminator: "tv-show" | "album" | "book-series" | "movie-series" | "artist" | "comic-series"</summary>
     [Parameter] public string GroupType { get; set; } = "";
 
     [Parameter] public Guid GroupId { get; set; }
@@ -425,7 +425,6 @@ else
         "book-series"   => "Book Series",
         "movie-series"  => "Movie Series",
         "artist"        => "Artist",
-        "podcast-show"  => "Podcast",
         "comic-series"  => "Comic Series",
         _               => "Group"
     };
@@ -437,7 +436,6 @@ else
         "artist"        => "Music",
         "book-series"   => "Books",
         "movie-series"  => "Movies",
-        "podcast-show"  => "Podcasts",
         "comic-series"  => "Comics",
         _               => "Vault"
     };
@@ -449,7 +447,6 @@ else
         "book-series"   => "books",
         "movie-series"  => "films",
         "artist"        => "tracks",
-        "podcast-show"  => "episodes",
         "comic-series"  => "issues",
         _               => "items"
     };
@@ -461,7 +458,6 @@ else
         "book-series"   => Icons.Material.Outlined.MenuBook,
         "movie-series"  => Icons.Material.Outlined.VideoLibrary,
         "artist"        => Icons.Material.Outlined.Person,
-        "podcast-show"  => Icons.Material.Outlined.Mic,
         "comic-series"  => Icons.Material.Outlined.AutoStories,
         _               => Icons.Material.Outlined.Folder
     };

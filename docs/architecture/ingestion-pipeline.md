@@ -22,7 +22,7 @@ The Engine is configured with one or more **Library Folders**, each declaring:
 
 | Field | Description |
 |---|---|
-| `category` | The content category: Books, TV, Movies, Music, Comics, Podcasts |
+| `category` | The content category: Books, TV, Movies, Music, Comics |
 | `media_types` | The expected media types within this folder (e.g. `["Epub", "Audiobook"]`) |
 | `source_path` | The folder the Engine monitors or imports from |
 | `library_root` | The destination root where organised files are placed |
@@ -197,7 +197,6 @@ Per-media-type overrides:
 | Music | `{Category}/{Artist}/{Album} - {QID}/{TrackNumber:00} - {Title}{Ext}` |
 | Movies | `{Category}/{Title} - {QID}/{Title}{Ext}` |
 | Comics | `{Category}/{Title} - {QID}/{Title}{Ext}` |
-| Podcasts | `{Category}/{Title} - {QID}/{Title}{Ext}` |
 
 Books and Audiobooks share the same title folder under the `Books` category, distinguished by their format subfolder. This means an ebook and its audiobook counterpart live at:
 
@@ -220,7 +219,6 @@ The `{Category}` path segment is derived from the file's media type:
 | Movies | `Movies` |
 | Music | `Music` |
 | Comics | `Comics` |
-| Podcasts | `Podcasts` |
 | Unknown | `Other` |
 
 ### Migration Note
@@ -231,7 +229,7 @@ Existing libraries organised under older folder patterns continue to work. On th
 
 ## Media Type Disambiguation
 
-Some file formats map to multiple possible media types. Magic bytes identify the container format but not the content type. An MP3 file could be an audiobook chapter, a music track, or a podcast episode. An MP4 could be a feature film or a TV episode. The disambiguation system resolves this using heuristic signals treated as voted claims.
+Some file formats map to multiple possible media types. Magic bytes identify the container format but not the content type. An MP3 file could be an audiobook chapter or a music track. An MP4 could be a feature film or a TV episode. The disambiguation system resolves this using heuristic signals treated as voted claims.
 
 ### Signal Sources
 
@@ -266,11 +264,11 @@ For ambiguous formats (`.mp3`, `.m4a`), the processor emits weighted candidates 
 - **Chapter markers:** Presence of chapter metadata strongly indicates Audiobooks
 - **Genre tags:** Genre values matching known audiobook indicators (e.g. "Spoken Word", "Audiobook") or music genres (e.g. "Rock", "Jazz") push the score in respective directions
 - **Album and track metadata:** Presence of track numbers and album names strongly indicates Music
-- **Bitrate:** Low bitrate speech-range audio biases toward Audiobooks or Podcasts
-- **Path keywords:** Parent folder names like `audiobooks`, `music`, `podcasts` in the source path
+- **Bitrate:** Low bitrate speech-range audio biases toward Audiobooks
+- **Path keywords:** Parent folder names like `audiobooks`, `music` in the source path
 - **File size:** Very large single files bias toward Audiobooks
 
-Each type (Audiobook, Music, Podcast) starts at a base score of 0.25. Signals are additive and the final scores are normalized to `[0.0, 1.0]` before comparison against the confidence thresholds.
+Each type (Audiobook, Music) starts at a base score of 0.25. Signals are additive and the final scores are normalized to `[0.0, 1.0]` before comparison against the confidence thresholds.
 
 ### VideoProcessor Disambiguation
 
@@ -353,7 +351,6 @@ The Vault Action Center surfaces `WritebackFailed` review items alongside other 
 | **Movies** | MP4, MKV, AVI, WebM | Single-work, flat folder structure |
 | **Music** | MP3, FLAC, OGG, M4A, WAV | Album = Hub, Track = Work |
 | **Comics** | CBZ, CBR | Sequential art; ComicInfo.xml metadata |
-| **Podcasts** | MP3, M4A | Series = Hub, Episode = Work |
 
 **Future library types planned but not yet implemented:**
 

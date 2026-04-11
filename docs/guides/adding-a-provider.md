@@ -146,7 +146,7 @@ If you ever change the UUID, update `provider_registry` directly or the FK will 
 }
 ```
 
-Valid `media_types`: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`, `Podcasts`.
+Valid `media_types`: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`.
 
 ### Search strategies
 

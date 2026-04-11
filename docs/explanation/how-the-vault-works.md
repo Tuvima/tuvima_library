@@ -39,7 +39,7 @@ The Vault has four tabs, each focused on a different dimension of your library.
 
 ### Media
 
-Every file in your library. Books, audiobooks, TV episodes, films, music tracks, comics, podcasts â€” all visible in one place, filterable by media type using the chips in the pinned header.
+Every file in your library. Books, audiobooks, TV episodes, films, music tracks, and comics â€” all visible in one place, filterable by media type using the chips in the pinned header.
 
 The Media tab is where you'll spend most of your time in the Vault. It's where you see ingestion status, confirm identifications, and fix problems.
 

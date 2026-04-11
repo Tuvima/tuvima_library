@@ -16,7 +16,7 @@ tags:
 
 # Tuvima Library Documentation
 
-Build your library, configure enrichment, and understand how Tuvima organizes stories across books, audio, video, comics, music, and podcasts.
+Build your library, configure enrichment, and understand how Tuvima organizes stories across books, audio, video, comics, and music.
 
 <div class="tl-actions" markdown="1">
 

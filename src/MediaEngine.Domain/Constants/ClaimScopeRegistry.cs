@@ -11,8 +11,8 @@ namespace MediaEngine.Domain.Constants;
 ///                          file-specific data: title, track number, runtime,
 ///                          ISBN, ISRC, Apple Music track id, etc.
 /// • <see cref="Parent"/> — the topmost container above the asset (an album,
-///                          a TV show, a comic series, a book series, a
-///                          podcast show). For TV this resolves to the SHOW,
+///                          a TV show, a comic series, a book series).
+///                          For TV this resolves to the SHOW,
 ///                          not the season. For standalone media (movies,
 ///                          single-volume books) parent collapses to self.
 /// </summary>
@@ -52,13 +52,11 @@ public static class ClaimScopeRegistry
             [BridgeIdKeys.MusicBrainzId]             = ClaimScope.Parent,
             [BridgeIdKeys.MusicBrainzReleaseGroupId] = ClaimScope.Parent,
             [BridgeIdKeys.TvdbId]                    = ClaimScope.Parent,
-            [BridgeIdKeys.PodcastIndexId]            = ClaimScope.Parent,
             [BridgeIdKeys.ComicVineId]               = ClaimScope.Parent,
 
             // Container-level descriptive fields.
             [MetadataFieldConstants.Album]             = ClaimScope.Parent,
             [MetadataFieldConstants.ShowName]          = ClaimScope.Parent,
-            [MetadataFieldConstants.PodcastName]       = ClaimScope.Parent,
             [MetadataFieldConstants.Series]            = ClaimScope.Parent,
             [MetadataFieldConstants.Franchise]         = ClaimScope.Parent,
             [MetadataFieldConstants.Network]           = ClaimScope.Parent,
@@ -115,14 +113,6 @@ public static class ClaimScopeRegistry
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,
                 [MetadataFieldConstants.Narrator]    = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
-            },
-            [MediaType.Podcasts] = new(StringComparer.OrdinalIgnoreCase)
-            {
-                [MetadataFieldConstants.Author]      = ClaimScope.Parent,  // host
-                [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
-                [MetadataFieldConstants.Description] = ClaimScope.Parent,
-                [MetadataFieldConstants.Cover]       = ClaimScope.Parent,
-                [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
             },
             [MediaType.Movies] = new(StringComparer.OrdinalIgnoreCase)
             {

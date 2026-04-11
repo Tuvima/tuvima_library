@@ -5,7 +5,7 @@ namespace MediaEngine.Domain.Contracts;
 /// in the library before making any external API calls.
 ///
 /// Uses the persistent <c>bridge_ids</c> table and canonical values as a local
-/// cache across all batches and sessions. For episodic content (TV, podcasts,
+/// cache across all batches and sessions. For episodic content (TV,
 /// music tracks), a local match means only the episode/track-specific data needs
 /// to be fetched externally; the series/album/show metadata is reused.
 /// </summary>

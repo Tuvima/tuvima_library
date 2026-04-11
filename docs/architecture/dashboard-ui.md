@@ -47,7 +47,7 @@ Fixed horizontal bar, `height: 56px`. Always present.
 
 Floating icon-only panel, `64px` wide. Desktop only â€” hidden on mobile.
 
-**Contents:** Fixed content-type lane icons (Home, Search, Books, Video, Music, Podcasts, Comics) + Settings + Profile Avatar + Live Clock.
+**Contents:** Fixed content-type lane icons (Home, Search, Books, Video, Music, Comics) + Settings + Profile Avatar + Live Clock.
 
 Content-type lanes are defined in `ContentLanes.cs` and are not user-configurable.
 
@@ -86,7 +86,7 @@ The three action-grouped browse pages share a common layout recipe but each is t
 **Shared recipe:**
 1. `GlobalBackground` ambient gradient tinted with the page accent.
 2. `CompactHero` spotlight strip at the top (max height ~280 px, scrolls away with the page).
-3. Sub-filter tabs (All / Books / Comics for Read, All / Movies / TV for Watch, All / Music / Audiobooks / Podcasts for Listen).
+3. Sub-filter tabs (All / Books / Comics for Read, All / Movies / TV for Watch, All / Music / Audiobooks for Listen).
 4. Contextual filter strip â€” search plus whatever status/view toggles make sense for the medium.
 5. Content sections â€” `PosterSwimlane` rows when unfiltered, `LibraryCard` grid when filtered.
 
@@ -100,7 +100,7 @@ The three action-grouped browse pages share a common layout recipe but each is t
 
 **CompactHero** (in `Components/Universe/CompactHero.razor`) is a shared spotlight strip with a `SpotlightMode` enum (`Auto` / `Portrait` / `Landscape` / `Square`) driving the cover aspect ratio. The backdrop is a blurred, vignetted copy of the cover art; the foreground shows cover, eyebrow, title, meta line, optional progress bar, and a pill CTA tinted with the page accent.
 
-**Listen specifics:** the Music view has three display modes â€” **Albums** (swimlanes + grid), **Artists** (accordion of per-artist swimlanes), and **All Songs** (Spotify-style flat list using `TrackRow`). Audiobooks and Podcasts use the album grid only. `TrackRow` (in `Components/Universe/TrackRow.razor`) is a compact grid row `[index] [cover] [title + artist] [album] [duration]` that swaps the index number for a play icon on hover; the album column collapses below 900 px.
+**Listen specifics:** the Music view has three display modes â€” **Albums** (swimlanes + grid), **Artists** (accordion of per-artist swimlanes), and **All Songs** (Spotify-style flat list using `TrackRow`). Audiobooks use the album grid only. `TrackRow` (in `Components/Universe/TrackRow.razor`) is a compact grid row `[index] [cover] [title + artist] [album] [duration]` that swaps the index number for a play icon on hover; the album column collapses below 900 px.
 
 **Watch specifics:** Trending / New Movies / TV Shows / top genre swimlanes when unfiltered; filtered grid otherwise. Spotlight falls back to "most recently added title with cover art" because journey data is currently books-only.
 

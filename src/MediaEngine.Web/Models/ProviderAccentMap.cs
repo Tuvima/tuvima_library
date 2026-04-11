@@ -38,8 +38,6 @@ public static class ProviderAccentMap
             "comicvine"                  => ("#04C8FF", Icons.Material.Filled.AutoStories),
             "musicbrainz"                => ("#BA478F", Icons.Material.Filled.MusicNote),
             "fanart_tv"                  => ("#19C1CC", Icons.Material.Filled.Image),
-            "apple_podcasts"             => ("#9B59B6", Icons.Material.Filled.Podcasts),
-            "podcast_index"              => ("#F7931E", Icons.Material.Filled.Podcasts),
             "local_filesystem"           => ("#90A4AE", Icons.Material.Filled.FolderOpen),
             _                            => ("#90A4AE", Icons.Material.Filled.Cloud),
         };
@@ -63,7 +61,6 @@ public static class ProviderAccentMap
             ("Movie",         Icons.Material.Filled.Movie),
             ("Tv",            Icons.Material.Filled.Tv),
             ("MusicNote",     Icons.Material.Filled.MusicNote),
-            ("Podcasts",      Icons.Material.Filled.Podcasts),
             ("Description",   Icons.Material.Filled.Description),
             ("Folder",        Icons.Material.Filled.Folder),
             ("FolderOpen",    Icons.Material.Filled.FolderOpen),
@@ -100,7 +97,6 @@ public static class ProviderAccentMap
         ["Movie"]         = Icons.Material.Filled.Movie,
         ["Tv"]            = Icons.Material.Filled.Tv,
         ["MusicNote"]     = Icons.Material.Filled.MusicNote,
-        ["Podcasts"]      = Icons.Material.Filled.Podcasts,
         ["Description"]   = Icons.Material.Filled.Description,
         ["Folder"]        = Icons.Material.Filled.Folder,
         ["FolderOpen"]    = Icons.Material.Filled.FolderOpen,
@@ -141,8 +137,6 @@ public static class ProviderAccentMap
         "comicvine"                  => "Comic Vine",
         "musicbrainz"                => "MusicBrainz",
         "fanart_tv"                  => "Fanart.tv",
-        "apple_podcasts"             => "Apple Podcasts",
-        "podcast_index"              => "Podcast Index",
         "local_filesystem"           => "Local Filesystem",
         _                            => FormatProviderName(providerKey),
     };
@@ -158,7 +152,7 @@ public static class ProviderAccentMap
 
     /// <summary>
     /// Converts a snake_case provider config name to Title Case display text
-    /// (e.g. "podcast_index" → "Podcast Index").
+    /// (e.g. "open_library" → "Open Library").
     /// Exposed as public so <see cref="ProviderCatalogueService"/> can delegate
     /// to this single implementation instead of maintaining its own copy.
     /// </summary>

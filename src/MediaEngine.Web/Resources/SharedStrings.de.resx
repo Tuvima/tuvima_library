@@ -57,7 +57,6 @@
   <data name="Nav_Books" xml:space="preserve"><value>Bücher</value></data>
   <data name="Nav_Video" xml:space="preserve"><value>Video</value></data>
   <data name="Nav_Music" xml:space="preserve"><value>Musik</value></data>
-  <data name="Nav_Podcasts" xml:space="preserve"><value>Podcasts</value></data>
   <data name="Nav_Comics" xml:space="preserve"><value>Comics</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Einstellungen</value></data>
   <data name="Nav_OpenNavigation" xml:space="preserve"><value>Navigation öffnen</value></data>
@@ -645,7 +644,6 @@
   <data name="MediaLane_EmptyBooks" xml:space="preserve"><value>Ihre Buch- und Hörbuchsammlung erscheint hier. Legen Sie EPUB- oder M4B-Dateien in Ihren Überwachungsordner, um zu beginnen.</value></data>
   <data name="MediaLane_EmptyVideo" xml:space="preserve"><value>Ihre Filme und Serien erscheinen hier. Legen Sie MP4-, MKV- oder AVI-Dateien in Ihren Überwachungsordner.</value></data>
   <data name="MediaLane_EmptyMusic" xml:space="preserve"><value>Ihre Musiksammlung erscheint hier, sobald die Musikunterstützung verfügbar ist.</value></data>
-  <data name="MediaLane_EmptyPodcasts" xml:space="preserve"><value>Ihre Podcast-Abonnements erscheinen hier, sobald die Podcast-Unterstützung verfügbar ist.</value></data>
   <data name="MediaLane_EmptyComics" xml:space="preserve"><value>Ihre Comics und Manga erscheinen hier. Legen Sie CBZ- oder CBR-Dateien in Ihren Überwachungsordner.</value></data>
   <data name="MediaLane_EmptyDefault" xml:space="preserve"><value>Inhalte erscheinen hier, sobald sie Ihrer Bibliothek hinzugefügt wurden.</value></data>
 

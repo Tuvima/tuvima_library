@@ -143,8 +143,8 @@ else
             </div>
         }
 
-        @* ── Audiobooks / Podcasts flat grid ── *@
-        @if (_activeSubFilter is "Audiobooks" or "Podcasts")
+        @* ── Audiobooks flat grid ── *@
+        @if (_activeSubFilter is "Audiobooks")
         {
             <div class="listen-grid-section">
                 <div class="listen-grid-header">
@@ -172,8 +172,8 @@ else
 
 @code {
     private const string Accent = "#A78BFA";
-    private static readonly string[] _mediaTypes = ["Music", "Audiobook", "m4b", "Podcast"];
-    private static readonly string[] _subFilters = ["All", "Music", "Audiobooks", "Podcasts"];
+    private static readonly string[] _mediaTypes = ["Music", "Audiobook", "m4b"];
+    private static readonly string[] _subFilters = ["All", "Music", "Audiobooks"];
 
     private bool _loading = true;
     private string _activeSubFilter = "All";
@@ -194,8 +194,7 @@ else
     private bool HasTextFilter => !string.IsNullOrWhiteSpace(_searchText);
 
     // "All Songs" only fits pure music. When the sub-filter is "All", the flat
-    // list can include audiobook chapters and podcast episodes, so we relabel
-    // it "All Audio" — a neutral term that covers all three media kinds.
+    // list can include audiobook chapters, so we relabel it "All Audio".
     private string FlatViewLabel => _activeSubFilter == "Music" ? "All Songs" : "All Audio";
     private bool IsFlatView => _viewMode is "All Songs" or "All Audio";
 
@@ -288,8 +287,6 @@ else
         else if (_activeSubFilter == "Audiobooks")
             works = works.Where(w => (w.MediaType ?? "").Contains("audiobook", StringComparison.OrdinalIgnoreCase)
                                    || (w.MediaType ?? "").Contains("m4b", StringComparison.OrdinalIgnoreCase));
-        else if (_activeSubFilter == "Podcasts")
-            works = works.Where(w => (w.MediaType ?? "").Contains("podcast", StringComparison.OrdinalIgnoreCase));
 
         if (HasTextFilter)
         {
@@ -306,7 +303,7 @@ else
     private void OnSubFilterChanged(string filter)
     {
         _activeSubFilter = filter;
-        if (filter is "Audiobooks" or "Podcasts") _viewMode = "Albums";
+        if (filter is "Audiobooks") _viewMode = "Albums";
         // Keep the flat view mode in sync with its context-aware label so the
         // highlighted pill always matches what the user sees.
         else if (IsFlatView) _viewMode = FlatViewLabel;

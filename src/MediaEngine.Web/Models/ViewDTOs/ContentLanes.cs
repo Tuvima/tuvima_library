@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
 /// Static registry of category navigation lanes.
-/// Three content categories: Read (Books+Comics), Watch (Movies+TV), Listen (Music+Audiobooks+Podcasts).
+/// Three content categories: Read (Books+Comics), Watch (Movies+TV), Listen (Music+Audiobooks).
 /// </summary>
 public static class ContentLanes
 {
@@ -29,8 +29,8 @@ public static class ContentLanes
     public static readonly LaneDefinition Listen = new(
         "listen", "Listen",
         Icons.Material.Filled.Headphones,
-        ["Music", "Audiobooks", "Podcasts"],
-        ["All", "Music", "Audiobooks", "Podcasts"]);
+        ["Music", "Audiobooks"],
+        ["All", "Music", "Audiobooks"]);
 
     /// <summary>All navigation lanes in display order.</summary>
     public static readonly IReadOnlyList<LaneDefinition> All =

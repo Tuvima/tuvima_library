@@ -351,7 +351,7 @@
     private static readonly (string Label, string Value)[] _mediaTypeOptions =
     [
         ("Book", "Books"), ("Audiobook", "Audiobooks"), ("Movie", "Movies"),
-        ("TV", "TV"), ("Comic", "Comic"), ("Music", "Music"), ("Podcast", "Podcasts"),
+        ("TV", "TV"), ("Comic", "Comic"), ("Music", "Music"),
     ];
 
     private sealed record RetailCoverEntry(string CoverUrl, string ProviderName, int Priority);
@@ -851,12 +851,10 @@
         return name switch
         {
             "apple_api"             => "Apple API",
-            "apple_podcasts"        => "Apple Podcasts",
             "open_library"          => "Open Library",
             "tmdb"                  => "TMDB",
             "musicbrainz"           => "MusicBrainz",
             "metron"                => "Metron",
-            "podcast_index"         => "Podcast Index",
             "fanart_tv"             => "Fanart.tv",
             "wikidata_reconciliation" => "Wikidata",
             _ => System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(name.Replace('_', ' ')),
