@@ -51,10 +51,10 @@
 
   "search_strategies": [
     {
-      "name": "issue_search",
+      "name": "volume_search",
       "priority": 1,
-      "required_fields": ["title"],
-      "url_template": "{base_url}/search/?api_key={api_key}&query={title}&resources=issue&limit={limit}&format=json",
+      "required_fields": ["series"],
+      "url_template": "{base_url}/search/?api_key={api_key}&query={series}&resources=volume&limit={limit}&format=json",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,
@@ -63,10 +63,10 @@
       "media_types": ["Comics"]
     },
     {
-      "name": "volume_search",
+      "name": "issue_search",
       "priority": 2,
-      "required_fields": ["series"],
-      "url_template": "{base_url}/search/?api_key={api_key}&query={series}&resources=volume&limit={limit}&format=json",
+      "required_fields": ["title"],
+      "url_template": "{base_url}/search/?api_key={api_key}&query={title}&resources=issue&limit={limit}&format=json",
       "results_path": "results",
       "result_index": 0,
       "tolerate_404": false,

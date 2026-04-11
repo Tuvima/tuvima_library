@@ -1128,6 +1128,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// </summary>
     private static readonly IReadOnlyList<string> Stage2BridgePCodes =
     [
+        "P31",   // instance_of — for post-resolution media-type validation
         "P212",  // ISBN-13
         "P5848", // Apple Books ID
         "P5749", // ASIN
@@ -1232,6 +1233,17 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// </summary>
     private IReadOnlyList<string> GetCirrusTypesForMediaType(MediaType mediaType)
     {
+        // For edition-aware media types (Books, Audiobooks, Music), use the narrow
+        // work_classes from edition_pivot — these are work-level P31 types only.
+        // The broad instance_of_classes list includes edition types, series types,
+        // and other adjacent classes that cause CirrusSearch to return false positives
+        // (e.g. a film adaptation instead of the novel).
+        _editionPivotCache ??= _config.GetEditionPivotConfiguration();
+        var pivotRule = _editionPivotCache.GetRuleFor(mediaType);
+        if (pivotRule is not null && pivotRule.WorkClasses.Count > 0)
+            return pivotRule.WorkClasses;
+
+        // Non-edition-aware types (Movies, TV, Comics, Podcasts) use instance_of_classes.
         var mediaTypeKey = mediaType.ToString();
         if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
             return classes;
@@ -1417,7 +1429,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return results;
         }
 
-        await PopulateResultsAsync(libResults, results, ct).ConfigureAwait(false);
+        var mediaTypeByKey = requests.ToDictionary(r => r.CorrelationKey, r => r.MediaType, StringComparer.Ordinal);
+        await PopulateResultsAsync(libResults, results, mediaTypeByKey, ct).ConfigureAwait(false);
 
         // ── Pass 2: text fallback for bridge requests that came back empty ──
         // The legacy ResolveBridgeAsync issued an inline text reconciliation when
@@ -1462,7 +1475,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             {
                 var fallbackResults = await _reconciler.Stage2
                     .ResolveBatchAsync(textFallbackRequests, ct).ConfigureAwait(false);
-                await PopulateResultsAsync(fallbackResults, results, ct).ConfigureAwait(false);
+                await PopulateResultsAsync(fallbackResults, results, null, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
@@ -1485,6 +1498,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private async Task PopulateResultsAsync(
         IReadOnlyDictionary<string, Stage2Result> libResults,
         Dictionary<string, WikidataResolveResult> results,
+        IReadOnlyDictionary<string, MediaType>? mediaTypeByKey,
         CancellationToken ct)
     {
         foreach (var (correlationKey, libResult) in libResults)
@@ -1506,6 +1520,25 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 libResult.EditionQid,
                 ct).ConfigureAwait(false);
 
+            // ── P31 media-type validation ─────────────────────────────────────
+            // After the library resolves a QID (via bridge ID or text search),
+            // verify the entity's P31 is valid for the requested media type.
+            // Without this check, an ISBN shared between a novel and its film
+            // adaptation can resolve to the film entity instead of the book.
+            if (mediaTypeByKey is not null
+                && mediaTypeByKey.TryGetValue(correlationKey, out var requestedMediaType)
+                && requestedMediaType != MediaType.Unknown)
+            {
+                var effectiveQid = libResult.WorkQid ?? libResult.Qid!;
+                if (!ValidateP31ForMediaType(claims, effectiveQid, requestedMediaType))
+                {
+                    _logger.LogInformation(
+                        "{Provider}: Stage2 — rejected {Key} → {QID}: P31 does not match {MediaType}",
+                        Name, correlationKey, effectiveQid, requestedMediaType);
+                    continue; // leave as NotFound — text fallback will retry
+                }
+            }
+
             results[correlationKey] = new WikidataResolveResult
             {
                 Found               = true,
@@ -1525,6 +1558,61 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 Name, correlationKey, libResult.Qid, libResult.MatchedBy,
                 libResult.IsEdition, claims.Count, collectedBridgeIds.Count);
         }
+    }
+
+    /// <summary>
+    /// Checks whether the resolved entity's P31 (instance_of) claims are compatible
+    /// with the requested media type. Returns <c>true</c> when at least one P31 value
+    /// is in the configured <c>instance_of_classes</c> and none are in <c>exclude_classes</c>.
+    /// Falls back to <c>true</c> (permissive) when P31 data is unavailable — the
+    /// downstream enrichment pipeline will catch mismatches later.
+    /// </summary>
+    private bool ValidateP31ForMediaType(
+        IReadOnlyList<ProviderClaim> claims,
+        string qid,
+        MediaType mediaType)
+    {
+        // Extract P31 QIDs from the "instance_of" claims emitted by ExtensionToClaims.
+        var instanceOfQids = claims
+            .Where(c => c.Key == "instance_of" && !string.IsNullOrWhiteSpace(c.Value)
+                        && c.Value.StartsWith('Q'))
+            .Select(c => c.Value)
+            .ToList();
+
+        if (instanceOfQids.Count == 0)
+            return true; // No P31 data — be permissive
+
+        var mediaTypeKey = mediaType.ToString();
+
+        // Check exclude list first — if ANY P31 is excluded, reject immediately.
+        if (_config.ExcludeClasses.TryGetValue(mediaTypeKey, out var excludedClasses)
+            && excludedClasses.Count > 0)
+        {
+            var excludedSet = new HashSet<string>(excludedClasses, StringComparer.OrdinalIgnoreCase);
+            if (instanceOfQids.Any(q => excludedSet.Contains(q)))
+            {
+                _logger.LogDebug(
+                    "{Provider}: P31 validation — {QID} has excluded P31 [{P31}] for {MediaType}",
+                    Name, qid, string.Join(", ", instanceOfQids), mediaTypeKey);
+                return false;
+            }
+        }
+
+        // Check include list — at least one P31 must be in instance_of_classes.
+        if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var expectedClasses)
+            && expectedClasses.Count > 0)
+        {
+            var expectedSet = new HashSet<string>(expectedClasses, StringComparer.OrdinalIgnoreCase);
+            if (!instanceOfQids.Any(q => expectedSet.Contains(q)))
+            {
+                _logger.LogDebug(
+                    "{Provider}: P31 validation — {QID} P31 [{P31}] not in {MediaType} expected classes",
+                    Name, qid, string.Join(", ", instanceOfQids), mediaTypeKey);
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // ── Public Stage 2 facade ────────────────────────────────────────────────
