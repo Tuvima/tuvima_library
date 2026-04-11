@@ -246,9 +246,10 @@ public static class MediaTypeFieldRegistry
 
     private static readonly SearchableField[] MusicSearchableFields =
     [
-        new(MetadataFieldConstants.Title, "Title", IsDefault: true),
-        new(MetadataFieldConstants.Artist, "Artist"),
+        new(MetadataFieldConstants.Artist, "Artist", IsDefault: true),
         new(MetadataFieldConstants.Album, "Album"),
+        new(MetadataFieldConstants.Title, "Title"),
+        new(MetadataFieldConstants.TrackNumber, "Track #"),
         new(MetadataFieldConstants.Composer, "Composer"),
         new(BridgeIdKeys.AppleMusicId, "Apple Music ID"),
     ];
@@ -265,6 +266,8 @@ public static class MediaTypeFieldRegistry
     private static readonly SearchableField[] TvSearchableFields =
     [
         new(MetadataFieldConstants.ShowName, "Show Name", IsDefault: true),
+        new(MetadataFieldConstants.SeasonNumber, "Season"),
+        new(MetadataFieldConstants.EpisodeNumber, "Episode"),
         new(MetadataFieldConstants.EpisodeTitle, "Episode Title"),
         new(MetadataFieldConstants.Year, "Year"),
         new(BridgeIdKeys.TmdbId, "TMDB ID"),
@@ -273,10 +276,10 @@ public static class MediaTypeFieldRegistry
 
     private static readonly SearchableField[] ComicSearchableFields =
     [
-        new(MetadataFieldConstants.Title, "Title", IsDefault: true),
-        new(MetadataFieldConstants.Author, "Author"),
-        new(MetadataFieldConstants.Series, "Series"),
-        new(MetadataFieldConstants.Illustrator, "Illustrator"),
+        new(MetadataFieldConstants.Series, "Series", IsDefault: true),
+        new(MetadataFieldConstants.Title, "Title"),
+        new(MetadataFieldConstants.SeriesPosition, "Issue #"),
+        new(MetadataFieldConstants.Author, "Writer"),
         new(BridgeIdKeys.Isbn, "ISBN"),
         new(BridgeIdKeys.ComicVineId, "Comic Vine ID"),
     ];
@@ -284,8 +287,9 @@ public static class MediaTypeFieldRegistry
     private static readonly SearchableField[] PodcastSearchableFields =
     [
         new(MetadataFieldConstants.PodcastName, "Podcast Name", IsDefault: true),
-        new(MetadataFieldConstants.Author, "Author"),
+        new(MetadataFieldConstants.EpisodeNumber, "Episode #"),
         new(MetadataFieldConstants.EpisodeTitle, "Episode Title"),
+        new(MetadataFieldConstants.Author, "Author"),
     ];
 
     private static readonly SearchableField[] DefaultSearchableFields =

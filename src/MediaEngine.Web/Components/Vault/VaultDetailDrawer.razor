@@ -1258,6 +1258,8 @@
                     _primarySearchValue = MediaItem.Series ?? "";
                     if (!string.IsNullOrWhiteSpace(MediaItem.Title))
                         _searchFilters.Add(("title", MediaItem.Title));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.SeriesPosition))
+                        _searchFilters.Add(("series_position", MediaItem.SeriesPosition));
                     if (!string.IsNullOrWhiteSpace(MediaItem.Author))
                         _searchFilters.Add(("author", MediaItem.Author));
                     break;
@@ -1265,6 +1267,10 @@
                 case "TV":
                     _primarySearchField = "show_name";
                     _primarySearchValue = MediaItem.ShowName ?? MediaItem.Title ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Season))
+                        _searchFilters.Add(("season_number", MediaItem.Season));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Episode))
+                        _searchFilters.Add(("episode_number", MediaItem.Episode));
                     if (!string.IsNullOrWhiteSpace(MediaItem.Director))
                         _searchFilters.Add(("director", MediaItem.Director));
                     break;
@@ -1276,11 +1282,15 @@
                         _searchFilters.Add(("album", MediaItem.Album));
                     if (!string.IsNullOrWhiteSpace(MediaItem.Title))
                         _searchFilters.Add(("title", MediaItem.Title));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.TrackNumber))
+                        _searchFilters.Add(("track_number", MediaItem.TrackNumber));
                     break;
 
                 case "Podcasts":
                     _primarySearchField = "podcast_name";
                     _primarySearchValue = MediaItem.ShowName ?? MediaItem.Title ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Episode))
+                        _searchFilters.Add(("episode_number", MediaItem.Episode));
                     if (!string.IsNullOrWhiteSpace(MediaItem.Author))
                         _searchFilters.Add(("author", MediaItem.Author));
                     break;
