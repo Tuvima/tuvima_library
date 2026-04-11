@@ -321,9 +321,10 @@ public sealed class CoverArtWorker
             using var output = File.OpenWrite(thumbPath);
             data.SaveTo(output);
         }
-        catch
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Thumbnail generation is non-critical
+            // Non-critical: thumbnail generation failure doesn't affect the main cover art.
+            _ = ex;
         }
     }
 }

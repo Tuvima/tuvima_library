@@ -456,7 +456,7 @@ public sealed class WorkerPipelineTests
         public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
             => Task.FromResult(0);
 
-        public Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default)
+        public Task ReleaseLeaseAsync(Guid jobId, CancellationToken ct = default)
         {
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
             if (job is not null)

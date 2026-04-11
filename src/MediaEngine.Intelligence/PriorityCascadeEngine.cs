@@ -58,13 +58,14 @@ public sealed class PriorityCascadeEngine : IScoringEngine
     /// </summary>
     private readonly IReadOnlyDictionary<string, Guid> _providerNameToGuid;
 
-    private readonly ILogger<PriorityCascadeEngine>? _logger;
+    private readonly ILogger<PriorityCascadeEngine> _logger;
 
     public PriorityCascadeEngine(
         IConfigurationLoader configLoader,
-        ILogger<PriorityCascadeEngine>? logger = null)
+        ILogger<PriorityCascadeEngine> logger)
     {
         ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _configLoader = configLoader;
         _logger       = logger;
@@ -85,7 +86,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         var initialPriorities = configLoader.LoadFieldPriorities();
         if (initialPriorities.FieldOverrides.Count == 0)
         {
-            _logger?.LogWarning(
+            _logger.LogWarning(
                 "PriorityCascadeEngine: field_priorities.json not found or empty — " +
                 "Wikidata will win for ALL fields including 'description'. " +
                 "Wikipedia rich descriptions will be stored as claims but will NOT appear as canonical values. " +
@@ -93,7 +94,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         }
         else
         {
-            _logger?.LogInformation(
+            _logger.LogInformation(
                 "PriorityCascadeEngine: loaded {Count} field priority override(s): [{Fields}]",
                 initialPriorities.FieldOverrides.Count,
                 string.Join(", ", initialPriorities.FieldOverrides.Keys));

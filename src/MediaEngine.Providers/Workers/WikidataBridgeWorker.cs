@@ -472,7 +472,7 @@ public sealed class WikidataBridgeWorker
         // per job, reused throughout finalisation.
         WorkLineage? lineage = null;
         try { lineage = await _workRepo.GetLineageByAssetAsync(job.EntityId, ct); }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogDebug(ex,
                 "Phase 3c: lineage lookup failed for asset {EntityId} — parent-scope mirror and Work routing skipped",
@@ -900,7 +900,7 @@ public sealed class WikidataBridgeWorker
                 // Phase 3c: lineage-aware persist for the manual-QID flow.
                 WorkLineage? lineage = null;
                 try { lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct); }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     _logger.LogDebug(ex,
                         "Phase 3c: lineage lookup failed for asset {EntityId} (manual QID {Qid}) — parent mirror skipped",

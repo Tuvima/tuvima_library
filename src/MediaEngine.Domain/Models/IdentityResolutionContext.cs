@@ -24,13 +24,6 @@ public sealed class IdentityResolutionContext
     /// <summary>The media type of the asset (e.g. Books, Movies, TV).</summary>
     public MediaType MediaType { get; init; }
 
-    /// <summary>
-    /// Confidence score for the media type classification (0.0–1.0).
-    /// May be below 1.0 when AI classification was used or when the file
-    /// processor inferred the type heuristically.
-    /// </summary>
-    public double MediaTypeConfidence { get; init; } = 1.0;
-
     // ── File evidence ────────────────────────────────────────────────────────
 
     /// <summary>

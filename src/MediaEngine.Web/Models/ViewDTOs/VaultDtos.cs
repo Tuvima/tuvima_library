@@ -71,8 +71,7 @@ public sealed class VaultItemViewModel
     // Computed: the 4 vault display statuses
     public VaultStatus VaultDisplayStatus => ComputeVaultStatus();
 
-    // Computed: the 4 pipeline stages (Stage0 = File)
-    public VaultPipelineStage Stage0 => ComputeFileStage();
+    // Computed: pipeline stages (Stage1 = Retail, Stage2 = Wikidata, Stage3 = Universe)
     public VaultPipelineStage Stage1 => ComputeRetailStage();
     public VaultPipelineStage Stage2 => ComputeWikidataStage();
     public VaultPipelineStage Stage3 => ComputeUniverseStage();
@@ -194,12 +193,6 @@ public sealed class VaultItemViewModel
 
         // Default: Needs Review
         return VaultStatus.NeedsReview;
-    }
-
-    private VaultPipelineStage ComputeFileStage()
-    {
-        // If the item exists in the vault the file was successfully scanned — always Completed.
-        return new VaultPipelineStage { State = VaultStageState.Completed, Label = "File" };
     }
 
     private string? ComputeResolutionSummary()

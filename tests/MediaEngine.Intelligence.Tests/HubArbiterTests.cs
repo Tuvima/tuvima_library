@@ -3,6 +3,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Intelligence.Strategies;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Intelligence.Tests;
@@ -25,7 +26,7 @@ public sealed class HubArbiterTests
     public async Task HighSimilarity_AutoLinked()
     {
         var journal = new StubJournal();
-        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService()), journal);
+        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work = MakeWork("Dune", "Frank Herbert");
         var hub  = MakeHub(MakeWork("Dune", "Frank Herbert"));
@@ -44,7 +45,7 @@ public sealed class HubArbiterTests
     public async Task LowSimilarity_Rejected()
     {
         var journal = new StubJournal();
-        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService()), journal);
+        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work = MakeWork("Dune", "Frank Herbert");
         var hub  = MakeHub(MakeWork("War and Peace", "Leo Tolstoy"));
@@ -62,7 +63,7 @@ public sealed class HubArbiterTests
     public async Task NoCandidates_Rejected()
     {
         var journal = new StubJournal();
-        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService()), journal);
+        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work = MakeWork("Dune", "Frank Herbert");
 
@@ -79,7 +80,7 @@ public sealed class HubArbiterTests
     public async Task CircularLink_Skipped()
     {
         var journal = new StubJournal();
-        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService()), journal);
+        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var hub = new Hub { Id = Guid.NewGuid(), CreatedAt = DateTimeOffset.UtcNow };
 
@@ -104,7 +105,7 @@ public sealed class HubArbiterTests
     public async Task BestHub_SelectedAmongMultiple()
     {
         var journal = new StubJournal();
-        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService()), journal);
+        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work     = MakeWork("Dune", "Frank Herbert");
         var goodHub  = MakeHub(MakeWork("Dune", "Frank Herbert"));
@@ -123,7 +124,7 @@ public sealed class HubArbiterTests
     public async Task Decision_LoggedToJournal()
     {
         var journal = new StubJournal();
-        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService()), journal);
+        var arbiter = new HubArbiter(new IdentityMatcher(new StubFuzzyMatchingService(), new ExactMatchStrategy()), journal);
 
         var work = MakeWork("Dune", "Frank Herbert");
         var hub  = MakeHub(MakeWork("Dune", "Frank Herbert"));

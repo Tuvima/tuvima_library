@@ -272,6 +272,7 @@ builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
 
 // ── Intelligence ──────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
+builder.Services.AddSingleton<ExactMatchStrategy>();
 builder.Services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 
 // ScoringConfiguration is loaded from config/scoring.json and exposed as a
@@ -310,7 +311,7 @@ builder.Services.AddSingleton<IMediaTypeIdentityStrategy, ComicIdentityStrategy>
 builder.Services.AddSingleton<IdentityDecisionService>();
 
 builder.Services.AddSingleton<IIdentityMatcher>(sp =>
-    new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>()));
+    new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>(), sp.GetRequiredService<ExactMatchStrategy>()));
 
 builder.Services.AddSingleton<IHubArbiter>(sp =>
     new HubArbiter(

@@ -45,11 +45,14 @@ public sealed class IdentityMatcher : IIdentityMatcher
     private const double TitleWeight = 0.5;      // title gets 50 % of total influence
 
     private readonly IFuzzyMatchingService _fuzzy;
+    private readonly ExactMatchStrategy _exactMatch;
 
-    public IdentityMatcher(IFuzzyMatchingService fuzzy)
+    public IdentityMatcher(IFuzzyMatchingService fuzzy, ExactMatchStrategy exactMatch)
     {
         ArgumentNullException.ThrowIfNull(fuzzy);
+        ArgumentNullException.ThrowIfNull(exactMatch);
         _fuzzy = fuzzy;
+        _exactMatch = exactMatch;
     }
 
     // -------------------------------------------------------------------------
@@ -78,8 +81,7 @@ public sealed class IdentityMatcher : IIdentityMatcher
             if (entityMap.TryGetValue(key, out string? evA) &&
                 candidateMap.TryGetValue(key, out string? evB))
             {
-                var exact = new ExactMatchStrategy();
-                if (exact.Compute(evA, evB) >= 1.0)
+                if (_exactMatch.Compute(evA, evB) >= 1.0)
                     matchedIds.Add(key);
             }
         }
@@ -161,8 +163,7 @@ public sealed class IdentityMatcher : IIdentityMatcher
         // Hard identifiers still use exact match.
         if (ExactMatchStrategy.HardIdentifierKeys.Contains(key))
         {
-            var exact = new ExactMatchStrategy();
-            return exact.Compute(a, b);
+            return _exactMatch.Compute(a, b);
         }
 
         // All other fields use native Levenshtein token-set-ratio via IFuzzyMatchingService.

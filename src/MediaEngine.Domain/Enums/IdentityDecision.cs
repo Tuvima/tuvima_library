@@ -14,10 +14,4 @@ public enum IdentityDecision
 
     /// <summary>Route to Action Center with root cause.</summary>
     Review,
-
-    /// <summary>Transient failure, re-queue for later attempt.</summary>
-    RetryLater,
-
-    /// <summary>Permanently reject candidate.</summary>
-    Reject
 }

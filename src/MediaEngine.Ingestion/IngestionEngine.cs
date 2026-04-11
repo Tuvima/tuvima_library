@@ -235,11 +235,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _logger.LogWarning(ex, "Startup reconciliation failed — continuing with scan");
         }
 
-        // ── Step 2b: Migrate .orphans → .data/staging ──────────────────────────
-        // One-time migration: if the legacy .orphans directory exists and .data/staging
-        // does not, rename it. Also update DB records that reference the old path.
-        await MigrateOrphansToStagingAsync(stoppingToken).ConfigureAwait(false);
-
         // ── Step 3: Start watching + initial scan ────────────────────────
         if (!string.IsNullOrWhiteSpace(_options.WatchDirectory))
         {
@@ -1361,11 +1356,9 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // Foreign-language metadata check removed — handled by LanguageMismatch trigger
         // in HydrationPipelineService (runs after Stage 1 with more context).
 
-        // Step 11: staging-first flow.
-        // ALL files go to .data/staging/ first — the Library only receives files that
-        // have been hydrated and promoted by AutoOrganizeService.
-        // Files land in a flat per-item folder ({assetId12}/); status is tracked in the
-        // database. The "rejected/" subfolder is the only named subdirectory.
+        // Step 11: gate evaluation and identity job creation.
+        // Files stay in the watch folder during initial processing (staging eliminated).
+        // AutoOrganizeService moves them directly to the library after Stage 1 retail match.
         bool hasUserLock = claims.Any(c => c.IsUserLocked);
 
         // Calculate the relative path once for the gate (needed for the "Other" check).
@@ -1470,38 +1463,22 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // creation, linking, and enrichment after pen name detection has run.
 
         // Step 11b: persist embedded cover art.
-        // When ImagePathService is available, write to .images/works/_pending/{assetId12}/cover.jpg
-        // so the image is decoupled from the staging/library path and survives file moves.
-        // Without ImagePathService (legacy), write alongside the staging file as before.
-        bool fileIsInStaging = !string.IsNullOrWhiteSpace(_options.StagingPath)
-            && currentPath.StartsWith(_options.StagingPath, StringComparison.OrdinalIgnoreCase);
-        if ((fileIsInStaging || _imagePathService is not null) && result.CoverImage is { Length: > 0 })
+        // Write to .data/images/works/_pending/{assetId12}/cover.jpg so the image
+        // is decoupled from the file path and survives future file moves.
+        if (_imagePathService is not null && result.CoverImage is { Length: > 0 })
         {
             try
             {
-                string coverPath;
-                string coverFolder;
-                if (_imagePathService is not null)
-                {
-                    // Write to .images/ — no QID yet at this stage (provisional slot).
-                    coverPath   = _imagePathService.GetWorkCoverPath(wikidataQid: null, assetId);
-                    coverFolder = Path.GetDirectoryName(coverPath) ?? string.Empty;
-                    ImagePathService.EnsureDirectory(coverPath);
-                }
-                else
-                {
-                    coverFolder = Path.GetDirectoryName(currentPath) ?? string.Empty;
-                    coverPath   = Path.Combine(coverFolder, "cover.jpg");
-                }
+                // Write to .images/ — no QID yet at this stage (provisional slot).
+                string coverPath   = _imagePathService.GetWorkCoverPath(wikidataQid: null, assetId);
+                string coverFolder = Path.GetDirectoryName(coverPath) ?? string.Empty;
+                ImagePathService.EnsureDirectory(coverPath);
 
                 await File.WriteAllBytesAsync(coverPath, result.CoverImage, ct).ConfigureAwait(false);
 
                 // Generate thumbnail (200px wide, quality 75) for list view performance.
-                if (_imagePathService is not null)
-                {
-                    var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid: null, assetId);
-                    GenerateThumbnail(coverPath, thumbPath);
-                }
+                var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid: null, assetId);
+                GenerateThumbnail(coverPath, thumbPath);
 
                 await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                 {
@@ -1514,7 +1491,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                         cover_size_bytes = result.CoverImage.Length,
                         filename         = "cover.jpg",
                         folder           = coverFolder,
-                        location         = _imagePathService is not null ? "images" : "staging",
+                        location         = "images",
                     }),
                     Detail         = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
                     IngestionRunId = ingestionRunId,
@@ -1527,12 +1504,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         }
 
         // Step 12: write-back is deferred to promotion.
-        // Writing back to a file in staging would change its content hash,
+        // Writing back to a file in the watch folder would change its content hash,
         // causing the watcher to re-detect it as a new file.
         // AutoOrganizeService handles write-back after promotion to the Library.
         bool fileIsInLibrary = !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            && currentPath.StartsWith(_options.LibraryRoot, StringComparison.OrdinalIgnoreCase)
-            && !fileIsInStaging;
+            && currentPath.StartsWith(_options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
         List<string> tagsWritten  = [];
         bool         coverWritten = false;
         if (_options.WriteBack && fileIsInLibrary && candidate.Metadata is not null)
@@ -2231,71 +2207,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     $"Title \"{reorgTitle ?? "(blank)"}\" is a placeholder with no bridge IDs. Staged for review.",
                     ct).ConfigureAwait(false);
             }
-        }
-    }
-
-    // =========================================================================
-    // .orphans → .data/staging migration
-    // =========================================================================
-
-    /// <summary>
-    /// One-time migration: renames the legacy <c>.orphans/</c> directory to
-    /// <c>.data/staging/</c> and updates all <c>MediaAsset.FilePathRoot</c> records
-    /// that reference the old path.
-    /// </summary>
-    private async Task MigrateOrphansToStagingAsync(CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(_options.LibraryRoot))
-            return;
-
-        var legacyPath = Path.Combine(_options.LibraryRoot, ".orphans");
-        var stagingPath = _options.StagingPath;
-
-        if (!Directory.Exists(legacyPath) || Directory.Exists(stagingPath))
-            return;
-
-        try
-        {
-            Directory.Move(legacyPath, stagingPath);
-            _logger.LogInformation(
-                "Migrated .orphans → .data/staging: {Legacy} → {Staging}",
-                legacyPath, stagingPath);
-
-            // Update DB records that reference the old .orphans path.
-            // Use ListByStatusAsync for each status to find assets with stale paths.
-            int updated = 0;
-            foreach (var status in Enum.GetValues<AssetStatus>())
-            {
-                var assets = await _assetRepo.ListByStatusAsync(status, ct).ConfigureAwait(false);
-                foreach (var asset in assets)
-                {
-                    if (asset.FilePathRoot.Contains(".orphans", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // Replace .orphans prefix with the current StagingPath.
-                        var oldPrefix = Path.Combine(_options.LibraryRoot, ".orphans");
-                        var newPath = asset.FilePathRoot.Replace(
-                            oldPrefix, stagingPath, StringComparison.OrdinalIgnoreCase);
-                        await _assetRepo.UpdateFilePathAsync(asset.Id, newPath, ct)
-                            .ConfigureAwait(false);
-                        updated++;
-                    }
-                }
-            }
-
-            if (updated > 0)
-                _logger.LogInformation(
-                    "Updated {Count} asset path(s) from .orphans to .data/staging", updated);
-
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-            {
-                ActionType = Domain.Enums.SystemActionType.PathUpdated,
-                EntityType = "Migration",
-                Detail     = $"Migrated .orphans → .data/staging ({updated} asset path(s) updated)",
-            }, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to migrate .orphans → .data/staging");
         }
     }
 

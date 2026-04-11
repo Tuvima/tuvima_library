@@ -107,7 +107,7 @@ internal sealed class StubIdentityJobRepository : IIdentityJobRepository
     public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
         => Task.FromResult(0);
 
-    public Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default)
+    public Task ReleaseLeaseAsync(Guid jobId, CancellationToken ct = default)
         => Task.CompletedTask;
 
     public Task<int> CountActiveAsync(CancellationToken ct = default)

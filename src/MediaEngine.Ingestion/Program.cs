@@ -133,12 +133,13 @@ var host = Host.CreateDefaultBuilder(args)
 
         // ── Intelligence / Scoring ─────────────────────────────
         services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
+        services.AddSingleton<ExactMatchStrategy>();
         services.AddSingleton<IFuzzyMatchingService, FuzzyMatchingService>();
 
         services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 
         services.AddSingleton<IIdentityMatcher>(sp =>
-            new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>()));
+            new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>(), sp.GetRequiredService<ExactMatchStrategy>()));
 
         services.AddSingleton<IHubArbiter>(sp =>
             new HubArbiter(

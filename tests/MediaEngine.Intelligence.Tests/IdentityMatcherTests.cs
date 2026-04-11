@@ -2,6 +2,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Intelligence.Strategies;
 
 namespace MediaEngine.Intelligence.Tests;
 
@@ -13,7 +14,7 @@ public sealed class IdentityMatcherTests
 {
     private static readonly ScoringConfiguration DefaultConfig = new();
 
-    private static IdentityMatcher CreateMatcher() => new(new StubFuzzyMatchingService());
+    private static IdentityMatcher CreateMatcher() => new(new StubFuzzyMatchingService(), new ExactMatchStrategy());
 
     // ── Hard identifier match → 1.0 immediately ─────────────────────────────
 

@@ -29,13 +29,7 @@ public enum ReviewRootCause
     /// Identity resolved but enrichment has gaps.
     /// Maps from: ArtworkUnconfirmed, LanguageMismatch, WritebackFailed.
     /// </summary>
-    EnrichmentIncomplete,
-
-    /// <summary>
-    /// Pipeline error, needs retry.
-    /// Maps from: runtime exceptions.
-    /// </summary>
-    ProcessingFailure
+    EnrichmentIncomplete
 }
 
 /// <summary>
