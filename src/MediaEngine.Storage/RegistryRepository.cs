@@ -33,11 +33,11 @@ public sealed class RegistryRepository : IRegistryRepository
         var wikidataId       = WellKnownProviders.Wikidata.ToString();
         var localProcessorId = WellKnownProviders.LocalProcessor.ToString();
         var libraryScanId    = WellKnownProviders.LibraryScanner.ToString();
-        var stagingFilter = query.IncludeAll ? "" : """
-                    WHERE ma.file_path_root NOT LIKE '%/.data/staging/%'
-                      AND ma.file_path_root NOT LIKE '%\.data\staging\%'
-                      AND ma.file_path_root NOT LIKE '%/.data\staging/%'
-            """;
+        // Staging eliminated (Phase 3): files are no longer moved to .data/staging/ so
+        // no path-based filter is needed. All assets appear in Vault media tabs regardless
+        // of file location. The stagingFilter variable is kept as an empty string so the
+        // interpolation site in the asset_data CTE below compiles without change.
+        var stagingFilter = "";
         // Visibility filter for non-IncludeAll queries. A work must either:
         //   • have a resolved Wikidata QID, OR
         //   • be in provisional/rejected curator state, OR
@@ -48,6 +48,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         (wd.wikidata_qid IS NOT NULL AND wd.wikidata_qid != '' AND wd.wikidata_qid NOT LIKE 'NF%')
                         OR wd.curator_state IN ('provisional', 'rejected')
                         OR rd.review_id IS NOT NULL
+                        OR (wd.title IS NOT NULL AND wd.title != '' AND wd.title != 'Untitled' AND wd.title != 'Unknown')
                     )
             """;
         // Phase 4 — lineage-aware reads. Two pivot CTEs:
@@ -161,6 +162,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     -- collapses onto the movie's own Work but is still routed to the
                     -- asset row by ScoringHelper. Read from the asset CTE only.
                     MAX(CASE WHEN acv.key = 'wikidata_qid' THEN acv.value END) AS wikidata_qid,
+                    MAX(CASE WHEN acv.key = 'qid_resolution_method' THEN acv.value END) AS qid_resolution_method,
                     -- ── Mixed fields (scope depends on media_type) ──
                     -- director: Parent for Movies (works.id), Self for TV (asset).
                     -- runtime:  Parent for Movies, Self elsewhere.
@@ -350,6 +352,10 @@ public sealed class RegistryRepository : IRegistryRepository
                              AND wd.wikidata_qid NOT LIKE 'NF%' THEN 'Identified'
                         WHEN wd.curator_state = 'registered'
                              AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
+                             AND wd.title IS NOT NULL AND wd.title != ''
+                             THEN 'RetailMatched'
+                        WHEN wd.curator_state = 'registered'
+                             AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
                              THEN 'Confirmed'
                         WHEN rd.review_id IS NULL
                              AND (wd.wikidata_qid IS NULL OR wd.wikidata_qid = '' OR wd.wikidata_qid LIKE 'NF%')
@@ -384,6 +390,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         ELSE 'none'
                     END AS retail_match,
                     wd.wikidata_qid,
+                    wd.qid_resolution_method,
                     idd.first_claimed_at AS created_at
                 FROM work_data wd
                 LEFT JOIN asset_data ad ON ad.work_id = wd.entity_id
@@ -473,7 +480,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.series, fd.series_position, fd.narrator, fd.genre,
                 fd.runtime, fd.rating, fd.album, fd.track_number,
                 fd.season_number, fd.episode_number,
-                fd.show_name, fd.duration, fd.episode_title, fd.network, fd.top_cast
+                fd.show_name, fd.duration, fd.episode_title, fd.network, fd.top_cast,
+                fd.qid_resolution_method
             FROM full_data fd
             {whereClause}
             {orderBy}
@@ -530,7 +538,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 Duration          = reader.IsDBNull(35) ? null : reader.GetString(35),
                 EpisodeTitle      = reader.IsDBNull(36) ? null : reader.GetString(36),
                 Network           = reader.IsDBNull(37) ? null : reader.GetString(37),
-                TopCast           = reader.IsDBNull(38) ? null : reader.GetString(38),
+                TopCast             = reader.IsDBNull(38) ? null : reader.GetString(38),
+                QidResolutionMethod = reader.IsDBNull(39) ? null : reader.GetString(39),
             });
         }
 

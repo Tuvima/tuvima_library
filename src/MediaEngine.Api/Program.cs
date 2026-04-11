@@ -298,6 +298,17 @@ builder.Services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
 builder.Services.AddSingleton<IRetailMatchScoringService, RetailMatchScoringService>();
 builder.Services.AddSingleton<ILocalMatchService, LocalMatchService>();
 
+// Media-type identity strategies — one per supported type.
+// IdentityDecisionService uses all six to route accept/review/retry verdicts
+// without any threshold logic leaking into the pipeline workers.
+builder.Services.AddSingleton<IMediaTypeIdentityStrategy, BookIdentityStrategy>();
+builder.Services.AddSingleton<IMediaTypeIdentityStrategy, AudiobookIdentityStrategy>();
+builder.Services.AddSingleton<IMediaTypeIdentityStrategy, MovieIdentityStrategy>();
+builder.Services.AddSingleton<IMediaTypeIdentityStrategy, TvIdentityStrategy>();
+builder.Services.AddSingleton<IMediaTypeIdentityStrategy, MusicIdentityStrategy>();
+builder.Services.AddSingleton<IMediaTypeIdentityStrategy, ComicIdentityStrategy>();
+builder.Services.AddSingleton<IdentityDecisionService>();
+
 builder.Services.AddSingleton<IIdentityMatcher>(sp =>
     new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>()));
 

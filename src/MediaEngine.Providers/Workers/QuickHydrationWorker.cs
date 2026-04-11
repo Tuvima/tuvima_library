@@ -68,7 +68,7 @@ public sealed class QuickHydrationWorker
             [IdentityJobState.QidResolved],
             _batchSize,
             LeaseDuration,
-            ct);
+            ct: ct);
 
         foreach (var job in jobs)
         {

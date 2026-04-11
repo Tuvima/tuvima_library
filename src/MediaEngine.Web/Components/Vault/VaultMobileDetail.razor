@@ -29,9 +29,8 @@
             @* ── Pipeline + Confidence ── *@
             <div class="vmd-pipeline-row">
                 <div class="vmd-stages">
-                    <StageGate Stage="@Item.Stage1" />
-                    <StageGate Stage="@Item.Stage2" />
-                    <StageGate Stage="@Item.Stage3" IsLast="true" />
+                    <StageGate Stage="@Item.IdentifiedStage" />
+                    <StageGate Stage="@Item.EnrichedStage" IsLast="true" />
                 </div>
                 <ConfidenceBar Confidence="@Item.Confidence" />
             </div>

@@ -86,6 +86,7 @@ public static class StreamEndpoints
         group.MapGet("/{assetId:guid}/cover", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
             ImagePathService imagePathService,
             ILoggerFactory loggerFactory,
@@ -134,6 +135,13 @@ public static class StreamEndpoints
             else if (!string.IsNullOrEmpty(legacyCoverPath) && File.Exists(legacyCoverPath))
                 coverPath = legacyCoverPath;
 
+            // Parent-chain fallback: child works (tracks, episodes) store cover art under
+            // the parent work's QID directory (album, show). Walk up the lineage to find it.
+            if (coverPath is null)
+                coverPath = await TryResolveParentCoverAsync(
+                    assetId, workRepo, assetRepo, canonicalRepo,
+                    imagePathService, "cover.jpg", ct);
+
             if (coverPath is null)
                 return Results.NotFound("No cover art found for this asset.");
 
@@ -161,6 +169,7 @@ public static class StreamEndpoints
         group.MapGet("/{assetId:guid}/cover-thumb", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
             ImagePathService imagePathService,
             ILoggerFactory loggerFactory,
@@ -224,8 +233,24 @@ public static class StreamEndpoints
                                 legacyPath = posterPath;
                         }
                         if (string.IsNullOrEmpty(legacyPath) || !File.Exists(legacyPath))
-                            return Results.NotFound("No cover art found for this asset.");
-                        thumbPath = legacyPath;
+                        {
+                            // Parent-chain fallback: child works (tracks, episodes) store cover
+                            // art under the parent work's QID directory (album, show).
+                            var parentThumb = await TryResolveParentCoverAsync(
+                                assetId, workRepo, assetRepo, canonicalRepo,
+                                imagePathService, "cover_thumb.jpg", ct);
+                            // If no thumbnail exists under the parent, accept the full cover too.
+                            parentThumb ??= await TryResolveParentCoverAsync(
+                                assetId, workRepo, assetRepo, canonicalRepo,
+                                imagePathService, "cover.jpg", ct);
+                            if (parentThumb is null)
+                                return Results.NotFound("No cover art found for this asset.");
+                            thumbPath = parentThumb;
+                        }
+                        else
+                        {
+                            thumbPath = legacyPath;
+                        }
                     }
                 }
             }
@@ -313,6 +338,65 @@ public static class StreamEndpoints
         .RequireRateLimiting("streaming");
 
         return app;
+    }
+
+    /// <summary>
+    /// Walks up the work lineage for <paramref name="assetId"/> and looks for
+    /// <paramref name="targetFile"/> (e.g. "cover.jpg" or "cover_thumb.jpg")
+    /// under the PARENT work's QID image directory.
+    ///
+    /// Child works — music tracks, TV episodes, comic issues — do not receive
+    /// their own cover art; it lives under the parent (album, show, series).
+    /// This method bridges that gap so the streaming endpoints can serve art
+    /// for child assets without requiring per-track image downloads.
+    /// </summary>
+    /// <returns>
+    /// Full filesystem path to the image if found, or <c>null</c> when the
+    /// asset has no parent, the parent has no QID, or the file does not exist.
+    /// </returns>
+    private static async Task<string?> TryResolveParentCoverAsync(
+        Guid assetId,
+        IWorkRepository workRepo,
+        IMediaAssetRepository assetRepo,
+        ICanonicalValueRepository canonicalRepo,
+        ImagePathService imagePathService,
+        string targetFile,
+        CancellationToken ct)
+    {
+        // Step 1: get the lineage for this asset to find the parent work.
+        var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+        if (lineage is null || lineage.ParentWorkId is null)
+            return null;
+
+        // RootParentWorkId is the top-most parent (show for TV, album for music).
+        // For most hierarchies this is the same as ParentWorkId, but for
+        // TV (Show → Season → Episode) it walks all the way to the Show.
+        var parentWorkId = lineage.RootParentWorkId;
+
+        // Step 2: find any asset that belongs to the parent work so we can
+        // look up the parent's canonical values (keyed by asset ID).
+        var parentAsset = await assetRepo.FindFirstByWorkIdAsync(parentWorkId, ct);
+        if (parentAsset is null)
+            return null;
+
+        // Step 3: resolve the parent's Wikidata QID from its canonical values.
+        var parentCanonicals = await canonicalRepo.GetByEntityAsync(parentAsset.Id, ct);
+        var parentQid = parentCanonicals
+            .FirstOrDefault(c => c.Key is "wikidata_qid"
+                && !string.IsNullOrEmpty(c.Value)
+                && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+
+        if (string.IsNullOrEmpty(parentQid))
+            return null;
+
+        // Step 4: build the path and return it if the file exists.
+        // The parent's images live at .data/images/works/{parentQID}/{parentAssetId12}/
+        var candidatePath = Path.Combine(
+            imagePathService.GetWorkImageDir(parentQid, parentAsset.Id),
+            targetFile);
+
+        return File.Exists(candidatePath) ? candidatePath : null;
     }
 
     /// <summary>

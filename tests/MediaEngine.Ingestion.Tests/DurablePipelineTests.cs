@@ -290,6 +290,7 @@ public sealed class DurablePipelineTests : IDisposable
             new WorkRepository(_dbFactory.Connection),
             new WorkClaimRouter(),
             new NoOpHttpClientFactory(),
+            null!, // PostPipelineService — not exercised in this test
             NullLogger<RetailMatchWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -342,6 +343,7 @@ public sealed class DurablePipelineTests : IDisposable
             workRepoLocal,
             new WorkClaimRouter(),
             new CatalogUpsertService(workRepoLocal),
+            new NoOpIngestionBatchRepository(),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -588,12 +590,17 @@ public sealed class DurablePipelineTests : IDisposable
             IReadOnlyList<IdentityJobState> states,
             int batchSize,
             TimeSpan leaseDuration,
+            IReadOnlyList<string>? excludeRunIds = null,
             CancellationToken ct = default)
         {
             var stateStrings = states.Select(s => s.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var excluded = excludeRunIds is { Count: > 0 }
+                ? new HashSet<string>(excludeRunIds, StringComparer.OrdinalIgnoreCase)
+                : null;
             var matches = _jobs
                 .Where(j => stateStrings.Contains(j.State)
-                         && (j.LeaseOwner is null || j.LeaseExpiresAt < DateTimeOffset.UtcNow))
+                         && (j.LeaseOwner is null || j.LeaseExpiresAt < DateTimeOffset.UtcNow)
+                         && (excluded is null || j.IngestionRunId is null || !excluded.Contains(j.IngestionRunId.ToString()!)))
                 .Take(batchSize)
                 .ToList();
 
@@ -646,6 +653,10 @@ public sealed class DurablePipelineTests : IDisposable
                 _jobs.Where(j => j.State == state.ToString()).Take(limit).ToList());
 
         public Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
+
+        public Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(
+            IReadOnlyList<string> ingestionRunIds, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 
         public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)

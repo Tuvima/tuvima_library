@@ -100,8 +100,8 @@ public static class ClaimScopeRegistry
                 [MetadataFieldConstants.Illustrator]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]        = ClaimScope.Parent,
                 [MetadataFieldConstants.Description]  = ClaimScope.Parent,
-                [MetadataFieldConstants.Cover]        = ClaimScope.Parent,
-                [MetadataFieldConstants.CoverUrl]     = ClaimScope.Parent,
+                [MetadataFieldConstants.Cover]        = ClaimScope.Self,
+                [MetadataFieldConstants.CoverUrl]     = ClaimScope.Self,
             },
             [MediaType.Books] = new(StringComparer.OrdinalIgnoreCase)
             {

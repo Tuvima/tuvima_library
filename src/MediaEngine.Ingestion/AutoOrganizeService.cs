@@ -12,10 +12,10 @@ using MediaEngine.Ingestion.Models;
 namespace MediaEngine.Ingestion;
 
 /// <summary>
-/// Promotes a staged media asset from <c>.staging/</c> into the organised library
-/// after hydration has improved its metadata confidence above the auto-organize
-/// threshold. This is the SOLE path from staging to the Library — files never
-/// reach the Library directly from the Watch Folder.
+/// Promotes a media asset from the Watch Folder (or staging, if present) into the
+/// organised library after Stage 1 retail match has produced a resolved title.
+/// A Wikidata QID is NOT required — files are organised as soon as they have a
+/// usable title. Wikidata enrichment continues in-place after promotion.
 ///
 /// After promotion: moves companion files (cover.jpg), generates the cinematic
 /// hero banner, and publishes the completion event.
@@ -152,33 +152,15 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
-        // ── QID gate — nothing enters the library without a confirmed identity ──
-        // For per-track / per-episode media (music tracks, TV episodes), Wikidata
-        // does not assign individual QIDs — the parent album / show / series QID
-        // (emitted as series_qid by ResolveMusicAlbumAsync and the TV resolver) is
-        // the asset's confirmed identity. Accept any of wikidata_qid / series_qid /
-        // edition_qid as proof of identification.
-        static bool IsRealQid(string? v) =>
-            !string.IsNullOrWhiteSpace(v)
-            && !v.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
-
-        // series_qid values are stored as "Qxxx::Label" — strip the label suffix.
-        static string? StripLabel(string? v) =>
-            string.IsNullOrWhiteSpace(v) ? null
-            : (v.IndexOf("::", StringComparison.Ordinal) is var i && i > 0 ? v[..i] : v);
-
-        metadata.TryGetValue("wikidata_qid", out var qidVal);
-        metadata.TryGetValue("series_qid", out var seriesQidVal);
-        metadata.TryGetValue("edition_qid", out var editionQidVal);
-
-        var hasQid = IsRealQid(qidVal)
-            || IsRealQid(StripLabel(seriesQidVal))
-            || IsRealQid(StripLabel(editionQidVal));
-
-        if (!hasQid)
+        // ── Title gate — a resolved title (from retail match) is sufficient to organize ──
+        // QID is no longer required at this stage. Files are moved from the watch
+        // folder into the library as soon as Stage 1 produces a title. Wikidata
+        // enrichment continues in-place after promotion.
+        var title = metadata.GetValueOrDefault("title");
+        if (string.IsNullOrWhiteSpace(title) || title is "Untitled" or "Unknown")
         {
             _logger.LogInformation(
-                "Auto-organize blocked for {Id}: no confirmed Wikidata QID — file stays in staging",
+                "Auto-organize blocked for {Id}: no resolved title — file stays in watch folder",
                 assetId);
             return;
         }

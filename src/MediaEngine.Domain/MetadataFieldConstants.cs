@@ -52,6 +52,7 @@ public static class MetadataFieldConstants
     public const string EpisodeTitle    = "episode_title";
     public const string Network         = "network";
     public const string Biography       = "biography";
+    public const string QidResolutionMethod = "qid_resolution_method";
 
     // ── Child entity discovery claims ────────────────────────────────────────
     public const string SeasonCount       = "season_count";

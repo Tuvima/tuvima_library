@@ -1394,77 +1394,36 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 gateRelativePath.Replace('\\', '/'),
                 StringComparison.OrdinalIgnoreCase);
 
+        // Staging eliminated: files stay in the watch folder during initial processing.
+        // AutoOrganizeService moves them directly to the library after Stage 1 produces
+        // a resolved title. Review items are still created when the gate signals them.
         string currentPath = candidate.Path;
-        if (_options.AutoOrganize
-            && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            && !isAtTargetLocation)
+        if (gateResult.ReviewTrigger is not null)
         {
-            string stagingSubcategory = gateResult.StagingSubcategory;
+            await CreateIngestionReviewItemAsync(
+                assetId, gateResult.ReviewTrigger, scored.OverallConfidence,
+                gateResult.ReviewDetail!,
+                ct, ingestionRunId).ConfigureAwait(false);
 
             _logger.LogInformation(
-                "Moving to staging ({Subcategory}) — confidence {Confidence:P0} for {Path}",
-                stagingSubcategory, scored.OverallConfidence, candidate.Path);
+                "Review: asset {AssetId} queued for review — trigger={Trigger}",
+                assetId, gateResult.ReviewTrigger);
 
-            currentPath = await MoveToStagingAsync(currentPath, stagingSubcategory, ct, assetId)
-                              .ConfigureAwait(false) ?? currentPath;
-
-            _logger.LogInformation(
-                "Staging: asset {AssetId} staged at {Path}",
-                assetId, currentPath);
-
-            // Clean empty subdirectories left behind in the watch folder.
-            CleanEmptyWatchParents(candidate.Path, _options.WatchDirectory);
-
-            // History: staged.
+            // History: review created.
             await SafeActivityLogAsync(new SystemActivityEntry
             {
-                ActionType = SystemActionType.MovedToStaging,
+                ActionType = SystemActionType.ReviewItemCreated,
                 EntityId = assetId,
-                Detail = $"Moved to staging: {stagingSubcategory}",
+                Detail = $"Sent for review: {gateResult.ReviewTrigger}",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
-            if (gateResult.ReviewTrigger is not null)
-            {
-                await CreateIngestionReviewItemAsync(
-                    assetId, gateResult.ReviewTrigger, scored.OverallConfidence,
-                    gateResult.ReviewDetail!,
-                    ct, ingestionRunId).ConfigureAwait(false);
-
-                _logger.LogInformation(
-                    "Review: asset {AssetId} queued for review — trigger={Trigger}",
-                    assetId, gateResult.ReviewTrigger);
-
-                // History: review created.
-                await SafeActivityLogAsync(new SystemActivityEntry
-                {
-                    ActionType = SystemActionType.ReviewItemCreated,
-                    EntityId = assetId,
-                    Detail = $"Sent for review: {gateResult.ReviewTrigger}",
-                    IngestionRunId = ingestionRunId,
-                }, ct).ConfigureAwait(false);
-            }
-            else
-            {
-                _logger.LogWarning(
-                    "Review gap: asset {AssetId} in staging but no review entry created",
-                    assetId);
-            }
-
-            // Lifecycle log: staged.
-            var logStatus = gateResult.ReviewTrigger is not null ? "needs_review" : "staged";
-            try { await _ingestionLog.UpdateStatusAsync(logEntryId, logStatus,
+            // Lifecycle log: needs review.
+            try { await _ingestionLog.UpdateStatusAsync(logEntryId, "needs_review",
                 mediaType: resolvedMediaType.ToString(),
                 ct: ct).ConfigureAwait(false); }
             catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         }
-
-        // Update stored path when the file was moved to staging.
-        // This MUST happen before enqueuing hydration so that AutoOrganizeService
-        // reads the staging path (not the watch folder path) when it promotes the
-        // file to the organised library after hydration completes.
-        if (!string.Equals(currentPath, candidate.Path, StringComparison.Ordinal))
-            await _assetRepo.UpdateFilePathAsync(assetId, currentPath, ct).ConfigureAwait(false);
 
         // Phase 9→Pipeline: enqueue non-blocking three-stage hydration pipeline.
         // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
@@ -2345,68 +2304,17 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // =========================================================================
 
     /// <summary>
-    /// Moves a file from the Watch Folder to the staging directory ({LibraryRoot}/.data/staging/).
-    /// All files land in a flat per-item subdirectory using the first 12 chars of the asset GUID.
-    /// Status is tracked in the database — no subcategory subfolders on disk (except "rejected/").
-    /// Returns the new path on success, or <see langword="null"/> when LibraryRoot
-    /// is not configured or the move fails.
+    /// Staging eliminated (Phase 3): files stay in the watch folder during initial
+    /// processing and are moved directly to the library by AutoOrganizeService after
+    /// Stage 1 retail match produces a resolved title.
+    /// This method is retained as a no-op so existing call sites in the re-organize
+    /// path compile without change — all callers already handle the null return.
     /// </summary>
-    private async Task<string?> MoveToStagingAsync(
+    private static Task<string?> MoveToStagingAsync(
         string currentPath, string subcategory, CancellationToken ct,
         Guid? assetId = null)
     {
-        if (string.IsNullOrWhiteSpace(_options.StagingPath))
-            return null;
-
-        // Only stage files that are currently in the Watch Folder.
-        if (!string.IsNullOrWhiteSpace(_options.WatchDirectory)
-            && !currentPath.StartsWith(
-                    _options.WatchDirectory, StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        // "rejected" is the only named subcategory on disk — all other statuses are
-        // tracked in the database. All non-rejected files go into a flat per-item
-        // subdirectory using the first 12 chars of the asset GUID.
-        string stagingSubDir;
-        bool isRejected = string.Equals(subcategory, "rejected", StringComparison.OrdinalIgnoreCase);
-        if (isRejected)
-        {
-            stagingSubDir = Path.Combine(_options.StagingPath, "rejected");
-        }
-        else if (assetId.HasValue)
-        {
-            var itemDir = assetId.Value.ToString("N")[..12];
-            stagingSubDir = Path.Combine(_options.StagingPath, itemDir);
-        }
-        else
-        {
-            stagingSubDir = _options.StagingPath;
-        }
-        Directory.CreateDirectory(stagingSubDir);
-
-        var destPath = Path.Combine(stagingSubDir, Path.GetFileName(currentPath));
-
-        bool moved = await _organizer.ExecuteMoveAsync(currentPath, destPath, ct)
-                                      .ConfigureAwait(false);
-        if (moved)
-        {
-            _logger.LogInformation(
-                "Staged file: {Source} → {Dest} ({Subcategory})",
-                currentPath, destPath, subcategory);
-
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-            {
-                ActionType = Domain.Enums.SystemActionType.MovedToStaging,
-                EntityType = "MediaAsset",
-                Detail     = $"Staged {Path.GetFileName(currentPath)} ({subcategory})",
-            }, ct).ConfigureAwait(false);
-
-            return destPath;
-        }
-
-        _logger.LogWarning(
-            "Staging move failed for {Source} → {Dest}", currentPath, destPath);
-        return null;
+        return Task.FromResult<string?>(null);
     }
 
     // =========================================================================

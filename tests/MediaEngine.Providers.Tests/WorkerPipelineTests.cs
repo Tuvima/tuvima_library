@@ -96,6 +96,7 @@ public sealed class WorkerPipelineTests
             new StubWorkRepository(),
             new WorkClaimRouter(),
             new StubHttpClientFactory(),
+            null!, // PostPipelineService — not exercised in this test
             NullLogger<RetailMatchWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -166,6 +167,7 @@ public sealed class WorkerPipelineTests
             new StubWorkRepository(),
             new WorkClaimRouter(),
             new StubHttpClientFactory(),
+            null!, // PostPipelineService — not exercised in this test
             NullLogger<RetailMatchWorker>.Instance);
 
         await retailWorker.PollAsync(CancellationToken.None);
@@ -192,6 +194,7 @@ public sealed class WorkerPipelineTests
             new StubWorkRepository(),
             new WorkClaimRouter(),
             new CatalogUpsertService(new StubWorkRepository()),
+            new StubIngestionBatchRepository(),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var bridgeProcessed = await bridgeWorker.PollAsync(CancellationToken.None);
@@ -252,6 +255,7 @@ public sealed class WorkerPipelineTests
             new StubWorkRepository(),
             new WorkClaimRouter(),
             new CatalogUpsertService(new StubWorkRepository()),
+            new StubIngestionBatchRepository(),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -381,11 +385,16 @@ public sealed class WorkerPipelineTests
             IReadOnlyList<IdentityJobState> states,
             int batchSize,
             TimeSpan leaseDuration,
+            IReadOnlyList<string>? excludeRunIds = null,
             CancellationToken ct = default)
         {
             var stateStrings = states.Select(s => s.ToString()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var excluded = excludeRunIds is { Count: > 0 }
+                ? new HashSet<string>(excludeRunIds, StringComparer.OrdinalIgnoreCase)
+                : null;
             var matches = _jobs
-                .Where(j => stateStrings.Contains(j.State))
+                .Where(j => stateStrings.Contains(j.State)
+                         && (excluded is null || j.IngestionRunId is null || !excluded.Contains(j.IngestionRunId.ToString()!)))
                 .Take(batchSize)
                 .ToList();
 
@@ -438,6 +447,10 @@ public sealed class WorkerPipelineTests
                 _jobs.Where(j => j.State == state.ToString()).Take(limit).ToList());
 
         public Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
+
+        public Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(
+            IReadOnlyList<string> ingestionRunIds, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 
         public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
@@ -566,7 +579,7 @@ public sealed class WorkerPipelineTests
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
 
         // Remaining methods throw — not called during tests
-        public CoreConfiguration LoadCore() => throw new NotImplementedException();
+        public CoreConfiguration LoadCore() => new();
         public void SaveCore(CoreConfiguration config) => throw new NotImplementedException();
         public void SaveScoring(ScoringSettings settings) => throw new NotImplementedException();
         public MaintenanceSettings LoadMaintenance() => throw new NotImplementedException();

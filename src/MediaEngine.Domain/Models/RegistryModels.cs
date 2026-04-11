@@ -80,6 +80,10 @@ public sealed record RegistryItem
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
 
+    /// <summary>How the Wikidata QID was resolved: "bridge", "text", or "album".</summary>
+    [JsonPropertyName("qid_resolution_method")]
+    public string? QidResolutionMethod { get; init; }
+
     [JsonPropertyName("hero_url")]
     public string? HeroUrl { get; init; }
 }

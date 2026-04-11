@@ -38,7 +38,7 @@ public enum ColumnRenderType
     Text,
     /// <summary>The media cell: thumbnail + title + subtitle + creator.</summary>
     MediaCell,
-    /// <summary>Pipeline stage dots (4 StageGate components: File, Retail, Wikidata, Universe).</summary>
+    /// <summary>Pipeline stage dots (2 StageGate components: Identified, Enriched).</summary>
     Pipeline,
     /// <summary>Status pill component.</summary>
     StatusPill,

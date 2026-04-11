@@ -47,6 +47,7 @@ public sealed class RetailMatchWorker
     private readonly IWorkRepository _workRepo;
     private readonly WorkClaimRouter _claimRouter;
     private readonly IHttpClientFactory _httpFactory;
+    private readonly PostPipelineService _postPipeline;
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
@@ -85,6 +86,7 @@ public sealed class RetailMatchWorker
         IWorkRepository workRepo,
         WorkClaimRouter claimRouter,
         IHttpClientFactory httpFactory,
+        PostPipelineService postPipeline,
         ILogger<RetailMatchWorker> logger)
     {
         _jobRepo = jobRepo;
@@ -102,6 +104,7 @@ public sealed class RetailMatchWorker
         _workRepo = workRepo;
         _claimRouter = claimRouter;
         _httpFactory = httpFactory;
+        _postPipeline = postPipeline;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -121,7 +124,7 @@ public sealed class RetailMatchWorker
             [IdentityJobState.Queued],
             _batchSize,
             LeaseDuration,
-            ct);
+            ct: ct);
 
         // Separate Music and TV jobs for group processing; everything else is per-item.
         var musicJobs = new List<IdentityJob>();
@@ -691,6 +694,19 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "Music: track '{FileTitle}' → '{MatchedTitle}' from Apple iTunes album lookup (score {Score:F2}) [entity {EntityId}]",
                 fileTitle ?? "(unknown)", candidateTitle, retailScore.CompositeScore, job.EntityId);
+
+            try
+            {
+                await _postPipeline.EvaluateAndOrganizeAsync(
+                    job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception orgEx) when (orgEx is not OperationCanceledException)
+            {
+                _logger.LogWarning(orgEx,
+                    "Music: post-retail organization failed for entity {EntityId} — pipeline continues",
+                    job.EntityId);
+            }
         }
         else if (outcome == "Ambiguous")
         {
@@ -907,7 +923,7 @@ public sealed class RetailMatchWorker
             showName ?? "(unknown)",
             yearHint.HasValue ? $" (year={yearHint.Value})" : "",
             groupJobs.Count);
-        var tvId = await SearchTmdbShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
+        var (tvId, showPosterPath) = await SearchTmdbShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
 
         if (tvId is null)
         {
@@ -960,7 +976,7 @@ public sealed class RetailMatchWorker
             try
             {
                 await ApplyTvEpisodeAsync(
-                    job, hints, allEpisodes, tvId,
+                    job, hints, allEpisodes, tvId, showPosterPath,
                     tmdbProvider, retailAcceptThreshold, retailAmbiguousThreshold, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -974,17 +990,17 @@ public sealed class RetailMatchWorker
     }
 
     /// <summary>
-    /// Searches TMDB for a TV show by name. Returns the tv_id string, or null if not found.
+    /// Searches TMDB for a TV show by name. Returns the tv_id string and poster_path, or nulls if not found.
     /// When <paramref name="yearHint"/> is supplied, the search is filtered server-side by
     /// <c>first_air_date_year</c> and a year-match bonus is added during local scoring so
     /// shows with the right premiere year outrank similarly-named shows from other eras.
     /// Falls back to an unfiltered search if the year filter returns nothing.
     /// </summary>
-    private async Task<string?> SearchTmdbShowAsync(
+    private async Task<(string? TvId, string? PosterPath)> SearchTmdbShowAsync(
         string? showName, int? yearHint, string apiKey, string lang, string country, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(showName))
-            return null;
+            return (null, null);
 
         var query   = Uri.EscapeDataString(showName.Trim());
         var baseUrl = $"https://api.themoviedb.org/3/search/tv?query={query}&include_adult=false&language={lang}-{country}&page=1&api_key={apiKey}";
@@ -1012,11 +1028,12 @@ public sealed class RetailMatchWorker
             }
 
             if (results is null || results.Count == 0)
-                return null;
+                return (null, null);
 
             // Pick the best match by show name similarity, biased by year proximity.
             double bestScore = 0.0;
             string? bestId = null;
+            string? bestPosterPath = null;
 
             foreach (var result in results)
             {
@@ -1058,6 +1075,7 @@ public sealed class RetailMatchWorker
                 {
                     bestScore = score;
                     bestId = resultId;
+                    bestPosterPath = result["poster_path"]?.GetValue<string>();
                 }
             }
 
@@ -1067,19 +1085,19 @@ public sealed class RetailMatchWorker
                     "TV: TMDB show search matched tv_id={Id} (score={Score:F2}) for '{ShowName}'{YearHint}",
                     bestId, bestScore, showName,
                     yearHint.HasValue ? $" (year={yearHint.Value})" : "");
-                return bestId;
+                return (bestId, bestPosterPath);
             }
 
             _logger.LogInformation(
                 "TV: TMDB show search — best score {Score:F2} below threshold for '{ShowName}'",
                 bestScore, showName);
-            return null;
+            return (null, null);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex,
                 "RetailMatchWorker: TMDB show search failed for '{ShowName}'", showName);
-            return null;
+            return (null, null);
         }
     }
 
@@ -1133,6 +1151,7 @@ public sealed class RetailMatchWorker
         IReadOnlyDictionary<string, string> fileHints,
         IReadOnlyList<(string Season, JsonNode Node)> allEpisodes,
         string tvId,
+        string? showPosterPath,
         IExternalMetadataProvider? tmdbProvider,
         double retailAcceptThreshold,
         double retailAmbiguousThreshold,
@@ -1203,7 +1222,8 @@ public sealed class RetailMatchWorker
 
         var showName     = fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
-        var claims = BuildTvEpisodeClaims(bestEpisode, tvId, showName, fileSeason);
+        var showPosterUrl = BuildTmdbImageUrl(showPosterPath);
+        var claims = BuildTvEpisodeClaims(bestEpisode, tvId, showName, fileSeason, showPosterUrl);
 
         // For retail scoring, the candidate title is the episode title and author/creator
         // is the show name (best available approximation for TV scoring).
@@ -1298,7 +1318,7 @@ public sealed class RetailMatchWorker
                 structural_boost   = structuralAdjustment,
             }),
             BridgeIdsJson      = bridgeIdsJson,
-            ImageUrl           = BuildTmdbImageUrl(bestEpisode["still_path"]?.GetValue<string>()),
+            ImageUrl           = showPosterUrl ?? BuildTmdbImageUrl(bestEpisode["still_path"]?.GetValue<string>()),
             Outcome            = outcome,
         };
 
@@ -1348,6 +1368,19 @@ public sealed class RetailMatchWorker
                 "TV: '{ShowName}' S{Season}E{Episode} — '{EpisodeTitle}' matched on TMDB (score {Score:F2}) [entity {EntityId}]",
                 showName ?? "(unknown)", fileSeason, fileEpisodeNumber ?? "?",
                 candidateTitle, adjustedComposite, job.EntityId);
+
+            try
+            {
+                await _postPipeline.EvaluateAndOrganizeAsync(
+                    job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception orgEx) when (orgEx is not OperationCanceledException)
+            {
+                _logger.LogWarning(orgEx,
+                    "TV: post-retail organization failed for entity {EntityId} — pipeline continues",
+                    job.EntityId);
+            }
         }
         else if (outcome == "Ambiguous")
         {
@@ -1383,7 +1416,7 @@ public sealed class RetailMatchWorker
     /// Includes show-level bridge ID (tmdb_id for the show) so Stage 2 can bridge to Wikidata.
     /// </summary>
     private static IReadOnlyList<ProviderClaim> BuildTvEpisodeClaims(
-        JsonNode episode, string showTvId, string? showName, string season)
+        JsonNode episode, string showTvId, string? showName, string season, string? showPosterUrl = null)
     {
         var claims = new List<ProviderClaim>();
 
@@ -1394,6 +1427,7 @@ public sealed class RetailMatchWorker
         }
 
         Add(MetadataFieldConstants.EpisodeTitle, episode["name"]?.GetValue<string>(), 0.85);
+        Add(MetadataFieldConstants.Cover, showPosterUrl, 0.90);
 
         // For TV, "title" in the system is typically the episode title.
         Add(MetadataFieldConstants.Title,         episode["name"]?.GetValue<string>(), 0.80);
@@ -1803,6 +1837,19 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "Retail match found for entity {EntityId}: '{Title}' from {Provider} (score: {Score:F2})",
                 job.EntityId, bestCandidate.Title, bestCandidate.ProviderName, bestScore);
+
+            try
+            {
+                await _postPipeline.EvaluateAndOrganizeAsync(
+                    job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception orgEx) when (orgEx is not OperationCanceledException)
+            {
+                _logger.LogWarning(orgEx,
+                    "Post-retail organization failed for entity {EntityId} — pipeline continues",
+                    job.EntityId);
+            }
         }
         else if (bestCandidate is not null && bestScore >= retailAmbiguousThreshold)
         {

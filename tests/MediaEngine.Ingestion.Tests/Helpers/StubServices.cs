@@ -79,7 +79,7 @@ internal sealed class StubIdentityJobRepository : IIdentityJobRepository
     public Task<IdentityJob?> GetByIdAsync(Guid jobId, CancellationToken ct = default)
         => Task.FromResult<IdentityJob?>(null);
 
-    public Task<IReadOnlyList<IdentityJob>> LeaseNextAsync(string workerName, IReadOnlyList<IdentityJobState> states, int batchSize, TimeSpan leaseDuration, CancellationToken ct = default)
+    public Task<IReadOnlyList<IdentityJob>> LeaseNextAsync(string workerName, IReadOnlyList<IdentityJobState> states, int batchSize, TimeSpan leaseDuration, IReadOnlyList<string>? excludeRunIds = null, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyList<IdentityJob>>([]);
 
     public Task UpdateStateAsync(Guid jobId, IdentityJobState newState, string? error = null, CancellationToken ct = default)
@@ -98,6 +98,10 @@ internal sealed class StubIdentityJobRepository : IIdentityJobRepository
         => Task.FromResult<IReadOnlyList<IdentityJob>>([]);
 
     public Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default)
+        => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
+
+    public Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(
+        IReadOnlyList<string> ingestionRunIds, CancellationToken ct = default)
         => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 
     public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)

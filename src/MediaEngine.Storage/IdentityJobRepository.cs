@@ -77,6 +77,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         IReadOnlyList<IdentityJobState> states,
         int batchSize,
         TimeSpan leaseDuration,
+        IReadOnlyList<string>? excludeRunIds = null,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
@@ -85,6 +86,12 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         var leaseExpiry = DateTimeOffset.UtcNow.Add(leaseDuration).ToString("O");
         // Build IN clause from enum values (safe — not user input).
         var stateList = string.Join(", ", states.Select(s => $"'{s}'"));
+
+        // Build optional exclusion clause. Jobs with NULL ingestion_run_id
+        // (ad-hoc / manual) always pass through regardless of the gate.
+        var excludeClause = excludeRunIds is { Count: > 0 }
+            ? $"AND (ingestion_run_id IS NULL OR ingestion_run_id NOT IN ({string.Join(", ", excludeRunIds.Select(id => $"'{id}'"))}))"
+            : "";
 
         var sql = $"""
             UPDATE identity_jobs
@@ -96,6 +103,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 WHERE  state IN ({stateList})
                   AND  (lease_owner IS NULL OR lease_expires_at < @now)
                   AND  (next_retry_at IS NULL OR next_retry_at <= @now)
+                  {excludeClause}
                 ORDER BY created_at ASC
                 LIMIT  @batchSize
             )
@@ -263,6 +271,35 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         var count = conn.ExecuteScalar<int>(
             "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Completed', 'Failed')");
         return Task.FromResult(count);
+    }
+
+    public Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(
+        IReadOnlyList<string> ingestionRunIds, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        if (ingestionRunIds.Count == 0)
+            return Task.FromResult<IReadOnlyDictionary<string, int>>(
+                new Dictionary<string, int>());
+
+        // Build IN clause from caller-supplied run ID strings.
+        // Values are GUIDs written by this codebase — not free-form user input.
+        var idList = string.Join(", ", ingestionRunIds.Select(id => $"'{id}'"));
+
+        var sql = $"""
+            SELECT ingestion_run_id, COUNT(*) AS cnt
+            FROM   identity_jobs
+            WHERE  ingestion_run_id IN ({idList})
+              AND  state IN ('Queued', 'RetailSearching')
+            GROUP BY ingestion_run_id;
+            """;
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query(sql);
+        IReadOnlyDictionary<string, int> result = rows.ToDictionary(
+            r => (string)r.ingestion_run_id,
+            r => (int)r.cnt);
+        return Task.FromResult(result);
     }
 
     public Task ReleasLeaseAsync(Guid jobId, CancellationToken ct = default)

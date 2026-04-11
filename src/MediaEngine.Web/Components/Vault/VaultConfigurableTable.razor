@@ -361,10 +361,8 @@ else
 
                                     case ColumnRenderType.Pipeline:
                                         <div class="vmt-pipeline">
-                                            <StageGate Stage="@item.Stage0" />
-                                            <StageGate Stage="@item.Stage1" />
-                                            <StageGate Stage="@item.Stage2" />
-                                            <StageGate Stage="@item.Stage3" IsLast="true" />
+                                            <StageGate Stage="@item.IdentifiedStage" />
+                                            <StageGate Stage="@item.EnrichedStage" IsLast="true" />
                                         </div>
                                         break;
 
@@ -757,8 +755,8 @@ else
     }
 
     .vmt-thead-row {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-        background: rgb(18, 18, 18);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgb(32, 32, 32);
         position: sticky;
         top: 0;
         z-index: 2;
@@ -768,7 +766,7 @@ else
         padding: 8px 16px;
         font-size: 10px;
         font-weight: 800;
-        color: rgba(255, 255, 255, 0.25);
+        color: rgba(255, 255, 255, 0.60);
         text-transform: uppercase;
         letter-spacing: 0.1em;
     }

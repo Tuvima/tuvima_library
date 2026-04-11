@@ -41,6 +41,7 @@ public sealed class WikidataBridgeWorker
     private readonly IWorkRepository _workRepo;
     private readonly WorkClaimRouter _claimRouter;
     private readonly CatalogUpsertService _catalogUpsert;
+    private readonly IIngestionBatchRepository _batchRepo;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
@@ -68,6 +69,7 @@ public sealed class WikidataBridgeWorker
         IWorkRepository workRepo,
         WorkClaimRouter claimRouter,
         CatalogUpsertService catalogUpsert,
+        IIngestionBatchRepository batchRepo,
         ILogger<WikidataBridgeWorker> logger)
     {
         _jobRepo = jobRepo;
@@ -84,6 +86,7 @@ public sealed class WikidataBridgeWorker
         _workRepo = workRepo;
         _claimRouter = claimRouter;
         _catalogUpsert = catalogUpsert;
+        _batchRepo = batchRepo;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -120,12 +123,20 @@ public sealed class WikidataBridgeWorker
         // ── Phase 1: Lease ────────────────────────────────────────────────────
         // Strict retail gate: only RetailMatched or RetailMatchedNeedsReview.
         // RetailNoMatch is NEVER included — enforced at the SQL level.
+        //
+        // Batch gate: when enabled, Stage 2 waits until all Stage 1 jobs for a
+        // given ingestion run have completed. This lets the full album / season /
+        // series land in one cohesive Wikidata batch instead of trickling in
+        // piecemeal and paying for redundant per-album calls.
+        var gatedRunIds = await GetGatedRunIdsAsync(ct);
+
         var jobs = await _jobRepo.LeaseNextAsync(
             "WikidataBridgeWorker",
             [IdentityJobState.RetailMatched, IdentityJobState.RetailMatchedNeedsReview],
             _batchSize,
             LeaseDuration,
-            ct);
+            excludeRunIds: gatedRunIds.Count > 0 ? gatedRunIds : null,
+            ct: ct);
 
         if (jobs.Count == 0)
             return 0;
@@ -297,6 +308,21 @@ public sealed class WikidataBridgeWorker
                     _                                  => null,
                 };
 
+                // Persist the resolution method as a canonical value so the
+                // Vault can filter items by how their Wikidata match was made.
+                if (ctx.MatchedBy is not null)
+                {
+                    var canonicalMethod = ctx.MatchedBy switch
+                    {
+                        "bridge_id"          => "bridge",
+                        "text_reconciliation"=> "text",
+                        "music_album"        => "album",
+                        _                    => ctx.MatchedBy,
+                    };
+                    ctx.AdditionalClaims.Add(new ProviderClaim(
+                        MetadataFieldConstants.QidResolutionMethod, canonicalMethod, 1.0));
+                }
+
                 // Music tracks: ResolveMusicAlbumAsync returns the album QID but
                 // doesn't always emit it as a wikidata_qid claim — without this
                 // the track stalls because nothing downstream sees a resolved QID
@@ -351,6 +377,60 @@ public sealed class WikidataBridgeWorker
         }
 
         // ── Phase 6: Per-job finalisation ─────────────────────────────────────
+        // E1 — QID dedup: group resolved non-music contexts by (QID, MediaType)
+        // and call FetchAsync once per unique group. The fetched claims are stored
+        // on all sibling contexts so the per-job finalisation path can apply them
+        // without a second HTTP call (even if the adapter's response cache would
+        // have served it from memory, this makes the dedup explicit and measurable).
+        var resolvedNonMusicContexts = contexts
+            .Where(ctx => ctx.ResolvedQid is not null && ctx.MediaType != MediaType.Music)
+            .ToList();
+
+        var qidGroups = resolvedNonMusicContexts
+            .GroupBy(ctx => (ctx.ResolvedQid!, ctx.MediaType))
+            .ToList();
+
+        var dedupSavings = 0;
+        foreach (var group in qidGroups)
+        {
+            var siblings = group.ToList();
+            var representative = siblings[0];
+
+            IReadOnlyList<ProviderClaim>? sharedClaims = null;
+            try
+            {
+                sharedClaims = await reconAdapter.FetchAsync(
+                    new ProviderLookupRequest
+                    {
+                        EntityId       = representative.Job.EntityId,
+                        EntityType     = EntityType.MediaAsset,
+                        MediaType      = representative.MediaType,
+                        Title          = representative.TitleHint,
+                        PreResolvedQid = representative.ResolvedQid,
+                    }, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Wikidata QID dedup: FetchAsync failed for QID {Qid} ({MediaType})",
+                    representative.ResolvedQid, representative.MediaType);
+            }
+
+            // Fan out the pre-fetched claims to all siblings. The representative gets
+            // them too, so FinaliseJobAsync skips its own FetchAsync call for all
+            // members of the group.
+            foreach (var sibling in siblings)
+                sibling.PreFetchedClaims = sharedClaims;
+
+            if (siblings.Count > 1)
+                dedupSavings += siblings.Count - 1;
+        }
+
+        if (dedupSavings > 0)
+            _logger.LogInformation(
+                "Wikidata: QID dedup saved {Savings} FetchAsync call(s) across {Groups} unique QID group(s)",
+                dedupSavings, qidGroups.Count(g => g.Count() > 1));
+
         var allCandidates = new List<WikidataBridgeCandidate>();
 
         foreach (var ctx in contexts)
@@ -481,42 +561,52 @@ public sealed class WikidataBridgeWorker
                 return;
 
             // Fetch full properties now that we have a QID.
-            // The adapter's response cache means jobs sharing a QID pay for one HTTP
-            // call; subsequent jobs with the same QID in the same poll cycle get a
-            // cache hit.
-            try
+            // Phase 6 QID dedup (E1): if a pre-fetched claims set was computed
+            // for this QID group, use it directly — no HTTP call needed.
+            // Otherwise fall back to FetchAsync (covers the single-job case and
+            // any group whose representative FetchAsync failed).
+            IReadOnlyList<ProviderClaim> fullClaims;
+            if (ctx.PreFetchedClaims is not null)
             {
-                var fullClaims = await reconAdapter.FetchAsync(
-                    new ProviderLookupRequest
-                    {
-                        EntityId       = job.EntityId,
-                        EntityType     = EntityType.MediaAsset,
-                        MediaType      = ctx.MediaType,
-                        Title          = ctx.TitleHint,
-                        PreResolvedQid = ctx.ResolvedQid,
-                    }, ct);
-
-                if (fullClaims.Count > 0)
+                fullClaims = ctx.PreFetchedClaims;
+            }
+            else
+            {
+                try
                 {
-                    // Phase 3c: lineage-aware persist mirrors parent-scope
-                    // display claims (show_name, year, description, cover,
-                    // genre, cast) onto the parent Work — the show or series.
-                    await ScoringHelper.PersistAndScoreWithLineageAsync(
-                        job.EntityId, fullClaims, reconAdapter.ProviderId, lineage,
-                        _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
-                        logger: _logger);
-
-                    // Phase 3b: route the QID and container fields onto the
-                    // correct Work, then upsert any catalog children.
-                    await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
-                        fullClaims, ct);
+                    fullClaims = await reconAdapter.FetchAsync(
+                        new ProviderLookupRequest
+                        {
+                            EntityId       = job.EntityId,
+                            EntityType     = EntityType.MediaAsset,
+                            MediaType      = ctx.MediaType,
+                            Title          = ctx.TitleHint,
+                            PreResolvedQid = ctx.ResolvedQid,
+                        }, ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Full property fetch failed for QID {Qid} (entity {EntityId})",
+                        ctx.ResolvedQid, job.EntityId);
+                    fullClaims = [];
                 }
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+
+            if (fullClaims.Count > 0)
             {
-                _logger.LogWarning(ex,
-                    "Full property fetch failed for QID {Qid} (entity {EntityId})",
-                    ctx.ResolvedQid, job.EntityId);
+                // Phase 3c: lineage-aware persist mirrors parent-scope
+                // display claims (show_name, year, description, cover,
+                // genre, cast) onto the parent Work — the show or series.
+                await ScoringHelper.PersistAndScoreWithLineageAsync(
+                    job.EntityId, fullClaims, reconAdapter.ProviderId, lineage,
+                    _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
+                    logger: _logger);
+
+                // Phase 3b: route the QID and container fields onto the
+                // correct Work, then upsert any catalog children.
+                await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                    fullClaims, ct);
             }
         }
         else
@@ -561,11 +651,18 @@ public sealed class WikidataBridgeWorker
                                 Outcome      = "AutoAccepted",
                             });
 
+                            // Include the resolution method alongside the fetched claims
+                            // so it is persisted in the same PersistAndScoreWithLineageAsync call.
+                            var fallbackClaimsWithMethod = new List<ProviderClaim>(fallbackClaims)
+                            {
+                                new ProviderClaim(MetadataFieldConstants.QidResolutionMethod, "text", 1.0),
+                            };
+
                             // Phase 3c: lineage-aware persist for the
                             // text-fallback path so parent-scope claims still
                             // mirror onto the parent Work.
                             await ScoringHelper.PersistAndScoreWithLineageAsync(
-                                job.EntityId, fallbackClaims, reconAdapter.ProviderId, lineage,
+                                job.EntityId, fallbackClaimsWithMethod, reconAdapter.ProviderId, lineage,
                                 _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                                 logger: _logger);
 
@@ -722,6 +819,20 @@ public sealed class WikidataBridgeWorker
                     _                                  => null,
                 };
 
+                // Persist the resolution method as a canonical value (mirrors batch path).
+                if (ctx.MatchedBy is not null)
+                {
+                    var canonicalMethod = ctx.MatchedBy switch
+                    {
+                        "bridge_id"          => "bridge",
+                        "text_reconciliation"=> "text",
+                        "music_album"        => "album",
+                        _                    => ctx.MatchedBy,
+                    };
+                    ctx.AdditionalClaims.Add(new ProviderClaim(
+                        MetadataFieldConstants.QidResolutionMethod, canonicalMethod, 1.0));
+                }
+
                 // Music tracks: ensure the album QID is also persisted as a
                 // wikidata_qid claim on the track asset (see PollAsync Phase 5).
                 if (result.MatchedBy == ResolveStrategy.MusicAlbum
@@ -812,6 +923,81 @@ public sealed class WikidataBridgeWorker
                 "Full property fetch failed for QID {Qid} (entity {EntityId})",
                 qid, entityId);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Batch gate (D4) — computed before every poll cycle
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Returns the set of ingestion run IDs that the batch gate is currently
+    /// holding back from Stage 2. A run is gated when:
+    ///   • <c>batch_gate.enabled</c> is true, AND
+    ///   • the run's total file count is above <c>small_batch_threshold</c>, AND
+    ///   • the run started less than <c>timeout_seconds</c> ago, AND
+    ///   • at least one Stage 1 job (Queued or RetailSearching) still exists
+    ///     for that run.
+    ///
+    /// Ad-hoc jobs (NULL ingestion_run_id) are always excluded from gating by
+    /// <see cref="IIdentityJobRepository.LeaseNextAsync"/>, so they never appear
+    /// in the pending-count query results.
+    /// </summary>
+    private async Task<IReadOnlyList<string>> GetGatedRunIdsAsync(CancellationToken ct)
+    {
+        var gate = _configLoader.LoadCore().Pipeline.BatchGate;
+
+        if (!gate.Enabled)
+            return [];
+
+        // Collect distinct run IDs from the current Stage 2 ready pool by
+        // temporarily leasing a small probe batch and immediately releasing any
+        // that are gated. To avoid that complexity, we instead look at the
+        // Stage 1 pending counts directly: any run ID that GetPendingStage1CountsByRunAsync
+        // reports as having pending jobs is a candidate for gating.
+        //
+        // We can't easily enumerate all run IDs without a dedicated query.
+        // The practical approach: get the recent running batches from the batch
+        // repository and filter them. This is cheap (indexed PK lookup).
+        var recentBatches = await _batchRepo.GetRecentAsync(limit: 50, ct);
+
+        // Only "running" batches are candidates — completed/failed batches have no
+        // remaining Stage 1 jobs to wait for.
+        var runningBatches = recentBatches
+            .Where(b => string.Equals(b.Status, "running", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (runningBatches.Count == 0)
+            return [];
+
+        var timeoutCutoff = DateTimeOffset.UtcNow.AddSeconds(-gate.TimeoutSeconds);
+
+        // Pre-filter: batches that have already timed out or are too small skip the gate.
+        var candidateRunIds = runningBatches
+            .Where(b => b.FilesTotal > gate.SmallBatchThreshold)
+            .Where(b => b.StartedAt >= timeoutCutoff)
+            .Select(b => b.Id.ToString())
+            .ToList();
+
+        if (candidateRunIds.Count == 0)
+            return [];
+
+        // Ask the job repo which of these candidate runs still have Stage 1 pending jobs.
+        var pendingCounts = await _jobRepo.GetPendingStage1CountsByRunAsync(candidateRunIds, ct);
+
+        // Only runs with at least one Stage 1 job still pending get gated.
+        var gated = pendingCounts.Keys
+            .Where(runId => pendingCounts[runId] > 0)
+            .ToList();
+
+        if (gated.Count > 0)
+        {
+            _logger.LogInformation(
+                "Wikidata: gating {Count} batch(es) — Stage 1 still in progress [{RunIds}]",
+                gated.Count,
+                string.Join(", ", gated));
+        }
+
+        return gated;
     }
 
     // -------------------------------------------------------------------------
@@ -935,6 +1121,10 @@ public sealed class WikidataBridgeWorker
         public string? PrimaryBridgeIdType { get; set; }
         public List<ProviderClaim> AdditionalClaims { get; } = [];
         public IReadOnlyDictionary<string, string>? CollectedBridgeIds { get; set; }
+
+        // Populated during Phase 6 QID dedup (E1). When set, FinaliseJobAsync uses
+        // these claims instead of calling FetchAsync again for this job.
+        public IReadOnlyList<ProviderClaim>? PreFetchedClaims { get; set; }
 
         public JobContext(
             IdentityJob Job,

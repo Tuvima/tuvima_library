@@ -80,4 +80,7 @@ public sealed class ReviewQueueEntry
     /// Null for automated resolutions.
     /// </summary>
     public string? ResolvedBy { get; set; }
+
+    /// <summary>Engine-level root cause (5 categories). UI shows the specific Trigger for detail.</summary>
+    public string? RootCause { get; set; }
 }

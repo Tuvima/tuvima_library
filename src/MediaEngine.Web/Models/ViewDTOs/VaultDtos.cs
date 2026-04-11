@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public enum VaultStageState { Completed, Warning, Failed, Pending, Running }
 
 /// <summary>Vault item display statuses.</summary>
-public enum VaultStatus { Verified, Provisional, NeedsReview, Quarantined, WaitingForProvider, Unowned }
+public enum VaultStatus { Verified, Provisional, NeedsReview, Quarantined, WaitingForProvider, Unowned, RetailMatched }
 
 /// <summary>A single pipeline stage indicator.</summary>
 public sealed class VaultPipelineStage
@@ -76,6 +76,10 @@ public sealed class VaultItemViewModel
     public VaultPipelineStage Stage1 => ComputeRetailStage();
     public VaultPipelineStage Stage2 => ComputeWikidataStage();
     public VaultPipelineStage Stage3 => ComputeUniverseStage();
+
+    // Computed: 2-phase model (Identified = Retail+Wikidata combined, Enriched = Universe/enrichment)
+    public VaultPipelineStage IdentifiedStage => ComputeIdentifiedStage();
+    public VaultPipelineStage EnrichedStage   => ComputeEnrichedStage();
 
     // Computed: confidence segments (0-5) for the 5-bar indicator
     public int ConfidenceSegments => (int)Math.Round(Confidence * 5);
@@ -164,6 +168,10 @@ public sealed class VaultItemViewModel
             "AuthorityMatchFailed" or "ContentMatchFailed" or "StagedUnidentifiable"
             or "PlaceholderTitle" or "WikidataBridgeFailed" or "RetailMatchFailed")
             return VaultStatus.NeedsReview;
+
+        // RetailMatched — retail data resolved, Wikidata enrichment in progress
+        if (string.Equals(Status, "RetailMatched", StringComparison.OrdinalIgnoreCase))
+            return VaultStatus.RetailMatched;
 
         // Provisional or AwaitingStage2 without failed triggers → Provisional
         if (string.Equals(Status, "Provisional", StringComparison.OrdinalIgnoreCase)
@@ -370,6 +378,57 @@ public sealed class VaultItemViewModel
             && !MissingUniverse)
             return new VaultPipelineStage { State = VaultStageState.Completed, Label = "Universe: Mapped" };
         return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Universe: Pending" };
+    }
+
+    /// <summary>
+    /// Combined Retail + Wikidata stage for the 2-phase pipeline display.
+    /// Running (blue pulse) when retail matched but Wikidata not yet resolved.
+    /// </summary>
+    private VaultPipelineStage ComputeIdentifiedStage()
+    {
+        var retail   = ComputeRetailStage();
+        var wikidata = ComputeWikidataStage();
+
+        // Either stage failed
+        if (retail.State == VaultStageState.Failed || wikidata.State == VaultStageState.Failed)
+        {
+            var failedLabel = retail.State == VaultStageState.Failed ? retail.Label : wikidata.Label;
+            return new VaultPipelineStage { State = VaultStageState.Failed, Label = failedLabel };
+        }
+
+        // Fully identified: Wikidata QID obtained
+        if (wikidata.State == VaultStageState.Completed)
+            return new VaultPipelineStage { State = VaultStageState.Completed, Label = wikidata.Label };
+
+        // Retail matched but Wikidata not yet resolved → in-progress
+        if (retail.State == VaultStageState.Completed)
+            return new VaultPipelineStage { State = VaultStageState.Running, Label = "Retail matched — awaiting Wikidata" };
+
+        // Warning (ambiguous match at either stage)
+        if (retail.State == VaultStageState.Warning || wikidata.State == VaultStageState.Warning)
+        {
+            var warnLabel = retail.State == VaultStageState.Warning ? retail.Label : wikidata.Label;
+            return new VaultPipelineStage { State = VaultStageState.Warning, Label = warnLabel };
+        }
+
+        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Not yet identified" };
+    }
+
+    /// <summary>
+    /// Enrichment stage (cover art, people, characters, descriptions) for the 2-phase pipeline display.
+    /// Mapped from the Universe/enrichment Stage3.
+    /// </summary>
+    private VaultPipelineStage ComputeEnrichedStage()
+    {
+        var universe = ComputeUniverseStage();
+        return universe.State switch
+        {
+            VaultStageState.Completed => new VaultPipelineStage { State = VaultStageState.Completed, Label = universe.Label },
+            VaultStageState.Running   => new VaultPipelineStage { State = VaultStageState.Running,   Label = "Enrichment in progress" },
+            VaultStageState.Warning   => new VaultPipelineStage { State = VaultStageState.Warning,   Label = universe.Label },
+            VaultStageState.Failed    => new VaultPipelineStage { State = VaultStageState.Failed,    Label = universe.Label },
+            _                         => new VaultPipelineStage { State = VaultStageState.Pending,   Label = "Enrichment pending" },
+        };
     }
 }
 
