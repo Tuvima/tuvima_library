@@ -39,7 +39,9 @@ On the **Curator's Drawer** (accessible from Server Settings), the user can:
 
 6. **User corrections are final.** When a user locks a value via the Curator's Drawer, that Claim receives a confidence of 1.0 and is never overridden by any future re-scoring — regardless of what any provider says later.
 
-7. **The winning values are stored as "Canonical Values"** — the single trusted answer used everywhere in the Dashboard.
+7. **Bridge resolution validates entity type.** After Wikidata bridge resolution returns a QID, the entity's P31 (instance_of) is checked against the requesting media type's allowed and excluded classes. If the resolved entity is the wrong type — e.g. a film entity resolved via a book's ISBN — the result is rejected before any claims enter the cascade. This prevents wrong-type Wikidata claims from contaminating the cascade, where they would otherwise win unconditionally in Tier C (Wikidata authority).
+
+8. **The winning values are stored as "Canonical Values"** — the single trusted answer used everywhere in the Dashboard.
 
 ---
 

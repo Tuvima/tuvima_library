@@ -68,6 +68,10 @@ Metadata enrichment is a strict two-stage sequence. The stages are never reverse
 
 **Stage 2 — Wikidata Bridge Resolution:** Bridge IDs from Stage 1 are used to resolve a canonical Wikidata entity (QID) via the `Tuvima.Wikidata` v2.4.1 `Stage2Service` sub-service. This provides universe linkage, person relationships, and canonical metadata authority. If Stage 2 finds no QID, the item keeps its retail data and is flagged for periodic re-checking. The text-only Wikidata fallback (sentinel-only Stage 2 calls with no real bridge IDs) is disabled — Stage 1 must supply real bridge IDs.
 
+**Post-resolution P31 validation:** After bridge resolution returns a QID and Data Extension fetches its properties, the adapter validates the entity's P31 (instance_of) against `exclude_classes` and `instance_of_classes` from `wikidata_reconciliation.json` for the requesting media type. If the entity type doesn't match — for example, a book's ISBN resolving to a film entity (P31 = Q11424) because both share the same ISBN — the result is rejected and the text fallback retries with CirrusSearch type filtering. This prevents cross-type contamination where a single shared identifier could pull in entirely wrong metadata.
+
+**CirrusSearch type narrowing:** When text fallback searches Wikidata via CirrusSearch, `GetCirrusTypesForMediaType` now prefers narrow `work_classes` from the edition pivot config (e.g. Q571 literary work, Q7725634 written work for Books) over the broader `instance_of_classes`. This reduces false matches where a search term matches entities of the wrong media type.
+
 **Two-pass enrichment:** The Quick pass gets the item visible on the Dashboard fast (core identity + cover art). The Universe pass runs later in the background for deep enrichment (relationships, people, fictional entities, additional images).
 
 ---
