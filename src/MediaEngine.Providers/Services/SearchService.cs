@@ -391,6 +391,9 @@ public sealed class SearchService : ISearchService
             string? fieldTitle = null, fieldAuthor = null;
             string? fieldShowName = null, fieldAlbum = null, fieldArtist = null;
             string? fieldDirector = null, fieldComposer = null, fieldGenre = null;
+            string? fieldSeries = null, fieldNarrator = null;
+            string? fieldSeasonNumber = null, fieldEpisodeNumber = null, fieldTrackNumber = null;
+            string? fieldIsbn = null, fieldAsin = null;
             if (searchFields is { Count: > 0 })
             {
                 searchFields.TryGetValue("title", out fieldTitle);
@@ -408,25 +411,42 @@ public sealed class SearchService : ISearchService
                 searchFields.TryGetValue("director", out fieldDirector);
                 searchFields.TryGetValue("composer", out fieldComposer);
                 searchFields.TryGetValue("genre", out fieldGenre);
+                searchFields.TryGetValue("series", out fieldSeries);
+                searchFields.TryGetValue("narrator", out fieldNarrator);
+                searchFields.TryGetValue("season_number", out fieldSeasonNumber);
+                searchFields.TryGetValue("episode_number", out fieldEpisodeNumber);
+                searchFields.TryGetValue("track_number", out fieldTrackNumber);
+                searchFields.TryGetValue("isbn", out fieldIsbn);
+                searchFields.TryGetValue("asin", out fieldAsin);
+                // ShowName fallback: series → show_name (matches RetailMatchWorker)
+                if (fieldShowName is null)
+                    fieldShowName = fieldSeries;
             }
 
             var providerRequest = new ProviderLookupRequest
             {
-                EntityId   = Guid.NewGuid(),
-                EntityType = EntityType.Work,
-                MediaType  = mediaType,
-                Title      = fieldTitle ?? query,
-                Author     = fieldAuthor,
-                ShowName   = fieldShowName,
-                Album      = fieldAlbum,
-                Artist     = fieldArtist,
-                Director   = fieldDirector,
-                Composer   = fieldComposer,
-                Genre      = fieldGenre,
-                BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
-                Language   = "en",
-                Country    = "us",
-                Hints      = searchFields is { Count: > 0 }
+                EntityId      = Guid.NewGuid(),
+                EntityType    = EntityType.Work,
+                MediaType     = mediaType,
+                Title         = fieldTitle ?? query,
+                Author        = fieldAuthor,
+                ShowName      = fieldShowName,
+                Album         = fieldAlbum,
+                Artist        = fieldArtist,
+                Director      = fieldDirector,
+                Composer      = fieldComposer,
+                Genre         = fieldGenre,
+                Series        = fieldSeries,
+                Narrator      = fieldNarrator,
+                SeasonNumber  = fieldSeasonNumber,
+                EpisodeNumber = fieldEpisodeNumber,
+                TrackNumber   = fieldTrackNumber,
+                Isbn          = fieldIsbn,
+                Asin          = fieldAsin,
+                BaseUrl       = GetProviderBaseUrl(provider.Name, providerEndpoints),
+                Language      = "en",
+                Country       = "us",
+                Hints         = searchFields is { Count: > 0 }
                     ? new Dictionary<string, string>(searchFields)
                     : null,
             };

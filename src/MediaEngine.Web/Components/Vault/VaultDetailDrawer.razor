@@ -1243,26 +1243,68 @@
             _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
             _claimsLoading = false;
 
-            // Pre-fill retail search fields from file metadata
-            _primarySearchField = "title";
-            _primarySearchValue = MediaItem.Title ?? "";
+            // Pre-fill retail search fields from file metadata.
+            // Primary field matches each provider's highest-priority search strategy:
+            //   Comics → series (ComicVine volume_search)
+            //   TV → show_name (TMDB show search)
+            //   Music → artist (Apple API artistTerm)
+            //   Podcasts → podcast_name (Apple Podcasts / Podcast Index)
+            //   Books/Audiobooks/Movies → title
             _searchFilters = [];
+            switch (MediaItem.MediaType)
+            {
+                case "Comics":
+                    _primarySearchField = "series";
+                    _primarySearchValue = MediaItem.Series ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Title))
+                        _searchFilters.Add(("title", MediaItem.Title));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Author))
+                        _searchFilters.Add(("author", MediaItem.Author));
+                    break;
 
-            var creatorField = MediaItem.MediaType switch
-            {
-                "Movies" or "TV" => "director",
-                "Music" => "artist",
-                _ => "author",
-            };
-            var creatorValue = MediaItem.MediaType switch
-            {
-                "Movies" or "TV" => MediaItem.Director,
-                "Music" => MediaItem.Artist,
-                _ => MediaItem.Author,
-            };
-            if (!string.IsNullOrWhiteSpace(creatorValue))
-                _searchFilters.Add((creatorField, creatorValue));
-            if (!string.IsNullOrEmpty(MediaItem.Year))
+                case "TV":
+                    _primarySearchField = "show_name";
+                    _primarySearchValue = MediaItem.ShowName ?? MediaItem.Title ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Director))
+                        _searchFilters.Add(("director", MediaItem.Director));
+                    break;
+
+                case "Music":
+                    _primarySearchField = "artist";
+                    _primarySearchValue = MediaItem.Artist ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Album))
+                        _searchFilters.Add(("album", MediaItem.Album));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Title))
+                        _searchFilters.Add(("title", MediaItem.Title));
+                    break;
+
+                case "Podcasts":
+                    _primarySearchField = "podcast_name";
+                    _primarySearchValue = MediaItem.ShowName ?? MediaItem.Title ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Author))
+                        _searchFilters.Add(("author", MediaItem.Author));
+                    break;
+
+                default: // Books, Audiobooks, Movies
+                    _primarySearchField = "title";
+                    _primarySearchValue = MediaItem.Title ?? "";
+                    var creatorField = MediaItem.MediaType switch
+                    {
+                        "Movies" => "director",
+                        _ => "author",
+                    };
+                    var creatorValue = MediaItem.MediaType switch
+                    {
+                        "Movies" => MediaItem.Director,
+                        _ => MediaItem.Author,
+                    };
+                    if (!string.IsNullOrWhiteSpace(creatorValue))
+                        _searchFilters.Add((creatorField, creatorValue));
+                    if (MediaItem.MediaType == "Audiobooks" && !string.IsNullOrWhiteSpace(MediaItem.Narrator))
+                        _searchFilters.Add(("narrator", MediaItem.Narrator));
+                    break;
+            }
+            if (!string.IsNullOrEmpty(MediaItem.Year) && !_searchFilters.Any(f => f.FieldKey == "year"))
                 _searchFilters.Add(("year", MediaItem.Year));
 
             // Pre-fill Wikidata search with title
