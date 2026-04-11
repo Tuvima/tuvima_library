@@ -109,8 +109,9 @@ public static class HubEndpoints
                 }
             }
 
-            // Build DTOs for library-only works
+            // Build DTOs for library-only works, keeping a cover URL map from domain objects.
             var filtered = new List<HubDto>();
+            var coverMap = new Dictionary<Guid, string>();
             foreach (var hub in hubs)
             {
                 var libraryWorks = hub.Works.Where(w => libraryWorkIds.Contains(w.Id)).ToList();
@@ -126,7 +127,12 @@ public static class HubEndpoints
                     ParentHubId    = hub.ParentHubId,
                     WikidataQid    = hub.WikidataQid,
                 };
-                foreach (var w in libraryWorks)         filteredHub.Works.Add(w);
+                foreach (var w in libraryWorks)
+                {
+                    filteredHub.Works.Add(w);
+                    var url = BuildCoverStreamUrl(w);
+                    if (url is not null) coverMap[w.Id] = url;
+                }
                 foreach (var r in hub.Relationships)    filteredHub.Relationships.Add(r);
 
                 filtered.Add(HubDto.FromDomain(filteredHub));
@@ -146,7 +152,7 @@ public static class HubEndpoints
                         MediaType       = w.MediaType,
                         HubDisplayName  = GetCanonical(hub.Works.FirstOrDefault()!, "title")
                                           ?? hub.Id.ToString("N")[..8],
-                        CoverUrl        = GetCanonical(w, "cover"),
+                        CoverUrl        = coverMap.GetValueOrDefault(w.Id),
                     }))
                 .Take(20)
                 .ToList();
@@ -430,7 +436,7 @@ public static class HubEndpoints
                                          ?? GetCanonical(WorkDto.FromDomain(w), "year");
                     string? duration    = GetCanonical(WorkDto.FromDomain(w), "duration")
                                          ?? GetCanonical(WorkDto.FromDomain(w), "runtime");
-                    string? coverUrl    = GetCanonical(WorkDto.FromDomain(w), "cover");
+                    string? coverUrl    = BuildCoverStreamUrl(w);
                     string? season      = GetCanonical(WorkDto.FromDomain(w), "season_number");
                     string? episode     = GetCanonical(WorkDto.FromDomain(w), "episode_number");
                     string? trackNumber = GetCanonical(WorkDto.FromDomain(w), "track_number");
@@ -659,7 +665,7 @@ public static class HubEndpoints
                             Ordinal = w.Ordinal,
                             Year          = GetCanonical(wDto, "release_year") ?? GetCanonical(wDto, "year"),
                             Duration      = GetCanonical(wDto, "duration") ?? GetCanonical(wDto, "runtime"),
-                            CoverUrl      = GetCanonical(wDto, "cover"),
+                            CoverUrl      = BuildCoverStreamUrl(w),
                             WikidataQid   = w.WikidataQid,
                             TrackNumber   = GetCanonical(wDto, "track_number"),
                             Status        = w.WikidataStatus switch
@@ -683,7 +689,7 @@ public static class HubEndpoints
                     combinedCreator ??= GetCanonical(firstWorkDto, "artist")
                                        ?? GetCanonical(firstWorkDto, "author");
                     combinedGenre ??= GetCanonical(firstWorkDto, "genre");
-                    albumCover = GetCanonical(firstWorkDto, "cover");
+                    albumCover = BuildCoverStreamUrl(hub.Works[0]);
                     albumYear = GetCanonical(firstWorkDto, "release_year") ?? GetCanonical(firstWorkDto, "year");
 
                     // child_entities_json may be on any track in the album (album-level claim attached
@@ -802,7 +808,7 @@ public static class HubEndpoints
                         MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS year_val,
                         MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS runtime,
-                        MAX(CASE WHEN cv.key = 'cover_url' THEN cv.value END) AS cover,
+                        '/stream/' || MIN(ma.id) || '/cover' AS cover,
                         MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS genre,
                         MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json,
                         MAX(CASE WHEN cv.key = 'series_qid' THEN cv.value END) AS series_qid,
@@ -1013,7 +1019,7 @@ public static class HubEndpoints
                         MAX(CASE WHEN cv.key = 'year'                THEN cv.value END) AS year_val,
                         MAX(CASE WHEN cv.key = 'duration'            THEN cv.value END) AS duration,
                         MAX(CASE WHEN cv.key = 'runtime'             THEN cv.value END) AS runtime,
-                        MAX(CASE WHEN cv.key = 'cover_url'           THEN cv.value END) AS cover,
+                        '/stream/' || MIN(ma.id) || '/cover' AS cover,
                         MAX(CASE WHEN cv.key = 'genre'               THEN cv.value END) AS genre,
                         MAX(CASE WHEN cv.key = 'network'             THEN cv.value END) AS network,
                         MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS child_entities_json
@@ -1221,12 +1227,11 @@ public static class HubEndpoints
                     .OrderByDescending(g => g.Count())
                     .FirstOrDefault()?.Key ?? "Unknown";
 
-                // Cover from the first work that has one.
+                // Cover from the first work that has a media asset.
                 string? cover = null;
                 foreach (var w in h.Works)
                 {
-                    var dto = WorkDto.FromDomain(w);
-                    cover = GetCanonical(dto, "cover");
+                    cover = BuildCoverStreamUrl(w);
                     if (cover is not null) break;
                 }
 
@@ -1382,22 +1387,7 @@ public static class HubEndpoints
                     SELECT
                         g.group_name,
                         g.work_count,
-                        COALESCE(
-                            (
-                                SELECT cv_cover.value
-                                FROM canonical_values cv_cover
-                                WHERE cv_cover.entity_id = g.first_root_work_id
-                                  AND cv_cover.key = 'cover_url'
-                                LIMIT 1
-                            ),
-                            (
-                                SELECT cv_cover2.value
-                                FROM canonical_values cv_cover2
-                                WHERE cv_cover2.entity_id = g.first_asset_id
-                                  AND cv_cover2.key = 'cover_url'
-                                LIMIT 1
-                            )
-                        )                                           AS cover_url,
+                        '/stream/' || g.first_asset_id || '/cover' AS cover_url,
                         COALESCE(
                             (
                                 SELECT cv_creator.value
@@ -1593,10 +1583,15 @@ public static class HubEndpoints
                         SELECT cv.key, cv.value
                         FROM canonical_values cv
                         WHERE cv.entity_id = @WorkId
-                          AND cv.key IN ('title', 'author', 'cover_url')
+                          AND cv.key IN ('title', 'author')
                         UNION ALL
                         SELECT 'media_type', w.media_type
                         FROM works w WHERE w.id = @WorkId
+                        UNION ALL
+                        SELECT '_asset_id', MIN(ma.id)
+                        FROM editions e
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        WHERE e.work_id = @WorkId
                         """;
                     var p = cmd.CreateParameter();
                     p.ParameterName = "@WorkId";
@@ -1607,12 +1602,13 @@ public static class HubEndpoints
                     while (reader.Read())
                     {
                         var key = reader.GetString(0);
-                        var val = reader.GetString(1);
+                        var val = reader.IsDBNull(1) ? null : reader.GetString(1);
+                        if (string.IsNullOrEmpty(val)) continue;
                         switch (key)
                         {
                             case "title": title = val; break;
                             case "author": creator = val; break;
-                            case "cover": cover = val; break;
+                            case "_asset_id": cover = $"/stream/{val}/cover"; break;
                             case "media_type": mediaType = val; break;
                         }
                     }
@@ -1695,7 +1691,7 @@ public static class HubEndpoints
                         Title = GetCanonical(dto, "title") ?? $"Work {w.Id.ToString("N")[..8]}",
                         Creator = GetCanonical(dto, "author") ?? GetCanonical(dto, "director") ?? GetCanonical(dto, "artist"),
                         MediaType = w.MediaType.ToString(),
-                        CoverUrl = GetCanonical(dto, "cover"),
+                        CoverUrl = BuildCoverStreamUrl(w),
                         Year = GetCanonical(dto, "year"),
                     };
                 }).ToList();
@@ -2053,6 +2049,21 @@ public static class HubEndpoints
     }
 
     /// <summary>
+    /// Builds a <c>/stream/{assetId}/cover</c> URL from a Work's first media asset ID.
+    /// Canonical values loaded via hub/work repository queries are keyed on <c>media_assets.id</c>,
+    /// so any canonical value's <see cref="CanonicalValue.EntityId"/> is the asset GUID.
+    /// Returns null when the work has no canonical values (and thus no known asset).
+    /// </summary>
+    private static string? BuildCoverStreamUrl(Work? w)
+    {
+        if (w is null) return null;
+        var assetId = w.CanonicalValues
+            .Select(c => c.EntityId)
+            .FirstOrDefault(id => id != Guid.Empty);
+        return assetId != Guid.Empty ? $"/stream/{assetId}/cover" : null;
+    }
+
+    /// <summary>
     /// Merges Wikidata-discovered tracks (from <c>child_entities_json</c>) into the owned-track list,
     /// flagging those without a matching local file as <c>IsOwned = false</c>. Owned tracks are matched
     /// to Wikidata tracks by case-insensitive title.
@@ -2315,10 +2326,15 @@ public static class HubEndpoints
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 INNER JOIN canonical_values cv ON cv.entity_id = ma.id
                 WHERE e.work_id = @EntityId
-                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover_url', 'year')
+                  AND cv.key IN ('title', 'author', 'director', 'artist', 'year')
                 UNION ALL
                 SELECT 'media_type', w.media_type
                 FROM works w WHERE w.id = @EntityId
+                UNION ALL
+                SELECT '_asset_id', MIN(ma2.id)
+                FROM editions e2
+                INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
+                WHERE e2.work_id = @EntityId
                 """;
             var p = cmd.CreateParameter();
             p.ParameterName = "@EntityId";
@@ -2330,14 +2346,15 @@ public static class HubEndpoints
             while (reader.Read())
             {
                 var key = reader.GetString(0);
-                var val = reader.GetString(1);
+                var val = reader.IsDBNull(1) ? null : reader.GetString(1);
+                if (string.IsNullOrEmpty(val)) continue;
                 switch (key)
                 {
                     case "title": title = val; break;
                     case "author" when creator is null: creator = val; break;
                     case "director" when creator is null: creator = val; break;
                     case "artist" when creator is null: creator = val; break;
-                    case "cover_url": cover = val; break;
+                    case "_asset_id": cover = $"/stream/{val}/cover"; break;
                     case "year": year = val; break;
                     case "media_type": mediaType = val; break;
                 }
@@ -2361,10 +2378,11 @@ public static class HubEndpoints
     /// Lineage-aware variant of <see cref="ResolveEntityMetadata"/> used by the
     /// <c>/resolve/by-name</c> endpoint.  For each Work this reads canonical values
     /// from both the asset row (Self-scoped fields: title, track_number) and from
-    /// the topmost parent Work row (Parent-scoped fields: artist, album, cover_url,
-    /// genre, year).  This mirrors the two-CTE approach in RegistryRepository so
-    /// that music items have correct artist/album/cover values even after the
-    /// lineage-aware write splits them onto the album Work's entity_id.
+    /// the topmost parent Work row (Parent-scoped fields: artist, album, genre,
+    /// year).  Cover art is resolved via <c>/stream/{assetId}/cover</c> from the
+    /// asset ID rather than canonical_values.  This mirrors the RegistryRepository
+    /// pattern so that music items have correct artist/album/cover values even
+    /// after the lineage-aware write splits them onto the album Work's entity_id.
     /// </summary>
     private static List<HubResolvedItemDto> ResolveEntityMetadataWithLineage(
         IDatabaseConnection db,
@@ -2383,6 +2401,7 @@ public static class HubEndpoints
             //          (COALESCE walks parent_work_id up two levels — covers TV
             //           episode → show and music track → album).
             // Union 3: media_type read directly from the works table (not canonical_values).
+            // Union 4: asset_id for cover art URL construction.
             cmd.CommandText = """
                 -- Self-scoped: canonical_values keyed on media_asset.id
                 SELECT cv.key, cv.value, 0 AS priority
@@ -2390,7 +2409,7 @@ public static class HubEndpoints
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 INNER JOIN canonical_values cv ON cv.entity_id = ma.id
                 WHERE e.work_id = @EntityId
-                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover_url', 'year', 'album')
+                  AND cv.key IN ('title', 'author', 'director', 'artist', 'year', 'album')
                 UNION ALL
                 -- Parent-scoped: canonical_values keyed on root parent Work id
                 SELECT cv.key, cv.value, 1 AS priority
@@ -2400,11 +2419,17 @@ public static class HubEndpoints
                 INNER JOIN canonical_values cv
                   ON cv.entity_id = COALESCE(gp.id, p.id, w.id)
                 WHERE w.id = @EntityId
-                  AND cv.key IN ('title', 'author', 'director', 'artist', 'cover_url', 'year', 'album')
+                  AND cv.key IN ('title', 'author', 'director', 'artist', 'year', 'album')
                 UNION ALL
                 -- media_type from works table
                 SELECT 'media_type', w2.media_type, 0
                 FROM works w2 WHERE w2.id = @EntityId
+                UNION ALL
+                -- asset_id for cover art URL construction
+                SELECT '_asset_id', MIN(ma2.id), 0
+                FROM editions e2
+                INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
+                WHERE e2.work_id = @EntityId
                 """;
             var p = cmd.CreateParameter();
             p.ParameterName = "@EntityId";
@@ -2432,9 +2457,12 @@ public static class HubEndpoints
             seen.TryGetValue("author",     out var author);
             seen.TryGetValue("director",   out var director);
             seen.TryGetValue("artist",     out var artist);
-            seen.TryGetValue("cover_url",  out var cover);
             seen.TryGetValue("year",       out var year);
             seen.TryGetValue("media_type", out var mediaType);
+
+            string? cover = null;
+            if (seen.TryGetValue("_asset_id", out var assetId))
+                cover = $"/stream/{assetId}/cover";
 
             var creator = artist ?? author ?? director;
 

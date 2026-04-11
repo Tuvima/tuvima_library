@@ -1409,11 +1409,6 @@ public sealed class RetailMatchWorker
         Add(MetadataFieldConstants.EpisodeNumber,
             episode["episode_number"]?.GetValue<long?>()?.ToString(), 0.90);
 
-        var stillPath = episode["still_path"]?.GetValue<string>();
-        if (!string.IsNullOrWhiteSpace(stillPath))
-            Add(MetadataFieldConstants.CoverUrl,
-                $"https://image.tmdb.org/t/p/w500{stillPath}", 0.85);
-
         // The show-level TMDB ID is the critical bridge ID for Stage 2 Wikidata resolution.
         // Episode-level TMDB IDs are available but the show QID is what Wikidata resolves.
         Add(BridgeIdKeys.TmdbId, showTvId, 1.0);

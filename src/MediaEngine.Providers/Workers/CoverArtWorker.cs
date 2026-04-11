@@ -248,16 +248,20 @@ public sealed class CoverArtWorker
 
     /// <summary>
     /// Finds the first HTTP(S) cover URL in a list of canonical values,
-    /// checking <c>cover_url</c> first and falling back to <c>cover</c>.
+    /// checking <c>cover</c> (provider poster) first and falling back to <c>cover_url</c>.
     /// </summary>
     private static string? FindCoverUrl(IReadOnlyList<CanonicalValue> canonicals)
     {
+        // Prefer the provider poster URL (cover) over local streaming URLs (cover_url).
+        // The "cover" claim comes from retail providers (TMDB, Apple, ComicVine) and
+        // contains the actual poster artwork. The "cover_url" claim may contain a
+        // /stream/ URL (not downloadable) or a stale supplementary image.
         return canonicals
-            .Where(c => string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase))
+            .Where(c => string.Equals(c.Key, MetadataFieldConstants.Cover, StringComparison.OrdinalIgnoreCase))
             .Select(c => c.Value)
             .FirstOrDefault(v => !string.IsNullOrEmpty(v) && v.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             ?? canonicals
-            .Where(c => string.Equals(c.Key, MetadataFieldConstants.Cover, StringComparison.OrdinalIgnoreCase))
+            .Where(c => string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase))
             .Select(c => c.Value)
             .FirstOrDefault(v => !string.IsNullOrEmpty(v) && v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
     }
