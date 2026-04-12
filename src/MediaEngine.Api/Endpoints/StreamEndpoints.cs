@@ -98,7 +98,13 @@ public static class StreamEndpoints
 
             // Resolve image path — try .images/ first, fall back to legacy location
             // alongside the media file for backward compatibility with existing libraries.
-            var canonicals = await canonicalRepo.GetByEntityAsync(assetId, ct);
+            //
+            // QID lookup: wikidata_qid canonicals are stored on the WORK entity
+            // (via the Priority Cascade), not the asset entity. Walk the lineage
+            // asset → edition → work to find the correct entity for the QID lookup.
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var qidEntityId = lineage?.WorkId ?? assetId;
+            var canonicals = await canonicalRepo.GetByEntityAsync(qidEntityId, ct);
             var wikidataQid = canonicals
                 .FirstOrDefault(c => c.Key is "wikidata_qid"
                     && !string.IsNullOrEmpty(c.Value)
@@ -115,10 +121,10 @@ public static class StreamEndpoints
                 : Path.GetDirectoryName(asset.FilePathRoot);
             var legacyCoverPath = coverDir is null ? null : Path.Combine(coverDir, "cover.jpg");
             // CoverArtWorker writes poster.jpg (via ImagePathService.GetMediaFilePosterPath),
-            // not cover.jpg — fall back to poster.jpg when cover.jpg doesn't exist.
-            if (legacyCoverPath is not null && !File.Exists(legacyCoverPath))
+            // not cover.jpg — use the same path logic so shared-folder covers are found.
+            if (legacyCoverPath is not null && !File.Exists(legacyCoverPath) && !string.IsNullOrEmpty(asset.FilePathRoot))
             {
-                var posterPath = Path.Combine(coverDir!, "poster.jpg");
+                var posterPath = ImagePathService.GetMediaFilePosterPath(asset.FilePathRoot);
                 if (File.Exists(posterPath))
                     legacyCoverPath = posterPath;
             }
@@ -179,8 +185,11 @@ public static class StreamEndpoints
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
 
-            // Resolve Wikidata QID from canonicals (same pattern as /cover endpoint).
-            var canonicals = await canonicalRepo.GetByEntityAsync(assetId, ct);
+            // Resolve Wikidata QID from canonicals — same lineage walk as /cover.
+            // wikidata_qid canonicals live on the Work entity, not the asset.
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var qidEntityId = lineage?.WorkId ?? assetId;
+            var canonicals = await canonicalRepo.GetByEntityAsync(qidEntityId, ct);
             var wikidataQid = canonicals
                 .FirstOrDefault(c => c.Key is "wikidata_qid"
                     && !string.IsNullOrEmpty(c.Value)
@@ -217,16 +226,17 @@ public static class StreamEndpoints
                     else
                     {
                         // Legacy fallback: cover.jpg alongside the media file, then
-                        // poster.jpg (what CoverArtWorker actually writes via
-                        // ImagePathService.GetMediaFilePosterPath), then poster-thumb.jpg.
+                        // poster paths (what CoverArtWorker actually writes via
+                        // ImagePathService.GetMediaFilePosterPath/GetMediaFileThumbPath)
+                        // — use the same path logic so shared-folder covers are found.
                         var legacyDir = string.IsNullOrEmpty(asset.FilePathRoot)
                             ? null
                             : Path.GetDirectoryName(asset.FilePathRoot);
                         var legacyPath = legacyDir is null ? null : Path.Combine(legacyDir, "cover.jpg");
-                        if (legacyPath is not null && !File.Exists(legacyPath))
+                        if (legacyPath is not null && !File.Exists(legacyPath) && !string.IsNullOrEmpty(asset.FilePathRoot))
                         {
-                            var posterThumbPath = Path.Combine(legacyDir!, "poster-thumb.jpg");
-                            var posterPath      = Path.Combine(legacyDir!, "poster.jpg");
+                            var posterThumbPath = ImagePathService.GetMediaFileThumbPath(asset.FilePathRoot);
+                            var posterPath      = ImagePathService.GetMediaFilePosterPath(asset.FilePathRoot);
                             if (File.Exists(posterThumbPath))
                                 legacyPath = posterThumbPath;
                             else if (File.Exists(posterPath))

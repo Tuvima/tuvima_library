@@ -1984,11 +1984,11 @@
     /* ── Editor panel container ── */
     .vault-editor-panel-container {
         position: fixed;
-        top: 0;
+        top: 64px;
         right: 0;
         width: 450px;
-        height: 100vh;
-        z-index: 900;
+        height: calc(100vh - 64px);
+        z-index: 1300;
         box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
         animation: vault-editor-slide-in 0.2s ease;
     }

@@ -2641,6 +2641,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// </summary>
     private void BufferFswEvent(FileEvent evt)
     {
+        // Skip non-media files (images, subtitles, metadata sidecars) — same
+        // filter applied by ScanExistingFiles and PollWatchDirectoryAsync.
+        if (NonMediaExtensions.Contains(Path.GetExtension(evt.Path)))
+            return;
+
         // Events from ScanExistingFiles already have a batch — pass through.
         if (evt.BatchId is not null)
         {

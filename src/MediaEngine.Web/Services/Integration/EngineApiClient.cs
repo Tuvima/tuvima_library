@@ -3842,8 +3842,11 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             return await _http.GetFromJsonAsync<VaultOverviewViewModel>("vault/overview", ct);
         }
-        catch
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "GET /vault/overview failed");
+            LastError = ex.Message;
             return null;
         }
     }
