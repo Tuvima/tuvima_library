@@ -1,0 +1,130 @@
+@using MediaEngine.Web.Components.Registry
+
+@* CollectionToolbar — reusable media type toggles + configurable filter content.
+   Used by Registry now, reusable by /books, Home, etc. later. *@
+
+<div class="collection-toolbar-toggles">
+    <button class="collection-toolbar-tt @(AllActive ? "collection-toolbar-tt--on" : "")"
+            @onclick="ToggleAll">
+        <MudIcon Icon="@Icons.Material.Outlined.GridView" Size="Size.Small"
+                 Style="font-size: 1.35rem;" />
+        <span>All</span>
+    </button>
+
+    @foreach (var mt in _mediaTypes)
+    {
+        var isOn = ActiveMediaTypes.Contains(mt.Value);
+        <button class="collection-toolbar-tt @(isOn ? "collection-toolbar-tt--on" : "")"
+                @onclick="@(() => Toggle(mt.Value))">
+            <MudIcon Icon="@RegistryHelpers.GetMediaTypeIcon(mt.Value)" Size="Size.Small"
+                     Style="font-size: 1.35rem;" />
+            <span>@mt.Label</span>
+        </button>
+    }
+</div>
+
+@if (FilterContent is not null)
+{
+    <div class="collection-toolbar-sep"></div>
+    @FilterContent
+}
+
+@code {
+    /// <summary>Which media types are currently active/visible.</summary>
+    [Parameter] public HashSet<string> ActiveMediaTypes { get; set; } = [];
+
+    /// <summary>Fired when the active set changes.</summary>
+    [Parameter] public EventCallback<HashSet<string>> ActiveMediaTypesChanged { get; set; }
+
+    /// <summary>Optional filter content (issue pills, search, etc.) shown after the separator.</summary>
+    [Parameter] public RenderFragment? FilterContent { get; set; }
+
+    private bool AllActive => ActiveMediaTypes.Count == _mediaTypes.Length
+                              || ActiveMediaTypes.Count == 0;
+
+    private static readonly (string Label, string Value)[] _mediaTypes =
+    [
+        ("Books", "Books"),
+        ("Audio", "Audiobooks"),
+        ("Movies", "Movies"),
+        ("TV", "TV"),
+        ("Comics", "Comic"),
+    ];
+
+    private async Task Toggle(string mediaType)
+    {
+        var next = new HashSet<string>(ActiveMediaTypes);
+        if (next.Contains(mediaType))
+            next.Remove(mediaType);
+        else
+            next.Add(mediaType);
+
+        ActiveMediaTypes = next;
+        await ActiveMediaTypesChanged.InvokeAsync(next);
+    }
+
+    private async Task ToggleAll()
+    {
+        HashSet<string> next;
+        if (AllActive)
+        {
+            // All on → turn all off (show nothing, or implementation can treat empty as "all")
+            next = [];
+        }
+        else
+        {
+            // Some off → turn all on
+            next = new HashSet<string>(_mediaTypes.Select(mt => mt.Value));
+        }
+
+        ActiveMediaTypes = next;
+        await ActiveMediaTypesChanged.InvokeAsync(next);
+    }
+}
+
+<style>
+    .collection-toolbar-toggles {
+        display: flex;
+        gap: 4px;
+    }
+
+    .collection-toolbar-tt {
+        width: 56px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 6px 6px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: transparent;
+        cursor: pointer;
+        transition: all 0.12s ease;
+        color: rgba(255, 255, 255, 0.25);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .collection-toolbar-tt:hover {
+        border-color: rgba(255, 255, 255, 0.15);
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .collection-toolbar-tt--on {
+        background: rgba(201, 146, 46, 0.1);
+        border-color: rgba(201, 146, 46, 0.35);
+        color: #C9922E;
+    }
+
+    .collection-toolbar-tt span {
+        font-size: 9px;
+        font-weight: 500;
+        line-height: 1;
+    }
+
+    .collection-toolbar-sep {
+        width: 1px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.06);
+        flex-shrink: 0;
+    }
+</style>

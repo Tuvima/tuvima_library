@@ -27,15 +27,15 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
         using var conn = _db.CreateConnection();
         conn.Execute("""
             INSERT INTO system_activity
-                (occurred_at, action_type, hub_name, entity_id, entity_type, profile_id, changes_json, detail, ingestion_run_id)
+                (occurred_at, action_type, collection_name, entity_id, entity_type, profile_id, changes_json, detail, ingestion_run_id)
             VALUES
-                (@OccurredAt, @ActionType, @HubName, @EntityId, @EntityType, @ProfileId, @ChangesJson, @Detail, @IngestionRunId);
+                (@OccurredAt, @ActionType, @CollectionName, @EntityId, @EntityType, @ProfileId, @ChangesJson, @Detail, @IngestionRunId);
             """,
             new
             {
                 OccurredAt     = entry.OccurredAt.ToString("O"),
                 entry.ActionType,
-                entry.HubName,
+                entry.CollectionName,
                 EntityId       = entry.EntityId?.ToString(),
                 entry.EntityType,
                 ProfileId      = entry.ProfileId?.ToString(),
@@ -57,7 +57,7 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
             SELECT id             AS Id,
                    occurred_at    AS OccurredAt,
                    action_type    AS ActionType,
-                   hub_name       AS HubName,
+                   collection_name       AS CollectionName,
                    entity_id      AS EntityId,
                    entity_type    AS EntityType,
                    profile_id     AS ProfileId,
@@ -107,7 +107,7 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
             SELECT id             AS Id,
                    occurred_at    AS OccurredAt,
                    action_type    AS ActionType,
-                   hub_name       AS HubName,
+                   collection_name       AS CollectionName,
                    entity_id      AS EntityId,
                    entity_type    AS EntityType,
                    profile_id     AS ProfileId,
@@ -151,7 +151,7 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
             SELECT id             AS Id,
                    occurred_at    AS OccurredAt,
                    action_type    AS ActionType,
-                   hub_name       AS HubName,
+                   collection_name       AS CollectionName,
                    entity_id      AS EntityId,
                    entity_type    AS EntityType,
                    profile_id     AS ProfileId,

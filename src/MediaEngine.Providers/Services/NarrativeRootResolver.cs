@@ -15,7 +15,7 @@ namespace MediaEngine.Providers.Services;
 /// <item>P1434 (<c>fictional_universe_qid</c>) — broadest universe</item>
 /// <item>P8345 (<c>franchise_qid</c>) — franchise within a universe</item>
 /// <item>P179 (<c>series_qid</c>) — series within a franchise</item>
-/// <item>Hub DisplayName — standalone fallback (no QID from Wikidata)</item>
+/// <item>Collection DisplayName — standalone fallback (no QID from Wikidata)</item>
 /// </list>
 /// </para>
 ///
@@ -293,7 +293,7 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         {
             OccurredAt = DateTimeOffset.UtcNow,
             ActionType = SystemActionType.NarrativeRootResolved,
-            HubName = root.Label,
+            CollectionName = root.Label,
             EntityId = entityId,
             EntityType = "NarrativeRoot",
             Detail = $"Resolved narrative root: {root.Label} ({root.Qid}) at level {root.Level}",

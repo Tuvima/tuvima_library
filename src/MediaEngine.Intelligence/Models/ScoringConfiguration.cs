@@ -13,7 +13,7 @@ namespace MediaEngine.Intelligence.Models;
 public sealed class ScoringConfiguration
 {
     /// <summary>
-    /// Minimum overall confidence for a Work → Hub link to be applied
+    /// Minimum overall confidence for a Work → Collection link to be applied
     /// automatically.  Range: (0.0, 1.0].  Default: 0.85.
     /// </summary>
     public double AutoLinkThreshold { get; init; } = 0.85;

@@ -51,7 +51,7 @@ Each API key carries one of three roles that determines which endpoints it can a
 | ASR-11 | Localhost requests bypass authentication when `MediaEngine:Security:LocalhostBypass` is true (default). | ApiKeyMiddleware (loopback detection) |
 | ASR-12 | Each API key carries a role (Administrator, Curator, Consumer) checked per-endpoint. | RoleAuthorizationFilter + endpoint `.RequireAdmin()` / `.RequireAdminOrCurator()` / `.RequireAnyRole()` |
 | ASR-13 | Folder-related endpoints reject paths containing `..` traversal segments or targeting system directories. | PathValidator (defence-in-depth, applied in SettingsEndpoints) |
-| ASR-14 | SignalR hub connections require authentication via `X-Api-Key` header, `access_token` query string, or localhost bypass. | IntercomAuthFilter (IHubFilter) |
+| ASR-14 | SignalR collection connections require authentication via `X-Api-Key` header, `access_token` query string, or localhost bypass. | IntercomAuthFilter (IHubFilter) |
 | ASR-15 | Key generation is rate-limited to 5 requests/minute per IP. | Program.cs rate limiter ("key_generation" policy) |
 | ASR-16 | File streaming is rate-limited to 100 requests/minute per IP. | Program.cs rate limiter ("streaming" policy) |
 | ASR-17 | General API calls are rate-limited to 60 requests/minute per IP. | Program.cs rate limiter ("general" policy) |
@@ -69,13 +69,13 @@ Each API key carries one of three roles that determines which endpoints it can a
 | `/settings/folders`, `/settings/test-path`, `/settings/organization-template` | Full access | Blocked (403) | Blocked (403) |
 | `/settings/providers` (read) | Full access | Full access | Blocked (403) |
 | `/settings/providers/{name}` (write) | Full access | Blocked (403) | Blocked (403) |
-| `/hubs/*` (library listing, search) | Full access | Full access | Full access |
+| `/collections/*` (library listing, search) | Full access | Full access | Full access |
 | `/stream/*` (file streaming) | Full access | Full access | Full access |
 | `/metadata/claims/*` (read history) | Full access | Full access | Full access |
 | `/metadata/lock-claim`, `/metadata/resolve` | Full access | Full access | Blocked (403) |
 | `/profiles/*` (list, create, update, delete) | Full access | Blocked (403) | Blocked (403) |
 | `/ingestion/*` (scan, library scan) | Full access | Blocked (403) | Blocked (403) |
-| `/hubs/intercom` (SignalR) | Full access | Full access | Full access |
+| `/intercom` (SignalR) | Full access | Full access | Full access |
 
 ---
 
@@ -103,4 +103,4 @@ Each API key carries one of three roles that determines which endpoints it can a
 
 ## PO Summary
 
-The Engine now enforces a complete security boundary. Every endpoint requires authentication -- either a valid API key or a localhost connection (configurable). Each API key carries a role (Administrator, Curator, Consumer) that determines exactly which endpoints it can access. Folder-related endpoints reject path traversal attacks. The SignalR hub requires authentication. Rate limiting caps key generation (5/min), streaming (100/min), and general API calls (60/min) per IP. **Three remaining items for future improvement: HTTPS enforcement, key expiration/rotation, and salted key hashes.**
+The Engine now enforces a complete security boundary. Every endpoint requires authentication -- either a valid API key or a localhost connection (configurable). Each API key carries a role (Administrator, Curator, Consumer) that determines exactly which endpoints it can access. Folder-related endpoints reject path traversal attacks. The SignalR collection requires authentication. Rate limiting caps key generation (5/min), streaming (100/min), and general API calls (60/min) per IP. **Three remaining items for future improvement: HTTPS enforcement, key expiration/rotation, and salted key hashes.**

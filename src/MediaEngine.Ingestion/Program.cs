@@ -99,7 +99,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
 
         // ── Storage repositories (Phase 9) ───────────────────
-        services.AddSingleton<IHubRepository, HubRepository>();
+        services.AddSingleton<ICollectionRepository, CollectionRepository>();
         services.AddSingleton<IMetadataClaimRepository, MetadataClaimRepository>();
         services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();
         services.AddSingleton<IPersonRepository, PersonRepository>();
@@ -141,8 +141,8 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddSingleton<IIdentityMatcher>(sp =>
             new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>(), sp.GetRequiredService<ExactMatchStrategy>()));
 
-        services.AddSingleton<IHubArbiter>(sp =>
-            new HubArbiter(
+        services.AddSingleton<ICollectionArbiter>(sp =>
+            new CollectionArbiter(
                 sp.GetRequiredService<IIdentityMatcher>(),
                 sp.GetRequiredService<ITransactionJournal>()));
 

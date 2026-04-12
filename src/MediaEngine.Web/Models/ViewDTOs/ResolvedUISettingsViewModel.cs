@@ -128,7 +128,7 @@ public sealed class UIShellSettingsDto
     public string LogoVariant { get; set; } = "wordmark";
 
     [JsonPropertyName("intent_dock_items")]
-    public List<string> IntentDockItems { get; set; } = ["Hubs", "Watch", "Read", "Listen"];
+    public List<string> IntentDockItems { get; set; } = ["Collections", "Watch", "Read", "Listen"];
 
     [JsonPropertyName("intent_dock_style")]
     public string IntentDockStyle { get; set; } = "normal";
@@ -159,11 +159,11 @@ public sealed class UIPageSettingsDto
 /// <summary>Home page layout settings.</summary>
 public sealed class UIHomePageSettingsDto
 {
-    [JsonPropertyName("hub_hero_enabled")]
-    public bool HubHeroEnabled { get; set; } = true;
+    [JsonPropertyName("collection_hero_enabled")]
+    public bool CollectionHeroEnabled { get; set; } = true;
 
-    [JsonPropertyName("hub_hero_layout")]
-    public string HubHeroLayout { get; set; } = "two-column";
+    [JsonPropertyName("collection_hero_layout")]
+    public string CollectionHeroLayout { get; set; } = "two-column";
 
     [JsonPropertyName("progress_cards_layout")]
     public string ProgressCardsLayout { get; set; } = "row";

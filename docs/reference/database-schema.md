@@ -26,25 +26,25 @@ Latest migration: **M-068**. All migrations are idempotent (`IF NOT EXISTS` guar
 
 ## Core Media
 
-### hubs
+### collections
 
-Represents a Series (user-facing) or Universe (ParentHub). Both are stored in the same table, distinguished by `hub_type`.
+Represents a Series (user-facing) or Universe (ParentCollection). Both are stored in the same table, distinguished by `collection_type`.
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `hub_type` | TEXT | `"Hub"` = Series, `"ParentHub"` = Universe |
+| `collection_type` | TEXT | `"Collection"` = Series, `"ParentCollection"` = Universe |
 | `title` | TEXT | Display title |
 | `wikidata_qid` | TEXT | Wikidata entity identifier. Indexed. |
-| `parent_hub_id` | TEXT | FK â†’ `hubs.id`. NULL for top-level Universes and standalone Series. |
-| `media_type` | TEXT | Primary media type for this hub |
+| `parent_collection_id` | TEXT | FK â†’ `collections.id`. NULL for top-level Universes and standalone Series. |
+| `media_type` | TEXT | Primary media type for this collection |
 | `description` | TEXT | Wikipedia or provider description |
 | `sort_title` | TEXT | Normalized title for alphabetical sorting |
 | `created_at` | TEXT | Timestamp |
 | `updated_at` | TEXT | Timestamp |
 | `last_enriched_at` | TEXT | Timestamp of last Wikidata enrichment |
 
-**Indices:** `wikidata_qid`, `parent_hub_id`, `hub_type`
+**Indices:** `wikidata_qid`, `parent_collection_id`, `collection_type`
 
 ### works
 
@@ -53,7 +53,7 @@ A single title, independent of version or format.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `hub_id` | TEXT | FK â†’ `hubs.id`. The Series this work belongs to. |
+| `collection_id` | TEXT | FK â†’ `collections.id`. The Series this work belongs to. |
 | `wikidata_qid` | TEXT | Wikidata entity identifier. Indexed. |
 | `title` | TEXT | Canonical display title |
 | `original_title` | TEXT | Title in the work's source language (Phase 2 localization) |
@@ -64,7 +64,7 @@ A single title, independent of version or format.
 | `updated_at` | TEXT | Timestamp |
 | `last_enriched_at` | TEXT | Timestamp |
 
-**Indices:** `wikidata_qid`, `hub_id`, `media_type`, `status`
+**Indices:** `wikidata_qid`, `collection_id`, `media_type`, `status`
 
 ### editions
 
@@ -98,23 +98,23 @@ A single file on disk.
 
 **Indices:** `fingerprint`, `edition_id`, `status`
 
-### hub_items
+### collection_items
 
-Links works to hubs (Series to Universe relationships).
+Links works to collections (Series to Universe relationships).
 
 | Column | Type | Notes |
 |---|---|---|
-| `hub_id` | TEXT | FK â†’ `hubs.id` |
+| `collection_id` | TEXT | FK â†’ `collections.id` |
 | `work_id` | TEXT | FK â†’ `works.id` |
-| `sort_order` | INTEGER | Position within the hub |
+| `sort_order` | INTEGER | Position within the collection |
 
-### hub_work_links
+### collection_work_links
 
-Many-to-many cross-links between works and hubs for works that span multiple Series.
+Many-to-many cross-links between works and collections for works that span multiple Series.
 
 | Column | Type | Notes |
 |---|---|---|
-| `hub_id` | TEXT | FK â†’ `hubs.id` |
+| `collection_id` | TEXT | FK â†’ `collections.id` |
 | `work_id` | TEXT | FK â†’ `works.id` |
 | `link_type` | TEXT | Relationship type (e.g., `"adaptation"`, `"companion"`) |
 
@@ -129,8 +129,8 @@ Append-only log of every metadata value ever received for an entity, with its so
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `entity_id` | TEXT | The work, edition, hub, or person this claim belongs to |
-| `entity_type` | TEXT | `"Work"`, `"Hub"`, `"Person"`, etc. |
+| `entity_id` | TEXT | The work, edition, collection, or person this claim belongs to |
+| `entity_type` | TEXT | `"Work"`, `"Collection"`, `"Person"`, etc. |
 | `field_key` | TEXT | Field identifier (e.g., `"title"`, `"author"`, `"genre"`). See `MetadataFieldConstants.cs`. |
 | `value` | TEXT | Claim value |
 | `source_id` | TEXT | Provider GUID |
@@ -276,7 +276,7 @@ Characters, locations, factions, and other fictional elements within Universes.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `universe_qid` | TEXT | The Universe (ParentHub) this entity belongs to |
+| `universe_qid` | TEXT | The Universe (ParentCollection) this entity belongs to |
 | `wikidata_qid` | TEXT | Wikidata QID if the entity is notable enough to have one |
 | `entity_type` | TEXT | `"Character"`, `"Location"`, `"Faction"`, `"Concept"` |
 | `name` | TEXT | Display name |
@@ -312,7 +312,7 @@ Universe-level root records with Wikidata provenance.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | TEXT | UUID, primary key |
-| `hub_id` | TEXT | FK â†’ `hubs.id` (the ParentHub) |
+| `collection_id` | TEXT | FK â†’ `collections.id` (the ParentCollection) |
 | `wikidata_qid` | TEXT | |
 | `franchise_qid` | TEXT | Wikidata P8345 franchise identifier |
 | `series_qid` | TEXT | Wikidata P179 series identifier |

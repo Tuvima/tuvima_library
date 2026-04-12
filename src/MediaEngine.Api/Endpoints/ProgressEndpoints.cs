@@ -66,20 +66,20 @@ public static class ProgressEndpoints
             return Results.Ok(items.Select(MapStateResponse));
         });
 
-        // GET /progress/journey?userId={userId}&hubId={hubId}&limit=5 — incomplete items with
-        // Work+Hub context for "Continue your Journey" hero.
-        // Optional hubId: when supplied, results are filtered to assets that belong to that
-        // hub via works.hub_id, eliminating any client-side matching ambiguity.
+        // GET /progress/journey?userId={userId}&collectionId={collectionId}&limit=5 — incomplete items with
+        // Work+Collection context for "Continue your Journey" hero.
+        // Optional collectionId: when supplied, results are filtered to assets that belong to that
+        // collection via works.collection_id, eliminating any client-side matching ambiguity.
         group.MapGet("/journey", async (
             string? userId,
-            string? hubId,
+            string? collectionId,
             int? limit,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
             ct.ThrowIfCancellationRequested();
             var uid       = ResolveUserId(userId);
-            var filterHub = Guid.TryParse(hubId, out var parsedHubId);
+            var filterCollection = Guid.TryParse(collectionId, out var parsedCollectionId);
             var conn      = db.Open();
 
             // Phase 4 — lineage-aware reads. Self-scope fields (title, series_position,
@@ -90,12 +90,12 @@ public static class ProgressEndpoints
                 SELECT
                     us.asset_id,
                     w.id            AS work_id,
-                    w.hub_id,
+                    w.collection_id,
                     w.media_type,
                     us.progress_pct,
                     us.last_accessed,
                     us.extended_properties,
-                    h.display_name  AS hub_display_name,
+                    h.display_name  AS collection_display_name,
                     cv_title_a.value      AS title,
                     cv_author_w.value     AS author,
                     cv_cover_w.value      AS cover_url,
@@ -110,7 +110,7 @@ public static class ProgressEndpoints
                 JOIN works w         ON w.id  = e.work_id
                 LEFT JOIN works pw   ON pw.id  = w.parent_work_id
                 LEFT JOIN works gpw  ON gpw.id = pw.parent_work_id
-                LEFT JOIN hubs h     ON h.id  = w.hub_id
+                LEFT JOIN collections h     ON h.id  = w.collection_id
                 -- Self-scope (asset)
                 LEFT JOIN canonical_values cv_title_a
                     ON cv_title_a.entity_id = ma.id AND cv_title_a.key = 'title'
@@ -140,14 +140,14 @@ public static class ProgressEndpoints
                 """;
 
             using var cmd = conn.CreateCommand();
-            cmd.CommandText = filterHub
-                ? baseSelect + "\n  AND w.hub_id = @hubId\nORDER BY us.last_accessed DESC\nLIMIT @limit;"
+            cmd.CommandText = filterCollection
+                ? baseSelect + "\n  AND w.collection_id = @collectionId\nORDER BY us.last_accessed DESC\nLIMIT @limit;"
                 : baseSelect + "\nORDER BY us.last_accessed DESC\nLIMIT @limit;";
 
             cmd.Parameters.AddWithValue("@userId", uid.ToString());
             cmd.Parameters.AddWithValue("@limit", limit ?? 5);
-            if (filterHub)
-                cmd.Parameters.AddWithValue("@hubId", parsedHubId.ToString());
+            if (filterCollection)
+                cmd.Parameters.AddWithValue("@collectionId", parsedCollectionId.ToString());
 
             using var reader = cmd.ExecuteReader();
             var results = new List<JourneyItemResponse>();
@@ -162,12 +162,12 @@ public static class ProgressEndpoints
                 results.Add(new JourneyItemResponse(
                     AssetId:           Guid.Parse(reader.GetString(0)),
                     WorkId:            Guid.Parse(reader.GetString(1)),
-                    HubId:             reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
+                    CollectionId:             reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2)),
                     MediaType:         reader.GetString(3),
                     ProgressPct:       reader.GetDouble(4),
                     LastAccessed:      DateTimeOffset.Parse(reader.GetString(5)),
                     ExtendedProperties: extProps,
-                    HubDisplayName:    reader.IsDBNull(7) ? null : reader.GetString(7),
+                    CollectionDisplayName:    reader.IsDBNull(7) ? null : reader.GetString(7),
                     Title:             reader.IsDBNull(8)
                                            ? (reader.IsDBNull(7) ? "Untitled" : reader.GetString(7))
                                            : reader.GetString(8),
@@ -218,7 +218,7 @@ public sealed record ProgressUpdateRequest(
 public sealed record JourneyItemResponse(
     Guid                         AssetId,
     Guid                         WorkId,
-    Guid?                        HubId,
+    Guid?                        CollectionId,
     string                       Title,
     string?                      Author,
     string?                      CoverUrl,
@@ -229,6 +229,6 @@ public sealed record JourneyItemResponse(
     string                       MediaType,
     double                       ProgressPct,
     DateTimeOffset               LastAccessed,
-    string?                      HubDisplayName,
+    string?                      CollectionDisplayName,
     Dictionary<string, string>   ExtendedProperties,
     string?                      HeroUrl);

@@ -40,7 +40,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
     private static readonly string[] ExemptPrefixes =
     [
         "/swagger",
-        SignalREvents.HubPath,
+        SignalREvents.IntercomPath,
     ];
 
     public async Task InvokeAsync(HttpContext ctx, IApiKeyRepository repo, IConfiguration config)

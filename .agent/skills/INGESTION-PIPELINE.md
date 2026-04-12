@@ -22,12 +22,12 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 | `src/MediaEngine.Ingestion/AssetHasher.cs` | SHA-256 streaming fingerprinting |
 | `src/MediaEngine.Ingestion/BackgroundWorker.cs` | Bounded-concurrency task queue |
 | `src/MediaEngine.Ingestion/FileOrganizer.cs` | Template-based path resolution + collision-safe moves |
-| `src/MediaEngine.Ingestion/SidecarWriter.cs` | library.xml read/write (Hub + Edition schemas) |
+| `src/MediaEngine.Ingestion/SidecarWriter.cs` | library.xml read/write (Collection + Edition schemas) |
 | `src/MediaEngine.Ingestion/LibraryScanner.cs` | Great Inhale — rebuild DB from sidecar XML |
 | `src/MediaEngine.Ingestion/EpubMetadataTagger.cs` | Write-back metadata into EPUB files |
 | `src/MediaEngine.Providers/Services/MetadataHarvestingService.cs` | Background external metadata enrichment queue |
 | `src/MediaEngine.Providers/Services/RecursiveIdentityService.cs` | Author/narrator person creation + linking |
-| `src/MediaEngine.Storage/MediaEntityChainFactory.cs` | Hub→Work→Edition chain creation |
+| `src/MediaEngine.Storage/MediaEntityChainFactory.cs` | Collection→Work→Edition chain creation |
 | `src/MediaEngine.Api/Endpoints/IngestionEndpoints.cs` | Dry-run scan + Great Inhale API surface |
 
 ---
@@ -45,7 +45,7 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 8. Skip if ProcessorResult.IsCorrupt
 9. Convert ExtractedClaims to MetadataClaims → persist
 10. ScoringEngine.ScoreEntityAsync → persist CanonicalValues
-11. MediaEntityChainFactory → create Hub→Work→Edition
+11. MediaEntityChainFactory → create Collection→Work→Edition
 12. MediaAssetRepository.InsertAsync (INSERT OR IGNORE)
 13. If confidence ≥ 0.85 or user-locked: FileOrganizer.ExecuteMoveAsync + SidecarWriter + cover.jpg
 14. If WriteBack enabled: EpubMetadataTagger.WriteTagsAsync
@@ -86,7 +86,7 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 | Max probe attempts | 8 (~127s total window) | DebounceOptions |
 | Queue capacity | 512 (debounce) / 1000 (worker) / 500 (harvest) | Various |
 | Auto-organise threshold | 0.85 (85% confidence) | ScoringConfiguration |
-| Organisation template | `{Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}` | IngestionOptions |
+| Organisation template | `{Category}/{CollectionName} ({Year})/{Format}/{CollectionName} ({Edition}){Ext}` | IngestionOptions |
 
 ---
 
@@ -96,5 +96,5 @@ This skill covers the full file ingestion lifecycle — from Watch Folder detect
 2. **FileWatcher error recovery** — non-overflow errors (network disconnect) are swallowed silently.
 3. **Standalone worker host is broken** — missing 6+ Phase 9 DI registrations.
 4. **PersonEnriched event has empty name** — known bug in MetadataHarvestingService.
-5. **Work+Edition proliferation** — new chain created per asset, even for same work under same Hub.
+5. **Work+Edition proliferation** — new chain created per asset, even for same work under same Collection.
 6. **Great Inhale cannot restore from complete wipe** — requires assets to already exist in DB.

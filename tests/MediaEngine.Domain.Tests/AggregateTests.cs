@@ -7,40 +7,40 @@ namespace MediaEngine.Domain.Tests;
 public class AggregateTests
 {
     // ════════════════════════════════════════════════════════════════════════
-    //  Hub
+    //  Collection
     // ════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public void Hub_DefaultState_HasEmptyCollections()
+    public void Collection_DefaultState_HasEmptyCollections()
     {
-        var hub = new Hub();
+        var collection = new Collection();
 
-        Assert.Equal(Guid.Empty, hub.Id);
-        Assert.Null(hub.UniverseId);
-        Assert.Null(hub.DisplayName);
-        Assert.Equal("Unknown", hub.UniverseStatus);
-        Assert.Empty(hub.Works);
-        Assert.Empty(hub.Relationships);
+        Assert.Equal(Guid.Empty, collection.Id);
+        Assert.Null(collection.UniverseId);
+        Assert.Null(collection.DisplayName);
+        Assert.Equal("Unknown", collection.UniverseStatus);
+        Assert.Empty(collection.Works);
+        Assert.Empty(collection.Relationships);
     }
 
     [Fact]
-    public void Hub_WithWorks_TracksChildren()
+    public void Collection_WithWorks_TracksChildren()
     {
-        var hub = new Hub { Id = Guid.NewGuid(), DisplayName = "Dune" };
-        hub.Works.Add(new Work { Id = Guid.NewGuid(), HubId = hub.Id, MediaType = MediaType.Books });
-        hub.Works.Add(new Work { Id = Guid.NewGuid(), HubId = hub.Id, MediaType = MediaType.Movies });
+        var collection = new Collection { Id = Guid.NewGuid(), DisplayName = "Dune" };
+        collection.Works.Add(new Work { Id = Guid.NewGuid(), CollectionId = collection.Id, MediaType = MediaType.Books });
+        collection.Works.Add(new Work { Id = Guid.NewGuid(), CollectionId = collection.Id, MediaType = MediaType.Movies });
 
-        Assert.Equal(2, hub.Works.Count);
-        Assert.All(hub.Works, w => Assert.Equal(hub.Id, w.HubId));
+        Assert.Equal(2, collection.Works.Count);
+        Assert.All(collection.Works, w => Assert.Equal(collection.Id, w.CollectionId));
     }
 
     [Fact]
-    public void Hub_UniverseId_IsOptional()
+    public void Collection_UniverseId_IsOptional()
     {
         var universeId = Guid.NewGuid();
-        var hub = new Hub { Id = Guid.NewGuid(), UniverseId = universeId };
+        var collection = new Collection { Id = Guid.NewGuid(), UniverseId = universeId };
 
-        Assert.Equal(universeId, hub.UniverseId);
+        Assert.Equal(universeId, collection.UniverseId);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -53,7 +53,7 @@ public class AggregateTests
         var work = new Work();
 
         Assert.Equal(MediaType.Unknown, work.MediaType);
-        Assert.Null(work.HubId);
+        Assert.Null(work.CollectionId);
         Assert.Equal(WorkKind.Standalone, work.WorkKind);
         Assert.Null(work.ParentWorkId);
         Assert.Null(work.Ordinal);

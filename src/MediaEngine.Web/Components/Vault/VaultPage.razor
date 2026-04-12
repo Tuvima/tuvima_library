@@ -116,7 +116,7 @@
                 @* ── Group drill-down sub-page ── *@
                 <MediaGroupPage GroupType="@_activeGroupType"
                                 GroupId="@_activeGroupId.Value"
-                                ArtistAlbumHubIds="@_artistAlbumHubIds"
+                                ArtistAlbumCollectionIds="@_artistAlbumCollectionIds"
                                 ArtistName="@_activeArtistName"
                                 GroupName="@_activeGroupName"
                                 GroupField="@_activeGroupField"
@@ -211,13 +211,13 @@
     </div>
 
     @* ── HUB DETAIL DRAWER ── *@
-    @if (_selectedHub is not null)
+    @if (_selectedCollection is not null)
     {
-        <VaultHubDrawer Hub="@_selectedHub"
-                        Items="@_selectedHubItems"
-                        OnClose="CloseHubDrawer"
-                        OnEnabledToggled="OnHubEnabledToggled"
-                        OnFeaturedToggled="OnHubFeaturedToggled" />
+        <VaultCollectionDrawer Collection="@_selectedCollection"
+                        Items="@_selectedCollectionItems"
+                        OnClose="CloseCollectionDrawer"
+                        OnEnabledToggled="OnCollectionEnabledToggled"
+                        OnFeaturedToggled="OnCollectionFeaturedToggled" />
     }
 
     @* ── 5. DETAIL DRAWER ── *@
@@ -312,16 +312,16 @@
     // ── Data ──
     private List<VaultItemViewModel> _mediaItems = [];
     private List<PersonListItemDto> _people = [];
-    private List<HubViewModel> _universes = [];
-    private List<ManagedHubViewModel> _managedHubs = [];
+    private List<CollectionViewModel> _universes = [];
+    private List<ManagedCollectionViewModel> _managedCollections = [];
     private List<ContentGroupViewModel> _contentGroups = [];
     private RegistryFourStateCountsDto _counts = new();
     private Dictionary<string, int> _mediaTypeCounts = new();
     private bool _hasMore;
     private int _loadedCount;
-    // ── Hub drawer state ──
-    private ManagedHubViewModel? _selectedHub;
-    private List<HubItemViewModel> _selectedHubItems = [];
+    // ── Collection drawer state ──
+    private ManagedCollectionViewModel? _selectedCollection;
+    private List<CollectionItemViewModel> _selectedCollectionItems = [];
 
     // ── Computed counts ──
     private int _needsReviewCount => _counts.InReview;
@@ -337,8 +337,8 @@
     /// </summary>
     private int _staleUniverseCount;
 
-    // ── Hub type filter ──
-    private HashSet<string> _enabledHubTypes = new(["Smart", "System", "Mix", "Playlist", "ContentGroups"]);
+    // ── Collection type filter ──
+    private HashSet<string> _enabledCollectionTypes = new(["Smart", "System", "Mix", "Playlist", "ContentGroups"]);
 
     // ── People state ──
     private Dictionary<string, Dictionary<string, int>> _personPresence = new();
@@ -367,7 +367,7 @@
     // ── Group drill-down sub-page state ──
     private string? _activeGroupType;
     private Guid? _activeGroupId;
-    private List<Guid>? _artistAlbumHubIds;
+    private List<Guid>? _artistAlbumCollectionIds;
     private string? _activeArtistName;
     private string? _activeGroupName;
     private string? _activeGroupField;
@@ -376,7 +376,7 @@
     // ── Detail drawer state ──
     private VaultItemViewModel? _selectedMedia;
     private PersonListItemDto? _selectedPerson;
-    private HubViewModel? _selectedUniverse;
+    private CollectionViewModel? _selectedUniverse;
 
     // ── Delete confirm state ──
     private Guid? _deleteItemId;
@@ -390,15 +390,15 @@
     // _actionCenterExpanded removed — Action Center tab always shows expanded
     private List<VaultItemViewModel>? _conflictItems;
 
-    // ── Hub counts (used by LoadManagedHubs) ──
-    private Dictionary<string, int> _hubCounts = new();
+    // ── Collection counts (used by LoadManagedCollections) ──
+    private Dictionary<string, int> _collectionCounts = new();
 
     // ── Primary tab categories ──
     private static readonly (string Id, string Label, string Icon)[] _primaryTabs =
     [
         ("overview",           "Overview",           Icons.Material.Outlined.Dashboard),
         ("media",              "Media",              Icons.Material.Outlined.VideoLibrary),
-        ("universe_alignment", "Universe Alignment", Icons.Material.Outlined.Hub),
+        ("universe_alignment", "Universe Alignment", Icons.Material.Outlined.Collections),
     ];
 
     // ── Sub-tabs per primary category ──
@@ -595,15 +595,15 @@
         var offset = append ? _loadedCount : 0;
         var isNewTab = _activeTab == "new";
 
-        // For flat hub views (e.g. "All Songs"), bypass the registry visibility filter
+        // For flat collection views (e.g. "All Songs"), bypass the registry visibility filter
         // so items that are still in the pipeline (no QID, no review) are included.
         // Only used on the first page load (append=false) — pagination falls back to
         // the registry path to avoid duplicates.
-        var flatHubName = GetSystemViewFlatHubName();
-        if (flatHubName is not null && !append && statusFilter is null && string.IsNullOrWhiteSpace(_searchText))
+        var flatCollectionName = GetSystemViewFlatCollectionName();
+        if (flatCollectionName is not null && !append && statusFilter is null && string.IsNullOrWhiteSpace(_searchText))
         {
-            var hubItems = await ApiClient.ResolveHubByNameAsync(flatHubName, limit: 200);
-            _mediaItems = hubItems
+            var collectionItems = await ApiClient.ResolveCollectionByNameAsync(flatCollectionName, limit: 200);
+            _mediaItems = collectionItems
                 .Select(h => new VaultItemViewModel
                 {
                     EntityId  = h.EntityId,
@@ -616,7 +616,7 @@
                     Year      = h.Year,
                 })
                 .ToList();
-            _hasMore = false; // hub resolve returns all items up to limit
+            _hasMore = false; // collection resolve returns all items up to limit
             _loadedCount = _mediaItems.Count;
             _loading = false;
             return;
@@ -650,8 +650,8 @@
     }
 
     /// <summary>
-    /// Maps the current tab + view mode to the group_by_field used in System view hubs.
-    /// Returns null when the view is not backed by a system view hub.
+    /// Maps the current tab + view mode to the group_by_field used in System view collections.
+    /// Returns null when the view is not backed by a system view collection.
     /// </summary>
     private static Guid GenerateDeterministicGuid(string name)
     {
@@ -672,14 +672,14 @@
     };
 
     /// <summary>
-    /// Maps tab + view mode to the name of a System flat hub (no grouping field).
+    /// Maps tab + view mode to the name of a System flat collection (no grouping field).
     /// When this returns a non-null name, <see cref="LoadMediaItems"/> resolves the
-    /// named hub via <c>GET /hubs/resolve/by-name</c> instead of the registry
+    /// named collection via <c>GET /collections/resolve/by-name</c> instead of the registry
     /// endpoint.  This bypasses the registry visibility filter so music items that
     /// are still in the pipeline (no QID, no review, no provisional state) are
     /// included in the "All Songs" view rather than being silently hidden.
     /// </summary>
-    private string? GetSystemViewFlatHubName() => (_activeTab, _viewMode) switch
+    private string? GetSystemViewFlatCollectionName() => (_activeTab, _viewMode) switch
     {
         ("music", "all") => "All Songs",
         _                => null,
@@ -696,7 +696,7 @@
 
         if (systemGroupField is not null)
         {
-            // This view is backed by a System view hub seeded by HubSeeder — resolve via system-views endpoint.
+            // This view is backed by a System view collection seeded by CollectionSeeder — resolve via system-views endpoint.
             var groups = await ApiClient.GetSystemViewGroupsAsync(mediaType, systemGroupField);
 
             if (!string.IsNullOrWhiteSpace(_searchText))
@@ -706,7 +706,7 @@
             _tabContentGroups = groups;
             _containerDisplayItems = groups.Select(g => new VaultItemViewModel
             {
-                // System view groups share the same HubId — generate a unique deterministic ID
+                // System view groups share the same CollectionId — generate a unique deterministic ID
                 // from the display name so the click handler can distinguish them.
                 EntityId = GenerateDeterministicGuid(g.DisplayName),
                 Title    = g.DisplayName,
@@ -723,7 +723,7 @@
         }
         else
         {
-            // Fallback: use ContentGroup hubs (albums/series created during ingestion by MediaEntityChainFactory)
+            // Fallback: use ContentGroup collections (albums/series created during ingestion by MediaEntityChainFactory)
             if (_contentGroups.Count == 0)
                 _contentGroups = await ApiClient.GetContentGroupsAsync();
 
@@ -738,7 +738,7 @@
 
             _containerDisplayItems = _tabContentGroups.Select(g => new VaultItemViewModel
             {
-                EntityId = g.HubId,
+                EntityId = g.CollectionId,
                 Title    = g.DisplayName,
                 MediaType = g.PrimaryMediaType,
                 CoverUrl = g.CoverUrl,
@@ -774,14 +774,14 @@
         _loadingUniverses = true;
         StateHasChanged();
 
-        _universes = await ApiClient.GetParentHubsAsync() ?? [];
+        _universes = await ApiClient.GetParentCollectionsAsync() ?? [];
 
         if (_universes.Count > 0)
         {
             var counts = new Dictionary<Guid, int>();
             foreach (var u in _universes)
             {
-                var people = await ApiClient.GetPersonsByHubAsync(u.Id);
+                var people = await ApiClient.GetPersonsByCollectionAsync(u.Id);
                 counts[u.Id] = people?.Count ?? 0;
             }
             _universePeopleCounts = counts;
@@ -790,19 +790,19 @@
         _loadingUniverses = false;
     }
 
-    private async Task LoadManagedHubs()
+    private async Task LoadManagedCollections()
     {
-        if (_managedHubs.Count > 0) return; // already loaded
+        if (_managedCollections.Count > 0) return; // already loaded
         StateHasChanged();
 
-        var hubsTask   = ApiClient.GetManagedHubsAsync();
-        var countsTask = ApiClient.GetManagedHubCountsAsync();
+        var collectionsTask   = ApiClient.GetManagedCollectionsAsync();
+        var countsTask = ApiClient.GetManagedCollectionCountsAsync();
         var groupsTask = ApiClient.GetContentGroupsAsync();
 
-        await Task.WhenAll(hubsTask, countsTask, groupsTask);
+        await Task.WhenAll(collectionsTask, countsTask, groupsTask);
 
-        _managedHubs   = hubsTask.Result;
-        _hubCounts     = countsTask.Result;
+        _managedCollections   = collectionsTask.Result;
+        _collectionCounts     = countsTask.Result;
         _contentGroups = groupsTask.Result;
     }
 
@@ -1065,15 +1065,15 @@
 
     // ── Container row click handler ──
 
-    private void OnContainerRowClicked(Guid hubId)
+    private void OnContainerRowClicked(Guid collectionId)
     {
         var groupType = GetGroupTypeForContainerTab(_activeTab);
         if (groupType is null) return;
 
-        var container = _containerDisplayItems.FirstOrDefault(i => i.EntityId == hubId);
+        var container = _containerDisplayItems.FirstOrDefault(i => i.EntityId == collectionId);
         var containerName = container?.Title;
 
-        // Check if this is a system-view-backed container (all items share the same hub ID)
+        // Check if this is a system-view-backed container (all items share the same collection ID)
         var systemGroupField = GetSystemViewGroupField();
 
         if (systemGroupField is not null && !string.IsNullOrWhiteSpace(containerName))
@@ -1087,18 +1087,18 @@
             if (_viewMode == "artists" && _activeTab == "music")
             {
                 _activeArtistName = containerName;
-                _artistAlbumHubIds = _contentGroups
+                _artistAlbumCollectionIds = _contentGroups
                     .Where(g => string.Equals(g.PrimaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
                              && string.Equals(g.Creator, containerName, StringComparison.OrdinalIgnoreCase))
-                    .Select(g => g.HubId)
+                    .Select(g => g.CollectionId)
                     .ToList();
             }
 
-            NavigateToGroup(groupType, hubId);
+            NavigateToGroup(groupType, collectionId);
             return;
         }
 
-        NavigateToGroup(groupType, hubId);
+        NavigateToGroup(groupType, collectionId);
     }
 
     private Task OnPosterSizeChanged(int size)
@@ -1190,7 +1190,7 @@
         var group = _contentGroups.FirstOrDefault(g =>
             string.Equals(g.DisplayName, name, StringComparison.OrdinalIgnoreCase)
             && string.Equals(g.PrimaryMediaType, mediaType, StringComparison.OrdinalIgnoreCase));
-        return group?.HubId;
+        return group?.CollectionId;
     }
 
     private async Task OnPersonRowClicked(Guid personId)
@@ -1303,28 +1303,28 @@
         }
     }
 
-    // ── Hub drawer ──
+    // ── Collection drawer ──
 
-    private async Task OnHubClicked(Guid hubId)
+    private async Task OnCollectionClicked(Guid collectionId)
     {
-        _selectedHub = _managedHubs.FirstOrDefault(h => h.Id == hubId);
-        if (_selectedHub is not null)
+        _selectedCollection = _managedCollections.FirstOrDefault(h => h.Id == collectionId);
+        if (_selectedCollection is not null)
         {
-            _selectedHubItems = await ApiClient.GetHubItemsAsync(hubId, 20);
+            _selectedCollectionItems = await ApiClient.GetCollectionItemsAsync(collectionId, 20);
         }
         UpdateUrl();
     }
 
-    private void CloseHubDrawer()
+    private void CloseCollectionDrawer()
     {
-        _selectedHub = null;
-        _selectedHubItems = [];
+        _selectedCollection = null;
+        _selectedCollectionItems = [];
         UpdateUrl();
     }
 
-    private void OnContentGroupClicked(Guid hubId)
+    private void OnContentGroupClicked(Guid collectionId)
     {
-        NavigateToGroup("ContentGroup", hubId);
+        NavigateToGroup("ContentGroup", collectionId);
     }
 
     // ── Show unowned toggle handler ──
@@ -1342,7 +1342,7 @@
     {
         _activeGroupType = groupType;
         _activeGroupId = groupId;
-        if (groupType != "artist") { _artistAlbumHubIds = null; _activeArtistName = null; }
+        if (groupType != "artist") { _artistAlbumCollectionIds = null; _activeArtistName = null; }
         UpdateUrl();
     }
 
@@ -1354,7 +1354,7 @@
         _activeGroupField = null;
         _activeGroupMediaType = null;
         _activeArtistName = null;
-        _artistAlbumHubIds = null;
+        _artistAlbumCollectionIds = null;
         UpdateUrl();
     }
 
@@ -1391,10 +1391,10 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void OnAlbumTileClickedFromGroup(Guid albumHubId)
+    private void OnAlbumTileClickedFromGroup(Guid albumCollectionId)
     {
-        if (albumHubId == Guid.Empty) return;
-        NavigateToGroup("ContentGroup", albumHubId);
+        if (albumCollectionId == Guid.Empty) return;
+        NavigateToGroup("ContentGroup", albumCollectionId);
     }
 
     private void OnAlbumNameClickedFromGroup(string albumName)
@@ -1405,7 +1405,7 @@
         _activeGroupField    = "album";
         _activeGroupMediaType = "Music";
         _activeArtistName    = null;
-        _artistAlbumHubIds   = null;
+        _artistAlbumCollectionIds   = null;
         NavigateToGroup("album", Guid.NewGuid());
     }
 
@@ -1423,26 +1423,26 @@
         }
     }
 
-    private async Task OnHubEnabledToggled((Guid Id, bool Enabled) args)
+    private async Task OnCollectionEnabledToggled((Guid Id, bool Enabled) args)
     {
-        await ApiClient.UpdateHubEnabledAsync(args.Id, args.Enabled);
-        var hub = _managedHubs.FirstOrDefault(h => h.Id == args.Id);
-        if (hub is not null)
+        await ApiClient.UpdateCollectionEnabledAsync(args.Id, args.Enabled);
+        var collection = _managedCollections.FirstOrDefault(h => h.Id == args.Id);
+        if (collection is not null)
         {
-            hub.IsEnabled = args.Enabled;
-            hub.Status = !args.Enabled ? "Disabled" : hub.ItemCount == 0 ? "Empty" : "Active";
+            collection.IsEnabled = args.Enabled;
+            collection.Status = !args.Enabled ? "Disabled" : collection.ItemCount == 0 ? "Empty" : "Active";
         }
-        if (_selectedHub?.Id == args.Id)
-            _selectedHub.IsEnabled = args.Enabled;
+        if (_selectedCollection.Id == args.Id)
+            _selectedCollection.IsEnabled = args.Enabled;
     }
 
-    private async Task OnHubFeaturedToggled((Guid Id, bool Featured) args)
+    private async Task OnCollectionFeaturedToggled((Guid Id, bool Featured) args)
     {
-        await ApiClient.UpdateHubFeaturedAsync(args.Id, args.Featured);
-        var hub = _managedHubs.FirstOrDefault(h => h.Id == args.Id);
-        if (hub is not null) hub.IsFeatured = args.Featured;
-        if (_selectedHub?.Id == args.Id)
-            _selectedHub.IsFeatured = args.Featured;
+        await ApiClient.UpdateCollectionFeaturedAsync(args.Id, args.Featured);
+        var collection = _managedCollections.FirstOrDefault(h => h.Id == args.Id);
+        if (collection is not null) collection.IsFeatured = args.Featured;
+        if (_selectedCollection.Id == args.Id)
+            _selectedCollection.IsFeatured = args.Featured;
     }
 
     private void ClearStatusFilters()

@@ -7,7 +7,7 @@ namespace MediaEngine.Web.Services.Integration;
 /// <summary>
 /// Scoped state container (one per Blazor Server circuit) that caches the
 /// current Library view and surfaces real-time event data received from
-/// the Engine API Intercom SignalR hub.
+/// the Engine API Intercom SignalR collection.
 ///
 /// <para>
 /// <b>Thread safety:</b> SignalR event handlers run on a background thread.
@@ -18,8 +18,8 @@ namespace MediaEngine.Web.Services.Integration;
 /// </summary>
 public sealed class UniverseStateContainer
 {
-    private List<HubViewModel>         _hubs                       = [];
-    private HubViewModel?              _selected;
+    private List<CollectionViewModel>         _collections                       = [];
+    private CollectionViewModel?              _selected;
     private UniverseViewModel?         _universe;
     private bool                       _loaded;
     private IngestionProgressEvent?    _ingestionProgress;
@@ -32,8 +32,8 @@ public sealed class UniverseStateContainer
 
     // ── Read-only surface ─────────────────────────────────────────────────────
 
-    public IReadOnlyList<HubViewModel> Hubs              => _hubs;
-    public HubViewModel?               Selected          => _selected;
+    public IReadOnlyList<CollectionViewModel> Collections              => _collections;
+    public CollectionViewModel?               Selected          => _selected;
 
     /// <summary>
     /// Language code configured in the Engine (e.g. "en", "fr", "de").
@@ -44,7 +44,7 @@ public sealed class UniverseStateContainer
 
     /// <summary>
     /// Flattened cross-media-type view built by <see cref="UniverseMapper"/>.
-    /// Null until the first successful hub load; components should guard with
+    /// Null until the first successful collection load; components should guard with
     /// <c>@if (State.Universe is { } u)</c>.
     /// </summary>
     public UniverseViewModel?          Universe          => _universe;
@@ -81,23 +81,23 @@ public sealed class UniverseStateContainer
     // ── Lane filter ──────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Hubs filtered by the currently active content lane's media types.
-    /// Returns all hubs when no lane filter is active (Home page).
+    /// Collections filtered by the currently active content lane's media types.
+    /// Returns all collections when no lane filter is active (Home page).
     /// </summary>
-    public IReadOnlyList<HubViewModel> FilteredHubs =>
+    public IReadOnlyList<CollectionViewModel> FilteredCollections =>
         _activeLaneMediaTypes is null or { Length: 0 }
-            ? Hubs
-            : _hubs.Where(h => SplitMediaTypes(h.MediaTypes).Any(mt =>
+            ? Collections
+            : _collections.Where(h => SplitMediaTypes(h.MediaTypes).Any(mt =>
                 _activeLaneMediaTypes.Any(f => string.Equals(f, mt, StringComparison.OrdinalIgnoreCase))))
               .ToList();
 
     /// <summary>
-    /// Distinct set of media type strings across all hubs in the library.
+    /// Distinct set of media type strings across all collections in the library.
     /// Used by lane pages for content-aware display.
     /// </summary>
     public HashSet<string> AvailableMediaTypes =>
         new HashSet<string>(
-            _hubs.SelectMany(h => SplitMediaTypes(h.MediaTypes)),
+            _collections.SelectMany(h => SplitMediaTypes(h.MediaTypes)),
             StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Splits a comma-separated MediaTypes string into individual trimmed values.</summary>
@@ -119,39 +119,39 @@ public sealed class UniverseStateContainer
     // ── Events ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Fires whenever the hub list, selected hub, universe view, or
+    /// Fires whenever the collection list, selected collection, universe view, or
     /// ingestion progress changes.  May fire from a SignalR background thread —
     /// use <c>InvokeAsync(StateHasChanged)</c> in component handlers.
     /// </summary>
     public event Action? OnStateChanged;
 
-    // ── Hub-list mutations ────────────────────────────────────────────────────
+    // ── Collection-list mutations ────────────────────────────────────────────────────
 
     /// <summary>
-    /// Replaces the cached hub list and rebuilds the flattened
+    /// Replaces the cached collection list and rebuilds the flattened
     /// <see cref="UniverseViewModel"/> via <see cref="UniverseMapper"/>.
     /// </summary>
-    public void SetHubs(IEnumerable<HubViewModel> hubs)
+    public void SetCollections(IEnumerable<CollectionViewModel> collections)
     {
-        _hubs     = hubs.ToList();
-        _universe = UniverseMapper.MapFromHubs(_hubs);
+        _collections     = collections.ToList();
+        _universe = UniverseMapper.MapFromCollections(_collections);
         _loaded   = true;
         OnStateChanged?.Invoke();
     }
 
-    public void SelectHub(HubViewModel? hub)
+    public void SelectCollection(CollectionViewModel? collection)
     {
-        _selected = hub;
+        _selected = collection;
         OnStateChanged?.Invoke();
     }
 
     /// <summary>
     /// Clears all cached data.  The next call to
-    /// <c>UIOrchestratorService.GetHubsAsync()</c> will trigger a fresh API fetch.
+    /// <c>UIOrchestratorService.GetCollectionsAsync()</c> will trigger a fresh API fetch.
     /// </summary>
     public void Invalidate()
     {
-        _hubs                = [];
+        _collections                = [];
         _selected            = null;
         _universe            = null;
         _loaded              = false;
@@ -164,7 +164,7 @@ public sealed class UniverseStateContainer
     // ── Real-time event sinks (called by UIOrchestratorService) ───────────────
 
     /// <summary>
-    /// Called when an <c>"IngestionProgress"</c> event arrives on the Intercom hub.
+    /// Called when an <c>"IngestionProgress"</c> event arrives on the Intercom collection.
     /// Updates the progress indicator and notifies subscribed components.
     /// </summary>
     public void PushIngestionProgress(IngestionProgressEvent ev)
@@ -186,7 +186,7 @@ public sealed class UniverseStateContainer
     }
 
     /// <summary>
-    /// Called when a <c>"BatchProgress"</c> event arrives on the Intercom hub.
+    /// Called when a <c>"BatchProgress"</c> event arrives on the Intercom collection.
     /// Updates batch progress state for live progress bars and time-remaining display.
     /// </summary>
     public void PushBatchProgress(BatchProgressEvent ev)
@@ -196,8 +196,8 @@ public sealed class UniverseStateContainer
     }
 
     /// <summary>
-    /// Called when a <c>"MediaAdded"</c> event arrives on the Intercom hub.
-    /// Logs the event and invalidates the hub cache so the next navigation
+    /// Called when a <c>"MediaAdded"</c> event arrives on the Intercom collection.
+    /// Logs the event and invalidates the collection cache so the next navigation
     /// triggers a fresh load with the new Work included.
     /// </summary>
     public void PushMediaAdded(MediaAddedEvent ev)
@@ -206,13 +206,13 @@ public sealed class UniverseStateContainer
             DateTimeOffset.UtcNow, ActivityKind.MediaAdded,
             "library_add",
             $"New {ev.MediaType.ToLowerInvariant()} added: \"{ev.Title}\"",
-            ev.HubId is { } hubId ? $"Assigned to Hub {hubId:N}" : "Standalone (no Hub)"));
+            ev.CollectionId is { } collectionId ? $"Assigned to Collection {collectionId:N}" : "Standalone (no Collection)"));
         Invalidate();
     }
 
     /// <summary>
-    /// Called when an <c>"IngestionCompleted"</c> event arrives on the Intercom hub.
-    /// Logs the event and invalidates the hub cache so the next navigation
+    /// Called when an <c>"IngestionCompleted"</c> event arrives on the Intercom collection.
+    /// Logs the event and invalidates the collection cache so the next navigation
     /// triggers a fresh load with the newly ingested file included.
     /// </summary>
     public void PushIngestionCompleted(IngestionCompletedClientEvent ev)
@@ -226,7 +226,7 @@ public sealed class UniverseStateContainer
     }
 
     /// <summary>
-    /// Called when a <c>"PersonEnriched"</c> event arrives on the Intercom hub.
+    /// Called when a <c>"PersonEnriched"</c> event arrives on the Intercom collection.
     /// Keeps a rolling buffer of the 50 most recent person updates.
     /// </summary>
     public void PushPersonEnriched(PersonEnrichedEvent ev)
@@ -245,7 +245,7 @@ public sealed class UniverseStateContainer
     }
 
     /// <summary>
-    /// Called when a <c>"MetadataHarvested"</c> event arrives on the Intercom hub.
+    /// Called when a <c>"MetadataHarvested"</c> event arrives on the Intercom collection.
     /// Logs the event and invalidates the cache.
     /// </summary>
     public void PushMetadataHarvested(MetadataHarvestedEvent ev)
@@ -260,7 +260,7 @@ public sealed class UniverseStateContainer
     }
 
     /// <summary>
-    /// Called when a <c>"WatchFolderActive"</c> event arrives on the Intercom hub.
+    /// Called when a <c>"WatchFolderActive"</c> event arrives on the Intercom collection.
     /// Updates <see cref="LatestWatchFolderActivation"/> so components can react
     /// to a watch folder change without a page reload.
     /// </summary>

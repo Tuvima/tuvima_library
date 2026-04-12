@@ -28,7 +28,7 @@ public static class ReviewTrigger
     public const string UserFixMatch = "UserFixMatch";
 
     /// <summary>
-    /// The <see cref="MediaEngine.Intelligence.HubArbiter"/> scored the entity in
+    /// The <see cref="MediaEngine.Intelligence.CollectionArbiter"/> scored the entity in
     /// the NeedsReview disposition band (between Conflict and AutoLink thresholds).
     /// </summary>
     public const string ArbiterNeedsReview = "ArbiterNeedsReview";

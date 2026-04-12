@@ -219,17 +219,17 @@ is not matching during hydration.
 
 ## 7. SignalR â€” testing real-time events
 
-The SignalR hub for real-time dashboard updates is at:
+The SignalR collection for real-time dashboard updates is at:
 
 ```
-ws://localhost:61495/hubs/intercom
+ws://localhost:61495/intercom
 ```
 
 Connect using the `@microsoft/signalr` client (already vendored in the Dashboard) or
 a standalone tool like `wscat`:
 
 ```bash
-wscat -c ws://localhost:61495/hubs/intercom
+wscat -c ws://localhost:61495/intercom
 ```
 
 Events published by the Engine include ingestion progress updates, hydration stage
@@ -237,7 +237,7 @@ completions, and library change notifications. Event names and payload shapes ar
 defined in `src/MediaEngine.Web/Services/Integration/IntercomEvents.cs`.
 
 To observe events during a seeded test run:
-1. Connect a SignalR client to `/hubs/intercom`
+1. Connect a SignalR client to `/intercom`
 2. POST to `/dev/seed-library`
 3. Watch for ingestion progress and completion events in real time
 

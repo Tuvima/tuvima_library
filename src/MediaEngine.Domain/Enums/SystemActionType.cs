@@ -99,7 +99,7 @@ public static class SystemActionType
     /// <summary>The scoring engine assigned a confidence score to a file's metadata.</summary>
     public const string FileScored = "FileScored";
 
-    /// <summary>A Hub → Work → Edition entity chain was created or linked for a file.</summary>
+    /// <summary>A Collection → Work → Edition entity chain was created or linked for a file.</summary>
     public const string EntityChainCreated = "EntityChainCreated";
 
     /// <summary>Cover art was saved to disk alongside the organized file.</summary>
@@ -139,16 +139,16 @@ public static class SystemActionType
     /// <summary>A library reconciliation scan completed.</summary>
     public const string ReconciliationCompleted = "ReconciliationCompleted";
 
-    // ── Hub Intelligence ───────────────────────────────────────────────
+    // ── Collection Intelligence ───────────────────────────────────────────────
 
-    /// <summary>A new Hub was created from Wikidata relationship data.</summary>
-    public const string HubCreated = "HubCreated";
+    /// <summary>A new Collection was created from Wikidata relationship data.</summary>
+    public const string CollectionCreated = "CollectionCreated";
 
-    /// <summary>A Work was assigned to a Hub (firm or provisional link).</summary>
-    public const string HubAssigned = "HubAssigned";
+    /// <summary>A Work was assigned to a Collection (firm or provisional link).</summary>
+    public const string CollectionAssigned = "CollectionAssigned";
 
-    /// <summary>Two Hubs were merged when a shared relationship was discovered.</summary>
-    public const string HubMerged = "HubMerged";
+    /// <summary>Two Collections were merged when a shared relationship was discovered.</summary>
+    public const string CollectionMerged = "CollectionMerged";
 
     // ── Consolidated Pipeline Events ──────────────────────────────────
 

@@ -24,7 +24,7 @@ public sealed class UnlinkedWorkDto
 
 public sealed class UniverseAcceptRequest
 {
-    [JsonPropertyName("target_hub_qid")] public required string TargetHubQid { get; init; }
+    [JsonPropertyName("target_collection_qid")] public required string TargetCollectionQid { get; init; }
 }
 
 public sealed class UniverseBatchAcceptRequest
@@ -35,5 +35,5 @@ public sealed class UniverseBatchAcceptRequest
 public sealed class UniverseManualAssignRequest
 {
     [JsonPropertyName("work_id")] public Guid WorkId { get; init; }
-    [JsonPropertyName("hub_id")] public Guid HubId { get; init; }
+    [JsonPropertyName("collection_id")] public Guid CollectionId { get; init; }
 }

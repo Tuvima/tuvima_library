@@ -21,7 +21,7 @@ Tuvima Library defines three user roles, each with a progressively wider scope o
 ## User Experience
 
 ### What a Consumer sees
-- The full library (Hubs, Works, Editions).
+- The full library (Collections, Works, Editions).
 - The Preferences page (General + Playback tabs).
 - The avatar menu shows "Preferences" only — "Server Settings" is hidden.
 - No access to the Curator's Drawer.

@@ -67,7 +67,7 @@ All LLM calls use GBNF grammar constraints â€” llama.cpp forces the model t
 |---|---|---|
 | QID Disambiguation | text_quality | When the Reconciliation API returns multiple Wikidata candidates, picks the best match using semantic reasoning over title, description, and existing metadata. |
 | Series Alignment | text_quality | Infers correct reading/watching order within a series when Wikidata series position data is absent or inconsistent. Background service (3 AM daily). |
-| Watching Order | text_fast | Generates a recommended cross-media consumption order for a Hub (read the book before watching the film, etc.). On-demand. |
+| Watching Order | text_fast | Generates a recommended cross-media consumption order for a Collection (read the book before watching the film, etc.). On-demand. |
 
 ### Enrichment (background / on-demand)
 

@@ -200,7 +200,7 @@ Result: the file appears on the Dashboard within seconds with title, author, cov
 Pass 2 runs in the background and handles everything that makes the library intelligent:
 
 - Full Data Extension deep hydration â€” all 50+ properties from `config/providers/wikidata_reconciliation.json`
-- Hub Intelligence â€” franchise resolution, narrative root assignment (P1434, P8345, P179)
+- Collection Intelligence â€” franchise resolution, narrative root assignment (P1434, P8345, P179)
 - Fictional entity discovery â€” characters, locations, organisations
 - Relationship population â€” father, spouse, member_of, performer links (depth limit configurable via `lineage_depth`, default 2)
 - Deep person enrichment â€” social links (Instagram, TikTok, Mastodon, website), biographical details (birth/death dates, nationality), pseudonym resolution (P1773/P742)
@@ -436,7 +436,7 @@ The review queue surfaces items that need human attention. The Dashboard interac
 | `LowConfidence` | Pipeline completed but overall confidence fell below `auto_review_confidence_threshold` (0.60) |
 | `MultipleQidMatches` | Stage 2 found multiple Wikidata candidates; user must pick one |
 | `UserFixMatch` | User manually flagged an item for re-review |
-| `ArbiterNeedsReview` | Hub Arbiter flagged an uncertain Hub assignment |
+| `ArbiterNeedsReview` | Collection Arbiter flagged an uncertain Collection assignment |
 | `AmbiguousMediaType` | Media type disambiguation could not determine the content type with sufficient confidence |
 
 Each review item carries: entity reference, trigger reason, confidence score, optional disambiguation candidates (JSON array of `{ qid, label, description }`), and a human-readable detail string.

@@ -18,8 +18,8 @@ public interface ISeriesAligner
 
     /// <summary>
     /// Detect works that belong to the same series but aren't grouped.
-    /// Returns pairs of (workId, suggestedHubId) for regrouping.
+    /// Returns pairs of (workId, suggestedCollectionId) for regrouping.
     /// </summary>
-    Task<IReadOnlyList<(Guid WorkId, Guid SuggestedHubId)>> DetectUngroupedAsync(
+    Task<IReadOnlyList<(Guid WorkId, Guid SuggestedCollectionId)>> DetectUngroupedAsync(
         CancellationToken ct = default);
 }

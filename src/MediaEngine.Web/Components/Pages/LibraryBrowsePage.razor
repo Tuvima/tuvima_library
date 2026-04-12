@@ -104,7 +104,7 @@ else
     private bool _seeding;
 
     // ── Data ──────────────────────────────────────────────────────────────
-    private List<HubViewModel> _hubs = [];
+    private List<CollectionViewModel> _collections = [];
     private List<WorkViewModel> _libraryWorks = [];
     private List<JourneyItemViewModel> _journeyItems = [];
 
@@ -135,7 +135,7 @@ else
         _loading = true;
         try
         {
-            _hubs = await Orchestrator.GetHubsAsync();
+            _collections = await Orchestrator.GetCollectionsAsync();
             _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
             _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
             BuildHeroItems();

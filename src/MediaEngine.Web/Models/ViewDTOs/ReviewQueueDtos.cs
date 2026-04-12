@@ -26,8 +26,8 @@ public sealed class ReviewItemViewModel
     [JsonPropertyName("confidence_score")]
     public double? ConfidenceScore { get; set; }
 
-    [JsonPropertyName("proposed_hub_id")]
-    public Guid? ProposedHubId { get; set; }
+    [JsonPropertyName("proposed_collection_id")]
+    public Guid? ProposedCollectionId { get; set; }
 
     [JsonPropertyName("candidates_json")]
     public string? CandidatesJson { get; set; }

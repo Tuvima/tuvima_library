@@ -1884,7 +1884,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         var claims = new List<ProviderClaim>
         {
             // Always emit the master work QID as the canonical wikidata_qid.
-            // This ensures Hub grouping is based on the creative work, not the edition.
+            // This ensures Collection grouping is based on the creative work, not the edition.
             new(BridgeIdKeys.WikidataQid, masterWorkQid, 1.0)
         };
 
@@ -2575,7 +2575,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// which handles the season → episode walk for TV (one library call instead of
     /// N+1), the track ordering for Music, and the reverse traversal for Comics
     /// internally. The JSON blob shape is unchanged so the Vault parser
-    /// (<c>HubEndpoints.MergeUnownedChildEntities</c>) keeps working without
+    /// (<c>CollectionEndpoints.MergeUnownedChildEntities</c>) keeps working without
     /// modification. Per-media-type cap parameters and the legacy
     /// <c>config.ChildEntityDiscovery</c> P-code overrides are no longer consulted —
     /// the library owns the property selection.

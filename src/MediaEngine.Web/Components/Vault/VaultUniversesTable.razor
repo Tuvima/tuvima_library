@@ -44,7 +44,7 @@ else
                             </div>
                         </td>
                         <td class="vut-td vut-td--center vut-col-series">
-                            <span class="vut-count">@(u.IsParentHub ? u.ChildHubCount : u.WorkCount)</span>
+                            <span class="vut-count">@(u.IsParentCollection ? u.ChildCollectionCount : u.WorkCount)</span>
                         </td>
                         <td class="vut-td">
                             @if (!string.IsNullOrWhiteSpace(u.MediaTypes))
@@ -84,10 +84,10 @@ else
 }
 
 @code {
-    [Parameter] public List<HubViewModel> Universes { get; set; } = [];
+    [Parameter] public List<CollectionViewModel> Universes { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
-    /// <summary>Optional map of Hub ID → people count. When null, the People column shows "—".</summary>
+    /// <summary>Optional map of Collection ID → people count. When null, the People column shows "—".</summary>
     [Parameter] public Dictionary<Guid, int>? PeopleCount { get; set; }
 }
 

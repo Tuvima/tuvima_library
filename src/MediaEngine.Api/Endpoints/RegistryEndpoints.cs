@@ -120,7 +120,7 @@ public static class RegistryEndpoints
             ApplyMatchRequest request,
             IMetadataClaimRepository claimRepo,
             IHydrationPipelineService pipeline,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             IDatabaseConnection db,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
@@ -247,7 +247,7 @@ public static class RegistryEndpoints
                 }
 
                 // Update work's wikidata_status
-                await hubRepo.UpdateWorkWikidataStatusAsync(entityId, "confirmed", ct);
+                await collectionRepo.UpdateWorkWikidataStatusAsync(entityId, "confirmed", ct);
 
                 // Build hints from the claims for the pipeline
                 var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
@@ -300,7 +300,7 @@ public static class RegistryEndpoints
                 {
                     OccurredAt = DateTimeOffset.UtcNow,
                     ActionType = SystemActionType.ReviewItemResolved,
-                    HubName    = displayTitle,
+                    CollectionName    = displayTitle,
                     EntityId   = entityId,
                     EntityType = "Work",
                     Detail     = $"Registered '{displayTitle}' — QID {request.Qid} confirmed.",
@@ -327,7 +327,7 @@ public static class RegistryEndpoints
                 if (claims.Count > 0)
                     await claimRepo.InsertBatchAsync(claims, ct);
 
-                await hubRepo.UpdateWorkWikidataStatusAsync(entityId, "missing", ct);
+                await collectionRepo.UpdateWorkWikidataStatusAsync(entityId, "missing", ct);
 
                 // Upsert canonical values directly for retail metadata
                 if (claims.Count > 0)
@@ -371,7 +371,7 @@ public static class RegistryEndpoints
                     if (!string.IsNullOrWhiteSpace(pipelineResult.WikidataQid))
                     {
                         wikidataStatus = "confirmed";
-                        await hubRepo.UpdateWorkWikidataStatusAsync(entityId, "confirmed", ct);
+                        await collectionRepo.UpdateWorkWikidataStatusAsync(entityId, "confirmed", ct);
                     }
                 }
                 catch (Exception)
@@ -386,7 +386,7 @@ public static class RegistryEndpoints
                 {
                     OccurredAt = DateTimeOffset.UtcNow,
                     ActionType = SystemActionType.ReviewItemResolved,
-                    HubName    = retailTitle,
+                    CollectionName    = retailTitle,
                     EntityId   = entityId,
                     EntityType = "Work",
                     Detail     = $"Match applied for '{retailTitle}' — retail metadata only (no Wikidata QID).",
@@ -431,7 +431,7 @@ public static class RegistryEndpoints
             Guid entityId,
             CreateManualRequest request,
             IMetadataClaimRepository claimRepo,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -511,7 +511,7 @@ public static class RegistryEndpoints
                 }
             }
 
-            await hubRepo.UpdateWorkWikidataStatusAsync(entityId, "manual", ct);
+            await collectionRepo.UpdateWorkWikidataStatusAsync(entityId, "manual", ct);
 
             return Results.Ok(new CreateManualResponse
             {
@@ -538,7 +538,7 @@ public static class RegistryEndpoints
         {
             // 1. Resolve all media asset file paths + QID for this work
             var filePaths = new List<string>();
-            string? hubId = null;
+            string? collectionId = null;
             string? workTitle = null;
             string? wikidataQid = null;
             Guid firstAssetId = Guid.Empty;
@@ -566,15 +566,15 @@ public static class RegistryEndpoints
                     }
                 }
 
-                // Get hub ID and QID for cleanup
+                // Get collection ID and QID for cleanup
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT hub_id, wikidata_qid FROM works WHERE id = @workId";
+                    cmd2.CommandText = "SELECT collection_id, wikidata_qid FROM works WHERE id = @workId";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
-                        hubId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
                         wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
                     }
                 }
@@ -659,16 +659,16 @@ public static class RegistryEndpoints
             if (firstAssetId != Guid.Empty)
                 CleanupWorkImages(imagePaths, wikidataQid, firstAssetId, db);
 
-            // 6. Clean up hub if no remaining works
-            if (hubId is not null)
+            // 6. Clean up collection if no remaining works
+            if (collectionId is not null)
             {
                 using var conn = db.CreateConnection();
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = """
-                    DELETE FROM hubs WHERE id = @hubId
-                    AND NOT EXISTS (SELECT 1 FROM works WHERE hub_id = @hubId)
+                    DELETE FROM collections WHERE id = @collectionId
+                    AND NOT EXISTS (SELECT 1 FROM works WHERE collection_id = @collectionId)
                     """;
-                cmd.Parameters.AddWithValue("@hubId", hubId);
+                cmd.Parameters.AddWithValue("@collectionId", collectionId);
                 cmd.ExecuteNonQuery();
             }
 
@@ -677,7 +677,7 @@ public static class RegistryEndpoints
             {
                 OccurredAt  = DateTimeOffset.UtcNow,
                 ActionType  = SystemActionType.MediaRemoved,
-                HubName     = workTitle,
+                CollectionName     = workTitle,
                 EntityId    = entityId,
                 EntityType  = "Work",
                 Detail      = $"Removed '{workTitle ?? "unknown"}' — {filePaths.Count} file(s) deleted from disk and database.",
@@ -704,7 +704,7 @@ public static class RegistryEndpoints
             // Resolve the media asset's current file path and its ID.
             string? assetIdStr = null;
             string? currentFilePath = null;
-            string? hubId = null;
+            string? collectionId = null;
             string? workTitle = null;
 
             using (var conn = db.CreateConnection())
@@ -729,12 +729,12 @@ public static class RegistryEndpoints
 
                 using (var cmd2 = conn.CreateCommand())
                 {
-                    cmd2.CommandText = "SELECT hub_id FROM works WHERE id = @workId";
+                    cmd2.CommandText = "SELECT collection_id FROM works WHERE id = @workId";
                     cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                     using var reader2 = cmd2.ExecuteReader();
                     if (reader2.Read())
                     {
-                        hubId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                        collectionId = reader2.IsDBNull(0) ? null : reader2.GetString(0);
                     }
                 }
 
@@ -829,7 +829,7 @@ public static class RegistryEndpoints
             {
                 OccurredAt = DateTimeOffset.UtcNow,
                 ActionType = SystemActionType.FileRejected,
-                HubName    = workTitle,
+                CollectionName    = workTitle,
                 EntityId   = entityId,
                 EntityType = "Work",
                 Detail     = $"Rejected '{workTitle ?? "unknown"}' — file moved to .staging/rejected/.",
@@ -854,7 +854,7 @@ public static class RegistryEndpoints
         group.MapPost("/batch/approve", async (
             BatchRegistryRequest request,
             IMetadataClaimRepository claimRepo,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             IReviewQueueRepository reviewRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
@@ -869,7 +869,7 @@ public static class RegistryEndpoints
                 try
                 {
                     // Mark as missing universe (retail-only match)
-                    await hubRepo.UpdateWorkWikidataStatusAsync(entityId, "missing", ct);
+                    await collectionRepo.UpdateWorkWikidataStatusAsync(entityId, "missing", ct);
 
                     // Dismiss any pending review items for this work's assets
                     using var conn = db.CreateConnection();
@@ -922,7 +922,7 @@ public static class RegistryEndpoints
                 try
                 {
                     var filePaths    = new List<string>();
-                    string? hubId      = null;
+                    string? collectionId      = null;
                     string? workTitle  = null;
                     string? wikidataQid = null;
                     Guid firstAssetId = Guid.Empty;
@@ -951,12 +951,12 @@ public static class RegistryEndpoints
 
                         using (var cmd2 = conn.CreateCommand())
                         {
-                            cmd2.CommandText = "SELECT hub_id, wikidata_qid FROM works WHERE id = @workId";
+                            cmd2.CommandText = "SELECT collection_id, wikidata_qid FROM works WHERE id = @workId";
                             cmd2.Parameters.AddWithValue("@workId", entityId.ToString());
                             using var reader2 = cmd2.ExecuteReader();
                             if (reader2.Read())
                             {
-                                hubId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
+                                collectionId       = reader2.IsDBNull(0) ? null : reader2.GetString(0);
                                 wikidataQid = reader2.IsDBNull(1) ? null : reader2.GetString(1);
                             }
                         }
@@ -1031,15 +1031,15 @@ public static class RegistryEndpoints
                     if (firstAssetId != Guid.Empty)
                         CleanupWorkImages(imagePaths, wikidataQid, firstAssetId, db);
 
-                    if (hubId is not null)
+                    if (collectionId is not null)
                     {
                         using var conn = db.CreateConnection();
                         using var cmd = conn.CreateCommand();
                         cmd.CommandText = """
-                            DELETE FROM hubs WHERE id = @hubId
-                            AND NOT EXISTS (SELECT 1 FROM works WHERE hub_id = @hubId)
+                            DELETE FROM collections WHERE id = @collectionId
+                            AND NOT EXISTS (SELECT 1 FROM works WHERE collection_id = @collectionId)
                             """;
-                        cmd.Parameters.AddWithValue("@hubId", hubId);
+                        cmd.Parameters.AddWithValue("@collectionId", collectionId);
                         cmd.ExecuteNonQuery();
                     }
 
@@ -1047,7 +1047,7 @@ public static class RegistryEndpoints
                     {
                         OccurredAt = DateTimeOffset.UtcNow,
                         ActionType = SystemActionType.MediaRemoved,
-                        HubName    = workTitle,
+                        CollectionName    = workTitle,
                         EntityId   = entityId,
                         EntityType = "Work",
                         Detail     = $"Batch removed '{workTitle ?? "unknown"}' — {filePaths.Count} file(s) deleted.",
@@ -1189,7 +1189,7 @@ public static class RegistryEndpoints
                     {
                         OccurredAt = DateTimeOffset.UtcNow,
                         ActionType = SystemActionType.FileRejected,
-                        HubName    = workTitle,
+                        CollectionName    = workTitle,
                         EntityId   = entityId,
                         EntityType = "Work",
                         Detail     = $"Batch rejected '{workTitle ?? "unknown"}' — file moved to .staging/rejected/.",
@@ -1417,7 +1417,7 @@ public static class RegistryEndpoints
                     ActionType = SystemActionType.ItemProvisional,
                     EntityId   = entityId,
                     EntityType = "Work",
-                    HubName    = body.Title,
+                    CollectionName    = body.Title,
                     Detail     = $"Marked '{body.Title}' as provisional with curator-entered metadata.",
                 }, ct);
             }
@@ -1590,8 +1590,8 @@ public static class RegistryEndpoints
         "MetadataWrittenToFile"    => "Metadata written to file",
         "CoverArtSaved"            => "Cover art saved",
         "HeroBannerGenerated"      => "Hero banner generated",
-        "HubCreated"               => "Hub created",
-        "HubAssigned"              => "Assigned to hub",
+        "CollectionCreated"               => "Collection created",
+        "CollectionAssigned"              => "Assigned to collection",
         "PersonHydrated"           => "Person enriched",
         "FileRejected"             => "Rejected",
         "Recovered"                => "Recovered from rejection",

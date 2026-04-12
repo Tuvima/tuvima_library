@@ -2,7 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
-/// <summary>A work with universe-related QIDs but no hub assignment.</summary>
+/// <summary>A work with universe-related QIDs but no collection assignment.</summary>
 public sealed class UniverseCandidateViewModel
 {
     [JsonPropertyName("work_id")] public Guid WorkId { get; init; }

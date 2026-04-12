@@ -123,11 +123,11 @@
                         <MudText Style="font-weight: 600; font-size: 0.875rem;">
                             @ActionLabel(entry.ActionType)
                         </MudText>
-                        @if (!string.IsNullOrEmpty(entry.HubName))
+                        @if (!string.IsNullOrEmpty(entry.CollectionName))
                         {
                             <MudChip T="string" Size="Size.Small" Color="Color.Default"
                                      Style="font-size: 0.7rem; height: 20px; opacity: 0.85;">
-                                @entry.HubName
+                                @entry.CollectionName
                             </MudChip>
                         }
                         @if (!string.IsNullOrEmpty(entry.EntityType))
@@ -223,7 +223,7 @@
         string ActionType,
         string DateGroup,
         string RelativeTime,
-        string? HubName,
+        string? CollectionName,
         string? EntityType,
         string? Detail);
 

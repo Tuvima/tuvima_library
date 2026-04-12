@@ -47,7 +47,7 @@ public sealed record InitialSweepResult(
 public sealed class InitialSweepService : IInitialSweepService
 {
     // Publish progress every N files so the dashboard bar updates smoothly
-    // without flooding the hub with one event per file.
+    // without flooding the collection with one event per file.
     private const int ProgressBatchSize = 25;
 
     // Recognised media extensions — same shortlist used elsewhere in the

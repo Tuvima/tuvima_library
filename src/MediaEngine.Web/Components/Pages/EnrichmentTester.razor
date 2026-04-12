@@ -91,7 +91,7 @@
     @if (_enrichUniverseMessage is not null)
     {
         <MudAlert Severity="Severity.Success" Class="mb-4" Dense="true"
-                  Icon="@Icons.Material.Filled.Hub"
+                  Icon="@Icons.Material.Filled.Collections"
                   ShowCloseIcon="true"
                   CloseIconClicked="@(() => _enrichUniverseMessage = null)">
             @_enrichUniverseMessage
@@ -184,7 +184,7 @@
                        Color="Color.Secondary"
                        OnClick="@EnrichUniverse"
                        Disabled="@_enrichingUniverse"
-                       StartIcon="@Icons.Material.Outlined.Hub"
+                       StartIcon="@Icons.Material.Outlined.Collections"
                        Size="Size.Small">
                 @if (_enrichingUniverse)
                 {

@@ -23,7 +23,7 @@ The Dashboard is dark-mode only â€” light mode has been fully removed.
 
 A subtle SVG noise overlay at 1.5% opacity adds a film-grain texture. Page root containers use `transparent` backgrounds so the gradient shows through. Sticky headers and modal overlays remain opaque.
 
-**Accent color:** Fixed to golden amber `#C9922E`, derived from the logo gradient. `ThemeService.SetHubAccent()` is a no-op â€” the accent cannot be changed by users or code.
+**Accent color:** Fixed to golden amber `#C9922E`, derived from the logo gradient. `ThemeService.SetCollectionAccent()` is a no-op â€” the accent cannot be changed by users or code.
 
 ---
 

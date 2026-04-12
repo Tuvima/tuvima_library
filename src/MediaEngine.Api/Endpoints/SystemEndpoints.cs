@@ -104,16 +104,16 @@ public static class SystemEndpoints
                     while (r.Read()) knownPersonQids.Add(r.GetString(0));
                 }
 
-                // Universe images use the QID of the parent hub (franchise-level hub)
+                // Universe images use the QID of the parent collection (franchise-level collection)
                 using (var cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = """
-                        SELECT DISTINCT wikidata_qid FROM hubs
-                        WHERE wikidata_qid IS NOT NULL AND parent_hub_id IS NOT NULL
+                        SELECT DISTINCT wikidata_qid FROM collections
+                        WHERE wikidata_qid IS NOT NULL AND parent_collection_id IS NOT NULL
                         UNION
-                        SELECT DISTINCT wikidata_qid FROM hubs
+                        SELECT DISTINCT wikidata_qid FROM collections
                         WHERE wikidata_qid IS NOT NULL AND id IN (
-                            SELECT DISTINCT parent_hub_id FROM hubs WHERE parent_hub_id IS NOT NULL
+                            SELECT DISTINCT parent_collection_id FROM collections WHERE parent_collection_id IS NOT NULL
                         )
                         """;
                     using var r = cmd.ExecuteReader();

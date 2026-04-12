@@ -175,7 +175,7 @@ public sealed class WorkRepository : IWorkRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO works
-                (id, hub_id, media_type, work_kind, parent_work_id,
+                (id, collection_id, media_type, work_kind, parent_work_id,
                  ordinal, is_catalog_only, parent_key, wikidata_status)
             VALUES
                 (@id, NULL, @mediaType, 'parent', @parentId,
@@ -209,7 +209,7 @@ public sealed class WorkRepository : IWorkRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO works
-                (id, hub_id, media_type, work_kind, parent_work_id,
+                (id, collection_id, media_type, work_kind, parent_work_id,
                  ordinal, is_catalog_only, wikidata_status)
             VALUES
                 (@id, NULL, @mediaType, 'child', @parentId,
@@ -236,7 +236,7 @@ public sealed class WorkRepository : IWorkRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO works
-                (id, hub_id, media_type, work_kind, is_catalog_only, wikidata_status)
+                (id, collection_id, media_type, work_kind, is_catalog_only, wikidata_status)
             VALUES
                 (@id, NULL, @mediaType, 'standalone', 0, 'pending');
             """;
@@ -266,7 +266,7 @@ public sealed class WorkRepository : IWorkRepository
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             INSERT INTO works
-                (id, hub_id, media_type, work_kind, parent_work_id,
+                (id, collection_id, media_type, work_kind, parent_work_id,
                  ordinal, is_catalog_only, external_identifiers, wikidata_status,
                  ownership)
             VALUES

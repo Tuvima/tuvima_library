@@ -75,7 +75,7 @@ public static class IngestionEndpoints
 
             return Results.Ok(new LibraryScanResponse
             {
-                HubsUpserted          = result.HubsUpserted,
+                CollectionsUpserted          = result.CollectionsUpserted,
                 EditionsUpserted      = result.EditionsUpserted,
                 PeopleRecovered       = peopleRecovered,
                 UniversesUpserted     = universeResult.UniversesUpserted,

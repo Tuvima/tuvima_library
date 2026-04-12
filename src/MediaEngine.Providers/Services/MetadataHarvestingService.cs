@@ -673,7 +673,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 ActionType  = SystemActionType.PersonHydrated,
                 EntityId    = request.EntityId,
                 EntityType  = "Person",
-                HubName     = personName,
+                CollectionName     = personName,
                 ChangesJson = changesJson,
                 Detail      = $"Person \"{personName}\" enriched from Wikidata",
             }, ct).ConfigureAwait(false);

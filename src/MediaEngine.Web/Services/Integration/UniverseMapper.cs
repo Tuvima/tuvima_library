@@ -6,7 +6,7 @@ using MediaEngine.Web.Services.Theming;
 namespace MediaEngine.Web.Services.Integration;
 
 /// <summary>
-/// Pure static utility that maps a list of <see cref="HubViewModel"/>s
+/// Pure static utility that maps a list of <see cref="CollectionViewModel"/>s
 /// (the raw HTTP API representation) into a <see cref="UniverseViewModel"/> —
 /// the flat, cross-type view consumed by the Universe grid, stats bar,
 /// and hero tiles.
@@ -43,18 +43,18 @@ public static class UniverseMapper
     // ── Public API ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Flattens all Works from every Hub into a single <see cref="UniverseViewModel"/>.
-    /// Empty hub list returns an empty library view (no exception).
+    /// Flattens all Works from every Collection into a single <see cref="UniverseViewModel"/>.
+    /// Empty collection list returns an empty library view (no exception).
     /// </summary>
-    public static UniverseViewModel MapFromHubs(IReadOnlyList<HubViewModel> hubs)
+    public static UniverseViewModel MapFromCollections(IReadOnlyList<CollectionViewModel> collections)
     {
-        var items = hubs
-            .SelectMany(hub => hub.Works.Select(MapItem))
+        var items = collections
+            .SelectMany(collection => collection.Works.Select(MapItem))
             .ToList();
 
         return new UniverseViewModel
         {
-            Title            = DeriveTitle(hubs),
+            Title            = DeriveTitle(collections),
             DominantHexColor = DominantColour(items),
             Items            = items,
         };
@@ -63,7 +63,7 @@ public static class UniverseMapper
     /// <summary>
     /// Maps a single <see cref="WorkViewModel"/> to a <see cref="MediaItemViewModel"/>.
     /// Exposed publicly so callers can incrementally update a cached universe
-    /// when a <c>MediaAdded</c> event arrives without a full hub refresh.
+    /// when a <c>MediaAdded</c> event arrives without a full collection refresh.
     /// </summary>
     public static MediaItemViewModel MapItem(WorkViewModel work)
     {
@@ -71,7 +71,7 @@ public static class UniverseMapper
         return new MediaItemViewModel
         {
             Id               = work.Id,
-            HubId            = work.HubId,
+            CollectionId            = work.CollectionId,
             MediaType        = work.MediaType,
             Title            = work.Title,
             Author           = work.Author,
@@ -93,10 +93,10 @@ public static class UniverseMapper
 
     /// <summary>
     /// Returns the brand hex colour that best represents the dominant media type
-    /// across a Hub's work list.  Used by <see cref="HubViewModel.DominantHexColor"/>
-    /// to colour the Hub's bento tile without a full universe map pass.
+    /// across a Collection's work list.  Used by <see cref="CollectionViewModel.DominantHexColor"/>
+    /// to colour the Collection's bento tile without a full universe map pass.
     /// </summary>
-    public static string ColourForHub(IEnumerable<WorkViewModel> works)
+    public static string ColourForCollection(IEnumerable<WorkViewModel> works)
     {
         var buckets = works.Select(w => ClassifyBucket(w.MediaType)).ToList();
 
@@ -142,14 +142,14 @@ public static class UniverseMapper
         ClassifyBucket(mediaType) == MediaTypeBucket.Audio;
 
     /// <summary>
-    /// Derives a display title for the universe from its hub composition.
-    /// Single-hub libraries use the hub's name; multi-hub libraries use "My Library".
+    /// Derives a display title for the universe from its collection composition.
+    /// Single-collection libraries use the collection's name; multi-collection libraries use "My Library".
     /// </summary>
-    private static string DeriveTitle(IReadOnlyList<HubViewModel> hubs) =>
-        hubs.Count switch
+    private static string DeriveTitle(IReadOnlyList<CollectionViewModel> collections) =>
+        collections.Count switch
         {
             0 => "Empty Library",
-            1 => hubs[0].DisplayName,
+            1 => collections[0].DisplayName,
             _ => "My Library",
         };
 

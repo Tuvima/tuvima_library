@@ -1,7 +1,7 @@
 ﻿using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using MediaEngine.Api.Endpoints;
-using MediaEngine.Api.Hubs;
+using MediaEngine.Api.Realtime;
 using MediaEngine.Api.Middleware;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
@@ -240,8 +240,8 @@ builder.Services.AddSingleton<
 builder.Services.AddSingleton<
     MediaEngine.Ingestion.Services.IInitialSweepService,
     MediaEngine.Ingestion.Services.InitialSweepService>();
-builder.Services.AddSingleton<IHubRepository, HubRepository>();
-builder.Services.AddSingleton<IHubPlacementRepository, HubPlacementRepository>();
+builder.Services.AddSingleton<ICollectionRepository, CollectionRepository>();
+builder.Services.AddSingleton<ICollectionPlacementRepository, CollectionPlacementRepository>();
 builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.AudioFingerprintRepository>();
 builder.Services.AddSingleton<IProviderConfigurationRepository, ProviderConfigurationRepository>();
 builder.Services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
@@ -313,15 +313,15 @@ builder.Services.AddSingleton<IdentityDecisionService>();
 builder.Services.AddSingleton<IIdentityMatcher>(sp =>
     new IdentityMatcher(sp.GetRequiredService<IFuzzyMatchingService>(), sp.GetRequiredService<ExactMatchStrategy>()));
 
-builder.Services.AddSingleton<IHubArbiter>(sp =>
-    new HubArbiter(
+builder.Services.AddSingleton<ICollectionArbiter>(sp =>
+    new CollectionArbiter(
         sp.GetRequiredService<IIdentityMatcher>(),
         sp.GetRequiredService<ITransactionJournal>()));
 
-builder.Services.AddSingleton<IParentHubResolver>(sp =>
-    new ParentHubResolver(
-        sp.GetRequiredService<IHubRepository>(),
-        sp.GetRequiredService<ILogger<ParentHubResolver>>()));
+builder.Services.AddSingleton<IParentCollectionResolver>(sp =>
+    new ParentCollectionResolver(
+        sp.GetRequiredService<ICollectionRepository>(),
+        sp.GetRequiredService<ILogger<ParentCollectionResolver>>()));
 
 // ── Ingestion (for POST /ingestion/scan) ─────────────────────────────────────
 builder.Services.Configure<IngestionOptions>(config.GetSection(IngestionOptions.SectionName));
@@ -529,7 +529,7 @@ builder.Services.AddHttpClient("wikidata_reconciliation", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(30);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+        "Tuvima Library/1.0 (https://gitcollection.com/Tuvima/tuvima_library)");
 })
 .AddStandardResilienceHandler();
 
@@ -540,14 +540,14 @@ builder.Services.AddHttpClient("cover_download", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(20);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+        "Tuvima Library/1.0 (https://gitcollection.com/Tuvima/tuvima_library)");
 })
 .AddStandardResilienceHandler();
 builder.Services.AddHttpClient("headshot_download", c =>
 {
     c.Timeout = TimeSpan.FromSeconds(20);
     c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)");
+        "Tuvima Library/1.0 (https://gitcollection.com/Tuvima/tuvima_library)");
 })
 .AddStandardResilienceHandler();
 
@@ -607,7 +607,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     var coreConfig = configLoader.LoadCore();
     var reconcilerOptions = new Tuvima.Wikidata.WikidataReconcilerOptions
     {
-        UserAgent = "Tuvima Library/1.0 (https://github.com/Tuvima/tuvima_library)",
+        UserAgent = "Tuvima Library/1.0 (https://gitcollection.com/Tuvima/tuvima_library)",
         Language  = coreConfig.Language.Metadata,
         // MaxLag: Wikidata's query-service lag frequently exceeds 5s, causing all
         // action=query&list=search calls (including haswbstatement bridge resolution)
@@ -767,7 +767,7 @@ builder.Services.AddSingleton<DescriptionEnrichmentWorker>();
 
 // Enrichment orchestrator
 builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
-builder.Services.AddSingleton<MediaEngine.Providers.Services.HubAssignmentService>();
+builder.Services.AddSingleton<MediaEngine.Providers.Services.CollectionAssignmentService>();
 
 // Pipeline workers
 builder.Services.AddSingleton<RetailMatchWorker>();
@@ -949,11 +949,11 @@ if (app.Environment.IsDevelopment())
 }
 
 // ── Endpoint registration ─────────────────────────────────────────────────────
-app.MapHub<CommunicationHub>(SignalREvents.HubPath);
+app.MapHub<Intercom>(SignalREvents.IntercomPath);
 app.MapSystemEndpoints();
 app.MapMaintenanceEndpoints();
 app.MapAdminEndpoints();
-app.MapHubEndpoints();
+app.MapCollectionEndpoints();
 app.MapLibraryEndpoints();
 app.MapStreamEndpoints();
 app.MapReadEndpoints();
@@ -988,10 +988,10 @@ if (app.Environment.IsDevelopment())
     app.MapIntegrationTestEndpoints();
 }
 
-// Seed default managed hubs (System Lists, Mixes, Smart Hubs) on first run
+// Seed default managed collections (System Lists, Mixes, Smart Collections) on first run
 {
-    var hubRepo = app.Services.GetRequiredService<IHubRepository>();
-    MediaEngine.Api.Services.HubSeeder.SeedManagedHubsAsync(hubRepo).GetAwaiter().GetResult();
+    var collectionRepo = app.Services.GetRequiredService<ICollectionRepository>();
+    MediaEngine.Api.Services.CollectionSeeder.SeedManagedCollectionsAsync(collectionRepo).GetAwaiter().GetResult();
 }
 
 app.Run();

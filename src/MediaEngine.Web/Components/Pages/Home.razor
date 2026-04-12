@@ -20,7 +20,7 @@ else if (_error is not null)
 {
     <MudAlert Severity="Severity.Error" Class="mb-4">@_error</MudAlert>
 }
-else if (_hubs.Count == 0 && _libraryWorks.Count == 0)
+else if (_collections.Count == 0 && _libraryWorks.Count == 0)
 {
     @* ── Empty state — library has no content yet ── *@
     <div class="home-empty-state">
@@ -69,11 +69,11 @@ else
              aria-hidden="true"></div>
     }
 
-    @* ── TODO: Parent Hub (Franchise) swimlane ──────────────────────────────
-         When GetParentHubsAsync() returns results, add a "Franchises" swimlane
-         here using PosterSwimlane with the Parent Hubs. The data model fully
-         supports this via HubViewModel.IsParentHub / ChildHubCount.
-         Full Home page swimlane redesign for Parent Hub grouping is deferred.
+    @* ── TODO: Parent Collection (Franchise) swimlane ──────────────────────────────
+         When GetParentCollectionsAsync() returns results, add a "Franchises" swimlane
+         here using PosterSwimlane with the Parent Collections. The data model fully
+         supports this via CollectionViewModel.IsParentCollection / ChildCollectionCount.
+         Full Home page swimlane redesign for Parent Collection grouping is deferred.
     ── *@
 
     @* ── Hero Carousel ── *@
@@ -85,7 +85,7 @@ else
 
             @* ── Active slide — @key forces DOM recreation → CSS fade triggers ── *@
             <div class="hero-carousel-slide" @key="_carouselIndex">
-                <HubHero Data="@CurrentSlideData"
+                <CollectionHero Data="@CurrentSlideData"
                          Visible="true"
                          OnClicked="HandleSlideClick"
                          OnCtaClicked="HandleSlideCta" />
@@ -189,7 +189,7 @@ else
                             CardWidth="@_cardWidth" />
         }
 
-        @* ── Recently Added — individual works, newest hub first ── *@
+        @* ── Recently Added — individual works, newest collection first ── *@
         @if (_recentWorks.Count > 0)
         {
             <PosterSwimlane Title="@L["Home_RecentlyAdded"]"
@@ -215,11 +215,11 @@ else
     private bool               _seeding;
     private string?            _error;
     private string?            _seedMessage;
-    private List<HubViewModel> _hubs         = [];
+    private List<CollectionViewModel> _collections         = [];
     private List<WorkViewModel> _libraryWorks = [];
-    private List<(WorkViewModel Work, HubViewModel Hub)> _carouselWorks = [];
+    private List<(WorkViewModel Work, CollectionViewModel Collection)> _carouselWorks = [];
 
-    // ── Home swimlane data (individual works, not hubs) ───────────────────────
+    // ── Home swimlane data (individual works, not collections) ───────────────────────
     private List<PosterItemViewModel> _recentWorks    = [];
     private List<PosterItemViewModel> _suggestedWorks = [];
 
@@ -300,8 +300,8 @@ else
         DeviceContext.Settings.Pages.Home.PendingFilesDisplay;
 
     private bool _showHero =>
-        DeviceContext.Settings.Pages.Home.HubHeroEnabled
-        && DeviceContext.Settings.Pages.Home.HubHeroLayout != "hidden";
+        DeviceContext.Settings.Pages.Home.CollectionHeroEnabled
+        && DeviceContext.Settings.Pages.Home.CollectionHeroLayout != "hidden";
 
     // ── Current slide data — bridges carousel index to unified HeroData ──────
 
@@ -318,8 +318,8 @@ else
             }
             if (_carouselWorks.Count > 0 && _carouselIndex < _carouselWorks.Count)
             {
-                var (work, hub) = _carouselWorks[_carouselIndex];
-                var data = HeroData.FromWork(work, hub);
+                var (work, collection) = _carouselWorks[_carouselIndex];
+                var data = HeroData.FromWork(work, collection);
                 var phrase = ResolveHeroPhrase(data);
                 return data with { Subtitle = phrase };
             }
@@ -361,13 +361,13 @@ else
     {
         State.OnStateChanged += OnStateChanged;
         await Orchestrator.StartSignalRAsync();
-        await LoadHubsAsync(showSpinner: true);
+        await LoadCollectionsAsync(showSpinner: true);
         _ = StartCarouselAsync(_carouselCts.Token);
     }
 
-    // ── Hub loading ───────────────────────────────────────────────────────────
+    // ── Collection loading ───────────────────────────────────────────────────────────
 
-    private async Task LoadHubsAsync(bool showSpinner = true)
+    private async Task LoadCollectionsAsync(bool showSpinner = true)
     {
         if (showSpinner)
             _loading = true;
@@ -376,7 +376,7 @@ else
 
         try
         {
-            _hubs = await Orchestrator.GetHubsAsync();
+            _collections = await Orchestrator.GetCollectionsAsync();
             _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
 
             // Load up to 5 in-progress items for the carousel primary pool.
@@ -396,13 +396,13 @@ else
 
     private void ApplyFilter()
     {
-        var all = _hubs;
+        var all = _collections;
 
         // Carousel fallback pool — recently added works shown when no journey items.
-        // Carousel still uses hub data for hero banner (cover art, dominant colour).
+        // Carousel still uses collection data for hero banner (cover art, dominant colour).
         _carouselWorks = all
             .OrderByDescending(h => h.CreatedAt)
-            .SelectMany(h => h.Works.Select(w => (Work: w, Hub: h)))
+            .SelectMany(h => h.Works.Select(w => (Work: w, Collection: h)))
             .Take(5)
             .ToList();
 
@@ -446,16 +446,16 @@ else
         get
         {
             if (!_useJourneyCarousel && _carouselWorks.Count > 0)
-                return _carouselWorks[Math.Min(_carouselIndex, _carouselWorks.Count - 1)].Hub.DominantHexColor;
+                return _carouselWorks[Math.Min(_carouselIndex, _carouselWorks.Count - 1)].Collection.DominantHexColor;
 
-            // Journey mode: look up the hub by ID.
+            // Journey mode: look up the collection by ID.
             if (_journeyItems.Count > 0 && _carouselIndex < _journeyItems.Count)
             {
-                var hubId = _journeyItems[_carouselIndex].HubId;
-                return _hubs.FirstOrDefault(h => h.Id == hubId)?.DominantHexColor;
+                var collectionId = _journeyItems[_carouselIndex].CollectionId;
+                return _collections.FirstOrDefault(h => h.Id == collectionId)?.DominantHexColor;
             }
 
-            return _hubs.FirstOrDefault()?.DominantHexColor;
+            return _collections.FirstOrDefault()?.DominantHexColor;
         }
     }
 
@@ -505,7 +505,7 @@ else
     {
         if (_useJourneyCarousel && _carouselIndex < _journeyItems.Count)
         {
-            HandleJourneyHubNavigate(_journeyItems[_carouselIndex]);
+            HandleJourneyCollectionNavigate(_journeyItems[_carouselIndex]);
         }
         else if (_carouselWorks.Count > 0 && _carouselIndex < _carouselWorks.Count)
         {
@@ -522,11 +522,11 @@ else
         }
     }
 
-    // ── Hub / Item selection ──────────────────────────────────────────────────
+    // ── Collection / Item selection ──────────────────────────────────────────────────
 
-    private void HandleHubSelected(HubViewModel hub)
+    private void HandleCollectionSelected(CollectionViewModel collection)
     {
-        Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
+        Nav.NavigateTo($"/book/{collection.Works.FirstOrDefault()?.Id ?? collection.Id}");
     }
 
     private void HandleItemSelected(PosterItemViewModel item)
@@ -534,11 +534,11 @@ else
         Nav.NavigateTo(item.NavigationUrl);
     }
 
-    /// <summary>Cover or title clicked — open Hub Detail with progress context.</summary>
-    private void HandleJourneyHubNavigate(JourneyItemViewModel item)
+    /// <summary>Cover or title clicked — open Collection Detail with progress context.</summary>
+    private void HandleJourneyCollectionNavigate(JourneyItemViewModel item)
     {
-        if (item.HubId.HasValue)
-            Nav.NavigateTo($"/book/{item.HubId.Value}?lastAssetId={item.AssetId}");
+        if (item.CollectionId.HasValue)
+            Nav.NavigateTo($"/book/{item.CollectionId.Value}?lastAssetId={item.AssetId}");
     }
 
     /// <summary>CTA button clicked — go directly to the reader/player for this asset.</summary>
@@ -550,13 +550,13 @@ else
         {
             // Navigate directly into the EPUB reader
             var url = $"/read/{item.AssetId}";
-            if (item.HubId.HasValue) url += $"?returnHubId={item.HubId.Value}";
+            if (item.CollectionId.HasValue) url += $"?returnCollectionId={item.CollectionId.Value}";
             Nav.NavigateTo(url);
         }
-        else if (item.HubId.HasValue)
+        else if (item.CollectionId.HasValue)
         {
-            // Audio, video, comics — no dedicated player yet; open hub detail with asset context
-            Nav.NavigateTo($"/book/{item.HubId.Value}?lastAssetId={item.AssetId}");
+            // Audio, video, comics — no dedicated player yet; open collection detail with asset context
+            Nav.NavigateTo($"/book/{item.CollectionId.Value}?lastAssetId={item.AssetId}");
         }
     }
 
@@ -582,14 +582,14 @@ else
     {
         InvokeAsync(() =>
         {
-            if (State.IsLoaded && (_hubs.Count > 0 || _libraryWorks.Count > 0))
+            if (State.IsLoaded && (_collections.Count > 0 || _libraryWorks.Count > 0))
             {
                 ApplyFilter();
                 StateHasChanged();
             }
             else
             {
-                _ = LoadHubsAsync(showSpinner: false).ContinueWith(_ => InvokeAsync(StateHasChanged));
+                _ = LoadCollectionsAsync(showSpinner: false).ContinueWith(_ => InvokeAsync(StateHasChanged));
             }
         });
     }

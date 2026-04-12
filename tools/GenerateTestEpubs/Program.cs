@@ -3,10 +3,10 @@
 // exercise every major ingestion edge case.
 //
 // Scenario groups:
-//   EPUBs  1– 8  : Confidence gates, Hub grouping, person records, pseudonyms
+//   EPUBs  1– 8  : Confidence gates, Collection? grouping, person records, pseudonyms
 //   EPUB   9     : Corrupt file → quarantine
 //   EPUB  10     : Duplicate hash → skip
-//   M4Bs 11–16   : Cross-format Hub link, narrators, orphanage, pseudonym
+//   M4Bs 11–16   : Cross-format Collection? link, narrators, orphanage, pseudonym
 //   M4Bs 17–18   : Ingestion hinting — hp-series/ folder (sibling files)
 //   M4Bs 19–20   : Ingestion hinting — expanse-audio/ folder (sibling files)
 //   EPUBs 21–23  : Pseudonym (individual), no-ISBN search, title mismatch
@@ -57,7 +57,7 @@ Console.WriteLine();
 var epubs = new EpubSpec[]
 {
     // Scenario 1 — Fully tagged: title, author, ISBN, series, embedded cover.
-    //   Expected: auto-organized into library; "Dune" Hub created; cover from file.
+    //   Expected: auto-organized into library; "Dune" Collection? created; cover from file.
     new("dune.epub",
         "Dune",
         Author: "Frank Herbert",         SecondAuthor: null,
@@ -409,7 +409,7 @@ for (int i = 0; i < epubs.Length; i++)
 var m4bsFlat = new M4bSpec[]
 {
     // Scenario 11 — Same title, author, and series as dune.epub (#1).
-    //   Expected: joins the existing Dune Hub — no new Hub created.
+    //   Expected: joins the existing Dune Collection? — no new Collection created.
     new("dune-audiobook.m4b",
         Title: "Dune",
         Artist: "Frank Herbert",         AlbumArtist: "Frank Herbert",
@@ -487,7 +487,7 @@ var m4bsFlat = new M4bSpec[]
 //
 // Both files go into the same source subfolder.  The Engine primes a FolderHint
 // when the first file is ingested, then applies it to the second — skipping a
-// redundant Stage 1 SPARQL query and pre-assigning the second file to the same Hub.
+// redundant Stage 1 SPARQL query and pre-assigning the second file to the same Collection.
 
 var hpSubdir = Path.Combine(outputDir, "hp-series");
 var tempHpSubdir = Path.Combine(tempDir, "hp-series");
@@ -495,7 +495,7 @@ Directory.CreateDirectory(tempHpSubdir);
 var m4bsHpSeries = new M4bSpec[]
 {
     // Scenario 17 — Harry Potter #1. First file in hp-series/ folder.
-    //   Expected: full three-stage pipeline; ingestion hint primed with HP Hub ID + QID.
+    //   Expected: full three-stage pipeline; ingestion hint primed with HP Collection? ID + QID.
     new("harry-potter-philosophers-stone.m4b",
         Title: "Harry Potter and the Philosopher's Stone",
         Artist: "J.K. Rowling",          AlbumArtist: "J.K. Rowling",
@@ -507,7 +507,7 @@ var m4bsHpSeries = new M4bSpec[]
         IncludeCover: true,              CoverHex: "#7B1FA2"),
 
     // Scenario 18 — Harry Potter #2. Sibling in hp-series/ folder.
-    //   Expected: FolderHint applied from #17; Hub pre-assigned; Stage 1 SPARQL skipped.
+    //   Expected: FolderHint applied from #17; Collection? pre-assigned; Stage 1 SPARQL skipped.
     new("harry-potter-chamber-of-secrets.m4b",
         Title: "Harry Potter and the Chamber of Secrets",
         Artist: "J.K. Rowling",          AlbumArtist: "J.K. Rowling",
@@ -527,7 +527,7 @@ Directory.CreateDirectory(tempExpanseSubdir);
 var m4bsExpanse = new M4bSpec[]
 {
     // Scenario 19 — The Expanse #1. First file in expanse-audio/ folder.
-    //   Expected: full pipeline; hint primed with Expanse Hub ID + bridge IDs.
+    //   Expected: full pipeline; hint primed with Expanse Collection? ID + bridge IDs.
     new("leviathan-wakes-audio.m4b",
         Title: "Leviathan Wakes",
         Artist: "James S.A. Corey",      AlbumArtist: "James S.A. Corey",
@@ -539,7 +539,7 @@ var m4bsExpanse = new M4bSpec[]
         IncludeCover: true,              CoverHex: "#0D47A1"),
 
     // Scenario 20 — The Expanse #2. Sibling in expanse-audio/ folder.
-    //   Expected: FolderHint applied from #19; same Hub; Stage 1 SPARQL skipped.
+    //   Expected: FolderHint applied from #19; same Collection; Stage 1 SPARQL skipped.
     new("calibans-war-audio.m4b",
         Title: "Caliban's War",
         Artist: "James S.A. Corey",      AlbumArtist: "James S.A. Corey",
@@ -680,7 +680,7 @@ Console.WriteLine($"━━━ Test Coverage Summary ━━━━━━━━━�
 Console.WriteLine($"  Confidence gates     : 4 scenarios (1, 2, 8, 15)");
 Console.WriteLine($"  Series & position    : 4 scenarios (4, 5, 17, 18)");
 Console.WriteLine($"  Pseudonyms           : 5 scenarios (5, 6, 7, 16, 21)");
-Console.WriteLine($"  Cross-format Hub     : 4 scenarios (1+11, 5+19)");
+Console.WriteLine($"  Cross-format Collection?     : 4 scenarios (1+11, 5+19)");
 Console.WriteLine($"  Narrators            : 2 scenarios (12, 13)");
 Console.WriteLine($"  Ingestion hinting    : 4 scenarios (17-18, 19-20)");
 Console.WriteLine($"  Corrupt & duplicate  : 2 scenarios (9, 10)");

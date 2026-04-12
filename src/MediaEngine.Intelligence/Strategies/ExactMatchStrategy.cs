@@ -23,7 +23,7 @@ namespace MediaEngine.Intelligence.Strategies;
 ///  immediately returns a <c>HardIdentifierMatch</c> result without running
 ///  further comparisons.
 ///
-/// Spec: Phase 6 – Hub Clustering; IScoringStrategy extension point.
+/// Spec: Phase 6 – Collection Clustering; IScoringStrategy extension point.
 /// </summary>
 public sealed class ExactMatchStrategy : IScoringStrategy
 {

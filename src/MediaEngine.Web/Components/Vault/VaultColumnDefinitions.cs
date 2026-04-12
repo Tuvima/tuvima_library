@@ -140,10 +140,10 @@ public static class VaultColumnDefinitions
         new() { Key = "peoplecount",    Label = "People",    Width = "15%", Align = "center", Sortable = true, SortKey = "people_count", RenderType = ColumnRenderType.Count,          PropertyName = "PeopleCount" },
     ];
 
-    // ── Hubs tab ──────────────────────────────────────────────────────────────
+    // ── Collections tab ──────────────────────────────────────────────────────────────
 
-    /// <summary>Returns the column definitions for the Hubs tab.</summary>
-    public static List<VaultColumnDef> GetHubColumns() =>
+    /// <summary>Returns the column definitions for the Collections tab.</summary>
+    public static List<VaultColumnDef> GetCollectionColumns() =>
     [
         Checkbox(),
         new() { Key = "name",      Label = "Name",     Width = "40%", Sortable = true, SortKey = "name",       RenderType = ColumnRenderType.Text,      PropertyName = "Name" },
@@ -183,7 +183,7 @@ public static class VaultColumnDefinitions
             "comics"     => ComicsColumns(),
             "people"        => GetPeopleColumns(),
             "universes"     => GetUniverseColumns(),
-            "hubs"          => GetHubColumns(),
+            "collections"          => GetCollectionColumns(),
             "action_center" => GetActionCenterColumns(),
             _               => NewTabColumns(),
         };

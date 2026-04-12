@@ -18,7 +18,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
 {
     private readonly IProviderHealthRepository _repo;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IHubContext<MediaEngine.Api.Hubs.CommunicationHub> _hubContext;
+    private readonly IHubContext<MediaEngine.Api.Realtime.Intercom> _hubContext;
     private readonly ILogger<ProviderHealthMonitorService> _logger;
     private readonly IServiceProvider _serviceProvider;
 
@@ -31,7 +31,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
     public ProviderHealthMonitorService(
         IProviderHealthRepository repo,
         IHttpClientFactory httpClientFactory,
-        IHubContext<MediaEngine.Api.Hubs.CommunicationHub> hubContext,
+        IHubContext<MediaEngine.Api.Realtime.Intercom> hubContext,
         ILogger<ProviderHealthMonitorService> logger,
         IServiceProvider serviceProvider)
     {

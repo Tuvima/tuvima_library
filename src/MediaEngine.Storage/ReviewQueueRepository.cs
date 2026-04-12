@@ -30,11 +30,11 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         conn.Execute("""
             INSERT INTO review_queue
                 (id, entity_id, entity_type, trigger, status,
-                 proposed_hub_id, confidence_score, candidates_json,
+                 proposed_collection_id, confidence_score, candidates_json,
                  detail, created_at, resolved_at, resolved_by)
             VALUES
                 (@id, @entityId, @entityType, @trigger, @status,
-                 @proposedHubId, @confidence, @candidates,
+                 @proposedCollectionId, @confidence, @candidates,
                  @detail, @createdAt, @resolvedAt, @resolvedBy)
             """, new
         {
@@ -43,7 +43,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             entityType    = entry.EntityType,
             trigger       = entry.Trigger,
             status        = entry.Status,
-            proposedHubId = entry.ProposedHubId,
+            proposedCollectionId = entry.ProposedCollectionId,
             confidence    = entry.ConfidenceScore,
             candidates    = entry.CandidatesJson,
             detail        = entry.Detail,
@@ -63,7 +63,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         using var conn = _db.CreateConnection();
         var rows = conn.Query<ReviewQueueRow>("""
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
-                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
                    resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
@@ -81,7 +81,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<ReviewQueueRow>("""
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
-                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
                    resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
@@ -99,7 +99,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         using var conn = _db.CreateConnection();
         var rows = conn.Query<ReviewQueueRow>("""
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
-                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
                    resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
@@ -118,7 +118,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         using var conn = _db.CreateConnection();
         var rows = conn.Query<ReviewQueueRow>("""
             SELECT id, entity_id AS EntityId, entity_type AS EntityType, trigger, status,
-                   proposed_hub_id AS ProposedHubId, confidence_score AS ConfidenceScore,
+                   proposed_collection_id AS ProposedCollectionId, confidence_score AS ConfidenceScore,
                    candidates_json AS CandidatesJson, detail, created_at AS CreatedAt,
                    resolved_at AS ResolvedAt, resolved_by AS ResolvedBy
             FROM   review_queue
@@ -237,7 +237,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         public string EntityType    { get; set; } = "";
         public string Trigger       { get; set; } = "";
         public string Status        { get; set; } = "";
-        public string? ProposedHubId  { get; set; }
+        public string? ProposedCollectionId  { get; set; }
         public double? ConfidenceScore { get; set; }
         public string? CandidatesJson  { get; set; }
         public string? Detail          { get; set; }
@@ -253,7 +253,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         EntityType      = r.EntityType,
         Trigger         = r.Trigger,
         Status          = r.Status,
-        ProposedHubId   = r.ProposedHubId,
+        ProposedCollectionId   = r.ProposedCollectionId,
         ConfidenceScore = r.ConfidenceScore,
         CandidatesJson  = r.CandidatesJson,
         Detail          = r.Detail,

@@ -6,7 +6,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public sealed class WorkViewModel
 {
     public Guid                         Id              { get; init; }
-    public Guid?                        HubId           { get; init; }
+    public Guid?                        CollectionId           { get; init; }
     public string                       MediaType       { get; init; } = string.Empty;
     public int?                         Ordinal         { get; init; }
     public List<CanonicalValueViewModel> CanonicalValues { get; init; } = [];

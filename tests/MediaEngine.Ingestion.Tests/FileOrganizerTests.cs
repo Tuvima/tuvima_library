@@ -195,9 +195,9 @@ public class FileOrganizerTests
     [Fact]
     public void CalculatePath_DefaultTemplate_DoesNotDuplicateFilename()
     {
-        // The default template: {Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}
+        // The default template: {Category}/{CollectionName} ({Year})/{Format}/{CollectionName} ({Edition}){Ext}
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{HubName} ({Year})/{Format}/{HubName} ({Edition}){Ext}";
+        var template  = "{Category}/{CollectionName} ({Year})/{Format}/{CollectionName} ({Edition}){Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\sample.epub",
@@ -211,7 +211,7 @@ public class FileOrganizerTests
 
         var relative = organizer.CalculatePath(candidate, template);
 
-        // 4 segments: Category / HubName (Year) / Format / HubName (Edition).ext
+        // 4 segments: Category / CollectionName (Year) / Format / CollectionName (Edition).ext
         var segments = relative.Split('/');
         Assert.Equal(4, segments.Length);
         Assert.EndsWith(".epub", segments[^1]);

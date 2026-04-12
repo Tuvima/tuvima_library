@@ -5,7 +5,7 @@ namespace MediaEngine.Domain.Entities;
 ///
 /// Created when the hydration pipeline cannot proceed automatically — either
 /// because Wikidata returned multiple QID candidates, the overall confidence
-/// fell below the review threshold, or the Hub Arbiter scored the entity in
+/// fell below the review threshold, or the Collection Arbiter scored the entity in
 /// the NeedsReview disposition band.
 ///
 /// The user resolves the entry by selecting the correct QID, confirming field
@@ -49,7 +49,7 @@ public sealed class ReviewQueueEntry
     /// Present when the trigger is <see cref="Enums.ReviewTrigger.MultipleQidMatches"/>
     /// and the pipeline had a best-guess candidate.
     /// </summary>
-    public string? ProposedHubId { get; set; }
+    public string? ProposedCollectionId { get; set; }
 
     /// <summary>
     /// The pipeline's confidence score at the time the review was created (nullable).

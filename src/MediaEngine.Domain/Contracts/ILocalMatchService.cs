@@ -18,7 +18,7 @@ public interface ILocalMatchService
     /// <param name="mediaType">The file's media type for scoped matching.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>
-    /// A match result containing the existing Work/Hub IDs and bridge IDs if found,
+    /// A match result containing the existing Work/Collection IDs and bridge IDs if found,
     /// or a not-found result if no local match exists.
     /// </returns>
     Task<LocalMatchResult> TryMatchAsync(
@@ -41,8 +41,8 @@ public sealed class LocalMatchResult
     /// <summary>The matched Work ID.</summary>
     public Guid? WorkId { get; init; }
 
-    /// <summary>The matched Hub ID.</summary>
-    public Guid? HubId { get; init; }
+    /// <summary>The matched Collection ID.</summary>
+    public Guid? CollectionId { get; init; }
 
     /// <summary>The Wikidata QID of the matched Work (if resolved).</summary>
     public string? WikidataQid { get; init; }

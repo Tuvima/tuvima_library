@@ -16,7 +16,7 @@ namespace MediaEngine.Api.Services;
 /// <list type="number">
 ///   <item>Deletes the physical file from <c>.staging/rejected/</c>.</item>
 ///   <item>Removes the media_asset record (CASCADE handles editions → metadata_claims → canonical_values).</item>
-///   <item>Removes the work and hub when no other editions remain.</item>
+///   <item>Removes the work and collection when no other editions remain.</item>
 ///   <item>Logs a <c>FileExpired</c> activity entry.</item>
 /// </list>
 /// </summary>
@@ -133,7 +133,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
         // is older than retentionDays.
         var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays).ToString("o");
 
-        var expiredAssets = new List<(string AssetId, string FilePath, string? WorkId, string? HubId, string? WorkTitle)>();
+        var expiredAssets = new List<(string AssetId, string FilePath, string? WorkId, string? CollectionId, string? WorkTitle)>();
 
         using (var conn = _db.CreateConnection())
         using (var cmd = conn.CreateCommand())
@@ -142,7 +142,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 SELECT ma.id         AS AssetId,
                        ma.file_path_root AS FilePath,
                        e.work_id     AS WorkId,
-                       w.hub_id      AS HubId,
+                       w.collection_id      AS CollectionId,
                        cv.value      AS WorkTitle
                 FROM works w
                 INNER JOIN editions e ON e.work_id = w.id
@@ -161,7 +161,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                     AssetId:   reader.GetString(0),
                     FilePath:  reader.GetString(1),
                     WorkId:    reader.IsDBNull(2) ? null : reader.GetString(2),
-                    HubId:     reader.IsDBNull(3) ? null : reader.GetString(3),
+                    CollectionId:     reader.IsDBNull(3) ? null : reader.GetString(3),
                     WorkTitle: reader.IsDBNull(4) ? null : reader.GetString(4)));
             }
         }
@@ -180,7 +180,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
 
         int cleaned = 0;
 
-        foreach (var (assetId, filePath, workId, hubId, workTitle) in expiredAssets)
+        foreach (var (assetId, filePath, workId, collectionId, workTitle) in expiredAssets)
         {
             ct.ThrowIfCancellationRequested();
 
@@ -253,16 +253,16 @@ public sealed class RejectedFileCleanupService : BackgroundService
                     cmd.ExecuteNonQuery();
                 }
 
-                // 6. Remove the hub if it has no remaining works.
-                if (hubId is not null)
+                // 6. Remove the collection if it has no remaining works.
+                if (collectionId is not null)
                 {
                     using var conn = _db.CreateConnection();
                     using var cmd = conn.CreateCommand();
                     cmd.CommandText = """
-                        DELETE FROM hubs WHERE id = @hubId
-                          AND NOT EXISTS (SELECT 1 FROM works WHERE hub_id = @hubId)
+                        DELETE FROM collections WHERE id = @collectionId
+                          AND NOT EXISTS (SELECT 1 FROM works WHERE collection_id = @collectionId)
                         """;
-                    cmd.Parameters.AddWithValue("@hubId", hubId);
+                    cmd.Parameters.AddWithValue("@collectionId", collectionId);
                     cmd.ExecuteNonQuery();
                 }
 
@@ -271,7 +271,7 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 {
                     OccurredAt  = DateTimeOffset.UtcNow,
                     ActionType  = SystemActionType.AutoPurge,
-                    HubName     = workTitle,
+                    CollectionName     = workTitle,
                     EntityId    = Guid.TryParse(workId, out var wid) ? wid : Guid.Empty,
                     EntityType  = "Work",
                     Detail      = $"Rejected file '{workTitle ?? Path.GetFileName(filePath)}' expired after {retentionDays} days and was permanently deleted.",

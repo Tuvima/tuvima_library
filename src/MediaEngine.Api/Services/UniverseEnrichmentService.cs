@@ -126,7 +126,7 @@ public sealed class UniverseEnrichmentService : BackgroundService
         var narrativeRoot  = scope.ServiceProvider.GetRequiredService<INarrativeRootResolver>();
         var imageService   = scope.ServiceProvider.GetRequiredService<IImageEnrichmentService>();
         var reconAdapter   = scope.ServiceProvider.GetService<ReconciliationAdapter>();
-        var hubRepo        = scope.ServiceProvider.GetService<IHubRepository>();
+        var collectionRepo        = scope.ServiceProvider.GetService<ICollectionRepository>();
 
         var maxItems    = config.Stage3MaxItemsPerSweep > 0 ? config.Stage3MaxItemsPerSweep : 50;
         var refreshDays = config.Stage3RefreshDays > 0 ? config.Stage3RefreshDays : 30;
@@ -156,14 +156,14 @@ public sealed class UniverseEnrichmentService : BackgroundService
         int skipped = 0;
         var staleThreshold = DateTimeOffset.UtcNow.AddDays(-refreshDays);
 
-        // ── Hub-level expansion for TV and Music ──────────────────────────────────
-        // For TV episodes and music tracks, group refresh at the hub (show/album) level.
-        // When any work in a hub is stale, all siblings in that hub are included in
+        // ── Collection-level expansion for TV and Music ──────────────────────────────────
+        // For TV episodes and music tracks, group refresh at the collection (show/album) level.
+        // When any work in a collection is stale, all siblings in that collection are included in
         // the batch so the entire show or album refreshes together.
         var expandedEntityList = new List<Guid>(entitiesWithQid);
-        if (hubRepo is not null)
+        if (collectionRepo is not null)
         {
-            var hubsAlreadyExpanded = new HashSet<Guid>();
+            var collectionsAlreadyExpanded = new HashSet<Guid>();
 
             foreach (var entityId in entitiesWithQid)
             {
@@ -184,7 +184,7 @@ public sealed class UniverseEnrichmentService : BackgroundService
                     if (mediaType != MediaType.TV && mediaType != MediaType.Music)
                         continue;
 
-                    // Check if this work is actually stale before expanding its hub.
+                    // Check if this work is actually stale before expanding its collection.
                     var lastEnriched = canonicals
                         .FirstOrDefault(c => string.Equals(c.Key, "stage3_enriched_at", StringComparison.OrdinalIgnoreCase))
                         ?.Value;
@@ -195,24 +195,24 @@ public sealed class UniverseEnrichmentService : BackgroundService
 
                     if (!isStale) continue;
 
-                    // Find hub siblings and add them to the batch.
-                    var hubId = await hubRepo.GetHubIdByWorkIdAsync(entityId, ct)
+                    // Find collection siblings and add them to the batch.
+                    var collectionId = await collectionRepo.GetCollectionIdByWorkIdAsync(entityId, ct)
                         .ConfigureAwait(false);
 
-                    if (hubId is null || hubsAlreadyExpanded.Contains(hubId.Value))
+                    if (collectionId is null || collectionsAlreadyExpanded.Contains(collectionId.Value))
                         continue;
 
-                    hubsAlreadyExpanded.Add(hubId.Value);
+                    collectionsAlreadyExpanded.Add(collectionId.Value);
 
-                    var hub = await hubRepo.GetHubWithWorksAsync(hubId.Value, ct)
+                    var collection = await collectionRepo.GetCollectionWithWorksAsync(collectionId.Value, ct)
                         .ConfigureAwait(false);
 
-                    if (hub is null) continue;
+                    if (collection is null) continue;
 
                     // Add all sibling work IDs that are not already in the list.
                     var existingSet = new HashSet<Guid>(expandedEntityList);
                     int added = 0;
-                    foreach (var siblingWork in hub.Works)
+                    foreach (var siblingWork in collection.Works)
                     {
                         if (existingSet.Add(siblingWork.Id))
                         {
@@ -223,13 +223,13 @@ public sealed class UniverseEnrichmentService : BackgroundService
 
                     if (added > 0)
                         _logger.LogDebug(
-                            "[UNIVERSE-ENRICH] Hub-level expand: added {Count} sibling works from hub {HubId} ({MediaType})",
-                            added, hubId.Value, mediaType);
+                            "[UNIVERSE-ENRICH] Collection-level expand: added {Count} sibling works from collection {CollectionId} ({MediaType})",
+                            added, collectionId.Value, mediaType);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug(ex, "[UNIVERSE-ENRICH] Hub expansion check failed for entity {Id} — skipping", entityId);
+                    _logger.LogDebug(ex, "[UNIVERSE-ENRICH] Collection expansion check failed for entity {Id} — skipping", entityId);
                 }
             }
         }

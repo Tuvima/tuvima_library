@@ -7,7 +7,7 @@ namespace MediaEngine.Web.Services.Integration;
 
 /// <summary>
 /// Scoped orchestrator: the single bridge between <see cref="IEngineApiClient"/>,
-/// the <see cref="UniverseStateContainer"/>, and the Engine API Intercom SignalR hub.
+/// the <see cref="UniverseStateContainer"/>, and the Engine API Intercom SignalR collection.
 ///
 /// <para>
 /// <b>Lifecycle:</b> one instance per Blazor Server circuit.  Components call
@@ -18,7 +18,7 @@ namespace MediaEngine.Web.Services.Integration;
 /// <para>
 /// <b>SignalR events handled:</b>
 /// <list type="bullet">
-///   <item><c>"MediaAdded"</c> — invalidates the hub cache; next navigation triggers a fresh load.</item>
+///   <item><c>"MediaAdded"</c> — invalidates the collection cache; next navigation triggers a fresh load.</item>
 ///   <item><c>"IngestionProgress"</c> — updates progress state in the container for live UI feedback.</item>
 /// </list>
 /// </para>
@@ -50,35 +50,35 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         _logger = logger;
     }
 
-    // ── Hubs ──────────────────────────────────────────────────────────────────
+    // ── Collections ──────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Returns the hub list, using the state container cache when available.
+    /// Returns the collection list, using the state container cache when available.
     /// Pass <paramref name="forceRefresh"/> = <see langword="true"/> to bypass the cache.
     /// </summary>
-    public async Task<List<HubViewModel>> GetHubsAsync(
+    public async Task<List<CollectionViewModel>> GetCollectionsAsync(
         bool forceRefresh = false,
         CancellationToken ct = default)
     {
         if (_state.IsLoaded && !forceRefresh)
-            return [.. _state.Hubs];
+            return [.. _state.Collections];
 
-        var hubs = await _api.GetHubsAsync(ct);
-        _state.SetHubs(hubs);   // also rebuilds UniverseViewModel via UniverseMapper
-        return hubs;
+        var collections = await _api.GetCollectionsAsync(ct);
+        _state.SetCollections(collections);   // also rebuilds UniverseViewModel via UniverseMapper
+        return collections;
     }
 
     /// <summary>
-    /// Returns the flattened <see cref="UniverseViewModel"/>, loading hub data
+    /// Returns the flattened <see cref="UniverseViewModel"/>, loading collection data
     /// from the API if not already cached.
     /// </summary>
     public async Task<UniverseViewModel> GetUniverseAsync(
         bool forceRefresh = false,
         CancellationToken ct = default)
     {
-        // GetHubsAsync populates _state.Universe via UniverseMapper inside SetHubs.
-        await GetHubsAsync(forceRefresh, ct);
-        return _state.Universe ?? UniverseMapper.MapFromHubs([]);
+        // GetCollectionsAsync populates _state.Universe via UniverseMapper inside SetCollections.
+        await GetCollectionsAsync(forceRefresh, ct);
+        return _state.Universe ?? UniverseMapper.MapFromCollections([]);
     }
 
     // ── Library works ────────────────────────────────────────────────────────
@@ -98,7 +98,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── Ingestion ─────────────────────────────────────────────────────────────
 
-    /// <summary>Triggers a dry-run scan and invalidates the hub cache on success.</summary>
+    /// <summary>Triggers a dry-run scan and invalidates the collection cache on success.</summary>
     public async Task<ScanResultViewModel?> ScanAndRefreshAsync(
         string? rootPath = null,
         CancellationToken ct = default)
@@ -111,7 +111,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── Metadata ──────────────────────────────────────────────────────────────
 
-    /// <summary>Resolves a metadata conflict and invalidates the hub cache so the UI reflects it.</summary>
+    /// <summary>Resolves a metadata conflict and invalidates the collection cache so the UI reflects it.</summary>
     public async Task<bool> ResolveMetadataAsync(
         Guid entityId, string claimKey, string chosenValue,
         CancellationToken ct = default)
@@ -125,7 +125,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     // ── Search ────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Searches works across all hubs.  Returns an empty list on failure or when
+    /// Searches works across all collections.  Returns an empty list on failure or when
     /// the query is shorter than 2 characters (enforced server-side too).
     /// </summary>
     public Task<List<SearchResultViewModel>> SearchWorksAsync(
@@ -200,7 +200,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid entityId, CancellationToken ct = default)
         => _api.GetClaimHistoryAsync(entityId, ct);
 
-    /// <summary>Creates a user-locked claim and invalidates the hub cache.</summary>
+    /// <summary>Creates a user-locked claim and invalidates the collection cache.</summary>
     public async Task<bool> LockClaimAsync(
         Guid entityId, string key, string value,
         CancellationToken ct = default)
@@ -379,7 +379,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid id, CancellationToken ct = default)
         => _api.GetReviewItemAsync(id, ct);
 
-    /// <summary>Resolves a review item and invalidates the hub cache.</summary>
+    /// <summary>Resolves a review item and invalidates the collection cache.</summary>
     public async Task<bool> ResolveReviewAsync(
         Guid id, ReviewResolveRequestDto request, CancellationToken ct = default)
     {
@@ -452,7 +452,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── Metadata Override ────────────────────────────────────────────────
 
-    /// <summary>Overrides metadata fields for an entity and invalidates the hub cache.</summary>
+    /// <summary>Overrides metadata fields for an entity and invalidates the collection cache.</summary>
     public async Task<bool> OverrideMetadataAsync(
         Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
     {
@@ -578,10 +578,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     // ── Progress & Journey ────────────────────────────────────────────────
 
     /// <summary>Returns incomplete journey items for the "Continue your Journey" hero.
-    /// Pass hubId to get server-filtered results for a specific hub (no client-side matching needed).</summary>
+    /// Pass collectionId to get server-filtered results for a specific collection (no client-side matching needed).</summary>
     public Task<List<JourneyItemViewModel>> GetJourneyAsync(
-        Guid? userId = null, int limit = 5, Guid? hubId = null, CancellationToken ct = default)
-        => _api.GetJourneyAsync(userId, limit, hubId, ct);
+        Guid? userId = null, int limit = 5, Guid? collectionId = null, CancellationToken ct = default)
+        => _api.GetJourneyAsync(userId, limit, collectionId, ct);
 
     /// <summary>Retrieves the current progress state for a media asset.</summary>
     public Task<ProgressStateDto?> GetProgressAsync(
@@ -607,10 +607,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         string? role = null, int limit = 200, CancellationToken ct = default)
         => _api.GetPersonsAsync(role, limit, ct);
 
-    /// <summary>Returns all persons linked to works in a hub.</summary>
-    public Task<List<PersonViewModel>> GetPersonsByHubAsync(
-        Guid hubId, CancellationToken ct = default)
-        => _api.GetPersonsByHubAsync(hubId, ct);
+    /// <summary>Returns all persons linked to works in a collection.</summary>
+    public Task<List<PersonViewModel>> GetPersonsByCollectionAsync(
+        Guid collectionId, CancellationToken ct = default)
+        => _api.GetPersonsByCollectionAsync(collectionId, ct);
 
     /// <summary>Returns all persons linked to a specific work.</summary>
     public Task<List<PersonViewModel>> GetPersonsByWorkAsync(
@@ -631,36 +631,36 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         IEnumerable<Guid> personIds, CancellationToken ct = default)
         => _api.GetPersonPresenceAsync(personIds, ct);
 
-    /// <summary>Returns related hubs (series/author/genre/explore cascade).</summary>
-    public Task<RelatedHubsViewModel?> GetRelatedHubsAsync(
-        Guid hubId, int limit = 20, CancellationToken ct = default)
-        => _api.GetRelatedHubsAsync(hubId, limit, ct);
+    /// <summary>Returns related collections (series/author/genre/explore cascade).</summary>
+    public Task<RelatedCollectionsViewModel?> GetRelatedCollectionsAsync(
+        Guid collectionId, int limit = 20, CancellationToken ct = default)
+        => _api.GetRelatedCollectionsAsync(collectionId, limit, ct);
 
     /// <summary>Returns full person detail with social links.</summary>
     public Task<PersonDetailViewModel?> GetPersonDetailAsync(
         Guid personId, CancellationToken ct = default)
         => _api.GetPersonDetailAsync(personId, ct);
 
-    /// <summary>Returns all hubs linked to works by a person.</summary>
-    public Task<List<HubViewModel>> GetWorksByPersonAsync(
+    /// <summary>Returns all collections linked to works by a person.</summary>
+    public Task<List<CollectionViewModel>> GetWorksByPersonAsync(
         Guid personId, CancellationToken ct = default)
         => _api.GetWorksByPersonAsync(personId, ct);
 
-    // ── Parent Hub hierarchy ──────────────────────────────────────────────────
+    // ── Parent Collection hierarchy ──────────────────────────────────────────────────
 
-    /// <summary>Returns all Parent Hubs (franchise-level groupings).</summary>
-    public Task<List<HubViewModel>> GetParentHubsAsync(CancellationToken ct = default)
-        => _api.GetParentHubsAsync(ct);
+    /// <summary>Returns all Parent Collections (franchise-level groupings).</summary>
+    public Task<List<CollectionViewModel>> GetParentCollectionsAsync(CancellationToken ct = default)
+        => _api.GetParentCollectionsAsync(ct);
 
-    /// <summary>Returns child Hubs of the given Parent Hub.</summary>
-    public Task<List<HubViewModel>> GetChildHubsAsync(
-        Guid parentHubId, CancellationToken ct = default)
-        => _api.GetChildHubsAsync(parentHubId, ct);
+    /// <summary>Returns child Collections of the given Parent Collection.</summary>
+    public Task<List<CollectionViewModel>> GetChildCollectionsAsync(
+        Guid parentCollectionId, CancellationToken ct = default)
+        => _api.GetChildCollectionsAsync(parentCollectionId, ct);
 
-    /// <summary>Returns the Parent Hub of the given Hub, if any.</summary>
-    public Task<HubViewModel?> GetParentHubAsync(
-        Guid hubId, CancellationToken ct = default)
-        => _api.GetParentHubAsync(hubId, ct);
+    /// <summary>Returns the Parent Collection of the given Collection, if any.</summary>
+    public Task<CollectionViewModel?> GetParentCollectionAsync(
+        Guid collectionId, CancellationToken ct = default)
+        => _api.GetParentCollectionAsync(collectionId, ct);
 
     // ── Conflicts ────────────────────────────────────────────────────────────
 
@@ -801,7 +801,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var result = await _api.ApplyRegistryMatchAsync(entityId, request, ct);
         if (result is not null)
-            _state.Invalidate(); // refresh hub list since metadata changed
+            _state.Invalidate(); // refresh collection list since metadata changed
         return result;
     }
 
@@ -818,8 +818,8 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     // ── SignalR Intercom ───────────────────────────────────────────────────────
 
     /// <summary>
-    /// Starts the SignalR connection to the Engine API Intercom hub at
-    /// <c>{Engine:BaseUrl}/hubs/intercom</c>.
+    /// Starts the SignalR connection to the Engine API Intercom collection at
+    /// <c>{Engine:BaseUrl}/intercom</c>.
     ///
     /// <para>Idempotent — calling this multiple times is safe; the connection
     /// is only created and started once per circuit lifetime.</para>
@@ -834,10 +834,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         var baseUrl = _config["Engine:BaseUrl"] ?? "http://localhost:61495";
         var apiKey  = _config["Engine:ApiKey"]  ?? string.Empty;
-        var hubUrl  = $"{baseUrl.TrimEnd('/')}{SignalREvents.HubPath}";
+        var collectionUrl  = $"{baseUrl.TrimEnd('/')}{SignalREvents.IntercomPath}";
 
         _hubConnection = new HubConnectionBuilder()
-            .WithUrl(hubUrl, options =>
+            .WithUrl(collectionUrl, options =>
             {
                 // Pass the API key as a request header so ApiKeyMiddleware
                 // accepts the WebSocket upgrade request.
@@ -956,10 +956,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
         // ── "MediaRemoved" ────────────────────────────────────────────────────
         // A file was removed (orphaned during ingestion scan or reconciliation).
-        // Invalidate the hub cache so the home page refreshes on next render.
+        // Invalidate the collection cache so the home page refreshes on next render.
         _hubConnection.On(SignalREvents.MediaRemoved, () =>
         {
-            _logger.LogInformation("Intercom ← MediaRemoved: invalidating hub cache");
+            _logger.LogInformation("Intercom ← MediaRemoved: invalidating collection cache");
             _state.Invalidate();
         });
 
@@ -1053,14 +1053,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         try
         {
             await _hubConnection.StartAsync(ct);
-            _logger.LogInformation("Intercom connected → {Url}", hubUrl);
+            _logger.LogInformation("Intercom connected → {Url}", collectionUrl);
             _state.PushServerStarted();
         }
         catch (Exception ex)
         {
             // Non-fatal: degrade gracefully to HTTP-only mode.
             _logger.LogWarning(ex,
-                "Could not connect to Intercom hub at {Url} — real-time updates disabled.", hubUrl);
+                "Could not connect to Intercom collection at {Url} — real-time updates disabled.", collectionUrl);
         }
     }
 

@@ -319,7 +319,7 @@ public static class ReviewEndpoints
         group.MapPost("/{id:guid}/skip-universe", async (
             Guid id,
             IReviewQueueRepository reviewRepo,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             ICanonicalValueRepository canonicalRepo,
             IEventPublisher publisher,
             ISystemActivityRepository activityRepo,
@@ -333,7 +333,7 @@ public static class ReviewEndpoints
                 return Results.BadRequest("Review item is not pending.");
 
             // 1. Set universe_mismatch flag on the Work.
-            await hubRepo.SetUniverseMismatchAsync(item.EntityId, ct);
+            await collectionRepo.SetUniverseMismatchAsync(item.EntityId, ct);
 
             // 2. Dismiss the review item.
             await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Dismissed, "user", ct);

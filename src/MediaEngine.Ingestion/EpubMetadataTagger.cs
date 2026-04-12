@@ -18,7 +18,7 @@ namespace MediaEngine.Ingestion;
 ///   "author"    → dc:creator
 ///   "publisher" → dc:publisher
 ///   "year"      → dc:date (4-digit year)
-///   "tuvima_id" → meta name="tuvima:id" (custom property for Hub linkage)
+///   "tuvima_id" → meta name="tuvima:id" (custom property for Collection linkage)
 ///
 ///  All other keys are written as OPF <meta name="…" content="…"/> elements.
 ///

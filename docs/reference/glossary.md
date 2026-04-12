@@ -39,7 +39,7 @@ The intelligence and data layer (`MediaEngine.Api`) served at `http://localhost:
 
 ## H
 
-**Hub** *(internal name; user-facing: Series)*
+**Collection** *(internal name; user-facing: Series)*
 See **Series**.
 
 **Hydration**
@@ -60,7 +60,7 @@ The format category assigned to a file. The six supported types are: Books, Audi
 
 ## P
 
-**ParentHub** *(internal name; user-facing: Universe)*
+**ParentCollection** *(internal name; user-facing: Universe)*
 See **Universe**.
 
 **Priority Cascade**
@@ -79,7 +79,7 @@ A Wikidata entity identifier. Format: `Q` followed by digits (e.g., `Q190804` = 
 
 ## S
 
-**Series** *(internal name: Hub)*
+**Series** *(internal name: Collection)*
 A sub-grouping within a Universe â€” a specific sequence or collection of related works. Examples: "Dune Novels", "Dune Films". A Series is a flexible container for any creative grouping; it is not limited to numbered sequences. Series are resolved at metadata-scoring time and have no presence on the filesystem.
 
 **Staging**
@@ -87,13 +87,13 @@ The `.data/staging/` area where files live between ingestion and promotion. Each
 
 ## U
 
-**Universe** *(internal name: ParentHub)*
+**Universe** *(internal name: ParentCollection)*
 A franchise-level grouping that links multiple Series sharing the same creative world. Examples: "Dune", "Marvel", "Tolkien". Universes are optional â€” a Series without a parent franchise sits directly under the Library. Universes are always Wikidata-sourced and auto-cleaned when all child Series are removed.
 
 ## V
 
 **Vault**
-The Library Vault at `/vault`. The command centre for managing everything in the library. Contains four tabs: Media, People, Universes, and Hubs. Provides batch operations, detail drawers, pipeline visibility, and inline resolution for items needing review.
+The Library Vault at `/vault`. The command centre for managing everything in the library. Contains four tabs: Media, People, Universes, and Collections. Provides batch operations, detail drawers, pipeline visibility, and inline resolution for items needing review.
 
 **Vibe Tags**
 AI-generated mood and atmosphere descriptors, distinct from genre. Genres (from Wikidata and retail providers) describe *what something is*. Vibes describe *how it feels*. Each media type has 25â€“30 vibe vocabulary entries across four dimensions: theme, mood, setting, and pace. Used by Intent Search for natural-language discovery.

@@ -5,8 +5,8 @@ namespace MediaEngine.Domain.Models;
 /// </summary>
 public sealed class WatchingOrder
 {
-    /// <summary>The Hub or Parent Hub this order applies to.</summary>
-    public Guid HubId { get; init; }
+    /// <summary>The Collection or Parent Collection this order applies to.</summary>
+    public Guid CollectionId { get; init; }
 
     /// <summary>Order type (e.g. "publication", "chronological", "recommended").</summary>
     public required string OrderType { get; init; }

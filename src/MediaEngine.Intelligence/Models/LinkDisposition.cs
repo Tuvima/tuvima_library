@@ -1,14 +1,14 @@
 namespace MediaEngine.Intelligence.Models;
 
 /// <summary>
-/// The outcome of a Hub-Arbiter evaluation for a single Work.
+/// The outcome of a Collection-Arbiter evaluation for a single Work.
 /// Spec: Phase 6 – Threshold Enforcement; Low Confidence Flags.
 /// </summary>
 public enum LinkDisposition
 {
     /// <summary>
     /// Score ≥ <c>AutoLinkThreshold</c>.
-    /// The Work is automatically assigned to the matched Hub; no human
+    /// The Work is automatically assigned to the matched Collection; no human
     /// intervention required.
     /// </summary>
     AutoLinked,
@@ -25,7 +25,7 @@ public enum LinkDisposition
     /// <summary>
     /// Score &lt; <c>ConflictThreshold</c>.
     /// The match is too weak to be useful; the Work remains unlinked (or
-    /// stays in the System-Default Hub).
+    /// stays in the System-Default Collection).
     /// </summary>
     Rejected,
 }

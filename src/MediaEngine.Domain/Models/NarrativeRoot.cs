@@ -6,7 +6,7 @@ namespace MediaEngine.Domain.Models;
 ///
 /// Determined by the <see cref="Services.NarrativeRootResolver"/> after Stage 1
 /// hydration using the priority chain: P1434 (fictional_universe) → P8345
-/// (franchise) → P179 (series) → Hub DisplayName (standalone fallback).
+/// (franchise) → P179 (series) → Collection DisplayName (standalone fallback).
 ///
 /// Maps 1:1 to a row in the <c>narrative_roots</c> table.
 /// </summary>
@@ -16,7 +16,7 @@ public sealed class NarrativeRoot
     /// Wikidata QID of this narrative root.
     /// Example: <c>"Q3041974"</c> (Dune universe).
     /// For standalone works without a Wikidata grouping, this is the work's own QID
-    /// or a generated identifier derived from the Hub DisplayName.
+    /// or a generated identifier derived from the Collection DisplayName.
     /// </summary>
     public string Qid { get; set; } = string.Empty;
 

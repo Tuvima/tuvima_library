@@ -5,7 +5,7 @@
 
 @* Global Command Palette — keyboard-driven navigation and live search (Section 2.2 of the UI ASD).
    Toggled with Ctrl+K.  Uses MudAutocomplete so results appear as the user types,
-   calling GET /hubs/search for queries ≥ 2 characters and falling back to
+   calling GET /collections/search for queries ≥ 2 characters and falling back to
    static navigation links for empty / short queries.                               *@
 
 @if (_open)
@@ -85,7 +85,7 @@
 
         return results.Select(r => new PaletteItem(
             Label:    r.Title,
-            Href:     r.HubId is { } hubId ? $"/hub/{hubId}" : $"/work/{r.WorkId}",
+            Href:     r.CollectionId is { } collectionId ? $"/collection/{collectionId}" : $"/work/{r.WorkId}",
             Icon:     MediaIcon(r.MediaType),
             Color:    MediaColor(r.MediaType),
             Subtitle: BuildSubtitle(r)));
@@ -147,7 +147,7 @@
     {
         var parts = new List<string>();
         if (!string.IsNullOrEmpty(r.Author)) parts.Add(r.Author);
-        if (!string.IsNullOrEmpty(r.HubDisplayName)) parts.Add($"in {r.HubDisplayName}");
+        if (!string.IsNullOrEmpty(r.CollectionDisplayName)) parts.Add($"in {r.CollectionDisplayName}");
         return string.Join(" · ", parts);
     }
 

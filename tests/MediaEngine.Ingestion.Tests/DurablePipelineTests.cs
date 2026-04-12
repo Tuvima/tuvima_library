@@ -92,7 +92,7 @@ public sealed class DurablePipelineTests : IDisposable
         _activityRepo    = new SystemActivityRepository(db);
         _ingestionLog    = new IngestionLogRepository(db);
         var workRepo = new WorkRepository(db);
-        _chainFactory    = new MediaEntityChainFactory(db, workRepo, new HubRepository(db), new HierarchyResolver(workRepo));
+        _chainFactory    = new MediaEntityChainFactory(db, workRepo, new CollectionRepository(db), new HierarchyResolver(workRepo));
         _batchRepo       = new IngestionBatchRepository(db);
         _identityJobRepo = new IdentityJobRepository(db);
 
@@ -389,15 +389,15 @@ public sealed class DurablePipelineTests : IDisposable
             CreateBatchProgressService(),
             NullLogger<PostPipelineService>.Instance);
 
-        var hubAssignment = new HubAssignmentService(
-            new NoOpHubRepository(),
+        var collectionAssignment = new CollectionAssignmentService(
+            new NoOpCollectionRepository(),
             new NoOpCanonicalValueRepository(),
-            NullLogger<HubAssignmentService>.Instance);
+            NullLogger<CollectionAssignmentService>.Instance);
 
         var worker = new QuickHydrationWorker(
             jobRepo,
             enrichment,
-            hubAssignment,
+            collectionAssignment,
             postPipeline,
             new NoOpCanonicalValueRepository(),
             new MinimalConfigurationLoader(),
@@ -1034,47 +1034,47 @@ public sealed class DurablePipelineTests : IDisposable
     }
 
     /// <summary>
-    /// Minimal no-op IHubRepository — only implements methods used by HubAssignmentService.
+    /// Minimal no-op ICollectionRepository — only implements methods used by CollectionAssignmentService.
     /// All lookups return null/empty; assignment is a no-op.
     /// </summary>
-    private sealed class NoOpHubRepository : IHubRepository
+    private sealed class NoOpCollectionRepository : ICollectionRepository
     {
-        public Task<IReadOnlyList<Hub>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
-        public Task<Hub?> FindByDisplayNameAsync(string displayName, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
-        public Task<Hub?> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
-        public Task<Guid> UpsertAsync(Hub hub, CancellationToken ct = default) => Task.FromResult(hub.Id);
-        public Task InsertRelationshipsAsync(IReadOnlyList<HubRelationship> relationships, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Collection>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
+        public Task<Collection> FindByDisplayNameAsync(string displayName, CancellationToken ct = default) => Task.FromResult<Collection>(null);
+        public Task<Collection> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default) => Task.FromResult<Collection>(null);
+        public Task<Guid> UpsertAsync(Collection collection, CancellationToken ct = default) => Task.FromResult(collection.Id);
+        public Task InsertRelationshipsAsync(IReadOnlyList<CollectionRelationship> relationships, CancellationToken ct = default) => Task.CompletedTask;
         public Task<Guid?> GetWorkIdByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
-        public Task<string?> FindHubNameByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<string?>(null);
-        public Task AssignWorkToHubAsync(Guid workId, Guid hubId, CancellationToken ct = default) => Task.CompletedTask;
-        public Task MergeHubsAsync(Guid keepHubId, Guid mergeHubId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<string?> FindCollectionNameByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<string?>(null);
+        public Task AssignWorkToCollectionAsync(Guid workId, Guid collectionId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task MergeCollectionsAsync(Guid keepCollectionId, Guid mergeCollectionId, CancellationToken ct = default) => Task.CompletedTask;
         public Task SetUniverseMismatchAsync(Guid workId, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateWorkWikidataStatusAsync(Guid workId, string status, CancellationToken ct = default) => Task.CompletedTask;
         public Task<int> PruneOrphanedHierarchyAsync(CancellationToken ct = default) => Task.FromResult(0);
-        public Task<IReadOnlyList<Hub>> GetChildHubsAsync(Guid parentHubId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
-        public Task SetParentHubAsync(Guid hubId, Guid? parentHubId, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<Hub?> FindParentHubByRelationshipAsync(string qid, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
-        public Task<IReadOnlyList<Guid>> FindHubIdsByFranchiseQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Guid>>([]);
-        public Task<IReadOnlyList<HubRelationship>> GetRelationshipsAsync(Guid hubId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<HubRelationship>>([]);
-        public Task<Hub?> GetByIdAsync(Guid hubId, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
-        public Task<Hub?> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
+        public Task<IReadOnlyList<Collection>> GetChildCollectionsAsync(Guid parentCollectionId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
+        public Task SetParentCollectionAsync(Guid collectionId, Guid? parentCollectionId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<Collection> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default) => Task.FromResult<Collection>(null);
+        public Task<IReadOnlyList<Guid>> FindCollectionIdsByFranchiseQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Guid>>([]);
+        public Task<IReadOnlyList<CollectionRelationship>> GetRelationshipsAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionRelationship>>([]);
+        public Task<Collection> GetByIdAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection>(null);
+        public Task<Collection> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<Collection>(null);
         public Task<Edition?> FindEditionByQidAsync(string wikidataQid, CancellationToken ct = default) => Task.FromResult<Edition?>(null);
         public Task<Edition> CreateEditionAsync(Guid workId, string? formatLabel, string? wikidataQid, CancellationToken ct = default) => Task.FromResult(new Edition { Id = Guid.NewGuid(), WorkId = workId });
         public Task UpdateMatchLevelAsync(Guid workId, string matchLevel, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<Hub>> GetByTypeAsync(string hubType, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
-        public Task<IReadOnlyList<Hub>> GetManagedHubsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
+        public Task<IReadOnlyList<Collection>> GetByTypeAsync(string collectionType, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
+        public Task<IReadOnlyList<Collection>> GetManagedCollectionsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
         public Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default) => Task.FromResult(new Dictionary<string, int>());
-        public Task<IReadOnlyList<HubItem>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<HubItem>>([]);
-        public Task<int> GetHubItemCountAsync(Guid hubId, CancellationToken ct = default) => Task.FromResult(0);
-        public Task UpdateHubEnabledAsync(Guid hubId, bool enabled, CancellationToken ct = default) => Task.CompletedTask;
-        public Task UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default) => Task.CompletedTask;
-        public Task AddHubItemAsync(HubItem item, CancellationToken ct = default) => Task.CompletedTask;
-        public Task RemoveHubItemAsync(Guid itemId, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<IReadOnlyList<Hub>> GetContentGroupsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
-        public Task<Hub?> GetHubWithWorksAsync(Guid hubId, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
-        public Task<Guid?> GetHubIdByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
-        public Task<Hub?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Hub?>(null);
-        public Task<IReadOnlyList<Hub>> GetAllHubsForLocationAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Hub>>([]);
+        public Task<IReadOnlyList<CollectionItem>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionItem>>([]);
+        public Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult(0);
+        public Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default) => Task.CompletedTask;
+        public Task AddCollectionItemAsync(CollectionItem item, CancellationToken ct = default) => Task.CompletedTask;
+        public Task RemoveCollectionItemAsync(Guid itemId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Collection>> GetContentGroupsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
+        public Task<Collection> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection>(null);
+        public Task<Guid?> GetCollectionIdByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Collection> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Collection>(null);
+        public Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
     }
 
     /// <summary>

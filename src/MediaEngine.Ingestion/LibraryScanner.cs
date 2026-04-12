@@ -26,7 +26,7 @@ namespace MediaEngine.Ingestion;
 public sealed class LibraryScanner : ILibraryScanner
 {
     private readonly IAssetHasher                    _hasher;
-    private readonly IHubRepository                  _hubRepo;
+    private readonly ICollectionRepository                  _collectionRepo;
     private readonly IMediaAssetRepository           _assetRepo;
     private readonly ICanonicalValueRepository       _canonicalRepo;
     private readonly IMetadataClaimRepository        _claimRepo;
@@ -65,7 +65,7 @@ public sealed class LibraryScanner : ILibraryScanner
 
     public LibraryScanner(
         IAssetHasher                    hasher,
-        IHubRepository                  hubRepo,
+        ICollectionRepository                  collectionRepo,
         IMediaAssetRepository           assetRepo,
         ICanonicalValueRepository       canonicalRepo,
         IMetadataClaimRepository        claimRepo,
@@ -78,7 +78,7 @@ public sealed class LibraryScanner : ILibraryScanner
         ILogger<LibraryScanner>         logger)
     {
         _hasher               = hasher;
-        _hubRepo              = hubRepo;
+        _collectionRepo              = collectionRepo;
         _assetRepo            = assetRepo;
         _canonicalRepo        = canonicalRepo;
         _claimRepo            = claimRepo;
@@ -179,7 +179,7 @@ public sealed class LibraryScanner : ILibraryScanner
 
         return new LibraryScanResult
         {
-            HubsUpserted     = 0,
+            CollectionsUpserted     = 0,
             EditionsUpserted = filesScanned,
             Errors           = errors,
             Elapsed          = sw.Elapsed,

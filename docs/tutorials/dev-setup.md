@@ -51,7 +51,7 @@ The solution is split into focused projects under `src/` and `tests/`. Each proj
 | `src/MediaEngine.Providers` | External provider adapters â€” Apple API, Google Books, TMDB, Wikidata Reconciliation API. |
 | `src/MediaEngine.Ingestion` | Folder watcher, ingestion pipeline, file organiser, staging logic. |
 | `src/MediaEngine.AI` | Local LLM and Whisper inference. Hardware profiling, model management, AI feature implementations. |
-| `src/MediaEngine.Api` | ASP.NET Core host. HTTP endpoints, SignalR hub, background services. Exposes the Engine. |
+| `src/MediaEngine.Api` | ASP.NET Core host. HTTP endpoints, SignalR collection, background services. Exposes the Engine. |
 | `src/MediaEngine.Web` | Blazor Server host. Dashboard UI â€” components, pages, services. |
 | `tests/` | xUnit test projects, one per domain area. |
 
@@ -245,7 +245,7 @@ The solution sets `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>` in `Dire
 
 **Engine endpoints** live in `src/MediaEngine.Api/Endpoints/`. Each file groups related actions (e.g., `LibraryEndpoints.cs`, `VaultEndpoints.cs`, `AiEndpoints.cs`). Endpoints use minimal API style (`MapGet`, `MapPost`, etc.) registered in `Program.cs`.
 
-**Domain entities** live in `src/MediaEngine.Domain/Entities/`. The core hierarchy: `MediaAsset` â†’ `Edition` â†’ `Work` â†’ `Hub` (Series) â†’ `ParentHub` (Universe).
+**Domain entities** live in `src/MediaEngine.Domain/Entities/`. The core hierarchy: `MediaAsset` â†’ `Edition` â†’ `Work` â†’ `Collection` (Series) â†’ `ParentCollection` (Universe).
 
 **Dashboard components** live in `src/MediaEngine.Web/Components/`. Navigation is in `Components/Navigation/`, Vault in `Components/Vault/`, Settings in `Components/Settings/`.
 

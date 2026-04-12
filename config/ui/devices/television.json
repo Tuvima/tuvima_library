@@ -18,13 +18,13 @@
   "shell": {
     "appbar_style": "oversized",
     "logo_variant": "wordmark-large",
-    "intent_dock_items": ["Hubs", "Watch", "Read", "Listen"],
+    "intent_dock_items": ["Collections", "Watch", "Read", "Listen"],
     "intent_dock_style": "oversized"
   },
   "pages": {
     "home": {
-      "hub_hero_enabled": true,
-      "hub_hero_layout": "two-column-oversized",
+      "collection_hero_enabled": true,
+      "collection_hero_layout": "two-column-oversized",
       "progress_cards_layout": "row-oversized",
       "bento_columns": 2,
       "bento_tile_style": "large",

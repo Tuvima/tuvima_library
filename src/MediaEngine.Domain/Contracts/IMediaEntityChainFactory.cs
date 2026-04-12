@@ -8,7 +8,7 @@ namespace MediaEngine.Domain.Contracts;
 ///
 /// The <c>media_assets</c> table has a NOT NULL FK to <c>editions(id)</c>,
 /// which in turn references <c>works(id)</c>.  Works are created standalone
-/// (hub_id = NULL); Hub assignment happens later during Stage 2 of the
+/// (collection_id = NULL); Collection assignment happens later during Stage 2 of the
 /// hydration pipeline via Wikidata relationship intelligence.
 /// </summary>
 public interface IMediaEntityChainFactory

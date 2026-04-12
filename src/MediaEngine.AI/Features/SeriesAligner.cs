@@ -44,7 +44,7 @@ public sealed class SeriesAligner : ISeriesAligner
         return result.Position;
     }
 
-    public Task<IReadOnlyList<(Guid WorkId, Guid SuggestedHubId)>> DetectUngroupedAsync(
+    public Task<IReadOnlyList<(Guid WorkId, Guid SuggestedCollectionId)>> DetectUngroupedAsync(
         CancellationToken ct = default)
     {
         // Implemented in SeriesAlignmentBackgroundService which queries the DB

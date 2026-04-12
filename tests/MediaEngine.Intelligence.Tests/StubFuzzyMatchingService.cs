@@ -5,7 +5,7 @@ namespace MediaEngine.Intelligence.Tests;
 
 /// <summary>
 /// Test stub that delegates to the real <see cref="Services.FuzzyMatchingService"/>
-/// so that IdentityMatcher and HubArbiter tests exercise actual fuzzy matching logic.
+/// so that IdentityMatcher and CollectionArbiter tests exercise actual fuzzy matching logic.
 /// </summary>
 internal sealed class StubFuzzyMatchingService : IFuzzyMatchingService
 {

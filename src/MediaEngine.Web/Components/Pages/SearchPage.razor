@@ -14,17 +14,17 @@
         <p class="search-page-subtitle">@L["Search_Subtitle"]</p>
     </div>
 
-    @if (State.IsLoaded && State.FilteredHubs.Count > 0)
+    @if (State.IsLoaded && State.FilteredCollections.Count > 0)
     {
         <div class="search-recent">
             <h3 class="search-recent-title">@L["Search_AllTitles"]</h3>
             <div class="search-recent-grid">
-                @foreach (var hub in State.FilteredHubs.Take(24))
+                @foreach (var collection in State.FilteredCollections.Take(24))
                 {
-                    <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}"))">
-                        @if (!string.IsNullOrEmpty(hub.CoverUrl))
+                    <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo($"/book/{collection.Works.FirstOrDefault()?.Id ?? collection.Id}"))">
+                        @if (!string.IsNullOrEmpty(collection.CoverUrl))
                         {
-                            <img src="@hub.CoverUrl" alt="@hub.DisplayName" class="search-recent-cover" loading="lazy" />
+                            <img src="@collection.CoverUrl" alt="@collection.DisplayName" class="search-recent-cover" loading="lazy" />
                         }
                         else
                         {
@@ -33,7 +33,7 @@
                                          Style="font-size: 28px; color: rgba(255,255,255,0.25);" />
                             </div>
                         }
-                        <span class="search-recent-name">@hub.DisplayName</span>
+                        <span class="search-recent-name">@collection.DisplayName</span>
                     </div>
                 }
             </div>

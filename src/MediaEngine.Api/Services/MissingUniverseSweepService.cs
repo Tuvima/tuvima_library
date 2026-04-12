@@ -43,7 +43,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
     private readonly IDatabaseConnection         _db;
     private readonly ISearchService              _search;
     private readonly IMetadataClaimRepository    _claimRepo;
-    private readonly IHubRepository             _hubRepo;
+    private readonly ICollectionRepository             _collectionRepo;
     private readonly IHydrationPipelineService   _pipeline;
     private readonly ISystemActivityRepository   _activityRepo;
     private readonly IConfigurationLoader        _configLoader;
@@ -53,7 +53,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         IDatabaseConnection                    db,
         ISearchService                         search,
         IMetadataClaimRepository               claimRepo,
-        IHubRepository                        hubRepo,
+        ICollectionRepository                        collectionRepo,
         IHydrationPipelineService              pipeline,
         ISystemActivityRepository              activityRepo,
         IConfigurationLoader                   configLoader,
@@ -62,7 +62,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(search);
         ArgumentNullException.ThrowIfNull(claimRepo);
-        ArgumentNullException.ThrowIfNull(hubRepo);
+        ArgumentNullException.ThrowIfNull(collectionRepo);
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(activityRepo);
         ArgumentNullException.ThrowIfNull(configLoader);
@@ -71,7 +71,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         _db           = db;
         _search       = search;
         _claimRepo    = claimRepo;
-        _hubRepo      = hubRepo;
+        _collectionRepo      = collectionRepo;
         _pipeline     = pipeline;
         _activityRepo = activityRepo;
         _configLoader = configLoader;
@@ -218,7 +218,7 @@ public sealed class MissingUniverseSweepService : BackgroundService
         await _claimRepo.InsertBatchAsync([claim], ct);
 
         // Update the work's wikidata_status to 'confirmed'.
-        await _hubRepo.UpdateWorkWikidataStatusAsync(workId, "confirmed", ct);
+        await _collectionRepo.UpdateWorkWikidataStatusAsync(workId, "confirmed", ct);
 
         // Trigger Universe-pass hydration so Wikidata SPARQL deep-enrichment runs.
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

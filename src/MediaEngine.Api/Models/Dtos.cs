@@ -114,20 +114,20 @@ public sealed class UpsertProviderConfigRequest
     public bool IsSecret { get; init; }
 }
 
-// ── GET /hubs/search ───────────────────────────────────────────────────────────
+// ── GET /collections/search ───────────────────────────────────────────────────────────
 
 /// <summary>
-/// A single work result from the hub search endpoint.
+/// A single work result from the collection search endpoint.
 /// Carries enough information to render a command-palette result row:
-/// the work's own title, the Hub it belongs to, and its media type for icon selection.
+/// the work's own title, the Collection it belongs to, and its media type for icon selection.
 /// </summary>
 public sealed class SearchResultDto
 {
     [JsonPropertyName("work_id")]
     public Guid WorkId { get; init; }
 
-    [JsonPropertyName("hub_id")]
-    public Guid? HubId { get; init; }
+    [JsonPropertyName("collection_id")]
+    public Guid? CollectionId { get; init; }
 
     [JsonPropertyName("title")]
     public string Title { get; init; } = string.Empty;
@@ -138,21 +138,21 @@ public sealed class SearchResultDto
     [JsonPropertyName("media_type")]
     public string MediaType { get; init; } = string.Empty;
 
-    [JsonPropertyName("hub_display_name")]
-    public string HubDisplayName { get; init; } = string.Empty;
+    [JsonPropertyName("collection_display_name")]
+    public string CollectionDisplayName { get; init; } = string.Empty;
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 }
 
 
-// \u2500\u2500 GET /hubs/{id}/related \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+// \u2500\u2500 GET /collections/{id}/related \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
 /// <summary>
-/// Response for GET /hubs/{id}/related.
-/// Includes the matched hubs and the cascade reason that determined the section title.
+/// Response for GET /collections/{id}/related.
+/// Includes the matched collections and the cascade reason that determined the section title.
 /// </summary>
-public sealed class RelatedHubsResponse
+public sealed class RelatedCollectionsResponse
 {
     [JsonPropertyName("section_title")]
     public string SectionTitle { get; init; } = string.Empty;
@@ -161,12 +161,12 @@ public sealed class RelatedHubsResponse
     [JsonPropertyName("reason")]
     public string Reason { get; init; } = string.Empty;
 
-    [JsonPropertyName("hubs")]
-    public List<HubDto> Hubs { get; init; } = [];
+    [JsonPropertyName("collections")]
+    public List<CollectionDto> Collections { get; init; } = [];
 }
-// \u2500\u2500 GET /hubs \u2500\u2500────────────────────────────────────────────────────────────────
+// \u2500\u2500 GET /collections \u2500\u2500────────────────────────────────────────────────────────────────
 
-public sealed class HubDto
+public sealed class CollectionDto
 {
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
@@ -177,8 +177,8 @@ public sealed class HubDto
     [JsonPropertyName("display_name")]
     public string? DisplayName { get; init; }
 
-    [JsonPropertyName("parent_hub_id")]
-    public Guid? ParentHubId { get; init; }
+    [JsonPropertyName("parent_collection_id")]
+    public Guid? ParentCollectionId { get; init; }
 
     [JsonPropertyName("universe_status")]
     public string UniverseStatus { get; init; } = "Unknown";
@@ -189,23 +189,23 @@ public sealed class HubDto
     [JsonPropertyName("works")]
     public List<WorkDto> Works { get; init; } = [];
 
-    public static HubDto FromDomain(Hub hub) => new()
+    public static CollectionDto FromDomain(Collection collection) => new()
     {
-        Id            = hub.Id,
-        UniverseId    = hub.UniverseId,
-        DisplayName   = hub.DisplayName,
-        ParentHubId   = hub.ParentHubId,
-        UniverseStatus = hub.UniverseStatus,
-        CreatedAt     = hub.CreatedAt,
-        Works         = hub.Works.Select(WorkDto.FromDomain).ToList(),
+        Id            = collection.Id,
+        UniverseId    = collection.UniverseId,
+        DisplayName   = collection.DisplayName,
+        ParentCollectionId   = collection.ParentCollectionId,
+        UniverseStatus = collection.UniverseStatus,
+        CreatedAt     = collection.CreatedAt,
+        Works         = collection.Works.Select(WorkDto.FromDomain).ToList(),
     };
 }
 
 /// <summary>
-/// DTO for the GET /hubs/parents endpoint — franchise-level parent hubs (Universes).
-/// Uses snake_case JSON names compatible with the Dashboard's HubRaw deserialiser.
+/// DTO for the GET /collections/parents endpoint — franchise-level parent collections (Universes).
+/// Uses snake_case JSON names compatible with the Dashboard's CollectionRaw deserialiser.
 /// </summary>
-public sealed class ParentHubDto
+public sealed class ParentCollectionDto
 {
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
@@ -222,8 +222,8 @@ public sealed class ParentHubDto
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
 
-    [JsonPropertyName("parent_hub_id")]
-    public Guid? ParentHubId { get; init; }
+    [JsonPropertyName("parent_collection_id")]
+    public Guid? ParentCollectionId { get; init; }
 
     [JsonPropertyName("universe_status")]
     public string UniverseStatus { get; init; } = "Unknown";
@@ -231,8 +231,8 @@ public sealed class ParentHubDto
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
 
-    [JsonPropertyName("child_hub_count")]
-    public int ChildHubCount { get; init; }
+    [JsonPropertyName("child_collection_count")]
+    public int ChildCollectionCount { get; init; }
 
     [JsonPropertyName("media_types")]
     public string? MediaTypes { get; init; }
@@ -240,7 +240,7 @@ public sealed class ParentHubDto
     [JsonPropertyName("total_works")]
     public int TotalWorks { get; init; }
 
-    /// <summary>Empty works list — parent hubs aggregate through children, not direct works.</summary>
+    /// <summary>Empty works list — parent collections aggregate through children, not direct works.</summary>
     [JsonPropertyName("works")]
     public List<WorkDto> Works { get; init; } = [];
 }
@@ -250,8 +250,8 @@ public sealed class WorkDto
     [JsonPropertyName("id")]
     public Guid Id { get; init; }
 
-    [JsonPropertyName("hub_id")]
-    public Guid? HubId { get; init; }
+    [JsonPropertyName("collection_id")]
+    public Guid? CollectionId { get; init; }
 
     [JsonPropertyName("media_type")]
     public string MediaType { get; init; } = string.Empty;
@@ -271,7 +271,7 @@ public sealed class WorkDto
     public static WorkDto FromDomain(Work work) => new()
     {
         Id                 = work.Id,
-        HubId              = work.HubId,
+        CollectionId              = work.CollectionId,
         MediaType          = work.MediaType.ToString(),
         Ordinal            = work.Ordinal,
         UniverseMismatch   = work.UniverseMismatch,
@@ -347,9 +347,9 @@ public sealed class PendingOperationDto
 
 public sealed class LibraryScanResponse
 {
-    /// <summary>Number of Hub records created or updated in the database.</summary>
-    [JsonPropertyName("hubs_upserted")]
-    public int HubsUpserted { get; init; }
+    /// <summary>Number of Collection records created or updated in the database.</summary>
+    [JsonPropertyName("collections_upserted")]
+    public int CollectionsUpserted { get; init; }
 
     /// <summary>Number of Edition/MediaAsset canonical value sets upserted.</summary>
     [JsonPropertyName("editions_upserted")]
@@ -1041,8 +1041,8 @@ public sealed class ReviewItemDto
     [JsonPropertyName("status")]
     public string Status { get; init; } = string.Empty;
 
-    [JsonPropertyName("proposed_hub_id")]
-    public string? ProposedHubId { get; init; }
+    [JsonPropertyName("proposed_collection_id")]
+    public string? ProposedCollectionId { get; init; }
 
     [JsonPropertyName("confidence_score")]
     public double? ConfidenceScore { get; init; }
@@ -1101,7 +1101,7 @@ public sealed class ReviewItemDto
         EntityType         = e.EntityType,
         Trigger            = e.Trigger,
         Status             = e.Status,
-        ProposedHubId      = e.ProposedHubId,
+        ProposedCollectionId      = e.ProposedCollectionId,
         ConfidenceScore    = e.ConfidenceScore,
         CandidatesJson     = e.CandidatesJson,
         Detail             = e.Detail,

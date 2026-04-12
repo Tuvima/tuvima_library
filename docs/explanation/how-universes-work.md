@@ -98,13 +98,13 @@ You'll notice the user-facing names and the internal code names are different. T
 
 | What you see in the Dashboard | What the code calls it | Why different |
 |---|---|---|
-| Universe | ParentHub | The code predates the Universe concept; renaming internally would risk data store migrations |
-| Series | Hub | Same history |
+| Universe | ParentCollection | The code predates the Universe concept; renaming internally would risk data store migrations |
+| Series | Collection | Same history |
 | Work | Work | Same in both |
 | Edition | Edition | Same in both |
 | Media Asset | MediaAsset | Minor formatting difference only |
 
-When reading code or architecture documentation, Hub = Series and ParentHub = Universe. When writing anything user-facing â€” UI labels, documentation, error messages â€” always use Universe and Series.
+When reading code or architecture documentation, Collection = Series and ParentCollection = Universe. When writing anything user-facing â€” UI labels, documentation, error messages â€” always use Universe and Series.
 
 ---
 

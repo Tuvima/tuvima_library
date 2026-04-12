@@ -94,7 +94,7 @@ public sealed class ProviderConfiguration
 
     /// <summary>
     /// Which stages of the three-stage hydration pipeline this provider participates in.
-    /// Values: <c>1</c> (Retail Match), <c>2</c> (Universal Bridge), <c>3</c> (Human Hub).
+    /// Values: <c>1</c> (Retail Match), <c>2</c> (Universal Bridge), <c>3</c> (Human Collection).
     ///
     /// A provider can declare multiple stages (e.g. Audnexus declares <c>[1, 3]</c>
     /// for both retail matching and narrator enrichment).

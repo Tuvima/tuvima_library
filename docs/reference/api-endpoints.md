@@ -38,12 +38,12 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 ---
 
-## Hubs
+## Collections
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/hubs` | All media hubs (Series) with their child works | Required |
-| GET | `/hubs/search?q=` | Search hubs by name. Returns matching Series and Universes. | Required |
+| GET | `/collections` | All media collections (Series) with their child works | Required |
+| GET | `/collections/search?q=` | Search collections by name. Returns matching Series and Universes. | Required |
 
 ---
 
@@ -51,7 +51,7 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/registry/items` | Paginated item list. Supports filtering by status, media type, hub, and search term. | Required |
+| GET | `/registry/items` | Paginated item list. Supports filtering by status, media type, collection, and search term. | Required |
 | GET | `/registry/items/{entityId}/detail` | Full item detail including all claims, canonical values, pipeline state, and linked persons | Required |
 | GET | `/registry/counts` | Status counts for Vault badge indicators (Verified, Provisional, Needs Review, Quarantined) | Required |
 | GET | `/registry/state-counts?batchId=` | Four-state counts scoped to a specific ingestion batch | Required |
@@ -290,9 +290,9 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 ## SignalR
 
-| Hub | Path | Direction | Description |
+| Collection | Path | Direction | Description |
 |---|---|---|---|
-| Intercom | `/hubs/intercom` | Server â†’ Client | Real-time push events: ingestion progress, enrichment completion, pipeline state changes, review queue updates. Authentication required. Server-push only â€” clients do not send messages to the hub. |
+| Intercom | `/intercom` | Server â†’ Client | Real-time push events: ingestion progress, enrichment completion, pipeline state changes, review queue updates. Authentication required. Server-push only â€” clients do not send messages to the collection. |
 
 ---
 

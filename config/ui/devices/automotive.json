@@ -19,13 +19,13 @@
   "shell": {
     "appbar_style": "minimal",
     "logo_variant": "icon-large",
-    "intent_dock_items": ["Hubs", "Listen"],
+    "intent_dock_items": ["Collections", "Listen"],
     "intent_dock_style": "oversized"
   },
   "pages": {
     "home": {
-      "hub_hero_enabled": false,
-      "hub_hero_layout": "hidden",
+      "collection_hero_enabled": false,
+      "collection_hero_layout": "hidden",
       "progress_cards_layout": "single",
       "bento_columns": 1,
       "bento_tile_style": "audio-only",

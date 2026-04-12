@@ -7,8 +7,8 @@ namespace MediaEngine.Ingestion.Models;
 /// </summary>
 public sealed record FolderHint
 {
-    /// <summary>The Hub that the first file was assigned to.</summary>
-    public required Guid HubId { get; init; }
+    /// <summary>The Collection that the first file was assigned to.</summary>
+    public required Guid CollectionId { get; init; }
 
     /// <summary>Wikidata QID resolved during Stage 1 (e.g. "Q190159" for Dune).</summary>
     public string? QualifiedIdentityId { get; init; }

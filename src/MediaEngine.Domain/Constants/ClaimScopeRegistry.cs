@@ -159,7 +159,7 @@ public static class ClaimScopeRegistry
     /// <summary>
     /// Returns the set of claim keys that are <see cref="ClaimScope.Parent"/>
     /// for the given media type. Used by reader queries (RegistryRepository,
-    /// SearchIndexRepository, HubRuleEvaluator) to know which canonical fields
+    /// SearchIndexRepository, CollectionRuleEvaluator) to know which canonical fields
     /// must be looked up on the parent Work id rather than the asset id.
     ///
     /// The set is the union of <see cref="DefaultMap"/> Parent entries and

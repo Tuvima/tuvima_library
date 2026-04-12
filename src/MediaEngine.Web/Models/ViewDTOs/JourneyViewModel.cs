@@ -11,7 +11,7 @@ public sealed class JourneyItemViewModel
 {
     public Guid    AssetId         { get; init; }
     public Guid    WorkId          { get; init; }
-    public Guid?   HubId           { get; init; }
+    public Guid?   CollectionId           { get; init; }
     public string  Title           { get; init; } = string.Empty;
     public string? Author          { get; init; }
     public string? CoverUrl        { get; init; }
@@ -23,7 +23,7 @@ public sealed class JourneyItemViewModel
     public string  MediaType       { get; init; } = string.Empty;
     public double  ProgressPct     { get; init; }
     public DateTimeOffset LastAccessed { get; init; }
-    public string? HubDisplayName  { get; init; }
+    public string? CollectionDisplayName  { get; init; }
     public Dictionary<string, string> ExtendedProperties { get; init; } = [];
 
     // ── Display helpers ─────────────────────────────────────────────────
@@ -44,7 +44,7 @@ public sealed class JourneyItemViewModel
         _                       => "Continue",
     };
 
-    /// <summary>Button label including progress percentage, matching HubDetail's PrimaryActionLabel style.</summary>
+    /// <summary>Button label including progress percentage, matching CollectionDetail's PrimaryActionLabel style.</summary>
     public string ActionLabel => ProgressPct is > 0 and < 99.5
         ? $"{ActionVerb} · {Math.Max(1, ProgressPct):F0}%"
         : ActionVerb;

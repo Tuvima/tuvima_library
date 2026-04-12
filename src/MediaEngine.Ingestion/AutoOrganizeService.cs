@@ -257,7 +257,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 ActionType = SystemActionType.PathUpdated,
                 EntityId   = assetId,
                 EntityType = "MediaAsset",
-                HubName    = metadata.GetValueOrDefault("title", "Unknown"),
+                CollectionName    = metadata.GetValueOrDefault("title", "Unknown"),
                 Detail     = $"Promoted from staging: {Path.GetFileName(asset.FilePathRoot)} → {Path.GetRelativePath(_options.LibraryRoot, destPath)}",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);

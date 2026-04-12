@@ -82,10 +82,10 @@
                             @r.MediaType
                         </MudChip>
                     </MudStack>
-                    @if (!string.IsNullOrEmpty(r.HubDisplayName))
+                    @if (!string.IsNullOrEmpty(r.CollectionDisplayName))
                     {
                         <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
-                            Hub: @r.HubDisplayName
+                            Collection: @r.CollectionDisplayName
                         </MudText>
                     }
                 </MudPaper>

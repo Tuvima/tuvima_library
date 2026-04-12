@@ -155,7 +155,7 @@ The Vault is the command centre for managing every file the Engine has ever seen
 
 **Universes** â€” All fictional universes (user-facing name for franchise-level groupings), their entity counts, and universe graph population status.
 
-**Hubs** â€” All smart hubs, system lists, personalised mixes, and playlists. Oversight and configuration of the presentation layer. See `docs/architecture/hubs-and-playlists.md` for full specification.
+**Collections** â€” All smart collections, system lists, personalised mixes, and playlists. Oversight and configuration of the presentation layer. See `docs/architecture/collections.md` for full specification.
 
 ### Pipeline Header
 
@@ -529,7 +529,7 @@ The Assets section appears in the detail drawer for **Media items**, **People**,
 
 #### Purpose
 
-Assets are the raw materials for the library presentation layer. Cover art, banners, logos, and backdrops collected at the management level are available when building the consumer-facing library pages (Universe detail, Series pages, hub displays). Curating assets here means the library pages pull from a vetted pool rather than defaulting to whatever the first provider returned.
+Assets are the raw materials for the library presentation layer. Cover art, banners, logos, and backdrops collected at the management level are available when building the consumer-facing library pages (Universe detail, Series pages, collection displays). Curating assets here means the library pages pull from a vetted pool rather than defaulting to whatever the first provider returned.
 
 #### Asset Types
 
@@ -560,7 +560,7 @@ Providers differ significantly in what types of assets they return:
 
 #### Asset Availability by Entity Level
 
-All five asset types (Cover Art, Headshot, Banner, Logo, Backdrop) are available on every entity â€” Media items, People, and Universes. The same types exist everywhere for uniformity; a book can have a headshot (author photo), a person can have cover art, a Universe can have all five. Types that providers don't automatically fill remain as empty slots that the user can populate via upload. This is especially useful when building library presentation pages (Series hubs, Universe pages) where custom artwork makes the display unique.
+All five asset types (Cover Art, Headshot, Banner, Logo, Backdrop) are available on every entity â€” Media items, People, and Universes. The same types exist everywhere for uniformity; a book can have a headshot (author photo), a person can have cover art, a Universe can have all five. Types that providers don't automatically fill remain as empty slots that the user can populate via upload. This is especially useful when building library presentation pages (Series collections, Universe pages) where custom artwork makes the display unique.
 
 | Entity | Auto-populated | Typically user-uploaded |
 |--------|----------------|------------------------|
@@ -591,30 +591,30 @@ During retail identification (Stage 1), the LLM compares the file's embedded cov
 
 ---
 
-### Hubs Tab
+### Collections Tab
 
-The fourth Vault tab. Provides oversight and configuration of all hub types â€” smart hubs, system lists, personalised mixes, and playlists. Full specification lives in `docs/architecture/hubs-and-playlists.md`.
+The fourth Vault tab. Provides oversight and configuration of all collection types â€” smart collections, system lists, personalised mixes, and playlists. Full specification lives in `docs/architecture/collections.md`.
 
 #### Stats Bar
 
-Four count cards: Smart Hubs (blue), System Lists (green), Personalised Mixes (purple), Playlists (amber). Cards double as filters.
+Four count cards: Smart Collections (blue), System Lists (green), Personalised Mixes (purple), Playlists (amber). Cards double as filters.
 
 #### List Columns
 
 | Column | Content | Width |
 |--------|---------|-------|
-| Type icon | Icon representing the hub category | Narrow, fixed |
+| Type icon | Icon representing the collection category | Narrow, fixed |
 | Name + description | Name (bold) + rule summary or description (muted) | Flex |
 | Type | Chip: Smart (blue), System (green), Mix (purple), Playlist (amber) | Narrow |
 | Scope | "Library" or username | Narrow |
 | Items | Count | Narrow |
 | Status | Pill: Active (green), Disabled (grey), Empty (amber) | Narrow |
 
-Default grouping by type: Smart Hubs â†’ System Lists â†’ Personalised Mixes â†’ Playlists.
+Default grouping by type: Smart Collections â†’ System Lists â†’ Personalised Mixes â†’ Playlists.
 
 #### Detail Drawer
 
-Same slide-from-right pattern. Configuration section varies by hub type (rules/thresholds for smart hubs, logic summary for mixes, owner info for playlists). Items Preview shows first 20 items. Assets section with auto-composed artwork and optional user uploads. Action bar: Enable/Disable + Feature for smart hubs, Enable/Disable for mixes, no actions for system lists and playlists.
+Same slide-from-right pattern. Configuration section varies by collection type (rules/thresholds for smart collections, logic summary for mixes, owner info for playlists). Items Preview shows first 20 items. Assets section with auto-composed artwork and optional user uploads. Action bar: Enable/Disable + Feature for smart collections, Enable/Disable for mixes, no actions for system lists and playlists.
 
 ---
 

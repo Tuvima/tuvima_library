@@ -39,7 +39,7 @@ public sealed class VaultOverviewDto
     /// <summary>Items that haven't had Stage 3 enrichment yet.</summary>
     public int NotEnrichedStage3 { get; init; }
 
-    /// <summary>Works assigned to a universe (hub).</summary>
+    /// <summary>Works assigned to a universe (collection).</summary>
     public int UniverseAssigned { get; init; }
 
     /// <summary>Works not assigned to any universe.</summary>

@@ -926,7 +926,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 0, // Provisional — not tracked per-batch
                 0, // Rejected — not tracked per-batch
                 0, // PersonCount — not tracked per-batch
-                0, // HubCount — not tracked per-batch
+                0, // CollectionCount — not tracked per-batch
                 batchTriggers));
         }
 
@@ -974,10 +974,10 @@ public sealed class RegistryRepository : IRegistryRepository
                 (SELECT COUNT(*) FROM works WHERE curator_state = 'rejected') AS Rejected,
 
                 (SELECT COUNT(*) FROM persons) AS PersonCount,
-                (SELECT COUNT(DISTINCT id) FROM hubs) AS HubCount
+                (SELECT COUNT(DISTINCT id) FROM collections) AS CollectionCount
             """;
 
-        int identified = 0, inReview = 0, provisional = 0, rejected = 0, personCount = 0, hubCount = 0;
+        int identified = 0, inReview = 0, provisional = 0, rejected = 0, personCount = 0, collectionCount = 0;
         using (var reader = cmd.ExecuteReader())
         {
             if (reader.Read())
@@ -987,7 +987,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 provisional = reader.GetInt32(2);
                 rejected    = reader.GetInt32(3);
                 personCount = reader.GetInt32(4);
-                hubCount    = reader.GetInt32(5);
+                collectionCount    = reader.GetInt32(5);
             }
         }
 
@@ -1007,7 +1007,7 @@ public sealed class RegistryRepository : IRegistryRepository
             .ToDictionary(r => r.Trigger, r => r.Count);
 
         return Task.FromResult(new RegistryFourStateCounts(
-            identified, inReview, provisional, rejected, personCount, hubCount, triggerCounts));
+            identified, inReview, provisional, rejected, personCount, collectionCount, triggerCounts));
     }
 
     public Task<Dictionary<string, int>> GetMediaTypeCountsAsync(CancellationToken ct = default)

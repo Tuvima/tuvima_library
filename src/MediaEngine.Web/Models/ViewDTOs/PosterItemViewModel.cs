@@ -1,8 +1,8 @@
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
-/// Adapter that unifies Hub and Work display for PosterCard/PosterSwimlane.
-/// Home page uses FromHub(); lane pages use FromWork().
+/// Adapter that unifies Collection and Work display for PosterCard/PosterSwimlane.
+/// Home page uses FromCollection(); lane pages use FromWork().
 /// </summary>
 public sealed record PosterItemViewModel
 {
@@ -18,19 +18,19 @@ public sealed record PosterItemViewModel
     public string           DominantHexColor { get; init; } = "#1A2040";
     public PosterSourceType SourceType    { get; init; }
 
-    public static PosterItemViewModel FromHub(HubViewModel hub) => new()
+    public static PosterItemViewModel FromCollection(CollectionViewModel collection) => new()
     {
-        Id               = hub.Id,
-        Title            = hub.DisplayName,
-        Subtitle         = hub.Author ?? hub.Series,
-        CoverUrl         = hub.CoverUrl,
-        Year             = hub.Year,
-        FormatBadge      = hub.PrimaryMediaType,
-        IsNew            = DateTimeOffset.UtcNow - hub.CreatedAt < TimeSpan.FromDays(7),
+        Id               = collection.Id,
+        Title            = collection.DisplayName,
+        Subtitle         = collection.Author ?? collection.Series,
+        CoverUrl         = collection.CoverUrl,
+        Year             = collection.Year,
+        FormatBadge      = collection.PrimaryMediaType,
+        IsNew            = DateTimeOffset.UtcNow - collection.CreatedAt < TimeSpan.FromDays(7),
         Progress         = null,
-        NavigationUrl    = $"/hub/{hub.Id}",
-        DominantHexColor = hub.DominantHexColor,
-        SourceType       = PosterSourceType.Hub,
+        NavigationUrl    = $"/collection/{collection.Id}",
+        DominantHexColor = collection.DominantHexColor,
+        SourceType       = PosterSourceType.Collection,
     };
 
     public static PosterItemViewModel FromWork(WorkViewModel work, string? fallbackCoverUrl = null, string? dominantHexColor = null) => new()
@@ -64,4 +64,4 @@ public sealed record PosterItemViewModel
     };
 }
 
-public enum PosterSourceType { Hub, Work }
+public enum PosterSourceType { Collection, Work }

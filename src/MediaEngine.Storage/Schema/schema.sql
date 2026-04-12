@@ -43,15 +43,15 @@ CREATE TABLE IF NOT EXISTS provider_config (
 
 
 -- =============================================================================
--- 2. MEDIA CORE & HUBS
+-- 2. MEDIA CORE & COLLECTIONS
 -- =============================================================================
 
-CREATE TABLE IF NOT EXISTS hubs (
+CREATE TABLE IF NOT EXISTS collections (
     id                TEXT NOT NULL PRIMARY KEY,  -- UUID
     universe_id       TEXT,                       -- NULLABLE: cross-hub grouping
-    parent_hub_id     TEXT REFERENCES hubs(id) ON DELETE SET NULL,  -- franchise parent
+    parent_collection_id     TEXT REFERENCES collections(id) ON DELETE SET NULL,  -- franchise parent
     display_name      TEXT,                       -- Phase 7: human-readable hub name
-    hub_type          TEXT NOT NULL DEFAULT 'Universe',
+    collection_type          TEXT NOT NULL DEFAULT 'Universe',
     description       TEXT,
     icon_name         TEXT,
     scope             TEXT NOT NULL DEFAULT 'library',
@@ -69,10 +69,10 @@ CREATE TABLE IF NOT EXISTS hubs (
 );
 
 -- Curated item membership for System Lists, Playlists, and Mixes.
--- Separate from works.hub_id which is used by Series/Universe hubs.
-CREATE TABLE IF NOT EXISTS hub_items (
+-- Separate from works.collection_id which is used by Series/Universe collections.
+CREATE TABLE IF NOT EXISTS collection_items (
     id                TEXT NOT NULL PRIMARY KEY,  -- UUID
-    hub_id            TEXT NOT NULL REFERENCES hubs(id) ON DELETE CASCADE,
+    collection_id            TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
     work_id           TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
     sort_order        INTEGER NOT NULL DEFAULT 0,
     progress_state    TEXT NOT NULL DEFAULT 'not_started'
@@ -91,11 +91,11 @@ CREATE TABLE IF NOT EXISTS hub_items (
 --   • A Catalog row exists when Wikidata or a retail provider knows about
 --     a title that the user does not yet have a file for.
 --
--- hub_id is the legacy ContentGroup link, kept until Phase 4 collapses
--- the hub system onto the parent_work_id hierarchy.
+-- collection_id is the legacy ContentGroup link, kept until Phase 4 collapses
+-- the collection system onto the parent_work_id hierarchy.
 CREATE TABLE IF NOT EXISTS works (
     id                   TEXT    NOT NULL PRIMARY KEY,  -- UUID
-    hub_id               TEXT    REFERENCES hubs(id) ON DELETE SET NULL,
+    collection_id               TEXT    REFERENCES collections(id) ON DELETE SET NULL,
     media_type           TEXT    NOT NULL,              -- e.g. 'Movies', 'Books'
 
     -- M-081: parent/child hierarchy
@@ -339,7 +339,7 @@ CREATE TABLE IF NOT EXISTS pending_person_signals (
 
 -- =============================================================================
 -- INDICES
--- Spec: O(log n) lookup on content_hash, entity_id (claims), hub_id (works)
+-- Spec: O(log n) lookup on content_hash, entity_id (claims), collection_id (works)
 -- =============================================================================
 
 CREATE INDEX IF NOT EXISTS idx_media_assets_content_hash
@@ -348,8 +348,8 @@ CREATE INDEX IF NOT EXISTS idx_media_assets_content_hash
 CREATE INDEX IF NOT EXISTS idx_metadata_claims_entity_id
     ON metadata_claims (entity_id);
 
-CREATE INDEX IF NOT EXISTS idx_works_hub_id
-    ON works (hub_id);
+CREATE INDEX IF NOT EXISTS idx_works_collection_id
+    ON works (collection_id);
 
 CREATE INDEX IF NOT EXISTS idx_api_keys_hashed_key
     ON api_keys (hashed_key);
@@ -366,11 +366,11 @@ CREATE INDEX IF NOT EXISTS idx_person_media_links_asset
 CREATE INDEX IF NOT EXISTS idx_pending_person_signals_name_role
     ON pending_person_signals (name, role);
 
-CREATE INDEX IF NOT EXISTS idx_hub_items_hub
-    ON hub_items (hub_id);
+CREATE INDEX IF NOT EXISTS idx_collection_items_collection
+    ON hub_items (collection_id);
 
-CREATE INDEX IF NOT EXISTS idx_hubs_hub_type
-    ON hubs (hub_type);
+CREATE INDEX IF NOT EXISTS idx_hubs_collection_type
+    ON hubs (collection_type);
 
 
 -- ── FTS5 Search Index ──────────────────────────────────────────────────────────

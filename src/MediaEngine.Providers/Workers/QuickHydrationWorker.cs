@@ -20,7 +20,7 @@ public sealed class QuickHydrationWorker
 {
     private readonly IIdentityJobRepository _jobRepo;
     private readonly IEnrichmentService _enrichment;
-    private readonly HubAssignmentService _hubAssignment;
+    private readonly CollectionAssignmentService _collectionAssignment;
     private readonly ILogger<QuickHydrationWorker> _logger;
     private readonly PostPipelineService _postPipeline;
     private readonly ICanonicalValueRepository _canonicalRepo;
@@ -39,7 +39,7 @@ public sealed class QuickHydrationWorker
     public QuickHydrationWorker(
         IIdentityJobRepository jobRepo,
         IEnrichmentService enrichment,
-        HubAssignmentService hubAssignment,
+        CollectionAssignmentService collectionAssignment,
         PostPipelineService postPipeline,
         ICanonicalValueRepository canonicalRepo,
         IConfigurationLoader configLoader,
@@ -48,7 +48,7 @@ public sealed class QuickHydrationWorker
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
-        _hubAssignment = hubAssignment;
+        _collectionAssignment = collectionAssignment;
         _postPipeline = postPipeline;
         _canonicalRepo = canonicalRepo;
         _imagePathService = imagePathService;
@@ -131,16 +131,16 @@ public sealed class QuickHydrationWorker
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
 
-        // Assign the work to a ContentGroup hub based on Wikidata relationships
+        // Assign the work to a ContentGroup collection based on Wikidata relationships
         // (series, franchise, fictional_universe). Must run after enrichment
         // populates canonical values but before PostPipeline gates organization.
         try
         {
-            await _hubAssignment.AssignAsync(job.EntityId, ct);
+            await _collectionAssignment.AssignAsync(job.EntityId, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Hub assignment failed for entity {EntityId} — continuing", job.EntityId);
+            _logger.LogWarning(ex, "Collection assignment failed for entity {EntityId} — continuing", job.EntityId);
         }
 
         await _postPipeline.EvaluateAndOrganizeAsync(

@@ -20,7 +20,7 @@ This skill covers the Engine's security model — API key middleware, secret man
 | `src/MediaEngine.Api/Services/ApiKeyService.cs` | Key generation (256-bit random) and SHA-256 hashing |
 | `src/MediaEngine.Api/Services/DataProtectionSecretStore.cs` | Provider secret encryption at rest |
 | `src/MediaEngine.Api/Services/FolderHealthService.cs` | Background health probe (broadcasts paths via SignalR) |
-| `src/MediaEngine.Api/Hubs/CommunicationHub.cs` | SignalR hub (server-to-client only) |
+| `src/MediaEngine.Api/Realtime/Intercom.cs` | SignalR collection (server-to-client only) |
 | `src/MediaEngine.Api/Services/SignalREventPublisher.cs` | Broadcasts events to all connected clients |
 | `src/MediaEngine.Api/Endpoints/AdminEndpoints.cs` | API key CRUD + provider config management |
 | `src/MediaEngine.Storage/ApiKeyRepository.cs` | Key hash storage (plaintext never stored) |
@@ -83,7 +83,7 @@ Request arrives
 2. **No role-based authorization** — roles exist but are never checked.
 3. **No rate limiting** — no throttling on any endpoint.
 4. **Arbitrary path traversal** — `/settings/test-path` and `/settings/folders` accept any filesystem path.
-5. **SignalR hub is unauthenticated** — any client can connect and receive all events.
+5. **SignalR collection is unauthenticated** — any client can connect and receive all events.
 6. **No HTTPS enforcement** — keys could be transmitted in cleartext.
 7. **No key expiration** — keys are valid forever.
 8. **Unsalted key hashes** — SHA-256 without salt (acceptable for 256-bit random keys).

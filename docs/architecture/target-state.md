@@ -161,11 +161,11 @@ Configuration in `config/transcoding.json`:
 
 ## Music Domain Model
 
-Music uses the same Hub/Work/Edition/MediaAsset hierarchy as all other media types, with these mappings:
+Music uses the same Collection/Work/Edition/MediaAsset hierarchy as all other media types, with these mappings:
 
 | Library concept | Music concept |
 |---|---|
-| Hub | Album |
+| Collection | Album |
 | Work | Track |
 | Person (role: Artist) | Artist |
 
@@ -242,11 +242,11 @@ Guided import from existing media managers:
 
 ## Browse and Discovery Pages
 
-### HubDetail
+### CollectionDetail
 
-Route: `/hub/{id}`
+Route: `/collection/{id}`
 
-Hero artwork with dominant color extraction. Hub metadata (name, year, franchise, Wikidata QID link). Works list grouped by media type. Person credits with headshots. Social Pivot links. "Hydrate from Wikidata" button.
+Hero artwork with dominant color extraction. Collection metadata (name, year, franchise, Wikidata QID link). Works list grouped by media type. Person credits with headshots. Social Pivot links. "Hydrate from Wikidata" button.
 
 ### WorkDetail
 
@@ -265,15 +265,15 @@ Headshot, biography, occupation. Social links (Instagram, TikTok, Mastodon, webs
 The Home page adds three sections above the existing Universe swimlanes:
 
 1. **Continue Journey** â€” most recently accessed, incomplete items (queries UserState)
-2. **Recently Added** â€” horizontal scroll of newest Hubs (via `GET /hubs/recent?limit=20`)
+2. **Recently Added** â€” horizontal scroll of newest Collections (via `GET /collections/recent?limit=20`)
 3. **Smart Collections** â€” "In Progress", "New This Week", "Unread" (auto-generated from metadata, pre-computed)
 
 Faceted filtering is added to the Home page: filter by year range, media type, and author.
 
 ### Navigation Additions
 
-- Breadcrumb trail: Home â†’ Hub â†’ Work
-- Click-through from swimlane tiles to HubDetail
+- Breadcrumb trail: Home â†’ Collection â†’ Work
+- Click-through from swimlane tiles to CollectionDetail
 - Click-through from search results to WorkDetail
 - "Next in series" link on WorkDetail (uses `Work.Ordinal`)
 
@@ -287,9 +287,9 @@ Library statistics and personal reading/watching history charts.
 
 | Method | Route | Purpose |
 |---|---|---|
-| GET | `/hubs/recent?limit=20` | Recently added Hubs |
+| GET | `/collections/recent?limit=20` | Recently added Collections |
 | GET | `/journey/continue?profileId={id}&limit=10` | Resume items |
-| GET | `/hubs/{id}/works` | Works for a Hub with full canonical values |
+| GET | `/collections/{id}/works` | Works for a Collection with full canonical values |
 | GET | `/works/{id}/editions` | Editions for a Work with file metadata |
 | GET | `/persons/{id}` | Person detail with social links and linked works |
 | GET | `/collections` | Smart and user-created collections |
@@ -297,6 +297,6 @@ Library statistics and personal reading/watching history charts.
 
 ## Related
 
-- [Hubs and Playlists](hubs-and-playlists.md)
+- [Collections and Playlists](collections.md)
 - [Dashboard UI Architecture](dashboard-ui.md)
 - [Settings Architecture and Library Vault](settings-and-vault.md)

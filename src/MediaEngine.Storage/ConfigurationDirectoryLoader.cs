@@ -770,14 +770,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             {
                 AppBarStyle     = "compact",
                 LogoVariant     = "icon",
-                IntentDockItems = ["Hubs", "Watch", "Read", "Listen"],
+                IntentDockItems = ["Collections", "Watch", "Read", "Listen"],
                 IntentDockStyle = "normal",
             },
             Pages = new UIPageSettings
             {
                 Home = new UIHomePageSettings
                 {
-                    HubHeroLayout       = "stacked",
+                    CollectionHeroLayout       = "stacked",
                     ProgressCardsLayout = "stacked",
                     BentoColumns        = 1,
                     PendingFilesDisplay = "badge",
@@ -817,14 +817,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             {
                 AppBarStyle     = "oversized",
                 LogoVariant     = "wordmark-large",
-                IntentDockItems = ["Hubs", "Watch", "Read", "Listen"],
+                IntentDockItems = ["Collections", "Watch", "Read", "Listen"],
                 IntentDockStyle = "oversized",
             },
             Pages = new UIPageSettings
             {
                 Home = new UIHomePageSettings
                 {
-                    HubHeroLayout       = "two-column-oversized",
+                    CollectionHeroLayout       = "two-column-oversized",
                     ProgressCardsLayout = "row-oversized",
                     BentoColumns        = 2,
                     BentoTileStyle      = "large",
@@ -861,15 +861,15 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IStorag
             {
                 AppBarStyle     = "minimal",
                 LogoVariant     = "icon-large",
-                IntentDockItems = ["Hubs", "Listen"],
+                IntentDockItems = ["Collections", "Listen"],
                 IntentDockStyle = "oversized",
             },
             Pages = new UIPageSettings
             {
                 Home = new UIHomePageSettings
                 {
-                    HubHeroEnabled      = false,
-                    HubHeroLayout       = "hidden",
+                    CollectionHeroEnabled      = false,
+                    CollectionHeroLayout       = "hidden",
                     ProgressCardsLayout = "single",
                     BentoColumns        = 1,
                     BentoTileStyle      = "audio-only",

@@ -20,7 +20,7 @@ This skill covers all Dashboard visual components, navigation, state management,
 | `src/MediaEngine.Web/Components/Pages/Home.razor` | Library overview: Cinematic hero + poster swimlanes grouped by media type |
 | `src/MediaEngine.Web/Components/Pages/Settings.razor` | Unified settings: sidebar + content, tabs in 3 groups |
 | `src/MediaEngine.Web/Components/Pages/NotFound.razor` | 404 page |
-| `src/MediaEngine.Web/Components/Universe/HubHero.razor` | Cinematic hero banner: blurred cover art + vignette + metadata badges |
+| `src/MediaEngine.Web/Components/Universe/CollectionHero.razor` | Cinematic hero banner: blurred cover art + vignette + metadata badges |
 | `src/MediaEngine.Web/Components/Universe/PosterCard.razor` | Poster art card (2:3 aspect ratio, cover image, title, badges) |
 | `src/MediaEngine.Web/Components/Universe/PosterSwimlane.razor` | Horizontal scrolling row of PosterCards with section title |
 | `src/MediaEngine.Web/Components/Universe/ProgressIndicator.razor` | Reusable progress card (icon + bar + label) |
@@ -32,7 +32,7 @@ This skill covers all Dashboard visual components, navigation, state management,
 | `src/MediaEngine.Web/Components/Navigation/MobileNavDrawer.razor` | Slide-out drawer for mobile: logo + nav items + settings link |
 | `src/MediaEngine.Web/Components/Navigation/AppLogo.razor` | SVG logo component: wordmark or icon variant |
 | `src/MediaEngine.Web/Services/Integration/UniverseStateContainer.cs` | Per-circuit state cache |
-| `src/MediaEngine.Web/Services/Integration/UniverseMapper.cs` | Hub→ViewModel mapping + colour classification |
+| `src/MediaEngine.Web/Services/Integration/UniverseMapper.cs` | Collection→ViewModel mapping + colour classification |
 | `src/MediaEngine.Web/Services/Theming/ThemeService.cs` | Dark-mode only theme, accent colour (fixed golden amber #C9922E) |
 | `src/MediaEngine.Web/Services/Theming/DeviceContextService.cs` | Per-circuit device class + resolved UI settings |
 
@@ -50,7 +50,7 @@ This skill covers all Dashboard visual components, navigation, state management,
 ## Adding a new component
 
 1. Place it in the appropriate `Components/` subfolder:
-   - `Universe/` for Hub-related visuals (hero, poster cards, swimlanes)
+   - `Universe/` for Collection-related visuals (hero, poster cards, swimlanes)
    - `Bento/` for layout grid pieces
    - `Navigation/` for navigation/search (TopBar, LeftDock, MobileNavDrawer, CommandPalette)
    - `Settings/` for settings tab components
@@ -87,9 +87,9 @@ Config-driven: `UIShellSettingsDto.TopBarStyle`, `UIShellSettingsDto.DockVisible
 
 ## State management model
 
-- **UniverseStateContainer** — Scoped (one per Blazor Server circuit). Caches hubs, selected hub, universe view, activity log.
+- **UniverseStateContainer** — Scoped (one per Blazor Server circuit). Caches collections, selected collection, universe view, activity log.
 - **SignalR events** arrive on background threads → pushed into the state container → `OnStateChanged` fires → components re-render.
-- **Cache invalidation** — `MediaAdded` and `MetadataHarvested` events call `Invalidate()`. Next `GetHubsAsync()` call fetches fresh data.
+- **Cache invalidation** — `MediaAdded` and `MetadataHarvested` events call `Invalidate()`. Next `GetCollectionsAsync()` call fetches fresh data.
 
 ---
 
@@ -118,7 +118,7 @@ Config-driven: `UIShellSettingsDto.TopBarStyle`, `UIShellSettingsDto.DockVisible
 
 ## Known gaps
 
-1. **No Hub detail page** — `/hub/{hubId}` route does not exist. Command Palette links to it.
+1. **No Collection detail page** — `/collection/{collectionId}` route does not exist. Command Palette links to it.
 2. **Progress bars are stubs** — UserState API does not exist yet.
 3. **Continue Journey / Recently Added swimlanes** — Stubs pending API endpoints.
 4. **Cover art availability** — Depends on metadata providers having been run. No cover = gradient fallback.

@@ -31,8 +31,8 @@ public static class ProviderAccentMap
             "apple_api"                  => ("#FF2D55", Icons.Material.Filled.MenuBook),
             // audnexus removed - config file deleted as part of SPARQL cleanup
             "open_library"               => ("#4CAF50", Icons.Material.Filled.LocalLibrary),
-            "wikidata"                   => ("#339966", Icons.Material.Filled.Hub),
-            "wikidata_reconciliation"    => ("#339966", Icons.Material.Filled.Hub),
+            "wikidata"                   => ("#339966", Icons.Material.Filled.Collections),
+            "wikidata_reconciliation"    => ("#339966", Icons.Material.Filled.Collections),
             "tmdb"                       => ("#01B4E4", Icons.Material.Filled.Movie),
             "metron"                     => ("#E91E63", Icons.Material.Filled.AutoStories),
             "comicvine"                  => ("#04C8FF", Icons.Material.Filled.AutoStories),
@@ -85,7 +85,7 @@ public static class ProviderAccentMap
             ("Dashboard",     Icons.Material.Filled.Dashboard),
             ("Star",          Icons.Material.Filled.Star),
             ("Cloud",         Icons.Material.Filled.Cloud),
-            ("Hub",           Icons.Material.Filled.Hub),
+            ("Collection",           Icons.Material.Filled.Collections),
         }.AsReadOnly();
 
     /// <summary>Lookup dictionary mapping common Material icon names to their string constants.</summary>
@@ -121,7 +121,7 @@ public static class ProviderAccentMap
         ["Dashboard"]     = Icons.Material.Filled.Dashboard,
         ["Star"]          = Icons.Material.Filled.Star,
         ["Cloud"]         = Icons.Material.Filled.Cloud,
-        ["Hub"]           = Icons.Material.Filled.Hub,
+        ["Collection"]           = Icons.Material.Filled.Collections,
     };
 
     /// <summary>Returns a deduplicated display name for the UI (e.g. "Apple API" instead of "apple_api").</summary>

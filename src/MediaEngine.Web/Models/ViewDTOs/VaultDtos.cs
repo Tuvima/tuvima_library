@@ -83,7 +83,7 @@ public sealed class VaultItemViewModel
     // Computed: confidence segments (0-5) for the 5-bar indicator
     public int ConfidenceSegments => (int)Math.Round(Confidence * 5);
 
-    // Placeholder for universe/hub name
+    // Placeholder for universe/collection name
     public string? UniverseName { get; init; }
 
     // Quarantine days remaining (for rejected items, placeholder)

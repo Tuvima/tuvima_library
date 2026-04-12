@@ -1016,40 +1016,40 @@ public static class IntegrationTestEndpoints
             universeService.TriggerManualSweep();
             logger.LogInformation("[Phase 7] Stage 3 manual sweep triggered — waiting for completion...");
 
-            // Poll for universe/parent hub creation (timeout: 3 minutes)
+            // Poll for universe/parent collection creation (timeout: 3 minutes)
             var deadline = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(3);
-            int lastHubCount = 0;
+            int lastCollectionCount = 0;
             int stableCount = 0;
             while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
             {
                 await Task.Delay(5000, ct);
-                int hubCount;
+                int collectionCount;
                 using (var conn = db.CreateConnection())
-                    hubCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM hubs WHERE parent_hub_id IS NOT NULL;");
+                    collectionCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM collections WHERE parent_collection_id IS NOT NULL;");
 
-                if (hubCount == lastHubCount && hubCount > 0) stableCount++;
+                if (collectionCount == lastCollectionCount && collectionCount > 0) stableCount++;
                 else stableCount = 0;
-                lastHubCount = hubCount;
+                lastCollectionCount = collectionCount;
 
-                logger.LogInformation("  Stage 3: {Hubs} hubs with parent, stable={Stable}", hubCount, stableCount);
+                logger.LogInformation("  Stage 3: {Collections} collections with parent, stable={Stable}", collectionCount, stableCount);
                 if (stableCount >= 3) break;
             }
 
             // Validate universe creation for known test data
             using (var conn = db.CreateConnection())
             {
-                // Check for parent hubs (universes)
-                var parentHubs = (await conn.QueryAsync<(string Id, string DisplayName, string? WikidataQid)>(
+                // Check for parent collections (universes)
+                var parentCollections = (await conn.QueryAsync<(string Id, string DisplayName, string? WikidataQid)>(
                     """
                     SELECT h.id, h.display_name, h.wikidata_qid
-                    FROM hubs h
-                    WHERE EXISTS (SELECT 1 FROM hubs child WHERE child.parent_hub_id = h.id)
+                    FROM collections h
+                    WHERE EXISTS (SELECT 1 FROM collections child WHERE child.parent_collection_id = h.id)
                     """)).ToList();
 
-                foreach (var ph in parentHubs)
+                foreach (var ph in parentCollections)
                 {
                     int childCount = await conn.ExecuteScalarAsync<int>(
-                        "SELECT COUNT(*) FROM hubs WHERE parent_hub_id = @id;",
+                        "SELECT COUNT(*) FROM collections WHERE parent_collection_id = @id;",
                         new { id = ph.Id });
 
                     var universeResult = new UniverseResult
@@ -1059,12 +1059,12 @@ public static class IntegrationTestEndpoints
                         Found       = true,
                         SeriesCount = childCount,
                     };
-                    // Count works under child hubs
+                    // Count works under child collections
                     int workCount = await conn.ExecuteScalarAsync<int>(
                         """
                         SELECT COUNT(*) FROM works w
-                        INNER JOIN hubs child ON w.hub_id = child.id
-                        WHERE child.parent_hub_id = @id
+                        INNER JOIN collections child ON w.collection_id = child.id
+                        WHERE child.parent_collection_id = @id
                         """,
                         new { id = ph.Id });
                     universeResult.WorkCount = workCount;
@@ -1074,9 +1074,9 @@ public static class IntegrationTestEndpoints
                         ph.DisplayName, childCount, workCount, ph.WikidataQid ?? "none");
                 }
 
-                if (parentHubs.Count == 0)
+                if (parentCollections.Count == 0)
                 {
-                    report.IssuesFound.Add("Stage 3: No parent hubs (universes) created after enrichment");
+                    report.IssuesFound.Add("Stage 3: No parent collections (universes) created after enrichment");
                     logger.LogWarning("[Phase 7] No universes found after Stage 3 enrichment");
                 }
             }

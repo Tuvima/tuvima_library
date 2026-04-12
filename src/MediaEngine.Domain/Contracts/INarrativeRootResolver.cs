@@ -12,13 +12,13 @@ namespace MediaEngine.Domain.Contracts;
 /// <item>P1434 (fictional_universe) — e.g. "Dune universe" (Q3041974)</item>
 /// <item>P8345 (franchise) — e.g. "Dune franchise" (Q3041966)</item>
 /// <item>P179 (series) — e.g. "Dune Chronicles" (Q1227040)</item>
-/// <item>Hub DisplayName — standalone fallback (no QID)</item>
+/// <item>Collection DisplayName — standalone fallback (no QID)</item>
 /// </list>
 /// </para>
 ///
 /// <para>
 /// Called after Stage 1 hydration when canonical values for the three P-codes are available.
-/// Stores the resolved narrative root and writes <c>&lt;universe-ref&gt;</c> to the Hub sidecar.
+/// Stores the resolved narrative root and writes <c>&lt;universe-ref&gt;</c> to the Collection sidecar.
 /// </para>
 /// </summary>
 public interface INarrativeRootResolver

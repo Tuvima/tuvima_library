@@ -57,9 +57,9 @@ Three rate-limiting policies protect the Engine from abuse or runaway automation
 
 Folder-related endpoints (`/settings/folders`, `/settings/test-path`) reject any path that contains `..` traversal segments or targets known system directories (e.g. `C:\Windows`, `/etc`). This prevents an authorized client from accidentally or maliciously navigating outside the intended library roots.
 
-## SignalR Hub Authentication
+## SignalR Collection Authentication
 
-The real-time Intercom at `/hubs/intercom` requires authentication via one of:
+The real-time Intercom at `/intercom` requires authentication via one of:
 
 - `X-Api-Key` request header
 - `access_token` query string parameter

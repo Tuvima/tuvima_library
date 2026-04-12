@@ -10,7 +10,7 @@ namespace MediaEngine.Storage.Tests;
 ///     row and parent-scope fields from the topmost Work row.
 ///   • SearchIndexRepository.UpsertByEntityIdAsync self-fetches title from
 ///     the asset row and author/description from the topmost Work row.
-///   • HubRuleEvaluator's CvLookup union finds works whose value lives on
+///   • CollectionRuleEvaluator's CvLookup union finds works whose value lives on
 ///     either lineage row.
 /// </summary>
 public sealed class LineageReaderTests : IDisposable
@@ -142,10 +142,10 @@ public sealed class LineageReaderTests : IDisposable
         Assert.Equal("Dan Erickson", author);
     }
 
-    // ── HubRuleEvaluator (CvLookup union over self+parent) ─────────────────
+    // ── CollectionRuleEvaluator (CvLookup union over self+parent) ─────────────────
 
     [Fact]
-    public async Task HubRule_CvLookup_FindsValueOnAssetRow()
+    public async Task CollectionRule_CvLookup_FindsValueOnAssetRow()
     {
         var (_, _, episodeWorkId, assetId) = await BuildTvHierarchyAsync();
         await InsertCanonicalAsync(assetId, "year", "2022");
@@ -153,24 +153,24 @@ public sealed class LineageReaderTests : IDisposable
         // Drop a noise standalone work that should NOT match.
         await BuildStandaloneWorkAsync("Books");
 
-        var evaluator = new HubRuleEvaluator(_db);
+        var evaluator = new CollectionRuleEvaluator(_db);
         var matches = evaluator.Evaluate(
-            [new HubRulePredicate { Field = "year", Op = "eq", Value = "2022" }]);
+            [new CollectionRulePredicate { Field = "year", Op = "eq", Value = "2022" }]);
 
         // The episode work is found via the asset-row (Self) lookup path.
         Assert.Contains(episodeWorkId, matches);
     }
 
     [Fact]
-    public async Task HubRule_CvLookup_FindsValueOnRootParentRow()
+    public async Task CollectionRule_CvLookup_FindsValueOnRootParentRow()
     {
         // Same predicate, but the value lives on the parent show Work id.
         var (showId, _, episodeWorkId, _) = await BuildTvHierarchyAsync();
         await InsertCanonicalAsync(showId, "genre", "Sci-Fi");
 
-        var evaluator = new HubRuleEvaluator(_db);
+        var evaluator = new CollectionRuleEvaluator(_db);
         var matches = evaluator.Evaluate(
-            [new HubRulePredicate { Field = "genre", Op = "eq", Value = "Sci-Fi" }]);
+            [new CollectionRulePredicate { Field = "genre", Op = "eq", Value = "Sci-Fi" }]);
 
         // The episode work is found via the parent-scope path (Parent lookup
         // walks parent_work_id up two levels and finds the show row).
@@ -182,14 +182,14 @@ public sealed class LineageReaderTests : IDisposable
     // ────────────────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Builds: hub → show Work → season Work (parent=show) → episode Work
+    /// Builds: collection → show Work → season Work (parent=show) → episode Work
     /// (parent=season) → edition → asset. Returns the IDs as a tuple.
     /// </summary>
     private async Task<(Guid ShowId, Guid SeasonId, Guid EpisodeId, Guid AssetId)>
         BuildTvHierarchyAsync()
     {
         using var conn = _db.CreateConnection();
-        var hubId    = Guid.NewGuid();
+        var collectionId    = Guid.NewGuid();
         var showId   = Guid.NewGuid();
         var seasonId = Guid.NewGuid();
         var epId     = Guid.NewGuid();
@@ -199,13 +199,13 @@ public sealed class LineageReaderTests : IDisposable
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"""
-            INSERT INTO hubs (id, created_at) VALUES ('{hubId}', datetime('now'));
-            INSERT INTO works (id, hub_id, media_type)
-                VALUES ('{showId}', '{hubId}', 'TV');
-            INSERT INTO works (id, hub_id, media_type, parent_work_id)
-                VALUES ('{seasonId}', '{hubId}', 'TV', '{showId}');
-            INSERT INTO works (id, hub_id, media_type, parent_work_id)
-                VALUES ('{epId}', '{hubId}', 'TV', '{seasonId}');
+            INSERT INTO collections (id, created_at) VALUES ('{collectionId}', datetime('now'));
+            INSERT INTO works (id, collection_id, media_type)
+                VALUES ('{showId}', '{collectionId}', 'TV');
+            INSERT INTO works (id, collection_id, media_type, parent_work_id)
+                VALUES ('{seasonId}', '{collectionId}', 'TV', '{showId}');
+            INSERT INTO works (id, collection_id, media_type, parent_work_id)
+                VALUES ('{epId}', '{collectionId}', 'TV', '{seasonId}');
             INSERT INTO editions (id, work_id) VALUES ('{edId}', '{epId}');
             INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
                 VALUES ('{assetId}', '{edId}', '{hash}', '/lib/test.mkv', 'Normal');
@@ -215,14 +215,14 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     /// <summary>
-    /// Builds a flat hierarchy: hub → Work (no parent) → edition → asset.
+    /// Builds a flat hierarchy: collection → Work (no parent) → edition → asset.
     /// Returns (workId, editionId, assetId).
     /// </summary>
     private async Task<(Guid WorkId, Guid EditionId, Guid AssetId)>
         BuildStandaloneWorkAsync(string mediaType)
     {
         using var conn = _db.CreateConnection();
-        var hubId   = Guid.NewGuid();
+        var collectionId   = Guid.NewGuid();
         var workId  = Guid.NewGuid();
         var edId    = Guid.NewGuid();
         var assetId = Guid.NewGuid();
@@ -230,9 +230,9 @@ public sealed class LineageReaderTests : IDisposable
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"""
-            INSERT INTO hubs (id, created_at) VALUES ('{hubId}', datetime('now'));
-            INSERT INTO works (id, hub_id, media_type)
-                VALUES ('{workId}', '{hubId}', '{mediaType}');
+            INSERT INTO collections (id, created_at) VALUES ('{collectionId}', datetime('now'));
+            INSERT INTO works (id, collection_id, media_type)
+                VALUES ('{workId}', '{collectionId}', '{mediaType}');
             INSERT INTO editions (id, work_id) VALUES ('{edId}', '{workId}');
             INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
                 VALUES ('{assetId}', '{edId}', '{hash}', '/lib/standalone.bin', 'Normal');

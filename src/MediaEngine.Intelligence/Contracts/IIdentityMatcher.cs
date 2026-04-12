@@ -33,7 +33,7 @@ public interface IIdentityMatcher
     /// Canonical values for the entity being evaluated (e.g. a newly ingested Work).
     /// </param>
     /// <param name="candidate">
-    /// Canonical values for the candidate entity (e.g. an existing Work in a Hub).
+    /// Canonical values for the candidate entity (e.g. an existing Work in a Collection).
     /// </param>
     /// <param name="configuration">
     /// Scoring configuration supplying the auto-link and conflict thresholds

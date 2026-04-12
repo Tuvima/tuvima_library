@@ -12,12 +12,12 @@
 /// </code>
 /// </summary>
 /// <param name="WorkId">The newly ingested Work's unique identifier.</param>
-/// <param name="HubId">The Hub this Work was assigned to, or <c>null</c> if standalone.</param>
+/// <param name="CollectionId">The Collection this Work was assigned to, or <c>null</c> if standalone.</param>
 /// <param name="MediaType">Domain media-type string (e.g. "Epub", "Video", "Cbz").</param>
-/// <param name="Title">Best-available title for immediate display before a full hub refresh.</param>
+/// <param name="Title">Best-available title for immediate display before a full collection refresh.</param>
 public sealed record MediaAddedEvent(
     Guid   WorkId,
-    Guid?  HubId,
+    Guid?  CollectionId,
     string MediaType,
     string Title);
 
@@ -100,7 +100,7 @@ public sealed record WatchFolderActiveEvent(
 /// SignalR method name: <c>"IngestionCompleted"</c>
 ///
 /// The Dashboard invalidates its cached universe state on receipt so the
-/// hub grid refreshes with the newly ingested file.
+/// collection grid refreshes with the newly ingested file.
 /// </summary>
 /// <param name="FilePath">The path of the ingested file (may be the organised destination).</param>
 /// <param name="MediaType">Domain media-type string (e.g. "Epub", "Movie").</param>

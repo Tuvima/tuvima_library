@@ -97,13 +97,13 @@ public static class VaultEndpoints
             var withoutQid = totalItems - withQid;
             if (withoutQid < 0) withoutQid = 0;
 
-            // Universe assignment: works with hub_id vs without
+            // Universe assignment: works with collection_id vs without
             var universeAssigned = await conn.ExecuteScalarAsync<int>("""
                 SELECT COUNT(*)
                 FROM works w
                 INNER JOIN editions e     ON e.work_id = w.id
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE w.hub_id IS NOT NULL
+                WHERE w.collection_id IS NOT NULL
                 """);
             var universeUnassigned = totalItems - universeAssigned;
             if (universeUnassigned < 0) universeUnassigned = 0;
@@ -283,7 +283,7 @@ public static class VaultEndpoints
             using var conn = db.CreateConnection();
 
             // Find works that have series_qid/franchise_qid/fictional_universe_qid in canonical_values
-            // but are NOT assigned to a hub (works.hub_id IS NULL)
+            // but are NOT assigned to a collection (works.collection_id IS NULL)
             var candidates = await conn.QueryAsync<UniverseCandidateDto>("""
                 SELECT DISTINCT
                     w.id AS WorkId,
@@ -309,7 +309,7 @@ public static class VaultEndpoints
                 LEFT JOIN canonical_values cv_uq ON cv_uq.entity_id = ma.id AND cv_uq.key = 'fictional_universe_qid'
                     AND cv_uq.value IS NOT NULL AND cv_uq.value != ''
                 LEFT JOIN canonical_values cv_review ON cv_review.entity_id = ma.id AND cv_review.key = 'universe_review_status'
-                WHERE w.hub_id IS NULL
+                WHERE w.collection_id IS NULL
                   AND (cv_sq.value IS NOT NULL OR cv_fq.value IS NOT NULL OR cv_uq.value IS NOT NULL)
                   AND (cv_review.value IS NULL OR cv_review.value != 'rejected')
                 ORDER BY cv_title.value
@@ -319,7 +319,7 @@ public static class VaultEndpoints
             return Results.Ok(candidates.ToList());
         })
         .WithName("GetUniverseCandidates")
-        .WithSummary("Items with universe-related QIDs but no hub assignment.")
+        .WithSummary("Items with universe-related QIDs but no collection assignment.")
         .Produces<List<UniverseCandidateDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
@@ -327,29 +327,29 @@ public static class VaultEndpoints
         group.MapPost("/universe-candidates/{workId:guid}/accept", async (
             Guid workId,
             UniverseAcceptRequest request,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             CancellationToken ct) =>
         {
-            // Find or create the hub for the target QID
-            var hub = await hubRepo.FindByQidAsync(request.TargetHubQid, ct);
-            if (hub is null)
+            // Find or create the collection for the target QID
+            var collection = await collectionRepo.FindByQidAsync(request.TargetCollectionQid, ct);
+            if (collection is null)
             {
-                // Create a new ContentGroup hub for this QID
-                hub = new Hub
+                // Create a new ContentGroup collection for this QID
+                collection = new Collection
                 {
                     Id = Guid.NewGuid(),
-                    WikidataQid = request.TargetHubQid,
-                    DisplayName = request.TargetHubQid, // Will be enriched later
-                    HubType = "ContentGroup",
+                    WikidataQid = request.TargetCollectionQid,
+                    DisplayName = request.TargetCollectionQid, // Will be enriched later
+                    CollectionType = "ContentGroup",
                     Resolution = "materialized",
                     Scope = "library",
                     IsEnabled = true,
                 };
-                await hubRepo.UpsertAsync(hub, ct);
+                await collectionRepo.UpsertAsync(collection, ct);
             }
 
-            await hubRepo.AssignWorkToHubAsync(workId, hub.Id, ct);
-            return Results.Ok(new { assigned = true, hub_id = hub.Id });
+            await collectionRepo.AssignWorkToCollectionAsync(workId, collection.Id, ct);
+            return Results.Ok(new { assigned = true, collection_id = collection.Id });
         })
         .WithName("AcceptUniverseCandidate")
         .WithSummary("Accept a universe assignment for a work.")
@@ -395,7 +395,7 @@ public static class VaultEndpoints
         // ── POST /vault/universe-candidates/batch-accept ─────────────────
         group.MapPost("/universe-candidates/batch-accept", async (
             UniverseBatchAcceptRequest request,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -428,23 +428,23 @@ public static class VaultEndpoints
                     if (candidateQid.Contains('/')) candidateQid = candidateQid.Split('/').Last();
                     if (candidateQid.Contains("::")) candidateQid = candidateQid.Split("::")[0];
 
-                    var hub = await hubRepo.FindByQidAsync(candidateQid, ct);
-                    if (hub is null)
+                    var collection = await collectionRepo.FindByQidAsync(candidateQid, ct);
+                    if (collection is null)
                     {
-                        hub = new Hub
+                        collection = new Collection
                         {
                             Id = Guid.NewGuid(),
                             WikidataQid = candidateQid,
                             DisplayName = candidateQid,
-                            HubType = "ContentGroup",
+                            CollectionType = "ContentGroup",
                             Resolution = "materialized",
                             Scope = "library",
                             IsEnabled = true,
                         };
-                        await hubRepo.UpsertAsync(hub, ct);
+                        await collectionRepo.UpsertAsync(collection, ct);
                     }
 
-                    await hubRepo.AssignWorkToHubAsync(workId, hub.Id, ct);
+                    await collectionRepo.AssignWorkToCollectionAsync(workId, collection.Id, ct);
                     accepted++;
                 }
                 catch { /* skip failed items */ }
@@ -484,7 +484,7 @@ public static class VaultEndpoints
                 LEFT JOIN canonical_values cv_uq ON cv_uq.entity_id = ma.id AND cv_uq.key = 'fictional_universe_qid'
                     AND cv_uq.value IS NOT NULL AND cv_uq.value != ''
                 LEFT JOIN canonical_values cv_review ON cv_review.entity_id = ma.id AND cv_review.key = 'universe_review_status'
-                WHERE w.hub_id IS NULL
+                WHERE w.collection_id IS NULL
                   AND cv_sq.value IS NULL AND cv_fq.value IS NULL AND cv_uq.value IS NULL
                   AND (cv_review.value IS NULL OR cv_review.value != 'rejected')
                 ORDER BY cv_title.value
@@ -501,14 +501,14 @@ public static class VaultEndpoints
         // ── POST /vault/universe-assign ──────────────────────────────────
         group.MapPost("/universe-assign", async (
             UniverseManualAssignRequest request,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             CancellationToken ct) =>
         {
-            await hubRepo.AssignWorkToHubAsync(request.WorkId, request.HubId, ct);
+            await collectionRepo.AssignWorkToCollectionAsync(request.WorkId, request.CollectionId, ct);
             return Results.Ok(new { assigned = true });
         })
         .WithName("ManualUniverseAssign")
-        .WithSummary("Manually assign a work to an existing hub.")
+        .WithSummary("Manually assign a work to an existing collection.")
         .RequireAdminOrCurator();
 
         return app;

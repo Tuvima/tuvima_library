@@ -1,12 +1,12 @@
 namespace MediaEngine.Intelligence.Models;
 
 /// <summary>
-/// The outcome produced by <see cref="Contracts.IHubArbiter.EvaluateAsync"/> for
-/// a single Work against the full set of Hub candidates.
+/// The outcome produced by <see cref="Contracts.ICollectionArbiter.EvaluateAsync"/> for
+/// a single Work against the full set of Collection candidates.
 ///
 /// Logged to <c>transaction_log</c> before being returned to the caller.
 ///
-/// Spec: Phase 6 – Hub Clustering; Threshold Enforcement.
+/// Spec: Phase 6 – Collection Clustering; Threshold Enforcement.
 /// </summary>
 public sealed class ArbiterDecision
 {
@@ -14,16 +14,16 @@ public sealed class ArbiterDecision
     public required Guid WorkId { get; init; }
 
     /// <summary>
-    /// The Hub selected as the best match.
+    /// The Collection selected as the best match.
     /// For <see cref="LinkDisposition.AutoLinked"/> and
-    /// <see cref="LinkDisposition.NeedsReview"/> this is the candidate Hub.
+    /// <see cref="LinkDisposition.NeedsReview"/> this is the candidate Collection.
     /// For <see cref="LinkDisposition.Rejected"/> this is <see cref="Guid.Empty"/>
-    /// (no Hub was selected).
+    /// (no Collection was selected).
     /// </summary>
-    public required Guid HubId { get; init; }
+    public required Guid CollectionId { get; init; }
 
     /// <summary>
-    /// The best similarity score achieved against any candidate Hub.
+    /// The best similarity score achieved against any candidate Collection.
     /// 0.0 when no candidates were evaluated.
     /// </summary>
     public required double Score { get; init; }

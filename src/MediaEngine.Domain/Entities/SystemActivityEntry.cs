@@ -24,8 +24,8 @@ public sealed class SystemActivityEntry
     /// </summary>
     public required string ActionType { get; init; }
 
-    /// <summary>Human-readable hub display name for context (nullable — not all actions are hub-scoped).</summary>
-    public string? HubName { get; init; }
+    /// <summary>Human-readable collection display name for context (nullable — not all actions are collection-scoped).</summary>
+    public string? CollectionName { get; init; }
 
     /// <summary>The UUID of the affected entity (nullable).</summary>
     public Guid? EntityId { get; init; }

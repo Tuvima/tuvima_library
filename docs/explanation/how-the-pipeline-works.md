@@ -68,7 +68,7 @@ NEW FILE APPEARS IN WATCHED FOLDER
            ▼
     ┌──────────────────────┐
     │ ORGANIZATION & HUBS  │  ≥0.85 confidence → promoted to organized library.
-    │                      │  Hub assignment from series / franchise QIDs.
+    │                      │  Collection assignment from series / franchise QIDs.
     └──────────────────────┘
            │
            ▼
@@ -264,7 +264,7 @@ Promoted files are placed using media-type-specific path templates:
 
 Note that `{Format}` is intentionally absent from all templates. Including the format in the path caused duplicate subfolder nesting when the same title existed in multiple formats (e.g., an EPUB and a PDF of the same book creating two separate Author/Title folders). Format is tracked at the Edition level in the data store, not on the filesystem.
 
-### Hub Assignment
+### Collection Assignment
 
 After promotion, the Engine reads the item's resolved Wikidata relationships — `series_qid` (P179), `franchise_qid` (P8345), `fictional_universe_qid` (P1434) — and assigns the Work to the appropriate Series or Universe container.
 

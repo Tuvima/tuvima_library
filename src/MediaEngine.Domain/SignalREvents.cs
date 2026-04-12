@@ -1,14 +1,14 @@
 namespace MediaEngine.Domain;
 
 /// <summary>
-/// Single source of truth for SignalR hub paths and event names.
+/// Single source of truth for SignalR collection paths and event names.
 /// Both Engine (publishers) and Dashboard (subscribers) must reference
 /// these constants instead of using raw string literals.
 /// </summary>
 public static class SignalREvents
 {
-    /// <summary>SignalR hub endpoint path.</summary>
-    public const string HubPath = "/hubs/intercom";
+    /// <summary>SignalR collection endpoint path.</summary>
+    public const string IntercomPath = "/intercom";
 
     // ── Ingestion lifecycle ──────────────────────────────────────────
     public const string IngestionStarted   = "IngestionStarted";

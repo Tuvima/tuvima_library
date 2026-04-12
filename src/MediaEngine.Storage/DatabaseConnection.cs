@@ -154,7 +154,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     ON person_media_links (media_asset_id);
                 """);
 
-        // Migration M-004: Phase 7 - add display_name to hubs.
+        // Migration M-004: Phase 7 - add display_name to collections.
         // Databases created before Phase 7 will not have this column; the ALTER
         // TABLE adds it as nullable so all existing rows are treated as unnamed.
         MigrateAddColumnIfMissing(
@@ -204,7 +204,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         // Migration M-008: Activity Ledger — create system_activity table.
         // Rich activity log with JSON change details, user attribution, and
-        // hub context.  Replaces the limited transaction_log for detailed audit.
+        // collection context.  Replaces the limited transaction_log for detailed audit.
         MigrateCreateTableIfMissing(
             conn,
             probeTable:  "system_activity",
@@ -214,7 +214,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
                     occurred_at  TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                     action_type  TEXT    NOT NULL,
-                    hub_name     TEXT,
+                    collection_name     TEXT,
                     entity_id    TEXT,
                     entity_type  TEXT,
                     profile_id   TEXT,
@@ -336,7 +336,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
-        // Migration M-014: Add universe_status to hubs.
+        // Migration M-014: Add universe_status to collections.
         // Tracks Wikidata coverage level: Rich (QID + 5+ properties),
         // Limited (QID + <5 properties), None (no QID), Unknown (not yet checked).
         // Enables filtering and scheduled refresh of items without Wikidata coverage.
@@ -705,9 +705,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "needs_review",
             ddl:    "ALTER TABLE canonical_values ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0;");
 
-        // ── M-035: Parent Hub hierarchy ─────────────────────────────────────
-        // Adds parent_hub_id to hubs so a Hub can be nested under a Parent Hub
-        // (franchise or creative universe container).  NULL = top-level hub.
+        // ── M-035: Parent Collection hierarchy ─────────────────────────────────────
+        // Adds parent_hub_id to collections so a Collection can be nested under a Parent Collection
+        // (franchise or creative universe container).  NULL = top-level collection.
         MigrateAddColumnIfMissing(
             conn,
             table:  "hubs",
@@ -800,30 +800,41 @@ public sealed class DatabaseConnection : IDatabaseConnection
         m039.ExecuteNonQuery();
 
         // ── M-040: Hub Wikidata QID ──────────────────────────────────────
+        // Guard: skip if hubs table has been renamed to collections by M-081
         MigrateAddColumnIfMissing(conn, "hubs", "wikidata_qid",
             "ALTER TABLE hubs ADD COLUMN wikidata_qid TEXT;");
 
-        using (var cmd040Idx = conn.CreateCommand())
         {
-            cmd040Idx.CommandText = @"
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_hubs_wikidata_qid
-                    ON hubs(wikidata_qid) WHERE wikidata_qid IS NOT NULL;";
-            cmd040Idx.ExecuteNonQuery();
-        }
+            bool hubsStillExists;
+            using (var hProbe = conn.CreateCommand())
+            {
+                hProbe.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='hubs';";
+                hubsStillExists = Convert.ToInt64(hProbe.ExecuteScalar()) > 0;
+            }
+            if (hubsStillExists)
+            {
+                using (var cmd040Idx = conn.CreateCommand())
+                {
+                    cmd040Idx.CommandText = @"
+                        CREATE UNIQUE INDEX IF NOT EXISTS idx_hubs_wikidata_qid
+                            ON hubs(wikidata_qid) WHERE wikidata_qid IS NOT NULL;";
+                    cmd040Idx.ExecuteNonQuery();
+                }
 
-        // Backfill hubs.wikidata_qid from canonical_values
-        using (var cmd040Fill = conn.CreateCommand())
-        {
-            cmd040Fill.CommandText = @"
-                UPDATE hubs SET wikidata_qid = (
-                    SELECT cv.value FROM canonical_values cv
-                    JOIN media_assets ma ON ma.id = cv.entity_id
-                    JOIN editions e ON e.id = ma.edition_id
-                    JOIN works w ON w.id = e.work_id
-                    WHERE w.hub_id = hubs.id AND cv.key = 'wikidata_qid'
-                    LIMIT 1
-                ) WHERE wikidata_qid IS NULL;";
-            cmd040Fill.ExecuteNonQuery();
+                using (var cmd040Fill = conn.CreateCommand())
+                {
+                    cmd040Fill.CommandText = @"
+                        UPDATE hubs SET wikidata_qid = (
+                            SELECT cv.value FROM canonical_values cv
+                            JOIN media_assets ma ON ma.id = cv.entity_id
+                            JOIN editions e ON e.id = ma.edition_id
+                            JOIN works w ON w.id = e.work_id
+                            WHERE w.hub_id = hubs.id AND cv.key = 'wikidata_qid'
+                            LIMIT 1
+                        ) WHERE wikidata_qid IS NULL;";
+                    cmd040Fill.ExecuteNonQuery();
+                }
+            }
         }
 
         // ── M-041: Work Wikidata QID ─────────────────────────────────────
@@ -884,19 +895,29 @@ public sealed class DatabaseConnection : IDatabaseConnection
             m046.ExecuteNonQuery();
         }
 
-        // ── M-047: Clean up orphan hubs (no works assigned) ─────────────
+        // ── M-047: Clean up orphan collections (no works assigned) ─────────────
+        // Guard: skip if hubs table has been renamed to collections by M-081
         {
-            using var m047 = conn.CreateCommand();
-            m047.CommandText = """
-                DELETE FROM hubs WHERE id NOT IN (
-                    SELECT DISTINCT hub_id FROM works WHERE hub_id IS NOT NULL
-                    UNION
-                    SELECT DISTINCT hub_id FROM hub_work_links
-                );
-                """;
-            var orphansDeleted = m047.ExecuteNonQuery();
-            if (orphansDeleted > 0)
-                System.Diagnostics.Debug.WriteLine($"M-047: Cleaned up {orphansDeleted} orphan hubs");
+            bool m047HubsExists;
+            using (var m047Probe = conn.CreateCommand())
+            {
+                m047Probe.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='hubs';";
+                m047HubsExists = Convert.ToInt64(m047Probe.ExecuteScalar()) > 0;
+            }
+            if (m047HubsExists)
+            {
+                using var m047 = conn.CreateCommand();
+                m047.CommandText = """
+                    DELETE FROM hubs WHERE id NOT IN (
+                        SELECT DISTINCT hub_id FROM works WHERE hub_id IS NOT NULL
+                        UNION
+                        SELECT DISTINCT hub_id FROM hub_work_links
+                    );
+                    """;
+                var orphansDeleted = m047.ExecuteNonQuery();
+                if (orphansDeleted > 0)
+                    System.Diagnostics.Debug.WriteLine($"M-047: Cleaned up {orphansDeleted} orphan collections");
+            }
         }
 
         // ── M-048: Search results cache (fan-out search results per entity) ──
@@ -1082,7 +1103,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         // ── M-055: Add match_level column to works table ──────────────────
         // Records whether a work was matched at the work level (default),
-        // edition level, or hub level during the hydration pipeline.
+        // edition level, or collection level during the hydration pipeline.
         // Used by the Registry to surface match granularity to the curator.
         MigrateAddColumnIfMissing(conn, "works", "match_level",
             "ALTER TABLE works ADD COLUMN match_level TEXT DEFAULT 'work';");
@@ -1358,7 +1379,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // person_group_members junction table, Performer/Artist roles.
         MigrateMusicGroupSupport(conn);
 
-        // Migration M-070: Universal Hub System — new columns on hubs, hub_placements table.
+        // Migration M-070: Universal Collection System — new columns on collections, hub_placements table.
         MigrateUniversalHubSystem(conn);
 
         // Migration M-080: Durable Identity Pipeline — identity_jobs, retail_match_candidates,
@@ -1368,7 +1389,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-081: Work hierarchy — adds work_kind, parent_work_id, ordinal,
         // is_catalog_only, external_identifiers to the works table and renames the
         // legacy sequence_index column to ordinal. Enables albums/seasons/series to
-        // be expressed as parent/child Work rows instead of fake ContentGroup hubs.
+        // be expressed as parent/child Work rows instead of fake ContentGroup collections.
         MigrateWorkHierarchy(conn);
 
         // Migration M-082: parent_key shadow column + index. Powers the
@@ -1402,6 +1423,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // the file_hash_cache table used by the initial sweep. See plan
         // .claude/plans/wise-rolling-beacon.md Slice 1.
         MigrateLibraryIdAndHashCache(conn);
+
+        // Migration M-081: Collection Rename — renames hub-era table/column/index
+        // names to the collections vocabulary. Idempotent: skips if the rename
+        // has already been applied (probes for the `collections` table).
+        MigrateCollectionRename(conn);
 
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
@@ -1492,6 +1518,15 @@ public sealed class DatabaseConnection : IDatabaseConnection
         string column,
         string ddl)
     {
+        // Check if the table still exists (may have been renamed by a later migration).
+        bool tableExists;
+        using (var probeCmd = conn.CreateCommand())
+        {
+            probeCmd.CommandText = $"SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='{table}';";
+            tableExists = Convert.ToInt64(probeCmd.ExecuteScalar()) > 0;
+        }
+        if (!tableExists) return;
+
         // PRAGMA table_info returns one row per column; we just need to know
         // whether the named column is present.
         bool exists = false;
@@ -2077,17 +2112,28 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
     /// <summary>
     /// Migration M-017: Hub virtualization.
-    /// 1. Create hub_relationships table.
+    /// 1. Create collection_relationships table.
     /// 2. Add wikidata_status + wikidata_checked_at to works (via ALTER TABLE).
     /// 3. Create collections + collection_items schema stubs.
     ///
-    /// Note: hub_id is already effectively nullable in SQLite (ON DELETE SET NULL
+    /// Note: collection_id is already effectively nullable in SQLite (ON DELETE SET NULL
     /// in the FK constraint). The domain model change to Guid? requires no schema
     /// recreation — SQLite does not enforce non-null on FK columns unless explicitly
     /// constrained. We add the new columns via ALTER TABLE for safety.
     /// </summary>
     private static void MigrateHubVirtualization(SqliteConnection conn)
     {
+        // Check if the hubs table still exists (pre-M-081 database).
+        // Hub-specific SQL is guarded; non-hub parts (wikidata_status on works) always run.
+        bool hubsExist;
+        using (var hvProbe = conn.CreateCommand())
+        {
+            hvProbe.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='hubs';";
+            hubsExist = Convert.ToInt64(hvProbe.ExecuteScalar()) > 0;
+        }
+
+        if (hubsExist)
+        {
         // hub_relationships table
         MigrateCreateTableIfMissing(
             conn,
@@ -2106,6 +2152,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 CREATE INDEX IF NOT EXISTS idx_hub_rel_type_qid ON hub_relationships (rel_type, rel_qid);
                 CREATE INDEX IF NOT EXISTS idx_hub_rel_hub_id ON hub_relationships (hub_id);
                 """);
+        } // end if (hubsExist) — hub_relationships only
 
         // Add wikidata_status to works (default 'pending')
         MigrateAddColumnIfMissing(
@@ -2121,34 +2168,37 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "wikidata_checked_at",
             ddl:    "ALTER TABLE works ADD COLUMN wikidata_checked_at TEXT;");
 
-        // Collections schema stub
-        MigrateCreateTableIfMissing(
-            conn,
-            probeTable:  "collections",
-            probeColumn: "id",
-            ddl: """
-                CREATE TABLE IF NOT EXISTS collections (
-                    id              TEXT NOT NULL PRIMARY KEY,
-                    name            TEXT NOT NULL,
-                    collection_type TEXT NOT NULL DEFAULT 'custom',
-                    profile_id      TEXT REFERENCES profiles(id) ON DELETE CASCADE,
-                    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
-                );
-                """);
+        // Collections schema stub — only needed for old databases
+        if (hubsExist)
+        {
+            MigrateCreateTableIfMissing(
+                conn,
+                probeTable:  "collections",
+                probeColumn: "id",
+                ddl: """
+                    CREATE TABLE IF NOT EXISTS hubs (
+                        id              TEXT NOT NULL PRIMARY KEY,
+                        name            TEXT NOT NULL,
+                        hub_type TEXT NOT NULL DEFAULT 'custom',
+                        profile_id      TEXT REFERENCES profiles(id) ON DELETE CASCADE,
+                        created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+                    );
+                    """);
 
-        MigrateCreateTableIfMissing(
-            conn,
-            probeTable:  "collection_items",
-            probeColumn: "id",
-            ddl: """
-                CREATE TABLE IF NOT EXISTS collection_items (
-                    id            TEXT NOT NULL PRIMARY KEY,
-                    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
-                    work_id       TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
-                    sort_order    INTEGER NOT NULL DEFAULT 0,
-                    added_at      TEXT NOT NULL DEFAULT (datetime('now'))
-                );
-                """);
+            MigrateCreateTableIfMissing(
+                conn,
+                probeTable:  "hub_items",
+                probeColumn: "id",
+                ddl: """
+                    CREATE TABLE IF NOT EXISTS hub_items (
+                        id            TEXT NOT NULL PRIMARY KEY,
+                        hub_id TEXT NOT NULL REFERENCES hubs(id) ON DELETE CASCADE,
+                        work_id       TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+                        sort_order    INTEGER NOT NULL DEFAULT 0,
+                        added_at      TEXT NOT NULL DEFAULT (datetime('now'))
+                    );
+                    """);
+        }
     }
 
     /// <summary>
@@ -2319,16 +2369,26 @@ public sealed class DatabaseConnection : IDatabaseConnection
     }
 
     /// <summary>
-    /// Migration M-070: Universal Hub System — new columns on hubs, hub_placements table.
+    /// Migration M-070: Universal Collection System — new columns on collections, collection_placements table.
     /// <list type="bullet">
-    ///   <item>Adds resolution, rule_hash, group_by_field, match_mode, sort_field, sort_direction, live_updating to hubs.</item>
-    ///   <item>Creates hub_placements table for mapping hubs to UI locations.</item>
-    ///   <item>Backfills existing Universe hubs with works to ContentGroup type + materialized resolution.</item>
+    ///   <item>Adds resolution, rule_hash, group_by_field, match_mode, sort_field, sort_direction, live_updating to collections.</item>
+    ///   <item>Creates collection_placements table for mapping collections to UI locations.</item>
+    ///   <item>Backfills existing Universe collections with works to ContentGroup type + materialized resolution.</item>
     /// </list>
     /// Idempotent: checks for <c>resolution</c> column before running.
     /// </summary>
     private static void MigrateUniversalHubSystem(SqliteConnection conn)
     {
+        // Check if hubs table still exists (pre-M-081 database).
+        bool hubsExist;
+        using (var uhsProbe = conn.CreateCommand())
+        {
+            uhsProbe.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='hubs';";
+            hubsExist = Convert.ToInt64(uhsProbe.ExecuteScalar()) > 0;
+        }
+
+        if (!hubsExist) return; // Fresh DB with new schema.sql already has all columns
+
         // Check if resolution column already exists on hubs.
         bool resolutionExists = false;
         using (var infoCmd = conn.CreateCommand())
@@ -2396,7 +2456,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
             cmd.ExecuteNonQuery();
         }
 
-        System.Diagnostics.Debug.WriteLine("M-070: Universal Hub System — hub columns, hub_placements, backfill");
+        System.Diagnostics.Debug.WriteLine("M-070: Universal Collection System — collection columns, hub_placements, backfill");
     }
 
     /// <summary>
@@ -2747,6 +2807,67 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         System.Diagnostics.Debug.WriteLine(
             "M-085: library_id + is_orphaned on media_assets, file_hash_cache table");
+    }
+
+    /// <summary>
+    /// Migration M-081: Collection Rename.
+    /// Renames hub-era tables, columns, and indices to the collections vocabulary.
+    /// Idempotent: skips if the <c>collections</c> table already exists.
+    /// </summary>
+    private static void MigrateCollectionRename(SqliteConnection conn)
+    {
+        // Guard: skip if `hubs` table no longer exists (rename already applied).
+        bool hubsTableExists;
+        using (var probe = conn.CreateCommand())
+        {
+            probe.CommandText = "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='hubs';";
+            hubsTableExists = Convert.ToInt64(probe.ExecuteScalar()) > 0;
+        }
+
+        if (hubsTableExists)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+            DROP TABLE IF EXISTS collections;
+            DROP TABLE IF EXISTS collection_items;
+            ALTER TABLE hubs RENAME TO collections;
+            ALTER TABLE hub_items RENAME TO collection_items;
+            ALTER TABLE hub_placements RENAME TO collection_placements;
+            ALTER TABLE hub_relationships RENAME TO collection_relationships;
+            ALTER TABLE collections RENAME COLUMN hub_type TO collection_type;
+            ALTER TABLE collections RENAME COLUMN parent_hub_id TO parent_collection_id;
+            ALTER TABLE collection_items RENAME COLUMN hub_id TO collection_id;
+            ALTER TABLE collection_placements RENAME COLUMN hub_id TO collection_id;
+            ALTER TABLE collection_relationships RENAME COLUMN hub_id TO collection_id;
+            ALTER TABLE works RENAME COLUMN hub_id TO collection_id;
+            DROP INDEX IF EXISTS idx_hubs_rule_hash;
+            DROP INDEX IF EXISTS idx_hubs_hub_type;
+            DROP INDEX IF EXISTS idx_hubs_resolution;
+            DROP INDEX IF EXISTS idx_hub_placements_hub_id;
+            DROP INDEX IF EXISTS idx_hub_placements_location;
+            DROP INDEX IF EXISTS idx_hub_rel_type_qid;
+            DROP INDEX IF EXISTS idx_hub_rel_hub_id;
+            CREATE INDEX idx_collections_rule_hash ON collections(rule_hash);
+            CREATE INDEX idx_collections_collection_type ON collections(collection_type);
+            CREATE INDEX idx_collections_resolution ON collections(resolution);
+            CREATE INDEX idx_collection_placements_collection_id ON collection_placements(collection_id);
+            CREATE INDEX idx_collection_placements_location ON collection_placements(location);
+            CREATE INDEX idx_collection_rel_type_qid ON collection_relationships(rel_type, rel_qid);
+            CREATE INDEX idx_collection_rel_collection_id ON collection_relationships(collection_id);
+            UPDATE system_activity SET action_type = 'CollectionCreated' WHERE action_type = 'HubCreated';
+            UPDATE system_activity SET action_type = 'CollectionAssigned' WHERE action_type = 'HubAssigned';
+            UPDATE system_activity SET action_type = 'CollectionMerged' WHERE action_type = 'HubMerged';
+            UPDATE collection_placements SET location = 'collections_page' WHERE location = 'hubs_page';
+            """;
+            cmd.ExecuteNonQuery();
+
+            System.Diagnostics.Debug.WriteLine(
+                "M-081: Collection Rename — tables, columns, indices renamed");
+        }
+
+        // Rename review_queue.proposed_hub_id → proposed_collection_id (runs on both old and fresh DBs)
+        MigrateAddColumnIfMissing(conn, "review_queue", "proposed_collection_id",
+            "ALTER TABLE review_queue RENAME COLUMN proposed_hub_id TO proposed_collection_id;");
     }
 
     /// <summary>

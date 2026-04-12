@@ -13,10 +13,10 @@ public interface IWork
     Guid Id { get; }
 
     /// <summary>
-    /// Optional legacy Hub. Phase 4 collapses this onto
+    /// Optional legacy Collection. Phase 4 collapses this onto
     /// <see cref="ParentWorkId"/>; the column is expected to disappear.
     /// </summary>
-    Guid? HubId { get; }
+    Guid? CollectionId { get; }
 
     MediaType MediaType { get; }
 

@@ -410,8 +410,8 @@ public sealed class RegistryFourStateCountsDto
     [JsonPropertyName("person_count")]
     public int PersonCount { get; set; }
 
-    [JsonPropertyName("hub_count")]
-    public int HubCount { get; set; }
+    [JsonPropertyName("collection_count")]
+    public int CollectionCount { get; set; }
 
     [JsonPropertyName("waiting_for_provider")]
     public int WaitingForProvider { get; set; }

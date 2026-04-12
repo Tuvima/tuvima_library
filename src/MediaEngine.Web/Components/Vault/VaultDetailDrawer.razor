@@ -1062,7 +1062,7 @@
             @* Trigger enrichment + open explorer actions *@
             <div class="vdd-universe-actions">
                 <button class="vdd-action-btn vdd-action-btn--primary" @onclick="OpenUniverseExplorer">
-                    <MudIcon Icon="@Icons.Material.Outlined.Hub" Style="font-size: 15px;" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 15px;" />
                     @L["VaultDetail_OpenExplorer"]
                 </button>
                 <button class="vdd-action-btn" @onclick="TriggerEnrichment">
@@ -1103,7 +1103,7 @@
 @code {
     [Parameter] public VaultItemViewModel? MediaItem { get; set; }
     [Parameter] public PersonListItemDto? Person { get; set; }
-    [Parameter] public HubViewModel? Universe { get; set; }
+    [Parameter] public CollectionViewModel? Universe { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback<Guid> OnPurge { get; set; }
     [Parameter] public EventCallback<Guid> OnApplyMatch { get; set; }
@@ -1118,7 +1118,7 @@
     private bool _hasSearched;
     private List<RegistryItemViewModel> _searchResults = [];
     private PersonAliasesResponseDto? _aliases;
-    private List<HubViewModel>? _personWorks;
+    private List<CollectionViewModel>? _personWorks;
     private RegistryItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
     private string _searchMediaType = "";

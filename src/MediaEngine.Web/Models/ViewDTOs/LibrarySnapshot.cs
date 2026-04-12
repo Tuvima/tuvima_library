@@ -6,9 +6,9 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// </summary>
 public sealed record LibrarySnapshot
 {
-    public int TotalHubs { get; init; }
-    public IReadOnlyDictionary<string, int> HubsByMediaType { get; init; } = new Dictionary<string, int>();
-    public IReadOnlyDictionary<string, int> HubsByGenre { get; init; } = new Dictionary<string, int>();
+    public int TotalCollections { get; init; }
+    public IReadOnlyDictionary<string, int> CollectionsByMediaType { get; init; } = new Dictionary<string, int>();
+    public IReadOnlyDictionary<string, int> CollectionsByGenre { get; init; } = new Dictionary<string, int>();
     public int ActiveJourneyCount { get; init; }
     public int UnfinishedCount { get; init; }
     public string? MostActiveGenre { get; init; }

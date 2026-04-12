@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
-using MediaEngine.Api.Hubs;
+using MediaEngine.Api.Realtime;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -7,10 +7,10 @@ namespace MediaEngine.Api.Services;
 /// <summary>
 /// Relay service that implements <see cref="IEventPublisher"/> by forwarding
 /// every published event to all connected SignalR clients via
-/// <see cref="CommunicationHub"/>.
+/// <see cref="Intercom"/>.
 ///
 /// The event name becomes the SignalR method name; the payload is serialised
-/// to JSON by the default System.Text.Json hub protocol. Blazor clients subscribe
+/// to JSON by the default System.Text.Json collection protocol. Blazor clients subscribe
 /// using <c>hubConnection.On("IngestionStarted", handler)</c>.
 ///
 /// Safe to use as a Singleton — <see cref="IHubContext{T}"/> is thread-safe
@@ -18,12 +18,12 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed class SignalREventPublisher : IEventPublisher
 {
-    private readonly IHubContext<CommunicationHub> _hub;
+    private readonly IHubContext<Intercom> _collection;
 
-    public SignalREventPublisher(IHubContext<CommunicationHub> hub)
+    public SignalREventPublisher(IHubContext<Intercom> collection)
     {
-        ArgumentNullException.ThrowIfNull(hub);
-        _hub = hub;
+        ArgumentNullException.ThrowIfNull(collection);
+        _collection = collection;
     }
 
     /// <inheritdoc/>
@@ -36,5 +36,5 @@ public sealed class SignalREventPublisher : IEventPublisher
         TPayload payload,
         CancellationToken ct = default)
         where TPayload : notnull
-        => _hub.Clients.All.SendAsync(eventName, payload, ct);
+        => _collection.Clients.All.SendAsync(eventName, payload, ct);
 }

@@ -173,7 +173,7 @@ public sealed class FileOrganizer : IFileOrganizer
             ["Series"]      = "Great Series",
             ["Publisher"]   = "Publisher Co",
             ["Category"]    = "Books",
-            ["HubName"]     = "Sample Book",
+            ["CollectionName"]     = "Sample Book",
             ["Format"]      = "Epub",
             ["Edition"]     = "Hardcover",
             ["Qid"]         = "Q190159",
@@ -422,9 +422,9 @@ public sealed class FileOrganizer : IFileOrganizer
                               ? sv
                               : meta.GetValueOrDefault("show_name", string.Empty),
             ["Publisher"] = meta.GetValueOrDefault(MetadataFieldConstants.PublisherField, "Unknown"),
-            // ── Hub-First template tokens ────────────────────────────────────────
+            // ── Collection-First template tokens ────────────────────────────────────────
             ["Category"]  = ResolveCategoryFromMediaType(candidate.DetectedMediaType),
-            ["HubName"]   = meta.GetValueOrDefault(MetadataFieldConstants.Title,   "Unknown"),
+            ["CollectionName"]   = meta.GetValueOrDefault(MetadataFieldConstants.Title,   "Unknown"),
             ["Format"]    = candidate.DetectedMediaType?.ToString() ?? "Unknown",
             ["Edition"]   = meta.GetValueOrDefault("edition", string.Empty),
             ["Qid"]       = meta.GetValueOrDefault("wikidata_qid") is { Length: > 0 } q ? q : "Q0",
@@ -501,7 +501,7 @@ public sealed class FileOrganizer : IFileOrganizer
 
     /// <summary>
     /// Maps a <see cref="MediaType"/> to a broad human-readable category
-    /// used as the top-level directory in the Hub-first organisation template.
+    /// used as the top-level directory in the Collection-first organisation template.
     /// </summary>
     private static string ResolveCategoryFromMediaType(MediaType? mt) => mt switch
     {

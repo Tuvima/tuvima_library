@@ -315,15 +315,15 @@ else
                     }
 
                     @* Primary CTA — desktop only *@
-                    <button class="hub-primary-cta book-desktop-only" @onclick="@OnPrimaryAction">
-                        <div class="hub-primary-cta-inner">
+                    <button class="collection-primary-cta book-desktop-only" @onclick="@OnPrimaryAction">
+                        <div class="collection-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
                                      Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
-                            <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
+                            <span class="collection-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
                         {
-                            <div class="hub-primary-cta-progress"
+                            <div class="collection-primary-cta-progress"
                                  style="width: @(progressPct.ToString("F0"))%">
                             </div>
                         }
@@ -469,15 +469,15 @@ else
                     </div>
 
                     @* Primary CTA — mobile only *@
-                    <button class="hub-primary-cta book-mobile-only" @onclick="@OnPrimaryAction">
-                        <div class="hub-primary-cta-inner">
+                    <button class="collection-primary-cta book-mobile-only" @onclick="@OnPrimaryAction">
+                        <div class="collection-primary-cta-inner">
                             <MudIcon Icon="@GetPrimaryActionIcon()"
                                      Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
-                            <span class="hub-primary-cta-label">@PrimaryActionLabel()</span>
+                            <span class="collection-primary-cta-label">@PrimaryActionLabel()</span>
                         </div>
                         @if (hasProgress)
                         {
-                            <div class="hub-primary-cta-progress"
+                            <div class="collection-primary-cta-progress"
                                  style="width: @(progressPct.ToString("F0"))%">
                             </div>
                         }
@@ -551,11 +551,11 @@ else
         </div>
 
         @* — "More by this author" swimlane — *@
-        @if (_related is not null && _related.Hubs.Count > 0)
+        @if (_related is not null && _related.Collections.Count > 0)
         {
             <div class="book-detail-related-section">
                 <PosterSwimlane Title="@_related.SectionTitle"
-                                Items="@_related.Hubs.SelectMany(h => h.Works.Select(w => PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor))).ToList()"
+                                Items="@_related.Collections.SelectMany(h => h.Works.Select(w => PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor))).ToList()"
                                 OnItemSelected="@(item => Nav.NavigateTo(item.NavigationUrl))" />
             </div>
         }
@@ -605,19 +605,19 @@ else
     /// <summary>Notifies the parent (e.g. Registry) when a match is applied or metadata changes.</summary>
     [Parameter] public EventCallback OnItemChanged { get; set; }
 
-    /// <summary>When true, the component is embedded inside a container (e.g. HubShell).
+    /// <summary>When true, the component is embedded inside a container (e.g. CollectionShell).
     /// Hero uses absolute positioning within the container instead of fixed to viewport.</summary>
     [Parameter] public bool Embedded { get; set; }
 
     private bool                    _loading            = true;
-    private HubViewModel?           _hub;
+    private CollectionViewModel?           _collection;
     private WorkViewModel?          _work;
     private List<WorkViewModel>     _siblingWorks       = [];
     private PersonViewModel?        _authorPerson;
     private PersonViewModel?        _narratorPerson;
     private JourneyItemViewModel?   _activeJourney;
-#pragma warning disable CS0649 // _related intentionally unassigned — related hubs deferred until hub intelligence is enabled
-    private RelatedHubsViewModel?   _related;
+#pragma warning disable CS0649 // _related intentionally unassigned — related collections deferred until collection intelligence is enabled
+    private RelatedCollectionsViewModel?   _related;
 #pragma warning restore CS0649
     private string?                 _toastMessage;
     private bool                    _showFullDescription;
@@ -639,7 +639,7 @@ else
         _lightboxOpen        = false;
         _selectedFormatKey   = null;
 
-        // Load works directly (work-first architecture — hubs deferred to Universe phase)
+        // Load works directly (work-first architecture — collections deferred to Universe phase)
         var allWorks = await Orchestrator.GetLibraryWorksAsync();
         _work = allWorks.FirstOrDefault(w => w.Id == WorkId);
 
@@ -692,8 +692,8 @@ else
             if (_siblingWorks.Count == 0)
                 _siblingWorks = [_work];
 
-            // Create a synthetic hub for backward compat with code that references _hub
-            _hub = new HubViewModel { Works = _siblingWorks };
+            // Create a synthetic collection for backward compat with code that references _collection
+            _collection = new CollectionViewModel { Works = _siblingWorks };
 
             // Load persons linked to this work (author, narrator, etc.)
             try
@@ -719,7 +719,7 @@ else
                     {
                         AssetId            = assetId.Value,
                         WorkId             = _work.Id,
-                        HubId              = Guid.Empty,
+                        CollectionId              = Guid.Empty,
                         Title              = _work.Title,
                         Author             = _work.Author,
                         CoverUrl           = _work.CoverUrl,
@@ -728,7 +728,7 @@ else
                         LastAccessed       = progress.LastAccessed.HasValue
                             ? new DateTimeOffset(progress.LastAccessed.Value)
                             : DateTimeOffset.UtcNow,
-                        HubDisplayName     = _work.Title,
+                        CollectionDisplayName     = _work.Title,
                         ExtendedProperties = progress.ExtendedProperties,
                     };
                 }
@@ -760,7 +760,7 @@ else
             var assetId = await Orchestrator.ResolveWorkToAssetAsync(work.Id);
             if (assetId.HasValue)
             {
-                Nav.NavigateTo($"/read/{assetId.Value}?returnHubId={_hub?.Id}");
+                Nav.NavigateTo($"/read/{assetId.Value}?returnCollectionId={_collection?.Id}");
             }
             else
             {
@@ -826,7 +826,7 @@ else
         var parameters = new DialogParameters
         {
             { nameof(MediaItemEditor.EntityId), _work?.Id ?? Guid.Empty },
-            { nameof(MediaItemEditor.HubId), _hub?.Id ?? Guid.Empty },
+            { nameof(MediaItemEditor.CollectionId), _collection?.Id ?? Guid.Empty },
             { nameof(MediaItemEditor.MediaType), _work?.MediaType },
             { nameof(MediaItemEditor.PreloadedCandidates), CandidatesJson ?? _cachedSearchResults },
             { nameof(MediaItemEditor.InitialSearchQuery), _work?.Title },
@@ -879,7 +879,7 @@ else
     private record FormatOption(string Key, string Label, string Icon, WorkViewModel Work);
 
     /// <summary>
-    /// Builds format options from sibling works in the same hub that share
+    /// Builds format options from sibling works in the same collection that share
     /// the same title (different editions of the same work in different formats).
     /// </summary>
     private List<FormatOption> AvailableFormats()
@@ -900,7 +900,7 @@ else
         ?? (_work is not null ? GetFormatKey(_work.MediaType) : "epub");
 
     private WorkViewModel? ActiveWork =>
-        _hub?.Works.FirstOrDefault(w => GetFormatKey(w.MediaType) == ActiveFormatKey)
+        _collection?.Works.FirstOrDefault(w => GetFormatKey(w.MediaType) == ActiveFormatKey)
         ?? _work;
 
     private static string GetFormatKey(string mediaType)
@@ -1002,7 +1002,7 @@ else
 
     /// <summary>
     /// Resolves the best-matching Author person using QID-based matching.
-    /// Same algorithm as HubDetail.
+    /// Same algorithm as CollectionDetail.
     /// </summary>
     private static PersonViewModel? ResolveAuthorPerson(
         IReadOnlyList<PersonViewModel> persons, string? authorQidCanonical,
@@ -1556,13 +1556,13 @@ else
     }
 
     /* -- Primary CTA size modifiers -- */
-    .hub-primary-cta.book-desktop-only {
+    .collection-primary-cta.book-desktop-only {
         min-width: 180px;
         max-width: 280px;
         width: auto;
     }
 
-    .hub-primary-cta.book-mobile-only {
+    .collection-primary-cta.book-mobile-only {
         width: 100%;
         max-width: 320px;
         margin: 0 auto;
@@ -1759,7 +1759,7 @@ else
 
     }
 
-    /* ── Embedded mode (inside HubShell) ── */
+    /* ── Embedded mode (inside CollectionShell) ── */
     .bdc-embedded-wrap {
         position: relative;
         overflow-y: auto;

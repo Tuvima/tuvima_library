@@ -2,11 +2,11 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
 /// Flattened, cross-media-type view of the entire user library.
-/// Collapses all Hubs and their Works into a single canonical list
+/// Collapses all Collections and their Works into a single canonical list
 /// suitable for rendering the Universe grid, stats bar, and hero tiles.
 ///
 /// Produced by <see cref="MediaEngine.Web.Services.Integration.UniverseMapper"/>
-/// from a set of <see cref="HubViewModel"/>s.
+/// from a set of <see cref="CollectionViewModel"/>s.
 /// </summary>
 public sealed class UniverseViewModel
 {
@@ -38,7 +38,7 @@ public sealed class UniverseViewModel
 public sealed class MediaItemViewModel
 {
     public Guid            Id               { get; init; }
-    public Guid?           HubId            { get; init; }
+    public Guid?           CollectionId            { get; init; }
 
     /// <summary>Raw media-type string from the domain enum (e.g. "Epub", "Video", "Cbz").</summary>
     public string          MediaType        { get; init; } = string.Empty;

@@ -298,8 +298,8 @@
 @code {
     [Parameter] public Guid AssetId { get; set; }
 
-    /// <summary>Hub to return to when the reader is closed. Passed as ?returnHubId=… in the URL.</summary>
-    [SupplyParameterFromQuery] public Guid? ReturnHubId { get; set; }
+    /// <summary>Collection to return to when the reader is closed. Passed as ?returnCollectionId=… in the URL.</summary>
+    [SupplyParameterFromQuery] public Guid? ReturnCollectionId { get; set; }
 
     // ── State ──────────────────────────────────────────────────────────
 
@@ -770,10 +770,10 @@
             var overallPercent = ComputeOverallPercentDouble();
 
             // Don't record 0% — the journey query filters progress_pct > 0, so saving
-            // zero would mean the HubDetail never shows any progress indicator.
+            // zero would mean the CollectionDetail never shows any progress indicator.
             // This happens when the reader opens at chapter 0 / page 0 before any pages
             // are turned.  A user who hasn't read anything yet shouldn't have a "In
-            // Progress" entry on the hub detail page.
+            // Progress" entry on the collection detail page.
             if (overallPercent <= 0) return;
 
             var extProps = new Dictionary<string, string>
@@ -834,14 +834,14 @@
 
     private async Task ExitReader()
     {
-        // Await the save so the DB write is complete before the Hub Detail page loads.
-        // Fire-and-forget would let the hub detail fetch stale 0% progress before the
+        // Await the save so the DB write is complete before the Collection Detail page loads.
+        // Fire-and-forget would let the collection detail fetch stale 0% progress before the
         // INSERT finishes.
         await AutoSaveProgress();
         _progressAlreadySaved = true;
 
-        var returnUrl = ReturnHubId.HasValue
-            ? $"/hub/{ReturnHubId.Value}?lastAssetId={AssetId}"
+        var returnUrl = ReturnCollectionId.HasValue
+            ? $"/collection/{ReturnCollectionId.Value}?lastAssetId={AssetId}"
             : "/";
         Nav.NavigateTo(returnUrl, replace: true);
     }

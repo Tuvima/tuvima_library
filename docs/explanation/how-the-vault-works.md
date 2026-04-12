@@ -57,9 +57,9 @@ Franchise-level groupings. A Universe entry shows its name, description, how man
 
 Like People, always Wikidata-sourced and auto-cleaned when all child Series are empty.
 
-### Hubs
+### Collections
 
-Smart collections, personal lists, AI-generated mixes, and user-created playlists. The Hubs tab is for oversight and configuration â€” enabling or disabling smart hubs, adjusting thresholds, seeing what's in each collection. See the separate documentation on Hubs and Playlists for the full detail.
+Smart collections, personal lists, AI-generated mixes, and user-created playlists. The Collections tab is for oversight and configuration â€” enabling or disabling smart collections, adjusting thresholds, seeing what's in each collection. See the separate documentation on Collections and Playlists for the full detail.
 
 ---
 

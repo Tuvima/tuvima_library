@@ -1,0 +1,408 @@
+@namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Web.Models.ViewDTOs
+
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<div class="collection-builder-overlay" @onclick="OnCancel">
+    <div class="collection-builder" @onclick:stopPropagation>
+        <h2 class="collection-builder-title">@(EditingCollection is not null ? "Edit Collection" : "New Collection")</h2>
+
+        @* ── Name ── *@
+        <MudTextField @bind-Value="_name"
+                      Placeholder="Collection name..."
+                      Variant="Variant.Outlined"
+                      Style="margin-bottom: 16px;"
+                      Immediate="true" />
+
+        @* ── Rules ── *@
+        <div class="collection-builder-rules-header">
+            <MudCheckBox @bind-Value="_rulesEnabled" Color="Color.Error" Dense="true"
+                         Label="Match for the following rules:" />
+        </div>
+
+        @if (_rulesEnabled)
+        {
+            <div class="collection-builder-rules">
+                @for (var i = 0; i < _rules.Count; i++)
+                {
+                    var idx = i;
+                    var rule = _rules[idx];
+
+                    <div class="collection-builder-rule-row">
+                        <MudSelect T="string" Value="rule.Field"
+                                   Variant="Variant.Outlined" Dense="true"
+                                   Style="min-width: 140px;"
+                                   ValueChanged="(string v) => { rule.Field = v; _ = OnRuleChanged(); }">
+                            <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("director")">Director</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("artist")">Artist</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("narrator")">Narrator</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("album")">Album</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("series")">Series</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("show_name")">Show</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("decade")">Decade</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("vibe")">Vibe</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("publisher")">Publisher</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("language")">Language</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("added_within_days")">Added Within</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
+                        </MudSelect>
+
+                        <MudSelect T="string" @bind-Value="rule.Op"
+                                   Variant="Variant.Outlined" Dense="true"
+                                   Style="min-width: 120px;">
+                            @foreach (var op in GetOperatorsForField(rule.Field))
+                            {
+                                <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <MudTextField @bind-Value="rule.Value"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Style="flex: 1; min-width: 120px;"
+                                      Placeholder="Value..."
+                                      Immediate="true"
+                                      DebounceInterval="500"
+                                      OnDebounceIntervalElapsed="_ => RunPreview()" />
+
+                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                       OnClick="() => AddRule(idx)" aria-label="Add rule" />
+                        <MudIconButton Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small"
+                                       OnClick="() => RemoveRule(idx)" aria-label="Remove rule" />
+                    </div>
+                }
+            </div>
+
+            @* ── Match mode ── *@
+            <div class="collection-builder-match-mode">
+                <span style="font-size: 0.82rem; color: rgba(248,248,248,0.6);">Match:</span>
+                <MudRadioGroup T="string" @bind-Value="_matchMode">
+                    <MudRadio T="string" Value="@("all")" Color="Color.Primary" Dense="true">ALL rules</MudRadio>
+                    <MudRadio T="string" Value="@("any")" Color="Color.Primary" Dense="true">ANY rule</MudRadio>
+                </MudRadioGroup>
+            </div>
+        }
+
+        @* ── Limit ── *@
+        <div class="collection-builder-limit-row">
+            <MudCheckBox @bind-Value="_limitEnabled" Color="Color.Default" Dense="true" />
+            <span style="font-size: 0.85rem; color: rgba(248,248,248,0.7);">Limit to</span>
+            <MudNumericField T="int" @bind-Value="_limitCount"
+                             Variant="Variant.Outlined" Margin="Margin.Dense"
+                             Style="width: 80px;" Min="1" Max="1000" />
+            <span style="font-size: 0.85rem; color: rgba(248,248,248,0.7);">items</span>
+            <span style="font-size: 0.85rem; color: rgba(248,248,248,0.5); margin-left: 8px;">selected by</span>
+            <MudSelect T="string" @bind-Value="_limitSort"
+                       Variant="Variant.Outlined" Dense="true"
+                       Style="min-width: 120px;">
+                <MudSelectItem T="string" Value="@("random")">random</MudSelectItem>
+                <MudSelectItem T="string" Value="@("newest")">newest</MudSelectItem>
+                <MudSelectItem T="string" Value="@("oldest")">oldest</MudSelectItem>
+                <MudSelectItem T="string" Value="@("title")">name</MudSelectItem>
+                <MudSelectItem T="string" Value="@("rating")">highest rated</MudSelectItem>
+            </MudSelect>
+        </div>
+
+        @* ── Live updating ── *@
+        <div class="collection-builder-live-row">
+            <MudCheckBox @bind-Value="_liveUpdating" Color="Color.Error" Dense="true"
+                         Label="Live updating" />
+        </div>
+
+        @* ── Preview ── *@
+        @if (_previewResult is not null)
+        {
+            <div class="collection-builder-preview">
+                <div class="collection-builder-preview-header">
+                    <span>@_previewResult.Count items match</span>
+                </div>
+                @foreach (var item in _previewResult.Items.Take(10))
+                {
+                    <div class="collection-builder-preview-item">
+                        <span class="collection-builder-preview-type">@item.MediaType[..Math.Min(2, item.MediaType.Length)]</span>
+                        <span class="collection-builder-preview-title">@item.Title</span>
+                        @if (!string.IsNullOrEmpty(item.Year))
+                        {
+                            <span class="collection-builder-preview-year">(@item.Year)</span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @* ── Actions ── *@
+        <div class="collection-builder-actions">
+            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                       OnClick="SaveCollection" Disabled="_saving"
+                       Style="flex: 1;">
+                @(EditingCollection is not null ? "Save" : "Create Collection")
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" OnClick="OnCancel" Style="flex: 1;">
+                Cancel
+            </MudButton>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public CollectionListItemViewModel? EditingCollection { get; set; }
+
+    private string _name = "";
+    private bool _rulesEnabled = true;
+    private List<CollectionRulePredicateViewModel> _rules = [new()];
+    private string _matchMode = "all";
+    private bool _limitEnabled;
+    private int _limitCount = 25;
+    private string _limitSort = "random";
+    private bool _liveUpdating = true;
+    private bool _saving;
+    private CollectionPreviewResult? _previewResult;
+
+    protected override void OnInitialized()
+    {
+        if (EditingCollection is not null)
+        {
+            _name = EditingCollection.Name;
+            _matchMode = EditingCollection.MatchMode;
+            _liveUpdating = EditingCollection.LiveUpdating;
+
+            // Parse existing rules
+            if (!string.IsNullOrWhiteSpace(EditingCollection.RuleJson))
+            {
+                try
+                {
+                    var parsed = System.Text.Json.JsonSerializer.Deserialize<List<CollectionRulePredicateViewModel>>(
+                        EditingCollection.RuleJson,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (parsed is { Count: > 0 })
+                    {
+                        _rules = parsed;
+                        _rulesEnabled = true;
+                    }
+                }
+                catch { /* use defaults */ }
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && _rules.Any(r => !string.IsNullOrEmpty(r.Value)))
+            await RunPreview();
+    }
+
+    private void AddRule(int afterIndex)
+    {
+        _rules.Insert(afterIndex + 1, new CollectionRulePredicateViewModel());
+    }
+
+    private void RemoveRule(int index)
+    {
+        if (_rules.Count > 1)
+            _rules.RemoveAt(index);
+    }
+
+    private async Task OnRuleChanged()
+    {
+        await RunPreview();
+    }
+
+    private async Task RunPreview()
+    {
+        if (!_rulesEnabled || _rules.All(r => string.IsNullOrEmpty(r.Value)))
+        {
+            _previewResult = null;
+            return;
+        }
+
+        var validRules = _rules
+            .Where(r => !string.IsNullOrEmpty(r.Value))
+            .ToList();
+
+        if (validRules.Count == 0) return;
+
+        try
+        {
+            _previewResult = await ApiClient.PreviewCollectionRulesAsync(validRules, _matchMode, 20);
+            StateHasChanged();
+        }
+        catch { /* preview is best-effort */ }
+    }
+
+    private async Task SaveCollection()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            Snackbar.Add("Please enter a name for the collection.", Severity.Warning);
+            return;
+        }
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            var rules = _rulesEnabled
+                ? _rules.Where(r => !string.IsNullOrEmpty(r.Value)).ToList()
+                : [];
+
+            if (EditingCollection is not null)
+            {
+                await ApiClient.UpdateCollectionAsync(
+                    EditingCollection.Id, _name, rules, _matchMode,
+                    null, null);
+                Snackbar.Add($"Collection \"{_name}\" updated.", Severity.Success);
+            }
+            else
+            {
+                await ApiClient.CreateCollectionAsync(
+                    _name, rules, _matchMode,
+                    _limitEnabled ? _limitSort : null,
+                    "desc", _liveUpdating);
+                Snackbar.Add($"Collection \"{_name}\" created.", Severity.Success);
+            }
+
+            await OnSave.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to save collection: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private sealed record OpDef(string Key, string Label);
+
+    private static List<OpDef> GetOperatorsForField(string field) => field switch
+    {
+        "media_type" => [new("eq", "is"), new("neq", "is not")],
+        "year" or "provider_rating" or "added_within_days" =>
+            [new("eq", "is"), new("gt", "greater than"), new("lt", "less than"), new("between", "between"), new("gte", "at least"), new("lte", "at most")],
+        "decade" => [new("eq", "is")],
+        _ => [new("eq", "is"), new("neq", "is not"), new("contains", "contains")],
+    };
+}
+
+<style>
+    .collection-builder-overlay {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1500;
+        backdrop-filter: blur(4px);
+    }
+
+    .collection-builder {
+        background: #1a1d2e;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        padding: 28px;
+        width: 600px;
+        max-width: 95vw;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+    }
+
+    .collection-builder-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.9);
+        margin: 0 0 20px;
+    }
+
+    .collection-builder-rules-header {
+        margin-bottom: 12px;
+    }
+
+    .collection-builder-rules {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .collection-builder-rule-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .collection-builder-match-mode {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+        padding: 8px 0;
+    }
+
+    .collection-builder-limit-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .collection-builder-live-row {
+        margin-bottom: 16px;
+    }
+
+    .collection-builder-preview {
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 20px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .collection-builder-preview-header {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: rgba(248, 248, 248, 0.5);
+        margin-bottom: 8px;
+    }
+
+    .collection-builder-preview-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 4px 0;
+        font-size: 0.82rem;
+    }
+
+    .collection-builder-preview-type {
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        background: rgba(255, 255, 255, 0.06);
+        padding: 2px 6px;
+        border-radius: 4px;
+        color: rgba(248, 248, 248, 0.4);
+        min-width: 24px;
+        text-align: center;
+    }
+
+    .collection-builder-preview-title { color: rgba(248, 248, 248, 0.8); }
+    .collection-builder-preview-year { color: rgba(248, 248, 248, 0.4); font-size: 0.78rem; }
+
+    .collection-builder-actions {
+        display: flex;
+        gap: 12px;
+    }
+</style>

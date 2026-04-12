@@ -136,41 +136,41 @@
   <data name="VaultUniverses_ColMediaAssets" xml:space="preserve"><value>Éléments médias</value></data>
   <data name="VaultUniverses_ColPeople" xml:space="preserve"><value>Personnes</value></data>
 
-  <!-- ── Vault Hub Drawer ───────────────────────────────────────────────── -->
-  <data name="VaultHub_ScopePerUser" xml:space="preserve"><value>Par utilisateur</value></data>
-  <data name="VaultHub_ScopeLibrary" xml:space="preserve"><value>Bibliothèque</value></data>
-  <data name="VaultHub_SectionConfiguration" xml:space="preserve"><value>CONFIGURATION</value></data>
-  <data name="VaultHub_LabelRules" xml:space="preserve"><value>Règles</value></data>
-  <data name="VaultHub_LabelGenerationThreshold" xml:space="preserve"><value>Seuil de génération</value></data>
-  <data name="VaultHub_LabelFeatured" xml:space="preserve"><value>En vedette</value></data>
-  <data name="VaultHub_LabelShowInBrowsing" xml:space="preserve"><value>Afficher lors de la navigation</value></data>
-  <data name="VaultHub_LabelMediaTypes" xml:space="preserve"><value>Types de médias</value></data>
-  <data name="VaultHub_LabelProgressTracking" xml:space="preserve"><value>Suivi de progression</value></data>
-  <data name="VaultHub_ValueEnabled" xml:space="preserve"><value>Activé</value></data>
-  <data name="VaultHub_LabelItems" xml:space="preserve"><value>Éléments</value></data>
-  <data name="VaultHub_LabelLogic" xml:space="preserve"><value>Logique</value></data>
-  <data name="VaultHub_LabelRefreshSchedule" xml:space="preserve"><value>Planification d'actualisation</value></data>
-  <data name="VaultHub_ValueDaily" xml:space="preserve"><value>Quotidien</value></data>
-  <data name="VaultHub_LabelGenerateForAllUsers" xml:space="preserve"><value>Générer pour tous les utilisateurs</value></data>
-  <data name="VaultHub_LabelOwner" xml:space="preserve"><value>Propriétaire</value></data>
-  <data name="VaultHub_OwnerUser" xml:space="preserve"><value>Utilisateur</value></data>
-  <data name="VaultHub_OwnerLibrary" xml:space="preserve"><value>Bibliothèque</value></data>
-  <data name="VaultHub_ValueDerivedFromContents" xml:space="preserve"><value>Dérivé du contenu</value></data>
-  <data name="VaultHub_LabelCreated" xml:space="preserve"><value>Créé</value></data>
-  <data name="VaultHub_LabelLastModified" xml:space="preserve"><value>Dernière modification</value></data>
-  <data name="VaultHub_SectionItemsPreview" xml:space="preserve"><value>APERÇU DES ÉLÉMENTS</value></data>
-  <data name="VaultHub_NoItemsYet" xml:space="preserve"><value>Aucun élément pour l'instant.</value></data>
-  <data name="VaultHub_ViewAllItems" xml:space="preserve"><value>Voir les {0} éléments</value></data>
-  <data name="VaultHub_SectionAssets" xml:space="preserve"><value>ÉLÉMENTS VISUELS</value></data>
-  <data name="VaultHub_AssetAutoComposed" xml:space="preserve"><value>Composé automatiquement</value></data>
-  <data name="VaultHub_AssetDropOrUpload" xml:space="preserve"><value>Déposez une image ou cliquez pour téléverser</value></data>
-  <data name="VaultHub_ActionDisable" xml:space="preserve"><value>Désactiver</value></data>
-  <data name="VaultHub_ActionEnable" xml:space="preserve"><value>Activer</value></data>
-  <data name="VaultHub_ActionUnfeature" xml:space="preserve"><value>Retirer de la une</value></data>
-  <data name="VaultHub_ActionFeature" xml:space="preserve"><value>Mettre en avant</value></data>
-  <data name="VaultHub_SystemManaged" xml:space="preserve"><value>Géré par le système</value></data>
-  <data name="VaultHub_ManagedByOwner" xml:space="preserve"><value>Géré par le propriétaire</value></data>
-  <data name="VaultHub_OpenInMyLibrary" xml:space="preserve"><value>Ouvrir dans Ma bibliothèque</value></data>
+  <!-- ── Vault Collection? Drawer ───────────────────────────────────────────────── -->
+  <data name="VaultCollection_ScopePerUser" xml:space="preserve"><value>Par utilisateur</value></data>
+  <data name="VaultCollection_ScopeLibrary" xml:space="preserve"><value>Bibliothèque</value></data>
+  <data name="VaultCollection_SectionConfiguration" xml:space="preserve"><value>CONFIGURATION</value></data>
+  <data name="VaultCollection_LabelRules" xml:space="preserve"><value>Règles</value></data>
+  <data name="VaultCollection_LabelGenerationThreshold" xml:space="preserve"><value>Seuil de génération</value></data>
+  <data name="VaultCollection_LabelFeatured" xml:space="preserve"><value>En vedette</value></data>
+  <data name="VaultCollection_LabelShowInBrowsing" xml:space="preserve"><value>Afficher lors de la navigation</value></data>
+  <data name="VaultCollection_LabelMediaTypes" xml:space="preserve"><value>Types de médias</value></data>
+  <data name="VaultCollection_LabelProgressTracking" xml:space="preserve"><value>Suivi de progression</value></data>
+  <data name="VaultCollection_ValueEnabled" xml:space="preserve"><value>Activé</value></data>
+  <data name="VaultCollection_LabelItems" xml:space="preserve"><value>Éléments</value></data>
+  <data name="VaultCollection_LabelLogic" xml:space="preserve"><value>Logique</value></data>
+  <data name="VaultCollection_LabelRefreshSchedule" xml:space="preserve"><value>Planification d'actualisation</value></data>
+  <data name="VaultCollection_ValueDaily" xml:space="preserve"><value>Quotidien</value></data>
+  <data name="VaultCollection_LabelGenerateForAllUsers" xml:space="preserve"><value>Générer pour tous les utilisateurs</value></data>
+  <data name="VaultCollection_LabelOwner" xml:space="preserve"><value>Propriétaire</value></data>
+  <data name="VaultCollection_OwnerUser" xml:space="preserve"><value>Utilisateur</value></data>
+  <data name="VaultCollection_OwnerLibrary" xml:space="preserve"><value>Bibliothèque</value></data>
+  <data name="VaultCollection_ValueDerivedFromContents" xml:space="preserve"><value>Dérivé du contenu</value></data>
+  <data name="VaultCollection_LabelCreated" xml:space="preserve"><value>Créé</value></data>
+  <data name="VaultCollection_LabelLastModified" xml:space="preserve"><value>Dernière modification</value></data>
+  <data name="VaultCollection_SectionItemsPreview" xml:space="preserve"><value>APERÇU DES ÉLÉMENTS</value></data>
+  <data name="VaultCollection_NoItemsYet" xml:space="preserve"><value>Aucun élément pour l'instant.</value></data>
+  <data name="VaultCollection_ViewAllItems" xml:space="preserve"><value>Voir les {0} éléments</value></data>
+  <data name="VaultCollection_SectionAssets" xml:space="preserve"><value>ÉLÉMENTS VISUELS</value></data>
+  <data name="VaultCollection_AssetAutoComposed" xml:space="preserve"><value>Composé automatiquement</value></data>
+  <data name="VaultCollection_AssetDropOrUpload" xml:space="preserve"><value>Déposez une image ou cliquez pour téléverser</value></data>
+  <data name="VaultCollection_ActionDisable" xml:space="preserve"><value>Désactiver</value></data>
+  <data name="VaultCollection_ActionEnable" xml:space="preserve"><value>Activer</value></data>
+  <data name="VaultCollection_ActionUnfeature" xml:space="preserve"><value>Retirer de la une</value></data>
+  <data name="VaultCollection_ActionFeature" xml:space="preserve"><value>Mettre en avant</value></data>
+  <data name="VaultCollection_SystemManaged" xml:space="preserve"><value>Géré par le système</value></data>
+  <data name="VaultCollection_ManagedByOwner" xml:space="preserve"><value>Géré par le propriétaire</value></data>
+  <data name="VaultCollection_OpenInMyLibrary" xml:space="preserve"><value>Ouvrir dans Ma bibliothèque</value></data>
 
   <!-- ── Vault Detail Drawer ────────────────────────────────────────────── -->
   <data name="VaultDetail_Unknown" xml:space="preserve"><value>Inconnu</value></data>

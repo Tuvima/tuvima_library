@@ -62,7 +62,7 @@ C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)
 
 | # | File | Scenario | Expected outcome |
 |---|------|----------|-----------------|
-| 1 | `dune.epub` | Fully tagged: title, author, ISBN, series, embedded cover | Staged to `.staging/pending/`; after hydration, promoted to library; "Dune" Hub created; cover served from file |
+| 1 | `dune.epub` | Fully tagged: title, author, ISBN, series, embedded cover | Staged to `.staging/pending/`; after hydration, promoted to library; "Dune" Collection created; cover served from file |
 | 2 | `neuromancer.epub` | Rich metadata, **no embedded cover** | Staged to `.staging/pending/`; after hydration, promoted to library; cover fetched from provider |
 | 8 | `phantom-signal-filename-only.epub` | **Filename only** — all OPF fields empty | confidence < 0.40 → moved to `.staging/`; review queue entry created |
 | 9 | `corrupt-epub.epub` | **Corrupt bytes** — not a valid ZIP | `IsCorrupt = true` → not in database; `MediaFailed` activity logged |
@@ -83,11 +83,11 @@ C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)
 | 6 | `the-running-man.epub` | Author = **"Richard Bachman"** (Stephen King pen name) | Person record for Bachman; P1773 link → Stephen King resolved via Wikidata |
 | 7 | `the-cuckoos-calling.epub` | Author = **"Robert Galbraith"** (J.K. Rowling pen name) | Person record for Galbraith; P1773 link → J.K. Rowling resolved via Wikidata |
 
-### Group D — Audiobook Cross-Format Hub Linking (M4B)
+### Group D — Audiobook Cross-Format Collection Linking (M4B)
 
 | # | File | Scenario | Expected outcome |
 |---|------|----------|-----------------|
-| 11 | `dune-audiobook.m4b` | Same title/author/series as EPUB #1 | Joins **existing** Dune Hub — no second Hub created |
+| 11 | `dune-audiobook.m4b` | Same title/author/series as EPUB #1 | Joins **existing** Dune Collection — no second Collection created |
 
 ### Group E — Narrator Person Records (M4B)
 
@@ -95,7 +95,7 @@ C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)
 |---|------|----------|-----------------|
 | 12 | `hitchhikers-guide.m4b` | Narrator credited in ID3 comment tag | Narrator Person record created for **Stephen Fry** |
 | 13 | `wool-omnibus.m4b` | Narrator field = **two names** joined by " and " | Two separate Narrator Person records (Amanda Donahoe + Tim Gerard Reynolds) |
-| 14 | `enders-game.m4b` | Series audiobook, **no embedded cover** | Hub + series_pos set; cover filled from provider (Audnexus / Apple Books) |
+| 14 | `enders-game.m4b` | Series audiobook, **no embedded cover** | Collection + series_pos set; cover filled from provider (Audnexus / Apple Books) |
 
 ### Group F — Audiobook Edge Cases (M4B)
 
@@ -107,15 +107,15 @@ C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)
 ### Group G — Ingestion Hinting (M4B, sibling files)
 
 Files in the same source subfolder. The Engine primes a `FolderHint` from the
-first file, then applies it to siblings — pre-assigning them to the same Hub and
+first file, then applies it to siblings — pre-assigning them to the same Collection and
 skipping a redundant Stage 1 SPARQL lookup.
 
 | # | File | Scenario | Expected outcome |
 |---|------|----------|-----------------|
-| 17 | `hp-series/harry-potter-philosophers-stone.m4b` | HP #1 — **first in folder** | Full three-stage pipeline; `FolderHint` primed with HP Hub ID + QID |
-| 18 | `hp-series/harry-potter-chamber-of-secrets.m4b` | HP #2 — **sibling in same folder** | `FolderHint` applied; Hub pre-assigned; Stage 1 SPARQL **skipped** |
-| 19 | `expanse-audio/leviathan-wakes-audio.m4b` | Expanse #1 — **first in folder** | Full pipeline; `FolderHint` primed with Expanse Hub ID + bridge IDs |
-| 20 | `expanse-audio/calibans-war-audio.m4b` | Expanse #2 — **sibling in same folder** | `FolderHint` applied; same Hub; Stage 1 SPARQL **skipped** |
+| 17 | `hp-series/harry-potter-philosophers-stone.m4b` | HP #1 — **first in folder** | Full three-stage pipeline; `FolderHint` primed with HP Collection ID + QID |
+| 18 | `hp-series/harry-potter-chamber-of-secrets.m4b` | HP #2 — **sibling in same folder** | `FolderHint` applied; Collection pre-assigned; Stage 1 SPARQL **skipped** |
+| 19 | `expanse-audio/leviathan-wakes-audio.m4b` | Expanse #1 — **first in folder** | Full pipeline; `FolderHint` primed with Expanse Collection ID + bridge IDs |
+| 20 | `expanse-audio/calibans-war-audio.m4b` | Expanse #2 — **sibling in same folder** | `FolderHint` applied; same Collection; Stage 1 SPARQL **skipped** |
 
 ---
 
@@ -156,8 +156,8 @@ Group C — Pseudonyms
   [ ] #6  the-running-man.epub    → Bachman → King link
   [ ] #7  the-cuckoos-calling.epub→ Galbraith → Rowling link
 
-Group D — Cross-Format Hub Link
-  [ ] #11 dune-audiobook.m4b      → joins Dune Hub (not a new Hub)
+Group D — Cross-Format Collection Link
+  [ ] #11 dune-audiobook.m4b      → joins Dune Collection (not a new Collection)
 
 Group E — Narrator Records
   [ ] #12 hitchhikers-guide.m4b   → Stephen Fry person record
@@ -176,7 +176,7 @@ Group G — Ingestion Hinting
 
 Summary
   Total ingested  : __ / 18  (10, 15 are quarantine; verify via .staging/)
-  Hubs created    : __
+  Collections created    : __
   Review queue    : __ items
   Person records  : __
   Activity entries: __

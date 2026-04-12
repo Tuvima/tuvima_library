@@ -18,21 +18,21 @@ public sealed class WatchingOrderAdvisor : IWatchingOrderAdvisor
     }
 
     public Task<WatchingOrder> RecommendOrderAsync(
-        Guid hubId,
+        Guid collectionId,
         string orderType,
         CancellationToken ct = default)
     {
-        // The API endpoint will query Hub works and pass them to the LLM for ordering.
+        // The API endpoint will query Collection works and pass them to the LLM for ordering.
         // This implementation is ready for endpoint integration — the service is wired
         // and registered; the caller must supply pre-loaded work titles.
-        _logger.LogInformation("WatchingOrderAdvisor: order type '{Type}' for hub {Hub}", orderType, hubId);
+        _logger.LogInformation("WatchingOrderAdvisor: order type '{Type}' for collection {Collection}", orderType, collectionId);
 
         return Task.FromResult(new WatchingOrder
         {
-            HubId       = hubId,
+            CollectionId       = collectionId,
             OrderType   = orderType,
             Entries     = [],
-            Explanation = "Order generation requires Hub work data — call via API endpoint with pre-loaded works.",
+            Explanation = "Order generation requires Collection work data — call via API endpoint with pre-loaded works.",
         });
     }
 }

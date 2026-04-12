@@ -72,7 +72,7 @@
   <data name="Nav_Collapse" xml:space="preserve"><value>Collapse</value></data>
 
   <!-- ── Command Palette ────────────────────────────────────────────────── -->
-  <data name="CmdPalette_Placeholder" xml:space="preserve"><value>Search hubs, navigate…</value></data>
+  <data name="CmdPalette_Placeholder" xml:space="preserve"><value>Search collections, navigate…</value></data>
   <data name="CmdPalette_Hint" xml:space="preserve"><value>↑↓ navigate · Enter select · Esc close</value></data>
   <data name="CmdPalette_Library" xml:space="preserve"><value>Library</value></data>
   <data name="CmdPalette_Settings" xml:space="preserve"><value>Settings</value></data>
@@ -136,41 +136,41 @@
   <data name="VaultUniverses_ColMediaAssets" xml:space="preserve"><value>Media Assets</value></data>
   <data name="VaultUniverses_ColPeople" xml:space="preserve"><value>People</value></data>
 
-  <!-- ── Vault Hub Drawer ───────────────────────────────────────────────── -->
-  <data name="VaultHub_ScopePerUser" xml:space="preserve"><value>Per user</value></data>
-  <data name="VaultHub_ScopeLibrary" xml:space="preserve"><value>Library</value></data>
-  <data name="VaultHub_SectionConfiguration" xml:space="preserve"><value>CONFIGURATION</value></data>
-  <data name="VaultHub_LabelRules" xml:space="preserve"><value>Rules</value></data>
-  <data name="VaultHub_LabelGenerationThreshold" xml:space="preserve"><value>Generation threshold</value></data>
-  <data name="VaultHub_LabelFeatured" xml:space="preserve"><value>Featured</value></data>
-  <data name="VaultHub_LabelShowInBrowsing" xml:space="preserve"><value>Show in browsing</value></data>
-  <data name="VaultHub_LabelMediaTypes" xml:space="preserve"><value>Media types</value></data>
-  <data name="VaultHub_LabelProgressTracking" xml:space="preserve"><value>Progress tracking</value></data>
-  <data name="VaultHub_ValueEnabled" xml:space="preserve"><value>Enabled</value></data>
-  <data name="VaultHub_LabelItems" xml:space="preserve"><value>Items</value></data>
-  <data name="VaultHub_LabelLogic" xml:space="preserve"><value>Logic</value></data>
-  <data name="VaultHub_LabelRefreshSchedule" xml:space="preserve"><value>Refresh schedule</value></data>
-  <data name="VaultHub_ValueDaily" xml:space="preserve"><value>Daily</value></data>
-  <data name="VaultHub_LabelGenerateForAllUsers" xml:space="preserve"><value>Generate for all users</value></data>
-  <data name="VaultHub_LabelOwner" xml:space="preserve"><value>Owner</value></data>
-  <data name="VaultHub_OwnerUser" xml:space="preserve"><value>User</value></data>
-  <data name="VaultHub_OwnerLibrary" xml:space="preserve"><value>Library</value></data>
-  <data name="VaultHub_ValueDerivedFromContents" xml:space="preserve"><value>Derived from contents</value></data>
-  <data name="VaultHub_LabelCreated" xml:space="preserve"><value>Created</value></data>
-  <data name="VaultHub_LabelLastModified" xml:space="preserve"><value>Last modified</value></data>
-  <data name="VaultHub_SectionItemsPreview" xml:space="preserve"><value>ITEMS PREVIEW</value></data>
-  <data name="VaultHub_NoItemsYet" xml:space="preserve"><value>No items yet.</value></data>
-  <data name="VaultHub_ViewAllItems" xml:space="preserve"><value>View all {0} items</value></data>
-  <data name="VaultHub_SectionAssets" xml:space="preserve"><value>ASSETS</value></data>
-  <data name="VaultHub_AssetAutoComposed" xml:space="preserve"><value>Auto-composed</value></data>
-  <data name="VaultHub_AssetDropOrUpload" xml:space="preserve"><value>Drop image or click to upload</value></data>
-  <data name="VaultHub_ActionDisable" xml:space="preserve"><value>Disable</value></data>
-  <data name="VaultHub_ActionEnable" xml:space="preserve"><value>Enable</value></data>
-  <data name="VaultHub_ActionUnfeature" xml:space="preserve"><value>Unfeature</value></data>
-  <data name="VaultHub_ActionFeature" xml:space="preserve"><value>Feature</value></data>
-  <data name="VaultHub_SystemManaged" xml:space="preserve"><value>System-managed</value></data>
-  <data name="VaultHub_ManagedByOwner" xml:space="preserve"><value>Managed by owner</value></data>
-  <data name="VaultHub_OpenInMyLibrary" xml:space="preserve"><value>Open in My Library</value></data>
+  <!-- ── Vault Collection? Drawer ───────────────────────────────────────────────── -->
+  <data name="VaultCollection_ScopePerUser" xml:space="preserve"><value>Per user</value></data>
+  <data name="VaultCollection_ScopeLibrary" xml:space="preserve"><value>Library</value></data>
+  <data name="VaultCollection_SectionConfiguration" xml:space="preserve"><value>CONFIGURATION</value></data>
+  <data name="VaultCollection_LabelRules" xml:space="preserve"><value>Rules</value></data>
+  <data name="VaultCollection_LabelGenerationThreshold" xml:space="preserve"><value>Generation threshold</value></data>
+  <data name="VaultCollection_LabelFeatured" xml:space="preserve"><value>Featured</value></data>
+  <data name="VaultCollection_LabelShowInBrowsing" xml:space="preserve"><value>Show in browsing</value></data>
+  <data name="VaultCollection_LabelMediaTypes" xml:space="preserve"><value>Media types</value></data>
+  <data name="VaultCollection_LabelProgressTracking" xml:space="preserve"><value>Progress tracking</value></data>
+  <data name="VaultCollection_ValueEnabled" xml:space="preserve"><value>Enabled</value></data>
+  <data name="VaultCollection_LabelItems" xml:space="preserve"><value>Items</value></data>
+  <data name="VaultCollection_LabelLogic" xml:space="preserve"><value>Logic</value></data>
+  <data name="VaultCollection_LabelRefreshSchedule" xml:space="preserve"><value>Refresh schedule</value></data>
+  <data name="VaultCollection_ValueDaily" xml:space="preserve"><value>Daily</value></data>
+  <data name="VaultCollection_LabelGenerateForAllUsers" xml:space="preserve"><value>Generate for all users</value></data>
+  <data name="VaultCollection_LabelOwner" xml:space="preserve"><value>Owner</value></data>
+  <data name="VaultCollection_OwnerUser" xml:space="preserve"><value>User</value></data>
+  <data name="VaultCollection_OwnerLibrary" xml:space="preserve"><value>Library</value></data>
+  <data name="VaultCollection_ValueDerivedFromContents" xml:space="preserve"><value>Derived from contents</value></data>
+  <data name="VaultCollection_LabelCreated" xml:space="preserve"><value>Created</value></data>
+  <data name="VaultCollection_LabelLastModified" xml:space="preserve"><value>Last modified</value></data>
+  <data name="VaultCollection_SectionItemsPreview" xml:space="preserve"><value>ITEMS PREVIEW</value></data>
+  <data name="VaultCollection_NoItemsYet" xml:space="preserve"><value>No items yet.</value></data>
+  <data name="VaultCollection_ViewAllItems" xml:space="preserve"><value>View all {0} items</value></data>
+  <data name="VaultCollection_SectionAssets" xml:space="preserve"><value>ASSETS</value></data>
+  <data name="VaultCollection_AssetAutoComposed" xml:space="preserve"><value>Auto-composed</value></data>
+  <data name="VaultCollection_AssetDropOrUpload" xml:space="preserve"><value>Drop image or click to upload</value></data>
+  <data name="VaultCollection_ActionDisable" xml:space="preserve"><value>Disable</value></data>
+  <data name="VaultCollection_ActionEnable" xml:space="preserve"><value>Enable</value></data>
+  <data name="VaultCollection_ActionUnfeature" xml:space="preserve"><value>Unfeature</value></data>
+  <data name="VaultCollection_ActionFeature" xml:space="preserve"><value>Feature</value></data>
+  <data name="VaultCollection_SystemManaged" xml:space="preserve"><value>System-managed</value></data>
+  <data name="VaultCollection_ManagedByOwner" xml:space="preserve"><value>Managed by owner</value></data>
+  <data name="VaultCollection_OpenInMyLibrary" xml:space="preserve"><value>Open in My Library</value></data>
 
   <!-- ── Vault Detail Drawer ────────────────────────────────────────────── -->
   <data name="VaultDetail_Unknown" xml:space="preserve"><value>Unknown</value></data>

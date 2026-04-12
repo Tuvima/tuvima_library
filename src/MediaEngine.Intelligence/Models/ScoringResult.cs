@@ -4,7 +4,7 @@ namespace MediaEngine.Intelligence.Models;
 /// The output of a single <see cref="Contracts.IScoringEngine.ScoreEntityAsync"/> call.
 ///
 /// Carries all resolved field values plus an overall confidence score that the
-/// <see cref="Contracts.IHubArbiter"/> uses to make its linking decision.
+/// <see cref="Contracts.ICollectionArbiter"/> uses to make its linking decision.
 ///
 /// Spec: Phase 6 – Claim Arbitration; Weight Summation invariant.
 /// </summary>

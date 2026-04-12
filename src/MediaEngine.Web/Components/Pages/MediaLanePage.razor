@@ -36,7 +36,7 @@ else if (!IsImplementedLane)
         </p>
     </div>
 }
-else if (_laneWorks.Count == 0 && _allHubs.Count == 0)
+else if (_laneWorks.Count == 0 && _allCollections.Count == 0)
 {
     @* ── Empty state — no content for this lane ── *@
     <div class="lane-empty-state">
@@ -51,13 +51,13 @@ else if (_laneWorks.Count == 0 && _allHubs.Count == 0)
 else
 {
     @* ── Hero banner ── *@
-    @if (_heroHub is not null)
+    @if (_heroCollection is not null)
     {
-        var heroWork = _heroHub.Works.FirstOrDefault();
+        var heroWork = _heroCollection.Works.FirstOrDefault();
         HeroData heroData;
         if (_heroJourney is not null && heroWork is not null)
         {
-            heroData = HeroData.FromWork(heroWork, _heroHub) with
+            heroData = HeroData.FromWork(heroWork, _heroCollection) with
             {
                 ActionLabel = _heroJourney.ActionLabel,
                 ActionIcon  = HeroData.IconForMediaType(_heroJourney.MediaType),
@@ -66,16 +66,16 @@ else
         }
         else if (heroWork is not null)
         {
-            heroData = HeroData.FromWork(heroWork, _heroHub);
+            heroData = HeroData.FromWork(heroWork, _heroCollection);
         }
         else
         {
-            heroData = HeroData.FromHub(_heroHub);
+            heroData = HeroData.FromCollection(_heroCollection);
         }
         heroData = heroData with { Subtitle = ResolveHeroPhrase(heroData) };
-        <HubHero Data="@heroData"
+        <CollectionHero Data="@heroData"
                  Visible="true"
-                 OnClicked="@(() => Nav.NavigateTo($"/book/{_heroHub.Works.FirstOrDefault()?.Id ?? _heroHub.Id}"))"
+                 OnClicked="@(() => Nav.NavigateTo($"/book/{_heroCollection.Works.FirstOrDefault()?.Id ?? _heroCollection.Id}"))"
                  OnCtaClicked="@(() => { if (_heroJourney is not null) HandleJourneyPlay(_heroJourney); })" />
     }
 
@@ -116,11 +116,11 @@ else
         @* ── Smart Sections mode ── *@
 
         @* Continue Journey *@
-        @if (_journeyHubs.Count > 0)
+        @if (_journeyCollections.Count > 0)
         {
             <PosterSwimlane Title="@ContinueLabel"
-                            TotalCount="@_journeyHubs.Count"
-                            Items="@FlattenToItems(_journeyHubs)"
+                            TotalCount="@_journeyCollections.Count"
+                            Items="@FlattenToItems(_journeyCollections)"
                             OnItemSelected="HandleItemSelected"
                             CardWidth="@_cardWidth" />
         }
@@ -204,13 +204,13 @@ else
     private LaneDefinition?    _lane;
     private LaneFilterConfig   _filterConfig = LaneFilterConfig.ForLane("books");
     private LaneFilterState    _filterState = new();
-    private HubViewModel?      _heroHub;
+    private CollectionViewModel?      _heroCollection;
     private JourneyItemViewModel? _heroJourney;
 
-    private List<HubViewModel> _allHubs = [];
-    private List<HubViewModel> _displayHubs = [];
-    private List<HubViewModel> _recentHubs = [];
-    private List<HubViewModel> _journeyHubs = [];
+    private List<CollectionViewModel> _allCollections = [];
+    private List<CollectionViewModel> _displayCollections = [];
+    private List<CollectionViewModel> _recentCollections = [];
+    private List<CollectionViewModel> _journeyCollections = [];
     private List<PersonGroup>  _personGroups = [];
     private List<NamedGroup>   _seriesGroups = [];
     private List<NamedGroup>   _genreGroups = [];
@@ -232,11 +232,11 @@ else
     private bool IsImplementedLane => _lane?.Key is "books";
 
     /// <summary>
-    /// Flattens hubs into individual work items for the Books lane,
-    /// or wraps as hub-level items for other lanes.
+    /// Flattens collections into individual work items for the Books lane,
+    /// or wraps as collection-level items for other lanes.
     /// </summary>
-    private IReadOnlyList<PosterItemViewModel> FlattenToItems(IEnumerable<HubViewModel> hubs) =>
-        hubs.SelectMany(h => h.Works.Select(w =>
+    private IReadOnlyList<PosterItemViewModel> FlattenToItems(IEnumerable<CollectionViewModel> collections) =>
+        collections.SelectMany(h => h.Works.Select(w =>
                 PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor)))
             .ToList();
 
@@ -255,8 +255,8 @@ else
         _          => L["MediaLane_Continue"],
     };
 
-    private sealed record PersonGroup(string PersonName, string? HeadshotUrl, IReadOnlyList<HubViewModel> Hubs, IReadOnlyList<WorkViewModel> Works);
-    private sealed record NamedGroup(string Name, IReadOnlyList<HubViewModel> Hubs, IReadOnlyList<WorkViewModel> Works);
+    private sealed record PersonGroup(string PersonName, string? HeadshotUrl, IReadOnlyList<CollectionViewModel> Collections, IReadOnlyList<WorkViewModel> Works);
+    private sealed record NamedGroup(string Name, IReadOnlyList<CollectionViewModel> Collections, IReadOnlyList<WorkViewModel> Works);
 
     protected override async Task OnInitializedAsync()
     {
@@ -301,7 +301,7 @@ else
         _loading = true;
         try
         {
-            var allHubs = await Orchestrator.GetHubsAsync();
+            var allCollections = await Orchestrator.GetCollectionsAsync();
             _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
             var journeyItems = await Orchestrator.GetJourneyAsync(limit: 5);
 
@@ -318,23 +318,23 @@ else
                 _laneWorks = [];
             }
 
-            // Keep hub filtering for backward compat (hero, journey).
+            // Keep collection filtering for backward compat (hero, journey).
             if (_lane is not null)
             {
-                _allHubs = allHubs
+                _allCollections = allCollections
                     .Where(h => _lane.MediaTypes.Any(mt =>
                         (h.PrimaryMediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
                     .ToList();
             }
             else
             {
-                _allHubs = [];
+                _allCollections = [];
             }
 
             // Journey items for this lane.
-            _journeyHubs = journeyItems
-                .Where(j => j.HubId.HasValue && _allHubs.Any(h => h.Id == j.HubId))
-                .Select(j => _allHubs.First(h => h.Id == j.HubId))
+            _journeyCollections = journeyItems
+                .Where(j => j.CollectionId.HasValue && _allCollections.Any(h => h.Id == j.CollectionId))
+                .Select(j => _allCollections.First(h => h.Id == j.CollectionId))
                 .ToList();
 
             // Load person headshots for smart sections.
@@ -352,7 +352,7 @@ else
         }
         catch
         {
-            _allHubs = [];
+            _allCollections = [];
             _laneWorks = [];
         }
         finally
@@ -446,40 +446,40 @@ else
             .Take(12)
             .ToList();
 
-        // Keep hub filtering for backward compat (hero selection, journey).
-        _displayHubs = _allHubs.OrderByDescending(h => h.CreatedAt).ToList();
+        // Keep collection filtering for backward compat (hero selection, journey).
+        _displayCollections = _allCollections.OrderByDescending(h => h.CreatedAt).ToList();
 
         // Hero selection — prefer active journey item.
-        var withCovers = _displayHubs.Where(h =>
+        var withCovers = _displayCollections.Where(h =>
             !string.IsNullOrEmpty(h.CoverUrl) || !string.IsNullOrEmpty(h.HeroUrl)).ToList();
-        var heroPool = withCovers.Count > 0 ? withCovers : _displayHubs;
+        var heroPool = withCovers.Count > 0 ? withCovers : _displayCollections;
 
         if (journeyItems is { Count: > 0 })
         {
             var topJourney = journeyItems
-                .Where(j => j.HubId.HasValue && heroPool.Any(h => h.Id == j.HubId))
+                .Where(j => j.CollectionId.HasValue && heroPool.Any(h => h.Id == j.CollectionId))
                 .OrderByDescending(j => j.LastAccessed)
                 .FirstOrDefault();
 
             if (topJourney is not null)
             {
-                _heroHub     = heroPool.First(h => h.Id == topJourney.HubId);
+                _heroCollection     = heroPool.First(h => h.Id == topJourney.CollectionId);
                 _heroJourney = topJourney;
             }
             else
             {
-                _heroHub     = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+                _heroCollection     = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
                 _heroJourney = null;
             }
         }
         else
         {
-            _heroHub     = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
+            _heroCollection     = heroPool.Count > 0 ? heroPool[Random.Shared.Next(heroPool.Count)] : null;
             _heroJourney = null;
         }
 
-        // Keep hub-based recent for backward compat.
-        _recentHubs = _displayHubs.Take(12).ToList();
+        // Keep collection-based recent for backward compat.
+        _recentCollections = _displayCollections.Take(12).ToList();
 
         // Build smart section groups.
         BuildGroups();
@@ -552,8 +552,8 @@ else
         _viewMode = value ?? "smart";
     }
 
-    private void HandleHubSelected(HubViewModel hub) =>
-        Nav.NavigateTo($"/book/{hub.Works.FirstOrDefault()?.Id ?? hub.Id}");
+    private void HandleCollectionSelected(CollectionViewModel collection) =>
+        Nav.NavigateTo($"/book/{collection.Works.FirstOrDefault()?.Id ?? collection.Id}");
 
     private void HandleItemSelected(PosterItemViewModel item) =>
         Nav.NavigateTo(item.NavigationUrl);
@@ -564,12 +564,12 @@ else
         if (t.Contains("epub") || t.Contains("book"))
         {
             var url = $"/read/{item.AssetId}";
-            if (item.HubId.HasValue) url += $"?returnHubId={item.HubId.Value}";
+            if (item.CollectionId.HasValue) url += $"?returnCollectionId={item.CollectionId.Value}";
             Nav.NavigateTo(url);
         }
-        else if (item.HubId.HasValue)
+        else if (item.CollectionId.HasValue)
         {
-            Nav.NavigateTo($"/book/{item.HubId.Value}?lastAssetId={item.AssetId}");
+            Nav.NavigateTo($"/book/{item.CollectionId.Value}?lastAssetId={item.AssetId}");
         }
     }
 

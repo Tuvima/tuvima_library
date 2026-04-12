@@ -33,7 +33,7 @@ Migration: M-006 adds `role` column to `api_keys` table.
 ### G-02: Role-based authorization on sensitive endpoints — DONE
 **What's wrong:** Profile roles (Administrator, Curator, Consumer) exist but are never enforced on any endpoint. A Consumer has the same API access as an Administrator.
 **Business goal:** Privacy, Reliability
-**Fix:** Associate API keys with a role at creation time. Add endpoint-level role checks for `/admin/*`, `/settings/*`, `/profiles/*`, and `/metadata/lock-claim`. Consumers should only access `/hubs`, `/stream`, `/system/status`, and read-only metadata.
+**Fix:** Associate API keys with a role at creation time. Add endpoint-level role checks for `/admin/*`, `/settings/*`, `/profiles/*`, and `/metadata/lock-claim`. Consumers should only access `/collections`, `/stream`, `/system/status`, and read-only metadata.
 **Effort:** Medium (middleware + endpoint filters + key-role association)
 
 ### G-03: Path traversal protection — DONE
@@ -42,11 +42,11 @@ Migration: M-006 adds `role` column to `api_keys` table.
 **Fix:** After G-01 is in place (authentication required), add path validation to ensure submitted paths are within expected boundaries (e.g., under a configured root, or at least not system directories). Alternatively, rely on G-01 to prevent unauthorized access entirely.
 **Effort:** Small (validation in 2 endpoint handlers)
 
-### G-04: SignalR hub authentication — DONE
-**What's wrong:** Any client can connect to `/hubs/intercom` and receive all broadcast events, including filesystem paths and library metadata.
+### G-04: SignalR collection authentication — DONE
+**What's wrong:** Any client can connect to `/intercom` and receive all broadcast events, including filesystem paths and library metadata.
 **Business goal:** Privacy
-**Fix:** Require a valid API key on WebSocket upgrade (already partially in place — the Dashboard sends `X-Api-Key` during connection). Add a hub filter or `IUserIdProvider` that validates the key.
-**Effort:** Small (1 hub filter class)
+**Fix:** Require a valid API key on WebSocket upgrade (already partially in place — the Dashboard sends `X-Api-Key` during connection). Add a collection filter or `IUserIdProvider` that validates the key.
+**Effort:** Small (1 collection filter class)
 
 ### G-05: Rate limiting on sensitive endpoints — DONE
 **What's wrong:** No rate limiting exists. Key generation, streaming, and ingestion can be called without throttling.
@@ -70,22 +70,22 @@ Three quick-win items resolved:
 Files created: `Components/Settings/ConflictsTab.razor`, `Models/ViewDTOs/ConflictViewModel.cs`.
 Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValueRepository.cs`, `schema.sql`, `DatabaseConnection.cs`, `MediaAssetRepository.cs`, `CanonicalValueRepository.cs`, `IngestionEngine.cs`, `MetadataEndpoints.cs`, `Dtos.cs`, `MetadataHarvestingService.cs`, `MediaEngine.Ingestion.csproj`, `Ingestion/Program.cs`, `UIOrchestratorService.cs`, `ILibraryApiClient.cs`, `LibraryApiClient.cs`, `SettingsTabBar.razor`, `ServerSettings.razor`.
 
-### B-01: Hub detail page does not exist
-**What's wrong:** The Command Palette search navigates to `/hub/{hubId}`, but no page exists at that route. Users land on the 404 page.
+### B-01: Collection detail page does not exist
+**What's wrong:** The Command Palette search navigates to `/collection/{collectionId}`, but no page exists at that route. Users land on the 404 page.
 **Business goal:** Reliability
-**Fix:** Create a Hub detail page at `Components/Pages/HubDetail.razor` showing the Hub's Works, Editions, and Media Assets. Requires `HubRepository.FindByIdAsync()` (B-02) and likely Work/Edition repositories (I-04).
+**Fix:** Create a Collection detail page at `Components/Pages/CollectionDetail.razor` showing the Collection's Works, Editions, and Media Assets. Requires `CollectionRepository.FindByIdAsync()` (B-02) and likely Work/Edition repositories (I-04).
 **Effort:** Large (new page + repository methods + API endpoint)
 
-### B-02: HubRepository.FindByIdAsync does not exist
-**What's wrong:** There's no way to efficiently load a single Hub by ID. Required for the Hub detail page.
+### B-02: CollectionRepository.FindByIdAsync does not exist
+**What's wrong:** There's no way to efficiently load a single Collection by ID. Required for the Collection detail page.
 **Business goal:** Performance, Extensibility
-**Fix:** Add `FindByIdAsync(Guid id)` to `IHubRepository` and `HubRepository`. Load the Hub with its full Work→Edition→Asset tree.
+**Fix:** Add `FindByIdAsync(Guid id)` to `ICollectionRepository` and `CollectionRepository`. Load the Collection with its full Work→Edition→Asset tree.
 **Effort:** Small (1 interface method + 1 SQL query)
 
 ### B-03: Intent Dock filtering is disconnected
-**What's wrong:** The four dock buttons (Hubs, Watch, Read, Listen) render but clicking them has no effect — the `OnIntentChanged` callback is never wired.
+**What's wrong:** The four dock buttons (Collections, Watch, Read, Listen) render but clicking them has no effect — the `OnIntentChanged` callback is never wired.
 **Business goal:** Reliability
-**Fix:** Wire the callback in `MainLayout.razor` to filter the library view on `Home.razor`. Pass the active intent down to `UniverseStack` and `HubHero`.
+**Fix:** Wire the callback in `MainLayout.razor` to filter the library view on `Home.razor`. Pass the active intent down to `UniverseStack` and `CollectionHero`.
 **Effort:** Medium (state passing + filtering logic)
 
 ### B-04: Deleted files are not cleaned up — DONE
@@ -97,13 +97,13 @@ Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValue
 ### B-05: Conflict surfacing is missing — DONE
 **What's wrong:** The Intelligence Engine detects when two sources disagree and can't pick a clear winner, but there's no UI to see or resolve these conflicts.
 **Business goal:** Reliability
-**Fix:** Add a "Conflicts" indicator to Hub tiles or a dedicated Conflicts panel in Server Settings. Show the entity, field, competing values, and a resolution button that links to the Curator's Drawer.
+**Fix:** Add a "Conflicts" indicator to Collection tiles or a dedicated Conflicts panel in Server Settings. Show the entity, field, competing values, and a resolution button that links to the Curator's Drawer.
 **Effort:** Medium (new UI component + API endpoint for conflicted entities)
 
 ### B-06: Standalone Ingestion worker host is broken — DONE
 **What's wrong:** Missing 6+ dependency registrations from Phase 9. The DI container throws on startup.
 **Business goal:** Reliability, Extensibility
-**Fix:** Add the missing registrations (`IMetadataClaimRepository`, `ICanonicalValueRepository`, `IMetadataHarvestingService`, `IRecursiveIdentityService`, `ISidecarWriter`, `IMediaEntityChainFactory`, `IHubRepository`) to the worker host's `Program.cs`.
+**Fix:** Add the missing registrations (`IMetadataClaimRepository`, `ICanonicalValueRepository`, `IMetadataHarvestingService`, `IRecursiveIdentityService`, `ISidecarWriter`, `IMediaEntityChainFactory`, `ICollectionRepository`) to the worker host's `Program.cs`.
 **Effort:** Small (DI registration additions)
 
 ---
@@ -125,13 +125,13 @@ Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValue
 ### I-03: Progress tracking (UserState) does not exist
 **What's wrong:** The Hero tile's three progress bars (Watch, Read, Listen) always show 0%. The `UserState` entity exists in the domain but no API surface or tracking mechanism has been built.
 **Business goal:** Extensibility
-**Fix:** Build `IUserStateStore` implementation, a `UserState` API endpoint, and wire the progress data into `HubHero.razor`.
+**Fix:** Build `IUserStateStore` implementation, a `UserState` API endpoint, and wire the progress data into `CollectionHero.razor`.
 **Effort:** Large (new repository + API + UI wiring)
 
 ### I-04: Work and Edition repositories do not exist
-**What's wrong:** `IWorkRepository` and `IEditionRepository` are not implemented. Cannot query Works or Editions independently of their parent Hub.
+**What's wrong:** `IWorkRepository` and `IEditionRepository` are not implemented. Cannot query Works or Editions independently of their parent Collection.
 **Business goal:** Extensibility
-**Fix:** Create `WorkRepository` and `EditionRepository` with standard CRUD operations. Required for the Hub detail page (B-01).
+**Fix:** Create `WorkRepository` and `EditionRepository` with standard CRUD operations. Required for the Collection detail page (B-01).
 **Effort:** Medium (2 new repository classes)
 
 ### I-05: PersonEnriched event sends empty name
@@ -168,8 +168,8 @@ Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValue
 **Effort:** Trivial
 
 ### P-02: Search is brute-force
-**What's wrong:** `GET /hubs/search` loads all hubs into memory and filters. Won't scale to very large libraries.
-**Fix:** Add a SQL `LIKE` or FTS query to `HubRepository` for server-side filtering.
+**What's wrong:** `GET /collections/search` loads all collections into memory and filters. Won't scale to very large libraries.
+**Fix:** Add a SQL `LIKE` or FTS query to `CollectionRepository` for server-side filtering.
 **Effort:** Small
 
 ### P-03: Template preview saves as a side-effect
@@ -178,8 +178,8 @@ Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValue
 **Effort:** Small
 
 ### P-04: Work+Edition proliferation
-**What's wrong:** Each ingested file creates a new Work+Edition chain, even if the same Work already exists under the same Hub.
-**Fix:** Before creating a new Work, check if an existing Work under the same Hub has a matching title canonical value. If so, create only a new Edition under it.
+**What's wrong:** Each ingested file creates a new Work+Edition chain, even if the same Work already exists under the same Collection.
+**Fix:** Before creating a new Work, check if an existing Work under the same Collection has a matching title canonical value. If so, create only a new Edition under it.
 **Effort:** Medium (matching logic in MediaEntityChainFactory)
 
 ### P-05: SidecarWriter is synchronous
@@ -199,17 +199,17 @@ Files changed: `CanonicalValue.cs`, `IMediaAssetRepository.cs`, `ICanonicalValue
 
 ### P-08: Compact List view
 **What's wrong:** Toggle button exists on Home page but list view is not implemented.
-**Fix:** Create a list-style renderer for the Hub collection alongside the existing Bento grid.
+**Fix:** Create a list-style renderer for the Collection collection alongside the existing Bento grid.
 **Effort:** Medium
 
 ### P-09: Universe grouping in Dashboard
 **What's wrong:** Universe entity exists in domain but is never surfaced in the UI.
-**Fix:** Group Hub tiles by Universe in the Bento grid. Add a Universe header row.
+**Fix:** Group Collection tiles by Universe in the Bento grid. Add a Universe header row.
 **Effort:** Medium
 
 ### P-10: Event scoping by role
 **What's wrong:** All SignalR clients receive all events regardless of role.
-**Fix:** Use SignalR groups or a hub filter to scope events by role (e.g., Consumers don't receive `FolderHealthChanged`).
+**Fix:** Use SignalR groups or a collection filter to scope events by role (e.g., Consumers don't receive `FolderHealthChanged`).
 **Effort:** Medium
 
 ---
@@ -225,10 +225,10 @@ Phase B — Fix Dead Ends (Tier 2, quick wins) ✅ COMPLETE
   B-05 (conflict UI)    ← Medium
   B-06 (worker host DI) ← Small
 
-Phase C — Hub Detail Page (Tier 2, largest piece)
+Phase C — Collection Detail Page (Tier 2, largest piece)
   B-02 (FindByIdAsync)  ← Small, prerequisite
   I-04 (Work/Edition repos) ← Medium, prerequisite
-  B-01 (Hub detail page) ← Large
+  B-01 (Collection detail page) ← Large
 
 Phase D — Navigation Wiring (Tier 2)
   B-03 (Intent Dock)    ← Medium

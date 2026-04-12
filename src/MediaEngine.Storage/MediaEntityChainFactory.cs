@@ -17,10 +17,10 @@ namespace MediaEngine.Storage;
 /// standalone media (movies, single books) gets a fresh Work each time
 /// the upstream ingestion logic decides to call us.
 ///
-/// Hub assignment no longer happens at ingestion time. The legacy
+/// Collection assignment no longer happens at ingestion time. The legacy
 /// <c>EnsureContentGroupAsync</c> stub remains as a no-op for DI
 /// compatibility and is scheduled for deletion in Phase 4 along with the
-/// HubAssignmentService.
+/// CollectionAssignmentService.
 /// </summary>
 public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
 {
@@ -31,13 +31,13 @@ public sealed class MediaEntityChainFactory : IMediaEntityChainFactory
     public MediaEntityChainFactory(
         IDatabaseConnection db,
         IWorkRepository works,
-        IHubRepository hubs,
+        ICollectionRepository collections,
         HierarchyResolver resolver,
         ILogger<MediaEntityChainFactory>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(works);    // kept for DI compatibility
-        ArgumentNullException.ThrowIfNull(hubs);     // kept for DI compatibility
+        ArgumentNullException.ThrowIfNull(collections);     // kept for DI compatibility
         ArgumentNullException.ThrowIfNull(resolver);
         _db        = db;
         _resolver  = resolver;

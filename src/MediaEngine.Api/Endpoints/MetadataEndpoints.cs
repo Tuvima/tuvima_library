@@ -733,7 +733,7 @@ public static class MetadataEndpoints
         // â"€â"€ POST /metadata/search-all â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         //
         // Fan-out search: queries ALL eligible providers concurrently and returns
-        // merged results grouped by provider. Powers the HubDetail edit panel.
+        // merged results grouped by provider. Powers the CollectionDetail edit panel.
 
         group.MapPost("/search-all", async (
             FanOutSearchRequest request,

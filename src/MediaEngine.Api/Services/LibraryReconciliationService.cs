@@ -39,7 +39,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly ISystemActivityRepository    _activityRepo;
     private readonly IPersonRepository            _personRepo;
     private readonly IReviewQueueRepository       _reviewRepo;
-    private readonly IHubRepository              _hubRepo;
+    private readonly ICollectionRepository              _collectionRepo;
     private readonly IEventPublisher              _publisher;
     private readonly IConfigurationLoader         _configLoader;
     private readonly ImagePathService             _imagePaths;
@@ -68,7 +68,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         ISystemActivityRepository   activityRepo,
         IPersonRepository           personRepo,
         IReviewQueueRepository      reviewRepo,
-        IHubRepository              hubRepo,
+        ICollectionRepository              collectionRepo,
         IEventPublisher             publisher,
         IConfigurationLoader        configLoader,
         ImagePathService            imagePaths,
@@ -81,7 +81,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _activityRepo  = activityRepo;
         _personRepo    = personRepo;
         _reviewRepo    = reviewRepo;
-        _hubRepo       = hubRepo;
+        _collectionRepo       = collectionRepo;
         _publisher     = publisher;
         _configLoader  = configLoader;
         _imagePaths    = imagePaths;
@@ -199,11 +199,11 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 SafeDeleteFile(Path.Combine(editionFolder, "library.xml"));
                 TryDeleteEmptyDirectory(editionFolder);
 
-                var hubFolder = Path.GetDirectoryName(editionFolder);
-                if (!string.IsNullOrEmpty(hubFolder) && Directory.Exists(hubFolder))
+                var collectionFolder = Path.GetDirectoryName(editionFolder);
+                if (!string.IsNullOrEmpty(collectionFolder) && Directory.Exists(collectionFolder))
                 {
-                    SafeDeleteFile(Path.Combine(hubFolder, "library.xml"));
-                    TryDeleteEmptyDirectory(hubFolder);
+                    SafeDeleteFile(Path.Combine(collectionFolder, "library.xml"));
+                    TryDeleteEmptyDirectory(collectionFolder);
                 }
             }
 
@@ -241,16 +241,16 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         }
 
         // ── Database hierarchy pruning ────────────────────────────────────────
-        // After deleting MediaAssets, remove any Editions / Works / Hubs that
+        // After deleting MediaAssets, remove any Editions / Works / Collections that
         // are now empty so they stop appearing on the home page.
         int hierarchyPruned = 0;
         if (missingCount > 0)
         {
-            hierarchyPruned = await _hubRepo.PruneOrphanedHierarchyAsync(ct);
+            hierarchyPruned = await _collectionRepo.PruneOrphanedHierarchyAsync(ct);
             if (hierarchyPruned > 0)
             {
                 _logger.LogInformation(
-                    "Reconciliation: pruned {Count} orphaned hierarchy records (editions/works/hubs)",
+                    "Reconciliation: pruned {Count} orphaned hierarchy records (editions/works/collections)",
                     hierarchyPruned);
             }
         }
@@ -277,7 +277,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             // Pass 4: Stale category-root sidecar cleanup.
             // Removes library.xml files that were incorrectly written directly inside a
             // category folder (e.g., Books/library.xml) by AutoOrganizeService when a
-            // shallow organization template caused hubFolder to resolve to the category root.
+            // shallow organization template caused collectionFolder to resolve to the category root.
             staleSidecarsCount = CleanStaleRootSidecars(core.LibraryRoot);
 
             // Re-run empty folder pruning after people cleanup may have emptied folders.
@@ -334,7 +334,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         }, ct);
 
         // Broadcast a library-changed event so Dashboard circuits that are already
-        // open invalidate their hub cache and refresh the home page.
+        // open invalidate their collection cache and refresh the home page.
         if (missingCount > 0)
         {
             try
@@ -636,10 +636,10 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     /// Deletes <c>library.xml</c> files found directly inside category root folders
     /// (e.g., <c>{LibraryRoot}/Books/library.xml</c>).
     ///
-    /// These stray hub sidecars are created by <c>AutoOrganizeService</c> when a
+    /// These stray collection sidecars are created by <c>AutoOrganizeService</c> when a
     /// shallow organization template (such as <c>{Category}/{Author}/{Title}{Ext}</c>)
     /// causes <c>GetDirectoryName(editionFolder)</c> to resolve to the category root
-    /// rather than a dedicated hub subfolder.  The guard added to AutoOrganizeService
+    /// rather than a dedicated collection subfolder.  The guard added to AutoOrganizeService
     /// prevents new strays from being created; this pass cleans up any that exist from
     /// prior runs.
     ///

@@ -203,7 +203,7 @@
                                     <span class="rtl-event-time">@evt.RelativeTime</span>
                                 </div>
                                 <div class="rtl-card rtl-card--report">
-                                    <span class="rtl-card-title">@(evt.HubName ?? "Report")</span>
+                                    <span class="rtl-card-title">@(evt.CollectionName ?? "Report")</span>
                                     @if (!string.IsNullOrWhiteSpace(evt.Detail))
                                     {
                                         <span class="rtl-card-detail-quote">@evt.Detail</span>
@@ -223,7 +223,7 @@
                         {
                             @* ── Review resolved: rich card with title + QID badge ── *@
                             var rd = evt.ReviewData;
-                            var resolvedTitle = rd?.Title ?? evt.HubName ?? "Resolved";
+                            var resolvedTitle = rd?.Title ?? evt.CollectionName ?? "Resolved";
                             var resolvedQid = rd?.Qid ?? ExtractQid(evt.Detail);
                             var isRegistered = string.Equals(rd?.Action, "resolved", StringComparison.OrdinalIgnoreCase);
                             var isDismissed = string.Equals(rd?.Action, "dismissed", StringComparison.OrdinalIgnoreCase);
@@ -656,7 +656,7 @@
         {
             var events = group.ToList();
             var names = events
-                .Select(e => e.HubName ?? e.Detail)
+                .Select(e => e.CollectionName ?? e.Detail)
                 .Where(n => !string.IsNullOrWhiteSpace(n))
                 .Select(n => n!.Length > 40 ? n[..37] + "…" : n)
                 .Distinct()
@@ -666,7 +666,7 @@
             var thumbs = events
                 .Select(e =>
                 {
-                    var name = e.HubName ?? e.Detail ?? "?";
+                    var name = e.CollectionName ?? e.Detail ?? "?";
                     string? headshot = null;
                     if (!string.IsNullOrWhiteSpace(e.ChangesJson))
                     {
@@ -767,8 +767,8 @@
 
     private static string FormatPlainEnglishDetail(ActivityEntryViewModel evt)
     {
-        // Prefer hub name as a human-readable anchor
-        var name = evt.HubName;
+        // Prefer collection name as a human-readable anchor
+        var name = evt.CollectionName;
 
         return evt.ActionType switch
         {

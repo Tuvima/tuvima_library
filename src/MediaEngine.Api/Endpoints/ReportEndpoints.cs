@@ -34,7 +34,7 @@ public static class ReportEndpoints
                 ActionType = SystemActionType.UserReportSubmitted,
                 EntityId = request.EntityId,
                 EntityType = "MediaAsset",
-                HubName = request.ItemTitle,
+                CollectionName = request.ItemTitle,
                 Detail = $"Problem reported: {request.Category ?? "Other"} — {request.Note ?? "(no details)"}",
                 ChangesJson = changesJson,
             };

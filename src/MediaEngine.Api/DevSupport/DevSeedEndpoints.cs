@@ -209,7 +209,7 @@ public static class DevSeedEndpoints
             Language: "ja",
             TestCategory: "Foreign — Japanese, CJK title and author"),
 
-        // ── Category 4: Series Books (Hub grouping + sequence) ─────────────
+        // ── Category 4: Series Books (Collection grouping + sequence) ─────────────
 
         new("Harry Potter and the Philosopher's Stone",
             "J.K. Rowling",
@@ -292,7 +292,7 @@ public static class DevSeedEndpoints
             "Cormac McCarthy",
             "9780307387899", 2006,
             "A father and his son walk alone through burned America, heading through the ravaged landscape to the coast.",
-            TestCategory: "Edge — standalone, no series (single-work Hub)"),
+            TestCategory: "Edge — standalone, no series (single-work Collection)"),
 
         // ── Category 7: Publisher Metadata ──────────────────────────────────
 
@@ -313,7 +313,7 @@ public static class DevSeedEndpoints
     ];
 
     // ── MP3 Audiobook Seed definitions ───────────────────────────────────────
-    // Paired with EPUBs above to test cross-format Hub grouping and Stage 2
+    // Paired with EPUBs above to test cross-format Collection grouping and Stage 2
     // bridge resolution. Genre tag set to "Audiobook" for disambiguation.
 
     private static readonly SeedAudiobook[] SeedAudiobooks =
@@ -502,11 +502,11 @@ public static class DevSeedEndpoints
         // ── Category 2: Album grouping (multiple tracks, same album) ──────
         new("You're My Best Friend", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 4,
-            TestCategory: "Music — same album as Bohemian Rhapsody, Hub grouping test"),
+            TestCategory: "Music — same album as Bohemian Rhapsody, Collection grouping test"),
 
         new("Death on Two Legs", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 1,
-            TestCategory: "Music — same album, track 1, Hub grouping test"),
+            TestCategory: "Music — same album, track 1, Collection grouping test"),
 
         // ── Category 3: Multi-artist / featured / collaboration ───────────
         new("Under Pressure", "Queen & David Bowie",

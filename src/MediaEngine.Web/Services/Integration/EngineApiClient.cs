@@ -47,19 +47,19 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /hubs ─────────────────────────────────────────────────────────────
+    // ── GET /collections ─────────────────────────────────────────────────────────────
 
-    public async Task<List<HubViewModel>> GetHubsAsync(CancellationToken ct = default)
+    public async Task<List<CollectionViewModel>> GetCollectionsAsync(CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<HubRaw>>("/hubs", ct);
-            return raw?.Select(MapHub).ToList() ?? [];
+            var raw = await _http.GetFromJsonAsync<List<CollectionRaw>>("/collections", ct);
+            return raw?.Select(MapCollection).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs failed");
+            _logger.LogWarning(ex, "GET /collections failed");
             return [];
         }
     }
@@ -224,7 +224,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /hubs/search ─────────────────────────────────────────────────────
+    // ── GET /collections/search ─────────────────────────────────────────────────────
 
     public async Task<List<SearchResultViewModel>> SearchWorksAsync(
         string query,
@@ -234,21 +234,21 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             var encoded = WebUtility.UrlEncode(query);
             var raw = await _http.GetFromJsonAsync<List<SearchRawResult>>(
-                $"/hubs/search?q={encoded}", ct);
+                $"/collections/search?q={encoded}", ct);
             return raw?.Select(r => new SearchResultViewModel
             {
                 WorkId         = r.WorkId,
-                HubId          = r.HubId,
+                CollectionId          = r.CollectionId,
                 Title          = r.Title,
                 Author         = r.Author,
                 MediaType      = r.MediaType,
-                HubDisplayName = r.HubDisplayName,
+                CollectionDisplayName = r.CollectionDisplayName,
             }).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/search failed");
+            _logger.LogWarning(ex, "GET /collections/search failed");
             return [];
         }
     }
@@ -1504,22 +1504,22 @@ public sealed class EngineApiClient : IEngineApiClient
     // ── Progress & Journey (/progress) ──────────────────────────────────
 
     public async Task<List<JourneyItemViewModel>> GetJourneyAsync(
-        Guid? userId = null, int limit = 5, Guid? hubId = null, CancellationToken ct = default)
+        Guid? userId = null, int limit = 5, Guid? collectionId = null, CancellationToken ct = default)
     {
         try
         {
             var url = $"/progress/journey?limit={limit}";
             if (userId.HasValue)
                 url += $"&userId={userId.Value}";
-            if (hubId.HasValue)
-                url += $"&hubId={hubId.Value}";
+            if (collectionId.HasValue)
+                url += $"&collectionId={collectionId.Value}";
 
             var raw = await _http.GetFromJsonAsync<List<JourneyItemRaw>>(url, ct);
             return raw?.Select(j => new JourneyItemViewModel
             {
                 AssetId        = j.AssetId,
                 WorkId         = j.WorkId,
-                HubId          = j.HubId,
+                CollectionId          = j.CollectionId,
                 Title          = j.Title ?? string.Empty,
                 Author         = j.Author,
                 CoverUrl       = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
@@ -1531,7 +1531,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 MediaType      = j.MediaType ?? string.Empty,
                 ProgressPct    = j.ProgressPct,
                 LastAccessed   = j.LastAccessed,
-                HubDisplayName = j.HubDisplayName,
+                CollectionDisplayName = j.CollectionDisplayName,
                 ExtendedProperties = j.ExtendedProperties ?? [],
             }).ToList() ?? [];
         }
@@ -1567,7 +1567,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Persons by Hub (/persons/by-hub) ─────────────────────────────────
+    // ── Persons by Collection (/persons/by-collection) ─────────────────────────────────
 
     // ── POST /dev/seed-library ─────────────────────────────────────────
 
@@ -1615,7 +1615,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /persons/by-hub/{hubId} ─────────────────────────────────────
+    // ── GET /persons/by-collection/{collectionId} ─────────────────────────────────────
 
     public async Task<List<PersonViewModel>> GetPersonsByRoleAsync(
         string role, int limit = 50, CancellationToken ct = default)
@@ -1647,13 +1647,13 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<List<PersonViewModel>> GetPersonsByHubAsync(
-        Guid hubId, CancellationToken ct = default)
+    public async Task<List<PersonViewModel>> GetPersonsByCollectionAsync(
+        Guid collectionId, CancellationToken ct = default)
     {
         try
         {
             var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
-                $"/persons/by-hub/{hubId}", ct);
+                $"/persons/by-collection/{collectionId}", ct);
             return raw?.Select(p => new PersonViewModel
             {
                 Id               = p.Id,
@@ -1671,7 +1671,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /persons/by-hub/{HubId} failed", hubId);
+            _logger.LogWarning(ex, "GET /persons/by-collection/{CollectionId} failed", collectionId);
             LastError = ex.Message;
             return [];
         }
@@ -1742,26 +1742,26 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // -- GET /hubs/{id}/related -------------------------------------------------
+    // -- GET /collections/{id}/related -------------------------------------------------
 
-    public async Task<RelatedHubsViewModel?> GetRelatedHubsAsync(
-        Guid hubId, int limit = 20, CancellationToken ct = default)
+    public async Task<RelatedCollectionsViewModel?> GetRelatedCollectionsAsync(
+        Guid collectionId, int limit = 20, CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<RelatedHubsRaw>(
-                $"/hubs/{hubId}/related?limit={limit}", ct);
+            var raw = await _http.GetFromJsonAsync<RelatedCollectionsRaw>(
+                $"/collections/{collectionId}/related?limit={limit}", ct);
             if (raw is null) return null;
-            return new RelatedHubsViewModel
+            return new RelatedCollectionsViewModel
             {
                 SectionTitle = raw.SectionTitle,
                 Reason       = raw.Reason,
-                Hubs         = raw.Hubs.Select(MapHub).ToList(),
+                Collections         = raw.Collections.Select(MapCollection).ToList(),
             };
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/{HubId}/related failed", hubId);
+            _logger.LogWarning(ex, "GET /collections/{CollectionId}/related failed", collectionId);
             LastError = ex.Message;
             return null;
         }
@@ -1804,14 +1804,14 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // -- GET /persons/{id}/works -----------------------------------------------
 
-    public async Task<List<HubViewModel>> GetWorksByPersonAsync(
+    public async Task<List<CollectionViewModel>> GetWorksByPersonAsync(
         Guid personId, CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<HubRaw>>(
+            var raw = await _http.GetFromJsonAsync<List<CollectionRaw>>(
                 $"/persons/{personId}/works", ct);
-            return raw?.Select(MapHub).ToList() ?? [];
+            return raw?.Select(MapCollection).ToList() ?? [];
         }
         catch (Exception ex)
         {
@@ -1838,58 +1838,58 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── GET /hubs/parents ─────────────────────────────────────────────────────
+    // ── GET /collections/parents ─────────────────────────────────────────────────────
 
-    public async Task<List<HubViewModel>> GetParentHubsAsync(CancellationToken ct = default)
+    public async Task<List<CollectionViewModel>> GetParentCollectionsAsync(CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ParentHubRaw>>("/hubs/parents", ct);
-            return raw?.Select(MapParentHub).ToList() ?? [];
+            var raw = await _http.GetFromJsonAsync<List<ParentCollectionRaw>>("/collections/parents", ct);
+            return raw?.Select(MapParentCollection).ToList() ?? [];
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/parents failed");
+            _logger.LogWarning(ex, "GET /collections/parents failed");
             LastError = ex.Message;
             return [];
         }
     }
 
-    // ── GET /hubs/{id}/children ───────────────────────────────────────────────
+    // ── GET /collections/{id}/children ───────────────────────────────────────────────
 
-    public async Task<List<HubViewModel>> GetChildHubsAsync(
-        Guid parentHubId, CancellationToken ct = default)
+    public async Task<List<CollectionViewModel>> GetChildCollectionsAsync(
+        Guid parentCollectionId, CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<HubRaw>>(
-                $"/hubs/{parentHubId}/children", ct);
-            return raw?.Select(MapHub).ToList() ?? [];
+            var raw = await _http.GetFromJsonAsync<List<CollectionRaw>>(
+                $"/collections/{parentCollectionId}/children", ct);
+            return raw?.Select(MapCollection).ToList() ?? [];
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/{ParentHubId}/children failed", parentHubId);
+            _logger.LogWarning(ex, "GET /collections/{ParentCollectionId}/children failed", parentCollectionId);
             LastError = ex.Message;
             return [];
         }
     }
 
-    // ── GET /hubs/{id}/parent ─────────────────────────────────────────────────
+    // ── GET /collections/{id}/parent ─────────────────────────────────────────────────
 
-    public async Task<HubViewModel?> GetParentHubAsync(
-        Guid hubId, CancellationToken ct = default)
+    public async Task<CollectionViewModel?> GetParentCollectionAsync(
+        Guid collectionId, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _http.GetAsync($"/hubs/{hubId}/parent", ct);
+            var resp = await _http.GetAsync($"/collections/{collectionId}/parent", ct);
             if (resp.StatusCode == HttpStatusCode.NotFound) return null;
             resp.EnsureSuccessStatusCode();
-            var raw = await resp.Content.ReadFromJsonAsync<ParentHubResponseRaw>(cancellationToken: ct);
-            return raw?.ParentHub is { } hub ? MapHub(hub) : null;
+            var raw = await resp.Content.ReadFromJsonAsync<ParentCollectionResponseRaw>(cancellationToken: ct);
+            return raw?.ParentCollection is { } collection ? MapCollection(collection) : null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/{HubId}/parent failed", hubId);
+            _logger.LogWarning(ex, "GET /collections/{CollectionId}/parent failed", collectionId);
             LastError = ex.Message;
             return null;
         }
@@ -2810,14 +2810,14 @@ public sealed class EngineApiClient : IEngineApiClient
         return value;
     }
 
-    private HubViewModel MapHub(HubRaw h) => HubViewModel.FromApiDto(
+    private CollectionViewModel MapCollection(CollectionRaw h) => CollectionViewModel.FromApiDto(
         h.Id,
         h.UniverseId,
         h.CreatedAt,
         h.Works.Select(w => new WorkViewModel
         {
             Id              = w.Id,
-            HubId           = w.HubId,
+            CollectionId           = w.CollectionId,
             MediaType       = w.MediaType,
             Ordinal         = w.Ordinal,
             CanonicalValues = w.CanonicalValues.Select(cv => new CanonicalValueViewModel
@@ -2828,18 +2828,18 @@ public sealed class EngineApiClient : IEngineApiClient
             }).ToList(),
         }),
         displayName:   h.DisplayName,
-        parentHubId:   h.ParentHubId,
-        parentHubName: h.ParentHubName,
-        childHubCount: h.ChildHubCount);
+        parentCollectionId:   h.ParentCollectionId,
+        parentCollectionName: h.ParentCollectionName,
+        childCollectionCount: h.ChildCollectionCount);
 
-    private HubViewModel MapParentHub(ParentHubRaw h) => HubViewModel.FromParentHub(
+    private CollectionViewModel MapParentCollection(ParentCollectionRaw h) => CollectionViewModel.FromParentCollection(
         h.Id,
         h.UniverseId,
         h.CreatedAt,
         displayName:   h.DisplayName,
         description:   h.Description,
         wikidataQid:   h.WikidataQid,
-        childHubCount: h.ChildHubCount,
+        childCollectionCount: h.ChildCollectionCount,
         mediaTypes:    h.MediaTypes,
         totalWorks:    h.TotalWorks);
 
@@ -3038,17 +3038,17 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("version")]  string  Version,
         [property: JsonPropertyName("language")] string? Language);
 
-    private sealed record HubRaw(
+    private sealed record CollectionRaw(
         [property: JsonPropertyName("id")]              Guid           Id,
         [property: JsonPropertyName("universe_id")]     Guid?          UniverseId,
         [property: JsonPropertyName("display_name")]    string?        DisplayName,
         [property: JsonPropertyName("created_at")]      DateTimeOffset CreatedAt,
         [property: JsonPropertyName("works")]           List<WorkRaw>  Works,
-        [property: JsonPropertyName("parent_hub_id")]   Guid?          ParentHubId   = null,
-        [property: JsonPropertyName("parent_hub_name")] string?        ParentHubName = null,
-        [property: JsonPropertyName("child_hub_count")] int            ChildHubCount = 0);
+        [property: JsonPropertyName("parent_collection_id")]   Guid?          ParentCollectionId   = null,
+        [property: JsonPropertyName("parent_collection_name")] string?        ParentCollectionName = null,
+        [property: JsonPropertyName("child_collection_count")] int            ChildCollectionCount = 0);
 
-    private sealed record ParentHubRaw(
+    private sealed record ParentCollectionRaw(
         [property: JsonPropertyName("id")]               Guid           Id,
         [property: JsonPropertyName("universe_id")]      Guid?          UniverseId,
         [property: JsonPropertyName("display_name")]     string?        DisplayName,
@@ -3056,13 +3056,13 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("wikidata_qid")]     string?        WikidataQid,
         [property: JsonPropertyName("universe_status")]  string?        UniverseStatus,
         [property: JsonPropertyName("created_at")]       DateTimeOffset CreatedAt,
-        [property: JsonPropertyName("child_hub_count")]  int            ChildHubCount  = 0,
+        [property: JsonPropertyName("child_collection_count")]  int            ChildCollectionCount  = 0,
         [property: JsonPropertyName("media_types")]      string?        MediaTypes     = null,
         [property: JsonPropertyName("total_works")]      int            TotalWorks     = 0);
 
     private sealed record WorkRaw(
         [property: JsonPropertyName("id")]               Guid                      Id,
-        [property: JsonPropertyName("hub_id")]           Guid?                     HubId,
+        [property: JsonPropertyName("collection_id")]           Guid?                     CollectionId,
         [property: JsonPropertyName("media_type")]       string                    MediaType,
         [property: JsonPropertyName("ordinal")]          int?                      Ordinal,
         [property: JsonPropertyName("canonical_values")] List<CanonicalValueRaw>   CanonicalValues);
@@ -3094,11 +3094,11 @@ public sealed class EngineApiClient : IEngineApiClient
 
     private sealed record SearchRawResult(
         [property: JsonPropertyName("work_id")]          Guid    WorkId,
-        [property: JsonPropertyName("hub_id")]           Guid?   HubId,
+        [property: JsonPropertyName("collection_id")]           Guid?   CollectionId,
         [property: JsonPropertyName("title")]            string  Title,
         [property: JsonPropertyName("author")]           string? Author,
         [property: JsonPropertyName("media_type")]       string  MediaType,
-        [property: JsonPropertyName("hub_display_name")] string  HubDisplayName);
+        [property: JsonPropertyName("collection_display_name")] string  CollectionDisplayName);
 
     private sealed record ApiKeyRaw(
         [property: JsonPropertyName("id")]         Guid           Id,
@@ -3131,7 +3131,7 @@ public sealed class EngineApiClient : IEngineApiClient
     private sealed record JourneyItemRaw(
         [property: JsonPropertyName("assetId")]            Guid                          AssetId,
         [property: JsonPropertyName("workId")]             Guid                          WorkId,
-        [property: JsonPropertyName("hubId")]              Guid?                         HubId,
+        [property: JsonPropertyName("collectionId")]              Guid?                         CollectionId,
         [property: JsonPropertyName("title")]              string?                       Title,
         [property: JsonPropertyName("author")]             string?                       Author,
         [property: JsonPropertyName("coverUrl")]           string?                       CoverUrl,
@@ -3142,7 +3142,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("mediaType")]          string?                       MediaType,
         [property: JsonPropertyName("progressPct")]        double                        ProgressPct,
         [property: JsonPropertyName("lastAccessed")]       DateTimeOffset                LastAccessed,
-        [property: JsonPropertyName("hubDisplayName")]     string?                       HubDisplayName,
+        [property: JsonPropertyName("collectionDisplayName")]     string?                       CollectionDisplayName,
         [property: JsonPropertyName("extendedProperties")] Dictionary<string, string>?   ExtendedProperties,
         [property: JsonPropertyName("heroUrl")]            string?                       HeroUrl);
 
@@ -3156,13 +3156,13 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("biography")]          string?       Biography,
         [property: JsonPropertyName("occupation")]         string?       Occupation);
 
-    private sealed record RelatedHubsRaw(
+    private sealed record RelatedCollectionsRaw(
         [property: JsonPropertyName("section_title")] string       SectionTitle,
         [property: JsonPropertyName("reason")]        string       Reason,
-        [property: JsonPropertyName("hubs")]          List<HubRaw> Hubs);
+        [property: JsonPropertyName("collections")]          List<CollectionRaw> Collections);
 
-    private sealed record ParentHubResponseRaw(
-        [property: JsonPropertyName("parentHub")] HubRaw? ParentHub);
+    private sealed record ParentCollectionResponseRaw(
+        [property: JsonPropertyName("parentCollection")] CollectionRaw? ParentCollection);
 
     private sealed record PersonDetailRaw(
         [property: JsonPropertyName("id")]                 Guid            Id,
@@ -3250,31 +3250,31 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Hub Group Detail (Vault drill-down sub-pages) ─────────────────────────
+    // ── Collection Group Detail (Vault drill-down sub-pages) ─────────────────────────
 
-    public async Task<HubGroupDetailViewModel?> GetHubGroupDetailAsync(Guid hubId, CancellationToken ct = default)
+    public async Task<CollectionGroupDetailViewModel?> GetCollectionGroupDetailAsync(Guid collectionId, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
-                $"/hubs/{hubId}/group-detail", ct);
+            return await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
+                $"/collections/{collectionId}/group-detail", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/{HubId}/group-detail failed", hubId);
+            _logger.LogWarning(ex, "GET /collections/{CollectionId}/group-detail failed", collectionId);
             LastError = ex.Message;
             return null;
         }
     }
 
-    public async Task<HubGroupDetailViewModel?> GetArtistGroupDetailAsync(IEnumerable<Guid> hubIds, CancellationToken ct = default)
+    public async Task<CollectionGroupDetailViewModel?> GetArtistGroupDetailAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default)
     {
         try
         {
-            var idsParam = string.Join(",", hubIds);
-            var result = await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
-                $"/hubs/artist-group-detail?hub_ids={idsParam}", ct);
+            var idsParam = string.Join(",", collectionIds);
+            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
+                $"/collections/artist-group-detail?collection_ids={idsParam}", ct);
             if (result?.ArtistPhotoUrl is not null)
                 result.ArtistPhotoUrl = AbsoluteUrl(result.ArtistPhotoUrl);
             return result;
@@ -3282,18 +3282,18 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/artist-group-detail failed");
+            _logger.LogWarning(ex, "GET /collections/artist-group-detail failed");
             LastError = ex.Message;
             return null;
         }
     }
 
-    public async Task<HubGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default)
+    public async Task<CollectionGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default)
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<HubGroupDetailViewModel>(
-                $"/hubs/artist-detail-by-name?artistName={Uri.EscapeDataString(artistName)}", ct);
+            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
+                $"/collections/artist-detail-by-name?artistName={Uri.EscapeDataString(artistName)}", ct);
             if (result?.ArtistPhotoUrl is not null)
                 result.ArtistPhotoUrl = AbsoluteUrl(result.ArtistPhotoUrl);
             return result;
@@ -3301,57 +3301,57 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/artist-detail-by-name failed for {ArtistName}", artistName);
+            _logger.LogWarning(ex, "GET /collections/artist-detail-by-name failed for {ArtistName}", artistName);
             LastError = ex.Message;
             return null;
         }
     }
 
-    public async Task<HubGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default)
+    public async Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default)
     {
         try
         {
-            var url = $"/hubs/system-view-detail?groupField={Uri.EscapeDataString(groupField)}&groupValue={Uri.EscapeDataString(groupValue)}";
+            var url = $"/collections/system-view-detail?groupField={Uri.EscapeDataString(groupField)}&groupValue={Uri.EscapeDataString(groupValue)}";
             if (!string.IsNullOrWhiteSpace(mediaType))
                 url += $"&mediaType={Uri.EscapeDataString(mediaType)}";
-            return await _http.GetFromJsonAsync<HubGroupDetailViewModel>(url, ct);
+            return await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(url, ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/system-view-detail failed for {GroupField}={GroupValue}", groupField, groupValue);
+            _logger.LogWarning(ex, "GET /collections/system-view-detail failed for {GroupField}={GroupValue}", groupField, groupValue);
             LastError = ex.Message;
             return null;
         }
     }
 
-    // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
+    // ── Managed Collections (Vault Collections tab) ────────────────────────────────────────
 
-    public async Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default)
+    public async Task<List<ManagedCollectionViewModel>> GetManagedCollectionsAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<ManagedHubViewModel>>("/hubs/managed", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<ManagedCollectionViewModel>>("/collections/managed", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/managed failed");
+            _logger.LogWarning(ex, "GET /collections/managed failed");
             LastError = ex.Message;
             return [];
         }
     }
 
-    public async Task<Dictionary<string, int>> GetManagedHubCountsAsync(CancellationToken ct = default)
+    public async Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<Dictionary<string, int>>("/hubs/managed/counts", ct) ?? new();
+            return await _http.GetFromJsonAsync<Dictionary<string, int>>("/collections/managed/counts", ct) ?? new();
         }
         catch (OperationCanceledException) { return new(); }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/managed/counts failed");
+            _logger.LogWarning(ex, "GET /collections/managed/counts failed");
             LastError = ex.Message;
             return new();
         }
@@ -3361,12 +3361,12 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<ContentGroupViewModel>>("/hubs/content-groups", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<ContentGroupViewModel>>("/collections/content-groups", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/content-groups failed");
+            _logger.LogWarning(ex, "GET /collections/content-groups failed");
             LastError = ex.Message;
             return [];
         }
@@ -3381,7 +3381,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 queryParts.Add($"mediaType={Uri.EscapeDataString(mediaType)}");
             if (!string.IsNullOrWhiteSpace(groupField))
                 queryParts.Add($"groupField={Uri.EscapeDataString(groupField)}");
-            var url = "/hubs/system-views" + (queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "");
+            var url = "/collections/system-views" + (queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "");
             var groups = await _http.GetFromJsonAsync<List<ContentGroupViewModel>>(url, ct) ?? [];
             foreach (var g in groups)
             {
@@ -3393,78 +3393,78 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/system-views failed");
+            _logger.LogWarning(ex, "GET /collections/system-views failed");
             LastError = ex.Message;
             return [];
         }
     }
 
-    public async Task<List<HubItemViewModel>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default)
+    public async Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<HubItemViewModel>>(
-                $"/hubs/{hubId}/items?limit={limit}", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<CollectionItemViewModel>>(
+                $"/collections/{collectionId}/items?limit={limit}", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/{HubId}/items failed", hubId);
+            _logger.LogWarning(ex, "GET /collections/{CollectionId}/items failed", collectionId);
             LastError = ex.Message;
             return [];
         }
     }
 
-    public async Task<bool> UpdateHubEnabledAsync(Guid hubId, bool enabled, CancellationToken ct = default)
+    public async Task<bool> UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _http.PutAsJsonAsync($"/hubs/{hubId}/enabled", new { enabled }, ct);
+            var resp = await _http.PutAsJsonAsync($"/collections/{collectionId}/enabled", new { enabled }, ct);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PUT /hubs/{HubId}/enabled failed", hubId);
+            _logger.LogWarning(ex, "PUT /collections/{CollectionId}/enabled failed", collectionId);
             LastError = ex.Message;
             return false;
         }
     }
 
-    public async Task<bool> UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default)
+    public async Task<bool> UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default)
     {
         try
         {
-            var resp = await _http.PutAsJsonAsync($"/hubs/{hubId}/featured", new { featured }, ct);
+            var resp = await _http.PutAsJsonAsync($"/collections/{collectionId}/featured", new { featured }, ct);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PUT /hubs/{HubId}/featured failed", hubId);
+            _logger.LogWarning(ex, "PUT /collections/{CollectionId}/featured failed", collectionId);
             LastError = ex.Message;
             return false;
         }
     }
 
-    public async Task<HubPreviewResult?> PreviewHubRulesAsync(
-        List<HubRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default)
+    public async Task<CollectionPreviewResult?> PreviewCollectionRulesAsync(
+        List<CollectionRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default)
     {
         try
         {
             var body = new { rules = rules.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(), match_mode = matchMode, limit };
-            var response = await _http.PostAsJsonAsync("/hubs/preview", body, ct);
+            var response = await _http.PostAsJsonAsync("/collections/preview", body, ct);
             if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<HubPreviewResult>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<CollectionPreviewResult>(cancellationToken: ct);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "POST /hubs/preview failed");
+            _logger.LogWarning(ex, "POST /collections/preview failed");
             LastError = ex.Message;
             return null;
         }
     }
 
-    public async Task<bool> CreateHubAsync(
-        string name, List<HubRulePredicateViewModel> rules, string matchMode,
+    public async Task<bool> CreateCollectionAsync(
+        string name, List<CollectionRulePredicateViewModel> rules, string matchMode,
         string? sortField, string sortDirection, bool liveUpdating, CancellationToken ct = default)
     {
         try
@@ -3472,26 +3472,26 @@ public sealed class EngineApiClient : IEngineApiClient
             var body = new
             {
                 name,
-                hub_type = "Custom",
+                collection_type = "Custom",
                 rules = rules.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(),
                 match_mode = matchMode,
                 sort_field = sortField,
                 sort_direction = sortDirection,
                 live_updating = liveUpdating,
             };
-            var response = await _http.PostAsJsonAsync("/hubs", body, ct);
+            var response = await _http.PostAsJsonAsync("/collections", body, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "POST /hubs failed");
+            _logger.LogWarning(ex, "POST /collections failed");
             LastError = ex.Message;
             return false;
         }
     }
 
-    public async Task<bool> UpdateHubAsync(
-        Guid hubId, string? name, List<HubRulePredicateViewModel>? rules,
+    public async Task<bool> UpdateCollectionAsync(
+        Guid collectionId, string? name, List<CollectionRulePredicateViewModel>? rules,
         string? matchMode, bool? isEnabled, bool? isFeatured, CancellationToken ct = default)
     {
         try
@@ -3504,59 +3504,59 @@ public sealed class EngineApiClient : IEngineApiClient
                 is_enabled = isEnabled,
                 is_featured = isFeatured,
             };
-            var response = await _http.PutAsJsonAsync($"/hubs/{hubId}", body, ct);
+            var response = await _http.PutAsJsonAsync($"/collections/{collectionId}", body, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PUT /hubs/{HubId} failed", hubId);
+            _logger.LogWarning(ex, "PUT /collections/{CollectionId} failed", collectionId);
             LastError = ex.Message;
             return false;
         }
     }
 
-    public async Task<bool> DeleteHubAsync(Guid hubId, CancellationToken ct = default)
+    public async Task<bool> DeleteCollectionAsync(Guid collectionId, CancellationToken ct = default)
     {
         try
         {
-            var response = await _http.DeleteAsync($"/hubs/{hubId}", ct);
+            var response = await _http.DeleteAsync($"/collections/{collectionId}", ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "DELETE /hubs/{HubId} failed", hubId);
+            _logger.LogWarning(ex, "DELETE /collections/{CollectionId} failed", collectionId);
             LastError = ex.Message;
             return false;
         }
     }
 
-    public async Task<List<HubResolvedItemViewModel>> ResolveHubAsync(Guid hubId, int? limit = null, CancellationToken ct = default)
+    public async Task<List<CollectionResolvedItemViewModel>> ResolveCollectionAsync(Guid collectionId, int? limit = null, CancellationToken ct = default)
     {
         try
         {
-            var url = limit.HasValue ? $"/hubs/resolve/{hubId}?limit={limit}" : $"/hubs/resolve/{hubId}";
-            return await _http.GetFromJsonAsync<List<HubResolvedItemViewModel>>(url, ct) ?? [];
+            var url = limit.HasValue ? $"/collections/resolve/{collectionId}?limit={limit}" : $"/collections/resolve/{collectionId}";
+            return await _http.GetFromJsonAsync<List<CollectionResolvedItemViewModel>>(url, ct) ?? [];
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/resolve/{HubId} failed", hubId);
+            _logger.LogWarning(ex, "GET /collections/resolve/{CollectionId} failed", collectionId);
             LastError = ex.Message;
             return [];
         }
     }
 
-    public async Task<List<HubResolvedItemViewModel>> ResolveHubByNameAsync(string name, int? limit = null, CancellationToken ct = default)
+    public async Task<List<CollectionResolvedItemViewModel>> ResolveCollectionByNameAsync(string name, int? limit = null, CancellationToken ct = default)
     {
         try
         {
-            var url = $"/hubs/resolve/by-name?name={Uri.EscapeDataString(name)}";
+            var url = $"/collections/resolve/by-name?name={Uri.EscapeDataString(name)}";
             if (limit.HasValue) url += $"&limit={limit}";
-            return await _http.GetFromJsonAsync<List<HubResolvedItemViewModel>>(url, ct) ?? [];
+            return await _http.GetFromJsonAsync<List<CollectionResolvedItemViewModel>>(url, ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /hubs/resolve/by-name failed for hub '{Name}'", name);
+            _logger.LogWarning(ex, "GET /collections/resolve/by-name failed for collection '{Name}'", name);
             LastError = ex.Message;
             return [];
         }
@@ -3879,12 +3879,12 @@ public sealed class EngineApiClient : IEngineApiClient
         catch { return []; }
     }
 
-    public async Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetHubQid, CancellationToken ct = default)
+    public async Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetCollectionQid, CancellationToken ct = default)
     {
         try
         {
             var response = await _http.PostAsJsonAsync($"vault/universe-candidates/{workId}/accept",
-                new { target_hub_qid = targetHubQid }, ct);
+                new { target_collection_qid = targetCollectionQid }, ct);
             return response.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -3922,12 +3922,12 @@ public sealed class EngineApiClient : IEngineApiClient
         catch { return []; }
     }
 
-    public async Task<bool> ManualUniverseAssignAsync(Guid workId, Guid hubId, CancellationToken ct = default)
+    public async Task<bool> ManualUniverseAssignAsync(Guid workId, Guid collectionId, CancellationToken ct = default)
     {
         try
         {
             var response = await _http.PostAsJsonAsync("vault/universe-assign",
-                new { work_id = workId, hub_id = hubId }, ct);
+                new { work_id = workId, collection_id = collectionId }, ct);
             return response.IsSuccessStatusCode;
         }
         catch { return false; }

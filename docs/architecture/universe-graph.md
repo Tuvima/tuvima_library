@@ -27,7 +27,7 @@ Before the graph can be built, the Engine determines which fictional universe a 
 1. P1434 (takes place in fictional universe)
 2. P8345 (media franchise)
 3. P179 (part of series)
-4. Hub DisplayName (fallback)
+4. Collection DisplayName (fallback)
 
 The resolved universe QID and label are stored in the `narrative_roots` table. All fictional entities discovered within a work are linked to their narrative root, enabling cross-media queries â€” for example, finding all characters from the Dune universe across novels, films, and audiobooks.
 
@@ -209,5 +209,5 @@ Three layers prevent redundant Wikidata calls:
 ## Related
 
 - [How Universes and Series Work](../explanation/how-universes-work.md)
-- [Hubs and Playlists](hubs-and-playlists.md)
+- [Collections and Playlists](collections.md)
 - [Glossary](../reference/glossary.md)

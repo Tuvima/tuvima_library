@@ -64,7 +64,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 feat: add MusicBrainz provider support
-fix: prevent duplicate Hub creation on re-ingestion
+fix: prevent duplicate Collection creation on re-ingestion
 docs: update configuration guide for Docker volumes
 chore: upgrade MudBlazor to 9.1.0
 ```
@@ -179,7 +179,7 @@ src/
   MediaEngine.Providers    External metadata adapters (Apple Books, Wikidata, etc.)
   MediaEngine.Ingestion    Watch Folder, file processing pipeline
   MediaEngine.Identity     Authentication & authorization
-  MediaEngine.Api          REST API + SignalR hub (Engine entry point)
+  MediaEngine.Api          REST API + SignalR collection (Engine entry point)
   MediaEngine.Web          Blazor Dashboard (UI entry point)
 ```
 

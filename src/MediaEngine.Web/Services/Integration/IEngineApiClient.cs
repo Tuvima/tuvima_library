@@ -13,8 +13,8 @@ public interface IEngineApiClient
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);
 
-    /// <summary>GET /hubs — full hub list with works and canonical values.</summary>
-    Task<List<HubViewModel>> GetHubsAsync(CancellationToken ct = default);
+    /// <summary>GET /collections — full collection list with works and canonical values.</summary>
+    Task<List<CollectionViewModel>> GetCollectionsAsync(CancellationToken ct = default);
 
     /// <summary>GET /library/works — flat list of works with canonical values (excludes staging).</summary>
     Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default);
@@ -39,7 +39,7 @@ public interface IEngineApiClient
         string chosenValue,
         CancellationToken ct = default);
 
-    /// <summary>GET /hubs/search?q= — full-text search across all works (min 2 chars).</summary>
+    /// <summary>GET /collections/search?q= — full-text search across all works (min 2 chars).</summary>
     Task<List<SearchResultViewModel>> SearchWorksAsync(
         string query,
         CancellationToken ct = default);
@@ -327,9 +327,9 @@ public interface IEngineApiClient
 
     // ── Progress & Journey (/progress) ─────────────────────────────────
 
-    /// <summary>GET /progress/journey?userId={id}&amp;limit= — incomplete items with Work+Hub context.
-    /// Pass hubId to filter server-side to assets belonging to a specific hub.</summary>
-    Task<List<JourneyItemViewModel>> GetJourneyAsync(Guid? userId = null, int limit = 5, Guid? hubId = null, CancellationToken ct = default);
+    /// <summary>GET /progress/journey?userId={id}&amp;limit= — incomplete items with Work+Collection context.
+    /// Pass collectionId to filter server-side to assets belonging to a specific collection.</summary>
+    Task<List<JourneyItemViewModel>> GetJourneyAsync(Guid? userId = null, int limit = 5, Guid? collectionId = null, CancellationToken ct = default);
 
     /// <summary>GET /progress/{assetId} - current progress for an asset.</summary>
     Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default);
@@ -337,7 +337,7 @@ public interface IEngineApiClient
     Task<bool> SaveProgressAsync(Guid assetId, Guid? userId = null, double progressPct = 0,
         Dictionary<string, string>? extendedProperties = null, CancellationToken ct = default);
 
-    // ── Persons by Hub (/persons/by-hub) ────────────────────────────────
+    // ── Persons by Collection (/persons/by-collection) ────────────────────────────────
 
     /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons as PersonListItemDto (for registry view).</summary>
     Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(string? role = null, int limit = 200, CancellationToken ct = default);
@@ -346,8 +346,8 @@ public interface IEngineApiClient
     Task<List<PersonViewModel>> GetPersonsByRoleAsync(
         string role, int limit = 50, CancellationToken ct = default);
 
-    /// <summary>GET /persons/by-hub/{hubId} — all persons linked to works in a hub.</summary>
-    Task<List<PersonViewModel>> GetPersonsByHubAsync(Guid hubId, CancellationToken ct = default);
+    /// <summary>GET /persons/by-collection/{collectionId} — all persons linked to works in a collection.</summary>
+    Task<List<PersonViewModel>> GetPersonsByCollectionAsync(Guid collectionId, CancellationToken ct = default);
 
     /// <summary>GET /persons/by-work/{workId} — all persons linked to a specific work.</summary>
     Task<List<PersonViewModel>> GetPersonsByWorkAsync(Guid workId, CancellationToken ct = default);
@@ -359,29 +359,29 @@ public interface IEngineApiClient
     Task<Dictionary<string, Dictionary<string, int>>> GetPersonPresenceAsync(IEnumerable<Guid> personIds, CancellationToken ct = default);
 
 
-    // ── Related hubs (/hubs/{id}/related) ────────────────────────────────────
+    // ── Related collections (/collections/{id}/related) ────────────────────────────────────
 
-    /// <summary>GET /hubs/{id}/related?limit= — related hubs by series/author/genre cascade.</summary>
-    Task<RelatedHubsViewModel?> GetRelatedHubsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);
+    /// <summary>GET /collections/{id}/related?limit= — related collections by series/author/genre cascade.</summary>
+    Task<RelatedCollectionsViewModel?> GetRelatedCollectionsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default);
 
-    // ── Parent Hub hierarchy (/hubs/parents, /hubs/{id}/children, /hubs/{id}/parent) ──
+    // ── Parent Collection hierarchy (/collections/parents, /collections/{id}/children, /collections/{id}/parent) ──
 
-    /// <summary>GET /hubs/parents — returns all Parent Hubs (franchise-level groupings).</summary>
-    Task<List<HubViewModel>> GetParentHubsAsync(CancellationToken ct = default);
+    /// <summary>GET /collections/parents — returns all Parent Collections (franchise-level groupings).</summary>
+    Task<List<CollectionViewModel>> GetParentCollectionsAsync(CancellationToken ct = default);
 
-    /// <summary>GET /hubs/{id}/children — returns child Hubs of the given Parent Hub.</summary>
-    Task<List<HubViewModel>> GetChildHubsAsync(Guid parentHubId, CancellationToken ct = default);
+    /// <summary>GET /collections/{id}/children — returns child Collections of the given Parent Collection.</summary>
+    Task<List<CollectionViewModel>> GetChildCollectionsAsync(Guid parentCollectionId, CancellationToken ct = default);
 
-    /// <summary>GET /hubs/{id}/parent — returns the Parent Hub of the given Hub, if any.</summary>
-    Task<HubViewModel?> GetParentHubAsync(Guid hubId, CancellationToken ct = default);
+    /// <summary>GET /collections/{id}/parent — returns the Parent Collection of the given Collection, if any.</summary>
+    Task<CollectionViewModel?> GetParentCollectionAsync(Guid collectionId, CancellationToken ct = default);
 
     // \u2500\u2500 Person detail (/persons/{id}) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
     /// <summary>GET /persons/{id} \u2014 full person detail with social links and enrichment data.</summary>
     Task<PersonDetailViewModel?> GetPersonDetailAsync(Guid personId, CancellationToken ct = default);
 
-    /// <summary>GET /persons/{id}/works \u2014 all hubs containing works by this person.</summary>
-    Task<List<HubViewModel>> GetWorksByPersonAsync(Guid personId, CancellationToken ct = default);
+    /// <summary>GET /persons/{id}/works \u2014 all collections containing works by this person.</summary>
+    Task<List<CollectionViewModel>> GetWorksByPersonAsync(Guid personId, CancellationToken ct = default);
 
     /// <summary>GET /persons/{id}/aliases — aliases and pseudonyms for a person.</summary>
     Task<PersonAliasesResponseDto?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default);
@@ -659,62 +659,62 @@ public interface IEngineApiClient
     /// <summary>GET /ai/resources — live RAM, CPU pressure, and transcoding status.</summary>
     Task<ResourceSnapshotDto?> GetResourceSnapshotAsync(CancellationToken ct = default);
 
-    // ── Managed Hubs (Vault Hubs tab) ────────────────────────────────────────
+    // ── Managed Collections (Vault Collections tab) ────────────────────────────────────────
 
-    /// <summary>GET /hubs/{hubId}/group-detail — full drill-down view of a content group (album, TV show, book series, movie series).</summary>
-    Task<HubGroupDetailViewModel?> GetHubGroupDetailAsync(Guid hubId, CancellationToken ct = default);
+    /// <summary>GET /collections/{collectionId}/group-detail — full drill-down view of a content group (album, TV show, book series, movie series).</summary>
+    Task<CollectionGroupDetailViewModel?> GetCollectionGroupDetailAsync(Guid collectionId, CancellationToken ct = default);
 
-    /// <summary>GET /hubs/artist-group-detail?hub_ids=... — combined multi-hub detail for artist drill-down.</summary>
-    Task<HubGroupDetailViewModel?> GetArtistGroupDetailAsync(IEnumerable<Guid> hubIds, CancellationToken ct = default);
+    /// <summary>GET /collections/artist-group-detail?collection_ids=... — combined multi-collection detail for artist drill-down.</summary>
+    Task<CollectionGroupDetailViewModel?> GetArtistGroupDetailAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default);
 
-    /// <summary>GET /hubs/artist-detail-by-name?artistName=X — artist drill-down by name (system-view mode).</summary>
-    Task<HubGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default);
+    /// <summary>GET /collections/artist-detail-by-name?artistName=X — artist drill-down by name (system-view mode).</summary>
+    Task<CollectionGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default);
 
-    /// <summary>GET /hubs/system-view-detail?groupField=&amp;groupValue=&amp;mediaType= — generic system-view drill-down for any group field.</summary>
-    Task<HubGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default);
+    /// <summary>GET /collections/system-view-detail?groupField=&amp;groupValue=&amp;mediaType= — generic system-view drill-down for any group field.</summary>
+    Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default);
 
-    /// <summary>GET /hubs/managed — all non-Universe hubs for the Vault Hubs tab.</summary>
-    Task<List<ManagedHubViewModel>> GetManagedHubsAsync(CancellationToken ct = default);
+    /// <summary>GET /collections/managed — all non-Universe collections for the Vault Collections tab.</summary>
+    Task<List<ManagedCollectionViewModel>> GetManagedCollectionsAsync(CancellationToken ct = default);
 
-    /// <summary>GET /hubs/managed/counts — hub count grouped by type for stats bar.</summary>
-    Task<Dictionary<string, int>> GetManagedHubCountsAsync(CancellationToken ct = default);
+    /// <summary>GET /collections/managed/counts — collection count grouped by type for stats bar.</summary>
+    Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(CancellationToken ct = default);
 
-    /// <summary>GET /hubs/content-groups — Universe-type hubs (albums, TV series, book series, movie series) for the Content Groups section.</summary>
+    /// <summary>GET /collections/content-groups — Universe-type collections (albums, TV series, book series, movie series) for the Content Groups section.</summary>
     Task<List<ContentGroupViewModel>> GetContentGroupsAsync(CancellationToken ct = default);
 
-    /// <summary>GET /hubs/system-views?mediaType=&amp;groupField= — System view hubs resolved as grouped content groups (By Show, By Artist, By Album).</summary>
+    /// <summary>GET /collections/system-views?mediaType=&amp;groupField= — System view collections resolved as grouped content groups (By Show, By Artist, By Album).</summary>
     Task<List<ContentGroupViewModel>> GetSystemViewGroupsAsync(string? mediaType = null, string? groupField = null, CancellationToken ct = default);
 
-    /// <summary>GET /hubs/{id}/items?limit= — curated items for a hub.</summary>
-    Task<List<HubItemViewModel>> GetHubItemsAsync(Guid hubId, int limit = 20, CancellationToken ct = default);
+    /// <summary>GET /collections/{id}/items?limit= — curated items for a collection.</summary>
+    Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default);
 
-    /// <summary>PUT /hubs/{id}/enabled — toggle hub enabled state.</summary>
-    Task<bool> UpdateHubEnabledAsync(Guid hubId, bool enabled, CancellationToken ct = default);
+    /// <summary>PUT /collections/{id}/enabled — toggle collection enabled state.</summary>
+    Task<bool> UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default);
 
-    /// <summary>PUT /hubs/{id}/featured — toggle hub featured state.</summary>
-    Task<bool> UpdateHubFeaturedAsync(Guid hubId, bool featured, CancellationToken ct = default);
+    /// <summary>PUT /collections/{id}/featured — toggle collection featured state.</summary>
+    Task<bool> UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default);
 
-    /// <summary>POST /hubs/preview — evaluate rules without saving.</summary>
-    Task<HubPreviewResult?> PreviewHubRulesAsync(List<HubRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default);
+    /// <summary>POST /collections/preview — evaluate rules without saving.</summary>
+    Task<CollectionPreviewResult?> PreviewCollectionRulesAsync(List<CollectionRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default);
 
-    /// <summary>POST /hubs — create a new hub.</summary>
-    Task<bool> CreateHubAsync(string name, List<HubRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, CancellationToken ct = default);
+    /// <summary>POST /collections — create a new collection.</summary>
+    Task<bool> CreateCollectionAsync(string name, List<CollectionRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, CancellationToken ct = default);
 
-    /// <summary>PUT /hubs/{id} — update a hub.</summary>
-    Task<bool> UpdateHubAsync(Guid hubId, string? name, List<HubRulePredicateViewModel>? rules, string? matchMode, bool? isEnabled, bool? isFeatured, CancellationToken ct = default);
+    /// <summary>PUT /collections/{id} — update a collection.</summary>
+    Task<bool> UpdateCollectionAsync(Guid collectionId, string? name, List<CollectionRulePredicateViewModel>? rules, string? matchMode, bool? isEnabled, bool? isFeatured, CancellationToken ct = default);
 
-    /// <summary>DELETE /hubs/{id} — soft delete.</summary>
-    Task<bool> DeleteHubAsync(Guid hubId, CancellationToken ct = default);
+    /// <summary>DELETE /collections/{id} — soft delete.</summary>
+    Task<bool> DeleteCollectionAsync(Guid collectionId, CancellationToken ct = default);
 
-    /// <summary>GET /hubs/resolve/{id} — evaluate hub rules and return items.</summary>
-    Task<List<HubResolvedItemViewModel>> ResolveHubAsync(Guid hubId, int? limit = null, CancellationToken ct = default);
+    /// <summary>GET /collections/resolve/{id} — evaluate collection rules and return items.</summary>
+    Task<List<CollectionResolvedItemViewModel>> ResolveCollectionAsync(Guid collectionId, int? limit = null, CancellationToken ct = default);
 
     /// <summary>
-    /// GET /hubs/resolve/by-name?name=...&amp;limit=... — resolves a System hub by display name.
+    /// GET /collections/resolve/by-name?name=...&amp;limit=... — resolves a System collection by display name.
     /// Bypasses the registry visibility filter so in-flight items are included.
     /// Reads both asset-level and root-parent-Work-level canonical values (lineage-aware).
     /// </summary>
-    Task<List<HubResolvedItemViewModel>> ResolveHubByNameAsync(string name, int? limit = null, CancellationToken ct = default);
+    Task<List<CollectionResolvedItemViewModel>> ResolveCollectionByNameAsync(string name, int? limit = null, CancellationToken ct = default);
 
     // ── Vault Preferences (/settings/ui/vault-preferences) ──────────────────
 
@@ -735,11 +735,11 @@ public interface IEngineApiClient
 
     // ── Universe Alignment ──
 
-    /// <summary>GET /vault/universe-candidates — works with universe QIDs but no hub assignment.</summary>
+    /// <summary>GET /vault/universe-candidates — works with universe QIDs but no collection assignment.</summary>
     Task<List<UniverseCandidateViewModel>> GetUniverseCandidatesAsync(CancellationToken ct = default);
 
     /// <summary>POST /vault/universe-candidates/{workId}/accept — accept a universe assignment.</summary>
-    Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetHubQid, CancellationToken ct = default);
+    Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetCollectionQid, CancellationToken ct = default);
 
     /// <summary>POST /vault/universe-candidates/{workId}/reject — reject a universe candidate.</summary>
     Task<bool> RejectUniverseCandidateAsync(Guid workId, CancellationToken ct = default);
@@ -750,8 +750,8 @@ public interface IEngineApiClient
     /// <summary>GET /vault/universe-unlinked — works with QID but no universe properties.</summary>
     Task<List<UnlinkedWorkViewModel>> GetUniverseUnlinkedAsync(CancellationToken ct = default);
 
-    /// <summary>POST /vault/universe-assign — manually assign a work to a hub.</summary>
-    Task<bool> ManualUniverseAssignAsync(Guid workId, Guid hubId, CancellationToken ct = default);
+    /// <summary>POST /vault/universe-assign — manually assign a work to a collection.</summary>
+    Task<bool> ManualUniverseAssignAsync(Guid workId, Guid collectionId, CancellationToken ct = default);
 }
 
 

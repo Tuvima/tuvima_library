@@ -134,7 +134,7 @@ public static class ActivityEndpoints
         Id              = e.Id,
         OccurredAt      = e.OccurredAt.ToString("O"),
         ActionType      = e.ActionType,
-        HubName         = e.HubName,
+        CollectionName         = e.CollectionName,
         EntityId        = e.EntityId?.ToString(),
         EntityType      = e.EntityType,
         ProfileId       = e.ProfileId?.ToString(),
@@ -157,8 +157,8 @@ public sealed class ActivityEntryResponse
     [JsonPropertyName("action_type")]
     public string ActionType { get; init; } = string.Empty;
 
-    [JsonPropertyName("hub_name")]
-    public string? HubName { get; init; }
+    [JsonPropertyName("collection_name")]
+    public string? CollectionName { get; init; }
 
     [JsonPropertyName("entity_id")]
     public string? EntityId { get; init; }

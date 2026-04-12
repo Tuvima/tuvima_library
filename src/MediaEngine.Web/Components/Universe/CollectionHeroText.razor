@@ -1,0 +1,204 @@
+@namespace MediaEngine.Web.Components.Universe
+
+@using MediaEngine.Web.Models.ViewDTOs
+
+@* Internal text fragment for CollectionHero — renders title, badges, author, description, and CTA.
+   Extracted as a component to avoid duplicating markup between portrait and landscape layouts. *@
+
+@if (!string.IsNullOrEmpty(Data?.Subtitle))
+{
+    <p class="hero-subtitle-label">@Data.Subtitle</p>
+}
+
+<h2 class="hero-title" @onclick="HandleClick" style="cursor: pointer;">@Data?.Title</h2>
+
+<div class="hero-badges">
+    @if (!string.IsNullOrEmpty(Data?.Year))
+    {
+        <span class="hero-badge">@Data.Year</span>
+    }
+    @if (!string.IsNullOrEmpty(Data?.MediaTypeLabel))
+    {
+        <span class="hero-badge">@Data.MediaTypeLabel</span>
+    }
+    @if (Data?.Genres.Count > 0)
+    {
+        <MetadataChips Labels="@Data.Genres" Qids="@Data.GenreQids" />
+    }
+    else if (!string.IsNullOrEmpty(Data?.Genre))
+    {
+        @foreach (var genre in Data.Genre.Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Where(g => g != "|").Take(2))
+        {
+            <span class="hero-badge">@genre</span>
+        }
+    }
+    @if (!string.IsNullOrEmpty(Data?.Rating))
+    {
+        <span class="hero-badge">@Data.Rating</span>
+    }
+    @if (!string.IsNullOrEmpty(Data?.Series))
+    {
+        <span class="hero-badge">@Data.Series@(!string.IsNullOrEmpty(Data.SeriesPosition) ? $" #{Data.SeriesPosition}" : "")</span>
+    }
+</div>
+
+@if (!string.IsNullOrEmpty(Data?.Author))
+{
+    <p class="hero-author">@Data.Author</p>
+}
+@if (!string.IsNullOrEmpty(Data?.Narrator))
+{
+    <p class="hero-narrator">Narrated by @Data.Narrator</p>
+}
+@if (!string.IsNullOrEmpty(Data?.Description))
+{
+    <p class="hero-description">@Data.Description</p>
+}
+
+@if (!string.IsNullOrEmpty(Data?.ActionLabel))
+{
+    <button class="collection-primary-cta"
+            @onclick="HandleCtaClick"
+            @onclick:stopPropagation="true"
+            style="margin-top: 16px;">
+        <div class="collection-primary-cta-inner">
+            <MudIcon Icon="@(Data.ActionIcon ?? Icons.Material.Filled.MenuBook)"
+                     Style="font-size: 1.2rem; color: #1a1208; flex-shrink:0;" />
+            <span class="collection-primary-cta-label">@Data.ActionLabel</span>
+        </div>
+        @if (Data.ProgressPct is > 0 and < 99.5)
+        {
+            <div class="collection-primary-cta-progress"
+                 style="width: @(Data.ProgressPct.Value.ToString("F0"))%"></div>
+        }
+    </button>
+}
+
+@code {
+    [Parameter] public HeroData? Data { get; set; }
+    [Parameter] public EventCallback OnCtaClicked { get; set; }
+    [Parameter] public EventCallback OnClicked { get; set; }
+
+    private async Task HandleClick()
+    {
+        if (OnClicked.HasDelegate)
+            await OnClicked.InvokeAsync();
+    }
+
+    private async Task HandleCtaClick()
+    {
+        if (OnCtaClicked.HasDelegate)
+            await OnCtaClicked.InvokeAsync();
+    }
+}
+
+<style>
+    /* ── Text styles — scoped to CollectionHeroText ─────────────────────────── */
+
+    .hero-title {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(2.4rem, 2.8vw, 3.6rem);
+        font-weight: 700;
+        color: #ffffff;
+        margin: 0 0 10px 0;
+        line-height: 1.15;
+        text-shadow: 0 2px 12px rgba(0, 0, 0, 0.50);
+    }
+
+    .hero-subtitle-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(0.80rem, 0.9vw, 1.05rem);
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.50);
+        margin: 0 0 4px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
+    }
+
+    .hero-badges {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 10px;
+    }
+
+    .hero-badge {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(0.72rem, 0.8vw, 0.88rem);
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        padding: clamp(4px, 0.35vw, 6px) clamp(10px, 0.8vw, 14px);
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        text-transform: uppercase;
+    }
+
+    .hero-author {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(1rem, 1.1vw, 1.3rem);
+        font-weight: 400;
+        color: rgba(255, 255, 255, 0.70);
+        margin: 0 0 4px 0;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
+    }
+
+    .hero-narrator {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.55);
+        margin: 0 0 4px 0;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.40);
+    }
+
+    .hero-description {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(0.88rem, 1vw, 1.1rem);
+        font-weight: 300;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.50);
+        margin: 0;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.30);
+    }
+
+    /* ── Mobile text sizing ──────────────────────────────────────────── */
+    @@media (max-width: 768px) {
+        .hero-title {
+            font-size: 1.3rem;
+        }
+
+        .hero-author {
+            font-size: 0.82rem;
+        }
+
+        .hero-badge {
+            font-size: 0.62rem;
+            padding: 3px 7px;
+        }
+
+        .hero-badges {
+            justify-content: center;
+        }
+
+        .hero-description {
+            font-size: 0.80rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Center CTA button on mobile */
+        .collection-primary-cta {
+            margin-left: auto;
+            margin-right: auto;
+        }
+    }
+</style>

@@ -224,14 +224,14 @@ public static class PersonEndpoints
             return Results.NotFound("Headshot not available.");
         });
 
-        // GET /persons/by-hub/{hubId} — all persons linked to works in a hub.
-        group.MapGet("/by-hub/{hubId:guid}", async (
-            Guid hubId,
+        // GET /persons/by-collection/{collectionId} — all persons linked to works in a collection.
+        group.MapGet("/by-collection/{collectionId:guid}", async (
+            Guid collectionId,
             IPersonRepository personRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            // Find all media asset IDs for works in this hub.
+            // Find all media asset IDs for works in this collection.
             var conn = db.Open();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = """
@@ -239,9 +239,9 @@ public static class PersonEndpoints
                 FROM media_assets ma
                 JOIN editions e ON e.id = ma.edition_id
                 JOIN works w    ON w.id = e.work_id
-                WHERE w.hub_id = @hubId;
+                WHERE w.collection_id = @collectionId;
                 """;
-            cmd.Parameters.AddWithValue("@hubId", hubId.ToString());
+            cmd.Parameters.AddWithValue("@collectionId", collectionId.ToString());
 
             var assetIds = new List<Guid>();
             using var reader = cmd.ExecuteReader();
@@ -327,11 +327,11 @@ public static class PersonEndpoints
             return Results.Ok(persons);
         });
 
-        // GET /persons/{id}/works — all hubs containing works by this person.
+        // GET /persons/{id}/works — all collections containing works by this person.
         group.MapGet("/{id:guid}/works", async (
             Guid id,
             IPersonRepository personRepo,
-            IHubRepository hubRepo,
+            ICollectionRepository collectionRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -339,61 +339,61 @@ public static class PersonEndpoints
             if (person is null)
                 return Results.NotFound($"Person '{id}' not found.");
 
-            // Find all hub IDs linked to this person via person_media_links.
+            // Find all collection IDs linked to this person via person_media_links.
             using var conn = db.CreateConnection();
             using var cmd  = conn.CreateCommand();
             cmd.CommandText = """
-                SELECT DISTINCT w.hub_id
+                SELECT DISTINCT w.collection_id
                 FROM person_media_links pml
                 JOIN media_assets ma ON ma.id = pml.media_asset_id
                 JOIN editions e      ON e.id  = ma.edition_id
                 JOIN works w         ON w.id  = e.work_id
                 WHERE pml.person_id = @personId
-                  AND w.hub_id IS NOT NULL;
+                  AND w.collection_id IS NOT NULL;
                 """;
             cmd.Parameters.AddWithValue("@personId", id.ToString());
 
-            var hubIds = new HashSet<Guid>();
+            var collectionIds = new HashSet<Guid>();
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
-                hubIds.Add(Guid.Parse(reader.GetString(0)));
+                collectionIds.Add(Guid.Parse(reader.GetString(0)));
 
-            if (hubIds.Count == 0)
+            if (collectionIds.Count == 0)
             {
                 // Fallback: match by canonical author/narrator/director name
                 using var fallbackCmd = conn.CreateCommand();
                 fallbackCmd.CommandText = """
-                    SELECT DISTINCT w.hub_id
+                    SELECT DISTINCT w.collection_id
                     FROM canonical_values cv
                     JOIN media_assets ma ON ma.id = cv.entity_id
                     JOIN editions e      ON e.id  = ma.edition_id
                     JOIN works w         ON w.id  = e.work_id
                     WHERE cv.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
                       AND cv.value = @personName
-                      AND w.hub_id IS NOT NULL;
+                      AND w.collection_id IS NOT NULL;
                     """;
                 fallbackCmd.Parameters.AddWithValue("@personName", person.Name);
 
                 using var fallbackReader = fallbackCmd.ExecuteReader();
                 while (fallbackReader.Read())
-                    hubIds.Add(Guid.Parse(fallbackReader.GetString(0)));
+                    collectionIds.Add(Guid.Parse(fallbackReader.GetString(0)));
             }
 
-            if (hubIds.Count == 0)
-                return Results.Ok(Array.Empty<MediaEngine.Api.Models.HubDto>());
+            if (collectionIds.Count == 0)
+                return Results.Ok(Array.Empty<MediaEngine.Api.Models.CollectionDto>());
 
-            // Load full hub data and filter to matching IDs.
-            var allHubs = await hubRepo.GetAllAsync(ct);
-            var dtos    = allHubs
-                .Where(h => hubIds.Contains(h.Id))
-                .Select(MediaEngine.Api.Models.HubDto.FromDomain)
+            // Load full collection data and filter to matching IDs.
+            var allCollections = await collectionRepo.GetAllAsync(ct);
+            var dtos    = allCollections
+                .Where(h => collectionIds.Contains(h.Id))
+                .Select(MediaEngine.Api.Models.CollectionDto.FromDomain)
                 .ToList();
 
             return Results.Ok(dtos);
         })
         .WithName("GetWorksByPerson")
-        .WithSummary("All hubs containing works linked to this person (author/narrator/director).")
-        .Produces<List<MediaEngine.Api.Models.HubDto>>(StatusCodes.Status200OK);
+        .WithSummary("All collections containing works linked to this person (author/narrator/director).")
+        .Produces<List<MediaEngine.Api.Models.CollectionDto>>(StatusCodes.Status200OK);
 
         // GET /persons/role-counts — count of persons per role.
         // Excludes Composer (absorbed into Artist/Performer in the UI).

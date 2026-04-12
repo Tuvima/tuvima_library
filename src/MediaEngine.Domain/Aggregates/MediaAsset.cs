@@ -43,7 +43,7 @@ public sealed class MediaAsset
     /// <summary>
     /// Current lifecycle status of this asset.
     /// Assets in <see cref="AssetStatus.Conflicted"/> state MUST NOT be
-    /// automatically assigned to a Hub.
+    /// automatically assigned to a Collection.
     /// </summary>
     public AssetStatus Status { get; set; } = AssetStatus.Normal;
 

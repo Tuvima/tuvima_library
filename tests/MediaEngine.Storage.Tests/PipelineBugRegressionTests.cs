@@ -201,14 +201,14 @@ public sealed class PipelineBugRegressionTests
     }
 
     [Fact]
-    public void HubsJson_DoesNotExist()
+    public void CollectionsJson_DoesNotExist()
     {
-        // hubs.json was dead configuration (nothing loaded it).
-        // HubDisplaySettings.cs (Storage) was the corresponding unused model and has also been removed.
+        // collections.json was dead configuration (nothing loaded it).
+        // CollectionDisplaySettings.cs (Storage) was the corresponding unused model and has also been removed.
         var root = FindRepoRoot();
-        var staleFile = Path.Combine(root, "config", "hubs.json");
+        var staleFile = Path.Combine(root, "config", "collections.json");
         Assert.False(File.Exists(staleFile),
-            "config/hubs.json must not exist — it was dead configuration " +
+            "config/collections.json must not exist — it was dead configuration " +
             "with no loader. Do not re-create it.");
     }
 

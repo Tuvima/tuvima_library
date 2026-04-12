@@ -6,8 +6,8 @@ namespace MediaEngine.Ingestion.Models;
 /// </summary>
 public sealed class LibraryScanResult
 {
-    /// <summary>Number of Hub records created or updated in the database.</summary>
-    public int HubsUpserted { get; init; }
+    /// <summary>Number of Collection records created or updated in the database.</summary>
+    public int CollectionsUpserted { get; init; }
 
     /// <summary>Number of Edition/MediaAsset records created or updated.</summary>
     public int EditionsUpserted { get; init; }

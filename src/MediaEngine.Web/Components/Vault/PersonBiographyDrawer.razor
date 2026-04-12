@@ -248,7 +248,7 @@
 @code {
     [Parameter, EditorRequired] public PersonListItemDto Person { get; set; } = null!;
     [Parameter] public PersonAliasesResponseDto? Aliases { get; set; }
-    [Parameter] public List<HubViewModel>? PersonWorks { get; set; }
+    [Parameter] public List<CollectionViewModel>? PersonWorks { get; set; }
     [Parameter] public IReadOnlyList<CharacterRoleDto> PersonCharacterRoles { get; set; } = [];
     [Parameter] public List<GroupMemberView>? GroupMembers { get; set; }
     [Parameter] public List<GroupMemberView>? MemberOfGroups { get; set; }
@@ -257,11 +257,11 @@
     [Parameter] public EventCallback<Guid> OnMemberClicked { get; set; }
 
     // Works grouped by the person's role for the "In Your Library" section.
-    // PersonWorks from GetWorksByPersonAsync returns HubViewModel items which carry
-    // the person's role via the HubType or DisplayName context.
+    // PersonWorks from GetWorksByPersonAsync returns CollectionViewModel items which carry
+    // the person's role via the CollectionType or DisplayName context.
     // For now we show all works under a single "Works" group; role-specific grouping
     // requires an API extension to return role per work.
-    private List<(string RoleLabel, List<HubViewModel> Works)> _roleGroups = [];
+    private List<(string RoleLabel, List<CollectionViewModel> Works)> _roleGroups = [];
 
     private bool _showAllWorks;
     private const int InitialWorksToShow = 5;
@@ -272,14 +272,14 @@
         _roleGroups = BuildRoleGroups();
     }
 
-    private List<(string RoleLabel, List<HubViewModel> Works)> BuildRoleGroups()
+    private List<(string RoleLabel, List<CollectionViewModel> Works)> BuildRoleGroups()
     {
         if (PersonWorks is null || PersonWorks.Count == 0)
             return [];
 
         // Group by media type to provide role-aware labelling where possible.
         // When the API is extended to return role-per-work, replace this with proper grouping.
-        var groups = new List<(string, List<HubViewModel>)>();
+        var groups = new List<(string, List<CollectionViewModel>)>();
 
         // Use the person's known roles to create meaningful headings
         var knownRoles = Person.Roles.Count > 0 ? Person.Roles : ["works"];

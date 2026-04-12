@@ -19,13 +19,13 @@
   "shell": {
     "appbar_style": "full",
     "logo_variant": "wordmark",
-    "intent_dock_items": ["Hubs", "Watch", "Read", "Listen"],
+    "intent_dock_items": ["Collections", "Watch", "Read", "Listen"],
     "intent_dock_style": "normal"
   },
   "pages": {
     "home": {
-      "hub_hero_enabled": true,
-      "hub_hero_layout": "two-column",
+      "collection_hero_enabled": true,
+      "collection_hero_layout": "two-column",
       "progress_cards_layout": "row",
       "bento_columns": 3,
       "bento_tile_style": "normal",

@@ -101,9 +101,9 @@ The processor also emits media type candidates when the format is ambiguous. See
 
 ### 5. Identify
 
-The Priority Cascade Engine scores all available claims for this file â€” from embedded metadata, filename parsing, and any prior library folder hints â€” and assigns the file to an existing Hub or creates a new one. This is where the title, author, series, and other canonical values are resolved.
+The Priority Cascade Engine scores all available claims for this file â€” from embedded metadata, filename parsing, and any prior library folder hints â€” and assigns the file to an existing Collection or creates a new one. This is where the title, author, series, and other canonical values are resolved.
 
-If multiple files from the same source folder have already been processed (e.g. a TV season with 22 episodes), the Engine uses **Ingestion Hinting**: the first file's resolved metadata is cached as a folder-level prior. Subsequent siblings receive the hub ID, QID, and bridge IDs from that prior as high-confidence claims, dramatically reducing the number of Wikidata lookups needed.
+If multiple files from the same source folder have already been processed (e.g. a TV season with 22 episodes), the Engine uses **Ingestion Hinting**: the first file's resolved metadata is cached as a folder-level prior. Subsequent siblings receive the collection ID, QID, and bridge IDs from that prior as high-confidence claims, dramatically reducing the number of Wikidata lookups needed.
 
 **Work deduplication fallback:** `MediaEntityChainFactory` checks whether a Work already exists before creating a new one (matching by title + author + media type via `IWorkRepository`). When `canonical_values` has not yet been populated for an in-flight asset, the deduplication check falls back to a raw `metadata_claims` lookup so that duplicate files arriving close together in time do not bypass the check. Duplicate files create a new Edition under the existing Work rather than creating a duplicate Work.
 
@@ -160,7 +160,7 @@ Hero banner generation (blur + vignette + grain, via SkiaSharp) runs during prom
 
 ### Manual Reclamation
 
-Staged files retain their fingerprint and metadata in the database. A user can manually resolve a staged file from the Dashboard â€” by dragging it to a Hub or providing a user-locked title â€” triggering promotion to the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+Staged files retain their fingerprint and metadata in the database. A user can manually resolve a staged file from the Dashboard â€” by dragging it to a Collection or providing a user-locked title â€” triggering promotion to the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
 
 On startup, if `{LibraryRoot}/.orphans/` exists and `.staging/` does not, the Engine renames the directory and updates all database file paths automatically.
 
@@ -349,7 +349,7 @@ The Vault Action Center surfaces `WritebackFailed` review items alongside other 
 | **Audiobooks** | M4B, MP3, M4A | Combined with Books under the `Books` category |
 | **TV** | MP4, MKV, AVI, WebM | Season/episode folder structure |
 | **Movies** | MP4, MKV, AVI, WebM | Single-work, flat folder structure |
-| **Music** | MP3, FLAC, OGG, M4A, WAV | Album = Hub, Track = Work |
+| **Music** | MP3, FLAC, OGG, M4A, WAV | Album = Collection, Track = Work |
 | **Comics** | CBZ, CBR | Sequential art; ComicInfo.xml metadata |
 
 **Future library types planned but not yet implemented:**

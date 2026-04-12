@@ -20,7 +20,7 @@ public sealed class ThemeService
     /// <summary>
     /// Legacy API — retained so existing callers compile. No-op: accent is fixed.
     /// </summary>
-    public void SetHubAccent(string hexColor) { }
+    public void SetCollectionAccent(string hexColor) { }
 
     // ── Theme construction ─────────────────────────────────────────────────────
 

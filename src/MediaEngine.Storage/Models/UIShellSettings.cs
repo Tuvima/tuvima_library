@@ -28,10 +28,10 @@ public sealed class UIShellSettings
 
     /// <summary>
     /// Intent names displayed on the floating dock. Default: all four intents.
-    /// Automotive restricts this to <c>["Hubs", "Listen"]</c>.
+    /// Automotive restricts this to <c>["Collections", "Listen"]</c>.
     /// </summary>
     [JsonPropertyName("intent_dock_items")]
-    public List<string> IntentDockItems { get; set; } = ["Hubs", "Watch", "Read", "Listen"];
+    public List<string> IntentDockItems { get; set; } = ["Collections", "Watch", "Read", "Listen"];
 
     /// <summary>
     /// Intent Dock sizing: <c>normal</c> (standard) or <c>oversized</c> (TV/automotive).

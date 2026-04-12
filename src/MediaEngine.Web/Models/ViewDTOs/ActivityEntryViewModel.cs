@@ -18,8 +18,8 @@ public sealed class ActivityEntryViewModel
     [JsonPropertyName("action_type")]
     public string ActionType { get; set; } = string.Empty;
 
-    [JsonPropertyName("hub_name")]
-    public string? HubName { get; set; }
+    [JsonPropertyName("collection_name")]
+    public string? CollectionName { get; set; }
 
     [JsonPropertyName("entity_id")]
     public string? EntityId { get; set; }
@@ -187,7 +187,7 @@ public sealed class ReviewRichData
 /// Structured rich data for FileIngested and MediaAdded activity entries.
 /// Deserialized from <see cref="ActivityEntryViewModel.ChangesJson"/>.
 /// Handles both JSON shapes: FileIngested uses <c>cover_url</c>/<c>organized_to</c>,
-/// MediaAdded uses <c>cover</c>/<c>organized_path</c>/<c>hub_name</c>.
+/// MediaAdded uses <c>cover</c>/<c>organized_path</c>/<c>collection_name</c>.
 /// </summary>
 public sealed class ActivityRichData
 {
@@ -249,8 +249,8 @@ public sealed class ActivityRichData
 
     // ── MediaAdded-specific fields ────────────────────────────────────────
 
-    [JsonPropertyName("hub_name")]
-    public string? HubName { get; set; }
+    [JsonPropertyName("collection_name")]
+    public string? CollectionName { get; set; }
 
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }

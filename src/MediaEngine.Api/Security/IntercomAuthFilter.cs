@@ -6,7 +6,7 @@ using MediaEngine.Domain.Contracts;
 namespace MediaEngine.Api.Security;
 
 /// <summary>
-/// SignalR hub filter that authenticates connections to <c>/hubs/intercom</c>.
+/// SignalR collection filter that authenticates connections to <c>/intercom</c>.
 ///
 /// Authentication sources (checked in order):
 /// 1. <c>X-Api-Key</c> header on the WebSocket upgrade request.

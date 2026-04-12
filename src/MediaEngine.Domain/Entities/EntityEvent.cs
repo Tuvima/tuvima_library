@@ -10,10 +10,10 @@ public sealed class EntityEvent
     /// <summary>Row primary key.</summary>
     public Guid Id { get; set; } = Guid.NewGuid();
 
-    /// <summary>The entity this event belongs to (work, person, hub, parent_hub).</summary>
+    /// <summary>The entity this event belongs to (work, person, collection, parent_collection).</summary>
     public Guid EntityId { get; set; }
 
-    /// <summary>Entity type discriminator: "Work", "Person", "Hub", "Universe".</summary>
+    /// <summary>Entity type discriminator: "Work", "Person", "Collection", "Universe".</summary>
     public string EntityType { get; set; } = "";
 
     /// <summary>
@@ -26,7 +26,7 @@ public sealed class EntityEvent
     /// User: user_field_edit, user_lock.
     /// Sync: sync_writeback, sync_reverted.
     /// Person: person_enriched, person_refreshed, person_pseudonym_linked.
-    /// Universe/Hub: universe_created, universe_refreshed, hub_created, hub_refreshed,
+    /// Universe/Collection: universe_created, universe_refreshed, collection_created, collection_refreshed,
     /// series_linked, series_unlinked.
     /// </summary>
     public string EventType { get; set; } = "";

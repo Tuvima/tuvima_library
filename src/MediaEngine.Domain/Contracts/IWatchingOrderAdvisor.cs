@@ -8,11 +8,11 @@ namespace MediaEngine.Domain.Contracts;
 public interface IWatchingOrderAdvisor
 {
     /// <summary>
-    /// Generate a recommended watching/reading order for a Hub or Parent Hub.
+    /// Generate a recommended watching/reading order for a Collection or Parent Collection.
     /// Uses text_fast model for on-demand responsiveness.
     /// </summary>
     Task<WatchingOrder> RecommendOrderAsync(
-        Guid hubId,
+        Guid collectionId,
         string orderType,
         CancellationToken ct = default);
 }

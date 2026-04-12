@@ -35,8 +35,8 @@ else
                 </div>
                 <div class="vua-row-meta">
                     @{
-                        var count = universe.IsParentHub ? universe.ChildHubCount : universe.WorkCount;
-                        var label = universe.IsParentHub ? "series" : "works";
+                        var count = universe.IsParentCollection ? universe.ChildCollectionCount : universe.WorkCount;
+                        var label = universe.IsParentCollection ? "series" : "works";
                     }
                     <span class="vua-row-count">@count @label</span>
                 </div>
@@ -48,13 +48,13 @@ else
 @code {
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
 
-    private List<HubViewModel> _universes = [];
+    private List<CollectionViewModel> _universes = [];
     private bool _loading = true;
 
     protected override async Task OnInitializedAsync()
     {
         _loading = true;
-        _universes = await ApiClient.GetParentHubsAsync() ?? [];
+        _universes = await ApiClient.GetParentCollectionsAsync() ?? [];
         _loading = false;
     }
 }

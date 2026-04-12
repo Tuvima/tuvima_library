@@ -23,11 +23,11 @@ public sealed class Work
     public Guid Id { get; set; }
 
     /// <summary>
-    /// Optional Hub for legacy ContentGroup grouping. Phase 4 collapses this
+    /// Optional Collection for legacy ContentGroup grouping. Phase 4 collapses this
     /// onto the new <see cref="ParentWorkId"/> hierarchy and the column is
     /// expected to disappear in a later migration.
     /// </summary>
-    public Guid? HubId { get; set; }
+    public Guid? CollectionId { get; set; }
 
     /// <summary>
     /// Wikidata Q-identifier for the specific work (book, film, etc.).

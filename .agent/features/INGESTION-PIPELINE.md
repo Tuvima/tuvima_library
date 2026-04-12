@@ -16,7 +16,7 @@ The user drops a file (book, movie, audiobook, comic) into a designated "Watch F
 4. **Scanning** — The appropriate reader (EPUB, video, audio, comic, or generic) opens the file and extracts all embedded information: title, author, year, cover art, series, etc.
 5. **Media Type Disambiguation** — For ambiguous formats (MP3, M4A, MP4), heuristic signals (duration, genre tags, chapter markers, filename patterns, folder context) vote on the most likely media type. High-confidence results are accepted automatically; uncertain ones are sent to the review queue.
 6. **Scoring** — The Weighted Voter evaluates all extracted data and determines the most trustworthy value for each field.
-7. **Hub assignment** — The system decides which Hub (story group) this file belongs to, or creates a new one.
+7. **Collection assignment** — The system decides which Collection (story group) this file belongs to, or creates a new one.
 7. **Organising** — If scoring confidence is high enough (≥85%) or the user has locked any metadata value, the file is moved to a clean, human-readable folder structure in the Library.
 8. **Sidecar writing** — A companion `library.xml` file is written alongside the organised file, preserving all metadata in a human-readable format.
 9. **Cover art** — The cover image is extracted and saved as `cover.jpg` next to the file.
@@ -62,7 +62,7 @@ All of this happens without the user lifting a finger after the initial folder s
 | Scoring integration | **PASS** | Per-field scoring with conflict detection. |
 | Auto-organisation | **PASS** | Confidence gate, template-based paths, collision-safe moves. |
 | Sidecar & cover art gate | **PASS** | Writes sidecar XML and cover.jpg whenever the file is in LibraryRoot (path-based check, not confidence re-check). |
-| Great Inhale (LibraryScanner) | **WARN** | Cannot restore the full Hub→Work→Edition→Asset chain after a complete database wipe. Only Hub records and existing-asset editions are restored. |
+| Great Inhale (LibraryScanner) | **WARN** | Cannot restore the full Collection→Work→Edition→Asset chain after a complete database wipe. Only Collection records and existing-asset editions are restored. |
 | Background enrichment | **PASS** | Non-blocking queue with 3-way concurrency. |
 | Person enrichment | **WARN** | Working, but the `PersonEnriched` SignalR event has an empty person name (known bug — passes `Guid.Empty` to asset lookup). |
 | Deleted file handling | **PASS** | LibraryReconciliationService scans for missing files on a configurable interval (default 24h). Orphaned assets are fully cleaned (DB + filesystem). Duplicate check also handles orphans when file is missing. |

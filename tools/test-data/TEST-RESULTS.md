@@ -161,7 +161,7 @@ Files: `dune.epub` + `dune-duplicate.epub` (identical content hash)
 
 ---
 
-#### TC-10 — Multi-format Hub co-location (Dune)
+#### TC-10 — Multi-format Collection co-location (Dune)
 Files: `dune.epub` + `dune-audiobook.m4b`
 
 | Field | Result |

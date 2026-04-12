@@ -140,8 +140,8 @@ public sealed class UISettingsCascadeResolver
     {
         Home = new UIHomePageSettings
         {
-            HubHeroEnabled      = source.Home.HubHeroEnabled,
-            HubHeroLayout       = source.Home.HubHeroLayout,
+            CollectionHeroEnabled      = source.Home.CollectionHeroEnabled,
+            CollectionHeroLayout       = source.Home.CollectionHeroLayout,
             ProgressCardsLayout = source.Home.ProgressCardsLayout,
             BentoColumns        = source.Home.BentoColumns,
             BentoTileStyle      = source.Home.BentoTileStyle,
@@ -191,8 +191,8 @@ public sealed class UISettingsCascadeResolver
     private static void MergePages(UIPageSettings target, UIPageSettings source)
     {
         // Home
-        target.Home.HubHeroEnabled      = source.Home.HubHeroEnabled;
-        target.Home.HubHeroLayout       = source.Home.HubHeroLayout;
+        target.Home.CollectionHeroEnabled      = source.Home.CollectionHeroEnabled;
+        target.Home.CollectionHeroLayout       = source.Home.CollectionHeroLayout;
         target.Home.ProgressCardsLayout = source.Home.ProgressCardsLayout;
         target.Home.BentoColumns        = source.Home.BentoColumns;
         target.Home.BentoTileStyle      = source.Home.BentoTileStyle;

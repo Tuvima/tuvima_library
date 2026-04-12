@@ -96,11 +96,11 @@ public sealed class HarvestRequest
     public Dictionary<string, string>? FolderHintBridgeIds { get; set; }
 
     /// <summary>
-    /// Hub ID suggested by the Ingestion Hint cache (sibling-aware priming).
-    /// When present, the Hub Arbiter evaluates this Hub first before running
+    /// Collection ID suggested by the Ingestion Hint cache (sibling-aware priming).
+    /// When present, the Collection Arbiter evaluates this Collection first before running
     /// the full candidate search.
     /// </summary>
-    public Guid? HintedHubId { get; set; }
+    public Guid? HintedCollectionId { get; set; }
 
     /// <summary>
     /// Which enrichment pass this request belongs to.

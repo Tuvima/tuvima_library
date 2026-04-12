@@ -4,7 +4,7 @@ namespace MediaEngine.Domain.Entities;
 
 /// <summary>
 /// A WhisperSync alignment job that maps ebook text to audiobook audio segments.
-/// Jobs are created when a Hub contains both an EPUB and an audiobook.
+/// Jobs are created when a Collection contains both an EPUB and an audiobook.
 /// </summary>
 public sealed class AlignmentJob
 {

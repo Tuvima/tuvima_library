@@ -88,7 +88,7 @@ body {
     cursor: pointer;
 }
 
-.automotive-tile .bento-hub-content {
+.automotive-tile .bento-collection-content {
     padding: 1.75rem 2rem !important;
     gap: 0.5rem;
 }
@@ -127,8 +127,8 @@ body {
     background: rgba(255, 255, 255, 0.03) !important;
 }
 
-/* ── Shared primary CTA button — used by HubHero + HubDetail ──────── */
-.hub-primary-cta {
+/* ── Shared primary CTA button — used by CollectionHero + CollectionDetail ──────── */
+.collection-primary-cta {
     position: relative;
     display: flex;
     flex-direction: column;
@@ -143,20 +143,20 @@ body {
     box-shadow: 0 4px 18px rgba(185, 120, 32, 0.30);
 }
 
-.hub-primary-cta:hover {
+.collection-primary-cta:hover {
     background: linear-gradient(135deg, #dda840 0%, #c08428 100%);
     border-color: rgba(0, 0, 0, 0.22);
     box-shadow: 0 6px 24px rgba(185, 120, 32, 0.50);
 }
 
-.hub-primary-cta-inner {
+.collection-primary-cta-inner {
     display: flex;
     align-items: center;
     gap: 12px;
     padding: clamp(13px, 1vw, 18px) clamp(20px, 1.6vw, 28px);
 }
 
-.hub-primary-cta-label {
+.collection-primary-cta-label {
     font-family: 'Montserrat', sans-serif;
     font-size: clamp(0.90rem, 1vw, 1.1rem);
     font-weight: 700;
@@ -165,7 +165,7 @@ body {
     white-space: nowrap;
 }
 
-.hub-primary-cta-progress {
+.collection-primary-cta-progress {
     position: absolute;
     bottom: 0;
     left: 0;
@@ -176,7 +176,7 @@ body {
 }
 
 /* ── Page ambient background — dominant colour radiates from hero across full viewport ── */
-/* Fixed behind all content, uses the hero hub's dominant hex colour as a soft top glow.  */
+/* Fixed behind all content, uses the hero collection's dominant hex colour as a soft top glow.  */
 .page-ambient-bg {
     position: fixed;
     inset: 0;
@@ -333,7 +333,7 @@ body {
 }
 
 /* -- Shared fixed-hero detail page layers ----------------------------------
-   Used by HubDetail and reusable for any future detail page. ---------------- */
+   Used by CollectionDetail and reusable for any future detail page. ---------------- */
 
 /* The hero image that sits fixed in the background while content scrolls. */
 .detail-hero-fixed {

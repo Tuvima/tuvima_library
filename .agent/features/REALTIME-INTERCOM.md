@@ -12,7 +12,7 @@ The Dashboard maintains a persistent, live connection to the Engine. When someth
 
 ### What the user sees
 
-- **New Hub tiles appear** in the grid as files are ingested.
+- **New Collection tiles appear** in the grid as files are ingested.
 - **Metadata enriches** — cover art, descriptions, and author details pop in moments after the initial scan.
 - **Folder health dots** on the Libraries tab turn green or red as folder accessibility changes.
 - If the connection drops, it **reconnects automatically** (0s → 2s → 10s → 30s backoff).
@@ -23,9 +23,9 @@ The Dashboard maintains a persistent, live connection to the Engine. When someth
 
 | Event | When it fires | What the Dashboard does |
 |-------|---------------|------------------------|
-| **MediaAdded** | A new Work is committed to the library. | Invalidates the Hub cache; grid refreshes. |
+| **MediaAdded** | A new Work is committed to the library. | Invalidates the Collection cache; grid refreshes. |
 | **IngestionProgress** | Active ingestion tick (per-file). | Updates the progress state (not yet surfaced in UI). |
-| **MetadataHarvested** | An external provider returned better metadata. | Invalidates the Hub cache; tile details update. |
+| **MetadataHarvested** | An external provider returned better metadata. | Invalidates the Collection cache; tile details update. |
 | **PersonEnriched** | Wikidata returned an author/narrator portrait. | Buffers the update (up to 50 items). |
 | **WatchFolderActive** | The Watch Folder path was changed. | Updates the state container. |
 | **FolderHealthChanged** | 30-second health probe detected a change. | Updates the folder health dots on the Libraries tab. |
@@ -63,4 +63,4 @@ The Dashboard maintains a persistent, live connection to the Engine. When someth
 
 ## PO Summary
 
-The real-time update system works reliably — new files, enriched metadata, and folder health changes all push to the Dashboard instantly with automatic reconnection on failure. The SignalR hub now requires authentication (Phase A Security Foundation). **One remaining concern: the PersonEnriched event sends an empty name (cosmetic bug).**
+The real-time update system works reliably — new files, enriched metadata, and folder health changes all push to the Dashboard instantly with automatic reconnection on failure. The SignalR collection now requires authentication (Phase A Security Foundation). **One remaining concern: the PersonEnriched event sends an empty name (cosmetic bug).**

@@ -317,7 +317,7 @@ public sealed class RepositoryTests : IDisposable
     public void TransactionJournal_LogAndPrune()
     {
         var journal = new TransactionJournal(_db);
-        journal.Log("HUB_CREATED", "Hub", Guid.NewGuid().ToString());
+        journal.Log("HUB_CREATED", "Collection", Guid.NewGuid().ToString());
         journal.Log("WORK_AUTO_LINKED", "Work", Guid.NewGuid().ToString());
         journal.Prune(1);
         Assert.True(true); // no exception = pass
@@ -334,20 +334,20 @@ public sealed class RepositoryTests : IDisposable
     };
 
     /// <summary>
-    /// Creates a Hub → Work → Edition chain in the database and returns the Edition ID.
+    /// Creates a Collection → Work → Edition chain in the database and returns the Edition ID.
     /// Required to satisfy the FK constraint on media_assets.edition_id.
     /// </summary>
     private async Task<Guid> CreateTestEditionAsync()
     {
         using var conn = _db.CreateConnection();
-        var hubId     = Guid.NewGuid();
+        var collectionId     = Guid.NewGuid();
         var workId    = Guid.NewGuid();
         var editionId = Guid.NewGuid();
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = $"""
-            INSERT INTO hubs (id, created_at) VALUES ('{hubId}', datetime('now'));
-            INSERT INTO works (id, hub_id, media_type) VALUES ('{workId}', '{hubId}', 'Epub');
+            INSERT INTO collections (id, created_at) VALUES ('{collectionId}', datetime('now'));
+            INSERT INTO works (id, collection_id, media_type) VALUES ('{workId}', '{collectionId}', 'Epub');
             INSERT INTO editions (id, work_id) VALUES ('{editionId}', '{workId}');
             """;
         await cmd.ExecuteNonQueryAsync();
@@ -370,20 +370,20 @@ public sealed class RepositoryTests : IDisposable
 }
 
 /// <summary>
-/// Tests for <see cref="HubRuleEvaluator.ComputeRuleHash"/> — verifies that
-/// the discriminator predicate technique produces distinct hashes for hubs
+/// Tests for <see cref="CollectionRuleEvaluator.ComputeRuleHash"/> — verifies that
+/// the discriminator predicate technique produces distinct hashes for collections
 /// with identical rules but different group_by_field values.
 /// </summary>
-public sealed class HubRuleEvaluatorHashTests
+public sealed class CollectionRuleEvaluatorHashTests
 {
     [Fact]
     public void SameRules_SameHash()
     {
-        var rules1 = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
-        var rules2 = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
+        var rules1 = new CollectionRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
+        var rules2 = new CollectionRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
 
-        var hash1 = HubRuleEvaluator.ComputeRuleHash(rules1);
-        var hash2 = HubRuleEvaluator.ComputeRuleHash(rules2);
+        var hash1 = CollectionRuleEvaluator.ComputeRuleHash(rules1);
+        var hash2 = CollectionRuleEvaluator.ComputeRuleHash(rules2);
 
         Assert.Equal(hash1, hash2);
     }
@@ -393,11 +393,11 @@ public sealed class HubRuleEvaluatorHashTests
     {
         // "All Books" (no group_by) and "Books by Series" (group_by=series)
         // should produce different hashes when a _group_by discriminator is added.
-        var baseRules = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
+        var baseRules = new CollectionRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };
 
-        var hashFlat = HubRuleEvaluator.ComputeRuleHash(baseRules);
-        var hashGrouped = HubRuleEvaluator.ComputeRuleHash(
-            [..baseRules, new HubRulePredicate { Field = "_group_by", Op = "eq", Value = "series" }]);
+        var hashFlat = CollectionRuleEvaluator.ComputeRuleHash(baseRules);
+        var hashGrouped = CollectionRuleEvaluator.ComputeRuleHash(
+            [..baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "series" }]);
 
         Assert.NotEqual(hashFlat, hashGrouped);
     }
@@ -406,12 +406,12 @@ public sealed class HubRuleEvaluatorHashTests
     public void DifferentGroupByFields_DifferentHashes()
     {
         // "Music by Artist" and "Music by Album" should produce different hashes.
-        var baseRules = new HubRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Music" } };
+        var baseRules = new CollectionRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Music" } };
 
-        var hashArtist = HubRuleEvaluator.ComputeRuleHash(
-            [..baseRules, new HubRulePredicate { Field = "_group_by", Op = "eq", Value = "artist" }]);
-        var hashAlbum = HubRuleEvaluator.ComputeRuleHash(
-            [..baseRules, new HubRulePredicate { Field = "_group_by", Op = "eq", Value = "album" }]);
+        var hashArtist = CollectionRuleEvaluator.ComputeRuleHash(
+            [..baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "artist" }]);
+        var hashAlbum = CollectionRuleEvaluator.ComputeRuleHash(
+            [..baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "album" }]);
 
         Assert.NotEqual(hashArtist, hashAlbum);
     }
@@ -419,14 +419,14 @@ public sealed class HubRuleEvaluatorHashTests
     [Fact]
     public void SameGroupBy_SameHash_Idempotent()
     {
-        var rules = new HubRulePredicate[]
+        var rules = new CollectionRulePredicate[]
         {
             new() { Field = "media_type", Op = "eq", Value = "Books" },
             new() { Field = "_group_by", Op = "eq", Value = "series" },
         };
 
-        var hash1 = HubRuleEvaluator.ComputeRuleHash(rules);
-        var hash2 = HubRuleEvaluator.ComputeRuleHash(rules);
+        var hash1 = CollectionRuleEvaluator.ComputeRuleHash(rules);
+        var hash2 = CollectionRuleEvaluator.ComputeRuleHash(rules);
 
         Assert.Equal(hash1, hash2);
     }

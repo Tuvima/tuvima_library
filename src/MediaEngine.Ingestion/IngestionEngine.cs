@@ -81,7 +81,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly ICanonicalValueRepository   _canonicalRepo;
     private readonly IRecursiveIdentityService   _identity;
 
-    // Hub → Work → Edition scaffold creation.
+    // Collection → Work → Edition scaffold creation.
     private readonly IMediaEntityChainFactory _chainFactory;
 
     // Review queue — created when confidence is too low or category is "Other".
@@ -1256,8 +1256,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         candidate.Metadata          = BuildMetadataDict(scored);
         candidate.DetectedMediaType = resolvedMediaType;
 
-        // Step 9b: create Hub → Work → Edition chain so the FK on media_assets
-        // can be satisfied.  The factory reuses an existing Hub when a matching
+        // Step 9b: create Collection → Work → Edition chain so the FK on media_assets
+        // can be satisfied.  The factory reuses an existing Collection when a matching
         // display name is found; otherwise it creates a fresh chain.
         var editionId = await _chainFactory.EnsureEntityChainAsync(
             resolvedMediaType,
@@ -1449,7 +1449,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             ActionType     = Domain.Enums.SystemActionType.HydrationEnqueued,
             EntityId       = assetId,
             EntityType     = "MediaAsset",
-            HubName        = resolvedTitle,
+            CollectionName        = resolvedTitle,
             ChangesJson    = JsonSerializer.Serialize(new { entity_id = assetId.ToString(), media_type = resolvedMediaType.ToString() }),
             Detail         = $"Queued for metadata enrichment ({resolvedMediaType})",
             IngestionRunId = ingestionRunId,
@@ -1485,7 +1485,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     ActionType     = Domain.Enums.SystemActionType.CoverArtSaved,
                     EntityId       = assetId,
                     EntityType     = "MediaAsset",
-                    HubName        = resolvedTitle,
+                    CollectionName        = resolvedTitle,
                     ChangesJson    = JsonSerializer.Serialize(new
                     {
                         cover_size_bytes = result.CoverImage.Length,
@@ -1532,7 +1532,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     ActionType     = Domain.Enums.SystemActionType.MetadataTagsWritten,
                     EntityId       = assetId,
                     EntityType     = "MediaAsset",
-                    HubName        = resolvedTitle,
+                    CollectionName        = resolvedTitle,
                     ChangesJson    = JsonSerializer.Serialize(new
                     {
                         tags_written  = tagsWritten,
@@ -1664,7 +1664,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             ActionType     = Domain.Enums.SystemActionType.FileIngested,
             EntityId       = assetId,
             EntityType     = "MediaAsset",
-            HubName        = resolvedTitle,
+            CollectionName        = resolvedTitle,
             ChangesJson    = finalRichJson,
             Detail         = outcome,
             IngestionRunId = ingestionRunId,

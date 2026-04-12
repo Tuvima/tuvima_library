@@ -206,8 +206,8 @@ public sealed class ScoringSettings
 {
     /// <summary>
     /// Minimum confidence score required for the arbiter to automatically link
-    /// a Work to an existing Hub without human review.
-    /// Spec: Phase 6 – Hub Integrity invariant.
+    /// a Work to an existing Collection without human review.
+    /// Spec: Phase 6 – Collection Integrity invariant.
     /// </summary>
     [JsonPropertyName("auto_link_threshold")]
     public double AutoLinkThreshold { get; set; } = 0.85;

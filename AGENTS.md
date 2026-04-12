@@ -8,7 +8,7 @@ Important naming note: the product is branded as **Tuvima Library**, but most of
 
 At runtime, the system is mostly split into two apps:
 
-- `src/MediaEngine.Api` is the main Engine. It hosts the API, ingestion pipeline, database wiring, provider integrations, AI services, background jobs, health checks, and SignalR event hub.
+- `src/MediaEngine.Api` is the main Engine. It hosts the API, ingestion pipeline, database wiring, provider integrations, AI services, background jobs, health checks, and SignalR event collection.
 - `src/MediaEngine.Web` is the Dashboard. It is the user-facing UI and talks to the Engine over HTTP and SignalR.
 
 There is also a standalone `src/MediaEngine.Ingestion` worker host, but the main development/runtime path today is the Engine (`MediaEngine.Api`) plus the Dashboard (`MediaEngine.Web`).
@@ -48,7 +48,7 @@ There is also a standalone `src/MediaEngine.Ingestion` worker host, but the main
 - `src/MediaEngine.Domain`
   - The shared language of the system.
   - Holds core aggregates, entities, enums, constants, and interfaces.
-  - This project defines things like assets, editions, works, hubs, universes, profiles, and the contracts other layers implement.
+  - This project defines things like assets, editions, works, collections, universes, profiles, and the contracts other layers implement.
 
 - `src/MediaEngine.Storage`
   - SQLite repositories, embedded schema bootstrap, startup migrations, and config loading.
@@ -65,7 +65,7 @@ There is also a standalone `src/MediaEngine.Ingestion` worker host, but the main
 
 - `src/MediaEngine.Intelligence`
   - Decides which metadata wins when sources disagree.
-  - Handles scoring, fuzzy matching, identity matching, and hub arbitration.
+  - Handles scoring, fuzzy matching, identity matching, and collection arbitration.
   - The key mental model is "decision logic," not storage or UI.
 
 - `src/MediaEngine.Providers`
@@ -155,12 +155,12 @@ These are the most important concepts:
   - The underlying story or title, independent of format.
   - Example: the idea of *Dune* as a book or film title, not one specific file.
 
-- **Hub**
+- **Collection**
   - The main grouping/browsing container for related works.
-  - Depending on context, a hub may behave like a universe, a smart collection, a system list, a mix, or another discovery surface.
+  - Depending on context, a collection may behave like a universe, a smart collection, a system list, a mix, or another discovery surface.
 
 - **Universe**
-  - A larger umbrella that can contain multiple hubs.
+  - A larger umbrella that can contain multiple collections.
   - Useful when several related groups belong to one broader narrative world.
 
 - **Profile**
@@ -173,7 +173,7 @@ These are the most important concepts:
 The easiest way to explain the hierarchy is:
 
 ```text
-file on disk -> MediaAsset -> Edition -> Work -> Hub -> Universe
+file on disk -> MediaAsset -> Edition -> Work -> Collection -> Universe
 ```
 
 Not every item reaches every level. Some files remain standalone if the system cannot confidently link them to a larger story world.

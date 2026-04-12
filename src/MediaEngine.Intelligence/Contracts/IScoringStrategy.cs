@@ -2,7 +2,7 @@ namespace MediaEngine.Intelligence.Contracts;
 
 /// <summary>
 /// Extension point for pluggable string-comparison algorithms used by
-/// <see cref="IIdentityMatcher"/> when computing Hub-matching similarity scores.
+/// <see cref="IIdentityMatcher"/> when computing Collection-matching similarity scores.
 ///
 /// ──────────────────────────────────────────────────────────────────
 /// Strategy selection (spec: Phase 6 – IScoringStrategy extension point)

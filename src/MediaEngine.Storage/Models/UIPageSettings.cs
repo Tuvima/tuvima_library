@@ -22,17 +22,17 @@ public sealed class UIPageSettings
 /// </summary>
 public sealed class UIHomePageSettings
 {
-    /// <summary>Whether the hero card for the most-accessed Hub is shown.</summary>
-    [JsonPropertyName("hub_hero_enabled")]
-    public bool HubHeroEnabled { get; set; } = true;
+    /// <summary>Whether the hero card for the most-accessed Collection is shown.</summary>
+    [JsonPropertyName("collection_hero_enabled")]
+    public bool CollectionHeroEnabled { get; set; } = true;
 
     /// <summary>
     /// Hero card layout: <c>two-column</c> (artwork + info side by side),
     /// <c>stacked</c> (artwork above info), <c>two-column-oversized</c> (TV),
     /// <c>hidden</c> (automotive).
     /// </summary>
-    [JsonPropertyName("hub_hero_layout")]
-    public string HubHeroLayout { get; set; } = "two-column";
+    [JsonPropertyName("collection_hero_layout")]
+    public string CollectionHeroLayout { get; set; } = "two-column";
 
     /// <summary>
     /// Progress indicator card layout: <c>row</c> (horizontal),
@@ -48,7 +48,7 @@ public sealed class UIHomePageSettings
 
     /// <summary>
     /// Tile style: <c>normal</c>, <c>large</c> (TV — larger min-height + font),
-    /// <c>audio-only</c> (automotive — filters to audio Hubs).
+    /// <c>audio-only</c> (automotive — filters to audio Collections).
     /// </summary>
     [JsonPropertyName("bento_tile_style")]
     public string BentoTileStyle { get; set; } = "normal";

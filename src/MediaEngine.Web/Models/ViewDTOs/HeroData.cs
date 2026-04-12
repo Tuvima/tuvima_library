@@ -5,7 +5,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
 /// Unified data shape for the hero banner component.
-/// Normalizes both <see cref="HubViewModel"/> and <see cref="JourneyItemViewModel"/>
+/// Normalizes both <see cref="CollectionViewModel"/> and <see cref="JourneyItemViewModel"/>
 /// into a single rendering contract.
 /// </summary>
 public sealed record HeroData
@@ -53,35 +53,35 @@ public sealed record HeroData
 
     // ── Factory methods ─────────────────────────────────────────────────────
 
-    /// <summary>Create hero data from a Hub (lane pages, non-journey carousel slides).</summary>
-    public static HeroData FromHub(HubViewModel hub) => new()
+    /// <summary>Create hero data from a Collection (lane pages, non-journey carousel slides).</summary>
+    public static HeroData FromCollection(CollectionViewModel collection) => new()
     {
-        EntityId       = hub.Id,
-        Title          = hub.DisplayName,
-        Author         = hub.Author,
-        Description    = Truncate(hub.Description, 200),
-        CoverUrl       = hub.CoverUrl,
-        HeroUrl        = hub.HeroUrl,
-        DominantColor  = hub.DominantHexColor,
-        Year           = hub.Year,
-        MediaTypeLabel = FormatLabel(hub.PrimaryMediaType),
-        Genre          = hub.Genre,
-        Genres         = hub.Genres,
-        GenreQids      = hub.GenreQids,
-        Rating         = hub.Rating,
-        Series         = hub.Series,
+        EntityId       = collection.Id,
+        Title          = collection.DisplayName,
+        Author         = collection.Author,
+        Description    = Truncate(collection.Description, 200),
+        CoverUrl       = collection.CoverUrl,
+        HeroUrl        = collection.HeroUrl,
+        DominantColor  = collection.DominantHexColor,
+        Year           = collection.Year,
+        MediaTypeLabel = FormatLabel(collection.PrimaryMediaType),
+        Genre          = collection.Genre,
+        Genres         = collection.Genres,
+        GenreQids      = collection.GenreQids,
+        Rating         = collection.Rating,
+        Series         = collection.Series,
     };
 
     /// <summary>Create hero data from an individual Work (carousel slides, work-level display).</summary>
-    public static HeroData FromWork(WorkViewModel work, HubViewModel? parentHub = null) => new()
+    public static HeroData FromWork(WorkViewModel work, CollectionViewModel? parentCollection = null) => new()
     {
         EntityId       = work.Id,
         Title          = work.Title,
         Author         = work.Author,
         Description    = Truncate(work.Description, 200),
-        CoverUrl       = work.CoverUrl ?? parentHub?.CoverUrl,
-        HeroUrl        = work.HeroUrl ?? parentHub?.HeroUrl,
-        DominantColor  = parentHub?.DominantHexColor,
+        CoverUrl       = work.CoverUrl ?? parentCollection.CoverUrl,
+        HeroUrl        = work.HeroUrl ?? parentCollection.HeroUrl,
+        DominantColor  = parentCollection.DominantHexColor,
         Year           = work.Year,
         MediaTypeLabel = FormatLabel(work.MediaType),
         Genre          = work.Genre,
@@ -95,9 +95,9 @@ public sealed record HeroData
     /// <summary>Create hero data from a journey item (carousel slides with progress).</summary>
     public static HeroData FromJourney(JourneyItemViewModel item) => new()
     {
-        EntityId       = item.HubId,
+        EntityId       = item.CollectionId,
         Title          = item.Title,
-        Subtitle       = item.HubDisplayName,
+        Subtitle       = item.CollectionDisplayName,
         Author         = item.Author,
         Narrator       = item.Narrator != item.Author ? item.Narrator : null,
         Description    = Truncate(item.Description, 200),
@@ -112,26 +112,26 @@ public sealed record HeroData
     };
 
     /// <summary>
-    /// Create hero data from a Hub with an active journey overlay
-    /// (lane pages where the hero hub has progress).
+    /// Create hero data from a Collection with an active journey overlay
+    /// (lane pages where the hero collection has progress).
     /// </summary>
-    public static HeroData FromHubWithJourney(HubViewModel hub, JourneyItemViewModel journey) => new()
+    public static HeroData FromCollectionWithJourney(CollectionViewModel collection, JourneyItemViewModel journey) => new()
     {
-        EntityId       = hub.Id,
-        Title          = hub.DisplayName,
+        EntityId       = collection.Id,
+        Title          = collection.DisplayName,
         // Subtitle is set by the caller via PhraseTemplateService
-        Author         = hub.Author,
-        Description    = Truncate(hub.Description, 200),
-        CoverUrl       = hub.CoverUrl,
-        HeroUrl        = hub.HeroUrl,
-        DominantColor  = hub.DominantHexColor,
-        Year           = hub.Year,
-        MediaTypeLabel = FormatLabel(hub.PrimaryMediaType),
-        Genre          = hub.Genre,
-        Genres         = hub.Genres,
-        GenreQids      = hub.GenreQids,
-        Rating         = hub.Rating,
-        Series         = hub.Series,
+        Author         = collection.Author,
+        Description    = Truncate(collection.Description, 200),
+        CoverUrl       = collection.CoverUrl,
+        HeroUrl        = collection.HeroUrl,
+        DominantColor  = collection.DominantHexColor,
+        Year           = collection.Year,
+        MediaTypeLabel = FormatLabel(collection.PrimaryMediaType),
+        Genre          = collection.Genre,
+        Genres         = collection.Genres,
+        GenreQids      = collection.GenreQids,
+        Rating         = collection.Rating,
+        Series         = collection.Series,
         ActionLabel    = journey.ActionLabel,
         ActionIcon     = IconForMediaType(journey.MediaType),
         ProgressPct    = journey.ProgressPct,

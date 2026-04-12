@@ -262,10 +262,10 @@ else
     /// <summary>Fires when the edit button on a row is clicked. Opens the detail drawer.</summary>
     [Parameter] public EventCallback<Guid> OnItemEditClicked { get; set; }
 
-    /// <summary>For artist view: list of album hub IDs to combine into a multi-album view.</summary>
-    [Parameter] public List<Guid>? ArtistAlbumHubIds { get; set; }
+    /// <summary>For artist view: list of album collection IDs to combine into a multi-album view.</summary>
+    [Parameter] public List<Guid>? ArtistAlbumCollectionIds { get; set; }
 
-    /// <summary>For artist view with system hubs: the artist name to query by when album hub IDs are unavailable.</summary>
+    /// <summary>For artist view with system collections: the artist name to query by when album collection IDs are unavailable.</summary>
     [Parameter] public string? ArtistName { get; set; }
 
     /// <summary>For system-view drill-downs: the group name (show name, series name, etc.) to query by.</summary>
@@ -277,10 +277,10 @@ else
     /// <summary>For system-view drill-downs: the media type filter.</summary>
     [Parameter] public string? MediaType { get; set; }
 
-    /// <summary>Fires when an album tile is clicked in the artist view. Passes the album hub ID.</summary>
+    /// <summary>Fires when an album tile is clicked in the artist view. Passes the album collection ID.</summary>
     [Parameter] public EventCallback<Guid> OnAlbumTileClicked { get; set; }
 
-    /// <summary>Fires when an album tile is clicked but no concrete hub id is available.
+    /// <summary>Fires when an album tile is clicked but no concrete collection id is available.
     /// Passes the album name so the host can route to a system-view drill-down.</summary>
     [Parameter] public EventCallback<string> OnAlbumNameClicked { get; set; }
 
@@ -289,17 +289,17 @@ else
 
     // ── Private state ────────────────────────────────────────────────────────────
 
-    private HubGroupDetailViewModel? _detail;
+    private CollectionGroupDetailViewModel? _detail;
     private bool _loading = true;
     private HashSet<Guid> _selectedItems = [];
     private HashSet<int> _collapsedSeasons = [];
     private string? _lastLoadedCacheKey;
 
     /// <summary>Composite key of all parameters that affect data loading.
-    /// For system view groups the GroupId is the same system hub —
+    /// For system view groups the GroupId is the same system collection —
     /// GroupName/ArtistName distinguishes them.</summary>
     private string GetCacheKey() =>
-        $"{GroupId}|{GroupType}|{ArtistName}|{GroupName}|{GroupField}|{string.Join(",", ArtistAlbumHubIds ?? [])}";
+        $"{GroupId}|{GroupType}|{ArtistName}|{GroupName}|{GroupField}|{string.Join(",", ArtistAlbumCollectionIds ?? [])}";
 
     // ── Lifecycle ────────────────────────────────────────────────────────────────
 
@@ -316,9 +316,9 @@ else
         _selectedItems = [];
         StateHasChanged();
 
-        if (GroupType == "artist" && ArtistAlbumHubIds is { Count: > 0 })
+        if (GroupType == "artist" && ArtistAlbumCollectionIds is { Count: > 0 })
         {
-            _detail = await ApiClient.GetArtistGroupDetailAsync(ArtistAlbumHubIds);
+            _detail = await ApiClient.GetArtistGroupDetailAsync(ArtistAlbumCollectionIds);
         }
         else if (GroupType == "artist" || string.Equals(GroupField, "artist", StringComparison.OrdinalIgnoreCase))
         {
@@ -338,7 +338,7 @@ else
         }
         else
         {
-            _detail = await ApiClient.GetHubGroupDetailAsync(GroupId);
+            _detail = await ApiClient.GetCollectionGroupDetailAsync(GroupId);
         }
 
         _loading = false;
@@ -410,7 +410,7 @@ else
             await OnPersonClicked.InvokeAsync(personId);
     }
 
-    private async Task HandleCastChipClick(HubGroupPersonViewModel actor)
+    private async Task HandleCastChipClick(CollectionGroupPersonViewModel actor)
     {
         if (actor.PersonId is { } personId && OnPersonClicked.HasDelegate)
             await OnPersonClicked.InvokeAsync(personId);
@@ -465,7 +465,7 @@ else
     // ── Render helpers ───────────────────────────────────────────────────────────
 
     private RenderFragment RenderWorkList(
-        List<HubGroupWorkViewModel> items,
+        List<CollectionGroupWorkViewModel> items,
         bool showTrackNumber   = false,
         bool showEpisodeNumber = false,
         bool showSequence      = false) => builder =>

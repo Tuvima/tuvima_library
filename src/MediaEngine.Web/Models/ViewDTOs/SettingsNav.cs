@@ -60,7 +60,7 @@ public static class SettingsNav
         new("Providers", "Providers",
             Icons.Material.Outlined.Share, true,
         [
-            new(SettingsSection.ProviderPriority, Icons.Material.Outlined.Hub,    "Providers", true, null),
+            new(SettingsSection.ProviderPriority, Icons.Material.Outlined.Collections,    "Providers", true, null),
             new(SettingsSection.WikidataConfig,   Icons.Material.Outlined.Public, "Wikidata",  true, null),
         ]),
 
