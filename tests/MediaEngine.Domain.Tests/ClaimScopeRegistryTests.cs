@@ -47,10 +47,12 @@ public class ClaimScopeRegistryTests
     // ── Movies (no parent) ───────────────────────────────────────────────
 
     [Fact]
-    public void Movies_Year_StaysSelf()
+    public void Movies_Year_RoutesToParent()
     {
-        // Year on a movie is the movie's own release year — Self.
-        Assert.Equal(ClaimScope.Self,
+        // Year on a movie is stored at the Work level (Parent) for storage
+        // uniformity — all reader queries look up canonical values on works.id.
+        // Movies are standalone so Parent collapses to the movie's own Work id.
+        Assert.Equal(ClaimScope.Parent,
             ClaimScopeRegistry.GetScope(MetadataFieldConstants.Year, MediaType.Movies));
     }
 

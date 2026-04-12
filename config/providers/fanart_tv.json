@@ -42,7 +42,8 @@
     }
   ],
 
-  "field_mappings": {
+  "image_type_reference": {
+    "_note": "Reference only — consumed by ImageEnrichmentService (hardcoded), not ConfigDrivenAdapter.",
     "Movies": {
       "movieposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
       "moviebackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },

@@ -1681,6 +1681,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (string.IsNullOrWhiteSpace(searchTitle))
                 searchTitle = request.Title;
 
+            // For books and audiobooks, strip edition markers and genre-subtitle suffixes
+            // that confuse CirrusSearch: "(Unabridged)", ": A Novel", "- A Memoir", etc.
+            if (request.MediaType is MediaType.Audiobooks or MediaType.Books)
+            {
+                var cleaned = CleanAudiobookTitle(searchTitle);
+                if (!string.IsNullOrWhiteSpace(cleaned))
+                    searchTitle = cleaned;
+            }
+
             // Guard: do not attempt reconciliation when media type is unknown.
             // Unknown media type means P31 filtering cannot be applied, leading to
             // misidentification (e.g. novels matching video games or sculptures).
@@ -2974,6 +2983,45 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// Normalises a BCP-47 language tag to its primary subtag (e.g. "en-US" → "en").
     /// Returns "en" when the input is null or empty.
     /// </summary>
+    /// <summary>
+    /// Cleans an audiobook (or book) title before Wikidata reconciliation by stripping
+    /// edition markers and genre-subtitle suffixes that confuse CirrusSearch.
+    /// <list type="bullet">
+    ///   <item><c>"Project Hail Mary (Unabridged)"</c> → <c>"Project Hail Mary"</c></item>
+    ///   <item><c>"Dune: A Novel"</c> → <c>"Dune"</c></item>
+    ///   <item><c>"Where the Crawdads Sing A Novel"</c> → <c>"Where the Crawdads Sing"</c></item>
+    /// </list>
+    /// Preserves "Unabridged" when it is part of the title itself (e.g. "The Unabridged Story")
+    /// and "A Novel" when it appears in the middle of a title (e.g. "A Novel Approach to Chess").
+    /// </summary>
+    internal static string CleanAudiobookTitle(string title)
+    {
+        if (string.IsNullOrEmpty(title))
+            return string.Empty;
+
+        var cleaned = title;
+
+        // Strip parenthesized/bracketed edition markers: (Unabridged), [Unabridged],
+        // (Abridged), (Audiobook).
+        cleaned = Regex.Replace(cleaned,
+            @"\s*[\[\(](Unabridged|Abridged|Audiobook)[\]\)]\s*$",
+            string.Empty, RegexOptions.IgnoreCase);
+
+        // Strip subtitle suffix introduced by ":" or "-": ": A Novel", "- A Memoir", etc.
+        // The trailing descriptor must be a known genre/format word.
+        cleaned = Regex.Replace(cleaned,
+            @"\s*[-–—:]\s+(A|An)\s+(Novel|Memoir|Thriller|Story|Tale|Journey|Mystery|Romance)\s*$",
+            string.Empty, RegexOptions.IgnoreCase);
+
+        // Strip trailing "A Novel" / "A Memoir" without any separator.
+        // Only removes when at the END of the title — "A Novel Approach to Chess" is preserved.
+        cleaned = Regex.Replace(cleaned,
+            @"\s+(A|An)\s+(Novel|Memoir|Thriller|Story|Tale|Journey|Mystery|Romance)\s*$",
+            string.Empty, RegexOptions.IgnoreCase);
+
+        return cleaned.Trim();
+    }
+
     private static string NormalizeLang(string? lang)
     {
         if (string.IsNullOrWhiteSpace(lang))

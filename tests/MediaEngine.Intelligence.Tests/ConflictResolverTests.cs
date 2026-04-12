@@ -52,11 +52,39 @@ public sealed class ConflictResolverTests
         Assert.False(titleScore.IsConflicted);
     }
 
-    // ── Most recent Wikidata claim wins when multiple Wikidata claims exist ───
+    // ── Most recent Wikidata claim wins when confidence is equal (tiebreaker) ──
+    // Primary rule: highest confidence wins. "Most recent" is only the tiebreaker
+    // when two Wikidata claims have the same confidence.
 
     [Fact]
-    public async Task MultipleWikidataClaims_MostRecentWins()
+    public async Task MultipleWikidataClaims_SameConfidence_MostRecentWins()
     {
+        var engine = CreateEngine();
+
+        var older = MakeClaim("title", "Old Wikidata Title", WikidataProviderId, 0.9);
+        older.ClaimedAt = DateTimeOffset.UtcNow.AddDays(-10);
+
+        var newer = MakeClaim("title", "New Wikidata Title", WikidataProviderId, 0.9);
+        newer.ClaimedAt = DateTimeOffset.UtcNow;
+
+        var context = new ScoringContext
+        {
+            EntityId = EntityId,
+            Claims = [older, newer],
+            ProviderWeights = new Dictionary<Guid, double> { [WikidataProviderId] = 1.0 },
+            Configuration = DefaultConfig,
+        };
+
+        var result = await engine.ScoreEntityAsync(context);
+
+        var titleScore = result.FieldScores.First(f => f.Key == "title");
+        Assert.Equal("New Wikidata Title", titleScore.WinningValue);
+    }
+
+    [Fact]
+    public async Task MultipleWikidataClaims_HigherConfidenceWins_RegardlessOfAge()
+    {
+        // Higher confidence beats recency — the older-but-more-confident claim wins.
         var engine = CreateEngine();
 
         var older = MakeClaim("title", "Old Wikidata Title", WikidataProviderId, 0.9);
@@ -76,7 +104,7 @@ public sealed class ConflictResolverTests
         var result = await engine.ScoreEntityAsync(context);
 
         var titleScore = result.FieldScores.First(f => f.Key == "title");
-        Assert.Equal("New Wikidata Title", titleScore.WinningValue);
+        Assert.Equal("Old Wikidata Title", titleScore.WinningValue);
     }
 
     // ── Tie-breaking on confidence uses most recent ClaimedAt ─────────────────
