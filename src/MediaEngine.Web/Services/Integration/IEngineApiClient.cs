@@ -732,6 +732,26 @@ public interface IEngineApiClient
     /// <summary>POST /vault/batch-edit — apply batch field edits to multiple items.</summary>
     Task<VaultBatchEditResultViewModel?> BatchEditAsync(
         List<Guid> entityIds, Dictionary<string, string> fieldChanges, CancellationToken ct = default);
+
+    // ── Universe Alignment ──
+
+    /// <summary>GET /vault/universe-candidates — works with universe QIDs but no hub assignment.</summary>
+    Task<List<UniverseCandidateViewModel>> GetUniverseCandidatesAsync(CancellationToken ct = default);
+
+    /// <summary>POST /vault/universe-candidates/{workId}/accept — accept a universe assignment.</summary>
+    Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetHubQid, CancellationToken ct = default);
+
+    /// <summary>POST /vault/universe-candidates/{workId}/reject — reject a universe candidate.</summary>
+    Task<bool> RejectUniverseCandidateAsync(Guid workId, CancellationToken ct = default);
+
+    /// <summary>POST /vault/universe-candidates/batch-accept — batch accept universe assignments.</summary>
+    Task<int> BatchAcceptUniverseCandidatesAsync(List<Guid> workIds, CancellationToken ct = default);
+
+    /// <summary>GET /vault/universe-unlinked — works with QID but no universe properties.</summary>
+    Task<List<UnlinkedWorkViewModel>> GetUniverseUnlinkedAsync(CancellationToken ct = default);
+
+    /// <summary>POST /vault/universe-assign — manually assign a work to a hub.</summary>
+    Task<bool> ManualUniverseAssignAsync(Guid workId, Guid hubId, CancellationToken ct = default);
 }
 
 

@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Storage.Models;
@@ -3865,6 +3866,71 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             return null;
         }
+    }
+
+    // ── Universe Alignment ──
+
+    public async Task<List<UniverseCandidateViewModel>> GetUniverseCandidatesAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<UniverseCandidateViewModel>>("vault/universe-candidates", ct) ?? [];
+        }
+        catch { return []; }
+    }
+
+    public async Task<bool> AcceptUniverseCandidateAsync(Guid workId, string targetHubQid, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"vault/universe-candidates/{workId}/accept",
+                new { target_hub_qid = targetHubQid }, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> RejectUniverseCandidateAsync(Guid workId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"vault/universe-candidates/{workId}/reject", new { }, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
+    }
+
+    public async Task<int> BatchAcceptUniverseCandidatesAsync(List<Guid> workIds, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("vault/universe-candidates/batch-accept",
+                new { work_ids = workIds }, ct);
+            if (!response.IsSuccessStatusCode) return 0;
+            var result = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+            return result.TryGetProperty("accepted_count", out var count) ? count.GetInt32() : 0;
+        }
+        catch { return 0; }
+    }
+
+    public async Task<List<UnlinkedWorkViewModel>> GetUniverseUnlinkedAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<UnlinkedWorkViewModel>>("vault/universe-unlinked", ct) ?? [];
+        }
+        catch { return []; }
+    }
+
+    public async Task<bool> ManualUniverseAssignAsync(Guid workId, Guid hubId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync("vault/universe-assign",
+                new { work_id = workId, hub_id = hubId }, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch { return false; }
     }
 }
 

@@ -2,6 +2,7 @@ using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -274,6 +275,240 @@ public static class VaultEndpoints
         .WithName("ApplyBatchEdit")
         .WithSummary("Apply batch field edits to multiple items.")
         .Produces<VaultBatchEditResult>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── GET /vault/universe-candidates ───────────────────────────────
+        group.MapGet("/universe-candidates", async (IDatabaseConnection db, CancellationToken ct) =>
+        {
+            using var conn = db.CreateConnection();
+
+            // Find works that have series_qid/franchise_qid/fictional_universe_qid in canonical_values
+            // but are NOT assigned to a hub (works.hub_id IS NULL)
+            var candidates = await conn.QueryAsync<UniverseCandidateDto>("""
+                SELECT DISTINCT
+                    w.id AS WorkId,
+                    ma.id AS EntityId,
+                    COALESCE(cv_title.value, w.title, 'Unknown') AS Title,
+                    COALESCE(cv_mt.value, '') AS MediaType,
+                    COALESCE(cv_sq.value, cv_fq.value, cv_uq.value) AS CandidateQid,
+                    CASE
+                        WHEN cv_sq.value IS NOT NULL THEN 'series'
+                        WHEN cv_fq.value IS NOT NULL THEN 'franchise'
+                        ELSE 'universe'
+                    END AS CandidateType,
+                    COALESCE(cv_sq.value, cv_fq.value, cv_uq.value) AS CandidateLabel
+                FROM works w
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                LEFT JOIN canonical_values cv_title ON cv_title.entity_id = ma.id AND cv_title.key = 'title'
+                LEFT JOIN canonical_values cv_mt ON cv_mt.entity_id = ma.id AND cv_mt.key = 'media_type'
+                LEFT JOIN canonical_values cv_sq ON cv_sq.entity_id = ma.id AND cv_sq.key = 'series_qid'
+                    AND cv_sq.value IS NOT NULL AND cv_sq.value != ''
+                LEFT JOIN canonical_values cv_fq ON cv_fq.entity_id = ma.id AND cv_fq.key = 'franchise_qid'
+                    AND cv_fq.value IS NOT NULL AND cv_fq.value != ''
+                LEFT JOIN canonical_values cv_uq ON cv_uq.entity_id = ma.id AND cv_uq.key = 'fictional_universe_qid'
+                    AND cv_uq.value IS NOT NULL AND cv_uq.value != ''
+                LEFT JOIN canonical_values cv_review ON cv_review.entity_id = ma.id AND cv_review.key = 'universe_review_status'
+                WHERE w.hub_id IS NULL
+                  AND (cv_sq.value IS NOT NULL OR cv_fq.value IS NOT NULL OR cv_uq.value IS NOT NULL)
+                  AND (cv_review.value IS NULL OR cv_review.value != 'rejected')
+                ORDER BY cv_title.value
+                LIMIT 200
+                """);
+
+            return Results.Ok(candidates.ToList());
+        })
+        .WithName("GetUniverseCandidates")
+        .WithSummary("Items with universe-related QIDs but no hub assignment.")
+        .Produces<List<UniverseCandidateDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── POST /vault/universe-candidates/{workId}/accept ──────────────
+        group.MapPost("/universe-candidates/{workId:guid}/accept", async (
+            Guid workId,
+            UniverseAcceptRequest request,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            // Find or create the hub for the target QID
+            var hub = await hubRepo.FindByQidAsync(request.TargetHubQid, ct);
+            if (hub is null)
+            {
+                // Create a new ContentGroup hub for this QID
+                hub = new Hub
+                {
+                    Id = Guid.NewGuid(),
+                    WikidataQid = request.TargetHubQid,
+                    DisplayName = request.TargetHubQid, // Will be enriched later
+                    HubType = "ContentGroup",
+                    Resolution = "materialized",
+                    Scope = "library",
+                    IsEnabled = true,
+                };
+                await hubRepo.UpsertAsync(hub, ct);
+            }
+
+            await hubRepo.AssignWorkToHubAsync(workId, hub.Id, ct);
+            return Results.Ok(new { assigned = true, hub_id = hub.Id });
+        })
+        .WithName("AcceptUniverseCandidate")
+        .WithSummary("Accept a universe assignment for a work.")
+        .RequireAdminOrCurator();
+
+        // ── POST /vault/universe-candidates/{workId}/reject ──────────────
+        group.MapPost("/universe-candidates/{workId:guid}/reject", async (
+            Guid workId,
+            ICanonicalValueRepository canonicalRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            // Find the entity ID (media asset) for this work
+            using var conn = db.CreateConnection();
+            var entityId = await conn.QueryFirstOrDefaultAsync<Guid?>("""
+                SELECT ma.id FROM media_assets ma
+                INNER JOIN editions e ON e.id = ma.edition_id
+                WHERE e.work_id = @workId
+                LIMIT 1
+                """, new { workId });
+
+            if (entityId is null)
+                return Results.NotFound();
+
+            // Mark as reviewed/rejected so it doesn't reappear in the pending queue
+            await canonicalRepo.UpsertBatchAsync([new CanonicalValue
+            {
+                EntityId = entityId.Value,
+                Key = "universe_review_status",
+                Value = "rejected",
+                LastScoredAt = DateTimeOffset.UtcNow,
+                IsConflicted = false,
+                WinningProviderId = WellKnownProviders.UserManual,
+                NeedsReview = false,
+            }], ct);
+
+            return Results.Ok(new { rejected = true });
+        })
+        .WithName("RejectUniverseCandidate")
+        .WithSummary("Reject a universe candidate for a work.")
+        .RequireAdminOrCurator();
+
+        // ── POST /vault/universe-candidates/batch-accept ─────────────────
+        group.MapPost("/universe-candidates/batch-accept", async (
+            UniverseBatchAcceptRequest request,
+            IHubRepository hubRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            using var conn = db.CreateConnection();
+            var accepted = 0;
+
+            foreach (var workId in request.WorkIds)
+            {
+                try
+                {
+                    // Get the best candidate QID for this work
+                    var candidateQid = await conn.QueryFirstOrDefaultAsync<string?>("""
+                        SELECT COALESCE(cv_sq.value, cv_fq.value, cv_uq.value)
+                        FROM works w
+                        INNER JOIN editions e ON e.work_id = w.id
+                        INNER JOIN media_assets ma ON ma.edition_id = e.id
+                        LEFT JOIN canonical_values cv_sq ON cv_sq.entity_id = ma.id AND cv_sq.key = 'series_qid'
+                            AND cv_sq.value IS NOT NULL AND cv_sq.value != ''
+                        LEFT JOIN canonical_values cv_fq ON cv_fq.entity_id = ma.id AND cv_fq.key = 'franchise_qid'
+                            AND cv_fq.value IS NOT NULL AND cv_fq.value != ''
+                        LEFT JOIN canonical_values cv_uq ON cv_uq.entity_id = ma.id AND cv_uq.key = 'fictional_universe_qid'
+                            AND cv_uq.value IS NOT NULL AND cv_uq.value != ''
+                        WHERE w.id = @workId
+                        LIMIT 1
+                        """, new { workId });
+
+                    if (string.IsNullOrEmpty(candidateQid)) continue;
+
+                    // Strip URI prefix and label suffix if present
+                    if (candidateQid.Contains('/')) candidateQid = candidateQid.Split('/').Last();
+                    if (candidateQid.Contains("::")) candidateQid = candidateQid.Split("::")[0];
+
+                    var hub = await hubRepo.FindByQidAsync(candidateQid, ct);
+                    if (hub is null)
+                    {
+                        hub = new Hub
+                        {
+                            Id = Guid.NewGuid(),
+                            WikidataQid = candidateQid,
+                            DisplayName = candidateQid,
+                            HubType = "ContentGroup",
+                            Resolution = "materialized",
+                            Scope = "library",
+                            IsEnabled = true,
+                        };
+                        await hubRepo.UpsertAsync(hub, ct);
+                    }
+
+                    await hubRepo.AssignWorkToHubAsync(workId, hub.Id, ct);
+                    accepted++;
+                }
+                catch { /* skip failed items */ }
+            }
+
+            return Results.Ok(new { accepted_count = accepted });
+        })
+        .WithName("BatchAcceptUniverseCandidates")
+        .WithSummary("Batch accept universe assignments.")
+        .RequireAdminOrCurator();
+
+        // ── GET /vault/universe-unlinked ─────────────────────────────────
+        group.MapGet("/universe-unlinked", async (IDatabaseConnection db, CancellationToken ct) =>
+        {
+            using var conn = db.CreateConnection();
+
+            var unlinked = await conn.QueryAsync<UnlinkedWorkDto>("""
+                SELECT DISTINCT
+                    w.id AS WorkId,
+                    ma.id AS EntityId,
+                    COALESCE(cv_title.value, w.title, 'Unknown') AS Title,
+                    COALESCE(cv_mt.value, '') AS MediaType,
+                    cv_qid.value AS WikidataQid
+                FROM works w
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                INNER JOIN canonical_values cv_qid ON cv_qid.entity_id = ma.id
+                    AND cv_qid.key = 'wikidata_qid'
+                    AND cv_qid.value IS NOT NULL AND cv_qid.value != ''
+                    AND cv_qid.value NOT LIKE 'NF%'
+                LEFT JOIN canonical_values cv_title ON cv_title.entity_id = ma.id AND cv_title.key = 'title'
+                LEFT JOIN canonical_values cv_mt ON cv_mt.entity_id = ma.id AND cv_mt.key = 'media_type'
+                LEFT JOIN canonical_values cv_sq ON cv_sq.entity_id = ma.id AND cv_sq.key = 'series_qid'
+                    AND cv_sq.value IS NOT NULL AND cv_sq.value != ''
+                LEFT JOIN canonical_values cv_fq ON cv_fq.entity_id = ma.id AND cv_fq.key = 'franchise_qid'
+                    AND cv_fq.value IS NOT NULL AND cv_fq.value != ''
+                LEFT JOIN canonical_values cv_uq ON cv_uq.entity_id = ma.id AND cv_uq.key = 'fictional_universe_qid'
+                    AND cv_uq.value IS NOT NULL AND cv_uq.value != ''
+                LEFT JOIN canonical_values cv_review ON cv_review.entity_id = ma.id AND cv_review.key = 'universe_review_status'
+                WHERE w.hub_id IS NULL
+                  AND cv_sq.value IS NULL AND cv_fq.value IS NULL AND cv_uq.value IS NULL
+                  AND (cv_review.value IS NULL OR cv_review.value != 'rejected')
+                ORDER BY cv_title.value
+                LIMIT 200
+                """);
+
+            return Results.Ok(unlinked.ToList());
+        })
+        .WithName("GetUniverseUnlinked")
+        .WithSummary("Works with Wikidata QID but no universe-related properties.")
+        .Produces<List<UnlinkedWorkDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        // ── POST /vault/universe-assign ──────────────────────────────────
+        group.MapPost("/universe-assign", async (
+            UniverseManualAssignRequest request,
+            IHubRepository hubRepo,
+            CancellationToken ct) =>
+        {
+            await hubRepo.AssignWorkToHubAsync(request.WorkId, request.HubId, ct);
+            return Results.Ok(new { assigned = true });
+        })
+        .WithName("ManualUniverseAssign")
+        .WithSummary("Manually assign a work to an existing hub.")
         .RequireAdminOrCurator();
 
         return app;

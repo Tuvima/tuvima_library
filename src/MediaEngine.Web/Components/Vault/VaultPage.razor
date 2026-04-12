@@ -186,33 +186,26 @@
             }
             else if (_primaryTab == "action_center")
             {
-                <VaultConfigurableTable @ref="_configurableTableRef"
-                                         Columns="@VaultColumnDefinitions.GetActionCenterColumns()"
-                                         VisibleColumnKeys="@_visibleColumnKeys"
-                                         Items="@(_conflictItems ?? new List<VaultItemViewModel>())"
-                                         Loading="@_loading"
-                                         PosterSize="@_posterSize"
-                                         OnRowClicked="OnActionCenterEdit"
-                                         OnAuthorClicked="OnAuthorLinkClicked"
-                                         SelectedItems="@_selectedItems"
-                                         SelectedItemsChanged="OnSelectionChanged"
-                                         ActiveSortKey="@_activeSortKey"
-                                         SortAscending="@_sortAscending"
-                                         OnSortRequested="OnColumnSortRequested"
-                                         OnEditClicked="OnManageEdit"
-                                         OnDeleteClicked="OnActionCenterDelete" />
+                <VaultActionCenterCategories Items="@(_conflictItems ?? new List<VaultItemViewModel>())"
+                                              OnItemClicked="OnActionCenterEdit"
+                                              OnBulkDelete="OnActionCenterBulkDelete"
+                                              OnBulkRetry="OnActionCenterBulkRetry" />
             }
             else if (_activeTab == "overview")
             {
                 <VaultOverviewPanel OnNavigate="OnOverviewNavigate" />
             }
-            else if (_activeTab.StartsWith("ua_"))
+            else if (_activeTab == "ua_pending")
             {
-                @* Universe Alignment workspace — placeholder for Phase 3 *@
-                <div class="vault-placeholder">
-                    <MudIcon Icon="@Icons.Material.Outlined.Hub" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
-                    <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">Universe Alignment workspace coming soon.</p>
-                </div>
+                <VaultUniversePendingQueue />
+            }
+            else if (_activeTab == "ua_assigned")
+            {
+                <VaultUniverseAssigned OnRowClicked="OnUniverseRowClicked" />
+            }
+            else if (_activeTab == "ua_unlinked")
+            {
+                <VaultUniverseUnlinked />
             }
         </div>
     </div>
@@ -914,6 +907,14 @@
             if (IsContainerView) await LoadContainerItems();
             else await LoadMediaItems();
         }
+    }
+
+    private async Task OnActionCenterBulkRetry(HashSet<Guid> ids)
+    {
+        if (ids.Count == 0) return;
+        foreach (var id in ids)
+            await ApiClient.TriggerHydrationAsync(id);
+        Snackbar.Add($"{ids.Count} item(s) queued for retry.", Severity.Info);
     }
 
     // ── Tab switching ──

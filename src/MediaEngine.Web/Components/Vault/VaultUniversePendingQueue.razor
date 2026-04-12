@@ -1,0 +1,167 @@
+@namespace MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Models.ViewDTOs
+
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+@if (_loading)
+{
+    <div class="vup-loading">
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.15);" />
+    </div>
+}
+else if (_candidates.Count == 0)
+{
+    <div class="vup-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No pending universe candidates.</p>
+    </div>
+}
+else
+{
+    <div class="vup-header-bar">
+        <span class="vup-count">@_candidates.Count items pending alignment</span>
+        <button class="vup-batch-btn" @onclick="AcceptAllHighConfidence">
+            <MudIcon Icon="@Icons.Material.Outlined.DoneAll" Style="font-size: 14px;" />
+            Accept All
+        </button>
+    </div>
+
+    <div class="vup-queue">
+        @foreach (var candidate in _candidates)
+        {
+            <div class="vup-card">
+                <div class="vup-card-left">
+                    <span class="vup-type-badge" style="color: @VaultHelpers.GetMediaTypeColor(candidate.MediaType);">
+                        @VaultHelpers.FormatMediaType(candidate.MediaType)
+                    </span>
+                    <p class="vup-card-title">@candidate.Title</p>
+                    <div class="vup-card-candidate">
+                        <span class="vup-card-qid">@candidate.CandidateQid</span>
+                        <span class="vup-card-type-label">@candidate.CandidateType</span>
+                    </div>
+                </div>
+                <div class="vup-card-actions">
+                    <button class="vup-action vup-action--accept" @onclick="() => Accept(candidate)">
+                        <MudIcon Icon="@Icons.Material.Outlined.Check" Style="font-size: 16px;" />
+                        Accept
+                    </button>
+                    <button class="vup-action vup-action--reject" @onclick="() => Reject(candidate)">
+                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
+                        Reject
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<UniverseCandidateViewModel> _candidates = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCandidates();
+    }
+
+    private async Task LoadCandidates()
+    {
+        _loading = true;
+        StateHasChanged();
+        _candidates = await ApiClient.GetUniverseCandidatesAsync();
+        _loading = false;
+    }
+
+    private async Task Accept(UniverseCandidateViewModel candidate)
+    {
+        var qid = candidate.CandidateQid;
+        if (qid.Contains('/')) qid = qid.Split('/').Last();
+        if (qid.Contains("::")) qid = qid.Split("::")[0];
+
+        var success = await ApiClient.AcceptUniverseCandidateAsync(candidate.WorkId, qid);
+        if (success)
+        {
+            _candidates.Remove(candidate);
+            Snackbar.Add($"Assigned \"{candidate.Title}\" to universe.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Failed to assign universe.", Severity.Error);
+        }
+    }
+
+    private async Task Reject(UniverseCandidateViewModel candidate)
+    {
+        var success = await ApiClient.RejectUniverseCandidateAsync(candidate.WorkId);
+        if (success)
+        {
+            _candidates.Remove(candidate);
+            Snackbar.Add($"Rejected universe candidate for \"{candidate.Title}\".", Severity.Info);
+        }
+    }
+
+    private async Task AcceptAllHighConfidence()
+    {
+        var workIds = _candidates.Select(c => c.WorkId).ToList();
+        if (workIds.Count == 0) return;
+
+        var accepted = await ApiClient.BatchAcceptUniverseCandidatesAsync(workIds);
+        Snackbar.Add($"Accepted {accepted} universe assignments.", Severity.Success);
+        await LoadCandidates();
+    }
+}
+
+<style>
+    .vup-loading, .vup-empty {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;
+    }
+    .vup-header-bar {
+        display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+    }
+    .vup-count {
+        font-size: 0.85rem; color: rgba(255,255,255,0.4);
+    }
+    .vup-batch-btn {
+        display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(76,175,80,0.1);
+        border: 1px solid rgba(76,175,80,0.2); border-radius: 8px; color: rgba(76,175,80,0.8);
+        font-size: 0.8rem; cursor: pointer; transition: background 0.15s;
+    }
+    .vup-batch-btn:hover { background: rgba(76,175,80,0.15); }
+    .vup-queue { display: flex; flex-direction: column; gap: 8px; }
+    .vup-card {
+        display: flex; align-items: center; justify-content: space-between; padding: 14px 16px;
+        background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 10px; transition: background 0.15s;
+    }
+    .vup-card:hover { background: rgba(255,255,255,0.05); }
+    .vup-card-left { flex: 1; min-width: 0; }
+    .vup-card-title {
+        font-size: 0.9rem; font-weight: 500; color: rgba(255,255,255,0.85);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px;
+    }
+    .vup-type-badge {
+        font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        margin-bottom: 4px; display: inline-block;
+    }
+    .vup-card-candidate { display: flex; align-items: center; gap: 8px; }
+    .vup-card-qid {
+        font-size: 0.75rem; color: rgba(92,159,202,0.7); font-family: monospace;
+    }
+    .vup-card-type-label {
+        font-size: 0.7rem; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .vup-card-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .vup-action {
+        display: flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 6px;
+        font-size: 0.75rem; font-weight: 600; cursor: pointer; border: none; transition: background 0.15s;
+    }
+    .vup-action--accept {
+        background: rgba(76,175,80,0.1); color: rgba(76,175,80,0.8);
+    }
+    .vup-action--accept:hover { background: rgba(76,175,80,0.2); }
+    .vup-action--reject {
+        background: rgba(226,75,74,0.08); color: rgba(226,75,74,0.6);
+    }
+    .vup-action--reject:hover { background: rgba(226,75,74,0.15); }
+</style>
