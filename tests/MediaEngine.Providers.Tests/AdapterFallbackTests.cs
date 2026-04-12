@@ -1,7 +1,9 @@
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -55,6 +57,81 @@ public sealed class AdapterFallbackTests
         Assert.Empty(claims);
     }
 
+    [Fact]
+    public async Task ComicVine_FetchAsync_PrefersIssueSearch_WhenTitleIsPresent()
+    {
+        var config = LoadExampleConfig("comicvine");
+        config.HttpClient ??= new HttpClientConfig();
+        config.HttpClient.ApiKey = "test-key";
+
+        var requestedUrls = new List<string>();
+        var issueResponse = """
+            {
+              "results": [
+                {
+                  "name": "Batman Year One Part 1",
+                  "issue_number": "1",
+                  "id": 712097,
+                  "cover_date": "1987-02-01",
+                  "volume": { "name": "Batman" },
+                  "image": { "original_url": "https://example.test/batman-year-one.jpg" }
+                }
+              ]
+            }
+            """;
+
+        var volumeResponse = """
+            {
+              "results": [
+                {
+                  "name": "Batman: Year One",
+                  "id": 112492,
+                  "start_year": "1988"
+                }
+              ]
+            }
+            """;
+
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+
+                var body = url.Contains("resources=issue", StringComparison.OrdinalIgnoreCase)
+                    ? issueResponse
+                    : volumeResponse;
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var request = new ProviderLookupRequest
+        {
+            EntityId   = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType  = MediaType.Comics,
+            Title      = "Batman: Year One Part 1",
+            Series     = "Batman",
+            BaseUrl    = "https://comicvine.gamespot.com/api",
+        };
+
+        var claims = await adapter.FetchAsync(request);
+
+        Assert.NotEmpty(requestedUrls);
+        Assert.Contains("resources=issue", requestedUrls[0], StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(claims, c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(c.Value, "Batman Year One Part 1", StringComparison.Ordinal));
+        Assert.Contains(claims, c => string.Equals(c.Key, "issue_number", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(c.Value, "1", StringComparison.Ordinal));
+    }
+
     // ── Config loading ───────────────────────────────────────────────────────
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
@@ -96,6 +173,13 @@ public sealed class AdapterFallbackTests
         Action<HttpRequestMessage>? onRequest = null)
     {
         var handler = new StubHttpMessageHandler(statusCode, onRequest);
+        return BuildFactory(clientName, handler);
+    }
+
+    private static IHttpClientFactory BuildFactory(
+        string clientName,
+        HttpMessageHandler handler)
+    {
         var services = new ServiceCollection();
         services.AddHttpClient(clientName)
                 .ConfigurePrimaryHttpMessageHandler(() => handler);
@@ -157,6 +241,23 @@ file sealed class TimeoutStubHttpMessageHandler : HttpMessageHandler
         HttpRequestMessage request,
         CancellationToken cancellationToken)
         => throw new TaskCanceledException("Simulated HTTP timeout in test.");
+}
+
+/// <summary>
+/// Routes requests to a caller-supplied responder so tests can return different
+/// payloads for different URLs without touching the network.
+/// </summary>
+file sealed class RoutingStubHttpMessageHandler : HttpMessageHandler
+{
+    private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+
+    public RoutingStubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+        => _responder = responder;
+
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+        => Task.FromResult(_responder(request));
 }
 
 /// <summary>

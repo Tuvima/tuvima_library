@@ -554,10 +554,8 @@ public static class DevSeedEndpoints
         // ── Category 7: Edge cases ────────────────────────────────────────
         new("4'33\"", "John Cage",
             Album: "John Cage: 4'33\"", Year: 1952, Genre: "Avant-Garde", TrackNumber: 1,
-            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece — ambiguous retail + no Wikidata bridge",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.RetailMatchAmbiguous,
-            ExpectedReason: "Special characters in title cause ambiguous retail match (78%); Wikidata bridge also fails"),
+            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece — exact retail match despite punctuation",
+            ExpectIdentified: true),
 
         new("MMMBop", "Hanson",
             Album: "Middle of Nowhere", Year: 1997, Genre: "Pop", TrackNumber: 1,
@@ -577,31 +575,20 @@ public static class DevSeedEndpoints
 
     private static readonly SeedComic[] SeedComics =
     [
-        // Comics expectations: all four are marked ExpectIdentified=false because the
-        // Metron provider requires credentials that are not present in the default
-        // ComicVine is the active comics provider. Distinctive titles (Akira,
-        // Sandman) resolve via retail + Wikidata text reconciliation to auto-accept.
-        // "Batman: Year One Part 1" fails retail — the "Part 1" suffix throws off
-        // word overlap scoring against the collected edition title. "Saga Chapter One"
-        // gets a retail match but Wikidata bridge fails (P5905 issue-level ID mismatch).
-        // Both land in the Action Center for manual review.
+        // Comics expectations: ComicVine issue search should identify all four issues.
+        // Some may still miss a Wikidata QID, but retail identification remains valid
+        // and the item should stay usable without being forced into review.
         new("Batman: Year One Part 1", Writer: "Frank Miller",
             Series: "Batman", Number: 404, Year: 1987, Genre: "Superhero",
             Summary: "Bruce Wayne returns to Gotham City after years abroad.",
             Publisher: "DC Comics", Penciller: "David Mazzucchelli",
-            TestCategory: "Comic — classic DC, series with issue number",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
-            ExpectedReason: "Title 'Part 1' suffix reduces word overlap below match threshold"),
+            TestCategory: "Comic — classic DC, series with issue number"),
 
         new("Saga Chapter One", Writer: "Brian K. Vaughan",
             Series: "Saga", Number: 1, Year: 2012, Genre: "Science Fiction, Fantasy",
             Summary: "A new epic from the creators of Y: The Last Man.",
             Publisher: "Image Comics", Penciller: "Fiona Staples",
-            TestCategory: "Comic — Image Comics, multi-genre",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "ComicVine issue-level ID not in Wikidata P5905"),
+            TestCategory: "Comic — Image Comics, multi-genre"),
 
         new("The Sandman: Sleep of the Just", Writer: "Neil Gaiman",
             Series: "The Sandman", Number: 1, Year: 1989, Genre: "Fantasy, Horror",

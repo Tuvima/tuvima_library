@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
@@ -16,6 +17,8 @@ using MediaEngine.Storage.Models;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Net;
+using System.Text;
 
 // Disambiguate ProviderConfiguration — the IConfigurationLoader uses the Storage.Models one
 using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
@@ -201,6 +204,654 @@ public sealed class WorkerPipelineTests
         Assert.Equal("Ambiguous", candidate.Outcome);
         Assert.Contains("creator_similarity_weak", candidate.ScoreBreakdownJson);
         Assert.Contains("accept_capped_to_review", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_ComicSeriesAndIssueMatch_AutoAcceptsWithoutCreator()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Comics",
+            State = "Queued",
+        });
+
+        var provider = new StubExternalMetadataProvider
+        {
+            Name = "comicvine",
+            ProviderId = providerId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Batman: Year One Part 1", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Series, "Batman", 0.95),
+                new ProviderClaim(MetadataFieldConstants.SeriesPosition, "1", 0.95),
+                new ProviderClaim("issue_number", "1", 0.95),
+                new ProviderClaim(BridgeIdKeys.ComicVineId, "12345", 0.95),
+            ],
+        };
+
+        var configLoader = new StubConfigurationLoader();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Batman: Year One Part 1", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Author, Value = "Frank Miller", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Series, Value = "Batman", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.SeriesPosition, Value = "1", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            new[] { provider },
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                configLoader,
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"series_matches\":true", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"issue_matches\":true", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_ComicLegacyIssueNumber_TitleAnchorsSpecificIssue()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Comics",
+            State = "Queued",
+        });
+
+        var provider = new StubExternalMetadataProvider
+        {
+            Name = "comicvine",
+            ProviderId = providerId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Batman: Year One Part 1", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Series, "Batman", 0.95),
+                new ProviderClaim(MetadataFieldConstants.SeriesPosition, "1", 0.95),
+                new ProviderClaim("issue_number", "1", 0.95),
+                new ProviderClaim(BridgeIdKeys.ComicVineId, "712097", 0.95),
+            ],
+        };
+
+        var configLoader = new StubConfigurationLoader();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Batman: Year One Part 1", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Author, Value = "Frank Miller", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Series, Value = "Batman", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.SeriesPosition, Value = "404", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            new[] { provider },
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                configLoader,
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"issue_matches\":false", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"title_anchors_issue_identity\":true", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"issue_mismatch_penalty_applied\":false", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_ComicExactTitleStillAnchorsWhenProviderSeriesIsMoreSpecific()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Comics",
+            State = "Queued",
+        });
+
+        var provider = new StubExternalMetadataProvider
+        {
+            Name = "comicvine",
+            ProviderId = providerId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Batman: Year One Part 1", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Series, "Batman: Year One", 0.95),
+                new ProviderClaim(MetadataFieldConstants.SeriesPosition, "1", 0.95),
+                new ProviderClaim("issue_number", "1", 0.95),
+                new ProviderClaim(BridgeIdKeys.ComicVineId, "712097", 0.95),
+            ],
+        };
+
+        var configLoader = new StubConfigurationLoader();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Batman: Year One Part 1", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Series, Value = "Batman", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.SeriesPosition, Value = "404", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            new[] { provider },
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                configLoader,
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"series_matches\":false", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"file_title_contains_candidate_series\":true", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"title_anchors_issue_identity\":true", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_MusicExactSingleTrack_AllowsAutoAcceptWithoutTrackNumber()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Clair de Lune", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Artist, Value = "Claude Debussy", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var searchJson = """
+            {
+              "resultCount": 2,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 267973,
+                  "collectionId": 358198030,
+                  "trackId": 358198482,
+                  "artistName": "The Philadelphia Orchestra & Eugene Ormandy",
+                  "collectionName": "Sweet Dreams",
+                  "trackName": "Clair De Lune",
+                  "trackCount": 16,
+                  "trackNumber": 7,
+                  "trackTimeMillis": 298846,
+                  "releaseDate": "1989-08-04T12:00:00Z",
+                  "primaryGenreName": "Classical",
+                  "artworkUrl100": "https://example.test/sweet-100x100bb.jpg"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 219163,
+                  "collectionId": 444967120,
+                  "trackId": 444967148,
+                  "artistName": "Claude Debussy",
+                  "collectionName": "Clair de Lune - Single",
+                  "trackName": "Clair de Lune",
+                  "trackCount": 1,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 218149,
+                  "releaseDate": "2011-06-16T12:00:00Z",
+                  "primaryGenreName": "Instrumental",
+                  "artworkUrl100": "https://example.test/clair-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var lookupJson = """
+            {
+              "resultCount": 2,
+              "results": [
+                {
+                  "wrapperType": "collection",
+                  "collectionType": "Album",
+                  "artistId": 219163,
+                  "collectionId": 444967120,
+                  "artistName": "Claude Debussy",
+                  "collectionName": "Clair de Lune - Single",
+                  "trackCount": 1,
+                  "releaseDate": "2011-06-16T12:00:00Z",
+                  "primaryGenreName": "Instrumental"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 219163,
+                  "collectionId": 444967120,
+                  "trackId": 444967148,
+                  "artistName": "Claude Debussy",
+                  "collectionName": "Clair de Lune - Single",
+                  "trackName": "Clair de Lune",
+                  "trackCount": 1,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 218149,
+                  "releaseDate": "2011-06-16T12:00:00Z",
+                  "primaryGenreName": "Instrumental",
+                  "artworkUrl100": "https://example.test/clair-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            [
+                new StubExternalMetadataProvider
+                {
+                    Name = "apple_api",
+                    ProviderId = providerId,
+                    Claims = [],
+                },
+            ],
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                new StubConfigurationLoader(),
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            new StubConfigurationLoader(),
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new RoutingHttpClientFactory(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                var body = url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase)
+                    ? lookupJson
+                    : searchJson;
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+            }),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"single_track_release\":true", candidate.ScoreBreakdownJson);
+        Assert.DoesNotContain("requires_track_number_or_duration_corroboration", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_MusicExactSingleTrackSearchHit_BypassesAlbumLookup()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Clair de Lune", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Composer, Value = "Claude Debussy", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Album, Value = "Suite bergamasque", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.TrackNumber, Value = "3", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Year, Value = "1905", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var searchJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 219163,
+                  "collectionId": 444967120,
+                  "trackId": 444967148,
+                  "artistName": "Claude Debussy",
+                  "collectionName": "Clair de Lune - Single",
+                  "trackName": "Clair de Lune",
+                  "trackCount": 1,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 218149,
+                  "releaseDate": "2011-06-16T12:00:00Z",
+                  "primaryGenreName": "Instrumental",
+                  "artworkUrl100": "https://example.test/clair-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var lookupJson = """
+            {
+              "resultCount": 0,
+              "results": []
+            }
+            """;
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            [
+                new StubExternalMetadataProvider
+                {
+                    Name = "apple_api",
+                    ProviderId = providerId,
+                    Claims = [],
+                },
+            ],
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                new StubConfigurationLoader(),
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            new StubConfigurationLoader(),
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new RoutingHttpClientFactory(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                var body = url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase)
+                    ? lookupJson
+                    : searchJson;
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+            }),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"single_track_release\":true", candidate.ScoreBreakdownJson);
+        Assert.Contains("\"strong_single_track_identity\":true", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_MusicTrackSearch_TriesArtistQueryBeforeAlbumBiasedQuery()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Clair de Lune", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Composer, Value = "Claude Debussy", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Album, Value = "Suite bergamasque", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.TrackNumber, Value = "3", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Year, Value = "1905", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var exactSingleJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 219163,
+                  "collectionId": 444967120,
+                  "trackId": 444967148,
+                  "artistName": "Claude Debussy",
+                  "collectionName": "Clair de Lune - Single",
+                  "trackName": "Clair de Lune",
+                  "trackCount": 1,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 218149,
+                  "releaseDate": "2011-06-16T12:00:00Z",
+                  "primaryGenreName": "Instrumental",
+                  "artworkUrl100": "https://example.test/clair-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var albumBiasedJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 267973,
+                  "collectionId": 358198030,
+                  "trackId": 358198482,
+                  "artistName": "The Philadelphia Orchestra & Eugene Ormandy",
+                  "collectionName": "Sweet Dreams",
+                  "trackName": "Clair De Lune",
+                  "trackCount": 16,
+                  "trackNumber": 7,
+                  "trackTimeMillis": 298846,
+                  "releaseDate": "1989-08-04T12:00:00Z",
+                  "primaryGenreName": "Classical",
+                  "artworkUrl100": "https://example.test/sweet-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var requests = new List<string>();
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            [
+                new StubExternalMetadataProvider
+                {
+                    Name = "apple_api",
+                    ProviderId = providerId,
+                    Claims = [],
+                },
+            ],
+            new RetailMatchScoringService(
+                new ExactMatchFuzzyMatchingService(),
+                new StubConfigurationLoader(),
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            new StubConfigurationLoader(),
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new RoutingHttpClientFactory(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requests.Add(url);
+
+                var body = url.Contains("Suite%20bergamasque", StringComparison.OrdinalIgnoreCase)
+                    ? albumBiasedJson
+                    : exactSingleJson;
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+            }),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("AutoAccepted", candidate.Outcome);
+        Assert.Contains("\"single_track_release\":true", candidate.ScoreBreakdownJson);
+        Assert.Single(requests.Where(url => url.Contains("/search?", StringComparison.OrdinalIgnoreCase)));
+        Assert.DoesNotContain(requests, url => url.Contains("Suite%20bergamasque", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]
@@ -462,6 +1113,25 @@ public sealed class WorkerPipelineTests
         Assert.NotNull(updatedJob);
         Assert.Equal(IdentityJobState.QidNoMatch.ToString(), updatedJob!.State);
         Assert.Contains("No reconciliation adapter", updatedJob.LastError);
+    }
+
+    [Fact]
+    public void WikidataBridgeWorker_ComicLookupHints_PrefixSeriesAndFallbackWriter()
+    {
+        var entityId = Guid.NewGuid();
+        var canonicals = new List<CanonicalValue>
+        {
+            new() { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Chapter One", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = entityId, Key = MetadataFieldConstants.Series, Value = "Saga", LastScoredAt = DateTimeOffset.UtcNow },
+            new() { EntityId = entityId, Key = "writer", Value = "Brian K. Vaughan", LastScoredAt = DateTimeOffset.UtcNow },
+        };
+
+        var hints = WikidataBridgeWorker.BuildLookupHints(MediaType.Comics, canonicals);
+
+        Assert.Equal("Saga Chapter One", hints.TitleHint);
+        Assert.Equal("Brian K. Vaughan", hints.AuthorHint);
+        Assert.Null(hints.AlbumHint);
+        Assert.Null(hints.ArtistHint);
     }
 
     // ── Test 4: QuickHydrationWorker completes job ──
@@ -755,6 +1425,24 @@ public sealed class WorkerPipelineTests
             => Results.Count > 0 ? Results.Dequeue() : Result;
     }
 
+    private sealed class ExactMatchFuzzyMatchingService : IFuzzyMatchingService
+    {
+        public double ComputeTokenSetRatio(string a, string b) =>
+            string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase) ? 1.0 : 0.0;
+
+        public double ComputePartialRatio(string a, string b) =>
+            string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase) ? 1.0 : 0.0;
+
+        public FieldMatchResult ScoreCandidate(LocalMetadata local, CandidateMetadata candidate) =>
+            new()
+            {
+                TitleScore = 1.0,
+                AuthorScore = 1.0,
+                YearScore = 1.0,
+                CompositeScore = 1.0,
+            };
+    }
+
     // ── StubConfigurationLoader ─────────────────────────────────────────
 
     private sealed class StubConfigurationLoader : IConfigurationLoader
@@ -770,6 +1458,22 @@ public sealed class WorkerPipelineTests
                     [
                         new PipelineProviderEntry { Rank = 1, Name = "apple_api" },
                         new PipelineProviderEntry { Rank = 2, Name = "openlibrary" },
+                    ],
+                },
+                ["Comics"] = new()
+                {
+                    Strategy = ProviderStrategy.Waterfall,
+                    Providers =
+                    [
+                        new PipelineProviderEntry { Rank = 1, Name = "comicvine" },
+                    ],
+                },
+                ["Music"] = new()
+                {
+                    Strategy = ProviderStrategy.Waterfall,
+                    Providers =
+                    [
+                        new PipelineProviderEntry { Rank = 1, Name = "apple_api" },
                     ],
                 },
             },
@@ -1159,6 +1863,28 @@ public sealed class WorkerPipelineTests
         public System.Net.Http.HttpClient CreateClient(string name)
             => throw new NotSupportedException(
                 $"StubHttpClientFactory.CreateClient('{name}') should not be called in unit tests.");
+    }
+
+    private sealed class RoutingHttpClientFactory : System.Net.Http.IHttpClientFactory
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+
+        public RoutingHttpClientFactory(Func<HttpRequestMessage, HttpResponseMessage> responder)
+            => _responder = responder;
+
+        public System.Net.Http.HttpClient CreateClient(string name)
+            => new(new RoutingHttpMessageHandler(_responder), disposeHandler: true);
+    }
+
+    private sealed class RoutingHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+
+        public RoutingHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder)
+            => _responder = responder;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_responder(request));
     }
 
     /// <summary>

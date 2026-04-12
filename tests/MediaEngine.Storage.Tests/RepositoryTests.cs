@@ -234,6 +234,78 @@ public sealed class RepositoryTests : IDisposable
     // ════════════════════════════════════════════════════════════════════════
 
     [Fact]
+    public async Task IdentityJob_CreateAsync_IgnoresDuplicateActiveJobForSameEntityAndPass()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var entityId = Guid.NewGuid();
+
+        await repo.CreateAsync(new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.Queued.ToString(),
+        });
+
+        await repo.CreateAsync(new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.Queued.ToString(),
+        });
+
+        var queued = await repo.GetByStateAsync(IdentityJobState.Queued, 10);
+        Assert.Single(queued, j => j.EntityId == entityId && j.Pass == "Quick");
+    }
+
+    [Fact]
+    public async Task IdentityJob_UpdateStateAsync_PreservesLeaseOnlyForProcessingStates()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.Queued.ToString(),
+        };
+
+        await repo.CreateAsync(job);
+
+        var leased = await repo.LeaseNextAsync(
+            "test-worker",
+            [IdentityJobState.Queued],
+            1,
+            TimeSpan.FromMinutes(10));
+
+        var leasedJob = Assert.Single(leased);
+        Assert.Equal("test-worker", leasedJob.LeaseOwner);
+
+        await repo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching);
+        var searching = await repo.GetByIdAsync(job.Id);
+
+        Assert.NotNull(searching);
+        Assert.Equal("test-worker", searching!.LeaseOwner);
+        Assert.NotNull(searching.LeaseExpiresAt);
+        Assert.Equal(1, searching.AttemptCount);
+
+        await repo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched);
+        var matched = await repo.GetByIdAsync(job.Id);
+
+        Assert.NotNull(matched);
+        Assert.Null(matched!.LeaseOwner);
+        Assert.Null(matched.LeaseExpiresAt);
+        Assert.Equal(1, matched.AttemptCount);
+    }
+
+    [Fact]
     public async Task ApiKey_InsertAndFindByHash()
     {
         var repo = new ApiKeyRepository(_db);

@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -72,21 +75,22 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
         if (!string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(candidateTitle))
         {
-            titleScore = _fuzzy.ComputeTokenSetRatio(fileTitle, candidateTitle);
+            titleScore = AreEquivalentComparableText(fileTitle, candidateTitle)
+                ? 1.0
+                : _fuzzy.ComputeTokenSetRatio(fileTitle, candidateTitle);
         }
 
         // ── Author score ─────────────────────────────────────────────────
         double authorScore = 0.0;
         // For music files, "artist" is the primary creator field, not "author".
         // For video/comics, "director" or "writer" may be the primary creator.
-        var fileAuthor = fileHints.GetValueOrDefault("author")
-            ?? fileHints.GetValueOrDefault("artist")
-            ?? fileHints.GetValueOrDefault("director")
-            ?? fileHints.GetValueOrDefault("writer");
+        var fileAuthor = GetCreatorHint(fileHints, mediaType);
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
             // First try a full-string comparison (handles single-author and matching order).
-            authorScore = _fuzzy.ComputeTokenSetRatio(fileAuthor, candidateAuthor);
+            authorScore = AreEquivalentComparableText(fileAuthor, candidateAuthor)
+                ? 1.0
+                : _fuzzy.ComputeTokenSetRatio(fileAuthor, candidateAuthor);
 
             // When the full-string score is low, split on common multi-author
             // separators and compare each individual name independently.
@@ -141,12 +145,10 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
         // ── Year score ───────────────────────────────────────────────────
         double yearScore = 0.0; // Penalised when missing
-        var fileYear = fileHints.GetValueOrDefault("year") ?? fileHints.GetValueOrDefault("release_year");
+        var fileYear = GetYearHint(fileHints);
+        candidateYear = NormalizeYear(candidateYear);
         if (!string.IsNullOrWhiteSpace(fileYear) && !string.IsNullOrWhiteSpace(candidateYear))
         {
-            if (fileYear.Length >= 4) fileYear = fileYear[..4];
-            if (candidateYear.Length >= 4) candidateYear = candidateYear[..4];
-
             if (fileYear == candidateYear)
                 yearScore = 1.0;
             else if (int.TryParse(fileYear, out var fy) && int.TryParse(candidateYear, out var cy))
@@ -217,6 +219,88 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             CoverArtScore   = coverBoost,
             CompositeScore  = Math.Round(Math.Clamp(composite, 0.0, 1.0), 4),
         };
+    }
+
+    private static string? GetCreatorHint(IReadOnlyDictionary<string, string> fileHints, MediaType mediaType)
+    {
+        return mediaType switch
+        {
+            MediaType.Music => fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Composer)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Author),
+
+            MediaType.TV => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
+                ?? fileHints.GetValueOrDefault("writer"),
+
+            MediaType.Movies => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
+                ?? fileHints.GetValueOrDefault("writer"),
+
+            MediaType.Comics => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
+                ?? fileHints.GetValueOrDefault("writer")
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Illustrator),
+
+            _ => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Composer)
+                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
+                ?? fileHints.GetValueOrDefault("writer"),
+        };
+    }
+
+    private static string? GetYearHint(IReadOnlyDictionary<string, string> fileHints)
+    {
+        return NormalizeYear(
+            fileHints.GetValueOrDefault(MetadataFieldConstants.Year)
+            ?? fileHints.GetValueOrDefault("release_year")
+            ?? fileHints.GetValueOrDefault("date")
+            ?? fileHints.GetValueOrDefault("release_date"));
+    }
+
+    private static string? NormalizeYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var match = System.Text.RegularExpressions.Regex.Match(value, @"\b\d{4}\b");
+        return match.Success ? match.Value : null;
+    }
+
+    private static bool AreEquivalentComparableText(string left, string right)
+    {
+        return string.Equals(
+            NormalizeComparableText(left),
+            NormalizeComparableText(right),
+            StringComparison.Ordinal);
+    }
+
+    private static string NormalizeComparableText(string text)
+    {
+        var chars = StripDiacritics(text)
+            .Replace("&", " and ", StringComparison.Ordinal)
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
+            .ToArray();
+
+        return string.Join(' ', new string(chars)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static string StripDiacritics(string text)
+    {
+        var normalized = text.Normalize(NormalizationForm.FormD);
+        var sb = new StringBuilder(normalized.Length);
+
+        foreach (var c in normalized)
+        {
+            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                sb.Append(c);
+        }
+
+        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
     /// <summary>

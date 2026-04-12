@@ -246,7 +246,8 @@ public sealed class RetailMatchWorker
 
         var representativeHints = jobHints[groupJobs[0].EntityId];
         var artist = representativeHints.GetValueOrDefault(MetadataFieldConstants.Artist)
-            ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Author);
+            ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Author)
+            ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Composer);
         var album  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Album);
         var title  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var country = "us";
@@ -256,13 +257,40 @@ public sealed class RetailMatchWorker
         // A track search returns the exact track + its collectionId, so even when the
         // album name is ambiguous (remastered editions, deluxe versions), the track
         // anchors us to the correct album.
+        AppleTrackSearchMatch? trackSearchMatch = null;
         string? collectionId = null;
         var resolvedVia = "track search";
 
         _logger.LogInformation(
             "Music: searching Apple iTunes by track '{Title}' / '{Artist}' ({TrackCount} queued track(s))",
             title ?? "(unknown)", artist ?? "(unknown artist)", groupJobs.Count);
-        collectionId = await SearchAppleTrackAsync(artist, title, country, lang, ct);
+        trackSearchMatch = await SearchAppleTrackAsync(artist, title, album, country, lang, ct);
+        collectionId = trackSearchMatch?.CollectionId;
+
+        var appleProvider = _providers.FirstOrDefault(p =>
+            string.Equals(p.Name, "apple_api", StringComparison.OrdinalIgnoreCase));
+
+        if (trackSearchMatch is { SingleTrackRelease: true, TitleExact: true, ArtistExact: true }
+            && groupJobs.Count == 1)
+        {
+            var singleJob = groupJobs[0];
+            _logger.LogInformation(
+                "Music: exact single-track Apple hit '{Title}' by '{Artist}' resolved directly via track search for entity {EntityId}",
+                title ?? "(unknown)",
+                artist ?? "(unknown artist)",
+                singleJob.EntityId);
+
+            await ApplyMusicTrackAsync(
+                singleJob,
+                jobHints[singleJob.EntityId],
+                [trackSearchMatch.Track],
+                trackSearchMatch.CollectionId,
+                appleProvider,
+                retailAcceptThreshold,
+                retailAmbiguousThreshold,
+                ct);
+            return;
+        }
 
         // ── Step 2: Fall back to album-name search if track search failed.
         if (collectionId is null && !string.IsNullOrWhiteSpace(album))
@@ -318,9 +346,6 @@ public sealed class RetailMatchWorker
             "Music: resolved album via {Strategy} — collectionId={CollectionId}, {TrackCount} tracks from API — distributing to {JobCount} queued track(s)",
             resolvedVia, collectionId, allTracks.Count, groupJobs.Count);
 
-        var appleProvider = _providers.FirstOrDefault(p =>
-            string.Equals(p.Name, "apple_api", StringComparison.OrdinalIgnoreCase));
-
         // ── Step 4: For each job, find the best-matching track and apply its claims.
         foreach (var job in groupJobs)
         {
@@ -346,71 +371,45 @@ public sealed class RetailMatchWorker
     /// correct collectionId. Returns the collectionId from the best-matching track,
     /// or null if no match passes the threshold.
     /// </summary>
-    private async Task<string?> SearchAppleTrackAsync(
-        string? artist, string? trackTitle, string country, string lang, CancellationToken ct)
+    private async Task<AppleTrackSearchMatch?> SearchAppleTrackAsync(
+        string? artist, string? trackTitle, string? albumTitle, string country, string lang, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(trackTitle))
             return null;
 
-        var query = Uri.EscapeDataString($"{trackTitle} {artist}".Trim());
-        var url = $"https://itunes.apple.com/search?term={query}&entity=musicTrack&limit=10&country={country}&lang={lang}_{country}";
-
-        await ThrottleItunesAsync(ct);
+        AppleTrackSearchMatch? bestMatch = null;
 
         try
         {
             using var client = _httpFactory.CreateClient("apple_api");
-            var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
-
-            var results = json?["results"]?.AsArray();
-            if (results is null || results.Count == 0)
-                return null;
-
-            double bestScore = 0.0;
-            string? bestCollectionId = null;
-            string? bestTrackName = null;
-
-            foreach (var result in results)
+            foreach (var searchQuery in BuildAppleTrackSearchQueries(trackTitle, artist, albumTitle))
             {
-                if (result is null) continue;
+                var query = Uri.EscapeDataString(searchQuery);
+                var url = $"https://itunes.apple.com/search?term={query}&entity=musicTrack&limit=10&country={country}&lang={lang}_{country}";
 
-                var resultTrackName = result["trackName"]?.GetValue<string>();
-                var resultArtist    = result["artistName"]?.GetValue<string>();
-                var resultId        = result["collectionId"]?.GetValue<long?>() is { } id
-                    ? id.ToString()
-                    : null;
+                await ThrottleItunesAsync(ct);
 
-                if (string.IsNullOrWhiteSpace(resultTrackName) || resultId is null)
+                var json = await client.GetFromJsonAsync<JsonNode>(url, ct);
+                var results = json?["results"]?.AsArray();
+                if (results is null || results.Count == 0)
                     continue;
 
-                // Score by track title + artist name.
-                var titleScore  = ComputeWordOverlap(trackTitle, resultTrackName);
-                var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
-                    ? ComputeWordOverlap(artist, resultArtist)
-                    : 0.0;
+                var currentMatch = EvaluateAppleTrackSearchResults(results, artist, trackTitle, albumTitle);
+                if (currentMatch is null)
+                    continue;
 
-                // Combined: track title is primary (0.6), artist is secondary (0.4).
-                var combined = titleScore * 0.6 + artistScore * 0.4;
-                if (combined > bestScore)
+                if (currentMatch.TitleExact && currentMatch.ArtistExact && currentMatch.SingleTrackRelease)
                 {
-                    bestScore = combined;
-                    bestCollectionId = resultId;
-                    bestTrackName = resultTrackName;
+                    var exactTrackName = currentMatch.Track["trackName"]?.GetValue<string>() ?? "(unknown)";
+                    _logger.LogInformation(
+                        "Music: Apple iTunes track search matched '{TrackName}' → collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Title}'",
+                        exactTrackName, currentMatch.CollectionId, currentMatch.Score, artist ?? "—", trackTitle);
+                    return currentMatch;
                 }
-            }
 
-            if (bestScore >= 0.50)
-            {
-                _logger.LogInformation(
-                    "Music: Apple iTunes track search matched '{TrackName}' → collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Title}'",
-                    bestTrackName, bestCollectionId, bestScore, artist ?? "—", trackTitle);
-                return bestCollectionId;
+                if (bestMatch is null || currentMatch.Score > bestMatch.Score)
+                    bestMatch = currentMatch;
             }
-
-            _logger.LogInformation(
-                "Music: Apple iTunes track search — best score {Score:F2} below threshold for '{Artist}' / '{Title}'",
-                bestScore, artist ?? "—", trackTitle);
-            return null;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -419,6 +418,20 @@ public sealed class RetailMatchWorker
                 artist ?? "—", trackTitle ?? "—");
             return null;
         }
+
+        if (bestMatch is { Score: >= 0.50 })
+        {
+            var bestTrackName = bestMatch.Track["trackName"]?.GetValue<string>() ?? "(unknown)";
+            _logger.LogInformation(
+                "Music: Apple iTunes track search matched '{TrackName}' → collectionId={Id} (score={Score:F2}) for '{Artist}' / '{Title}'",
+                bestTrackName, bestMatch.CollectionId, bestMatch.Score, artist ?? "—", trackTitle);
+            return bestMatch;
+        }
+
+        _logger.LogInformation(
+            "Music: Apple iTunes track search — best score {Score:F2} below threshold for '{Artist}' / '{Title}'",
+            bestMatch?.Score ?? 0.0, artist ?? "—", trackTitle);
+        return null;
     }
 
     /// <summary>
@@ -558,7 +571,11 @@ public sealed class RetailMatchWorker
         var fileTitle       = fileHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var fileTrackNumber = fileHints.GetValueOrDefault(MetadataFieldConstants.TrackNumber);
 
-        // Find best-matching track: prefer exact track number, fall back to title similarity.
+        var hasFileDuration = TryGetDurationSeconds(fileHints, out var fileDurationSeconds);
+
+        // Find the best-matching track by combining title, track number, and duration.
+        // Track numbers are helpful corroboration, but they should not overpower a clearly
+        // wrong title on compilation albums or alternate editions.
         JsonNode? bestTrack = null;
         double bestMatchScore = -1.0;
 
@@ -566,19 +583,27 @@ public sealed class RetailMatchWorker
         {
             var trackNumNode = track["trackNumber"]?.GetValue<long?>() is { } tn ? tn.ToString() : null;
             var trackName    = track["trackName"]?.GetValue<string>();
+            var candidateHasDurationForMatch = TryGetDurationSeconds(track["trackTimeMillis"]?.GetValue<long?>(), out var candidateDurationSecondsForMatch);
+            var trackNumberMatchesForMatch = !string.IsNullOrWhiteSpace(fileTrackNumber)
+                && !string.IsNullOrWhiteSpace(trackNumNode)
+                && string.Equals(fileTrackNumber.Trim(), trackNumNode.Trim(), StringComparison.Ordinal);
+            var durationCorroboratesForMatch = hasFileDuration
+                && candidateHasDurationForMatch
+                && DurationsCorroborate(fileDurationSeconds, candidateDurationSecondsForMatch);
 
-            double matchScore = 0.0;
+            double matchScore = !string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(trackName)
+                ? ComputeWordOverlap(fileTitle, trackName)
+                : 0.0;
 
-            // Track number exact match is the strongest signal.
-            if (!string.IsNullOrWhiteSpace(fileTrackNumber) && !string.IsNullOrWhiteSpace(trackNumNode)
-                && string.Equals(fileTrackNumber.Trim(), trackNumNode.Trim(), StringComparison.Ordinal))
-            {
-                matchScore = 1.0;
-            }
-            else if (!string.IsNullOrWhiteSpace(fileTitle) && !string.IsNullOrWhiteSpace(trackName))
-            {
-                matchScore = ComputeWordOverlap(fileTitle, trackName);
-            }
+            if (trackNumberMatchesForMatch)
+                matchScore += string.IsNullOrWhiteSpace(fileTitle) ? 0.70 : 0.25;
+            else if (!string.IsNullOrWhiteSpace(fileTrackNumber) && !string.IsNullOrWhiteSpace(trackNumNode))
+                matchScore -= 0.10;
+
+            if (durationCorroboratesForMatch)
+                matchScore += 0.15;
+
+            matchScore = Math.Clamp(matchScore, 0.0, 1.0);
 
             if (matchScore > bestMatchScore)
             {
@@ -610,6 +635,7 @@ public sealed class RetailMatchWorker
         var candidateYear   = bestTrack["releaseDate"]?.GetValue<string>()?.Length >= 4
             ? bestTrack["releaseDate"]!.GetValue<string>()![..4]
             : null;
+        var candidateTrackCount = bestTrack["trackCount"]?.GetValue<long?>();
 
         var retailScore = _retailScoring.ScoreCandidate(
             fileHints, candidateTitle, candidateAuthor, candidateYear, MediaType.Music);
@@ -617,11 +643,14 @@ public sealed class RetailMatchWorker
         var trackNumberMatches = !string.IsNullOrWhiteSpace(fileTrackNumber)
             && !string.IsNullOrWhiteSpace(candidateTrackNumber)
             && string.Equals(fileTrackNumber.Trim(), candidateTrackNumber.Trim(), StringComparison.Ordinal);
-        var hasFileDuration = TryGetDurationSeconds(fileHints, out var fileDurationSeconds);
         var hasCandidateDuration = TryGetDurationSeconds(bestTrack["trackTimeMillis"]?.GetValue<long?>(), out var candidateDurationSeconds);
         var durationCorroborates = hasFileDuration
             && hasCandidateDuration
             && DurationsCorroborate(fileDurationSeconds, candidateDurationSeconds);
+        var singleTrackRelease = candidateTrackCount == 1;
+        var strongSingleTrackIdentity = singleTrackRelease
+            && retailScore.TitleScore >= 0.95
+            && retailScore.AuthorScore >= 0.85;
         var decision = EvaluateRetailDecision(
             fileHints,
             candidateTitle,
@@ -632,7 +661,7 @@ public sealed class RetailMatchWorker
             retailAcceptThreshold,
             retailAmbiguousThreshold,
             "grouped_music",
-            autoAcceptCapReasons: trackNumberMatches || durationCorroborates
+            autoAcceptCapReasons: trackNumberMatches || durationCorroborates || strongSingleTrackIdentity
                 ? null
                 : ["requires_track_number_or_duration_corroboration"]);
 
@@ -662,6 +691,8 @@ public sealed class RetailMatchWorker
                     ["track_match_score"] = Math.Round(bestMatchScore, 4),
                     ["track_number_matches"] = trackNumberMatches,
                     ["duration_corroborates"] = durationCorroborates,
+                    ["single_track_release"] = singleTrackRelease,
+                    ["strong_single_track_identity"] = strongSingleTrackIdentity,
                     ["file_duration_seconds"] = hasFileDuration ? fileDurationSeconds : null,
                     ["candidate_duration_seconds"] = hasCandidateDuration ? candidateDurationSeconds : null,
                 }),
@@ -1507,6 +1538,8 @@ public sealed class RetailMatchWorker
         hints.TryGetValue(MetadataFieldConstants.Artist, out var artist);
         if (string.IsNullOrWhiteSpace(artist))
             hints.TryGetValue(MetadataFieldConstants.Author, out artist);
+        if (string.IsNullOrWhiteSpace(artist))
+            hints.TryGetValue(MetadataFieldConstants.Composer, out artist);
 
         hints.TryGetValue(MetadataFieldConstants.Album, out var album);
 
@@ -1619,8 +1652,118 @@ public sealed class RetailMatchWorker
     {
         return fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
-            ?? fileHints.GetValueOrDefault("director")
-            ?? fileHints.GetValueOrDefault("writer");
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Composer)
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
+            ?? fileHints.GetValueOrDefault("writer")
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
+    }
+
+    private static string? GetPrimaryYearHint(IReadOnlyDictionary<string, string> fileHints)
+    {
+        return NormalizeYearValue(
+            fileHints.GetValueOrDefault(MetadataFieldConstants.Year)
+            ?? fileHints.GetValueOrDefault("release_year")
+            ?? fileHints.GetValueOrDefault("date")
+            ?? fileHints.GetValueOrDefault("release_date"));
+    }
+
+    private static string? NormalizeYearValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var match = System.Text.RegularExpressions.Regex.Match(value, @"\b\d{4}\b");
+        return match.Success ? match.Value : null;
+    }
+
+    private static (double StructuralBonus, Dictionary<string, object?> Evidence) ComputeSingleItemStructuralSignal(
+        MediaType mediaType,
+        IReadOnlyDictionary<string, string> fileHints,
+        IReadOnlyList<ProviderClaim> claims)
+    {
+        var evidence = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+        double structuralBonus = 0.0;
+
+        var exactBridgeMatches = claims
+            .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
+            .Count(c => fileHints.TryGetValue(c.Key, out var fileValue)
+                && string.Equals(fileValue?.Trim(), c.Value.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (exactBridgeMatches > 0)
+        {
+            structuralBonus += 0.35;
+            evidence["exact_bridge_id_matches"] = exactBridgeMatches;
+        }
+
+        if (mediaType == MediaType.Comics)
+        {
+            var fileTitle = fileHints.GetValueOrDefault(MetadataFieldConstants.Title);
+            var candidateTitle = claims
+                .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            var fileSeries = fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
+            var candidateSeries = claims
+                .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Series, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            var fileIssue = fileHints.GetValueOrDefault(MetadataFieldConstants.SeriesPosition)
+                ?? fileHints.GetValueOrDefault("issue_number");
+            var candidateIssue = claims
+                .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.SeriesPosition, StringComparison.OrdinalIgnoreCase))
+                ?.Value
+                ?? claims.FirstOrDefault(c => string.Equals(c.Key, "issue_number", StringComparison.OrdinalIgnoreCase))
+                    ?.Value;
+
+            var seriesMatches = AreEquivalentNames(fileSeries, candidateSeries);
+            var issueMatches = AreEquivalentOrdinals(fileIssue, candidateIssue);
+            var titleMatches = AreEquivalentNames(fileTitle, candidateTitle);
+            var fileTitleContainsFileSeries = TitleContainsSeriesAnchor(fileTitle, fileSeries);
+            var fileTitleContainsCandidateSeries = TitleContainsSeriesAnchor(fileTitle, candidateSeries);
+            var candidateTitleContainsFileSeries = TitleContainsSeriesAnchor(candidateTitle, fileSeries);
+            var titleAnchorsIssueIdentity = titleMatches
+                && (seriesMatches
+                    || fileTitleContainsFileSeries
+                    || fileTitleContainsCandidateSeries
+                    || candidateTitleContainsFileSeries);
+
+            evidence["series_matches"] = seriesMatches;
+            evidence["issue_matches"] = issueMatches;
+            evidence["title_matches"] = titleMatches;
+            evidence["file_title_contains_file_series"] = fileTitleContainsFileSeries;
+            evidence["file_title_contains_candidate_series"] = fileTitleContainsCandidateSeries;
+            evidence["candidate_title_contains_file_series"] = candidateTitleContainsFileSeries;
+            evidence["title_anchors_issue_identity"] = titleAnchorsIssueIdentity;
+
+            if (seriesMatches && issueMatches)
+                structuralBonus += 0.35;
+            else if (titleAnchorsIssueIdentity)
+                structuralBonus += 0.35;
+            else if (issueMatches)
+                structuralBonus += 0.20;
+
+            var applyIssueMismatchPenalty = !titleAnchorsIssueIdentity
+                && !string.IsNullOrWhiteSpace(fileIssue)
+                && !string.IsNullOrWhiteSpace(candidateIssue)
+                && !issueMatches;
+            evidence["issue_mismatch_penalty_applied"] = applyIssueMismatchPenalty;
+
+            if (applyIssueMismatchPenalty)
+                structuralBonus -= 0.25;
+        }
+
+        return (structuralBonus, evidence);
+    }
+
+    private static bool AreEquivalentOrdinals(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            return false;
+
+        if (int.TryParse(left, out var leftNumber) && int.TryParse(right, out var rightNumber))
+            return leftNumber == rightNumber;
+
+        return string.Equals(left.TrimStart('0'), right.TrimStart('0'), StringComparison.OrdinalIgnoreCase)
+            || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeComparableText(string text)
@@ -1644,6 +1787,19 @@ public sealed class RetailMatchWorker
             NormalizeComparableText(left),
             NormalizeComparableText(right),
             StringComparison.Ordinal);
+    }
+
+    private static bool TitleContainsSeriesAnchor(string? title, string? series)
+    {
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(series))
+            return false;
+
+        var normalizedTitle = NormalizeComparableText(title);
+        var normalizedSeries = NormalizeComparableText(series);
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
+            return false;
+
+        return normalizedTitle.Contains(normalizedSeries, StringComparison.Ordinal);
     }
 
     private static bool TryGetDurationSeconds(IReadOnlyDictionary<string, string> fileHints, out double seconds)
@@ -1679,6 +1835,111 @@ public sealed class RetailMatchWorker
 
         seconds = 0.0;
         return false;
+    }
+
+    private sealed record AppleTrackSearchMatch(
+        string CollectionId,
+        JsonNode Track,
+        double Score,
+        bool TitleExact,
+        bool ArtistExact,
+        bool SingleTrackRelease);
+
+    private static IReadOnlyList<string> BuildAppleTrackSearchQueries(
+        string trackTitle,
+        string? artist,
+        string? albumTitle)
+    {
+        var queries = new List<string>
+        {
+            string.Join(' ', new[] { trackTitle, artist }.Where(v => !string.IsNullOrWhiteSpace(v)))
+        };
+
+        if (!string.IsNullOrWhiteSpace(albumTitle))
+        {
+            queries.Add(string.Join(' ', new[] { trackTitle, artist, albumTitle }
+                .Where(v => !string.IsNullOrWhiteSpace(v))));
+        }
+
+        return queries
+            .Where(q => !string.IsNullOrWhiteSpace(q))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static AppleTrackSearchMatch? EvaluateAppleTrackSearchResults(
+        JsonArray results,
+        string? artist,
+        string trackTitle,
+        string? albumTitle)
+    {
+        double bestScore = 0.0;
+        string? bestCollectionId = null;
+        JsonNode? bestTrack = null;
+        var bestTitleExact = false;
+        var bestArtistExact = false;
+        var bestSingleTrackRelease = false;
+
+        foreach (var result in results)
+        {
+            if (result is null) continue;
+
+            var resultTrackName = result["trackName"]?.GetValue<string>();
+            var resultArtist = result["artistName"]?.GetValue<string>();
+            var resultAlbum = result["collectionName"]?.GetValue<string>();
+            var resultTrackCount = result["trackCount"]?.GetValue<long?>();
+            var resultId = result["collectionId"]?.GetValue<long?>() is { } id
+                ? id.ToString()
+                : null;
+
+            if (string.IsNullOrWhiteSpace(resultTrackName) || resultId is null)
+                continue;
+
+            var titleScore = ComputeWordOverlap(trackTitle, resultTrackName);
+            var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
+                ? ComputeWordOverlap(artist, resultArtist)
+                : 0.0;
+            var albumScore = !string.IsNullOrWhiteSpace(albumTitle) && !string.IsNullOrWhiteSpace(resultAlbum)
+                ? ComputeWordOverlap(albumTitle, resultAlbum)
+                : 0.0;
+            var titleExact = AreEquivalentNames(trackTitle, resultTrackName);
+            var artistExact = AreEquivalentNames(artist, resultArtist);
+            var singleTrackRelease = resultTrackCount == 1;
+
+            var combined = string.IsNullOrWhiteSpace(albumTitle)
+                ? titleScore * 0.65 + artistScore * 0.35
+                : titleScore * 0.50 + artistScore * 0.25 + albumScore * 0.25;
+
+            if (titleExact)
+                combined += 0.10;
+
+            if (artistExact)
+                combined += 0.15;
+
+            if (titleExact && artistExact && singleTrackRelease)
+                combined += 0.20;
+
+            combined = Math.Clamp(combined, 0.0, 1.0);
+            if (combined > bestScore)
+            {
+                bestScore = combined;
+                bestCollectionId = resultId;
+                bestTrack = result;
+                bestTitleExact = titleExact;
+                bestArtistExact = artistExact;
+                bestSingleTrackRelease = singleTrackRelease;
+            }
+        }
+
+        return bestScore >= 0.50 && bestCollectionId is not null && bestTrack is not null
+            ? new AppleTrackSearchMatch(
+                bestCollectionId,
+                bestTrack,
+                bestScore,
+                bestTitleExact,
+                bestArtistExact,
+                bestSingleTrackRelease)
+            : null;
     }
 
     private static bool TryGetNumericSeconds(string? value, bool preferMillisecondsForLargeValues, out double seconds)
@@ -1756,14 +2017,17 @@ public sealed class RetailMatchWorker
         _ = candidateTitle;
 
         var fileCreator = fileCreatorOverride ?? GetPrimaryCreatorHint(fileHints);
-        var fileYear = fileHints.GetValueOrDefault(MetadataFieldConstants.Year)
-            ?? fileHints.GetValueOrDefault("release_year");
+        var fileYear = GetPrimaryYearHint(fileHints);
+        candidateYear = NormalizeYearValue(candidateYear);
 
         var creatorPresentOnBothSides = !string.IsNullOrWhiteSpace(fileCreator)
             && !string.IsNullOrWhiteSpace(candidateCreator);
         var yearPresentOnBothSides = !string.IsNullOrWhiteSpace(fileYear)
             && !string.IsNullOrWhiteSpace(candidateYear);
+        var creatorDirectMatch = creatorPresentOnBothSides
+            && AreEquivalentNames(fileCreator, candidateCreator);
         var creatorContradiction = creatorPresentOnBothSides
+            && !creatorDirectMatch
             && retailScore.AuthorScore < weakCreatorThreshold;
         var textEvidence = ComputeTextEvidence(
             retailScore,
@@ -1990,6 +2254,7 @@ public sealed class RetailMatchWorker
                         ?? hints.GetValueOrDefault(MetadataFieldConstants.Series),
                     Album = hints.GetValueOrDefault(MetadataFieldConstants.Album),
                     Artist = hints.GetValueOrDefault(MetadataFieldConstants.Artist),
+                    Composer = hints.GetValueOrDefault(MetadataFieldConstants.Composer),
                     Director = hints.GetValueOrDefault(MetadataFieldConstants.Director),
                     SeasonNumber = hints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
                         ?? hints.GetValueOrDefault("season"),
@@ -2019,9 +2284,13 @@ public sealed class RetailMatchWorker
                     .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Year,
                         StringComparison.OrdinalIgnoreCase))?.Value;
 
+                var (structuralBonus, structuralEvidence) = ComputeSingleItemStructuralSignal(
+                    mediaType, hints, claims);
+
                 // Score candidate
                 var retailScore = _retailScoring.ScoreCandidate(
-                    hints, candidateTitle, candidateAuthor, candidateYear, mediaType);
+                    hints, candidateTitle, candidateAuthor, candidateYear, mediaType,
+                    structuralBonus: structuralBonus);
 
                 var decision = EvaluateRetailDecision(
                     hints,
@@ -2056,7 +2325,9 @@ public sealed class RetailMatchWorker
                     ScoreBreakdownJson = BuildScoreBreakdownJson(
                         retailScore,
                         decision,
-                        "single_item"),
+                        "single_item",
+                        structuralEvidence,
+                        structuralBonus),
                     BridgeIdsJson = bridgeIdsJson,
                     Description = claims
                         .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Description,

@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -37,6 +38,69 @@ public sealed class RetailParityTests
             new MinimalConfigLoader(),
             coverArtHash: null,
             logger: null);
+    }
+
+    [Fact]
+    public void ScoreCandidate_TvUsesShowNameAsCreatorFallback()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "Breaking Bad",
+            [MetadataFieldConstants.EpisodeTitle] = "Pilot",
+            [MetadataFieldConstants.ShowName] = "Breaking Bad",
+            [MetadataFieldConstants.Year] = "2008",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "Pilot",
+            candidateAuthor: "Breaking Bad",
+            candidateYear: "2008",
+            mediaType: MediaType.TV);
+
+        Assert.Equal(1.0, score.AuthorScore);
+        Assert.True(score.CompositeScore >= 0.90);
+    }
+
+    [Fact]
+    public void ScoreCandidate_UsesDateAsYearFallback()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "The Long Walk",
+            [MetadataFieldConstants.Author] = "Richard Bachman",
+            ["date"] = "1979-01-01",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "The Long Walk",
+            candidateAuthor: "Stephen King",
+            candidateYear: "1979",
+            mediaType: MediaType.Books);
+
+        Assert.Equal(1.0, score.YearScore);
+    }
+
+    [Fact]
+    public void ScoreCandidate_NormalizedExactTitleVariantsScoreAsExact()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "4'33\"",
+            [MetadataFieldConstants.Artist] = "John Cage",
+            [MetadataFieldConstants.Year] = "2002",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "4'33''",
+            candidateAuthor: "John Cage",
+            candidateYear: "2002",
+            mediaType: MediaType.Music);
+
+        Assert.Equal(1.0, score.TitleScore);
+        Assert.True(score.CompositeScore >= 0.95);
     }
 
     public static IEnumerable<object?[]> Fixtures()

@@ -52,7 +52,7 @@
   "search_strategies": [
     {
       "name": "volume_search",
-      "priority": 1,
+      "priority": 2,
       "required_fields": ["series"],
       "url_template": "{base_url}/search/?api_key={api_key}&query={series}&resources=volume&limit={limit}&format=json",
       "results_path": "results",
@@ -64,7 +64,7 @@
     },
     {
       "name": "issue_search",
-      "priority": 2,
+      "priority": 1,
       "required_fields": ["title"],
       "url_template": "{base_url}/search/?api_key={api_key}&query={title}&resources=issue&limit={limit}&format=json",
       "results_path": "results",

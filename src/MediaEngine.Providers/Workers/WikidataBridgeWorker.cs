@@ -209,43 +209,9 @@ public sealed class WikidataBridgeWorker
                     }
                 }
 
-                var titleHint = canonicals
-                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Title,
-                        StringComparison.OrdinalIgnoreCase))?.Value;
-                var authorHint = canonicals
-                    .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Author,
-                        StringComparison.OrdinalIgnoreCase))?.Value;
-
-                // For TV episodes, Wikidata typically has an entity for the SHOW, not the
-                // individual episode. If text fallback runs (because the show's tmdb_id
-                // wasn't indexed on Wikidata), use the show name — not the episode title —
-                // so we resolve to the show QID instead of failing on a bogus episode lookup.
-                if (mediaType == MediaType.TV)
-                {
-                    var showName = canonicals
-                        .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.ShowName,
-                            StringComparison.OrdinalIgnoreCase))?.Value
-                        ?? canonicals
-                            .FirstOrDefault(cv => string.Equals(cv.Key, MetadataFieldConstants.Series,
-                                StringComparison.OrdinalIgnoreCase))?.Value;
-                    if (!string.IsNullOrWhiteSpace(showName))
-                        titleHint = showName;
-                }
+                var (titleHint, authorHint, albumHint, artistHint) = BuildLookupHints(mediaType, canonicals);
 
                 BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
-
-                string? albumHint  = null;
-                string? artistHint = null;
-                if (mediaType == MediaType.Music)
-                {
-                    albumHint = canonicals
-                        .FirstOrDefault(cv => string.Equals(cv.Key, "album",
-                            StringComparison.OrdinalIgnoreCase))?.Value;
-                    artistHint = canonicals
-                        .FirstOrDefault(cv => string.Equals(cv.Key, "artist",
-                            StringComparison.OrdinalIgnoreCase))?.Value
-                        ?? authorHint;
-                }
 
                 contexts.Add(new JobContext(
                     Job: job,
@@ -691,15 +657,11 @@ public sealed class WikidataBridgeWorker
 
             // No QID found at all.
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidNoMatch, ct: ct);
-            await _outcomeFactory.CreateWikidataBridgeFailedAsync(
-                job.EntityId,
-                $"No Wikidata match for {ctx.MediaType} — {ctx.BridgeIds.Count} bridge IDs tried",
-                job.IngestionRunId, null, ct);
             await _timeline.RecordBridgeNoMatchAsync(
                 job.EntityId, job.IngestionRunId, ct);
 
             _logger.LogInformation(
-                "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried [entity {EntityId}]",
+                "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity without review [entity {EntityId}]",
                 ctx.TitleHint ?? "(unknown)", ctx.MediaType, ctx.BridgeIds.Count, job.EntityId);
         }
     }
@@ -755,26 +717,9 @@ public sealed class WikidataBridgeWorker
             }
         }
 
-        var titleHint = canonicals
-            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title,
-                StringComparison.OrdinalIgnoreCase))?.Value;
-        var authorHint = canonicals
-            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Author,
-                StringComparison.OrdinalIgnoreCase))?.Value;
+        var (titleHint, authorHint, albumHint, artistHint) = BuildLookupHints(mediaType, canonicals);
 
         BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
-
-        string? albumHint  = null;
-        string? artistHint = null;
-        if (mediaType == MediaType.Music)
-        {
-            albumHint = canonicals
-                .FirstOrDefault(c => string.Equals(c.Key, "album",
-                    StringComparison.OrdinalIgnoreCase))?.Value;
-            artistHint = canonicals
-                .FirstOrDefault(c => string.Equals(c.Key, "artist",
-                    StringComparison.OrdinalIgnoreCase))?.Value ?? authorHint;
-        }
 
         var ctx = new JobContext(
             Job:           job,
@@ -855,6 +800,83 @@ public sealed class WikidataBridgeWorker
 
         if (allCandidates.Count > 0)
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
+    }
+
+    internal static (string? TitleHint, string? AuthorHint, string? AlbumHint, string? ArtistHint) BuildLookupHints(
+        MediaType mediaType,
+        IReadOnlyList<CanonicalValue> canonicals)
+    {
+        static string? GetCanonical(IReadOnlyList<CanonicalValue> values, string key)
+        {
+            return values.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+        }
+
+        var titleHint = GetCanonical(canonicals, MetadataFieldConstants.Title);
+        var authorHint = GetCanonical(canonicals, MetadataFieldConstants.Author);
+        string? albumHint = null;
+        string? artistHint = null;
+
+        if (mediaType == MediaType.TV)
+        {
+            titleHint = GetCanonical(canonicals, MetadataFieldConstants.ShowName)
+                ?? GetCanonical(canonicals, MetadataFieldConstants.Series)
+                ?? titleHint;
+        }
+        else if (mediaType == MediaType.Comics)
+        {
+            var seriesHint = GetCanonical(canonicals, MetadataFieldConstants.Series);
+            if (!string.IsNullOrWhiteSpace(seriesHint))
+                titleHint = BuildComicTitleHint(seriesHint, titleHint);
+
+            authorHint ??= GetCanonical(canonicals, "writer")
+                ?? GetCanonical(canonicals, MetadataFieldConstants.Illustrator);
+        }
+        else if (mediaType == MediaType.Music)
+        {
+            albumHint = GetCanonical(canonicals, MetadataFieldConstants.Album);
+            artistHint = GetCanonical(canonicals, MetadataFieldConstants.Artist)
+                ?? GetCanonical(canonicals, MetadataFieldConstants.Composer)
+                ?? authorHint;
+            authorHint ??= artistHint;
+        }
+
+        return (titleHint, authorHint, albumHint, artistHint);
+    }
+
+    private static string? BuildComicTitleHint(string seriesHint, string? titleHint)
+    {
+        if (string.IsNullOrWhiteSpace(titleHint))
+            return seriesHint;
+
+        if (TitleAlreadyIncludesSeries(titleHint, seriesHint))
+            return titleHint;
+
+        return $"{seriesHint} {titleHint}".Trim();
+    }
+
+    private static bool TitleAlreadyIncludesSeries(string title, string series)
+    {
+        var normalizedTitle = NormalizeComparableText(title);
+        var normalizedSeries = NormalizeComparableText(series);
+
+        if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
+            return false;
+
+        return normalizedTitle.Equals(normalizedSeries, StringComparison.Ordinal)
+            || normalizedTitle.StartsWith(normalizedSeries + " ", StringComparison.Ordinal)
+            || normalizedTitle.Contains(" " + normalizedSeries + " ", StringComparison.Ordinal)
+            || normalizedTitle.EndsWith(" " + normalizedSeries, StringComparison.Ordinal);
+    }
+
+    private static string NormalizeComparableText(string text)
+    {
+        var chars = text
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
+            .ToArray();
+
+        return string.Join(' ', new string(chars)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     /// <summary>

@@ -31,6 +31,40 @@ There is also a standalone `src/MediaEngine.Ingestion` worker host, but the main
 - Docker support plus Windows Service hosting
 - `Tuvima.Wikidata` and Wikidata Reconciliation integration for identity and universe linking
 
+## Local Dev Commands
+
+- Work from the repo root: `C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library`
+- This repo does not use npm/yarn for app startup. Dependency install is standard .NET restore.
+- Required SDK: `.NET 10.0.100` from `global.json`
+- Restore dependencies: `dotnet restore MediaEngine.slnx`
+- Optional sanity build: `dotnet build MediaEngine.slnx`
+- Repo-specific NuGet note: `nuget.config` maps `Tuvima.Wikidata*` packages to the local feed at `C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-wikidata\artifacts`
+- If restore fails for `Tuvima.Wikidata*`, check that sibling repo/feed path before changing package references
+
+Start the two runtime apps in separate terminals:
+
+- Engine: `dotnet run --project src/MediaEngine.Api`
+- Dashboard: `dotnet run --project src/MediaEngine.Web`
+
+Default local URLs:
+
+- Engine: `http://localhost:61495` and `https://localhost:61494`
+- Dashboard: `http://localhost:5016` and `https://localhost:7062`
+
+Practical startup order:
+
+1. Start `src/MediaEngine.Api` first and wait for `Now listening on: http://localhost:61495`
+2. Start `src/MediaEngine.Web`
+3. Open `http://localhost:5016`
+
+Runtime notes:
+
+- Run from the repo root so the Engine can resolve `config/`
+- `src/MediaEngine.Api` launch settings set `TUVIMA_CONFIG_DIR=../../config` for normal `dotnet run`
+- The Dashboard defaults to `Engine:BaseUrl = http://localhost:61495`
+- If the Engine is started on a different address, set `TUVIMA_ENGINE_URL` before starting the Dashboard
+- First Engine startup may benchmark hardware and download AI models, which can take time and use about 9 GB
+
 ## Repository Map
 
 ### Main application code

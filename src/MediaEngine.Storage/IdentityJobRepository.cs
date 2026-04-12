@@ -26,11 +26,18 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                  state, pass, attempt_count, lease_owner, lease_expires_at,
                  selected_candidate_id, resolved_qid, last_error, next_retry_at,
                  created_at, updated_at)
-            VALUES
-                (@Id, @EntityId, @EntityType, @MediaType, @IngestionRunId,
-                 @State, @Pass, @AttemptCount, @LeaseOwner, @LeaseExpiresAt,
-                 @SelectedCandidateId, @ResolvedQid, @LastError, @NextRetryAt,
-                 @CreatedAt, @UpdatedAt);
+            SELECT
+                @Id, @EntityId, @EntityType, @MediaType, @IngestionRunId,
+                @State, @Pass, @AttemptCount, @LeaseOwner, @LeaseExpiresAt,
+                @SelectedCandidateId, @ResolvedQid, @LastError, @NextRetryAt,
+                @CreatedAt, @UpdatedAt
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM   identity_jobs
+                WHERE  entity_id = @EntityId
+                  AND  pass = @Pass
+                  AND  state NOT IN ('Completed', 'Failed')
+            );
             """,
             new
             {
@@ -57,7 +64,17 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<IdentityJobRow>(SelectSql + " WHERE entity_id = @entityId LIMIT 1;",
+        var row = await conn.QueryFirstOrDefaultAsync<IdentityJobRow>(
+            SelectSql + """
+             WHERE entity_id = @entityId
+             ORDER BY CASE
+                          WHEN state IN ('Completed', 'Failed') THEN 1
+                          ELSE 0
+                      END,
+                      updated_at DESC,
+                      created_at DESC
+             LIMIT 1;
+            """,
             new { entityId = entityId.ToString() });
         return row is null ? null : MapRow(row);
     }
@@ -136,14 +153,19 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
     public async Task UpdateStateAsync(Guid jobId, IdentityJobState newState, string? error = null, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        var preserveLease = newState is
+            IdentityJobState.RetailSearching or
+            IdentityJobState.BridgeSearching or
+            IdentityJobState.Hydrating;
+
         using var conn = _db.CreateConnection();
         await conn.ExecuteAsync("""
             UPDATE identity_jobs
             SET    state            = @state,
                    last_error       = @error,
-                   lease_owner      = NULL,
-                   lease_expires_at = NULL,
-                   attempt_count    = attempt_count + 1,
+                   lease_owner      = CASE WHEN @preserveLease = 1 THEN lease_owner ELSE NULL END,
+                   lease_expires_at = CASE WHEN @preserveLease = 1 THEN lease_expires_at ELSE NULL END,
+                   attempt_count    = attempt_count + @attemptIncrement,
                    updated_at       = @now
             WHERE  id = @jobId;
             """,
@@ -152,6 +174,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 jobId = jobId.ToString(),
                 state = newState.ToString(),
                 error,
+                preserveLease = preserveLease ? 1 : 0,
+                attemptIncrement = preserveLease ? 1 : 0,
                 now   = DateTimeOffset.UtcNow.ToString("O"),
             });
     }
@@ -226,7 +250,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                    last_error       = 'Reclaimed from stuck intermediate state',
                    updated_at       = @now
             WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating')
-              AND  lease_owner IS NULL
+              AND  (lease_owner IS NULL OR lease_expires_at < @now)
               AND  updated_at < @cutoff
               AND  attempt_count < 5;
             """,
@@ -264,7 +288,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         return await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Completed', 'Failed')");
+            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')");
     }
 
     public async Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(

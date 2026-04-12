@@ -2502,6 +2502,24 @@ public sealed class DatabaseConnection : IDatabaseConnection
             CREATE INDEX IF NOT EXISTS idx_identity_jobs_ingestion_run_id ON identity_jobs (ingestion_run_id);
             CREATE INDEX IF NOT EXISTS idx_identity_jobs_lease ON identity_jobs (state, lease_expires_at);
 
+            DELETE FROM identity_jobs AS older
+            WHERE older.state NOT IN ('Completed', 'Failed')
+              AND EXISTS (
+                  SELECT 1
+                  FROM   identity_jobs AS newer
+                  WHERE  newer.entity_id = older.entity_id
+                    AND  newer.pass = older.pass
+                    AND  newer.state NOT IN ('Completed', 'Failed')
+                    AND (
+                             newer.updated_at > older.updated_at
+                          OR (newer.updated_at = older.updated_at AND newer.rowid > older.rowid)
+                        )
+              );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_identity_jobs_entity_pass_active
+                ON identity_jobs (entity_id, pass)
+                WHERE state NOT IN ('Completed', 'Failed');
+
             CREATE TABLE IF NOT EXISTS retail_match_candidates (
                 id                    TEXT PRIMARY KEY,
                 job_id                TEXT NOT NULL REFERENCES identity_jobs(id) ON DELETE CASCADE,
