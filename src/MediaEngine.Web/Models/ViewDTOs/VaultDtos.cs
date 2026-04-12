@@ -101,6 +101,27 @@ public sealed class VaultItemViewModel
     /// </summary>
     public string? Specs => ComputeSpecs();
 
+    /// <summary>
+    /// Primary creator for display: Director (Movies/TV), Author (Books/Audiobooks/Comics),
+    /// Artist (Music). Falls through in priority order.
+    /// </summary>
+    public string? Creator =>
+        !string.IsNullOrWhiteSpace(Director) ? Director :
+        !string.IsNullOrWhiteSpace(Author) ? Author :
+        !string.IsNullOrWhiteSpace(Artist) ? Artist :
+        !string.IsNullOrWhiteSpace(Narrator) ? Narrator :
+        null;
+
+    /// <summary>
+    /// Contextual grouping label: Show name (TV), Album (Music), Series (Books/Comics/Audiobooks).
+    /// Used in the "Context" column of the redesigned media list.
+    /// </summary>
+    public string? ContextLabel =>
+        !string.IsNullOrWhiteSpace(ShowName) ? ShowName :
+        !string.IsNullOrWhiteSpace(Album) ? Album :
+        !string.IsNullOrWhiteSpace(Series) ? Series :
+        null;
+
     /// <summary>Factory: convert a RegistryItemViewModel to VaultItemViewModel.</summary>
     public static VaultItemViewModel From(RegistryItemViewModel r) => new()
     {

@@ -492,6 +492,39 @@ else
                                         </div>
                                         break;
 
+                                    case ColumnRenderType.CoverThumb:
+                                        <div class="vmt-cover-thumb" style="width: 32px; height: 32px;"
+                                             @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
+                                             @onmouseleave="HideHover">
+                                            @if (!string.IsNullOrEmpty(item.CoverUrl))
+                                            {
+                                                <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="" class="vmt-cover-thumb-img" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(item.MediaType)"
+                                                         Style="font-size: 16px; opacity: 0.2;" />
+                                            }
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.TitleCell:
+                                        <div class="vmt-title-cell">
+                                            <span class="vmt-status-dot" style="background: @VaultHelpers.GetVaultStatusColor(item.VaultDisplayStatus);"></span>
+                                            @{
+                                                var isTvTitle = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+                                                var cellTitle = isTvTitle && !string.IsNullOrWhiteSpace(item.EpisodeTitle)
+                                                    ? item.EpisodeTitle!
+                                                    : item.Title;
+                                            }
+                                            <span class="vmt-title-text @(isQuarantined ? "vmt-title--muted" : "")">@cellTitle</span>
+                                            @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != cellTitle)
+                                            {
+                                                <span class="vmt-original-title-sub">@item.OriginalTitle</span>
+                                            }
+                                        </div>
+                                        break;
+
                                     default:
                                         <span class="vct-text-cell">—</span>
                                         break;
@@ -714,7 +747,8 @@ else
 <style>
     /* ── Row selection ── */
     .vmt-row--selected {
-        background: rgba(96, 165, 250, 0.05);
+        border-left: 3px solid rgba(201, 146, 46, 0.7);
+        background: rgba(201, 146, 46, 0.04);
     }
 
     /* ── Checkbox ── */
@@ -775,7 +809,8 @@ else
     .vmt-th--right  { text-align: right; }
 
     .vmt-row {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+        height: 40px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         transition: background 0.15s;
     }
 
@@ -1273,5 +1308,54 @@ else
         background: rgba(239, 68, 68, 0.15);
         color: #EF4444;
         border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    /* ── Cover Thumb ── */
+    .vmt-cover-thumb {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .vmt-cover-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* ── Title Cell ── */
+    .vmt-title-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .vmt-status-dot {
+        width: 6px;
+        height: 6px;
+        min-width: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .vmt-title-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.875rem;
+    }
+
+    .vmt-original-title-sub {
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-left: -2px;
     }
 </style>

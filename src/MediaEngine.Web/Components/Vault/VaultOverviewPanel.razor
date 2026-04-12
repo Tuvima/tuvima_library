@@ -1,0 +1,385 @@
+@namespace MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Theming
+
+@inject IEngineApiClient ApiClient
+
+@if (_loading)
+{
+    <div class="vo-loading">
+        <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                             Style="color: rgba(255,255,255,0.15);" />
+    </div>
+}
+else if (_data is null)
+{
+    <div class="vo-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.Dashboard" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">Unable to load overview data.</p>
+    </div>
+}
+else
+{
+    <div class="vo-grid">
+
+        @* ── Intake Summary ── *@
+        <div class="vo-card vo-card--wide" @onclick='() => OnNavigate.InvokeAsync("new")'>
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Intake</span>
+            </div>
+            <div class="vo-card-value">@_data.TotalItems.ToString("N0")</div>
+            <div class="vo-card-subtitle">total items in library</div>
+            <div class="vo-card-breakdown">
+                <span class="vo-metric">
+                    <span class="vo-metric-value">@_data.Added24h</span>
+                    <span class="vo-metric-label">24h</span>
+                </span>
+                <span class="vo-metric">
+                    <span class="vo-metric-value">@_data.Added7d</span>
+                    <span class="vo-metric-label">7d</span>
+                </span>
+                <span class="vo-metric">
+                    <span class="vo-metric-value">@_data.Added30d</span>
+                    <span class="vo-metric-label">30d</span>
+                </span>
+            </div>
+        </div>
+
+        @* ── Review Backlog ── *@
+        <div class="vo-card @(_data.ReviewTotal > 0 ? "vo-card--alert" : "")"
+             @onclick='() => OnNavigate.InvokeAsync("action_center")'>
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Review Backlog</span>
+            </div>
+            <div class="vo-card-value" style="@(_data.ReviewTotal > 0 ? $"color: {PaletteProvider.Current.Status.NeedsReview};" : "")">
+                @_data.ReviewTotal
+            </div>
+            <div class="vo-card-subtitle">items need attention</div>
+            @if (_data.ReviewCategories.Count > 0)
+            {
+                <div class="vo-card-breakdown vo-card-breakdown--stacked">
+                    @foreach (var cat in _data.ReviewCategories.Where(c => c.Value > 0).OrderByDescending(c => c.Value))
+                    {
+                        <span class="vo-metric vo-metric--row">
+                            <span class="vo-metric-value">@cat.Value</span>
+                            <span class="vo-metric-label">@FormatCategory(cat.Key)</span>
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Pipeline Health ── *@
+        <div class="vo-card">
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Timeline" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Pipeline</span>
+            </div>
+            <div class="vo-card-value" style="color: @GetSuccessRateColor(_data.PipelineSuccessRate);">
+                @((_data.PipelineSuccessRate * 100).ToString("0"))%
+            </div>
+            <div class="vo-card-subtitle">success rate</div>
+            @if (_data.PipelineStates.Count > 0)
+            {
+                <div class="vo-card-breakdown vo-card-breakdown--stacked">
+                    @foreach (var state in _data.PipelineStates.Where(s => s.Value > 0))
+                    {
+                        <span class="vo-metric vo-metric--row">
+                            <span class="vo-metric-value">@state.Value</span>
+                            <span class="vo-metric-label">@FormatPipelineState(state.Key)</span>
+                        </span>
+                    }
+                </div>
+            }
+        </div>
+
+        @* ── Enrichment Progress ── *@
+        <div class="vo-card">
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Science" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Enrichment</span>
+            </div>
+            @{
+                var qidTotal = _data.WithQid + _data.WithoutQid;
+                var qidPct = qidTotal > 0 ? (double)_data.WithQid / qidTotal : 0;
+            }
+            <div class="vo-card-value">@((qidPct * 100).ToString("0"))%</div>
+            <div class="vo-card-subtitle">identified (QID)</div>
+            <div class="vo-progress-bar">
+                <div class="vo-progress-fill" style="width: @((qidPct * 100).ToString("0"))%;"></div>
+            </div>
+            <div class="vo-card-breakdown">
+                <span class="vo-metric">
+                    <span class="vo-metric-value">@_data.WithQid</span>
+                    <span class="vo-metric-label">with QID</span>
+                </span>
+                <span class="vo-metric">
+                    <span class="vo-metric-value">@_data.WithoutQid</span>
+                    <span class="vo-metric-label">without</span>
+                </span>
+            </div>
+        </div>
+
+        @* ── Universe Coverage ── *@
+        <div class="vo-card" @onclick='() => OnNavigate.InvokeAsync("ua_pending")'>
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Hub" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Universes</span>
+            </div>
+            @{
+                var uniTotal = _data.UniverseAssigned + _data.UniverseUnassigned;
+                var uniPct = uniTotal > 0 ? (double)_data.UniverseAssigned / uniTotal : 0;
+            }
+            <div class="vo-card-value">@_data.UniverseAssigned</div>
+            <div class="vo-card-subtitle">works assigned to a universe</div>
+            <div class="vo-progress-bar">
+                <div class="vo-progress-fill vo-progress-fill--purple" style="width: @((uniPct * 100).ToString("0"))%;"></div>
+            </div>
+            <div class="vo-card-breakdown">
+                <span class="vo-metric">
+                    <span class="vo-metric-value">@_data.UniverseUnassigned</span>
+                    <span class="vo-metric-label">unassigned</span>
+                </span>
+            </div>
+        </div>
+
+        @* ── Stale Items ── *@
+        <div class="vo-card @(_data.StaleItems > 20 ? "vo-card--warn" : "")">
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Update" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Freshness</span>
+            </div>
+            <div class="vo-card-value">@_data.StaleItems</div>
+            <div class="vo-card-subtitle">items older than 30 days</div>
+        </div>
+
+        @* ── Media Type Breakdown ── *@
+        <div class="vo-card vo-card--wide">
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Category" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Media Types</span>
+            </div>
+            <div class="vo-card-breakdown vo-card-breakdown--media">
+                @foreach (var mt in _data.MediaTypeCounts.OrderByDescending(m => m.Value))
+                {
+                    <span class="vo-media-chip" @onclick='() => OnNavigate.InvokeAsync(mt.Key.ToLowerInvariant())'
+                          @onclick:stopPropagation="true">
+                        <MudIcon Icon="@VaultHelpers.GetMediaTypeIcon(mt.Key)" Style="font-size: 14px;" />
+                        <span class="vo-media-chip-label">@mt.Key</span>
+                        <span class="vo-media-chip-count">@mt.Value.ToString("N0")</span>
+                    </span>
+                }
+            </div>
+        </div>
+
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<string> OnNavigate { get; set; }
+
+    private VaultOverviewViewModel? _data;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _data = await ApiClient.GetVaultOverviewAsync();
+        _loading = false;
+    }
+
+    private static string FormatCategory(string trigger) => trigger switch
+    {
+        "RetailMatchFailed" or "NoRetailMatch" => "Needs Identification",
+        "RetailMatchAmbiguous" or "MultipleQidMatches" => "Ambiguous Match",
+        "LowConfidence" => "Low Confidence",
+        "MediaTypeUnknown" => "Unknown Type",
+        "Quarantined" => "Quarantined",
+        "WaitingForProvider" => "Waiting for Provider",
+        _ => trigger.Replace("_", " "),
+    };
+
+    private static string FormatPipelineState(string state) => state switch
+    {
+        "Queued" => "Queued",
+        "RetailSearching" => "Retail search",
+        "RetailMatched" => "Retail matched",
+        "RetailNoMatch" => "No retail match",
+        "BridgeSearching" => "Wikidata search",
+        "QidResolved" => "QID resolved",
+        "QidNoMatch" => "No QID match",
+        "Hydrating" => "Hydrating",
+        "Completed" => "Completed",
+        "Failed" => "Failed",
+        _ => state,
+    };
+
+    private static string GetSuccessRateColor(double rate)
+    {
+        var p = PaletteProvider.Current;
+        return rate switch
+        {
+            >= 0.85 => p.Status.Verified,
+            >= 0.60 => p.Status.Provisional,
+            _ => p.Status.NeedsReview,
+        };
+    }
+}
+
+<style>
+    .vo-loading,
+    .vo-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
+    }
+
+    .vo-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 16px;
+        padding: 8px 0;
+    }
+
+    .vo-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 20px;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+    }
+
+    .vo-card:hover {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.10);
+    }
+
+    .vo-card--wide {
+        grid-column: span 2;
+    }
+
+    .vo-card--alert {
+        border-color: rgba(201, 146, 46, 0.25);
+    }
+
+    .vo-card--warn {
+        border-color: rgba(201, 146, 46, 0.15);
+    }
+
+    .vo-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .vo-card-title {
+        font-size: 0.75rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    .vo-card-value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
+        line-height: 1;
+        margin-bottom: 4px;
+    }
+
+    .vo-card-subtitle {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.3);
+        margin-bottom: 12px;
+    }
+
+    .vo-card-breakdown {
+        display: flex;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .vo-card-breakdown--stacked {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vo-card-breakdown--media {
+        gap: 8px;
+    }
+
+    .vo-metric {
+        display: flex;
+        align-items: baseline;
+        gap: 4px;
+    }
+
+    .vo-metric--row {
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .vo-metric-value {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .vo-metric-label {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vo-progress-bar {
+        height: 4px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        margin-bottom: 12px;
+        overflow: hidden;
+    }
+
+    .vo-progress-fill {
+        height: 100%;
+        background: rgba(76, 175, 80, 0.6);
+        border-radius: 2px;
+        transition: width 0.4s ease;
+    }
+
+    .vo-progress-fill--purple {
+        background: rgba(156, 39, 176, 0.6);
+    }
+
+    .vo-media-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .vo-media-chip:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .vo-media-chip-label {
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .vo-media-chip-count {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+    }
+</style>

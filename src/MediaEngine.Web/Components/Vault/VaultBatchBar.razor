@@ -8,6 +8,10 @@
     <div class="vault-batch-bar">
         <span class="vault-batch-count">@SelectedCount selected</span>
 
+        <button class="vault-batch-btn vault-batch-btn--edit" @onclick="() => OnEdit.InvokeAsync()">
+            Edit (@SelectedCount)
+        </button>
+
         <button class="vault-batch-btn vault-batch-btn--delete" @onclick="() => OnDelete.InvokeAsync()">
             Delete
         </button>
@@ -24,6 +28,7 @@
 
 @code {
     [Parameter] public int SelectedCount { get; set; }
+    [Parameter] public EventCallback OnEdit { get; set; }
     [Parameter] public EventCallback OnDelete { get; set; }
     [Parameter] public EventCallback OnSyncNow { get; set; }
     [Parameter] public EventCallback OnClearSelection { get; set; }
@@ -71,6 +76,16 @@
         transition: background 0.15s, color 0.15s;
         white-space: nowrap;
         line-height: 1;
+    }
+
+    .vault-batch-btn--edit {
+        background: rgba(201, 146, 46, 0.15);
+        color: #C9922E;
+        border: 1px solid rgba(201, 146, 46, 0.2);
+    }
+
+    .vault-batch-btn--edit:hover {
+        background: rgba(201, 146, 46, 0.25);
     }
 
     .vault-batch-btn--delete {

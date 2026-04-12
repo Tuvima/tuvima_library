@@ -3832,6 +3832,40 @@ public sealed class EngineApiClient : IEngineApiClient
         }
         catch { /* swallow — preferences are non-critical */ }
     }
+
+    // ── Vault Overview ──
+
+    public async Task<VaultOverviewViewModel?> GetVaultOverviewAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<VaultOverviewViewModel>("vault/overview", ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task<VaultBatchEditResultViewModel?> BatchEditAsync(
+        List<Guid> entityIds, Dictionary<string, string> fieldChanges, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new
+            {
+                entity_ids = entityIds,
+                field_changes = fieldChanges.Select(kv => new { key = kv.Key, value = kv.Value }).ToList(),
+            };
+            var response = await _http.PostAsJsonAsync("vault/batch-edit", body, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<VaultBatchEditResultViewModel>(ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }
 
 

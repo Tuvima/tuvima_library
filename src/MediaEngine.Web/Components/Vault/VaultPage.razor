@@ -48,7 +48,7 @@
         </div>
 
         @* ── 3. SUB-TAB ROW (context-aware, only when not action_center) ── *@
-        @if (_primaryTab != "action_center" && _subTabs.TryGetValue(_primaryTab, out var subs))
+        @if (_primaryTab != "action_center" && _primaryTab != "overview" && _subTabs.TryGetValue(_primaryTab, out var subs))
         {
             <div class="vault-subtab-row">
                 <div class="vault-tab-bar vault-tab-bar--sub">
@@ -202,27 +202,17 @@
                                          OnEditClicked="OnManageEdit"
                                          OnDeleteClicked="OnActionCenterDelete" />
             }
-            else if (_activeTab.StartsWith("people"))
+            else if (_activeTab == "overview")
             {
-                <VaultPeopleTable People="@FilteredPeople"
-                                  Presence="@_personPresence"
-                                  Loading="@_loadingPeople"
-                                  OnRowClicked="OnPersonRowClicked" />
-                @if (HasMorePeople)
-                {
-                    <div class="vault-load-more">
-                        <button class="vault-load-more-btn" @onclick="LoadMorePeople">
-                            @L["Vault_LoadMore"]
-                        </button>
-                    </div>
-                }
+                <VaultOverviewPanel OnNavigate="OnOverviewNavigate" />
             }
-            else if (_activeTab.StartsWith("universes"))
+            else if (_activeTab.StartsWith("ua_"))
             {
-                <VaultUniversesTable Universes="@_universes"
-                                     Loading="@_loadingUniverses"
-                                     PeopleCount="@_universePeopleCounts"
-                                     OnRowClicked="OnUniverseRowClicked" />
+                @* Universe Alignment workspace — placeholder for Phase 3 *@
+                <div class="vault-placeholder">
+                    <MudIcon Icon="@Icons.Material.Outlined.Hub" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+                    <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">Universe Alignment workspace coming soon.</p>
+                </div>
             }
         </div>
     </div>
@@ -250,6 +240,19 @@
                            OnCreatorClicked="OnCreatorNameClicked" />
     }
 
+    @* ── 5b. EDITOR PANEL (replaces detail drawer for batch editing) ── *@
+    @if (_editorPanelItems.Count > 0)
+    {
+        <div class="vault-editor-panel-container">
+            <VaultEditorPanel Items="@_editorPanelItems"
+                              OnClose="CloseEditorPanel"
+                              OnApplied="OnEditorApplied"
+                              OnPurge="OnEditorPurge"
+                              OnReidentifyItems="OnEditorReidentify"
+                              OnRefreshItems="OnEditorRefresh" />
+        </div>
+    }
+
     @* ── 6. ADD MEDIA DRAWER ── *@
     @if (_addMediaOpen)
     {
@@ -267,6 +270,7 @@
 
     @* ── 8. BATCH ACTION BAR ── *@
     <VaultBatchBar SelectedCount="@_selectedItems.Count"
+                   OnEdit="OnBatchEdit"
                    OnDelete="OnBatchDelete"
                    OnSyncNow="OnBatchSync"
                    OnClearSelection="() => { _selectedItems.Clear(); StateHasChanged(); }" />
@@ -287,7 +291,7 @@
     [Parameter] public string? Tab { get; set; }
 
     // ── State ──
-    private string _activeTab = "new";
+    private string _activeTab = "overview";
     // _groupBy removed — grouping is no longer supported in the Vault
     private string _sortBy = "newest";
     private string? _activeSortKey;
@@ -295,8 +299,10 @@
     private string _searchText = "";
     private string _viewMode = "all";
     private bool _loading;
+    #pragma warning disable CS0414 // Assigned but read only inside load methods (People/Universes tabs deprecated)
     private bool _loadingPeople;
     private bool _loadingUniverses;
+    #pragma warning restore CS0414
     private Dictionary<Guid, int>? _universePeopleCounts;
 
     // ── View mode + preferences ──
@@ -384,6 +390,9 @@
     private string _deleteItemTitle = "";
     private bool _showBatchDeleteConfirm;
 
+    // ── Editor panel state ──
+    private List<VaultItemViewModel> _editorPanelItems = [];
+
     // ── Action Center state ──
     // _actionCenterExpanded removed — Action Center tab always shows expanded
     private List<VaultItemViewModel>? _conflictItems;
@@ -394,9 +403,9 @@
     // ── Primary tab categories ──
     private static readonly (string Id, string Label, string Icon)[] _primaryTabs =
     [
-        ("media",     "Media",     Icons.Material.Outlined.VideoLibrary),
-        ("people",    "People",    Icons.Material.Outlined.People),
-        ("universes", "Universes", Icons.Material.Outlined.Public),
+        ("overview",           "Overview",           Icons.Material.Outlined.Dashboard),
+        ("media",              "Media",              Icons.Material.Outlined.VideoLibrary),
+        ("universe_alignment", "Universe Alignment", Icons.Material.Outlined.Hub),
     ];
 
     // ── Sub-tabs per primary category ──
@@ -412,34 +421,30 @@
             ("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
             ("comics",     "Comics",     Icons.Material.Outlined.AutoStories),
         ],
-        ["people"] =
+        ["universe_alignment"] =
         [
-            ("people_all",       "All",       Icons.Material.Outlined.People),
-            ("people_authors",   "Authors",   Icons.Material.Outlined.MenuBook),
-            ("people_directors", "Directors", Icons.Material.Outlined.Movie),
-            ("people_actors",    "Actors",    Icons.Material.Outlined.TheaterComedy),
-            ("people_musicians", "Musicians", Icons.Material.Outlined.MusicNote),
-        ],
-        ["universes"] =
-        [
-            ("universes_all", "All", Icons.Material.Outlined.Public),
+            ("ua_pending",  "Pending",  Icons.Material.Outlined.PendingActions),
+            ("ua_assigned", "Assigned", Icons.Material.Outlined.CheckCircle),
+            ("ua_unlinked", "Unlinked", Icons.Material.Outlined.LinkOff),
         ],
     };
 
-    private string _primaryTab = "media";
+    private string _primaryTab = "overview";
 
     // ── Legacy tab list (kept for URL parsing compatibility) ──
     private static readonly (string Id, string Label, string Icon)[] _tabs =
     [
-        ("new",        "New",        Icons.Material.Outlined.NewReleases),
-        ("movies",     "Movies",     Icons.Material.Outlined.VideoLibrary),
-        ("tv",         "TV",         Icons.Material.Outlined.LiveTv),
-        ("music",      "Music",      Icons.Material.Outlined.MusicNote),
-        ("books",      "Books",      Icons.Material.Outlined.MenuBook),
-        ("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
-        ("comics",     "Comics",     Icons.Material.Outlined.AutoStories),
-        ("people",     "People",     Icons.Material.Outlined.People),
-        ("universes",  "Universes",  Icons.Material.Outlined.Public),
+        ("overview",    "Overview",           Icons.Material.Outlined.Dashboard),
+        ("new",         "New",               Icons.Material.Outlined.NewReleases),
+        ("movies",      "Movies",            Icons.Material.Outlined.VideoLibrary),
+        ("tv",          "TV",                Icons.Material.Outlined.LiveTv),
+        ("music",       "Music",             Icons.Material.Outlined.MusicNote),
+        ("books",       "Books",             Icons.Material.Outlined.MenuBook),
+        ("audiobooks",  "Audiobooks",        Icons.Material.Outlined.Headphones),
+        ("comics",      "Comics",            Icons.Material.Outlined.AutoStories),
+        ("ua_pending",  "Pending",           Icons.Material.Outlined.PendingActions),
+        ("ua_assigned", "Assigned",          Icons.Material.Outlined.CheckCircle),
+        ("ua_unlinked", "Unlinked",          Icons.Material.Outlined.LinkOff),
     ];
 
     // ── Tab helpers ──
@@ -498,8 +503,6 @@
         "books"            => _mediaTypeCounts.GetValueOrDefault("Books", 0),
         "audiobooks"       => _mediaTypeCounts.GetValueOrDefault("Audiobooks", 0),
         "comics"           => _mediaTypeCounts.GetValueOrDefault("Comics", 0),
-        "people_all"       => _people.Count,
-        "universes_all"    => _universes.Count,
         _                  => 0,
     };
 
@@ -525,10 +528,12 @@
         _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
         await LoadConflictItems();
 
-        if (_activeTab.StartsWith("people")) await LoadPeople();
-        else if (_activeTab.StartsWith("universes")) await LoadUniverses();
+        if (_activeTab == "overview" || _activeTab.StartsWith("ua_"))
+        {
+            // Overview and Universe Alignment tabs don't need media data on init
+        }
         else if (IsContainerView) await LoadContainerItems();
-        else await LoadMediaItems();
+        else if (IsMediaTab(_activeTab)) await LoadMediaItems();
 
         if (_pendingItemId.HasValue)
         {
@@ -922,6 +927,11 @@
             // action center always expanded when tab is selected
             await LoadConflictItems();
         }
+        else if (primaryId == "overview")
+        {
+            _activeTab = "overview";
+            StateHasChanged();
+        }
         else if (_subTabs.TryGetValue(primaryId, out var subs) && subs.Length > 0)
         {
             await SwitchTab(subs[0].Id);
@@ -946,23 +956,22 @@
         // Update primary tab to match sub-tab selection
         if (IsMediaTab(tabId))
             _primaryTab = "media";
-        else if (tabId.StartsWith("people"))
-            _primaryTab = "people";
-        else if (tabId.StartsWith("universes"))
-            _primaryTab = "universes";
+        else if (tabId.StartsWith("ua_"))
+            _primaryTab = "universe_alignment";
+        else if (tabId == "overview")
+            _primaryTab = "overview";
 
         // Set view mode from saved preferences
         _viewMode = IsMediaTab(tabId) ? GetDefaultViewMode(tabId) : "all";
 
-        if (tabId.StartsWith("people"))
+        if (tabId.StartsWith("ua_"))
         {
-            _sortBy = "name";
-            _peopleDisplayCount = PeoplePageSize;
-            await LoadPeople();
+            // Universe alignment data loading — placeholder for Phase 3
+            StateHasChanged();
         }
-        else if (tabId.StartsWith("universes"))
+        else if (tabId == "overview")
         {
-            await LoadUniverses();
+            StateHasChanged();
         }
         else
         {
@@ -974,6 +983,23 @@
         }
 
         UpdateUrl();
+    }
+
+    /// <summary>Navigate to a specific tab from the Overview dashboard cards.</summary>
+    private async Task OnOverviewNavigate(string target)
+    {
+        if (target == "action_center")
+        {
+            await SwitchPrimaryTab("action_center");
+        }
+        else if (target.StartsWith("ua_"))
+        {
+            await SwitchTab(target);
+        }
+        else if (IsMediaTab(target))
+        {
+            await SwitchTab(target);
+        }
     }
 
     // ── Toolbar callbacks ──
@@ -1500,6 +1526,60 @@
         _selectedItems.Clear();
     }
 
+    // ── Editor panel ──
+
+    private void OnBatchEdit()
+    {
+        if (_selectedItems.Count == 0) return;
+        _editorPanelItems = _mediaItems
+            .Where(i => _selectedItems.Contains(i.EntityId))
+            .ToList();
+        // Close the detail drawer if open
+        _selectedMedia = null;
+        _selectedPerson = null;
+        _selectedUniverse = null;
+        StateHasChanged();
+    }
+
+    private void CloseEditorPanel()
+    {
+        _editorPanelItems = [];
+        StateHasChanged();
+    }
+
+    private async Task OnEditorApplied()
+    {
+        // Refresh data after edits applied
+        _editorPanelItems = [];
+        _selectedItems.Clear();
+        if (IsContainerView) await LoadContainerItems();
+        else if (IsMediaTab(_activeTab)) await LoadMediaItems();
+    }
+
+    private async Task OnEditorPurge(List<Guid> ids)
+    {
+        await ApiClient.BatchDeleteRegistryItemsAsync(ids.ToArray());
+        Snackbar.Add($"{ids.Count} item(s) purged.", Severity.Warning);
+        _editorPanelItems = [];
+        _selectedItems.Clear();
+        await LoadCounts();
+        if (IsMediaTab(_activeTab)) await LoadMediaItems();
+    }
+
+    private async Task OnEditorReidentify(List<Guid> ids)
+    {
+        foreach (var id in ids)
+            await ApiClient.TriggerHydrationAsync(id);
+        Snackbar.Add($"{ids.Count} item(s) queued for re-identification.", Severity.Info);
+    }
+
+    private async Task OnEditorRefresh(List<Guid> ids)
+    {
+        foreach (var id in ids)
+            await ApiClient.TriggerHydrationAsync(id);
+        Snackbar.Add($"{ids.Count} item(s) queued for enrichment refresh.", Severity.Info);
+    }
+
     // ── Column picker ──
 
     private Task OnColumnVisibilityChanged(List<string> visibleKeys)
@@ -1898,6 +1978,23 @@
         flex: 1;
         overflow: hidden;
         min-height: 0;
+    }
+
+    /* ── Editor panel container ── */
+    .vault-editor-panel-container {
+        position: fixed;
+        top: 0;
+        right: 0;
+        width: 450px;
+        height: 100vh;
+        z-index: 900;
+        box-shadow: -4px 0 24px rgba(0, 0, 0, 0.5);
+        animation: vault-editor-slide-in 0.2s ease;
+    }
+
+    @@keyframes vault-editor-slide-in {
+        from { transform: translateX(100%); }
+        to   { transform: translateX(0); }
     }
 
     /* ── Content ── */

@@ -723,6 +723,15 @@ public interface IEngineApiClient
 
     /// <summary>PUT /settings/ui/vault-preferences — save vault display preferences.</summary>
     Task SaveVaultPreferencesAsync(VaultPreferencesSettings settings);
+
+    // ── Vault Overview ──
+
+    /// <summary>GET /vault/overview — aggregated operational health summary.</summary>
+    Task<VaultOverviewViewModel?> GetVaultOverviewAsync(CancellationToken ct = default);
+
+    /// <summary>POST /vault/batch-edit — apply batch field edits to multiple items.</summary>
+    Task<VaultBatchEditResultViewModel?> BatchEditAsync(
+        List<Guid> entityIds, Dictionary<string, string> fieldChanges, CancellationToken ct = default);
 }
 
 
