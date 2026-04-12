@@ -1,10 +1,8 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @namespace MediaEngine.Web.Components.Vault
 
-@* Clickable pipeline circles for the detail drawer — Identified / Enriched *@
-
 <div class="pipeline-circles">
-    @for (int i = 0; i < 2; i++)
+    @for (int i = 0; i < 3; i++)
     {
         var stage = i;
         var stageInfo = GetStageInfo(stage);
@@ -20,7 +18,7 @@
             <span class="circle-label @(isSelected ? "selected" : "")">@GetStageName(stage)</span>
         </div>
 
-        @if (i < 1)
+        @if (i < 2)
         {
             <div class="pipeline-connector @GetConnectorClass(i)"></div>
         }
@@ -28,89 +26,55 @@
 </div>
 
 @code {
-    [Parameter] public VaultPipelineStage? Stage1 { get; set; }  // Retail
-    [Parameter] public VaultPipelineStage? Stage2 { get; set; }  // Wikidata
-    [Parameter] public VaultPipelineStage? Stage3 { get; set; }  // Universe/Enrichment
+    [Parameter] public VaultPipelineStage? Stage1 { get; set; }
+    [Parameter] public VaultPipelineStage? Stage2 { get; set; }
+    [Parameter] public VaultPipelineStage? Stage3 { get; set; }
     [Parameter] public int SelectedStage { get; set; }
     [Parameter] public EventCallback<int> SelectedStageChanged { get; set; }
 
-    // Circle 0 = Identified: combines Retail + Wikidata
-    // Circle 1 = Enriched: maps to Stage3 (Universe/enrichment)
-    private VaultPipelineStage GetStageInfo(int circle) => circle switch
+    private VaultPipelineStage GetStageInfo(int stage) => stage switch
     {
-        0 => ComputeIdentifiedStage(),
-        1 => ComputeEnrichedStage(),
+        0 => Stage1 ?? new() { State = VaultStageState.Pending, Label = "Retail: Pending" },
+        1 => Stage2 ?? new() { State = VaultStageState.Pending, Label = "Wikidata: Pending" },
+        2 => Stage3 ?? new() { State = VaultStageState.Pending, Label = "Enrichment: Pending" },
         _ => new() { State = VaultStageState.Pending, Label = "" },
     };
 
-    private VaultPipelineStage ComputeIdentifiedStage()
+    private string GetStageName(int stage) => stage switch
     {
-        var retail   = Stage1 ?? new() { State = VaultStageState.Pending, Label = "Retail: Pending" };
-        var wikidata = Stage2 ?? new() { State = VaultStageState.Pending, Label = "Wikidata: Pending" };
-
-        // Failed: either stage failed
-        if (retail.State == VaultStageState.Failed || wikidata.State == VaultStageState.Failed)
-            return new() { State = VaultStageState.Failed, Label = retail.State == VaultStageState.Failed ? retail.Label : wikidata.Label };
-
-        // Fully identified: Wikidata QID obtained
-        if (wikidata.State == VaultStageState.Completed)
-            return new() { State = VaultStageState.Completed, Label = wikidata.Label };
-
-        // Retail matched but Wikidata not yet resolved → running
-        if (retail.State == VaultStageState.Completed)
-            return new() { State = VaultStageState.Running, Label = "Retail matched — awaiting Wikidata" };
-
-        // Warning (ambiguous match)
-        if (retail.State == VaultStageState.Warning || wikidata.State == VaultStageState.Warning)
-            return new() { State = VaultStageState.Warning, Label = retail.State == VaultStageState.Warning ? retail.Label : wikidata.Label };
-
-        return new() { State = VaultStageState.Pending, Label = "Not yet identified" };
-    }
-
-    private VaultPipelineStage ComputeEnrichedStage()
-    {
-        var universe = Stage3 ?? new() { State = VaultStageState.Pending, Label = "Enrichment: Pending" };
-        return universe.State switch
-        {
-            VaultStageState.Completed => new() { State = VaultStageState.Completed, Label = universe.Label },
-            VaultStageState.Running   => new() { State = VaultStageState.Running,   Label = "Enrichment in progress" },
-            VaultStageState.Warning   => new() { State = VaultStageState.Warning,   Label = universe.Label },
-            VaultStageState.Failed    => new() { State = VaultStageState.Failed,    Label = universe.Label },
-            _                         => new() { State = VaultStageState.Pending,   Label = "Enrichment pending" },
-        };
-    }
-
-    private string GetStageName(int circle) => circle switch
-    {
-        0 => "Identified", 1 => "Enriched", _ => ""
+        0 => "Retail",
+        1 => "Wikidata",
+        2 => "Enrichment",
+        _ => ""
     };
 
-    private string GetStageIcon(int circle) => circle switch
+    private string GetStageIcon(int stage) => stage switch
     {
-        0 => "\U0001f517", // 🔗 — identification
-        1 => "\u2728",     // ✨ — enrichment
+        0 => "\U0001F6D2",
+        1 => "\U0001F30D",
+        2 => "\u2728",
         _ => ""
     };
 
     private string GetStateClass(VaultStageState state) => state switch
     {
         VaultStageState.Completed => "state-completed",
-        VaultStageState.Running   => "state-running",
-        VaultStageState.Warning   => "state-warning",
-        VaultStageState.Failed    => "state-failed",
-        _                         => "state-pending",
+        VaultStageState.Running => "state-running",
+        VaultStageState.Warning => "state-warning",
+        VaultStageState.Failed => "state-failed",
+        _ => "state-pending",
     };
 
-    private string GetConnectorClass(int fromCircle)
+    private string GetConnectorClass(int fromStage)
     {
-        var fromInfo = GetStageInfo(fromCircle);
+        var fromInfo = GetStageInfo(fromStage);
         return fromInfo.State switch
         {
             VaultStageState.Completed => "state-completed",
-            VaultStageState.Running   => "state-running",
-            VaultStageState.Warning   => "state-warning",
-            VaultStageState.Failed    => "state-failed",
-            _                         => "state-pending",
+            VaultStageState.Running => "state-running",
+            VaultStageState.Warning => "state-warning",
+            VaultStageState.Failed => "state-failed",
+            _ => "state-pending",
         };
     }
 
@@ -156,16 +120,16 @@
     }
 
     .pipeline-circle.state-completed { border-color: #5DCAA5; }
-    .pipeline-circle.state-running   { border-color: #90CAF9; }
-    .pipeline-circle.state-warning   { border-color: #EF9F27; }
-    .pipeline-circle.state-failed    { border-color: #A05050; }
-    .pipeline-circle.state-pending   { border-color: rgba(255,255,255,0.12); }
+    .pipeline-circle.state-running { border-color: #90CAF9; }
+    .pipeline-circle.state-warning { border-color: #EF9F27; }
+    .pipeline-circle.state-failed { border-color: #A05050; }
+    .pipeline-circle.state-pending { border-color: rgba(255,255,255,0.12); }
 
     .pipeline-circle.state-completed.selected { background: rgba(93,202,165,0.15); box-shadow: 0 0 20px rgba(93,202,165,0.4); }
-    .pipeline-circle.state-running.selected   { background: rgba(144,202,249,0.15); box-shadow: 0 0 20px rgba(144,202,249,0.4); }
-    .pipeline-circle.state-warning.selected   { background: rgba(239,159,39,0.15); box-shadow: 0 0 20px rgba(239,159,39,0.4); }
-    .pipeline-circle.state-failed.selected    { background: rgba(160,80,80,0.15); box-shadow: 0 0 20px rgba(160,80,80,0.4); }
-    .pipeline-circle.state-pending.selected   { background: rgba(255,255,255,0.08); box-shadow: 0 0 20px rgba(255,255,255,0.15); }
+    .pipeline-circle.state-running.selected { background: rgba(144,202,249,0.15); box-shadow: 0 0 20px rgba(144,202,249,0.4); }
+    .pipeline-circle.state-warning.selected { background: rgba(239,159,39,0.15); box-shadow: 0 0 20px rgba(239,159,39,0.4); }
+    .pipeline-circle.state-failed.selected { background: rgba(160,80,80,0.15); box-shadow: 0 0 20px rgba(160,80,80,0.4); }
+    .pipeline-circle.state-pending.selected { background: rgba(255,255,255,0.08); box-shadow: 0 0 20px rgba(255,255,255,0.15); }
 
     .pipeline-circle.running {
         animation: circle-pulse 1.4s ease-in-out infinite;
@@ -192,7 +156,7 @@
     }
 
     .pipeline-connector {
-        width: 32px;
+        width: 28px;
         height: 2px;
         margin-bottom: 22px;
         background: rgba(255,255,255,0.12);
@@ -200,8 +164,8 @@
     }
 
     .pipeline-connector.state-completed { background: #5DCAA5; }
-    .pipeline-connector.state-running   { background: #90CAF9; }
-    .pipeline-connector.state-warning   { background: #EF9F27; }
-    .pipeline-connector.state-failed    { background: #A05050; }
-    .pipeline-connector.state-pending   { background: rgba(255,255,255,0.12); }
+    .pipeline-connector.state-running { background: #90CAF9; }
+    .pipeline-connector.state-warning { background: #EF9F27; }
+    .pipeline-connector.state-failed { background: #A05050; }
+    .pipeline-connector.state-pending { background: rgba(255,255,255,0.12); }
 </style>

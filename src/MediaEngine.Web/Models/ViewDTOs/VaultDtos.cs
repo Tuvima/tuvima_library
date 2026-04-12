@@ -61,42 +61,41 @@ public sealed class VaultItemViewModel
     public bool HasUserLocks { get; init; }
     public string? HeroUrl { get; init; }
     public bool MissingUniverse { get; init; }
+    public string PipelineStep { get; init; } = "Retail";
+    public string VaultVisibility { get; init; } = "hidden";
+    public bool IsReadyForVault { get; init; }
+    public string ArtworkState { get; init; } = "pending";
+    public string? ArtworkSource { get; init; }
+    public DateTimeOffset? ArtworkSettledAt { get; init; }
 
     /// <summary>Name of the provider that is currently unreachable (if any).</summary>
     public string? FailedProviderName { get; init; }
 
-    /// <summary>Artist headshot URL — set only for Music By Artist container rows.</summary>
+    /// <summary>Artist headshot URL, set only for Music By Artist container rows.</summary>
     public string? ArtistPhotoUrl { get; init; }
 
-    // Computed: the 4 vault display statuses
     public VaultStatus VaultDisplayStatus => ComputeVaultStatus();
-
-    // Computed: pipeline stages (Stage1 = Retail, Stage2 = Wikidata, Stage3 = Universe)
     public VaultPipelineStage Stage1 => ComputeRetailStage();
     public VaultPipelineStage Stage2 => ComputeWikidataStage();
-    public VaultPipelineStage Stage3 => ComputeUniverseStage();
+    public VaultPipelineStage Stage3 => ComputeEnrichmentStage();
 
-    // Computed: 2-phase model (Identified = Retail+Wikidata combined, Enriched = Universe/enrichment)
+    // Legacy compact views still use these combined stages.
     public VaultPipelineStage IdentifiedStage => ComputeIdentifiedStage();
-    public VaultPipelineStage EnrichedStage   => ComputeEnrichedStage();
+    public VaultPipelineStage EnrichedStage => ComputeEnrichedStage();
 
-    // Computed: confidence segments (0-5) for the 5-bar indicator
     public int ConfidenceSegments => (int)Math.Round(Confidence * 5);
-
-    // Placeholder for universe/collection name
     public string? UniverseName { get; init; }
-
-    // Quarantine days remaining (for rejected items, placeholder)
     public int? QuarantineDays { get; init; }
+    public string ReadinessLabel => ComputeReadinessLabel();
 
     /// <summary>
-    /// Compact provenance summary for the Resolution column (e.g. "ISBN → Q83471", "Title search → Q12345").
+    /// Compact provenance summary for the Resolution column (e.g. "ISBN -> Q83471", "Title search -> Q12345").
     /// Returns null when no resolution has occurred.
     /// </summary>
     public string? ResolutionSummary => ComputeResolutionSummary();
 
     /// <summary>
-    /// Human-readable format specs: "4K REMUX" for video, "FLAC 24-bit" for audio,
+    /// Human-readable format specs: "4K REMUX" for video, "FLAC" for audio,
     /// "EPUB" for books, etc. Computed from media type and available metadata.
     /// </summary>
     public string? Specs => ComputeSpecs();
@@ -170,75 +169,55 @@ public sealed class VaultItemViewModel
         HasUserLocks = r.HasUserLocks,
         HeroUrl = r.HeroUrl,
         MissingUniverse = r.MissingUniverse,
+        PipelineStep = r.PipelineStep,
+        VaultVisibility = r.VaultVisibility,
+        IsReadyForVault = r.IsReadyForVault,
+        ArtworkState = r.ArtworkState,
+        ArtworkSource = r.ArtworkSource,
+        ArtworkSettledAt = r.ArtworkSettledAt,
         FailedProviderName = r.FailedProviderName,
     };
 
     private VaultStatus ComputeVaultStatus()
     {
-        // WaitingForProvider — provider is unreachable, will retry automatically
         if (string.Equals(Status, "WaitingForProvider", StringComparison.OrdinalIgnoreCase))
             return VaultStatus.WaitingForProvider;
 
-        // Rejected → Quarantined
         if (string.Equals(Status, "Rejected", StringComparison.OrdinalIgnoreCase))
             return VaultStatus.Quarantined;
 
-        // Has a failed-type review trigger → NeedsReview
-        if (!string.IsNullOrEmpty(ReviewTrigger) && ReviewTrigger is
-            "AuthorityMatchFailed" or "ContentMatchFailed" or "StagedUnidentifiable"
-            or "PlaceholderTitle" or "WikidataBridgeFailed" or "RetailMatchFailed")
+        if (NeedsReview())
             return VaultStatus.NeedsReview;
 
-        // RetailMatched — retail data resolved, Wikidata enrichment in progress
         if (string.Equals(Status, "RetailMatched", StringComparison.OrdinalIgnoreCase))
             return VaultStatus.RetailMatched;
 
-        // Provisional or AwaitingStage2 without failed triggers → Provisional
         if (string.Equals(Status, "Provisional", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(Status, "AwaitingStage2", StringComparison.OrdinalIgnoreCase))
+            || string.Equals(Status, "AwaitingStage2", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(VaultVisibility, "hidden", StringComparison.OrdinalIgnoreCase))
             return VaultStatus.Provisional;
 
-        // Any other review trigger or InReview status → Needs Review
-        if (!string.IsNullOrEmpty(ReviewTrigger)
-            || string.Equals(Status, "InReview", StringComparison.OrdinalIgnoreCase))
-            return VaultStatus.NeedsReview;
-
-        // Identified/Confirmed with QID → Verified
-        if (!string.IsNullOrEmpty(WikidataQid)
-            && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+        if (HasValidWikidataQid() || IsReadyForVault || HasUserLocks)
             return VaultStatus.Verified;
 
-        // Identified without QID but has user locks → Verified
-        if (HasUserLocks)
-            return VaultStatus.Verified;
-
-        // Default: Needs Review
-        return VaultStatus.NeedsReview;
+        return VaultStatus.Provisional;
     }
 
     private string? ComputeResolutionSummary()
     {
-        // Wikidata resolved via a bridge ID (e.g. ISBN → Q83471)
-        if (!string.IsNullOrEmpty(WikidataQid)
-            && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
-        {
-            // If we know the retail match provider, prefix with that
-            if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ISBN", StringComparison.OrdinalIgnoreCase))
-                return $"ISBN \u2192 {WikidataQid}";
-            if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("TMDB", StringComparison.OrdinalIgnoreCase))
-                return $"TMDB \u2192 {WikidataQid}";
-            if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ASIN", StringComparison.OrdinalIgnoreCase))
-                return $"ASIN \u2192 {WikidataQid}";
-            if (!string.IsNullOrEmpty(RetailMatch)
-                && RetailMatch != "none"
-                && RetailMatch != "failed"
-                && !RetailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
-                && !RetailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase))
-                return $"{RetailMatch} \u2192 {WikidataQid}";
-            return $"Title search \u2192 {WikidataQid}";
-        }
+        if (!HasValidWikidataQid())
+            return null;
 
-        return null;
+        if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ISBN", StringComparison.OrdinalIgnoreCase))
+            return $"ISBN -> {WikidataQid}";
+        if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("TMDB", StringComparison.OrdinalIgnoreCase))
+            return $"TMDB -> {WikidataQid}";
+        if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ASIN", StringComparison.OrdinalIgnoreCase))
+            return $"ASIN -> {WikidataQid}";
+        if (HasRetailMatch())
+            return $"{RetailMatch} -> {WikidataQid}";
+
+        return $"Title search -> {WikidataQid}";
     }
 
     private string? ComputeSpecs()
@@ -253,7 +232,6 @@ public sealed class VaultItemViewModel
                     var fn = FileName.ToUpperInvariant();
                     var parts = new List<string>();
 
-                    // Resolution
                     if (fn.Contains("2160P") || fn.Contains("4K") || fn.Contains("UHD"))
                         parts.Add("4K");
                     else if (fn.Contains("1080P") || fn.Contains("1080I"))
@@ -263,7 +241,6 @@ public sealed class VaultItemViewModel
                     else if (fn.Contains("480P") || fn.Contains("SD"))
                         parts.Add("SD");
 
-                    // Source/quality
                     if (fn.Contains("REMUX"))
                         parts.Add("REMUX");
                     else if (fn.Contains("BLURAY") || fn.Contains("BLU-RAY"))
@@ -275,7 +252,6 @@ public sealed class VaultItemViewModel
                     else if (fn.Contains("HDTV"))
                         parts.Add("HDTV");
 
-                    // Codec
                     if (fn.Contains("HEVC") || fn.Contains("X265") || fn.Contains("H265") || fn.Contains("H.265"))
                         parts.Add("HEVC");
                     else if (fn.Contains("X264") || fn.Contains("H264") || fn.Contains("H.264") || fn.Contains("AVC"))
@@ -355,70 +331,87 @@ public sealed class VaultItemViewModel
 
     private VaultPipelineStage ComputeRetailStage()
     {
-        if (string.Equals(RetailMatch, "failed", StringComparison.OrdinalIgnoreCase))
-            return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Retail: No Match" };
-        if (RetailMatch is not "none" and not "" and not null)
-        {
-            // File scanner / local processor is NOT a retail match — show as Pending/Unmatched
-            if (RetailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
-                || RetailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase))
-                return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Unmatched" };
+        if (IsRetailFailure())
+            return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Retail: No match" };
 
+        if (IsRetailReview())
+            return new VaultPipelineStage { State = VaultStageState.Warning, Label = "Retail: Needs review" };
+
+        if (HasRetailMatch())
+        {
             var label = !string.IsNullOrWhiteSpace(RetailMatchDetail)
                 ? $"Retail: {RetailMatchDetail}"
-                : $"Retail: {RetailMatch}";
+                : "Retail: Matched";
             return new VaultPipelineStage { State = VaultStageState.Completed, Label = label };
         }
+
+        if (string.Equals(Status, "WaitingForProvider", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(PipelineStep, "Retail", StringComparison.OrdinalIgnoreCase))
+            return new VaultPipelineStage { State = VaultStageState.Running, Label = "Retail: In progress" };
+
         return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Retail: Pending" };
     }
 
     private VaultPipelineStage ComputeWikidataStage()
     {
-        if (string.Equals(WikidataMatch, "failed", StringComparison.OrdinalIgnoreCase))
-            return new VaultPipelineStage { State = VaultStageState.Failed, Label = "Wikidata: No Match" };
-        if (!string.IsNullOrEmpty(WikidataQid) && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+        if (HasValidWikidataQid())
             return new VaultPipelineStage { State = VaultStageState.Completed, Label = $"Wikidata: {WikidataQid}" };
-        if (RetailMatch is not "none" and not "" and not null and not "failed")
-            return new VaultPipelineStage { State = VaultStageState.Warning, Label = "Wikidata: Awaiting" };
+
+        if (IsQidNoMatch())
+            return new VaultPipelineStage { State = VaultStageState.Warning, Label = "Wikidata: No match" };
+
+        if (IsWikidataReview())
+            return new VaultPipelineStage { State = VaultStageState.Warning, Label = "Wikidata: Needs review" };
+
+        if (HasRetailMatch()
+            && (string.Equals(PipelineStep, "Wikidata", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(PipelineStep, "Enrichment", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(PipelineStep, "Complete", StringComparison.OrdinalIgnoreCase)))
+            return new VaultPipelineStage { State = VaultStageState.Running, Label = "Wikidata: Resolving" };
+
         return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Wikidata: Pending" };
     }
 
-    private VaultPipelineStage ComputeUniverseStage()
+    private VaultPipelineStage ComputeEnrichmentStage()
     {
-        if (!string.IsNullOrEmpty(UniverseName))
-            return new VaultPipelineStage { State = VaultStageState.Completed, Label = $"Universe: {UniverseName}" };
-        if (!string.IsNullOrEmpty(WikidataQid)
-            && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase)
-            && !MissingUniverse)
-            return new VaultPipelineStage { State = VaultStageState.Completed, Label = "Universe: Mapped" };
-        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Universe: Pending" };
+        if (string.Equals(ArtworkState, "present", StringComparison.OrdinalIgnoreCase))
+        {
+            var label = !string.IsNullOrEmpty(UniverseName)
+                ? $"Enrichment: {UniverseName}"
+                : "Enrichment: Artwork ready";
+            return new VaultPipelineStage { State = VaultStageState.Completed, Label = label };
+        }
+
+        if (string.Equals(ArtworkState, "missing", StringComparison.OrdinalIgnoreCase))
+            return new VaultPipelineStage { State = VaultStageState.Warning, Label = "Enrichment: No artwork found" };
+
+        if (HasRetailMatch()
+            || HasValidWikidataQid()
+            || string.Equals(PipelineStep, "Enrichment", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(PipelineStep, "Complete", StringComparison.OrdinalIgnoreCase))
+            return new VaultPipelineStage { State = VaultStageState.Running, Label = "Enrichment: Pending artwork" };
+
+        return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Enrichment: Pending" };
     }
 
-    /// <summary>
-    /// Combined Retail + Wikidata stage for the 2-phase pipeline display.
-    /// Running (blue pulse) when retail matched but Wikidata not yet resolved.
-    /// </summary>
     private VaultPipelineStage ComputeIdentifiedStage()
     {
-        var retail   = ComputeRetailStage();
+        var retail = ComputeRetailStage();
         var wikidata = ComputeWikidataStage();
 
-        // Either stage failed
         if (retail.State == VaultStageState.Failed || wikidata.State == VaultStageState.Failed)
         {
             var failedLabel = retail.State == VaultStageState.Failed ? retail.Label : wikidata.Label;
             return new VaultPipelineStage { State = VaultStageState.Failed, Label = failedLabel };
         }
 
-        // Fully identified: Wikidata QID obtained
         if (wikidata.State == VaultStageState.Completed)
             return new VaultPipelineStage { State = VaultStageState.Completed, Label = wikidata.Label };
 
-        // Retail matched but Wikidata not yet resolved → in-progress
-        if (retail.State == VaultStageState.Completed)
-            return new VaultPipelineStage { State = VaultStageState.Running, Label = "Retail matched — awaiting Wikidata" };
+        if (retail.State == VaultStageState.Completed
+            && (wikidata.State == VaultStageState.Pending || wikidata.State == VaultStageState.Running))
+            return new VaultPipelineStage { State = VaultStageState.Running, Label = "Retail matched -> awaiting Wikidata" };
 
-        // Warning (ambiguous match at either stage)
         if (retail.State == VaultStageState.Warning || wikidata.State == VaultStageState.Warning)
         {
             var warnLabel = retail.State == VaultStageState.Warning ? retail.Label : wikidata.Label;
@@ -428,21 +421,66 @@ public sealed class VaultItemViewModel
         return new VaultPipelineStage { State = VaultStageState.Pending, Label = "Not yet identified" };
     }
 
-    /// <summary>
-    /// Enrichment stage (cover art, people, characters, descriptions) for the 2-phase pipeline display.
-    /// Mapped from the Universe/enrichment Stage3.
-    /// </summary>
     private VaultPipelineStage ComputeEnrichedStage()
     {
-        var universe = ComputeUniverseStage();
-        return universe.State switch
+        var enrichment = ComputeEnrichmentStage();
+        return enrichment.State switch
         {
-            VaultStageState.Completed => new VaultPipelineStage { State = VaultStageState.Completed, Label = universe.Label },
-            VaultStageState.Running   => new VaultPipelineStage { State = VaultStageState.Running,   Label = "Enrichment in progress" },
-            VaultStageState.Warning   => new VaultPipelineStage { State = VaultStageState.Warning,   Label = universe.Label },
-            VaultStageState.Failed    => new VaultPipelineStage { State = VaultStageState.Failed,    Label = universe.Label },
-            _                         => new VaultPipelineStage { State = VaultStageState.Pending,   Label = "Enrichment pending" },
+            VaultStageState.Completed => new VaultPipelineStage { State = VaultStageState.Completed, Label = enrichment.Label },
+            VaultStageState.Running => new VaultPipelineStage { State = VaultStageState.Running, Label = "Enrichment in progress" },
+            VaultStageState.Warning => new VaultPipelineStage { State = VaultStageState.Warning, Label = enrichment.Label },
+            VaultStageState.Failed => new VaultPipelineStage { State = VaultStageState.Failed, Label = enrichment.Label },
+            _ => new VaultPipelineStage { State = VaultStageState.Pending, Label = "Enrichment pending" },
         };
+    }
+
+    private bool HasValidWikidataQid() =>
+        !string.IsNullOrEmpty(WikidataQid)
+        && !WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+
+    private bool HasRetailMatch() =>
+        string.Equals(RetailMatch, "matched", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(Status, "RetailMatched", StringComparison.OrdinalIgnoreCase)
+        || HasValidWikidataQid()
+        || IsQidNoMatch();
+
+    private bool IsRetailFailure() =>
+        string.Equals(RetailMatch, "failed", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(ReviewTrigger, "RetailMatchFailed", StringComparison.OrdinalIgnoreCase);
+
+    private bool IsRetailReview() =>
+        ReviewItemId.HasValue
+        && ReviewTrigger is "AuthorityMatchFailed" or "RetailMatchFailed" or "ContentMatchFailed";
+
+    private bool IsWikidataReview() =>
+        ReviewItemId.HasValue
+        && ReviewTrigger is "MissingQid" or "MultipleQidMatches" or "WikidataBridgeFailed";
+
+    private bool IsQidNoMatch() =>
+        string.Equals(Status, "QidNoMatch", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(WikidataMatch, "failed", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(WikidataStatus, "missing", StringComparison.OrdinalIgnoreCase);
+
+    private bool NeedsReview() =>
+        ReviewItemId.HasValue
+        || string.Equals(Status, "InReview", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(VaultVisibility, "review_only", StringComparison.OrdinalIgnoreCase);
+
+    private string ComputeReadinessLabel()
+    {
+        if (NeedsReview())
+            return "Needs review";
+
+        if (string.Equals(ArtworkState, "pending", StringComparison.OrdinalIgnoreCase))
+            return "Pending artwork";
+
+        if (IsReadyForVault && string.Equals(VaultVisibility, "visible", StringComparison.OrdinalIgnoreCase))
+            return "Ready";
+
+        if (string.Equals(VaultVisibility, "hidden", StringComparison.OrdinalIgnoreCase))
+            return "Hidden";
+
+        return "Pending";
     }
 }
 

@@ -82,14 +82,16 @@ Missing metadata fields score **0.0** (not the neutral 0.5 they previously recei
 
 **Placeholder title detection:** Titles matching known placeholder patterns — "Unknown", "Untitled", and track-number patterns such as "Track 01" — are scored 0.0 and routed directly to the review queue. These indicate the file has no real title metadata and cannot be auto-matched.
 
-**Retail score thresholds** (configured in `config/scoring.json`):
+**Retail score thresholds** (configured in `config/hydration.json`):
 
 | Key | Value | Meaning |
 |---|---|---|
-| `retail_auto_accept` | 0.85 | Match accepted automatically |
-| `retail_ambiguous` | 0.50 | Match flagged for review |
+| `retail_auto_accept_threshold` | 0.90 | Match accepted automatically |
+| `retail_ambiguous_threshold` | 0.65 | Match flagged for review |
 
-Scores below `retail_ambiguous` are discarded; the pipeline proceeds to the next ranked provider.
+Scores below `retail_ambiguous_threshold` are discarded; the pipeline proceeds to the next ranked provider.
+
+Additional contradiction gates apply before auto-accept. Weak creator agreement caps a candidate to review, grouped TV auto-accept requires exact show/season/episode agreement, grouped music auto-accept requires track-number or duration corroboration, and cover similarity cannot rescue a weak text match by itself.
 
 ## Wikidata Author Validation
 
@@ -143,8 +145,8 @@ All scoring parameters live in `config/scoring.json`:
 | `conflict_epsilon` | 0.05 | Maximum difference for two claims to be considered tied |
 | `stale_claim_decay_days` | 90 | Claims older than this begin to decay |
 | `stale_claim_decay_factor` | 0.8 | Multiplier applied to confidence of stale claims |
-| `retail_auto_accept` | 0.85 | Retail match score threshold for automatic acceptance |
-| `retail_ambiguous` | 0.50 | Retail match score threshold below which a match is discarded |
+| `retail_auto_accept_threshold` | 0.90 | Retail match score threshold for automatic acceptance |
+| `retail_ambiguous_threshold` | 0.65 | Retail match score threshold below which a match is discarded |
 | `wikidata_review_threshold` | 55 | Wikidata reconciliation score below which item goes to review |
 | `wikidata_auto_accept` | 95 | Wikidata reconciliation score at which QID is auto-accepted |
 
@@ -197,9 +199,11 @@ Files with placeholder titles ("Unknown", "Untitled", "Untitled Book", "New Reco
 ### Pipeline Confidence Gate
 
 After Stage 1 providers return results, `RetailMatchScoringService` scores each candidate:
-- **CompositeScore ≥ 0.85** → auto-accepted, proceeds to Stage 2
-- **0.50 ≤ CompositeScore < 0.85** → accepted with review flag (appears in Action Center)
-- **CompositeScore < 0.50** → rejected, next provider tried
+- **CompositeScore >= 0.90** -> auto-accepted, proceeds to Stage 2
+- **0.65 <= CompositeScore < 0.90** -> accepted with review flag (appears in Action Center)
+- **CompositeScore < 0.65** -> rejected, next provider tried
+
+Candidate evidence is persisted with richer audit detail, including field scores, threshold path, rejection reasons, and whether the candidate came from grouped processing or single-item fallback.
 
 ---
 

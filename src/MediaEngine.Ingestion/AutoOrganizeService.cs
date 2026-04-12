@@ -425,6 +425,14 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 LastScoredAt = DateTimeOffset.UtcNow,
             });
 
+            heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
+                assetId,
+                coverState: "present",
+                coverSource: null,
+                heroState: "present",
+                lastScoredAt: DateTimeOffset.UtcNow,
+                settled: true));
+
             if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
             {
                 heroCanonicals.Add(new CanonicalValue

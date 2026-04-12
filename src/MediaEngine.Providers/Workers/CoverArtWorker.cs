@@ -93,6 +93,15 @@ public sealed class CoverArtWorker
 
         if (string.IsNullOrEmpty(coverUrl))
         {
+            await _canonicalRepo.UpsertBatchAsync(
+                ArtworkCanonicalHelper.CreateFlags(
+                    entityId,
+                    coverState: "missing",
+                    coverSource: "none",
+                    heroState: "missing",
+                    lastScoredAt: DateTimeOffset.UtcNow,
+                    settled: true),
+                ct);
             _logger.LogDebug("No cover URL found for entity {EntityId}", entityId);
             return;
         }
@@ -141,6 +150,17 @@ public sealed class CoverArtWorker
         // Skip if cover already exists
         if (File.Exists(coverPath))
         {
+            await _canonicalRepo.UpsertBatchAsync(
+                ArtworkCanonicalHelper.CreateFlags(
+                    entityId,
+                    coverState: "present",
+                    coverSource: InferCoverSource(canonicals, coverUrl),
+                    heroState: "pending",
+                    lastScoredAt: DateTimeOffset.UtcNow,
+                    settled: true),
+                ct);
+            await GenerateHeroBannerAsync(entityId, coverPath, imageDir, ct);
+
             var titleForSkip = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
                 ?? $"entity {entityId}";
@@ -231,6 +251,16 @@ public sealed class CoverArtWorker
             GenerateThumbnail(coverPath, thumbPath);
         }
 
+        await _canonicalRepo.UpsertBatchAsync(
+            ArtworkCanonicalHelper.CreateFlags(
+                entityId,
+                coverState: "present",
+                coverSource: "provider",
+                heroState: "pending",
+                lastScoredAt: DateTimeOffset.UtcNow,
+                settled: true),
+            ct);
+
         {
             var titleForDone = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
@@ -266,6 +296,19 @@ public sealed class CoverArtWorker
             .FirstOrDefault(v => !string.IsNullOrEmpty(v) && v.StartsWith("http", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static string InferCoverSource(IReadOnlyList<CanonicalValue> canonicals, string? coverUrl)
+    {
+        var existing = canonicals.FirstOrDefault(c =>
+            string.Equals(c.Key, MetadataFieldConstants.CoverSource, StringComparison.OrdinalIgnoreCase))?.Value;
+        if (!string.IsNullOrWhiteSpace(existing))
+            return existing;
+
+        if (!string.IsNullOrWhiteSpace(coverUrl) && coverUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return "provider";
+
+        return "existing";
+    }
+
     private async Task GenerateHeroBannerAsync(
         Guid entityId, string coverPath, string outputDir, CancellationToken ct)
     {
@@ -291,10 +334,26 @@ public sealed class CoverArtWorker
                 Value = $"/stream/{entityId}/hero",
                 LastScoredAt = DateTimeOffset.UtcNow,
             });
+            heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
+                entityId,
+                coverState: "present",
+                coverSource: null,
+                heroState: "present",
+                lastScoredAt: DateTimeOffset.UtcNow,
+                settled: true));
             await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            await _canonicalRepo.UpsertBatchAsync(
+                ArtworkCanonicalHelper.CreateFlags(
+                    entityId,
+                    coverState: "present",
+                    coverSource: null,
+                    heroState: "missing",
+                    lastScoredAt: DateTimeOffset.UtcNow,
+                    settled: true),
+                ct);
             _logger.LogWarning(ex, "Hero banner generation failed for entity {EntityId}", entityId);
         }
     }

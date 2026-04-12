@@ -37,6 +37,11 @@ public interface IRegistryRepository
     /// Returns a dictionary of media type → count across all works in the library.
     /// </summary>
     Task<Dictionary<string, int>> GetMediaTypeCountsAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns aggregate counts derived from the shared registry pipeline projection.
+    /// </summary>
+    Task<RegistryProjectionSummary> GetProjectionSummaryAsync(CancellationToken ct = default);
 }
 
 /// <summary>
@@ -64,3 +69,19 @@ public sealed record RegistryStatusCounts(
     [property: JsonPropertyName("recently_updated")] int RecentlyUpdated = 0,
     [property: JsonPropertyName("low_confidence")]   int LowConfidence = 0,
     [property: JsonPropertyName("rejected")]         int Rejected = 0);
+
+/// <summary>Aggregate counts derived from the shared registry pipeline projection.</summary>
+public sealed record RegistryProjectionSummary(
+    [property: JsonPropertyName("total_items")] int TotalItems,
+    [property: JsonPropertyName("with_qid")] int WithQid,
+    [property: JsonPropertyName("without_qid")] int WithoutQid,
+    [property: JsonPropertyName("enriched_stage3")] int EnrichedStage3,
+    [property: JsonPropertyName("not_enriched_stage3")] int NotEnrichedStage3,
+    [property: JsonPropertyName("universe_assigned")] int UniverseAssigned,
+    [property: JsonPropertyName("universe_unassigned")] int UniverseUnassigned,
+    [property: JsonPropertyName("stale_items")] int StaleItems,
+    [property: JsonPropertyName("hidden_by_quality_gate")] int HiddenByQualityGate,
+    [property: JsonPropertyName("art_pending")] int ArtPending,
+    [property: JsonPropertyName("retail_needs_review")] int RetailNeedsReview,
+    [property: JsonPropertyName("qid_no_match")] int QidNoMatch,
+    [property: JsonPropertyName("completed_with_art")] int CompletedWithArt);

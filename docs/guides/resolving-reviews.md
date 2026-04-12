@@ -12,139 +12,175 @@ tags:
 
 # How to Resolve Items That Need Review
 
-This guide explains what "Needs Review" means, where to find those items, and how to work through them one by one or in bulk.
+This guide explains what "Needs Review" means, where to find those items, and how to work through them without guessing.
 
 ---
 
 ## What "Needs Review" means
 
-When the Engine processes a file, it tries to identify it with enough confidence to place it in your library automatically. Sometimes it can't reach that confidence â€” perhaps the file had sparse metadata, an unusual filename, or no match in any provider. When that happens, the Engine puts the item in a "Needs Review" state and surfaces it for you to inspect and correct.
+When the Engine cannot make a safe automatic decision, it asks you to choose.
 
-Items in this state are not lost. The file is safe, the data the Engine extracted is recorded, and everything the Engine learned during its attempts is still available for you to see. You're simply being asked to confirm or guide the final outcome.
+Common reasons:
+
+- Retail matching found more than one plausible candidate
+- Retail matching found only a weak candidate
+- Wikidata returned multiple possible identities
+- Wikidata returned no usable QID for a work the Engine otherwise understands
+- The file metadata is too sparse or contradictory to trust on its own
+
+The file is still safe, its metadata is still recorded, and nothing is lost. "Needs Review" means "the system stopped before guessing."
 
 ---
 
-## Finding items that need review
+## Where to find review items
 
 1. Open the Dashboard at `http://localhost:5016`.
-2. Click **Vault** in the left navigation.
-3. The **Media** tab opens by default.
-4. Items with a "Needs Review" status are automatically pinned to the top of the list, highlighted in amber. They form a separate group so you can find them at a glance without scrolling through your whole library.
+2. Go to **Vault**.
+3. Open the **Media** tab or the **Action Center**.
+4. Filter by **Needs Review** if you want to focus only on unresolved items.
 
-You can also filter by status using the toolbar at the top of the Vault â€” click the status filter and select "Needs Review" to see only those items.
-
----
-
-## Opening the detail drawer
-
-Click any item in the list to open its detail drawer on the right side of the screen. The drawer has three sections across the top:
-
-- **Cover art** â€” whatever the Engine found, or a placeholder if nothing was available.
-- **Title and status** â€” the current working title and the "Needs Review" status pill.
-- **Universe link** â€” if the Engine found a franchise connection, it appears here.
-
-Below that, collapsible sections give you a complete picture of what the Engine knows:
-
-- **Pipeline** â€” the history of each processing stage and what happened at each one.
-- **Claims** â€” every piece of metadata the Engine found, which source it came from, and how confident each one was.
-- **Sync** â€” file writeback settings.
-- **Enrichment** â€” provider-level results.
-- **File** â€” raw file information (path, size, format, fingerprint).
-
-The most important section for resolving reviews is **Pipeline**, which contains inline resolution panels for both enrichment stages.
+Items that are still review-only may not appear in the main Vault list yet. They remain visible in Review, Activity, and the Action Center until they are either resolved or pass the Vault quality gate.
 
 ---
 
-## Understanding pipeline stages
+## Open the detail drawer first
 
-Every file passes through three stages, and you can see the outcome of each one in the Pipeline section:
+Click the item to open its detail drawer. That drawer is the best place to understand what happened.
+
+Look at:
+
+- **Pipeline** for stage-by-stage history
+- **Claims** for every metadata source and confidence score
+- **Enrichment** for current descriptions, bridge IDs, and structured fields
+- **File** for raw file facts like path, size, and fingerprint
+
+If you only do one thing before picking a candidate, read the Pipeline section.
+
+---
+
+## The three stages you will see
+
+The Vault uses the same three stages everywhere:
 
 | Stage | What it does |
 |---|---|
-| **Scan** | Opens the file and reads embedded metadata (title, author, cover art, tags). |
-| **Retail** | Queries retail providers (Apple, Google Books, TMDB, and others) to gather cover art, descriptions, ratings, and identifiers like ISBNs or TMDB IDs. |
-| **Wikidata** | Uses the identifiers gathered in Retail to find a precise Wikidata entry, then fetches canonical structured data â€” author, series, genre, people, and more. |
+| **Retail** | Searches and scores provider candidates using the file's metadata. |
+| **Wikidata** | Resolves a canonical QID from Retail bridge identifiers. |
+| **Enrichment** | Applies follow-up metadata, images, people, and relationships after identity is settled. |
 
-Each stage shows a coloured indicator:
-- **Green** â€” the stage completed successfully.
-- **Amber** â€” the stage ran but the result is uncertain or incomplete.
-- **Grey** â€” the stage hasn't run yet or was skipped.
+Readiness labels give the plain-English summary:
 
-Hover over any stage indicator to read a plain-English description of what happened.
-
----
-
-## Resolving the Retail stage
-
-If the Retail stage shows as unresolved, expand the **Pipeline** section and find the Retail resolution panel.
-
-You will see one of three situations:
-
-**Candidates available** â€” The Engine found several possible matches from retail providers and is asking you to confirm which one is correct. Each candidate shows a cover image, title, author, year, and the provider it came from. Click the correct one to accept it.
-
-**No candidates** â€” The Engine couldn't find a match at all. You can:
-- Type a title or author into the **search box** and search manually. Results from retail providers appear in real time.
-- Click **Add Provisional** to tell the Engine to use the metadata already extracted from the file. A form pre-populated with the file's embedded data opens â€” you can correct any field before saving.
-
-**"Unmatched"** at the Retail stage means only the file scanner found data â€” no retail provider confirmed the item. This is different from an error; the Engine has the file's embedded metadata and can proceed, but it's flagging that the retail confirmation step didn't produce a result.
+- **Pending artwork**
+- **Needs review**
+- **Ready**
 
 ---
 
-## Resolving the Wikidata stage
+## Resolve the Retail stage
 
-If the Wikidata stage shows as unresolved, the Engine either found multiple possible Wikidata entries (QIDs) for this item or none at all.
+If Retail needs review, you will usually see one of these situations.
 
-Expand the Wikidata resolution panel. You will see:
+### Several candidates
 
-**Candidates available** â€” A ranked list of Wikidata entries the Engine considers possible matches. Each shows the entity name, its Wikidata description, and any identifying information. Click the correct one to accept it.
+Compare the candidates and choose the one that best matches the file's real title, creator, edition clues, and cover.
 
-**No candidates** â€” Click **Search Wikidata** and type a title or author. A live search against Wikidata returns results. Pick the correct entry.
+Pay special attention to:
 
-**Skip universe matching** â€” If you're confident the item exists but has no Wikidata entry, or if you simply want to move on, you can accept the file as-is without a Wikidata match. The item will be given Provisional status.
+- creator names
+- series or show names
+- year
+- episode or track position
+- cover art that obviously belongs to the same edition or release
 
-Once you accept a Wikidata entry, the Engine fetches the full structured data for that entry in the background and updates the item.
+### No good candidates
 
----
+Use the manual retail search if the automatic query was too weak.
 
-## Provisional status explained
+If no provider candidate is good enough, use **Add Provisional**. That starts from the file's embedded metadata or your corrected metadata instead of inventing a provider match.
 
-An item is **Provisional** when the Engine has done what it can but couldn't confirm identity through a retail provider or Wikidata. In this state:
+### Why the Engine stopped
 
-- The file's embedded metadata is treated as the authority for all fields.
-- Any corrections you make in the detail drawer are recorded and will influence future identification attempts.
-- The item is included in the 30-day refresh cycle â€” the Engine will try again automatically, and if new data becomes available or providers return different results, the item may resolve on its own.
+Retail matching is intentionally conservative now:
 
-Provisional items are fully usable. They appear in your library, can be organised into Series and Universes, and can be enriched manually at any time.
+- scores at or above `0.90` can be auto-accepted
+- scores from `0.65` to below `0.90` are treated as ambiguous review work
+- scores below `0.65` are treated as too weak to trust
 
----
-
-## Resolving items in bulk
-
-If you have many items to review, you can select and act on them together.
-
-- **Shift+click** to select a range of items in the list.
-- **Ctrl+click** to add or remove individual items from the selection.
-- Click the **group header checkbox** to select everything in the "Needs Review" group at once.
-
-When items are selected, a floating action bar appears at the bottom of the screen with the following options:
-
-- **Sync Now** â€” re-runs enrichment for all selected items immediately, without waiting for the scheduled refresh cycle.
-- **Delete** â€” removes selected items from your library (with a confirmation dialog before anything is deleted).
+That stricter gate reduces false positives, which is why you may see more review items than in older builds.
 
 ---
 
-## The 30-day refresh cycle
+## Resolve the Wikidata stage
 
-You don't have to resolve everything manually right away. The Engine automatically re-runs enrichment on all items every 30 days. This means:
+If Wikidata needs review, you are deciding which identity, if any, should become canonical.
 
-- If a provider adds new data for a title that wasn't in their catalogue last month, the Engine will pick it up.
-- If Wikidata adds an entry for a book or film that was previously unmatchable, the Engine will find it.
-- Items that were Provisional may resolve automatically over time as more data becomes available.
+You may see:
 
-You can also trigger a manual refresh at any time by selecting an item (or multiple items) and clicking **Sync Now** in the floating action bar, or by clicking **Sync Now** in the detail drawer's action bar at the bottom.
+- one or more QID candidates
+- manual search
+- direct QID entry
+- a no-QID path when the work is real but not well represented in Wikidata
+
+Pick the correct QID if one exists. If none of the candidates are right, do not force it.
+
+---
+
+## Accepting an item without a QID
+
+Sometimes Retail finds a good practical match, but Wikidata still cannot resolve a trustworthy QID.
+
+That outcome is valid.
+
+If the item has:
+
+- a trustworthy title
+- a resolved media type
+- settled artwork, either present or explicitly missing
+
+then it can still remain visible in the main Vault even without a QID. In the UI this is treated as a "QID Not Found" style outcome, not as a silent failure.
+
+---
+
+## What "Add Provisional" means now
+
+`Add Provisional` is best understood as a local metadata override flow.
+
+It is useful when:
+
+- the file's embedded metadata is mostly right
+- providers do not know the item
+- you want to correct the metadata before re-running identification
+
+It does **not** bypass the Vault quality gate. The item still needs a real title, resolved media type, and settled artwork outcome before it appears in the main Vault.
+
+---
+
+## When to leave an item alone
+
+If the only thing missing is artwork settlement or a background follow-up stage, you may not need to do anything. The readiness label tells you whether the item is actually blocked or simply still progressing.
+
+Good examples of "wait, do not guess":
+
+- the item says **Pending artwork**
+- the pipeline has a good Retail match and is still working through Wikidata
+- the Engine is refreshing a stale item after a scheduled sweep
+
+---
+
+## Scheduled retries
+
+You do not need to resolve every uncertain item immediately.
+
+The Engine re-checks items over time, including:
+
+- provider data that may have improved
+- Wikidata entries that may have been created or corrected
+- background enrichment that may now have enough signal to finish
+
+So if an item is obscure and the current answer is "not enough evidence yet," leaving it for a later retry is a perfectly reasonable choice.
 
 ## Related
 
 - [How the Library Vault Works](../explanation/how-the-vault-works.md)
-- [How the Priority Cascade Works](../explanation/how-scoring-works.md)
 - [How Two-Stage Enrichment Works](../explanation/how-hydration-works.md)
+- [How the Entire Pipeline Works](../explanation/how-the-pipeline-works.md)

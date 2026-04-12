@@ -12,618 +12,290 @@ tags:
 
 # Settings Architecture & Library Vault
 
-## Settings Design Principles
+This document covers two related product surfaces:
 
-Every setting falls into one of four categories that determine how it is exposed:
+- **Settings**, where users control how the Engine behaves
+- **Vault**, where users inspect and manage the results of ingestion and enrichment
 
-1. **Breaks things when changed** â€” config file only. Not surfaced in the GUI. Changing these requires a deliberate edit to the relevant JSON file and a restart.
-2. **Set once** â€” captured during the First-Run Wizard. Accessible again via Server > Setup if a re-run is needed.
-3. **Actively managed** â€” surfaced in the Settings GUI for ongoing use.
-4. **Group by user thinking, not technical subsystem** â€” settings are grouped by what the user is trying to do, not by which internal component owns the data.
+The current Vault architecture is projection-driven. Main Vault visibility, stage progress, readiness, and artwork truth all come from the same shared storage projection rather than from separate UI heuristics.
 
 ---
 
-## First-Run Wizard
+## Settings design principles
 
-Runs automatically on first launch. Re-runnable from **Server > Setup**.
+Every setting falls into one of four categories:
 
-**5 steps:**
-
-1. **Welcome / Identity** â€” display name, locale, date/time format
-2. **Library Folders** â€” configure source paths, library root, category, media types, and intake mode (watch or import) for each folder
-3. **Provider API Keys** â€” enter optional free API keys for providers that require registration (TMDB, Comic Vine, Google Books)
-4. **AI Models** â€” select which text and audio models to download; shows RAM requirements; triggers background download
-5. **Ready** â€” summary of configuration choices; launches the Engine and opens the Dashboard
+1. **Config-only**: dangerous or low-frequency settings that belong in JSON files
+2. **First-run settings**: captured in the setup flow, but editable later if needed
+3. **Actively managed settings**: changed often enough to deserve a GUI
+4. **Task-oriented grouping**: settings are grouped by what the user is trying to do, not by internal subsystem
 
 ---
 
-## Settings Groups
+## First-run wizard
 
-### Preferences (All Users)
+The first-run wizard exists to capture the minimum viable setup:
 
-Available to every user regardless of role.
+1. Identity and locale
+2. Library folders and library root
+3. Provider credentials where needed
+4. AI model choices
+5. Final review and launch
 
-**Profile** â€” Display name, avatar color selection, date and time format.
-
-**Playback** _(planned)_ â€” Playback speed defaults, skip interval, subtitle preferences.
-
----
-
-### Providers (Administrator)
-
-**Provider Connections** â€” One card per configured provider. Each card shows: provider name, health status indicator, enabled toggle, and an expand button for detailed configuration (endpoint URL, API key entry, timeout, per-field trust weights, test connection button).
-
-**Provider Priority per Media Type** â€” Drag-and-drop ranked provider assignment sourced from `config/pipelines.json`. Each media type has an ordered list of providers with a configurable execution strategy (Waterfall, Cascade, or Sequential). All providers appear in every media-type tab â€” dragging reorders the provider list; users can mix providers freely across media types.
-
-**Wikidata Configuration** â€” Controls for Stage 2 (identity resolution) and Stage 3 (universe data) behavior. Includes enable/disable toggles and confidence thresholds for automated acceptance.
+It should stay focused on "what is required to become operational," not on every advanced tuning option.
 
 ---
 
-### Intelligence (Administrator)
+## Settings information architecture
 
-**Models** â€” One row per AI model role (text_fast, text_quality, audio). Shows model name, current status (not downloaded / downloaded / loaded), RAM usage when loaded, and action buttons: Download, Load, Unload, Delete.
+The long-term settings split is:
 
-**AI Features** â€” 16 toggle switches grouped by trigger type (Ingestion, Alignment, Enrichment, Syncing, Personalization, Discovery, Advanced). Allows individual features to be disabled without affecting others.
+| Area | Purpose |
+|---|---|
+| **Library** | Source folders, library roots, media types, intake behavior |
+| **Providers** | API keys, provider enablement, language/region preferences |
+| **Intelligence** | AI features, enrichment cadence, quality-related toggles |
+| **Server** | health, security, maintenance, logs, diagnostics |
 
-**Vibe Vocabulary** â€” Per-media-type editable tag lists used by the Vibe Tagger feature. Each media type has its own vocabulary that can be extended or pruned.
-
-**AI Schedule** â€” Cron expression editor for background AI services (Vibe batch job at 4 AM daily, Series Alignment at 3 AM daily, Taste Profile on Sunday at 5 AM). Each job can be individually enabled, disabled, or rescheduled.
-
----
-
-### Library (Administrator)
-
-**Library Folders** â€” The same configuration as Wizard step 2, available for ongoing management: add new folders, change intake mode, update source paths, change the library root. Per-folder status shows file counts and last scan time.
-
-Note: staging management, review queue, and quarantine are handled by the Vault page, not here.
+Detailed runtime behavior still lives primarily in `config/`, but the GUI should expose the actively managed subset.
 
 ---
 
-### Server (Administrator)
+## Vault purpose
 
-**Status Dashboard** â€” Live Engine health: uptime, database size, active background jobs, memory usage, SignalR connection count.
+The Vault is the management surface for ingestion and metadata quality.
 
-**Security & API Keys** â€” Generate new guest keys with role assignment and label. View all active keys with creation date and last-used timestamp. Revoke individual keys.
+It answers questions like:
 
-**Users** _(planned)_ â€” Per-profile management: create profiles, assign PINs or passwords, set maturity filters.
+- What is ready for the main library experience?
+- What is still blocked?
+- Which stage is this item in?
+- Does this item really have artwork, or is it still pending?
+- Does this item need review, or is it simply still processing?
 
-**Activity Log** â€” Date-grouped timeline of all Engine actions (ingestion, metadata hydration, review resolution, pruning). Configurable retention period. Load-more pagination.
+The Vault is not just "everything the Engine has ever seen." It is the operational view of a shared projection over:
 
-**Maintenance** â€” Manual triggers for database vacuum, cache purge, shadow storage cleanup, and expired provider response cache eviction.
-
-**Setup Wizard** â€” Re-runs the First-Run Wizard from step 1.
-
----
-
-## Config-File-Only Settings
-
-The following settings are intentionally not exposed in the GUI. They are edited directly in their respective JSON files and take effect on restart.
-
-| Config file | What it controls |
-|-------------|-----------------|
-| `config/scoring.json` | Confidence thresholds, field count scaling multiplier, auto-link threshold |
-| `config/field_normalization.json` | ISBN checksum validation rules, identifier alias mappings |
-| `config/description_matching.json` | Candidate re-ranking match types, field weights, extract-then-compare patterns |
-| `config/disambiguation.json` | Media type heuristic weights, duration bands, bitrate thresholds, path keywords, TV filename patterns, auto-assign and review thresholds |
-| Provider config deep fields | Per-provider: throttle delay, max concurrency, cache TTL, individual field weights beyond the UI sliders |
-| `config/providers/wikidata_reconciliation.json` | Full Wikidata property map, bridge lookup priority order, value transform assignments, scope exclusions, instance_of class mappings, edition pivot rules |
-| `config/writeback.json` | Embedded metadata writeback behavior: which fields are written back to file tags, and in which format |
-| `config/signal_extraction.json` | Description signal extraction regex patterns, role assignments, Wikidata occupation class identifiers for verification |
-| `config/ui/devices/{class}.json` | Device profile constraints â€” modifying these changes what entire device classes can see and do |
-| UI global deep fields | Feature flag overrides, shell dimension constants (dock width, topbar height), scroll behavior |
-| `config/transcoding.json` | Quality profiles, hardware preference, max concurrent transcode jobs, shadow storage size limit |
-| Organization templates | Per-media-type folder structure templates (e.g. TV season/episode path format, Music artist/album nesting) |
+- registry data
+- identity job state
+- review queue state
+- canonical artwork flags
 
 ---
 
-## Screen Inventory
+## Main Vault visibility
 
-16 settings screens in total, plus the First-Run Wizard and the Vault page:
+Main Vault visibility is controlled by the **Vault quality gate**.
 
-| Group | Screen |
-|-------|--------|
-| Preferences | Profile |
-| Preferences | Playback _(planned)_ |
-| Providers | Provider Connections |
-| Providers | Provider Priority |
-| Providers | Wikidata Configuration |
-| Intelligence | Models |
-| Intelligence | AI Features |
-| Intelligence | Vibe Vocabulary |
-| Intelligence | AI Schedule |
-| Library | Library Folders |
-| Server | Status Dashboard |
-| Server | Security & API Keys |
-| Server | Users _(planned)_ |
-| Server | Activity Log |
-| Server | Maintenance |
-| Server | Setup Wizard |
-| â€” | First-Run Wizard (5 steps) |
-| â€” | Library Vault (`/vault`) |
+An item becomes visible in the main Vault only after it has:
+
+- a non-placeholder title
+- a resolved media type
+- a settled artwork outcome
+
+Settled artwork means:
+
+- `present`
+- or `missing` after the artwork pass explicitly settled it
+
+If an item does not pass that gate yet, it remains visible in **Activity**, **Review**, and the **Action Center**, but not in the main Vault media list.
+
+This is a deliberate product choice: the Vault should tell one calm, honest story rather than showing half-finished items too early.
 
 ---
 
-## Library Vault (`/vault`)
+## Vault tabs
 
-The Vault is the command centre for managing every file the Engine has ever seen â€” staged, verified, provisional, quarantined, or under review. It is separate from Settings and operates as a full-page management interface.
+The Vault has four top-level tabs:
 
-### Four Tabs
+| Tab | Purpose |
+|---|---|
+| **Media** | Item-level management, review, pipeline inspection, and fixes |
+| **People** | People records derived from resolved media metadata |
+| **Universes** | Franchise and world-level groupings and graph health |
+| **Collections** | Smart collections, system lists, mixes, and playlists |
 
-**Media** â€” All media assets in the pipeline and library.
-
-**People** â€” All Person records: authors, narrators, directors, cast members. People are always Wikidata-sourced and exist as a byproduct of media â€” they are created when the engine identifies a person in your library's metadata. People are automatically cleaned up when all their associated media falls out of the library.
-
-**Universes** â€” All fictional universes (user-facing name for franchise-level groupings), their entity counts, and universe graph population status.
-
-**Collections** â€” All smart collections, system lists, personalised mixes, and playlists. Oversight and configuration of the presentation layer. See `docs/architecture/collections.md` for full specification.
-
-### Pipeline Header
-
-Persistent progress bar across the top of the Vault showing the current state of the ingestion and hydration pipeline: files in staging, files currently being hydrated, and the queue depth for each stage.
-
-### Alert Banners
-
-- **Amber** â€” items in the review queue requiring attention (ambiguous match, multiple candidates, classification uncertainty)
-- **Red** â€” quarantined items (failed ingestion, file integrity errors, unresolvable state)
-
-### Toolbar
-
-Search bar, sort selector, group-by selector, and filter chips (by status, by media type, by stage gate state). The media type count bar at the top of the page doubles as a filter â€” tapping a media type filters the list.
-
-### Add Media
-
-The "+ Add Media" button allows manual file addition for edge cases not covered by watched folder auto-ingestion.
+The Media tab is where ingestion and matching quality are primarily managed.
 
 ---
 
-### Media List View
+## Media tab architecture
 
-Each row in the media list is designed for **scanning and triaging** â€” answering "what is this, and does it need attention?"
+Each Media row is a projection of one item that combines:
 
-#### List Columns
+- current title and creator
+- current status
+- current pipeline step
+- current Vault visibility
+- current artwork state and source
+- whether the item is ready for the main Vault
 
-| Column | Content | Width |
-|--------|---------|-------|
-| Thumbnail | Cover art with media type icon overlay. Missing cover shows placeholder. Format chip visible on poster. | Narrow, fixed |
-| Item | Title (bold) + Creator (uppercase, smaller). Problem items get a third line with the reason. | Flex, fills available space |
-| Universe | Clickable link to the Universe detail page, or empty for standalone items. "Unlinked" for items not yet grouped. | Medium |
-| Pipeline | Three dot indicators (Retail Â· Wikidata Â· Universe). Colour shows stage state. Mouseover reveals stage name and detail. | Narrow, fixed |
-| Status | Single pill badge, colour-coded by state. | Narrow, fixed |
+### Standard stages
 
-#### Status Taxonomy
+The UI now uses the same three stages everywhere:
 
-| Status | Colour | Meaning | User action |
-|--------|--------|---------|-------------|
-| **Verified** | Green | Fully enriched, all stages complete | None â€” it's done |
-| **Provisional** | Blue | User-provided or file-embedded metadata, not engine-verified | Optional â€” run Identify when ready |
-| **Needs Review** | Amber | Ambiguous match or missing data | Click to resolve |
-| **Quarantined** | Red | Failed ingestion or file integrity issue | Click to investigate |
-| **Pending** | Grey | Queued or still processing through the pipeline | Wait |
+| Stage | Meaning |
+|---|---|
+| **Retail** | Provider matching and bridge-ID collection |
+| **Wikidata** | Canonical identity resolution |
+| **Enrichment** | Follow-up metadata, people, images, and relationships |
 
-#### Colour Language
+This replaces older mixed models where list views, cards, and detail drawers could disagree.
 
-The same five colours are used consistently across the Vault â€” status pills, pipeline stage dots, and alert banners all follow this palette:
+### Readiness labels
 
-| Colour | Meaning |
-|--------|---------|
-| **Green** | Complete / healthy â€” no action needed |
-| **Blue** | Provisional â€” user-provided, not engine-verified |
-| **Amber** | Attention needed â€” ambiguous or incomplete |
-| **Red** | Problem â€” failed or blocked |
-| **Grey** | Waiting â€” queued or in progress |
+The primary user-facing summary is a readiness label:
 
-Pipeline stage dots use the same colours: green (stage complete), grey (queued / not yet run), amber (stage needs review), red (stage failed).
+- **Pending artwork**
+- **Needs review**
+- **Ready**
 
-#### Row Behaviour
+These labels are derived from the same projection as the stage dots and overview counts.
 
-- **Healthy items (Verified, Provisional):** Two-line row â€” Title + Creator. Clean, compact.
-- **Problem items (Needs Review, Quarantined):** Three-line row â€” Title + Creator + reason line explaining why the item is flagged (e.g. "Multiple conflicting titles found in folder", "Header mismatch â€” possible corrupt file").
-- **Clicking a row** opens the Detail Drawer.
+### Compatibility statuses
 
-#### Useful Filters and Grouping
+Some older API payloads or compatibility views still expose status values such as `Provisional`. Those values remain for compatibility, but the preferred product mental model is:
 
-- **"What needs my attention?"** â€” filter to Needs Review + Quarantined
-- **"What's unlinked?"** â€” filter to items with no Universe assignment
-- **"What's incomplete?"** â€” filter by missing stage gate
-- **Group by Universe** â€” see your library as the engine groups it, spot mis-groupings
-- **Group by Library Folder** â€” manage by source
-- **Group by Media Type** â€” work through one category at a time
+- stage progress
+- readiness
+- artwork truth
 
 ---
 
-### Media Detail Drawer
+## Media list design
 
-Slides in from the right when a row is clicked. Fixed width, full viewport height. Three fixed zones: pinned header (top), scrollable body (middle), pinned action bar (bottom).
+The Media list should prioritize quick triage.
 
-#### Pinned Header (never scrolls)
+Recommended columns:
 
-Always visible at the top of the drawer:
+| Column | Purpose |
+|---|---|
+| **Thumbnail** | Cover art when present, placeholder otherwise |
+| **Item** | Title and primary creator |
+| **Universe / Context** | Grouping context when available |
+| **Pipeline** | Retail, Wikidata, Enrichment stage dots |
+| **Status / Readiness** | Human-readable state and actionability |
 
-- **Cover art** â€” large thumbnail. Provisional items show the file's embedded cover or user upload. No cover shows media type placeholder.
-- **Title** â€” bold, large
-- **Creator** â€” smaller, uppercase
-- **Status pill** â€” Verified (green), Provisional (blue), Needs Review (amber), Quarantined (red)
-- **Universe link** â€” clickable chip navigating to the Universe detail page. Empty if standalone.
-- **Series + position** â€” if applicable: "Dune Novels #2"
-- **Media type icon + format label** â€” "EPUB", "M4B", "4K HDR", "CBZ"
-
-#### Scrollable Body (collapsible sections)
-
-Each section has a header bar with title, icon, and expand/collapse toggle. Sections with problems show an amber left-border highlight.
-
-**Default open/closed states vary by item status:**
-
-| Section | Verified | Provisional | Needs Review | Quarantined |
-|---------|----------|-------------|--------------|-------------|
-| Sync | Open | Open | Open | Open |
-| Enrichment | Open | Open | Open | Closed |
-| Pipeline | Closed | Closed | **Open** | **Open** |
-| File | Closed | Closed | Closed | **Open** |
-| Assets | Closed | Closed | Closed | Closed |
-| Claims | Closed | Closed | Closed | Closed |
+Problem items may show an additional reason line. Healthy items should stay compact.
 
 ---
 
-##### Section 1: Sync
+## Vault overview
 
-Tracks whether the physical file's embedded metadata is up to date with what the engine has resolved.
+The Vault overview now depends on the same projection as list and detail views.
 
-- **Sync state** â€” Synced / Out of Sync / Never Synced
-- **Last synced** â€” timestamp of last writeback to file
-- **Last enrichment** â€” timestamp of last pipeline run
-- **Next scheduled refresh** â€” date (30-day enrichment cycle)
-- **Sync Now button** â€” manual trigger to write resolved metadata back to file tags
+In addition to older health totals, it should surface:
 
-**Sync writeback** is enabled by default (configurable in Settings > Preferences). When enabled, the engine automatically writes enriched metadata (title, author, cover art, series, description) back to the file's embedded tags after each pipeline run.
+- `hidden_by_quality_gate`
+- `art_pending`
+- `retail_needs_review`
+- `qid_no_match`
+- `completed_with_art`
 
-**30-day refresh cycle:** Each item tracks `last_enrichment_date`. A scheduled background job identifies items past the 30-day mark and re-runs the pipeline to check for updated data from retail providers and Wikidata. Uses the Tuvima.Wikidata package's refresh capabilities. If anything changed, the file is re-synced automatically.
+These counts are meant to answer, at a glance:
 
-For provisional items: Sync Now writes the provisional metadata to the file tags. The file becomes the carrier of the user's corrections.
-
----
-
-##### Section 2: Enrichment
-
-The AI-generated and provider-sourced intelligence about the item. Quick visual confirmation the engine understood the item correctly.
-
-- **TL;DR** â€” AI-generated summary (if available)
-- **Vibe tags** â€” displayed as chips, with "Regenerate" action
-- **Genres / subjects** â€” from Wikidata or retail providers
-- **Ratings** â€” from retail providers (Goodreads, TMDB, etc.)
-- **Description** â€” longer description from Wikipedia or retail, collapsed with "show more"
-- **Bridge IDs** â€” ISBN, ASIN, TMDB ID as small labelled chips
-
-For provisional items: shows whatever data the user provided or the file contained. Empty fields show "Not available â€” provisional item" in muted text.
-
-**Why vibe tags and TL;DR live here:** These are AI-generated signals that help verify the engine matched correctly. If the vibe tags say "romantic comedy" on a horror novel, the match is wrong. This is management intelligence, distinct from the consumer-facing library page.
+- how much work is blocked by quality gating
+- how much is waiting on art
+- how much is truly ready
 
 ---
 
-##### Section 3: Pipeline
+## Detail drawer architecture
 
-Expanded view of the two enrichment stages. Each stage shows its state, what it found, and â€” if there's a problem â€” an inline resolution panel.
+The detail drawer is the primary inspection surface for a single item.
 
-**Retail Stage (Stage 1 â€” RetailIdentification)**
+Recommended sections:
 
-- **State:** Complete / Failed / Pending / Skipped
-- **Matched source:** which provider matched (Apple API, Open Library, TMDB, etc.)
-- **Logical deduction** â€” the engine's explanation: "Matched via ISBN 978-0-441-17271-9 against Open Library"
+- **Header**: title, creator, status, readiness, artwork
+- **Sync**: writeback state and sync history
+- **Enrichment**: descriptions, bridge IDs, ratings, and resolved metadata
+- **Pipeline**: the three stages and what each one did
+- **File**: path, size, format, fingerprint, source folder
+- **Claims**: full provenance and conflict history
 
-**Retail Resolution (inline, when stage needs review):**
+The drawer should answer both:
 
-When the Retail stage is unresolved, the resolution panel appears directly within this section:
-
-1. **Current match** (if any) â€” card showing cover thumbnail, title, source, key metadata
-2. **Other candidates** â€” compact list of runner-up matches from the engine. Each shows title, creator, source, cover thumbnail. Tappable to preview, "Use This" to select.
-3. **Search box** â€” manual search against retail providers if the candidates aren't right
-4. **Add Provisional** â€” pre-populates a form with the file's embedded metadata (title, creator, series, position, publication date, cover art upload/URL, format details). The user corrects what's wrong and submits. Saves as a provisional record.
-
-**Wikidata Stage (Stage 2 â€” WikidataBridge)**
-
-- **State:** Complete / Failed / Pending / Skipped / Awaiting Retail
-- **Matched QID** â€” clickable link to Wikidata entity page
-- **Entity label + description** from Wikidata
-- **Key properties** â€” author (P50), publication date (P577), genre (P136)
-- **Logical deduction** â€” "Resolved via ISBN bridge ID â†’ edition Q12345, work Q67890"
-
-**Wikidata Resolution (inline, when stage needs review):**
-
-1. **Current QID match** (if any) â€” entity label, description, key properties
-2. **QID candidates** â€” alternatives from reconciliation. Each shows label, description, P31 type, and distinguishing properties to differentiate "Dune (1965 novel)" from "Dune (2021 film)"
-3. **Manual QID entry** â€” text field to paste a known QID directly
-4. **Add Provisional** â€” pre-populates from file metadata. User corrects fields (title, creator, type, series, universe). Saves as provisional identity.
-
-**Stage dependency:** Resolving a retail match with new bridge IDs prompts: "Retail match updated â€” re-run Wikidata lookup?" Accepting triggers an automatic Wikidata re-run with the corrected data.
-
-**Provisional Add flow:** The "Add Provisional" form is pre-populated from the file's embedded metadata â€” the user isn't starting from scratch. They correct what's wrong (fix a misspelled author, add a missing ISBN, pick the right media type). This gives the engine better input for the next Identify run, making provisional a stepping stone toward a verified match rather than a permanent state.
+- "What does the Engine believe?"
+- "Why does it believe that?"
 
 ---
 
-##### Section 4: File
+## Inline resolution flows
 
-The physical file on disk â€” what you actually have.
+### Retail
 
-- **Filename** â€” full name
-- **Path** â€” full disk path
-- **Format** â€” detailed (codec, bitrate, resolution for video/audio)
-- **File size**
-- **Fingerprint** â€” SHA-256, truncated with copy button
-- **Source library folder** â€” which watched folder this came from
-- **Date added** â€” when the engine first saw this file
-- **Date last scanned** â€” when the file was last read for metadata
+Retail resolution supports:
 
-**Embedded vs Resolved comparison** â€” compact diff showing fields where the original file metadata differs from the engine's resolved values. Only shows differences, not matching fields. Example:
-- Title: "Dune Mesiah" â†’ "Dune Messiah" (typo corrected by engine)
-- Cover: [original thumbnail] â†’ [enriched thumbnail]
-- Author: matches â€” not shown
+- current best candidate
+- alternate candidates
+- manual retail search
+- local metadata correction through **Add Provisional**
 
----
+`Add Provisional` should be treated as a local metadata override flow. It improves the input to future matching, but it does not bypass the Vault quality gate.
 
-##### Section 5: Assets (default closed)
+### Wikidata
 
-Visual assets associated with this media item. See [Shared Assets Section](#shared-assets-section) for full specification.
+Wikidata resolution supports:
 
-All five asset types available (Cover Art, Headshot, Banner, Logo, Backdrop). Films/TV get Cover Art, Banner, Logo, and Backdrop auto-populated from TMDB. Books/audio get Cover Art from retail providers + file embedded. Headshots useful for author photos on books. The embedded artwork from the original file is always preserved as "Embedded Original."
+- ranked QID candidates
+- manual search
+- direct QID entry
+- accept-without-QID flow
 
-##### Section 6: Claims (default closed)
-
-Full audit trail for investigating metadata disputes. Used only for deep investigation ("why does the engine think the author is X when the file says Y?").
-
-- All metadata claims from all sources
-- Each claim shows: field name, value, source provider, timestamp, confidence weight
-- Winning claim highlighted with the Priority Cascade tier that decided it (A/B/C/D)
-- User locks (Tier A) shown with a lock icon
-- Filterable by field name
+If Retail succeeded but no good Wikidata QID exists, the product should show that explicitly rather than silently pretending the item is fully resolved.
 
 ---
 
-#### Pinned Action Bar (always visible at bottom)
+## Artwork architecture in the Vault
 
-Three actions, accessible regardless of scroll position:
+Artwork is now represented explicitly rather than inferred from URLs alone.
 
-| Button | Style | Action |
-|--------|-------|--------|
-| **Identify** | Primary (accent colour) | Re-runs the full pipeline from scratch. For provisional items, uses the corrected metadata as input â€” better data means better chance of finding a match. |
-| **Sync Now** | Secondary (outlined) | Writes current resolved or provisional metadata to the file's embedded tags. |
-| **Purge** | Destructive (red, outlined) | Removes the item from the library. Confirmation dialog required (VaultDeleteConfirm). |
+The projection exposes:
 
----
+- `artworkState`
+- `artworkSource`
+- `artworkSettledAt`
 
-#### Drawer Behaviour
+Canonical storage persists artwork truth using keys such as:
 
-- The drawer remembers which sections the user manually opened/closed during the session.
-- For problem items, the relevant sections auto-open so the user sees the issue immediately.
-- Resolving a stage inline updates the status pill in real-time without closing the drawer.
-- Live SignalR updates keep the drawer current if the engine processes the item in the background while the drawer is open.
+- `cover_state`
+- `cover_source`
+- `hero_state`
+- `artwork_settled_at`
 
----
+Product implications:
 
-### Vault Delete Confirmation
-
-**VaultDeleteConfirm** â€” confirmation dialog before any destructive action. Shows the file path, current status, and a plain-English description of what will be deleted.
+- `CoverUrl` should only be returned when cover art is actually present
+- placeholders should be used when art is missing or still pending
+- readiness should wait for artwork settlement, not just for a download attempt
 
 ---
 
-### People List View
+## People, Universes, and Collections
 
-People are always Wikidata-sourced â€” there is no "unlinked" or "needs review" state. No status column is needed. The role count bar at the top (Actors, Directors, Authors, Narrators, etc.) doubles as filters, same pattern as the media type bar on the Media tab.
+These tabs are downstream of the same identity work:
 
-#### List Columns
+- **People** get richer as more works resolve correctly
+- **Universes** become more accurate as canonical identity improves
+- **Collections** sit at the presentation layer, but depend on trustworthy underlying media data
 
-| Column | Content | Width |
-|--------|---------|-------|
-| Photo / icon | Headshot from Wikidata (P18) or generic person icon | Narrow, fixed |
-| Name + description | Name (bold) + Wikipedia short description (smaller, muted). Description is for disambiguation ("Canadian filmmaker"), not biography. | Flex, fills available space |
-| Roles | All roles as small chips (Author, Narrator, Director). A person can hold multiple roles. | Medium |
-| Library presence | Compact counts by media type: "12 books, 3 audiobooks" | Medium |
-
-#### Row Behaviour
-
-- Clicking a row opens the People Detail Drawer.
-- Rows are sortable by name, role, and library presence count.
-- Filterable by role (via the role count bar) and searchable by name.
+Because of that, ingestion quality work in Media directly improves the quality of the other tabs.
 
 ---
 
-### People Detail Drawer
+## Architecture implications
 
-Same slide-from-right pattern as the media drawer. Pinned header, scrollable collapsible sections, pinned action bar.
+The important architectural decisions are:
 
-#### Pinned Header
+- one shared projection should drive list, detail, and overview surfaces
+- main Vault visibility should be a quality-gate decision, not a side effect of filesystem staging
+- artwork truth should be explicit and durable
+- QID-missing outcomes should remain visible as first-class states when the item is otherwise good enough
 
-- **Photo** â€” larger headshot from Wikidata, or generic person icon
-- **Name**
-- **Roles** â€” all roles as chips
-- **QID link** â€” clickable to Wikidata entity page
-
-#### Section 1: Library Presence (default open)
-
-Full list of works in your library attributed to this person, grouped by role and media type. Each work is clickable â€” navigates to that item's media detail drawer.
-
-Management question: "What do I have by this person, and is it all correctly attributed?"
-
-#### Section 2: Linked Identities (default open)
-
-Pseudonyms, pen names, and stage names the engine has resolved for this person. Shows which file-level author/creator names resolved to this single person record.
-
-Management question: "Has the engine merged the right names together, or has it incorrectly combined two different people?"
-
-#### Section 3: Assets (default closed)
-
-Visual assets associated with this person. See [Shared Assets Section](#shared-assets-section) for full specification.
-
-All five asset types available (Cover Art, Headshot, Banner, Logo, Backdrop). Headshot auto-populated from Wikidata (P18). Other types available for user upload.
-
-#### Action Bar
-
-None. The People detail drawer is purely informational â€” no manual actions. Person enrichment is handled by the same 30-day refresh cycle as media (via Tuvima.Wikidata). Person records are automatically cleaned up when all their associated media is removed from the library.
-
----
-
-### Universes List View
-
-Universes are franchise-level groupings resolved by the engine from Wikidata. Like People, they are always Wikidata-sourced â€” no "unlinked" or "needs review" state. No status column is needed.
-
-The stats bar at the top shows: **Universes count** and **total Series across all Universes**. Both informational â€” Universes are engine-resolved with nothing to triage. Not every Series needs a Universe; standalone Series are perfectly valid.
-
-#### List Columns
-
-| Column | Content | Width |
-|--------|---------|-------|
-| Icon | Universe icon | Narrow, fixed |
-| Name + description | Universe name (bold) + Wikipedia short description (smaller, muted): "Fictional setting of J.R.R. Tolkien's works" | Flex, fills available space |
-| Series count | How many Series are grouped under this Universe: "4 Series" | Narrow |
-| Media breakdown | Compact counts across all Series: "12 books, 3 films, 6 audiobooks" | Medium |
-| People | Count of connected people: "8 people" | Narrow |
-
-#### Row Behaviour
-
-- Clicking a row opens the Universes Detail Drawer.
-- Rows are sortable by name, Series count, and total media count.
-- Searchable by name.
-
----
-
-### Universes Detail Drawer
-
-Same slide-from-right pattern as media and people drawers. Pinned header, scrollable collapsible sections, no action bar.
-
-#### Pinned Header
-
-- **Universe name**
-- **Wikipedia description**
-- **QID link** â€” clickable to Wikidata entity page
-
-#### Section 1: Series (default open)
-
-All Series grouped under this Universe. Each Series shows:
-- Series name
-- Work count
-- Media types present (as small icons)
-
-Each Series is clickable â€” filters the Media tab to show that Series' items.
-
-Management question: "Are these the right Series under this Universe, or has the engine mis-grouped something?"
-
-#### Section 2: People (default open)
-
-People connected to this Universe â€” authors, directors, actors. Compact list with role chips. Each clickable â†’ opens People detail drawer.
-
-Management question: "Are the right creators associated with this Universe?"
-
-#### Section 3: Assets (default closed)
-
-Visual assets associated with this Universe. See [Shared Assets Section](#shared-assets-section) for full specification.
-
-All five asset types available (Cover Art, Headshot, Banner, Logo, Backdrop). The engine surfaces the best artwork from child Series and media items as candidates. Franchise logos, banners, and key art are typically user-uploaded.
-
-#### Action Bar
-
-None. Universe enrichment runs on the 30-day refresh cycle. Universes are automatically cleaned up when all their child Series are empty.
-
----
-
-### Shared Assets Section
-
-The Assets section appears in the detail drawer for **Media items**, **People**, and **Universes**. It provides a unified interface for managing visual assets (artwork, banners, logos) associated with any entity in the library.
-
-#### Purpose
-
-Assets are the raw materials for the library presentation layer. Cover art, banners, logos, and backdrops collected at the management level are available when building the consumer-facing library pages (Universe detail, Series pages, collection displays). Curating assets here means the library pages pull from a vetted pool rather than defaulting to whatever the first provider returned.
-
-#### Asset Types
-
-| Type | Description | Typical sources |
-|------|-------------|-----------------|
-| **Cover Art** | Primary poster/cover image (2:3 ratio for books/films) | Retail providers, file embedded, user upload |
-| **Headshot** | Portrait photo (1:1 or 3:4 ratio â€” people, author photos on books) | Wikidata (P18), user upload |
-| **Banner** | Wide landscape image for hero displays | TMDB (backdrops), publisher, user upload |
-| **Logo** | Title treatment or franchise wordmark | TMDB (logos), user upload |
-| **Backdrop** | Background atmosphere image | TMDB (backdrops), publisher, user upload |
-
-#### Provider Asset Capabilities
-
-Providers differ significantly in what types of assets they return:
-
-| Provider | Returns | Type tagging | Notes |
-|----------|---------|--------------|-------|
-| **TMDB** | Posters, backdrops, logos | **Automatic** â€” TMDB API categorises images by type (`posters`, `backdrops`, `logos`). Each image includes dimensions, language, and user vote average (quality ranking). | Richest source. Films/TV get all four asset types automatically. |
-| **Open Library** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
-| **Google Books** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
-| **Apple API** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
-| **Comic Vine** | Cover image | Default to **Cover Art** | Single image, no type categorisation. |
-| **File embedded** | Cover image | Tagged as **Embedded Original** | Whatever artwork was embedded in the file's metadata (EPUB cover, ID3 art, MKV poster). Always preserved. |
-| **Auto-generated** | Hero banner | Tagged as **Banner (Generated)** | SkiaSharp-rendered hero banner (blurred cover art + vignette). Auto-generated whenever cover art exists. Default banner for media types where no provider supplies real backdrops (books, audiobooks, comics). For Universes and People, generated from the most representative child item's cover art. |
-| **User upload** | Any type | **User selects** type on upload | User picks which type group (Cover Art, Headshot, Banner, Logo, Backdrop) when uploading. |
-
-**Result:** Films and TV have the richest asset pools (covers + banners + logos + backdrops from TMDB). Books, audiobooks, and comics get Cover Art from providers plus an auto-generated hero Banner from SkiaSharp â€” so every item with cover art has at least a Cover Art and a Banner. User uploads fill remaining slots (Headshot, Logo, Backdrop). Universes and People build their pools from child items, auto-generated banners, and user uploads.
-
-#### Asset Availability by Entity Level
-
-All five asset types (Cover Art, Headshot, Banner, Logo, Backdrop) are available on every entity â€” Media items, People, and Universes. The same types exist everywhere for uniformity; a book can have a headshot (author photo), a person can have cover art, a Universe can have all five. Types that providers don't automatically fill remain as empty slots that the user can populate via upload. This is especially useful when building library presentation pages (Series collections, Universe pages) where custom artwork makes the display unique.
-
-| Entity | Auto-populated | Typically user-uploaded |
-|--------|----------------|------------------------|
-| **Media item (film/TV)** | Cover Art, Banner, Logo, Backdrop (TMDB) + Banner Generated (SkiaSharp) | Headshot |
-| **Media item (book/audio/comic)** | Cover Art (retail + embedded) + Banner Generated (SkiaSharp from cover art) | Headshot, Logo, Backdrop |
-| **Person** | Headshot (Wikidata P18) + Banner Generated (SkiaSharp from headshot) | Cover Art, Logo, Backdrop |
-| **Universe** | Inherited from child items + Banner Generated (SkiaSharp from best child cover) | All five types as needed |
-
-#### Display
-
-- **Grouped by type** â€” Cover Art, Headshot, Banner, Logo, Backdrop sections. When building a library page, you're looking for "I need a banner," not "what did TMDB give me." Empty type groups are shown as collapsed with an upload prompt.
-- Each asset shows: thumbnail, source label (TMDB, Open Library, Embedded Original, User Upload), dimensions
-- One asset per type is marked as **Preferred** (star indicator) â€” this is what gets used on library pages and written back to the file via sync
-- The embedded artwork from the original file is always preserved as an asset tagged "Embedded Original" â€” it is never lost or overwritten in the asset pool
-- Assets from TMDB include the user vote average from TMDB's community â€” useful for picking the highest-quality option when multiple are available
-
-#### Actions
-
-- **Upload** â€” button per type group, drag-and-drop or file picker. User selects the asset type on upload. Tagged "User Upload."
-- **Set as Preferred** â€” tap the star on any asset to make it the preferred image for that type
-- **Delete** â€” remove an asset (except Embedded Original, which is always preserved)
-
-#### AI Artwork Matching
-
-During retail identification (Stage 1), the LLM compares the file's embedded cover art against candidate covers from retail providers. Visual similarity becomes an additional signal alongside title, author, and ISBN for picking the correct match. This helps disambiguate editions â€” the same book with different covers indicates which edition the user actually has.
-
----
-
----
-
-### Collections Tab
-
-The fourth Vault tab. Provides oversight and configuration of all collection types â€” smart collections, system lists, personalised mixes, and playlists. Full specification lives in `docs/architecture/collections.md`.
-
-#### Stats Bar
-
-Four count cards: Smart Collections (blue), System Lists (green), Personalised Mixes (purple), Playlists (amber). Cards double as filters.
-
-#### List Columns
-
-| Column | Content | Width |
-|--------|---------|-------|
-| Type icon | Icon representing the collection category | Narrow, fixed |
-| Name + description | Name (bold) + rule summary or description (muted) | Flex |
-| Type | Chip: Smart (blue), System (green), Mix (purple), Playlist (amber) | Narrow |
-| Scope | "Library" or username | Narrow |
-| Items | Count | Narrow |
-| Status | Pill: Active (green), Disabled (grey), Empty (amber) | Narrow |
-
-Default grouping by type: Smart Collections â†’ System Lists â†’ Personalised Mixes â†’ Playlists.
-
-#### Detail Drawer
-
-Same slide-from-right pattern. Configuration section varies by collection type (rules/thresholds for smart collections, logic summary for mixes, owner info for playlists). Items Preview shows first 20 items. Assets section with auto-composed artwork and optional user uploads. Action bar: Enable/Disable + Feature for smart collections, Enable/Disable for mixes, no actions for system lists and playlists.
-
----
-
-### Live Updates
-
-All Vault state is kept current via SignalR. When the Engine ingests a file, advances a stage gate, moves an item to the review queue, or quarantines a file, the Vault updates instantly without a page refresh. The Detail Drawer also receives live updates while open.
+That combination makes the Vault calmer, more trustworthy, and much easier to reason about.
 
 ## Related
 
+- [Ingestion Pipeline](ingestion-pipeline.md)
+- [Hydration Pipeline, Provider Architecture and Enrichment Strategy](hydration-and-providers.md)
+- [Scoring and Cascade Architecture](scoring-and-cascade.md)
 - [How the Library Vault Works](../explanation/how-the-vault-works.md)
-- [Configuration Reference](../reference/configuration.md)
-- [Dashboard UI Architecture](dashboard-ui.md)

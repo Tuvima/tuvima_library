@@ -54,15 +54,15 @@ The Engine opens the file and reads the information embedded inside it â€” 
 
 ### Identify
 
-The Engine compares what it found in the file against its knowledge of known works. It scores possible matches and selects the best one. If confidence is high enough (at least 85%), the file moves forward. If not, it is flagged for your review.
+The Engine compares what it found in the file against its knowledge of known works. It scores possible matches and selects the best one. Weak matches are rejected, mid-confidence matches are sent to review, and only the strongest matches are auto-accepted.
 
 ### Stage
 
-The file is registered in a staging area while enrichment runs. It has an identity but is not yet fully enriched.
+The file is registered and enrichment begins immediately, but the main Vault does not show it yet. Items stay in Activity, Review, and the Action Center until they have a trustworthy title, a resolved media type, and a settled artwork outcome.
 
 ### Hydrate
 
-Two rounds of enrichment happen automatically:
+Two enrichment stages happen automatically:
 
 **Stage 1 â€” Retail providers:** The Engine contacts services like Apple Books, Google Books, and TMDB to gather cover art, descriptions, ratings, and bridge identifiers (such as ISBN or TMDB ID).
 
@@ -70,7 +70,7 @@ Two rounds of enrichment happen automatically:
 
 ### Promote
 
-Once enrichment is complete and confidence is sufficient, the file is promoted to your organised Library. It appears in the Vault and on the Dashboard's browse pages.
+Once enrichment is complete enough for the Vault quality gate, the item appears in the main Vault. Full organization and browse-page promotion continue separately based on the wider pipeline and library confidence rules.
 
 ---
 
@@ -78,7 +78,7 @@ Once enrichment is complete and confidence is sufficient, the file is promoted t
 
 Click **Vault** in the left dock. This is the command centre for everything in your Library.
 
-You will see your files appearing as the pipeline processes them. Each row shows:
+You will see qualified files appearing as the pipeline settles. Each row shows:
 
 - **Thumbnail** â€” the cover art (or a placeholder while it is being fetched)
 - **Title and creator** â€” the best available title and author/director
@@ -86,7 +86,7 @@ You will see your files appearing as the pipeline processes them. Each row shows
 - **Pipeline status** â€” small dots showing which pipeline stages are complete (hover over them for detail)
 - **Status pill** â€” the current state of this item
 
-New files often appear first with a **Provisional** status, then update to **Verified** once enrichment completes. This can take anywhere from a few seconds to a few minutes, depending on your internet connection and how many files you added at once.
+Items do not enter the main Vault immediately on file registration anymore. Review-only or still-pending items stay in the Action Center until they are either ready for the main Vault or explicitly need your intervention.
 
 The Vault updates in real time â€” you do not need to refresh the page.
 
@@ -99,7 +99,7 @@ Every item in the Vault has a status pill that tells you where it stands.
 | Status | What it means |
 |---|---|
 | **Verified** | The Engine is confident about this item's identity. It has been matched against Wikidata and enriched with canonical metadata. |
-| **Provisional** | The Engine could not find a Wikidata match. The file's own metadata is being used as the authority. The item is visible in your Library and usable, but metadata may be incomplete or approximate. |
+| **QID Not Found** | Retail matching succeeded, but Stage 2 could not resolve a Wikidata QID. The item may still be visible in the Vault if its title, media type, and artwork state are settled. |
 | **Needs Review** | Something went wrong or the Engine is unsure and wants your input. See below. |
 | **Quarantined** | The file has a problem (corrupt, unreadable, or a type mismatch) and has been set aside. |
 | **Pending** | The item is still moving through the pipeline. |
@@ -125,7 +125,7 @@ To resolve a Needs Review item:
 
 Once you resolve an item, the Engine re-runs enrichment with your input. The status updates automatically.
 
-> **Items that could not be matched are not hidden.** They are promoted to your Library as Provisional items and pinned at the top of the Vault's "All Media" view with an amber highlight so they are easy to find.
+> **Items that are still uncertain are not forced into the main Vault.** They remain visible in Review, Activity, and the Action Center until they either pass the Vault quality gate or you resolve them manually.
 
 ---
 

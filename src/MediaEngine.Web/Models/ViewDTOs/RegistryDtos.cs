@@ -146,6 +146,24 @@ public sealed class RegistryItemViewModel
 
     [JsonPropertyName("failed_provider_name")]
     public string? FailedProviderName { get; set; }
+
+    [JsonPropertyName("pipeline_step")]
+    public string PipelineStep { get; set; } = "Retail";
+
+    [JsonPropertyName("vault_visibility")]
+    public string VaultVisibility { get; set; } = "hidden";
+
+    [JsonPropertyName("is_ready_for_vault")]
+    public bool IsReadyForVault { get; set; }
+
+    [JsonPropertyName("artwork_state")]
+    public string ArtworkState { get; set; } = "pending";
+
+    [JsonPropertyName("artwork_source")]
+    public string? ArtworkSource { get; set; }
+
+    [JsonPropertyName("artwork_settled_at")]
+    public DateTimeOffset? ArtworkSettledAt { get; set; }
 }
 
 /// <summary>Paginated registry response.</summary>
@@ -308,6 +326,24 @@ public sealed class RegistryItemDetailViewModel
 
     [JsonPropertyName("bridge_ids")]
     public Dictionary<string, string> BridgeIds { get; set; } = [];
+
+    [JsonPropertyName("pipeline_step")]
+    public string PipelineStep { get; set; } = "Retail";
+
+    [JsonPropertyName("vault_visibility")]
+    public string VaultVisibility { get; set; } = "hidden";
+
+    [JsonPropertyName("is_ready_for_vault")]
+    public bool IsReadyForVault { get; set; }
+
+    [JsonPropertyName("artwork_state")]
+    public string ArtworkState { get; set; } = "pending";
+
+    [JsonPropertyName("artwork_source")]
+    public string? ArtworkSource { get; set; }
+
+    [JsonPropertyName("artwork_settled_at")]
+    public DateTimeOffset? ArtworkSettledAt { get; set; }
 }
 
 /// <summary>Canonical value with conflict info.</summary>

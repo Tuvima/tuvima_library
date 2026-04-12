@@ -1,6 +1,6 @@
 ---
 title: "Ingestion Pipeline"
-summary: "Deep technical documentation for file watching, fingerprinting, staging, promotion, and organization."
+summary: "Deep technical documentation for file watching, fingerprinting, staging, Vault surfacing, promotion, and organization."
 audience: "developer"
 category: "architecture"
 product_area: "ingestion"
@@ -117,7 +117,7 @@ Cover art for items that have not yet received a Wikidata QID is written to `.da
 
 ## Staging-First Flow
 
-All ingested files land in `.staging/` before reaching the organised library. The library invariant is that every file within the library root (outside `.staging/`) has been hydrated, has a confirmed Wikidata QID or bridge identifiers, and has cover art and a hero banner image.
+All ingested files land in `.staging/` before reaching the organised library. The library invariant is that every file within the library root (outside `.staging/`) has been hydrated, has reached a settled identity outcome, and has a settled artwork outcome. That may mean a resolved QID with art present, or a precision-preserving QID-missing result with artwork explicitly confirmed missing.
 
 ```
 Watch Folder  â”€â”€(detect + process)â”€â”€>  .staging/  â”€â”€(hydration + promote)â”€â”€>  Library
@@ -142,7 +142,7 @@ Files are routed to one of four subcategories based on their overall confidence 
 
 **Staging lifecycle logging:** The Engine logs staging progress at `Information` level at four points: (1) when an asset is moved into staging, (2) when a review queue item is created, (3) when a gap is detected in expected review creation (e.g. a confidence score that should have triggered a review but did not), and (4) when an asset is promoted out of staging into the organised library. These log entries allow the staging pipeline to be audited from the activity log.
 
-**Vault staging exclusion:** Items currently in staging are filtered out of the Vault media tabs (Movies, TV, Books, etc.). The `RegistryRepository` `asset_data` CTE excludes assets whose status is `Staging`. These items are only visible in the Action Center tab.
+**Vault quality gate:** Main Vault visibility is no longer a simple "in staging or not" decision. The shared registry projection computes `vault_visibility`, `pipeline_step`, `artwork_state`, and `is_ready_for_vault` from identity jobs, review state, and canonical artwork flags. An item is visible in the main Vault only after it has a non-placeholder title, a resolved media type, and settled artwork (`present`, or `missing` after explicit settlement). Review-only or still-hidden items remain available in Activity, Review, and the Action Center.
 
 ### AutoOrganize Gate
 
@@ -152,7 +152,7 @@ Files are routed to one of four subcategories based on their overall confidence 
 overallConfidence >= 0.85  OR  any claim has IsUserLocked = true
 ```
 
-This threshold (`AutoLinkThreshold = 0.85`) is defined once in `ScoringConfiguration` and reused by both the staging router and the promotion gate.
+This threshold (`AutoLinkThreshold = 0.85`) is defined once in `ScoringConfiguration` and reused by both the staging router and the promotion gate. It governs filesystem promotion, not main Vault visibility.
 
 ### Hero Banner
 

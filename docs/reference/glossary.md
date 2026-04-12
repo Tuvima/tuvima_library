@@ -12,102 +12,140 @@ tags:
 
 # Glossary
 
-Reference definitions for Tuvima Library terms. User-facing names are used throughout the Dashboard and documentation. Internal code names appear in parentheses where both exist.
+Reference definitions for common Tuvima Library terms. User-facing names are used where possible. Internal code names appear only when they help connect the docs to the codebase.
 
 ---
 
 ## C
 
 **Canonical Value**
-The winning claim for a metadata field after the Priority Cascade has resolved all competing sources. Stored in `canonical_values` / `canonical_value_arrays`. Displayed in the Dashboard and written back to file tags on sync.
+The winning metadata value for a field after the Priority Cascade resolves competing claims.
 
 **Claim**
-A single piece of metadata from a specific source, tagged with a confidence score (0.0â€“1.0) and a source identifier. Multiple claims for the same field compete in the Priority Cascade. All claims are append-only; history is never lost. Stored in `metadata_claims`.
+A single metadata value from a specific source with a confidence score. Claims are append-only and remain available for audit even when they do not win.
+
+**Collection**
+See **Series**. The codebase often uses `Collection` where the product surface says **Series**.
+
+---
 
 ## D
 
 **Dashboard**
-The browser interface (`MediaEngine.Web`) served at `http://localhost:5016`. Displays the library, receives real-time updates from the Engine via SignalR, and communicates with the Engine exclusively via HTTP.
+The web UI (`MediaEngine.Web`) where you browse the library, inspect the Vault, and review ingestion progress.
+
+---
 
 ## E
 
 **Edition**
-A specific physical or digital version of a Work. Examples: "4K HDR Blu-ray Remux", "Audible Whispersync Edition", "First Edition Hardcover". One Work may have many Editions. An Edition may have many Media Assets (e.g., a multi-disc rip).
+A specific release or format of a work, such as one ebook edition, one audiobook release, or one film cut.
 
 **Engine**
-The intelligence and data layer (`MediaEngine.Api`) served at `http://localhost:61495`. Handles all file monitoring, metadata processing, enrichment, and database operations. The Dashboard never touches data directly â€” it asks the Engine.
+The backend application (`MediaEngine.Api`) that runs ingestion, enrichment, storage, and the API used by the Dashboard.
+
+**Enrichment**
+Follow-up metadata work that happens after basic identity is settled, such as people links, extra images, relationships, summaries, and other deeper metadata.
+
+---
 
 ## H
 
-**Collection** *(internal name; user-facing: Series)*
-See **Series**.
-
 **Hydration**
-The two-stage enrichment process that runs after a file is ingested. Stage 1 (RetailIdentification) gathers cover art, descriptions, ratings, and bridge IDs from retail providers. Stage 2 (WikidataBridge) uses those bridge IDs for precise QID resolution and fetches canonical properties from Wikidata.
+The two-stage identity enrichment process that runs after ingestion. Stage 1 (**Retail**) gathers practical external matches, cover art, descriptions, and bridge IDs. Stage 2 (**Wikidata**) uses those bridge IDs to resolve canonical identity and structured facts.
+
+---
 
 ## L
 
 **Library Folder**
-A configured directory entry in `config/libraries.json`. Each Library Folder tells the Engine where to look, which media types to expect, and whether to watch for new files continuously or run a one-time import scan.
+A configured folder in `config/libraries.json` that tells the Engine where to scan, what media types to expect, and whether the folder is watched continuously or imported once.
+
+---
 
 ## M
 
 **Media Asset**
-A single file on disk (e.g., `dune.mkv`, `foundation.epub`, `gatsby.m4b`). The lowest level in the hierarchy. Each Media Asset has a SHA-256 fingerprint so the Engine can track it even if renamed or moved.
+A single file on disk, such as one EPUB, one MKV, or one M4B.
 
 **Media Type**
-The format category assigned to a file. The six supported types are: Books, Audiobooks, Movies, TV, Music, and Comics. Ambiguous formats (MP3, MP4) are classified using heuristics and AI.
+The resolved category for a file: Books, Audiobooks, Movies, TV, Music, or Comics.
+
+---
 
 ## P
 
-**ParentCollection** *(internal name; user-facing: Universe)*
-See **Universe**.
-
 **Priority Cascade**
-The four-tier system that resolves metadata conflicts when multiple sources disagree. Tiers in order: Tier A (user locks always win) â†’ Tier B (per-field provider priority from config) â†’ Tier C (Wikidata authority) â†’ Tier D (highest confidence wins). Configured in `config/scoring.json`.
+The rules that decide which metadata source wins when several disagree. User locks win first, configured field priorities come next, Wikidata is the default authority for canonical structured facts, and highest confidence wins only after those earlier rules are considered.
 
 **Processor**
-Code that opens a specific file format and extracts embedded metadata. One processor per format family: `EpubProcessor`, `AudioProcessor`, `VideoProcessor`, `ComicProcessor`. Processors produce Claims at high confidence (typically 0.85â€“1.0).
+Code that opens a specific file format and extracts embedded metadata from it.
 
 **Provider**
-An external service that supplies metadata. Providers are called during Hydration. Examples: Apple API, Open Library, Google Books, TMDB, MusicBrainz, Metron, Wikidata, Fanart.tv. Each provider has a self-contained config file in `config/providers/`.
+An external metadata source such as Apple, TMDB, MusicBrainz, Metron, or Wikidata.
+
+---
 
 ## Q
 
 **QID**
-A Wikidata entity identifier. Format: `Q` followed by digits (e.g., `Q190804` = Dune). QIDs are the Engine's canonical identity anchor â€” once a Work has a QID, structured metadata (title, author, year, genre) comes exclusively from Wikidata.
+A Wikidata entity identifier such as `Q190804`. A QID is the strongest identity anchor when one can be resolved, but an item can still remain visible in the main Vault without a QID if it passes the Vault quality gate.
+
+**QID Not Found**
+A terminal precision-preserving outcome where Retail succeeded but Wikidata could not resolve a trustworthy QID. The item remains marked at the Wikidata stage and may still be usable in the main Vault if title, media type, and artwork are settled.
+
+---
+
+## R
+
+**Readiness Label**
+The plain-English summary shown in the Vault, such as **Pending artwork**, **Needs review**, or **Ready**.
+
+**Retail**
+The first identity stage. Retail providers search external catalogues, return candidates, and supply the bridge IDs that make Wikidata resolution precise.
+
+---
 
 ## S
 
-**Series** *(internal name: Collection)*
-A sub-grouping within a Universe â€” a specific sequence or collection of related works. Examples: "Dune Novels", "Dune Films". A Series is a flexible container for any creative grouping; it is not limited to numbered sequences. Series are resolved at metadata-scoring time and have no presence on the filesystem.
+**Series**
+A grouping of related works, such as a book series, film series, or album grouping.
 
 **Staging**
-The `.data/staging/` area where files live between ingestion and promotion. Each in-flight asset gets its own subfolder (`{assetId12}/`). Files with confidence â‰¥ 0.85 are promoted to the organized library; explicitly rejected files move to `.data/staging/rejected/`.
+The safe on-disk holding area where files live between ingestion and final organisation. Staging is not the same thing as main Vault visibility; an item can be staged, known to the system, and still hidden from the main Vault until the quality gate is satisfied.
+
+---
 
 ## U
 
-**Universe** *(internal name: ParentCollection)*
-A franchise-level grouping that links multiple Series sharing the same creative world. Examples: "Dune", "Marvel", "Tolkien". Universes are optional â€” a Series without a parent franchise sits directly under the Library. Universes are always Wikidata-sourced and auto-cleaned when all child Series are removed.
+**Universe**
+A franchise-level grouping above Series that links related works into a wider creative world.
+
+---
 
 ## V
 
 **Vault**
-The Library Vault at `/vault`. The command centre for managing everything in the library. Contains four tabs: Media, People, Universes, and Collections. Provides batch operations, detail drawers, pipeline visibility, and inline resolution for items needing review.
+The management surface of the product. The Vault shows stage progress, review state, artwork truth, and readiness. The main Vault only shows items that pass the Vault quality gate.
 
-**Vibe Tags**
-AI-generated mood and atmosphere descriptors, distinct from genre. Genres (from Wikidata and retail providers) describe *what something is*. Vibes describe *how it feels*. Each media type has 25â€“30 vibe vocabulary entries across four dimensions: theme, mood, setting, and pace. Used by Intent Search for natural-language discovery.
+**Vault Quality Gate**
+The rule that controls whether an item appears in the main Vault. The item must have a non-placeholder title, a resolved media type, and a settled artwork outcome.
+
+---
 
 ## W
 
+**Wikidata**
+The canonical identity and structured-fact authority used after Retail has provided bridge IDs.
+
 **Work**
-A single title â€” one creative work, independent of format or version. Examples: "Dune Part One", "The Godfather". One Work may have many Editions. Works are deduplicated by title + author + media type so that duplicate files create new Editions rather than duplicate Works.
+A single title independent of format or edition.
 
 **Writeback**
-The process of writing resolved metadata back into file tags after enrichment or user correction. Formats: EPUB OPF metadata, ID3 tags (MP3/M4B), MP4 atoms. Controlled by `config/writeback.json`. Enabled by default.
+The process of writing resolved metadata back into supported file tags after enrichment or user correction.
 
 ## Related
 
-- [How Universes and Series Work](../explanation/how-universes-work.md)
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
+- [How the Entire Pipeline Works](../explanation/how-the-pipeline-works.md)
 - [How the Library Vault Works](../explanation/how-the-vault-works.md)

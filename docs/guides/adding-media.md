@@ -12,7 +12,7 @@ tags:
 
 # How to Add Media to Your Library
 
-This guide walks you through getting media files into Tuvima Library â€” whether you're adding a single new file or bringing in an existing collection of thousands.
+This guide walks you through getting media files into Tuvima Library, whether you are adding one new file or importing a large existing collection.
 
 ---
 
@@ -20,30 +20,28 @@ This guide walks you through getting media files into Tuvima Library â€” wh
 
 Tuvima Library offers two ways to bring files in:
 
-**Watch mode** monitors a folder on an ongoing basis. The moment a new file appears â€” whether you copied it, downloaded it, or moved it there â€” the Engine picks it up and processes it automatically. Use this for your active download or import folders.
+**Watch mode** monitors a folder continuously. When a new file appears, the Engine picks it up and processes it automatically.
 
-**Import mode** performs a one-time scan of an existing folder. Use this for a collection that's already on your drive and won't be changing.
+**Import mode** performs a one-time scan of an existing folder. Use this when you already have a collection on disk and want to ingest it in bulk.
 
-You can run both modes on the same folder if you want. A typical setup is: Import once to ingest your existing collection, then enable Watch so future additions are handled automatically.
+Many people use both: import the existing collection once, then leave watch mode enabled for future additions.
 
 ---
 
 ## Setting up a Library Folder
 
-Before the Engine can watch or import anything, you need to tell it where your files are.
-
 1. Open the Dashboard at `http://localhost:5016`.
-2. Go to **Settings â†’ Library â†’ Library Folders**.
+2. Go to **Settings -> Library -> Library Folders**.
 3. Click **Add Folder**.
-4. Fill in the folder details:
-   - **Source path** â€” the folder on your drive to watch or import (e.g. `D:\Downloads\Books`).
-   - **Library root** â€” where the organised library should live after files are processed (e.g. `D:\Library`). This is where Tuvima moves files once they've been identified.
-   - **Category** â€” the type of media in this folder (Books, Movies, TV, Music, Comics).
-   - **Media types** â€” the specific formats to accept (e.g. EPUB and PDF for a Books folder). You can select multiple.
-   - **Watch mode** â€” toggle this on if you want the folder monitored continuously.
+4. Fill in:
+   - **Source path**: the folder to watch or import
+   - **Library root**: where organised files should live
+   - **Category**: Books, Movies, TV, Music, or Comics
+   - **Media types**: the file types you expect in that folder
+   - **Watch mode**: on for continuous monitoring, off for one-time import
 5. Click **Save**.
 
-You can add as many folders as you need â€” one for each category, or one per drive, or however your collection is organised.
+You can add as many folders as you need.
 
 ---
 
@@ -58,33 +56,45 @@ You can add as many folders as you need â€” one for each category, or one p
 | Music | FLAC, MP3, AAC, M4A, OGG |
 | Comics | CBZ, CBR, PDF |
 
-> **Note on MP3 and MP4:** These formats can belong to more than one library type â€” an MP3 might be an audiobook chapter or a music track; an MP4 might be a movie or a TV episode. The Engine uses AI classification and file metadata signals to decide. If it gets it wrong, you can correct it in the Library Vault.
+> **MP3 and MP4 can be ambiguous.** The Engine uses file metadata, folder hints, and classification logic to decide whether a file is music, audiobook, movie, or TV. If it guesses wrong, you can correct it in the Vault.
 
 ---
 
 ## What happens when a file arrives
 
-When the Engine finds a new file, it runs it through several stages automatically. You don't need to do anything â€” this all happens in the background.
+When the Engine finds a new file, it runs it through several stages automatically.
 
-1. **Settle** â€” The Engine waits a moment to make sure the file has finished copying before touching it. This prevents half-written files from being processed.
+1. **Settle**: waits for the file to finish copying
+2. **Fingerprint**: computes a SHA-256 identity for duplicate detection and resilient tracking
+3. **Scan**: reads embedded metadata such as title, author, year, cover art, narrator, and series
+4. **Classify**: resolves ambiguous media types when needed
+5. **Stage**: moves the file into the safe staging area on disk
+6. **Hydrate**: Stage 1 queries retail providers for cover art, descriptions, ratings, and bridge IDs; Stage 2 uses those IDs to resolve a Wikidata identity when possible
+7. **Settle artwork and readiness**: the system decides whether the item has present art, missing art, or still-pending art
+8. **Surface and promote**: main Vault visibility and final filesystem promotion are separate decisions
 
-2. **Fingerprint** â€” A unique identifier is computed from the file's contents (a SHA-256 hash). This acts like a barcode â€” the Engine can track the file even if you rename or move it later.
+Two details matter here:
 
-3. **Scan** â€” The file is opened and any embedded information is read out: title, author, year, cover art, series name, narrator, and so on. Different processors handle different formats (EPUBs, ID3 tags in MP3s, MKV metadata, and so on).
+- An item can be known to the system before it is visible in the main Vault
+- An item can be visible in the main Vault before or after final promotion into the organised library structure
 
-4. **Identify** â€” The Engine scores the metadata it found and tries to match the file to an existing entry in your data store or to a known external source.
+---
 
-5. **Stage** â€” The file is held temporarily while enrichment runs.
+## When an item appears in the main Vault
 
-6. **Hydrate** â€” Two rounds of enrichment fill in missing or uncertain metadata. Stage 1 queries retail providers (Apple, Google Books, TMDB, and others) to gather cover art, ratings, and identifiers. Stage 2 uses Wikidata to confirm the canonical identity and fetch structured data: author, director, series, genre, and more.
+The main Vault only shows an item after it passes the Vault quality gate:
 
-7. **Promote** â€” If the Engine is sufficiently confident (85% or above), the file is moved from staging into your organised library folder. If confidence falls below that threshold, the item is flagged for your review in the Library Vault.
+- real title
+- resolved media type
+- settled artwork outcome
+
+If that gate is not satisfied yet, the item remains visible in Activity, Review, or the Action Center instead of appearing early in the main Vault.
 
 ---
 
 ## How the organised library is laid out
 
-Once a file is promoted, it is placed into a folder structure inside your Library root. The layout follows a consistent template for each media type:
+Once a file is promoted, it is placed into a folder structure inside your Library root. The exact layout depends on media type.
 
 | Media type | Example path |
 |---|---|
@@ -95,37 +105,38 @@ Once a file is promoted, it is placed into a folder structure inside your Librar
 | Music | `Library/Music/Hans Zimmer/Dune (Original Motion Picture Soundtrack)/01 - Dream Is a Collapsing Map.flac` |
 | Comics | `Library/Comics/Dune/Dune House Atreides #01.cbz` |
 
-The Engine handles the renaming and moving. You do not need to pre-organise your files before dropping them in.
+The Engine handles the renaming and movement for you.
 
 ---
 
 ## Importing an existing collection
 
-If you have thousands of files already sitting on a drive, use Import mode to ingest them all at once.
+If you already have a large library on disk:
 
-1. Add the folder in **Settings â†’ Library â†’ Library Folders** as described above.
-2. Leave **Watch mode** off (unless you also want ongoing monitoring).
-3. Click **Import Now** on the folder. The Engine begins scanning all files in that folder and all subfolders.
-4. Progress is reported in real time on the Dashboard. Items that need your attention will appear in the Library Vault.
+1. Add the folder in **Settings -> Library -> Library Folders**.
+2. Leave **Watch mode** off unless you also want future monitoring.
+3. Click **Import Now** on that folder.
+4. Watch progress in the Dashboard while the Engine processes the files in the background.
 
-Large collections may take some time to process, especially during the enrichment stages where the Engine queries external providers. The Engine processes files in parallel and will keep going in the background while you use the Dashboard.
+During a large import, some items will first appear in Activity, Review, or the Action Center before they are ready for the main Vault. That is expected.
 
 ---
 
 ## Tips for best results
 
-**File naming matters less than you might think.** The Engine reads metadata embedded inside the file, not just the filename. A file called `untitled_book_final_v3.epub` will be identified correctly if its internal metadata says "Dune" by Frank Herbert.
+**Embedded metadata helps a lot.** Accurate titles, creators, and IDs such as ISBN or TMDB ID make good matches much easier.
 
-**Embedded metadata helps a lot.** If your files have accurate titles, authors, and ISBNs or other identifiers embedded in their tags, the Engine will identify them faster and more confidently.
+**File naming matters less than you might think.** The Engine prefers what is inside the file over the filename when possible.
 
-**Covers in the file are preserved.** Any cover art already embedded in a file is kept. The Engine may also download higher-quality cover art from providers, but your original artwork is never discarded.
+**Embedded covers are preserved.** The system may download better cover art, but it keeps track of the original artwork too.
 
-**Duplicates are handled gracefully.** If you add a file that the Engine has seen before (same fingerprint), it is recognised as a duplicate. If you add a different edition of a Work already in your library â€” say, a new audiobook version of a book you already have â€” the Engine creates a new Edition under the existing Work rather than treating it as a completely separate item.
+**Duplicates are handled gracefully.** The fingerprint lets the Engine recognise the same file and avoid cluttering the library with accidental duplicates.
 
-**You can watch the progress live.** The Dashboard updates in real time as files move through the pipeline. No page refresh needed.
+**Progress is live.** You can watch items move through the pipeline in real time.
 
 ## Related
 
 - [Your First Library](../tutorials/first-library.md)
-- [Supported Media Types and Formats](../reference/media-types.md)
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
+- [How the Entire Pipeline Works](../explanation/how-the-pipeline-works.md)
+- [Supported Media Types and Formats](../reference/media-types.md)

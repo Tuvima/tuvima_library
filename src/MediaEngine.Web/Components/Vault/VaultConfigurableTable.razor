@@ -361,8 +361,9 @@ else
 
                                     case ColumnRenderType.Pipeline:
                                         <div class="vmt-pipeline">
-                                            <StageGate Stage="@item.IdentifiedStage" />
-                                            <StageGate Stage="@item.EnrichedStage" IsLast="true" />
+                                            <StageGate Stage="@item.Stage1" />
+                                            <StageGate Stage="@item.Stage2" />
+                                            <StageGate Stage="@item.Stage3" IsLast="true" />
                                         </div>
                                         break;
 

@@ -26,4 +26,10 @@ public sealed class VaultOverviewViewModel
 
     /// <summary>Per-media-type item counts.</summary>
     public Dictionary<string, int> MediaTypeCounts { get; init; } = new();
+
+    public int HiddenByQualityGate { get; init; }
+    public int ArtPending { get; init; }
+    public int RetailNeedsReview { get; init; }
+    public int QidNoMatch { get; init; }
+    public int CompletedWithArt { get; init; }
 }

@@ -328,6 +328,13 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                     LastScoredAt = DateTimeOffset.UtcNow,
                 },
             };
+            heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
+                workId,
+                coverState: "present",
+                coverSource: null,
+                heroState: "present",
+                lastScoredAt: DateTimeOffset.UtcNow,
+                settled: true));
 
             if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
             {
@@ -347,6 +354,15 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            await _canonicalRepo.UpsertBatchAsync(
+                ArtworkCanonicalHelper.CreateFlags(
+                    workId,
+                    coverState: "present",
+                    coverSource: null,
+                    heroState: "missing",
+                    lastScoredAt: DateTimeOffset.UtcNow,
+                    settled: true),
+                ct);
             _logger.LogWarning(ex, "[IMAGE-ENRICH] Hero regeneration from backdrop failed for {WorkQid}", workQid);
         }
     }

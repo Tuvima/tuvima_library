@@ -1,6 +1,6 @@
 ---
 title: "How the Entire Pipeline Works"
-summary: "Follow a file's complete journey from detection through enrichment, scoring, and organization — understanding why each stage exists."
+summary: "Follow a file's complete journey from detection through enrichment, scoring, and organization and understand why each stage exists."
 audience: "user"
 category: "explanation"
 product_area: "pipeline"
@@ -14,324 +14,222 @@ tags:
 
 # How the Entire Pipeline Works
 
-When you copy a file into a watched folder, Tuvima Library doesn't just log it in a list. That file goes on a journey — through file verification, metadata extraction, retail matching, Wikidata enrichment, confidence scoring, and finally placement into your organized library. Each stage builds on the one before it, and every design decision has a reason behind it.
+When you drop a file into a watched folder, Tuvima Library does much more than rename it. The Engine verifies the file, reads what it can from the file itself, looks for trustworthy external matches, decides what metadata wins, and only then decides whether the item is ready for the main Vault and the organised library.
 
-This page tells the full story from start to finish. It deliberately avoids duplicating the detail of the three companion explanation pages — instead, it shows how all the pieces connect and *why* the pipeline is structured the way it is.
+This page tells the full story end to end.
 
 ---
 
-## The Big Picture
-
-Here is every step a file takes, in order:
+## The big picture
 
 ```
-NEW FILE APPEARS IN WATCHED FOLDER
-          │
-          ▼
-    ┌─────────────┐
-    │   SETTLE    │  Wait for the file to finish copying. Lock-check the handle.
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │ FINGERPRINT │  SHA-256 hash. Permanent identity. Duplicate detection.
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │    SCAN     │  Processor reads embedded metadata → emits Claims.
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │   CLASSIFY  │  AI MediaTypeAdvisor resolves ambiguous formats (MP3/MP4).
-    └──────┬──────┘
-           │
-           ▼
-    ┌──────────────────┐
-    │  STAGE 1: RETAIL │  Ranked providers match file → cover art, bridge IDs,
-    │  IDENTIFICATION  │  descriptions, ratings. Confidence gate: 0.50 / 0.85.
-    └──────┬───────────┘
-           │ (bridge IDs pass forward)
-           ▼
-    ┌──────────────────┐
-    │  STAGE 2:        │  Bridge IDs → Wikidata QID → canonical properties,
-    │  WIKIDATA BRIDGE │  series, franchise, cast, crew, Wikipedia description.
-    └──────┬───────────┘
-           │
-           ▼
-    ┌─────────────────┐
-    │ PRIORITY CASCADE │  Four tiers resolve conflicts. User lock > field priority
-    │                  │  > Wikidata authority > highest confidence.
-    └──────┬──────────┘
-           │
-           ▼
-    ┌──────────────────────┐
-    │ ORGANIZATION & HUBS  │  ≥0.85 confidence → promoted to organized library.
-    │                      │  Collection assignment from series / franchise QIDs.
-    └──────────────────────┘
-           │
-           ▼
-    ITEM VISIBLE IN VAULT & DASHBOARD
+New file appears
+  -> settle and lock check
+  -> fingerprint
+  -> scan and media-type classification
+  -> safe staging on disk
+  -> Retail stage
+  -> Wikidata stage
+  -> metadata cascade
+  -> artwork settlement
+  -> Vault quality gate
+  -> organisation and later enrichment
 ```
 
-The sections below walk through each phase in detail, focusing on the reasoning — not just the mechanics.
+Two important ideas sit underneath the whole design:
+
+- **The main Vault is not the same as the organised library on disk**
+- **A match must be safe before the pipeline treats it as truth**
 
 ---
 
-## Phase 1 — Ingestion
+## Phase 1: Ingestion
 
-> **Full detail:** [How File Ingestion Works](how-ingestion-works.md)
+The first phase is about making the file safe to work with.
 
-The first phase establishes one thing above all else: **trust**. A file doesn't earn its place in the library until the Engine is confident it knows what the file is.
+The Engine:
 
-### File Detection and Settling
+- waits for the copy to finish
+- confirms the file is no longer locked
+- computes a SHA-256 fingerprint
+- reads embedded metadata through the correct processor
+- classifies ambiguous formats such as MP3 and MP4 when needed
 
-The Engine watches your configured folders. The moment a file appears, it's noticed — but not immediately acted on. Large files can take minutes to finish copying. Starting to scan a half-written 50 GB video file would produce garbage. So the Engine waits for the file to stop growing, lets a settle period expire, and confirms the file handle is fully released before doing anything.
+The file is then moved into the staging area so the rest of the pipeline can work without touching your final organised folders too early.
 
-This patience is cheap to provide and prevents a whole class of problems.
-
-### Fingerprinting
-
-Every file gets a SHA-256 hash computed from its contents. This hash is the file's permanent identity — independent of filename, folder location, or any metadata it might carry.
-
-The fingerprint does two things. First, it enables **resilient tracking**: if you rename or move the file after it has been staged, the Engine recognizes it on the next scan. Second, it enables **deduplication**: if the hash already exists in the data store, the file is a second copy of something already known. Rather than creating a duplicate entry, the Engine creates a new Edition under the existing Work. Your 1080p and 4K copies of the same film coexist as separate Editions, not as two separate items.
-
-### Scanning
-
-A processor reads the file's embedded metadata and emits **Claims** — each Claim being a (source, value, confidence) triple. The processor is selected by magic bytes (the first few bytes of the file itself), not by file extension, because extensions can be wrong.
-
-A title extracted from a well-structured EPUB gets a higher confidence than one guessed from a messy filename. An ISBN extracted from a file tag gets a higher confidence than a title-only match. These confidence differences matter downstream when the Priority Cascade resolves disagreements between sources.
-
-### Classifying Ambiguous Formats
-
-Some formats are genuinely ambiguous. An MP3 could be a music track or an audiobook chapter. The AI MediaTypeAdvisor examines tag signals — embedded ASIN (an audiobook indicator), narrator fields, duration patterns, genre tags — alongside the folder's configured category to resolve the ambiguity. If the AI cannot reach a confident classification, the item goes to the review queue for manual input.
-
-### The Staging Area
-
-After scanning and classification, every file lands in `.data/staging/{assetId12}/` — regardless of how confident the Engine is. Nothing is written to your organized library yet. Staging is the safe holding area where the next two phases operate. If anything goes wrong, the file is still there.
+Staging is a safety mechanism, not a user-facing "ready" signal.
 
 ---
 
-## Phase 2 — Retail Identification (Stage 1)
+## Phase 2: Retail matching
 
-Stage 1 is the first of two enrichment phases. Its job is to find the best available match for the file among known media catalogues, and to collect the bridge IDs that make Phase 3 precise.
+Retail is the first identity stage. The Engine queries providers such as Apple, TMDB, MusicBrainz, or comic sources depending on media type.
 
-### The Ranked Pipeline System
+Retail does three important jobs:
 
-Providers aren't all tried in the same way. The Engine supports three execution strategies per media type, configured in `config/pipelines.json`:
+- it finds likely external candidates
+- it gathers cover art and descriptions
+- it collects bridge IDs that make Wikidata resolution precise
 
-| Strategy | Behaviour | Used for |
-|---|---|---|
-| **Waterfall** | Providers run in rank order. First confident match wins. | Movies, TV, Comics |
-| **Cascade** | All providers run independently. Claims are merged. | Books |
-| **Sequential** | Providers chain: each one passes its output as input to the next. | Audiobooks, Music |
+### The precision-first gate
 
-Why does this matter? Consider books. A Cascade run means both Google Books and Open Library run, and their results are merged. If Google Books has a better cover image but Open Library has a more precise ISBN, both are captured. The Priority Cascade later decides which values win — but first, both sources get to contribute.
+Retail matching is intentionally conservative:
 
-For audiobooks, Sequential mode means the first provider's ISBN or ASIN is passed as input to the second provider, which can then do a much more targeted lookup rather than a text search. The chain sharpens precision at each step.
+- **`>= 0.90`** can be auto-accepted
+- **`0.65` to `< 0.90`** is ambiguous and goes to review
+- **`< 0.65`** is treated as too weak to trust
 
-### What Retail Provides
+Before auto-accepting, the Engine also checks for contradictions:
 
-Each provider returns a candidate with:
+- creator mismatches can force review
+- grouped TV needs exact show, season, and episode agreement
+- grouped music needs track number or duration corroboration
+- cover similarity can help, but it cannot save a weak text match
 
-- **Cover art** — compared perceptually to the file's embedded artwork to validate the match
-- **Description** — used both for display and as a match signal
-- **Ratings and reader scores**
-- **Bridge IDs** — the key output (see below)
-
-### The Confidence Gate
-
-Every retail candidate is scored against the file's metadata using `RetailMatchScoringService`. The same scorer is used both in the automated pipeline and when you manually search from the Vault detail drawer, so the numbers mean the same thing everywhere.
-
-Field weights: title 45%, author 35%, year 10%, format 10%. Boosts apply for cross-field corroboration. Specific rules:
-
-- A file with no author gets the author weight redistributed to title and year rather than scoring at zero
-- Placeholder titles ("Unknown", "Untitled", "Track 01") return zero and route to review
-- Score below 0.50: candidate discarded
-- Score 0.50–0.85: candidate accepted, item flagged for review
-- Score at or above 0.85: candidate auto-accepted
-
-This gate prevents low-quality matches from quietly propagating to Wikidata. A bad Stage 1 match would produce a wrong bridge ID, which would fetch the wrong Wikidata entry, which would permanently contaminate the item's canonical metadata. The gate is strict precisely because Stage 2 trusts Stage 1's output completely.
-
-### Bridge IDs: The Link to Wikidata
-
-The most important output of Stage 1 is not the cover art or the description — it's the **bridge IDs**. These are the identifiers that cross-reference items between catalogues:
-
-- ISBN-13 / ISBN-10 (books)
-- ASIN (Amazon, primarily audiobooks)
-- TMDB ID (films and TV)
-- MusicBrainz Release ID (music)
-- Apple Music ID (music, for Stage 2 Wikidata lookup via P4857)
-
-Bridge IDs are what allow Stage 2 to find the correct Wikidata entry without relying on text search alone. "Dune" as a title search returns many results. The ISBN for a specific edition points to exactly one Wikidata item.
-
-> **Example:** The EPUB file for *Dune* by Frank Herbert has an embedded ISBN-13. Stage 1 matches it against Google Books, confirms the title and author, collects the ISBN, and stores it as a bridge ID. Stage 2 uses that ISBN to find the Wikidata item for *Dune* (Q1375657) with near certainty.
+That stricter Retail stage is what improves match quality.
 
 ---
 
-## Phase 3 — Wikidata Bridge (Stage 2)
+## Phase 3: Wikidata resolution
 
-Stage 2 takes the bridge IDs from Stage 1 and uses them to fetch canonical structured data from Wikidata. This is where the file stops being a rough match and becomes a precisely identified, richly described Work with authoritative metadata.
+Wikidata runs after Retail, not in parallel with it.
 
-### Why Wikidata?
+The reason is simple: Retail provides the bridge IDs that make Wikidata precise.
 
-Retail providers have excellent presentation data — cover art, descriptions, narrator credits. But their structured facts can be inconsistent. Publication dates might reflect a reprint rather than the original. Author name formatting varies between stores. Genre taxonomies are house-specific.
+Examples:
 
-Wikidata is different. It is maintained by a global community, every fact is citable, and its structured data is stable and cross-referenced across languages. For facts — canonical title, year of first publication, genre, author, series position, franchise membership, cast — Wikidata is the most reliable automated source available.
+- ISBN for books
+- TMDB ID for movies and TV
+- MusicBrainz IDs for music
 
-The design principle is: **retail provides the bridge to Wikidata; Wikidata provides the canonical truth**.
+Without a successful Retail step, the Engine does not treat Wikidata as an automatic fallback path. That prevents text-only guesses from becoming canonical identity.
 
-### Bridge Resolution
+### QID Not Found
 
-The lookup sequence:
+Sometimes Retail succeeds but Wikidata still cannot resolve a trustworthy QID.
 
-1. Try ISBN → find the specific Wikidata edition item, then walk up to the work item via P629 ("edition of")
-2. If no ISBN, try TMDB ID, ASIN, or MusicBrainz Release ID
-3. If no bridge IDs match, try title + author CirrusSearch (text fallback, with P31 instance-of type filtering to avoid false matches)
+When that happens, the item lands in a **QID Not Found** style outcome:
 
-Bridge IDs make step 1 dramatically more reliable than text search. Wikidata has many items with similar titles. The ISBN is unique to one physical edition, and editions link to exactly one work.
+- it stays marked at the Wikidata step
+- the missing QID is explicit
+- the item can still remain usable and visible in the main Vault if its title, media type, and artwork state are settled
 
-### What Stage 2 Fetches
-
-Once the Wikidata work QID is found, the Data Extension API fetches structured properties in a single batch call:
-
-- **Authorship:** P50 (author), P57 (director), P58 (screenwriter), P86 (composer), P110 (illustrator)
-- **Publication facts:** P577 (first publication date), P136 (genre), P921 (main subject), P1680 (subtitle)
-- **Relationships:** P179 (part of series), P8345 (media franchise), P1434 (fictional universe)
-- **Cast and crew:** P161 (cast member, capped at 20), P725 (voice actor), P449 (original broadcaster, TV only)
-- **Cross-reference identifiers:** P212 (ISBN-13), P4947 (TMDB ID), P648 (Open Library ID)
-- **Wikipedia description:** the introductory text from the associated Wikipedia article (with heading markup stripped)
-
-For TV series and music albums, Stage 2 also discovers child entities — seasons and episodes, or tracks — in a single API call. This means when you add the first episode of a TV series, the Engine can learn the full season structure from Wikidata in one round trip, so subsequent episodes slot in without additional API calls.
-
-### Person Reconciliation
-
-After Stage 2, a third pass runs automatically. Every person name in the metadata — from file tags, provider data, or AI extraction — that doesn't yet have a Wikidata QID gets searched independently. Person matches are accepted at ≥0.80 confidence, with freshness checking to avoid redundant re-fetches of recently enriched people.
-
-Musical groups are handled as single Person entries with an `IsGroup` flag. Group members resolved via P527 (has part) are stored in a junction table with optional start and end dates from Wikidata qualifiers.
+This is a deliberate precision-preserving choice.
 
 ---
 
-## Phase 4 — Priority Cascade
+## Phase 4: The metadata cascade
 
-> **Full detail:** [How the Priority Cascade Works](how-scoring-works.md)
+By this point the Engine may have metadata from:
 
-At this point, a single item may have metadata arriving from five or six different sources: the original file, one or more retail providers, Wikidata, and potentially AI extraction. They won't all agree. The Priority Cascade resolves these conflicts — field by field, according to four tiers evaluated in strict order.
+- the file itself
+- one or more retail providers
+- Wikidata
+- later AI or enrichment helpers
 
-### The Four Tiers
+Those sources will not always agree. The Priority Cascade resolves each field using the project rules:
 
-**Tier A — User Locks**
-If you manually lock a field value in the Vault, your value wins at confidence 1.0. No source overrides a user lock. This is the override of last resort — designed for the rare cases where you know something the Engine doesn't.
+- user locks win first
+- configured field priorities win next
+- Wikidata is the default authority for canonical structured facts
+- otherwise the highest-confidence remaining claim wins
 
-**Tier B — Per-Field Provider Priority**
-You can configure specific providers to be the preferred authority for specific fields. For example: always prefer Apple API for cover art (professional quality, consistent), always prefer TMDB for movie poster images, always prefer MusicBrainz for track duration. Tier B lets you express domain knowledge without intervening on individual items.
-
-**Tier C — Wikidata Authority**
-For fields without a Tier B override, Wikidata claims win when present. Wikidata is the authority for facts. There is one exception: for the `author` field, if a file-embedded claim has strictly higher confidence than the best Wikidata claim, the higher-confidence claim wins. This handles pen names — a file might carry "Richard Bachman" as the author (confidence 0.95), while Wikidata would return "Stephen King" via P50 (confidence 0.75). The pen name embedded in the file should win.
-
-**Tier D — Confidence Cascade**
-When no higher tier applies, the claim with the highest confidence score wins. Confidence is set by each source based on how reliable it typically is for that field type.
-
-### Claims Are Never Deleted
-
-This is perhaps the most important property of the cascade: claims accumulate from all sources and are never removed, only superseded. The complete history of where every piece of data came from — and how confident each source was — is always available in the Vault's detail drawer. If a future provider produces better data, it wins on confidence. The old data is still there if you need to audit what happened.
+This lets the system combine the strengths of different sources instead of pretending one source is always right about everything.
 
 ---
 
-## Phase 5 — Organization
+## Phase 5: Artwork settlement and Vault readiness
 
-Once the Priority Cascade has resolved all metadata fields, the item is ready to be organized.
+The main Vault has its own quality gate.
 
-### The Confidence Threshold
+An item is not shown in the main Vault just because the file exists or because Retail started. It appears only when all of these are true:
 
-Items at or above **0.85 composite confidence** are automatically promoted from `.data/staging/` to their final organized location. Items below this threshold stay in staging and appear in the Vault's Action Center under "Needs Review."
+- the title is not a placeholder
+- the media type is resolved
+- artwork is settled as either `present` or explicitly `missing`
 
-The 0.85 threshold isn't arbitrary — it's the point where the Engine's track record shows false positives become rare enough that automatic promotion is safe. You can review items in the Action Center and manually confirm or correct them.
+That last point matters. The Engine now distinguishes between:
 
-### File Organization Templates
+- artwork is present
+- artwork is still pending
+- artwork was checked and is missing
 
-Promoted files are placed using media-type-specific path templates:
+Items that fail this gate remain visible in **Activity**, **Review**, and the **Action Center**, but they are held back from the main Vault until the story is trustworthy.
 
-| Media type | Template pattern |
+---
+
+## Phase 6: Organisation on disk
+
+Organisation is a separate decision from Vault visibility.
+
+The Engine can show an item in the main Vault once the quality gate is satisfied, while filesystem promotion still follows the wider organisation rules and confidence thresholds.
+
+The classic promotion gate is still about overall confidence and library organisation safety. For many items that means:
+
+- high-confidence items are promoted automatically
+- weaker items stay staged until review or later enrichment makes the decision safer
+
+So there are really two questions:
+
+1. Is this item ready to be shown in the main Vault?
+2. Is this item ready to be promoted into the organised library structure?
+
+Those questions are related, but they are no longer the same thing.
+
+---
+
+## Where review fits in
+
+Review is not a side path. It is part of the design.
+
+Items go to review when the Engine decides that guessing would be worse than waiting. That includes:
+
+- ambiguous Retail candidates
+- missing or conflicting identity clues
+- multiple Wikidata candidates
+- a useful item with no trustworthy QID yet
+
+The Action Center and Review surfaces exist so the system can stop at the right moment instead of silently creating bad matches.
+
+---
+
+## How the UI represents the pipeline
+
+The Vault now uses the same three stages everywhere:
+
+| Stage | Meaning |
 |---|---|
-| Books | `Books/{Author}/{Title} ({QID})/` |
-| Audiobooks | `Audiobooks/{Author}/{Title} ({QID})/` |
-| TV | `TV/{Show}/Season {N}/{SxxExx} - {EpisodeTitle}.mkv` |
-| Music | `Music/{Artist}/{Album}/{TrackNumber} - {Title}.mp3` |
-| Movies | `Movies/{Title} ({Year})/` |
-| Comics | `Comics/{Series}/{Issue}.cbz` |
+| **Retail** | Practical provider matching and bridge ID collection |
+| **Wikidata** | Canonical identity resolution |
+| **Enrichment** | Follow-up metadata, people, images, and relationships |
 
-Note that `{Format}` is intentionally absent from all templates. Including the format in the path caused duplicate subfolder nesting when the same title existed in multiple formats (e.g., an EPUB and a PDF of the same book creating two separate Author/Title folders). Format is tracked at the Edition level in the data store, not on the filesystem.
+The readiness label gives the plain-English answer:
 
-### Collection Assignment
+- **Pending artwork**
+- **Needs review**
+- **Ready**
 
-After promotion, the Engine reads the item's resolved Wikidata relationships — `series_qid` (P179), `franchise_qid` (P8345), `fictional_universe_qid` (P1434) — and assigns the Work to the appropriate Series or Universe container.
-
-Priority order: series QID (most specific) takes precedence over franchise QID, which takes precedence over fictional universe QID. This means a book in a named series is assigned to that series rather than just the broader franchise.
-
-Works with no Wikidata relationship properties (standalone novels, one-off films) remain unassigned and appear as individual items.
-
-> **Example:** *Dune* (Q1375657) has P179 pointing to the Dune novel series (Q1156466). On promotion, the Engine finds or creates a Series container for the Dune novel series and assigns the Work to it. When you later add *Dune Messiah*, it resolves the same series QID and slots into the existing container — no duplicate Series is created.
-
-### The Review Queue
-
-Items that don't reach the confidence threshold — and items where Stage 1 found a match between 0.50 and 0.85 — appear in the Vault's Action Center. This is not a failure state; it's a deliberate design. The Engine surfaces the item with everything it knows, you can see the retail candidates it found, and you can confirm, correct, or reject the match.
-
-Once you make a call, the item re-enters the pipeline from that point and follows the same promotion path as an auto-accepted item.
+That shared projection is what keeps list views, detail drawers, and overview counts aligned.
 
 ---
 
-## How Configuration Controls the Pipeline
+## Why the pipeline is designed this way
 
-The pipeline's behaviour is largely driven by configuration files. Understanding which file controls what is useful when the pipeline is doing something unexpected.
+The design is intentionally more careful than "find a title and move on."
 
-### `config/pipelines.json`
+It exists to protect the library from:
 
-Controls the ranked provider list per media type and the execution strategy (Waterfall / Cascade / Sequential). This is where you change which providers are tried for a given media type, in what order, and how their results are combined.
+- weak provider matches
+- wrong canonical identities
+- missing or misleading artwork
+- different screens telling different stories about the same item
 
-### `config/scoring.json`
-
-Controls the confidence thresholds: the 0.50 discard gate, the 0.85 auto-accept threshold, and the field weights used in `RetailMatchScoringService`. Adjusting these thresholds changes how aggressively the Engine auto-accepts matches.
-
-### `config/providers/wikidata_reconciliation.json`
-
-The single source of truth for all Wikidata configuration:
-
-- **`instance_of_classes`** — the P31 type allow-lists used to filter CirrusSearch text fallback results. If a media type is missing from text fallback results, this is where to look.
-- **`edition_pivot_rule`** — controls how the Engine walks from an edition item to a work item when a bridge ID resolves to an edition rather than a work.
-- **`reconciliation_threshold`** — minimum score for a reconciliation candidate to be accepted.
-- **Language strategies** for each provider.
-
-Previously, CirrusSearch type filters were also stored in a separate `config/cirrus-type-filters.json`. That file has been removed; `instance_of_classes` in the Wikidata config is the authoritative source for all type filtering.
-
-### `config/providers/field_priorities.json`
-
-Global per-field provider overrides used by Tier B of the Priority Cascade. Per-media-type overrides take precedence over these global settings and are also configured in `config/pipelines.json`.
-
----
-
-## Why the Pipeline Is Designed This Way
-
-It would be simpler to use a single source for everything, or to skip the staging phase and write directly to the organized library. The complexity exists for concrete reasons:
-
-**Staging before organization** means the Engine can always recover. If Stage 2 fails halfway through, or you decide a match is wrong after the fact, the original file is in staging and can be re-processed cleanly without touching your library.
-
-**Retail before Wikidata** means Stage 2 has precise bridge IDs to work with rather than relying on text search. Text search against Wikidata is ambiguous — bridge IDs are not.
-
-**The Priority Cascade** means no single source is blindly trusted for everything. Each source contributes what it's best at: the file contributes what only it can know (your pen name preference, your series organization), retail contributes presentation data, Wikidata contributes factual authority.
-
-**The confidence gate** means errors don't silently propagate. A borderline match goes to review rather than quietly taking root in your library and potentially linking dozens of subsequent related items to the wrong canonical entry.
-
-**Append-only claims** mean the Engine's decisions are auditable. Every value in your library has a traceable source. If you want to understand why the author field shows "Frank Herbert" rather than "Herbert, Frank", you can look at the claim history and see exactly which source won and why.
-
----
+The result is a system that surfaces items a little later, but with much higher trust.
 
 ## Related
 
-- [How File Ingestion Works](how-ingestion-works.md) — file detection, fingerprinting, scanning, and staging in detail
-- [How Two-Stage Enrichment Works](how-hydration-works.md) — retail identification and Wikidata bridge in detail
-- [How the Priority Cascade Works](how-scoring-works.md) — claim resolution, four tiers, and confidence scoring in detail
-- [Ingestion Pipeline Architecture](../architecture/ingestion-pipeline.md) — technical deep-dive
-- [Scoring and Cascade Architecture](../architecture/scoring-and-cascade.md) — technical deep-dive
-- [Hydration and Providers Architecture](../architecture/hydration-and-providers.md) — technical deep-dive
+- [How File Ingestion Works](how-ingestion-works.md)
+- [How Two-Stage Enrichment Works](how-hydration-works.md)
+- [How the Library Vault Works](how-the-vault-works.md)
+- [Ingestion Pipeline Architecture](../architecture/ingestion-pipeline.md)
+- [Scoring and Cascade Architecture](../architecture/scoring-and-cascade.md)

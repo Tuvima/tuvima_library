@@ -119,19 +119,28 @@ Priority Cascade thresholds. Controls how the Engine resolves metadata conflicts
 
 ## config/hydration.json
 
-Enrichment pipeline configuration. Controls timeouts, concurrency, and two-pass behaviour.
+Enrichment pipeline configuration. Controls stage concurrency, timeouts, retail matching thresholds, and optional deferred deep enrichment.
+
+Current shipped default note: `two_pass_enabled` is `false`, so the optional two-pass mode is documented here but is not the default runtime path.
 
 | Field | Type | Description |
 |---|---|---|
-| `stage1_timeout_seconds` | int | Per-provider HTTP timeout for Stage 1 (RetailIdentification). |
-| `stage2_timeout_seconds` | int | Per-request timeout for Stage 2 (WikidataBridge). |
-| `max_concurrency` | int | Maximum parallel enrichment tasks. |
-| `pass1_enabled` | bool | Quick first pass â€” gets files visible in the Dashboard fast. |
-| `pass2_enabled` | bool | Deep background pass â€” universe enrichment, person reconciliation, extended properties. |
-| `pass2_schedule_cron` | string | Cron expression controlling when Pass 2 runs. |
-| `retail_candidate_limit` | int | Maximum retail candidates evaluated per work before selecting the best match. |
-| `person_freshness_days` | int | Days before an enriched person record is considered stale and re-checked. Default: 30. |
-| `group_refresh_enabled` | bool | When true, refreshing one work in a TV series or music album triggers a refresh for all siblings. |
+| `stage_concurrency` | int | Maximum concurrent provider calls within each stage. |
+| `stage1_timeout_seconds` | int | Per-provider HTTP timeout for Stage 1 (Retail). |
+| `stage2_timeout_seconds` | int | Per-request timeout for Stage 2 (Wikidata). |
+| `stage3_timeout_seconds` | int | Timeout for scheduled Stage 3 enrichment work. |
+| `retail_auto_accept_threshold` | float | Composite Retail score required for automatic acceptance. Current config: `0.90`. |
+| `retail_ambiguous_threshold` | float | Composite Retail score below which a candidate is treated as no match. Scores from this threshold up to the auto-accept threshold go to review. Current config: `0.65`. |
+| `auto_review_confidence_threshold` | float | Post-hydration confidence gate for creating review work. |
+| `two_pass_enabled` | bool | Enables the optional two-pass identity mode. `false` means the normal inline identity pipeline remains the default path. |
+| `pass1_core_properties_only` | bool | When two-pass mode is enabled, reduces Pass 1 to core properties only. |
+| `pass2_idle_delay_seconds` | int | Delay between idle checks before processing Pass 2 work. |
+| `pass2_rate_limit_ms` | int | Delay between Pass 2 items to respect external rate limits. |
+| `pass2_stale_threshold_hours` | int | Age after which a pending Pass 2 item is considered stale. |
+| `pass2_batch_size` | int | Maximum number of Pass 2 items processed in one batch. |
+| `wikidata_batch_size` | int | Maximum entities per Wikidata batch API call. |
+| `local_match_enabled` | bool | Enables the local match shortcut before external calls. |
+| `local_match_fuzzy_threshold` | float | Fuzzy threshold for local title+creator matching. |
 
 ---
 

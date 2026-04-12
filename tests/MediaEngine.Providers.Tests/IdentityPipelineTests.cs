@@ -180,18 +180,18 @@ public sealed class IdentityPipelineTests
 
     [Theory]
     [InlineData(0.90, "AutoAccepted")]
-    [InlineData(0.85, "AutoAccepted")]
+    [InlineData(0.89, "Ambiguous")]
     [InlineData(0.70, "Ambiguous")]
-    [InlineData(0.50, "Ambiguous")]
-    [InlineData(0.49, "Rejected")]
+    [InlineData(0.65, "Ambiguous")]
+    [InlineData(0.64, "Rejected")]
     [InlineData(0.30, "Rejected")]
     [InlineData(0.00, "Rejected")]
     public void RetailOutcome_ThresholdLogic_CorrectOutcome(double score, string expectedOutcome)
     {
         // These thresholds match RetailMatchWorker's logic:
         // ≥ 0.85 = AutoAccepted, ≥ ambiguousThreshold (0.50) = Ambiguous, else Rejected
-        double autoAcceptThreshold = 0.85;
-        double ambiguousThreshold = 0.50;
+        double autoAcceptThreshold = 0.90;
+        double ambiguousThreshold = 0.65;
 
         string outcome;
         if (score >= autoAcceptThreshold)

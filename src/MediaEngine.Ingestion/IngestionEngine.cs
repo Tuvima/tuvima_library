@@ -1172,10 +1172,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             IsConflicted = mediaTypeIsConflicted,
         });
 
-        // Persist cover_url canonical value so the Registry listing query can show
-        // cover art thumbnails. Without this, the sidebar shows "Missing Art" even
-        // when cover.jpg exists on disk — the listing query reads from canonical_values,
-        // not from the filesystem.
         if (result.CoverImage is { Length: > 0 })
         {
             canonicals.Add(new CanonicalValue
@@ -1185,6 +1181,24 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 Value        = $"/stream/{assetId}/cover",
                 LastScoredAt = scored.ScoredAt,
             });
+
+            canonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
+                assetId,
+                coverState: "present",
+                coverSource: "embedded",
+                heroState: "pending",
+                lastScoredAt: scored.ScoredAt,
+                settled: true));
+        }
+        else
+        {
+            canonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
+                assetId,
+                coverState: "pending",
+                coverSource: null,
+                heroState: "pending",
+                lastScoredAt: scored.ScoredAt,
+                settled: false));
         }
 
         await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);

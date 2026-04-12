@@ -81,6 +81,39 @@ CREATE TABLE IF NOT EXISTS collection_items (
     added_at          TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Placement metadata for surfacing collections in different UI locations.
+CREATE TABLE IF NOT EXISTS collection_placements (
+    id            TEXT PRIMARY KEY,
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    location      TEXT NOT NULL,
+    position      INTEGER NOT NULL DEFAULT 0,
+    display_limit INTEGER NOT NULL DEFAULT 0,
+    display_mode  TEXT NOT NULL DEFAULT 'swimlane',
+    is_visible    INTEGER NOT NULL DEFAULT 1,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_collection_placements_collection_id
+    ON collection_placements(collection_id);
+CREATE INDEX IF NOT EXISTS idx_collection_placements_location
+    ON collection_placements(location);
+
+-- External universe/franchise relationships attached to collections.
+CREATE TABLE IF NOT EXISTS collection_relationships (
+    id            TEXT NOT NULL PRIMARY KEY,
+    collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    rel_type      TEXT NOT NULL,
+    rel_qid       TEXT NOT NULL,
+    rel_label     TEXT,
+    confidence    REAL NOT NULL DEFAULT 0.9,
+    discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_collection_rel_type_qid
+    ON collection_relationships(rel_type, rel_qid);
+CREATE INDEX IF NOT EXISTS idx_collection_rel_collection_id
+    ON collection_relationships(collection_id);
+
 -- Works form a parent/child hierarchy among themselves (M-081):
 --   • An album is a Parent Work; its tracks are Child Works whose
 --     parent_work_id points at the album row.

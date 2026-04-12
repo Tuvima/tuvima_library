@@ -238,7 +238,7 @@ public sealed class HydrationSettings
     /// match goes to review queue as <see cref="Domain.Enums.ReviewTrigger.RetailMatchAmbiguous"/>.
     /// </summary>
     [JsonPropertyName("retail_auto_accept_threshold")]
-    public double RetailAutoAcceptThreshold { get; set; } = 0.85;
+    public double RetailAutoAcceptThreshold { get; set; } = 0.90;
 
     /// <summary>
     /// Below this threshold, a retail match is treated as too weak to accept
@@ -247,7 +247,7 @@ public sealed class HydrationSettings
     /// provisionally accepted and sent to review.
     /// </summary>
     [JsonPropertyName("retail_ambiguous_threshold")]
-    public double RetailAmbiguousThreshold { get; set; } = 0.50;
+    public double RetailAmbiguousThreshold { get; set; } = 0.65;
 
     /// <summary>
     /// Media types for which the pipeline resolves Wikidata edition entities

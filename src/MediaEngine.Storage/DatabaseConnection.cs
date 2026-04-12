@@ -1429,6 +1429,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // has already been applied (probes for the `collections` table).
         MigrateCollectionRename(conn);
 
+        // Migration M-086: ensure modern collections columns exist even on
+        // fresh/current databases whose base schema predates the universal
+        // collection column set.
+        MigrateCollectionUniversalColumns(conn);
+        MigrateCollectionSupportTables(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -2868,6 +2874,83 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Rename review_queue.proposed_hub_id → proposed_collection_id (runs on both old and fresh DBs)
         MigrateAddColumnIfMissing(conn, "review_queue", "proposed_collection_id",
             "ALTER TABLE review_queue RENAME COLUMN proposed_hub_id TO proposed_collection_id;");
+    }
+
+    /// <summary>
+    /// Migration M-086: ensure the universal collection-system columns exist on
+    /// the modern <c>collections</c> table.
+    /// This closes the gap where fresh/current databases already have
+    /// <c>collections</c> (not <c>hubs</c>) but the base schema still lacks the
+    /// Phase M-070 columns expected by <see cref="CollectionRepository"/>.
+    /// Idempotent: each column is added only when missing.
+    /// </summary>
+    private static void MigrateCollectionUniversalColumns(SqliteConnection conn)
+    {
+        MigrateAddColumnIfMissing(conn, "collections", "resolution",
+            "ALTER TABLE collections ADD COLUMN resolution TEXT NOT NULL DEFAULT 'query';");
+        MigrateAddColumnIfMissing(conn, "collections", "rule_hash",
+            "ALTER TABLE collections ADD COLUMN rule_hash TEXT;");
+        MigrateAddColumnIfMissing(conn, "collections", "group_by_field",
+            "ALTER TABLE collections ADD COLUMN group_by_field TEXT;");
+        MigrateAddColumnIfMissing(conn, "collections", "match_mode",
+            "ALTER TABLE collections ADD COLUMN match_mode TEXT NOT NULL DEFAULT 'all';");
+        MigrateAddColumnIfMissing(conn, "collections", "sort_field",
+            "ALTER TABLE collections ADD COLUMN sort_field TEXT;");
+        MigrateAddColumnIfMissing(conn, "collections", "sort_direction",
+            "ALTER TABLE collections ADD COLUMN sort_direction TEXT NOT NULL DEFAULT 'desc';");
+        MigrateAddColumnIfMissing(conn, "collections", "live_updating",
+            "ALTER TABLE collections ADD COLUMN live_updating INTEGER NOT NULL DEFAULT 1;");
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE INDEX IF NOT EXISTS idx_collections_rule_hash ON collections(rule_hash);
+            CREATE INDEX IF NOT EXISTS idx_collections_collection_type ON collections(collection_type);
+            CREATE INDEX IF NOT EXISTS idx_collections_resolution ON collections(resolution);
+            """;
+        cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Ensures collection support tables exist on fresh/current databases whose
+    /// embedded schema predates the universal collection relationship tables.
+    /// Safe to run after the hub-to-collection rename migration.
+    /// </summary>
+    private static void MigrateCollectionSupportTables(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS collection_placements (
+                id            TEXT PRIMARY KEY,
+                collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                location      TEXT NOT NULL,
+                position      INTEGER NOT NULL DEFAULT 0,
+                display_limit INTEGER NOT NULL DEFAULT 0,
+                display_mode  TEXT NOT NULL DEFAULT 'swimlane',
+                is_visible    INTEGER NOT NULL DEFAULT 1,
+                created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_collection_placements_collection_id
+                ON collection_placements(collection_id);
+            CREATE INDEX IF NOT EXISTS idx_collection_placements_location
+                ON collection_placements(location);
+
+            CREATE TABLE IF NOT EXISTS collection_relationships (
+                id            TEXT NOT NULL PRIMARY KEY,
+                collection_id TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+                rel_type      TEXT NOT NULL,
+                rel_qid       TEXT NOT NULL,
+                rel_label     TEXT,
+                confidence    REAL NOT NULL DEFAULT 0.9,
+                discovered_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_collection_rel_type_qid
+                ON collection_relationships(rel_type, rel_qid);
+            CREATE INDEX IF NOT EXISTS idx_collection_rel_collection_id
+                ON collection_relationships(collection_id);
+            """;
+        cmd.ExecuteNonQuery();
     }
 
     /// <summary>

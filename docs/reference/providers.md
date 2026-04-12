@@ -23,7 +23,7 @@ The hydration pipeline runs in two stages:
 
 1. **Stage 1 (Retail Identification):** Retail providers search for the media item using file metadata. They return cover art, descriptions, ratings, and — critically — **bridge IDs** (ISBN, TMDB ID, etc.) that uniquely identify the item on external platforms.
 
-2. **Stage 2 (Wikidata Bridge):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (e.g. ISBN-13 maps to P212). If bridge resolution fails, Stage 2 falls back to title+author text search.
+2. **Stage 2 (Wikidata Bridge):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (e.g. ISBN-13 maps to P212). Stage 2 is strict-gated behind Stage 1: no safe Retail match means no automatic Wikidata attempt. When real bridge IDs were tried and still failed, controlled text search can still be used as a last resort.
 
 Retail providers are a **rich data source for matching** — descriptions, narrator data, ratings, and cover art similarity are all used to rank candidates against file metadata. **Wikidata is the authority** for final canonical values (title, author, year, genre, series).
 
@@ -194,13 +194,17 @@ After a provider returns results, the `RetailMatchScoringService` scores each ca
 | Cover art (strong) | pHash similarity > 0.8 | +0.10 |
 | Cover art (moderate) | pHash similarity > 0.6 | +0.05 |
 
+Cover similarity can boost an already plausible candidate, but it cannot rescue weak title or creator evidence on its own.
+
 ### Thresholds
 
 | Threshold | Value | Result |
 |---|---|---|
-| Auto-accept | >= 0.85 | Item organized automatically, claims deposited |
-| Ambiguous | 0.50 - 0.85 | Review queue (`RetailMatchAmbiguous`) |
-| Failed | < 0.50 or no results | Review queue (`RetailMatchFailed`) |
+| Auto-accept | >= 0.90 | Match accepted automatically and allowed to proceed to Wikidata |
+| Ambiguous | 0.65 - <0.90 | Review queue (`RetailMatchAmbiguous`) |
+| Failed | < 0.65 or no results | Review queue (`RetailMatchFailed`) |
+
+Additional contradiction gates apply before auto-accept. Weak creator agreement can cap a candidate to review, grouped TV auto-accept requires exact show/season/episode agreement, and grouped music auto-accept requires track-number or duration corroboration.
 
 ### Cover Art Matching
 

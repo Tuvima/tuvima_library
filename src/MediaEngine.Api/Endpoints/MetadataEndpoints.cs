@@ -586,6 +586,7 @@ public static class MetadataEndpoints
         group.MapPost("/{entityId:guid}/cover", async (
             Guid entityId,
             IMediaAssetRepository assetRepo,
+            ICanonicalValueRepository canonicalRepo,
             ISystemActivityRepository activityRepo,
             HttpRequest httpRequest,
             ILoggerFactory loggerFactory,
@@ -623,6 +624,25 @@ public static class MetadataEndpoints
             await stream.CopyToAsync(fs, ct);
 
             coverLogger.LogInformation("Cover uploaded for {EntityId} → {Path}", entityId, coverPath);
+
+            await canonicalRepo.UpsertBatchAsync(
+                [
+                    new Domain.Entities.CanonicalValue
+                    {
+                        EntityId = entityId,
+                        Key = MetadataFieldConstants.CoverUrl,
+                        Value = $"/stream/{entityId}/cover",
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                    },
+                    ..ArtworkCanonicalHelper.CreateFlags(
+                        entityId,
+                        coverState: "present",
+                        coverSource: "manual",
+                        heroState: "pending",
+                        lastScoredAt: DateTimeOffset.UtcNow,
+                        settled: true)
+                ],
+                ct);
 
             // Log activity.
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -1025,6 +1045,13 @@ public static class MetadataEndpoints
                         LastScoredAt = DateTimeOffset.UtcNow,
                     },
                 };
+                canonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
+                    entityId,
+                    coverState: "present",
+                    coverSource: "manual",
+                    heroState: "present",
+                    lastScoredAt: DateTimeOffset.UtcNow,
+                    settled: true));
 
                 if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
                 {

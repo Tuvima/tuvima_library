@@ -111,6 +111,202 @@ public sealed class WorkerPipelineTests
         Assert.Equal("AutoAccepted", candidateRepo.Candidates[0].Outcome);
     }
 
+    [Fact]
+    public async Task RetailMatchWorker_WeakCreatorSimilarity_CapsAutoAcceptToReview()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        var job = new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Books",
+            State = "Queued",
+        };
+        await jobRepo.CreateAsync(job);
+
+        var provider = new StubExternalMetadataProvider
+        {
+            Name = "apple_api",
+            ProviderId = providerId,
+            Claims =
+            [
+                new ProviderClaim(MetadataFieldConstants.Title, "Dune", 0.95),
+                new ProviderClaim(MetadataFieldConstants.Author, "Wrong Author", 0.95),
+            ],
+        };
+
+        var retailScoring = new StubRetailMatchScoringService
+        {
+            Result = new FieldMatchScores
+            {
+                TitleScore = 0.95,
+                AuthorScore = 0.20,
+                YearScore = 0.0,
+                FormatScore = 1.0,
+                CrossFieldBoost = 0.0,
+                CoverArtScore = 0.0,
+                CompositeScore = 0.95,
+            },
+        };
+
+        var configLoader = new StubConfigurationLoader();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Dune", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Author, Value = "Frank Herbert", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+        var claimRepo = new StubMetadataClaimRepository();
+        var bridgeIdRepo = new StubBridgeIdRepository();
+        var scoringEngine = new StubScoringEngine();
+        var outcomeFactory = CreateStubStageOutcomeFactory();
+        var timeline = CreateStubTimelineRecorder();
+        var batchProgress = CreateStubBatchProgressService();
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            outcomeFactory,
+            timeline,
+            batchProgress,
+            new[] { provider },
+            retailScoring,
+            claimRepo,
+            canonicalRepo,
+            scoringEngine,
+            configLoader,
+            bridgeIdRepo,
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatchedNeedsReview.ToString(), updatedJob!.State);
+
+        var candidate = Assert.Single(candidateRepo.Candidates);
+        Assert.Equal("Ambiguous", candidate.Outcome);
+        Assert.Contains("creator_similarity_weak", candidate.ScoreBreakdownJson);
+        Assert.Contains("accept_capped_to_review", candidate.ScoreBreakdownJson);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_OutcomePriorityPrefersAmbiguousCandidateOverRejectedHighScore()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Books",
+            State = "Queued",
+        });
+
+        var providers = new IExternalMetadataProvider[]
+        {
+            new StubExternalMetadataProvider
+            {
+                Name = "apple_api",
+                ProviderId = Guid.NewGuid(),
+                Claims =
+                [
+                    new ProviderClaim(MetadataFieldConstants.Title, "Weak Text Strong Cover", 0.95),
+                    new ProviderClaim(MetadataFieldConstants.Author, "Mismatch", 0.95),
+                ],
+            },
+            new StubExternalMetadataProvider
+            {
+                Name = "openlibrary",
+                ProviderId = Guid.NewGuid(),
+                Claims =
+                [
+                    new ProviderClaim(MetadataFieldConstants.Title, "Dune", 0.95),
+                    new ProviderClaim(MetadataFieldConstants.Author, "Frank Herbert", 0.95),
+                ],
+            },
+        };
+
+        var retailScoring = new StubRetailMatchScoringService();
+        retailScoring.Results.Enqueue(new FieldMatchScores
+        {
+            TitleScore = 0.40,
+            AuthorScore = 0.10,
+            YearScore = 0.0,
+            FormatScore = 1.0,
+            CrossFieldBoost = 0.0,
+            CoverArtScore = 0.30,
+            CompositeScore = 0.92,
+        });
+        retailScoring.Results.Enqueue(new FieldMatchScores
+        {
+            TitleScore = 0.80,
+            AuthorScore = 0.70,
+            YearScore = 0.0,
+            FormatScore = 1.0,
+            CrossFieldBoost = 0.0,
+            CoverArtScore = 0.0,
+            CompositeScore = 0.70,
+        });
+
+        var configLoader = new StubConfigurationLoader();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Dune", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Author, Value = "Frank Herbert", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            providers,
+            retailScoring,
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        await worker.PollAsync(CancellationToken.None);
+
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailMatchedNeedsReview.ToString(), updatedJob!.State);
+
+        Assert.Equal(2, candidateRepo.Candidates.Count);
+        Assert.Equal("Rejected", candidateRepo.Candidates[0].Outcome);
+        Assert.Contains("cover_cannot_rescue_weak_text", candidateRepo.Candidates[0].ScoreBreakdownJson);
+        Assert.Equal("Ambiguous", candidateRepo.Candidates[1].Outcome);
+        Assert.Equal(candidateRepo.Candidates[1].Id, updatedJob.SelectedCandidateId);
+    }
+
     // ── Test 2: RetailMatchWorker no match → RetailNoMatch, WikidataBridge skips ──
 
     [Fact]
@@ -540,6 +736,8 @@ public sealed class WorkerPipelineTests
 
     private sealed class StubRetailMatchScoringService : IRetailMatchScoringService
     {
+        public Queue<FieldMatchScores> Results { get; } = new();
+
         public FieldMatchScores Result { get; set; } = new()
         {
             CompositeScore = 0.0,
@@ -554,7 +752,7 @@ public sealed class WorkerPipelineTests
             MatchTierConfig? matchTiers = null,
             CandidateExtendedMetadata? extendedMetadata = null,
             double structuralBonus = 0.0)
-            => Result;
+            => Results.Count > 0 ? Results.Dequeue() : Result;
     }
 
     // ── StubConfigurationLoader ─────────────────────────────────────────
@@ -568,7 +766,11 @@ public sealed class WorkerPipelineTests
                 ["Books"] = new()
                 {
                     Strategy = ProviderStrategy.Waterfall,
-                    Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_api" }],
+                    Providers =
+                    [
+                        new PipelineProviderEntry { Rank = 1, Name = "apple_api" },
+                        new PipelineProviderEntry { Rank = 2, Name = "openlibrary" },
+                    ],
                 },
             },
         };
@@ -608,26 +810,50 @@ public sealed class WorkerPipelineTests
 
     private sealed class StubCanonicalValueRepository : ICanonicalValueRepository
     {
+        public List<CanonicalValue> Values { get; } = [];
+
         public Task<IReadOnlyList<CanonicalValue>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<CanonicalValue>>([]);
+            => Task.FromResult<IReadOnlyList<CanonicalValue>>(Values.Where(v => v.EntityId == entityId).ToList());
 
         public Task<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>> GetByEntitiesAsync(IReadOnlyList<Guid> entityIds, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>>(new Dictionary<Guid, IReadOnlyList<CanonicalValue>>());
+            => Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<CanonicalValue>>>(
+                entityIds.ToDictionary(
+                    id => id,
+                    id => (IReadOnlyList<CanonicalValue>)Values.Where(v => v.EntityId == id).ToList()));
 
         public Task UpsertBatchAsync(IReadOnlyList<CanonicalValue> values, CancellationToken ct = default)
-            => Task.CompletedTask;
+        {
+            foreach (var value in values)
+            {
+                Values.RemoveAll(v => v.EntityId == value.EntityId && string.Equals(v.Key, value.Key, StringComparison.OrdinalIgnoreCase));
+                Values.Add(value);
+            }
+
+            return Task.CompletedTask;
+        }
 
         public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
-            => Task.CompletedTask;
+        {
+            Values.RemoveAll(v => v.EntityId == entityId);
+            return Task.CompletedTask;
+        }
 
         public Task<IReadOnlyList<CanonicalValue>> GetConflictedAsync(CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<CanonicalValue>>([]);
 
         public Task DeleteByKeyAsync(Guid entityId, string key, CancellationToken ct = default)
-            => Task.CompletedTask;
+        {
+            Values.RemoveAll(v => v.EntityId == entityId && string.Equals(v.Key, key, StringComparison.OrdinalIgnoreCase));
+            return Task.CompletedTask;
+        }
 
         public Task<IReadOnlyList<Guid>> FindByValueAsync(string key, string value, CancellationToken ct = default)
-            => Task.FromResult<IReadOnlyList<Guid>>([]);
+            => Task.FromResult<IReadOnlyList<Guid>>(
+                Values.Where(v => string.Equals(v.Key, key, StringComparison.OrdinalIgnoreCase)
+                               && string.Equals(v.Value, value, StringComparison.OrdinalIgnoreCase))
+                      .Select(v => v.EntityId)
+                      .Distinct()
+                      .ToList());
 
         public Task<IReadOnlyList<CanonicalValue>> FindByKeyAndPrefixAsync(string key, string prefix, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<CanonicalValue>>([]);

@@ -123,6 +123,33 @@ else
         </div>
 
         @* ── Universe Coverage ── *@
+        <div class="vo-card" @onclick='() => OnNavigate.InvokeAsync("new")'>
+            <div class="vo-card-header">
+                <MudIcon Icon="@Icons.Material.Outlined.Visibility" Style="font-size: 18px; opacity: 0.4;" />
+                <span class="vo-card-title">Vault Readiness</span>
+            </div>
+            <div class="vo-card-value">@_data.CompletedWithArt</div>
+            <div class="vo-card-subtitle">visible with artwork</div>
+            <div class="vo-card-breakdown vo-card-breakdown--stacked">
+                <span class="vo-metric vo-metric--row">
+                    <span class="vo-metric-value">@_data.HiddenByQualityGate</span>
+                    <span class="vo-metric-label">hidden by gate</span>
+                </span>
+                <span class="vo-metric vo-metric--row">
+                    <span class="vo-metric-value">@_data.ArtPending</span>
+                    <span class="vo-metric-label">art pending</span>
+                </span>
+                <span class="vo-metric vo-metric--row">
+                    <span class="vo-metric-value">@_data.RetailNeedsReview</span>
+                    <span class="vo-metric-label">retail review</span>
+                </span>
+                <span class="vo-metric vo-metric--row">
+                    <span class="vo-metric-value">@_data.QidNoMatch</span>
+                    <span class="vo-metric-label">QID no match</span>
+                </span>
+            </div>
+        </div>
+
         <div class="vo-card" @onclick='() => OnNavigate.InvokeAsync("ua_pending")'>
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 18px; opacity: 0.4;" />

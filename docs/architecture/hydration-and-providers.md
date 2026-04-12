@@ -12,13 +12,13 @@ tags:
 
 # Hydration Pipeline, Provider Architecture & Enrichment Strategy
 
-This document describes how Tuvima Library discovers metadata for ingested media files: the provider architecture, the two-stage hydration pipeline, two-pass enrichment, provider response caching, and the review queue data model.
+This document describes how Tuvima Library discovers metadata for ingested media files: the provider architecture, the two-stage hydration pipeline, the current single-pass default for enrichment, provider response caching, and the review queue data model.
 
 ---
 
 ## 1. Provider Authority Model
 
-Wikidata is the sole identity authority. Every media item is identified by its Wikidata Q-identifier (QID). Without a confirmed QID, an item does not have a verified identity and will not be promoted from staging into the organised library.
+Wikidata is the sole identity authority. Every media item is identified by its Wikidata Q-identifier (QID) when one can be resolved. The main Vault, however, is no longer gated on QID alone. An item can be shown in the main Vault once it has a non-placeholder title, a resolved media type, and a settled artwork outcome (`present`, or `missing` after the artwork pass has explicitly settled). Items that are still uncertain stay in Activity, Review, and the Action Center instead of appearing early in the main Vault.
 
 All providers divide cleanly into two categories:
 
@@ -119,7 +119,7 @@ Retail providers run in ranked pipeline order defined in `config/pipelines.json`
 
 Providers participate in Stage 1 by declaring `"hydration_stages": [1]` in their config.
 
-**Retail match confidence gate:** After each provider returns claims, `RetailMatchScoringService` scores the candidate against file metadata (title 45%, author 35%, year 10%, format 10% + cross-field boosts). Scores below 0.50 (ambiguous threshold) are discarded; scores between 0.50–0.85 are accepted with a review flag; scores ≥ 0.85 are auto-accepted. This uses the same unified scoring as manual search from the Vault detail drawer.
+**Retail match confidence gate:** After each provider returns claims, `RetailMatchScoringService` scores the candidate against file metadata (title 45%, author 35%, year 10%, format 10% + cross-field boosts). Scores below 0.65 are discarded; scores between 0.65–0.90 are accepted with a review flag; scores ≥ 0.90 are auto-accepted. Auto-accept is further capped to review when creator evidence contradicts the file, when grouped TV matching lacks exact show+season+episode agreement, when grouped music matching lacks track-number or duration corroboration, or when cover similarity would be the only reason a weak-text candidate crossed the gate. This uses the same unified scoring as manual search from the Vault detail drawer.
 
 Stage 1 never waits on Stage 2. Cover art is written to disk during Stage 1 (`cover.jpg` alongside the staged file). If Stage 1 fails to find any matching provider, the item routes directly to the review queue — **no text-only Wikidata fallback is attempted**. The principle: no retail match = no Wikidata.
 
@@ -141,7 +141,7 @@ Providers participate in Stage 2 by declaring `"hydration_stages": [2]`. Current
 
 **Parity baseline:** `tests/fixtures/stage2-baseline-v2.json` is the authoritative snapshot of the library-backed Stage 2 path against a 12-request fixture (books, movies, TV, music, audiobooks, plus Pattern 1/3 edge cases). The `Stage2BaselineCapture.CaptureStage2BaselineViaLibraryPath` xUnit fixture (Skip'd by default) re-captures the baseline on demand against live Wikidata.
 
-**Pipeline continuation on failure:** If Stage 2 fails to resolve a QID and `continue_pipeline_on_authority_failure` is `true`, the pipeline continues (the file retains its Stage 1 metadata). An `AuthorityMatchFailed` review item is created for manual resolution.
+**Pipeline continuation on failure:** If Stage 2 fails to resolve a QID and `continue_pipeline_on_authority_failure` is `true`, the pipeline continues (the file retains its Stage 1 metadata). A `QidNoMatch` item is treated as a terminal precision-preserving outcome: the item may still remain visible in the main Vault if it passes the Vault quality gate, but its pipeline step stays at Wikidata and its status makes the missing QID explicit.
 
 ### Provider Pipeline Assignments (config/pipelines.json)
 
@@ -182,6 +182,8 @@ Person creation is idempotent â€” both paths can run simultaneously without
 ---
 
 ## 4. Two-Pass Enrichment Architecture
+
+> Current default: `two_pass_enabled` is `false` in `config/hydration.json`. The material below describes the optional two-pass mode, not the default runtime path.
 
 The two-stage pipeline runs twice, at different times, to different depths. This separation ensures files appear on the Dashboard within seconds while the deeper universe intelligence work runs in the background when the system is idle.
 
@@ -477,7 +479,7 @@ Cover art is never stored in the database. `cover.jpg` lives alongside the media
 | Comics | Comic Vine | ~900px | `super_url` field |
 | Music | Cover Art Archive (MusicBrainz) | 500px | `front-500` path |
 
-**Cover art timing:** `cover.jpg` is written alongside the file in `.staging/` during Stage 1. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when `AutoOrganizeService` promotes the file from staging to the organised library.
+**Cover art timing:** `cover.jpg` is written alongside the file in `.staging/` during Stage 1 when art is available. Canonical artwork flags (`cover_state`, `cover_source`, `hero_state`, `artwork_settled_at`) persist whether art is present, still pending, or explicitly missing. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when the downstream image and organisation flow settles.
 
 **Image hash validation:** Cover art and provider thumbnails are tracked by content hash (SHA-256) in the `image_cache` table to prevent redundant re-downloads. When the same image URL appears across multiple entities, the hash is checked first; if found, the cached file path is reused.
 

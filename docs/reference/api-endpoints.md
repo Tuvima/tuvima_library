@@ -51,10 +51,18 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/registry/items` | Paginated item list. Supports filtering by status, media type, collection, and search term. | Required |
-| GET | `/registry/items/{entityId}/detail` | Full item detail including all claims, canonical values, pipeline state, and linked persons | Required |
-| GET | `/registry/counts` | Status counts for Vault badge indicators (Verified, Provisional, Needs Review, Quarantined) | Required |
+| GET | `/registry/items` | Paginated item list. Includes projection-backed fields such as `pipelineStep`, `vaultVisibility`, `isReadyForVault`, `artworkState`, `artworkSource`, and `artworkSettledAt`. Supports filtering by status, media type, collection, and search term. | Required |
+| GET | `/registry/items/{entityId}/detail` | Full item detail including claims, canonical values, pipeline projection fields, artwork truth, and linked persons | Required |
+| GET | `/registry/counts` | Status counts for tab badges and compatibility counters such as review, auto-approved, duplicate, staging, and missing-image counts | Required |
 | GET | `/registry/state-counts?batchId=` | Four-state counts scoped to a specific ingestion batch | Required |
+
+---
+
+## Vault
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/vault/overview` | Aggregated Vault health and readiness view, including `hidden_by_quality_gate`, `art_pending`, `retail_needs_review`, `qid_no_match`, and `completed_with_art` | Required |
 
 ---
 
@@ -105,9 +113,9 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 | GET | `/review/pending` | All items currently in the review queue | Curator |
 | GET | `/review/count` | Count of pending review items. Used for Vault badge. | Required |
 | GET | `/review/{id}` | Full detail for a single review item including candidates | Curator |
-| POST | `/review/{id}/resolve` | Resolve a review item by selecting a candidate QID or confirming provisional metadata | Curator |
+| POST | `/review/{id}/resolve` | Resolve a review item by selecting a candidate or confirming corrected local metadata | Curator |
 | POST | `/review/{id}/dismiss` | Dismiss a review item without resolving it | Curator |
-| POST | `/review/{id}/skip-universe` | Mark the item as confirmed without universe matching (no QID assignment) | Curator |
+| POST | `/review/{id}/skip-universe` | Accept the item without a Wikidata QID. The item can still remain Vault-visible if it passes the Vault quality gate. | Curator |
 
 ---
 
@@ -162,8 +170,8 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| POST | `/metadata/pass2/trigger` | Manually trigger a Pass 2 (deep enrichment) run for one or more entity IDs | Curator |
-| GET | `/metadata/pass2/status` | Current Pass 2 run status â€” progress, queue depth, last completed | Required |
+| POST | `/metadata/pass2/trigger` | Manually trigger the optional Pass 2 deferred enrichment flow for one or more entity IDs | Curator |
+| GET | `/metadata/pass2/status` | Current Pass 2 deferred-enrichment status, including whether two-pass mode is enabled | Required |
 
 ---
 

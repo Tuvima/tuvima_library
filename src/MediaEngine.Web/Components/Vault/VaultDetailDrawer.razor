@@ -35,12 +35,9 @@
                 </div>
                 <div class="vdd-header-info">
                     <div class="vdd-badges">
-                        @if (!IsInLibrary)
-                        {
-                            <span class="vdd-location-chip vdd-location-chip--staging">
-                                Staging
-                            </span>
-                        }
+                        <span class="vdd-location-chip @GetReadinessChipClass()">
+                            @MediaItem.ReadinessLabel
+                        </span>
                         <StatusPill Status="@MediaItem.VaultDisplayStatus" QuarantineDays="@MediaItem.QuarantineDays" />
                         @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
                         {
@@ -1160,8 +1157,21 @@
     // Person character roles
     private IReadOnlyList<CharacterRoleDto> _personCharacterRoles = [];
 
-    private bool IsInLibrary => MediaItem?.Status?.Equals("Confirmed", StringComparison.OrdinalIgnoreCase) == true
-                             || MediaItem?.VaultDisplayStatus == VaultStatus.Verified;
+    private bool IsInLibrary => MediaItem?.IsReadyForVault == true
+                             && string.Equals(MediaItem?.VaultVisibility, "visible", StringComparison.OrdinalIgnoreCase);
+
+    private string GetReadinessChipClass()
+    {
+        if (MediaItem is null)
+            return "vdd-location-chip--pending";
+
+        return MediaItem.ReadinessLabel switch
+        {
+            "Ready" => "vdd-location-chip--library",
+            "Needs review" => "vdd-location-chip--review",
+            _ => "vdd-location-chip--pending",
+        };
+    }
 
     /// <summary>Returns true if the retail match is from an actual retail provider (not local_processor or library_scanner).</summary>
     private static bool IsRealRetailMatch(string? retailMatch) =>
@@ -1194,7 +1204,21 @@
         return null;
     }
 
-    private int ActiveTab => _selectedStage;  // 0=Retail, 1=Wikidata, 2=Universe
+    private int ActiveTab => _selectedStage;  // 0=Retail, 1=Wikidata, 2=Enrichment
+
+    private int GetPreferredStage()
+    {
+        if (MediaItem is null)
+            return 0;
+
+        if (MediaItem.Stage1.State is VaultStageState.Pending or VaultStageState.Running or VaultStageState.Warning or VaultStageState.Failed)
+            return 0;
+
+        if (MediaItem.Stage2.State is VaultStageState.Pending or VaultStageState.Running or VaultStageState.Warning or VaultStageState.Failed)
+            return 1;
+
+        return 2;
+    }
 
     private async Task NavigateToCreatorPerson(string creatorName)
     {
@@ -1204,7 +1228,7 @@
     protected override async Task OnParametersSetAsync()
     {
         _confirmPurge = false;
-        _selectedStage = 1;
+        _selectedStage = GetPreferredStage();
         _detailsTab = 0;
         _searchResults = [];
         _aliases = null;
@@ -2175,10 +2199,16 @@
         color: #5DCAA5;
     }
 
-    .vdd-location-chip--staging {
+    .vdd-location-chip--pending {
         background: rgba(239, 159, 39, 0.1);
         border: 1px solid rgba(239, 159, 39, 0.2);
         color: #EF9F27;
+    }
+
+    .vdd-location-chip--review {
+        background: rgba(160, 80, 80, 0.1);
+        border: 1px solid rgba(160, 80, 80, 0.2);
+        color: #D68989;
     }
 
     .vdd-file-block {

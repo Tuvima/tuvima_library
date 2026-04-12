@@ -31,8 +31,8 @@
   "canon_discrepancy_detection": true,
   "era_actor_resolution": true,
 
-  "retail_auto_accept_threshold": 0.85,
-  "retail_ambiguous_threshold": 0.50,
+  "retail_auto_accept_threshold": 0.90,
+  "retail_ambiguous_threshold": 0.65,
   "edition_aware_media_types": ["Books", "Audiobooks", "Movies", "Comics", "Music"],
   "fuzzy_match_weights": {
     "title": 0.45,

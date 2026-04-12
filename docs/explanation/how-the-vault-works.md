@@ -12,225 +12,176 @@ tags:
 
 # How the Library Vault Works
 
-The Home page and media lane pages are for browsing â€” discovering what's in your library, finding something to read or watch. The **Vault** is different. It's the command centre for managing your library: seeing what the Engine has done, what needs your attention, and taking deliberate action.
+The Home page and media lanes are for browsing. The **Vault** is for management: checking what the Engine thinks an item is, seeing what still needs attention, and correcting anything that looks wrong.
 
-This page explains the Vault's layout, its status system, how you resolve problems, and how the People and Universes tabs fit in.
-
----
-
-## What the Vault Is For
-
-The Vault is built around oversight and control. You go there when you want to:
-
-- See everything the Engine has ingested, and confirm it's been correctly identified
-- Investigate items that need attention ("Needs Review", "Quarantined")
-- Manually resolve a misidentification
-- Edit metadata, trigger a re-sync, or purge an item
-- Browse your library by author, series, album, or show
-- Manage people and franchise groupings
-
-Think of it as the backstage area. Everything that happens automatically (ingestion, enrichment, identification) is visible here, auditable here, and correctable here.
+This page explains what appears in the Vault, what stays out of the main Vault until it is ready, and how the review tools fit together.
 
 ---
 
-## The Four Tabs
+## What the Vault is for
 
-The Vault has four tabs, each focused on a different dimension of your library.
+Use the Vault when you want to:
+
+- See which items are ready for the main library experience
+- Inspect stage progress for a file that is still being processed
+- Resolve uncertain retail or Wikidata matches
+- Check whether artwork is present, still pending, or confirmed missing
+- Re-run identification, sync metadata back to the file, or purge an item
+- Browse related People, Universes, and Collections from the management side
+
+Think of it as the control room for ingestion and metadata quality.
+
+---
+
+## The four tabs
 
 ### Media
 
-Every file in your library. Books, audiobooks, TV episodes, films, music tracks, and comics â€” all visible in one place, filterable by media type using the chips in the pinned header.
-
-The Media tab is where you'll spend most of your time in the Vault. It's where you see ingestion status, confirm identifications, and fix problems.
+The Media tab is the heart of the Vault. It shows the shared pipeline projection for each item: stage progress, readiness, artwork truth, and review state.
 
 ### People
 
-Every author, narrator, director, composer, screenwriter, and illustrator connected to your library. Always Wikidata-sourced â€” you can't add people manually, because people data is maintained by Wikidata's community and updated on a 30-day refresh cycle.
-
-Each person entry shows a photo (when available), a name, a description, role chips (what roles they appear in your library â€” Author, Director, Narrator, etc.), and library presence counts (how many Works they're connected to).
-
-Auto-cleaned: when all media connected to a person is removed from your library, the person entry is automatically removed. No orphaned entries.
+Every author, narrator, director, composer, screenwriter, illustrator, and performer linked to your library. People are created from resolved metadata and refreshed from Wikidata over time.
 
 ### Universes
 
-Franchise-level groupings. A Universe entry shows its name, description, how many Series it contains, the media breakdown (3 Books, 2 Films, 1 Audiobook), and how many people are associated.
-
-Like People, always Wikidata-sourced and auto-cleaned when all child Series are empty.
+Franchise-level groupings and their linked works. This is where you inspect how the Engine connected books, films, shows, and other works into a wider world.
 
 ### Collections
 
-Smart collections, personal lists, AI-generated mixes, and user-created playlists. The Collections tab is for oversight and configuration â€” enabling or disabling smart collections, adjusting thresholds, seeing what's in each collection. See the separate documentation on Collections and Playlists for the full detail.
+Smart collections, system lists, mixes, and playlists. This tab is about presentation and curation rather than ingestion.
 
 ---
 
-## The Layout
+## What appears in the main Vault
 
-The Vault uses a **sidebar-driven layout**:
+Not every ingested file appears in the main Vault immediately.
 
-- **Pinned header** at the top: tabs, media type chips, toolbar (search, sort, filters, view mode)
-- **Collapsible sidebar** on the left: context-aware views that change depending on which media type is selected
-- **Scrollable content area** on the right: the list or grid of items
+An item becomes visible in the main Vault only after it passes the **Vault quality gate**:
 
-The sidebar changes its content depending on the media type:
-- **Books**: All / Series / Authors
-- **TV**: All Shows (seasons expand inline)
-- **Music**: All / Albums / Artists / Genres
-- **Films**: All / Series / Directors
+- It has a real, non-placeholder title
+- It has a resolved media type
+- Its artwork state has settled, either `present` or explicitly `missing`
 
-"Recently Added" and "Needs Review" are always pinned at the top of the sidebar, regardless of media type. They're the two views you'll check most often.
+If one of those conditions is not true yet, the item stays available in **Activity**, **Review**, and the **Action Center**, but it does not surface in the main Vault list yet.
 
-On mobile, the sidebar becomes a slide-out drawer triggered by the filter icon â€” same content, different form factor.
+This is why a newly ingested file may be "known to the system" before it appears in the main library-facing views.
 
 ---
 
-## The Status System
+## How the Media tab tells the story
 
-Every item in the Media tab has a status. Understanding what each status means helps you know what needs attention.
+The Media tab now uses the same three pipeline stages everywhere:
 
-### Verified
-The Engine has identified this item with high confidence and enriched it successfully. Title, author, Wikidata QID all confirmed. Cover art, description, and structured properties all fetched. Nothing for you to do. Shown in green.
+| Stage | What it means |
+|---|---|
+| **Retail** | Retail providers are being searched and scored for the best practical match. |
+| **Wikidata** | Bridge identifiers from Retail are being used to resolve a canonical Wikidata identity. |
+| **Enrichment** | The item is past identity resolution and is being deepened with follow-up metadata, images, people, and relationships. |
 
-### Provisional
-The Engine couldn't match this item confidently against an external source. The file's embedded metadata is being used as-is. This is not an error â€” it's the Engine saying "I did my best, but I'm not certain."
+Alongside the stages, the UI uses a plain-English readiness label:
 
-A Provisional item will still appear correctly in your library based on its file metadata. If you later identify it manually (by picking a candidate in the detail drawer), it upgrades to Verified.
+- **Pending artwork**: identity may be far enough along, but artwork has not settled yet
+- **Needs review**: the pipeline found an uncertain result and wants a human choice
+- **Ready**: the item passed the Vault quality gate and is visible in the main Vault
 
-### Needs Review
-Something requires your attention. Amber highlight. In the "All Media" view, Needs Review items are **extracted from the main list and pinned as an amber-highlighted group at the very top**, auto-expanded so you see them immediately.
-
-Common reasons:
-- Two candidates with similar confidence (the Engine can't pick confidently)
-- Conflicting metadata fields that need a human decision
-- An identification that looks wrong and was flagged by the confidence checks
-- A failed enrichment that needs a manual retry
-
-### Quarantined
-A problem was detected that prevents normal processing. Red alert banner. Could be a corrupt file, a file the Engine can't read at all, or a file whose hash has changed since it was last seen (possible file corruption). Requires investigation.
-
-### Pending
-Still processing. The pipeline is actively working on this item. Normal during the first minutes after a file is ingested.
-
-### Failed Pipeline Steps
-
-If individual pipeline steps fail (retail identification failed, Wikidata enrichment failed), these aren't shown as a separate status. Instead, they appear as a natural-language explanation line beneath the item row in the list â€” "Retail identification could not find a match." This keeps the status system from becoming a confusing set of technical codes.
+One special case is **QID Not Found**. That means Retail succeeded but Wikidata did not produce a canonical QID. The item stays marked at the Wikidata stage, but it can still be ready for the main Vault if its title, media type, and artwork state are settled.
 
 ---
 
-## The Detail Drawer
+## Statuses and readiness
 
-Clicking any item in the Media tab opens the detail drawer, which slides in from the right without leaving the page.
+The best mental model is:
 
-**Pinned header** (always visible):
-- Cover art
-- Title, creator
-- Current status with pill badge
-- Universe link (if assigned)
+- **Ready / Verified**: the item is usable and visible in the main Vault
+- **Needs Review**: the Engine found something uncertain and wants confirmation
+- **Pending**: the pipeline is still actively working
+- **Quarantined**: a file or processing problem blocked normal handling
 
-**Scrollable sections** (collapse/expand individually):
-
-- **Sync** â€” whether metadata writeback is enabled for this item, last sync timestamp
-- **Enrichment** â€” which stages have run, when they last ran, next scheduled run
-- **Pipeline** â€” stage-by-stage progress indicators (Scan, Retail, Wikidata), with inline resolution panels for each stage
-- **File** â€” path, size, format, fingerprint hash, media asset ID
-- **Claims** â€” the full claim history for every metadata field; who said what with what confidence
-
-**Pinned action bar** (always visible at bottom):
-- **Identify** â€” re-run the identification pipeline for this item
-- **Sync Now** â€” immediately write resolved metadata back to the file's embedded tags
-- **Purge** â€” remove this item from the library (confirmation required)
+Some older APIs and compatibility views may still expose values such as `Provisional`. Treat those as compatibility labels rather than as the primary Vault mental model. The main UI story is stage progress plus readiness.
 
 ---
 
-## Inline Resolution
+## The detail drawer
 
-The Pipeline section of the detail drawer is where you fix misidentified items. It includes resolution panels for both the Retail stage and the Wikidata stage.
+Clicking an item opens the detail drawer. It stays on the same page and gives you the full audit trail for that one file.
 
-For **Retail stage**:
-- If the Engine found candidates, you see them listed with confidence scores and cover thumbnails
-- Pick the correct one, or search manually by title/ISBN/ASIN
-- "Add Provisional" is available if you want to manually enter metadata without a retail source
+Typical sections:
 
-For **Wikidata stage**:
-- If a QID was found, you see the Wikidata entry details
-- If multiple candidates were found, you pick the correct one
-- If no match was found, you can search manually by title or QID, or skip Wikidata for this item
+- **Header**: title, creator, status, readiness, and artwork
+- **Sync**: whether writeback is enabled and when it last ran
+- **Enrichment**: descriptions, ratings, subjects, bridge IDs, and other resolved metadata
+- **Pipeline**: the three stages, what each one did, and what is blocked
+- **File**: path, size, format, fingerprint, and source folder
+- **Claims**: every metadata claim the Engine saw, with source and confidence
 
-The Retail stage shows **"Unmatched"** (not a green "Completed") when only the file scanner matched and no retail provider confirmed the identity. This distinction matters â€” "Completed" means an external source confirmed the match. "Unmatched" means the file metadata is all you have.
-
----
-
-## Batch Operations
-
-When you need to act on multiple items at once:
-
-- **Shift+click** selects a range of items
-- **Ctrl+click** adds individual items to the selection
-- Clicking a group header (e.g., a Series name) selects all items in that group
-
-A **floating action bar** appears at the bottom of the screen when any items are selected. Available actions:
-- **Delete** â€” removes selected items with a confirmation dialog (lists what will be deleted)
-- **Sync Now** â€” triggers immediate metadata writeback for all selected items
-
-Selection is cleared when the action bar is dismissed or when you navigate away.
+The drawer is where you answer the question, "Why does the Engine believe this item is what it says it is?"
 
 ---
 
-## Configurable Columns
+## Resolving the Retail stage
 
-Each media type has a default column set appropriate for that content type. Books show Author and Series. Films show Director and Year. Music shows Artist and Album. TV shows Season and Episode.
+When the Retail stage needs help, the drawer shows a resolution panel with:
 
-The **column picker** (accessible from the toolbar) lets you:
-- Toggle columns on and off
-- Reorder columns by dragging
-- Reset to the default column set
+- The current best candidate, if one exists
+- Other ranked candidates from providers
+- Manual retail search
+- **Add Provisional**, which starts from file or user-supplied metadata instead of a provider match
 
-Your preferences are saved per media type in your browser's local storage. They persist across sessions without needing a server round-trip.
-
-Column headers are clickable for sorting. An arrow indicator shows the current sort direction. Default sort is by title (alphabetical), except the "All Media" view which defaults to newest-first. Sorting is active on Title, Status, and Universe columns.
+`Add Provisional` is best thought of as a local metadata correction flow. It gives the Engine better input and preserves your intent, but it does not force the item into the main Vault before the quality gate is satisfied.
 
 ---
 
-## Hierarchical Sub-pages
+## Resolving the Wikidata stage
 
-Some content types have natural hierarchy that doesn't fit well in a flat list. TV shows have seasons and episodes. Music has albums and tracks. Books have series.
+When the Wikidata stage needs help, you may see:
 
-Clicking on a TV show, music album, or book series navigates to a **detail sub-page** â€” a richer view with cover art header, metadata, and the hierarchical content (season accordion for TV, flat track list for music). Breadcrumb navigation returns you to the Vault list.
+- A ranked list of QID candidates
+- Manual Wikidata search
+- Direct QID entry if you already know the right entity
+- A "skip Wikidata" path when the work is real but no good QID is available
 
-These sub-pages follow the same design language as the rest of the Vault, just organized for the content type's natural structure.
-
----
-
-## People Tab in Practice
-
-The People tab is read-only in the sense that you can't manually edit person data. Person data is always Wikidata-sourced, and corrections belong in Wikidata itself.
-
-What you can do in the People tab:
-- Browse all people in your library with their roles and presence counts
-- Click a person to open the detail drawer with their full biography, social links, and the works they're connected to
-- See which works each person appears in, grouped by role and media type
-- View the "Linked Identities" section â€” if an author uses a pen name, both identities are shown as connected via Wikidata's pseudonym resolution
-
-The 30-day refresh cycle handles keeping person data current. If a person's Wikipedia entry is updated, the next refresh picks up the changes automatically.
+Skipping Wikidata does **not** mean the item disappears. If the item otherwise has a trustworthy title, resolved media type, and settled artwork result, it can still remain visible in the main Vault as a QID-missing outcome.
 
 ---
 
-## Universes Tab in Practice
+## Batch operations
 
-Similar to People, the Universes tab is always Wikidata-sourced. You can't manually create a Universe â€” they emerge from the metadata relationships the Engine discovers.
+You can work through many items at once:
 
-What you can do:
-- Browse all Universes in your library with their Series counts and media breakdowns
-- Click a Universe to open the detail drawer, which shows the Series list, People, and Assets
-- Click a Series name in the detail drawer â€” this navigates back to the Media tab with that Series's filter applied, showing you exactly which items belong to it
+- `Shift+click` selects a range
+- `Ctrl+click` adds or removes individual items
+- Group actions let you re-run sync or delete multiple items together
 
-The stats bar at the top of the Universes tab shows total Universe count and total Series count across your entire library at a glance.
+Batch work is most useful for large review sessions after a bulk import.
 
 ---
 
-For technical details about the Vault's implementation â€” component architecture, sidebar state management, column definition format, and the full detail drawer section structure â€” see the [architecture deep-dive](../architecture/settings-and-vault.md).
+## People and Universes in practice
+
+The People and Universes tabs are downstream of the same identity work:
+
+- **People** become richer as Wikidata and later enrichment add more roles, headshots, and links
+- **Universes** become more trustworthy as more works resolve to the right series, franchise, and relationship graph
+
+Because of that, a missing or incorrect match in Media often explains a strange result in People or Universes.
+
+---
+
+## The short version
+
+The Vault is no longer "every file immediately." It is the management surface built on a shared projection of:
+
+- where the item is in the pipeline
+- whether the main Vault should show it yet
+- whether artwork is really there, still pending, or confirmed missing
+- what still needs a human decision
+
+That makes the Vault calmer and more trustworthy: items appear slightly later, but when they do appear, the UI is telling one consistent story.
 
 ## Related
 
-- [Settings Architecture and Library Vault](../architecture/settings-and-vault.md)
+- [How the Entire Pipeline Works](how-the-pipeline-works.md)
+- [How Two-Stage Enrichment Works](how-hydration-works.md)
 - [How to Resolve Items That Need Review](../guides/resolving-reviews.md)
-- [Engine API Reference](../reference/api-endpoints.md)
+- [How File Ingestion Works](how-ingestion-works.md)

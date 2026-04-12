@@ -5,6 +5,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Contracts;
@@ -612,14 +613,28 @@ public sealed class RetailMatchWorker
 
         var retailScore = _retailScoring.ScoreCandidate(
             fileHints, candidateTitle, candidateAuthor, candidateYear, MediaType.Music);
-
-        string outcome;
-        if (retailScore.CompositeScore >= retailAcceptThreshold)
-            outcome = "AutoAccepted";
-        else if (retailScore.CompositeScore >= retailAmbiguousThreshold)
-            outcome = "Ambiguous";
-        else
-            outcome = "Rejected";
+        var candidateTrackNumber = bestTrack["trackNumber"]?.GetValue<long?>()?.ToString();
+        var trackNumberMatches = !string.IsNullOrWhiteSpace(fileTrackNumber)
+            && !string.IsNullOrWhiteSpace(candidateTrackNumber)
+            && string.Equals(fileTrackNumber.Trim(), candidateTrackNumber.Trim(), StringComparison.Ordinal);
+        var hasFileDuration = TryGetDurationSeconds(fileHints, out var fileDurationSeconds);
+        var hasCandidateDuration = TryGetDurationSeconds(bestTrack["trackTimeMillis"]?.GetValue<long?>(), out var candidateDurationSeconds);
+        var durationCorroborates = hasFileDuration
+            && hasCandidateDuration
+            && DurationsCorroborate(fileDurationSeconds, candidateDurationSeconds);
+        var decision = EvaluateRetailDecision(
+            fileHints,
+            candidateTitle,
+            candidateAuthor,
+            candidateYear,
+            retailScore,
+            retailScore.CompositeScore,
+            retailAcceptThreshold,
+            retailAmbiguousThreshold,
+            "grouped_music",
+            autoAcceptCapReasons: trackNumberMatches || durationCorroborates
+                ? null
+                : ["requires_track_number_or_duration_corroboration"]);
 
         var providerId = appleProvider?.ProviderId ?? Guid.Empty;
 
@@ -637,22 +652,27 @@ public sealed class RetailMatchWorker
             Title            = candidateTitle ?? "(unknown)",
             Creator          = candidateAuthor,
             Year             = candidateYear,
-            ScoreTotal       = retailScore.CompositeScore,
-            ScoreBreakdownJson = JsonSerializer.Serialize(new
-            {
-                title  = retailScore.TitleScore,
-                author = retailScore.AuthorScore,
-                year   = retailScore.YearScore,
-                format = retailScore.FormatScore,
-            }),
+            ScoreTotal       = decision.FinalScore,
+            ScoreBreakdownJson = BuildScoreBreakdownJson(
+                retailScore,
+                decision,
+                "grouped_music",
+                new Dictionary<string, object?>
+                {
+                    ["track_match_score"] = Math.Round(bestMatchScore, 4),
+                    ["track_number_matches"] = trackNumberMatches,
+                    ["duration_corroborates"] = durationCorroborates,
+                    ["file_duration_seconds"] = hasFileDuration ? fileDurationSeconds : null,
+                    ["candidate_duration_seconds"] = hasCandidateDuration ? candidateDurationSeconds : null,
+                }),
             BridgeIdsJson    = bridgeIdsJson,
             ImageUrl         = BuildAppleCoverUrl(bestTrack["artworkUrl100"]?.GetValue<string>()),
-            Outcome          = outcome,
+            Outcome          = decision.Outcome,
         };
 
         await _candidateRepo.InsertBatchAsync([candidate], ct);
 
-        if (outcome != "Rejected")
+        if (decision.Outcome != "Rejected")
         {
             // Phase 3c: fetch lineage so parent-scope claims (album, artist,
             // year, cover) mirror onto the album Work in addition to the track.
@@ -684,7 +704,7 @@ public sealed class RetailMatchWorker
                 await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
         }
 
-        if (outcome == "AutoAccepted")
+        if (decision.Outcome == "AutoAccepted")
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, candidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched, ct: ct);
@@ -693,7 +713,7 @@ public sealed class RetailMatchWorker
 
             _logger.LogInformation(
                 "Music: track '{FileTitle}' → '{MatchedTitle}' from Apple iTunes album lookup (score {Score:F2}) [entity {EntityId}]",
-                fileTitle ?? "(unknown)", candidateTitle, retailScore.CompositeScore, job.EntityId);
+                fileTitle ?? "(unknown)", candidateTitle, decision.FinalScore, job.EntityId);
 
             try
             {
@@ -708,18 +728,18 @@ public sealed class RetailMatchWorker
                     job.EntityId);
             }
         }
-        else if (outcome == "Ambiguous")
+        else if (decision.Outcome == "Ambiguous")
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, candidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatchedNeedsReview, ct: ct);
             await _outcomeFactory.CreateRetailAmbiguousAsync(
-                job.EntityId, job.MediaType, retailScore.CompositeScore, job.IngestionRunId, null, ct);
+                job.EntityId, job.MediaType, decision.FinalScore, job.IngestionRunId, null, ct);
             await _timeline.RecordRetailMatchedAsync(
                 job.EntityId, "apple_api", 1, job.IngestionRunId, ct);
 
             _logger.LogInformation(
                 "Music: track '{FileTitle}' → '{MatchedTitle}' ambiguous on Apple iTunes (score {Score:F2}, needs review) [entity {EntityId}]",
-                fileTitle ?? "(unknown)", candidateTitle, retailScore.CompositeScore, job.EntityId);
+                fileTitle ?? "(unknown)", candidateTitle, decision.FinalScore, job.EntityId);
         }
         else
         {
@@ -731,7 +751,7 @@ public sealed class RetailMatchWorker
 
             _logger.LogInformation(
                 "Music: track '{FileTitle}' rejected — score {Score:F2} below thresholds [entity {EntityId}]",
-                fileTitle ?? "(unknown)", retailScore.CompositeScore, job.EntityId);
+                fileTitle ?? "(unknown)", decision.FinalScore, job.EntityId);
         }
     }
 
@@ -923,7 +943,7 @@ public sealed class RetailMatchWorker
             showName ?? "(unknown)",
             yearHint.HasValue ? $" (year={yearHint.Value})" : "",
             groupJobs.Count);
-        var (tvId, showPosterPath) = await SearchTmdbShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
+        var (tvId, showPosterPath, matchedShowName) = await SearchTmdbShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
 
         if (tvId is null)
         {
@@ -976,7 +996,7 @@ public sealed class RetailMatchWorker
             try
             {
                 await ApplyTvEpisodeAsync(
-                    job, hints, allEpisodes, tvId, showPosterPath,
+                    job, hints, allEpisodes, tvId, showPosterPath, matchedShowName,
                     tmdbProvider, retailAcceptThreshold, retailAmbiguousThreshold, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -996,11 +1016,11 @@ public sealed class RetailMatchWorker
     /// shows with the right premiere year outrank similarly-named shows from other eras.
     /// Falls back to an unfiltered search if the year filter returns nothing.
     /// </summary>
-    private async Task<(string? TvId, string? PosterPath)> SearchTmdbShowAsync(
+    private async Task<(string? TvId, string? PosterPath, string? MatchedShowName)> SearchTmdbShowAsync(
         string? showName, int? yearHint, string apiKey, string lang, string country, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(showName))
-            return (null, null);
+            return (null, null, null);
 
         var query   = Uri.EscapeDataString(showName.Trim());
         var baseUrl = $"https://api.themoviedb.org/3/search/tv?query={query}&include_adult=false&language={lang}-{country}&page=1&api_key={apiKey}";
@@ -1028,12 +1048,13 @@ public sealed class RetailMatchWorker
             }
 
             if (results is null || results.Count == 0)
-                return (null, null);
+                return (null, null, null);
 
             // Pick the best match by show name similarity, biased by year proximity.
             double bestScore = 0.0;
             string? bestId = null;
             string? bestPosterPath = null;
+            string? bestMatchedShowName = null;
 
             foreach (var result in results)
             {
@@ -1076,6 +1097,7 @@ public sealed class RetailMatchWorker
                     bestScore = score;
                     bestId = resultId;
                     bestPosterPath = result["poster_path"]?.GetValue<string>();
+                    bestMatchedShowName = resultName;
                 }
             }
 
@@ -1085,19 +1107,19 @@ public sealed class RetailMatchWorker
                     "TV: TMDB show search matched tv_id={Id} (score={Score:F2}) for '{ShowName}'{YearHint}",
                     bestId, bestScore, showName,
                     yearHint.HasValue ? $" (year={yearHint.Value})" : "");
-                return (bestId, bestPosterPath);
+                return (bestId, bestPosterPath, bestMatchedShowName);
             }
 
             _logger.LogInformation(
                 "TV: TMDB show search — best score {Score:F2} below threshold for '{ShowName}'",
                 bestScore, showName);
-            return (null, null);
+            return (null, null, null);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogWarning(ex,
                 "RetailMatchWorker: TMDB show search failed for '{ShowName}'", showName);
-            return (null, null);
+            return (null, null, null);
         }
     }
 
@@ -1152,6 +1174,7 @@ public sealed class RetailMatchWorker
         IReadOnlyList<(string Season, JsonNode Node)> allEpisodes,
         string tvId,
         string? showPosterPath,
+        string? matchedShowName,
         IExternalMetadataProvider? tmdbProvider,
         double retailAcceptThreshold,
         double retailAmbiguousThreshold,
@@ -1222,13 +1245,14 @@ public sealed class RetailMatchWorker
 
         var showName     = fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
+        var providerShowName = matchedShowName ?? showName;
         var showPosterUrl = BuildTmdbImageUrl(showPosterPath);
-        var claims = BuildTvEpisodeClaims(bestEpisode, tvId, showName, fileSeason, showPosterUrl);
+        var claims = BuildTvEpisodeClaims(bestEpisode, tvId, providerShowName, fileSeason, showPosterUrl);
 
         // For retail scoring, the candidate title is the episode title and author/creator
         // is the show name (best available approximation for TV scoring).
         var candidateTitle  = bestEpisode["name"]?.GetValue<string>();
-        var candidateAuthor = showName;
+        var candidateAuthor = providerShowName;
         var candidateYear   = bestEpisode["air_date"]?.GetValue<string>()?.Length >= 4
             ? bestEpisode["air_date"]!.GetValue<string>()![..4]
             : null;
@@ -1248,6 +1272,7 @@ public sealed class RetailMatchWorker
         bool episodeMatches = !string.IsNullOrWhiteSpace(fileEpisodeNumber)
             && !string.IsNullOrWhiteSpace(candidateEpisodeNum)
             && string.Equals(fileEpisodeNumber.Trim(), candidateEpisodeNum.Trim(), StringComparison.Ordinal);
+        bool showMatches = AreEquivalentNames(showName, providerShowName);
 
         double structuralAdjustment = 0.0;
         if (seasonMatches && episodeMatches)
@@ -1270,7 +1295,7 @@ public sealed class RetailMatchWorker
         // because TMDB's episode title rarely matches what the user named the
         // file (and is often missing from the file altogether). Promote to a
         // high-confidence accept so the pipeline continues to Stage 2.
-        if (seasonMatches && episodeMatches)
+        if (showMatches && seasonMatches && episodeMatches)
         {
             adjustedComposite = Math.Max(adjustedComposite, 0.90);
             _logger.LogDebug(
@@ -1284,13 +1309,20 @@ public sealed class RetailMatchWorker
                 fileSeason, fileEpisodeNumber, candidateSeasonNum, candidateEpisodeNum,
                 structuralAdjustment, retailScore.CompositeScore, adjustedComposite, job.EntityId);
 
-        string outcome;
-        if (adjustedComposite >= retailAcceptThreshold)
-            outcome = "AutoAccepted";
-        else if (adjustedComposite >= retailAmbiguousThreshold)
-            outcome = "Ambiguous";
-        else
-            outcome = "Rejected";
+        var decision = EvaluateRetailDecision(
+            fileHints,
+            candidateTitle,
+            candidateAuthor,
+            candidateYear,
+            retailScore,
+            adjustedComposite,
+            retailAcceptThreshold,
+            retailAmbiguousThreshold,
+            "grouped_tv",
+            fileCreatorOverride: showName,
+            autoAcceptCapReasons: showMatches && seasonMatches && episodeMatches
+                ? null
+                : ["requires_exact_show_season_episode"]);
 
         var providerId = tmdbProvider?.ProviderId ?? Guid.Empty;
 
@@ -1308,23 +1340,26 @@ public sealed class RetailMatchWorker
             Title              = candidateTitle ?? "(unknown)",
             Creator            = candidateAuthor,
             Year               = candidateYear,
-            ScoreTotal         = adjustedComposite,
-            ScoreBreakdownJson = JsonSerializer.Serialize(new
-            {
-                title              = retailScore.TitleScore,
-                author             = retailScore.AuthorScore,
-                year               = retailScore.YearScore,
-                format             = retailScore.FormatScore,
-                structural_boost   = structuralAdjustment,
-            }),
+            ScoreTotal         = decision.FinalScore,
+            ScoreBreakdownJson = BuildScoreBreakdownJson(
+                retailScore,
+                decision,
+                "grouped_tv",
+                new Dictionary<string, object?>
+                {
+                    ["show_matches"] = showMatches,
+                    ["season_matches"] = seasonMatches,
+                    ["episode_matches"] = episodeMatches,
+                },
+                structuralAdjustment),
             BridgeIdsJson      = bridgeIdsJson,
             ImageUrl           = showPosterUrl ?? BuildTmdbImageUrl(bestEpisode["still_path"]?.GetValue<string>()),
-            Outcome            = outcome,
+            Outcome            = decision.Outcome,
         };
 
         await _candidateRepo.InsertBatchAsync([candidate], ct);
 
-        if (outcome != "Rejected")
+        if (decision.Outcome != "Rejected")
         {
             // Phase 3c: fetch lineage so parent-scope claims (show_name,
             // year, description, cover) mirror onto the show Work in
@@ -1357,7 +1392,7 @@ public sealed class RetailMatchWorker
                 await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
         }
 
-        if (outcome == "AutoAccepted")
+        if (decision.Outcome == "AutoAccepted")
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, candidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched, ct: ct);
@@ -1367,7 +1402,7 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "TV: '{ShowName}' S{Season}E{Episode} — '{EpisodeTitle}' matched on TMDB (score {Score:F2}) [entity {EntityId}]",
                 showName ?? "(unknown)", fileSeason, fileEpisodeNumber ?? "?",
-                candidateTitle, adjustedComposite, job.EntityId);
+                candidateTitle, decision.FinalScore, job.EntityId);
 
             try
             {
@@ -1382,19 +1417,19 @@ public sealed class RetailMatchWorker
                     job.EntityId);
             }
         }
-        else if (outcome == "Ambiguous")
+        else if (decision.Outcome == "Ambiguous")
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, candidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatchedNeedsReview, ct: ct);
             await _outcomeFactory.CreateRetailAmbiguousAsync(
-                job.EntityId, job.MediaType, adjustedComposite, job.IngestionRunId, null, ct);
+                job.EntityId, job.MediaType, decision.FinalScore, job.IngestionRunId, null, ct);
             await _timeline.RecordRetailMatchedAsync(
                 job.EntityId, "tmdb", 1, job.IngestionRunId, ct);
 
             _logger.LogInformation(
                 "TV: '{ShowName}' S{Season}E{Episode} — '{EpisodeTitle}' ambiguous on TMDB (score {Score:F2}, needs review) [entity {EntityId}]",
                 showName ?? "(unknown)", fileSeason, fileEpisodeNumber ?? "?",
-                candidateTitle, adjustedComposite, job.EntityId);
+                candidateTitle, decision.FinalScore, job.EntityId);
         }
         else
         {
@@ -1407,7 +1442,7 @@ public sealed class RetailMatchWorker
             _logger.LogInformation(
                 "TV: '{ShowName}' S{Season}E{Episode} rejected — score {Score:F2} below thresholds [entity {EntityId}]",
                 showName ?? "(unknown)", fileSeason, fileEpisodeNumber ?? "?",
-                adjustedComposite, job.EntityId);
+                decision.FinalScore, job.EntityId);
         }
     }
 
@@ -1580,6 +1615,300 @@ public sealed class RetailMatchWorker
 
     // ── Per-item fallback (Books, Audiobooks, Movies, Comics) ──────
 
+    private static string? GetPrimaryCreatorHint(IReadOnlyDictionary<string, string> fileHints)
+    {
+        return fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
+            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
+            ?? fileHints.GetValueOrDefault("director")
+            ?? fileHints.GetValueOrDefault("writer");
+    }
+
+    private static string NormalizeComparableText(string text)
+    {
+        var chars = StripDiacritics(text)
+            .Replace("&", " and ", StringComparison.Ordinal)
+            .ToLowerInvariant()
+            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
+            .ToArray();
+
+        return string.Join(' ', new string(chars)
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private static bool AreEquivalentNames(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            return false;
+
+        return string.Equals(
+            NormalizeComparableText(left),
+            NormalizeComparableText(right),
+            StringComparison.Ordinal);
+    }
+
+    private static bool TryGetDurationSeconds(IReadOnlyDictionary<string, string> fileHints, out double seconds)
+    {
+        if (TryGetNumericSeconds(fileHints.GetValueOrDefault("duration_sec"), false, out seconds))
+            return true;
+
+        return TryParseFlexibleDuration(fileHints.GetValueOrDefault(MetadataFieldConstants.DurationField), out seconds);
+    }
+
+    private static bool TryGetDurationSeconds(long? milliseconds, out double seconds)
+    {
+        seconds = 0.0;
+        if (milliseconds is not > 0)
+            return false;
+
+        seconds = milliseconds.Value / 1000.0;
+        return true;
+    }
+
+    private static bool TryParseFlexibleDuration(string? value, out double seconds)
+    {
+        if (TryGetNumericSeconds(value, true, out seconds))
+            return true;
+
+        if (!string.IsNullOrWhiteSpace(value)
+            && TimeSpan.TryParse(value, out var timeSpan)
+            && timeSpan.TotalSeconds > 0)
+        {
+            seconds = timeSpan.TotalSeconds;
+            return true;
+        }
+
+        seconds = 0.0;
+        return false;
+    }
+
+    private static bool TryGetNumericSeconds(string? value, bool preferMillisecondsForLargeValues, out double seconds)
+    {
+        seconds = 0.0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        if (!double.TryParse(value, out var raw) || raw <= 0)
+            return false;
+
+        seconds = preferMillisecondsForLargeValues && raw > 20000
+            ? raw / 1000.0
+            : raw;
+
+        return seconds > 0;
+    }
+
+    private static bool DurationsCorroborate(double fileDurationSeconds, double candidateDurationSeconds)
+    {
+        if (fileDurationSeconds <= 0 || candidateDurationSeconds <= 0)
+            return false;
+
+        var absoluteDiff = Math.Abs(fileDurationSeconds - candidateDurationSeconds);
+        var relativeDiff = absoluteDiff / Math.Max(fileDurationSeconds, candidateDurationSeconds);
+        return absoluteDiff <= 5 || relativeDiff <= 0.15;
+    }
+
+    private static double ComputeTextEvidence(
+        FieldMatchScores score,
+        bool creatorPresentOnBothSides,
+        bool yearPresentOnBothSides)
+    {
+        const double titleWeight = 0.60;
+        const double creatorWeight = 0.25;
+        const double yearWeight = 0.15;
+
+        var weightedScore = score.TitleScore * titleWeight;
+        var totalWeight = titleWeight;
+
+        if (creatorPresentOnBothSides)
+        {
+            weightedScore += score.AuthorScore * creatorWeight;
+            totalWeight += creatorWeight;
+        }
+
+        if (yearPresentOnBothSides)
+        {
+            weightedScore += score.YearScore * yearWeight;
+            totalWeight += yearWeight;
+        }
+
+        return totalWeight <= 0
+            ? 0.0
+            : Math.Round(weightedScore / totalWeight, 4);
+    }
+
+    private static RetailDecision EvaluateRetailDecision(
+        IReadOnlyDictionary<string, string> fileHints,
+        string? candidateTitle,
+        string? candidateCreator,
+        string? candidateYear,
+        FieldMatchScores retailScore,
+        double finalScore,
+        double retailAcceptThreshold,
+        double retailAmbiguousThreshold,
+        string matchContext,
+        string? fileCreatorOverride = null,
+        IReadOnlyList<string>? autoAcceptCapReasons = null)
+    {
+        const double weakCreatorThreshold = 0.55;
+        const double weakTextThreshold = 0.60;
+        const double weakTitleThreshold = 0.50;
+
+        _ = candidateTitle;
+
+        var fileCreator = fileCreatorOverride ?? GetPrimaryCreatorHint(fileHints);
+        var fileYear = fileHints.GetValueOrDefault(MetadataFieldConstants.Year)
+            ?? fileHints.GetValueOrDefault("release_year");
+
+        var creatorPresentOnBothSides = !string.IsNullOrWhiteSpace(fileCreator)
+            && !string.IsNullOrWhiteSpace(candidateCreator);
+        var yearPresentOnBothSides = !string.IsNullOrWhiteSpace(fileYear)
+            && !string.IsNullOrWhiteSpace(candidateYear);
+        var creatorContradiction = creatorPresentOnBothSides
+            && retailScore.AuthorScore < weakCreatorThreshold;
+        var textEvidence = ComputeTextEvidence(
+            retailScore,
+            creatorPresentOnBothSides,
+            yearPresentOnBothSides);
+        var weakTextEvidence = retailScore.TitleScore < weakTitleThreshold
+            || textEvidence < weakTextThreshold;
+
+        var scoreWithoutCover = Math.Max(0.0, finalScore - retailScore.CoverArtScore);
+        var coverWouldRescueWeakText = retailScore.CoverArtScore > 0.0
+            && weakTextEvidence
+            && finalScore >= retailAmbiguousThreshold
+            && scoreWithoutCover < retailAmbiguousThreshold;
+
+        var rejectionReasons = new List<string>();
+
+        string outcome;
+        string thresholdPath;
+        if (finalScore >= retailAcceptThreshold)
+        {
+            outcome = "AutoAccepted";
+            thresholdPath = "accept_threshold";
+        }
+        else if (finalScore >= retailAmbiguousThreshold)
+        {
+            outcome = "Ambiguous";
+            thresholdPath = "ambiguous_threshold";
+        }
+        else
+        {
+            outcome = "Rejected";
+            thresholdPath = "below_ambiguous_threshold";
+        }
+
+        var autoAcceptBlocked = false;
+
+        if (creatorContradiction)
+        {
+            rejectionReasons.Add("creator_similarity_weak");
+            if (outcome == "AutoAccepted")
+            {
+                outcome = "Ambiguous";
+                thresholdPath = "accept_capped_to_review";
+                autoAcceptBlocked = true;
+            }
+        }
+
+        if (autoAcceptCapReasons is { Count: > 0 })
+        {
+            foreach (var reason in autoAcceptCapReasons.Where(r => !string.IsNullOrWhiteSpace(r)))
+            {
+                if (!rejectionReasons.Contains(reason, StringComparer.Ordinal))
+                    rejectionReasons.Add(reason);
+            }
+
+            if (outcome == "AutoAccepted")
+            {
+                outcome = "Ambiguous";
+                thresholdPath = "accept_capped_to_review";
+                autoAcceptBlocked = true;
+            }
+        }
+
+        if (coverWouldRescueWeakText)
+        {
+            if (!rejectionReasons.Contains("cover_cannot_rescue_weak_text", StringComparer.Ordinal))
+                rejectionReasons.Add("cover_cannot_rescue_weak_text");
+
+            outcome = "Rejected";
+            thresholdPath = "cover_rescue_rejected";
+            autoAcceptBlocked = true;
+        }
+
+        return new RetailDecision(
+            Outcome: outcome,
+            FinalScore: Math.Round(finalScore, 4),
+            ThresholdPath: thresholdPath,
+            RejectionReasons: rejectionReasons,
+            TextEvidence: textEvidence,
+            CreatorPresentOnBothSides: creatorPresentOnBothSides,
+            CreatorContradiction: creatorContradiction,
+            AutoAcceptBlocked: autoAcceptBlocked,
+            MatchContext: matchContext);
+    }
+
+    private static string BuildScoreBreakdownJson(
+        FieldMatchScores retailScore,
+        RetailDecision decision,
+        string matchContext,
+        IReadOnlyDictionary<string, object?>? extraEvidence = null,
+        double structuralBonus = 0.0)
+    {
+        var breakdown = new Dictionary<string, object?>
+        {
+            ["title"] = retailScore.TitleScore,
+            ["author"] = retailScore.AuthorScore,
+            ["year"] = retailScore.YearScore,
+            ["format"] = retailScore.FormatScore,
+            ["cross_field"] = retailScore.CrossFieldBoost,
+            ["cover"] = retailScore.CoverArtScore,
+            ["final_score"] = decision.FinalScore,
+            ["text_evidence"] = decision.TextEvidence,
+            ["threshold_path"] = decision.ThresholdPath,
+            ["rejection_reasons"] = decision.RejectionReasons,
+            ["match_context"] = matchContext,
+            ["creator_present_on_both_sides"] = decision.CreatorPresentOnBothSides,
+            ["creator_contradiction"] = decision.CreatorContradiction,
+            ["auto_accept_blocked"] = decision.AutoAcceptBlocked,
+        };
+
+        if (structuralBonus != 0.0)
+            breakdown["structural_bonus"] = structuralBonus;
+
+        if (extraEvidence is not null)
+        {
+            foreach (var pair in extraEvidence)
+                breakdown[pair.Key] = pair.Value;
+        }
+
+        return JsonSerializer.Serialize(breakdown);
+    }
+
+    private static int GetOutcomeRank(string outcome) => outcome switch
+    {
+        "AutoAccepted" => 2,
+        "Ambiguous" => 1,
+        _ => 0,
+    };
+
+    private static bool IsBetterCandidate(RetailMatchCandidate candidate, RetailMatchCandidate? currentBest)
+    {
+        if (currentBest is null)
+            return true;
+
+        var candidateRank = GetOutcomeRank(candidate.Outcome);
+        var bestRank = GetOutcomeRank(currentBest.Outcome);
+        if (candidateRank != bestRank)
+            return candidateRank > bestRank;
+
+        if (Math.Abs(candidate.ScoreTotal - currentBest.ScoreTotal) > 0.0001)
+            return candidate.ScoreTotal > currentBest.ScoreTotal;
+
+        return candidate.Rank < currentBest.Rank;
+    }
+
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
@@ -1694,14 +2023,16 @@ public sealed class RetailMatchWorker
                 var retailScore = _retailScoring.ScoreCandidate(
                     hints, candidateTitle, candidateAuthor, candidateYear, mediaType);
 
-                // Determine candidate outcome
-                string outcome;
-                if (retailScore.CompositeScore >= retailAcceptThreshold)
-                    outcome = "AutoAccepted";
-                else if (retailScore.CompositeScore >= retailAmbiguousThreshold)
-                    outcome = "Ambiguous";
-                else
-                    outcome = "Rejected";
+                var decision = EvaluateRetailDecision(
+                    hints,
+                    candidateTitle,
+                    candidateAuthor,
+                    candidateYear,
+                    retailScore,
+                    retailScore.CompositeScore,
+                    retailAcceptThreshold,
+                    retailAmbiguousThreshold,
+                    "single_item");
 
                 // Extract bridge IDs from claims
                 var bridgeIdsJson = System.Text.Json.JsonSerializer.Serialize(
@@ -1721,14 +2052,11 @@ public sealed class RetailMatchWorker
                     Title = candidateTitle ?? "(unknown)",
                     Creator = candidateAuthor,
                     Year = candidateYear,
-                    ScoreTotal = retailScore.CompositeScore,
-                    ScoreBreakdownJson = System.Text.Json.JsonSerializer.Serialize(new
-                    {
-                        title = retailScore.TitleScore,
-                        author = retailScore.AuthorScore,
-                        year = retailScore.YearScore,
-                        format = retailScore.FormatScore,
-                    }),
+                    ScoreTotal = decision.FinalScore,
+                    ScoreBreakdownJson = BuildScoreBreakdownJson(
+                        retailScore,
+                        decision,
+                        "single_item"),
                     BridgeIdsJson = bridgeIdsJson,
                     Description = claims
                         .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Description,
@@ -1736,20 +2064,20 @@ public sealed class RetailMatchWorker
                     ImageUrl = claims
                         .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.CoverUrl,
                             StringComparison.OrdinalIgnoreCase))?.Value,
-                    Outcome = outcome,
+                    Outcome = decision.Outcome,
                 };
 
                 allCandidates.Add(candidate);
 
                 // Track best candidate
-                if (retailScore.CompositeScore > bestScore)
+                if (IsBetterCandidate(candidate, bestCandidate))
                 {
-                    bestScore = retailScore.CompositeScore;
+                    bestScore = candidate.ScoreTotal;
                     bestCandidate = candidate;
                 }
 
                 // Persist claims if candidate is accepted or ambiguous
-                if (outcome != "Rejected")
+                if (decision.Outcome != "Rejected")
                 {
                     // Phase 3c: pass lineage so parent-scope claims mirror
                     // onto the parent Work (book series → series Work,
@@ -1810,7 +2138,7 @@ public sealed class RetailMatchWorker
                 }
 
                 // Waterfall: stop after first accepted candidate
-                if (strategy == ProviderStrategy.Waterfall && outcome == "AutoAccepted")
+                if (strategy == ProviderStrategy.Waterfall && decision.Outcome == "AutoAccepted")
                     break;
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -1825,8 +2153,10 @@ public sealed class RetailMatchWorker
         if (allCandidates.Count > 0)
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
 
+        bestScore = bestCandidate?.ScoreTotal ?? 0.0;
+
         // Determine final job state based on best candidate
-        if (bestCandidate is not null && bestScore >= retailAcceptThreshold)
+        if (bestCandidate is not null && bestCandidate.Outcome == "AutoAccepted")
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, bestCandidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched, ct: ct);
@@ -1851,7 +2181,7 @@ public sealed class RetailMatchWorker
                     job.EntityId);
             }
         }
-        else if (bestCandidate is not null && bestScore >= retailAmbiguousThreshold)
+        else if (bestCandidate is not null && bestCandidate.Outcome == "Ambiguous")
         {
             await _jobRepo.SetSelectedCandidateAsync(job.Id, bestCandidate.Id, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatchedNeedsReview, ct: ct);
@@ -1894,4 +2224,15 @@ public sealed class RetailMatchWorker
                 job.EntityId, allCandidates.Count, bestScore);
         }
     }
+
+    private sealed record RetailDecision(
+        string Outcome,
+        double FinalScore,
+        string ThresholdPath,
+        IReadOnlyList<string> RejectionReasons,
+        double TextEvidence,
+        bool CreatorPresentOnBothSides,
+        bool CreatorContradiction,
+        bool AutoAcceptBlocked,
+        string MatchContext);
 }

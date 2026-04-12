@@ -86,6 +86,24 @@ public sealed record RegistryItem
 
     [JsonPropertyName("hero_url")]
     public string? HeroUrl { get; init; }
+
+    [JsonPropertyName("pipeline_step")]
+    public string PipelineStep { get; init; } = "Retail";
+
+    [JsonPropertyName("vault_visibility")]
+    public string VaultVisibility { get; init; } = "hidden";
+
+    [JsonPropertyName("is_ready_for_vault")]
+    public bool IsReadyForVault { get; init; }
+
+    [JsonPropertyName("artwork_state")]
+    public string ArtworkState { get; init; } = "pending";
+
+    [JsonPropertyName("artwork_source")]
+    public string? ArtworkSource { get; init; }
+
+    [JsonPropertyName("artwork_settled_at")]
+    public DateTimeOffset? ArtworkSettledAt { get; init; }
 }
 
 /// <summary>Paginated result from registry listing.</summary>
@@ -146,6 +164,24 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("canonical_values")] public IReadOnlyList<RegistryCanonicalValue> CanonicalValues { get; init; } = [];
     [JsonPropertyName("claim_history")]    public IReadOnlyList<RegistryClaimRecord> ClaimHistory { get; init; } = [];
     [JsonPropertyName("bridge_ids")]       public Dictionary<string, string> BridgeIds { get; init; } = [];
+
+    [JsonPropertyName("pipeline_step")]
+    public string PipelineStep { get; init; } = "Retail";
+
+    [JsonPropertyName("vault_visibility")]
+    public string VaultVisibility { get; init; } = "hidden";
+
+    [JsonPropertyName("is_ready_for_vault")]
+    public bool IsReadyForVault { get; init; }
+
+    [JsonPropertyName("artwork_state")]
+    public string ArtworkState { get; init; } = "pending";
+
+    [JsonPropertyName("artwork_source")]
+    public string? ArtworkSource { get; init; }
+
+    [JsonPropertyName("artwork_settled_at")]
+    public DateTimeOffset? ArtworkSettledAt { get; init; }
 }
 
 /// <summary>A canonical value with conflict and provider info.</summary>

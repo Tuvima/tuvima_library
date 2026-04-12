@@ -296,8 +296,10 @@ public sealed class PipelineBugRegressionTests
         var repoSource = File.ReadAllText(
             Path.Combine(root, "src", "MediaEngine.Storage", "RegistryRepository.cs"));
 
-        // The visibility filter must allow review items without the asset gate.
-        Assert.Contains("OR rd.review_id IS NOT NULL", repoSource);
+        // The projection must classify pending review items directly as review_only
+        // without requiring any non-staging asset alias in the filter.
+        Assert.Contains("OR (rd.review_id IS NOT NULL AND rd.review_trigger != 'WritebackFailed')", repoSource);
+        Assert.Contains("THEN 'review_only'", repoSource);
 
         // The old buggy pattern must NOT be present.
         Assert.DoesNotContain(

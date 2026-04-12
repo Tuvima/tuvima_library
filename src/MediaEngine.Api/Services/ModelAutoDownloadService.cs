@@ -1,3 +1,4 @@
+using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
@@ -36,19 +37,23 @@ public sealed class ModelAutoDownloadService : BackgroundService
         new(StringComparer.OrdinalIgnoreCase) { "ja", "ko", "zh", "zh-TW" };
 
     private readonly IModelDownloadManager _downloadManager;
+    private readonly AiSettings _aiSettings;
     private readonly ILogger<ModelAutoDownloadService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
 
     public ModelAutoDownloadService(
         IModelDownloadManager              downloadManager,
+        AiSettings                        aiSettings,
         ILogger<ModelAutoDownloadService>  logger,
         IServiceScopeFactory               scopeFactory)
     {
         ArgumentNullException.ThrowIfNull(downloadManager);
+        ArgumentNullException.ThrowIfNull(aiSettings);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(scopeFactory);
 
         _downloadManager = downloadManager;
+        _aiSettings      = aiSettings;
         _logger          = logger;
         _scopeFactory    = scopeFactory;
     }
@@ -83,6 +88,13 @@ public sealed class ModelAutoDownloadService : BackgroundService
 
     private async Task RunAutoDownloadAsync(CancellationToken ct)
     {
+        if (_aiSettings.DevSkipDownload)
+        {
+            _logger.LogInformation(
+                "ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads");
+            return;
+        }
+
         if (_downloadManager.AreAllModelsReady())
         {
             _logger.LogInformation("ModelAutoDownloadService: all AI models are present — nothing to download");

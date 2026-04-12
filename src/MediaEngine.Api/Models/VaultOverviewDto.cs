@@ -50,4 +50,19 @@ public sealed class VaultOverviewDto
 
     /// <summary>Item counts by media type.</summary>
     public Dictionary<string, int> MediaTypeCounts { get; init; } = new();
+
+    /// <summary>Items withheld from the main Vault by the quality gate.</summary>
+    public int HiddenByQualityGate { get; init; }
+
+    /// <summary>Items still waiting for artwork settlement.</summary>
+    public int ArtPending { get; init; }
+
+    /// <summary>Items blocked in retail review.</summary>
+    public int RetailNeedsReview { get; init; }
+
+    /// <summary>Items that finished Stage 1 but have no Wikidata QID.</summary>
+    public int QidNoMatch { get; init; }
+
+    /// <summary>Items visible in the Vault with settled artwork present.</summary>
+    public int CompletedWithArt { get; init; }
 }

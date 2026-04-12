@@ -30,23 +30,18 @@ public static class VaultEndpoints
             // 1. Four-state counts (Identified, InReview, Provisional, Rejected) + trigger breakdown
             var fourState = await registryRepo.GetFourStateCountsAsync(ct: ct);
 
-            // 2. Media type counts
+            // 2. Shared projection summary
+            var projection = await registryRepo.GetProjectionSummaryAsync(ct);
+
+            // 3. Media type counts
             var mediaTypeCounts = await registryRepo.GetMediaTypeCountsAsync(ct);
 
-            // 3. Review pending count
+            // 4. Review pending count
             var reviewTotal = await reviewRepo.GetPendingCountAsync(ct);
 
-            // 4. Remaining aggregates via direct SQL for fields not exposed
+            // 5. Remaining aggregates via direct SQL for fields not exposed
             //    by existing repository interfaces.
             using var conn = db.CreateConnection();
-
-            // Total items = distinct owned Works (with at least one media asset)
-            var totalItems = await conn.ExecuteScalarAsync<int>("""
-                SELECT COUNT(DISTINCT w.id)
-                FROM works w
-                INNER JOIN editions e     ON e.work_id = w.id
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                """);
 
             // Recently added counts (24h, 7d, 30d) — based on media_asset created_at
             var now = DateTimeOffset.UtcNow;
@@ -92,51 +87,9 @@ public static class VaultEndpoints
             var pipelineTotal = completedCount + failedCount;
             var successRate = pipelineTotal > 0 ? (double)completedCount / pipelineTotal : 1.0;
 
-            // QID coverage: works with valid QID vs without
-            var withQid = fourState.Identified;
-            var withoutQid = totalItems - withQid;
-            if (withoutQid < 0) withoutQid = 0;
-
-            // Universe assignment: works with collection_id vs without
-            var universeAssigned = await conn.ExecuteScalarAsync<int>("""
-                SELECT COUNT(*)
-                FROM works w
-                INNER JOIN editions e     ON e.work_id = w.id
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE w.collection_id IS NOT NULL
-                """);
-            var universeUnassigned = totalItems - universeAssigned;
-            if (universeUnassigned < 0) universeUnassigned = 0;
-
-            // Stale items: works whose latest enrichment is older than 30 days
-            var staleItems = await conn.ExecuteScalarAsync<int>("""
-                SELECT COUNT(DISTINCT w.id)
-                FROM works w
-                INNER JOIN editions e     ON e.work_id = w.id
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                INNER JOIN canonical_values cv ON cv.entity_id = ma.id
-                WHERE cv.key = 'wikidata_qid'
-                  AND cv.value IS NOT NULL AND cv.value != ''
-                  AND cv.value NOT LIKE 'NF%'
-                  AND cv.last_scored_at < @staleThreshold
-                """, new { staleThreshold = epoch30d });
-
-            // Stage 3 enrichment — works that have universe enrichment data
-            // (presence of franchise_qid or fictional_universe_qid canonical value)
-            var enrichedStage3 = await conn.ExecuteScalarAsync<int>("""
-                SELECT COUNT(DISTINCT e2.work_id)
-                FROM editions e2
-                INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
-                INNER JOIN canonical_values cv2 ON cv2.entity_id = ma2.id
-                WHERE cv2.key IN ('franchise_qid', 'fictional_universe_qid')
-                  AND cv2.value IS NOT NULL AND cv2.value != ''
-                """);
-            var notEnrichedStage3 = totalItems - enrichedStage3;
-            if (notEnrichedStage3 < 0) notEnrichedStage3 = 0;
-
             var dto = new VaultOverviewDto
             {
-                TotalItems          = totalItems,
+                TotalItems          = projection.TotalItems,
                 Added24h            = added24h,
                 Added7d             = added7d,
                 Added30d            = added30d,
@@ -144,14 +97,19 @@ public static class VaultEndpoints
                 PipelineSuccessRate = Math.Round(successRate, 4),
                 ReviewCategories    = fourState.TriggerCounts.ToDictionary(kv => kv.Key, kv => kv.Value),
                 ReviewTotal         = reviewTotal,
-                WithQid             = withQid,
-                WithoutQid          = withoutQid,
-                EnrichedStage3      = enrichedStage3,
-                NotEnrichedStage3   = notEnrichedStage3,
-                UniverseAssigned    = universeAssigned,
-                UniverseUnassigned  = universeUnassigned,
-                StaleItems          = staleItems,
+                WithQid             = projection.WithQid,
+                WithoutQid          = projection.WithoutQid,
+                EnrichedStage3      = projection.EnrichedStage3,
+                NotEnrichedStage3   = projection.NotEnrichedStage3,
+                UniverseAssigned    = projection.UniverseAssigned,
+                UniverseUnassigned  = projection.UniverseUnassigned,
+                StaleItems          = projection.StaleItems,
                 MediaTypeCounts     = mediaTypeCounts,
+                HiddenByQualityGate = projection.HiddenByQualityGate,
+                ArtPending          = projection.ArtPending,
+                RetailNeedsReview   = projection.RetailNeedsReview,
+                QidNoMatch          = projection.QidNoMatch,
+                CompletedWithArt    = projection.CompletedWithArt,
             };
 
             return Results.Ok(dto);

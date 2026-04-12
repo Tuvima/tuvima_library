@@ -14,7 +14,7 @@ tags:
 
 SQLite database located at `.data/database/library.db` (path set in `config/core.json`).
 
-Latest migration: **M-068**. All migrations are idempotent (`IF NOT EXISTS` guards). Schema changes are applied automatically on Engine startup.
+Latest migration: **M-085**. All migrations are idempotent (`IF NOT EXISTS` guards). Schema changes are applied automatically on Engine startup.
 
 **Conventions:**
 - UUIDs stored as `TEXT`
@@ -65,6 +65,8 @@ A single title, independent of version or format.
 | `last_enriched_at` | TEXT | Timestamp |
 
 **Indices:** `wikidata_qid`, `collection_id`, `media_type`, `status`
+
+Note: newer Vault surfaces rely on a shared projection layered over work state, review queue state, identity job state, and canonical artwork flags. The `status` column remains part of the stored model, but it is no longer the only source of truth for Vault visibility.
 
 ### editions
 
@@ -158,6 +160,8 @@ The winning single-valued claim for each field after Priority Cascade resolution
 | `resolved_at` | TEXT | Timestamp of last resolution |
 
 **Unique index:** `entity_id + field_key`
+
+Artwork truth is also persisted here through canonical keys such as `cover_state`, `cover_source`, `hero_state`, and `artwork_settled_at`.
 
 ### canonical_value_arrays
 
