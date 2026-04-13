@@ -1155,24 +1155,52 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private IStage2Request? BuildStage2Request(WikidataResolveRequest r)
     {
         var language = TryGetMetadataLanguage();
+        var realBridgeIds = r.BridgeIds?
+            .Where(kvp => !kvp.Key.StartsWith('_') && !string.IsNullOrWhiteSpace(kvp.Value))
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal);
 
         // ── Music branch — album-aware grouping ─────────────────────────────
-        if (r.MediaType == MediaType.Music && !string.IsNullOrWhiteSpace(r.AlbumTitle))
+        if (r.MediaType == MediaType.Music)
         {
-            return Stage2Request.Music(
-                correlationKey: r.CorrelationKey,
-                albumTitle:     r.AlbumTitle!,
-                artist:         r.Artist,
-                language:       language);
+            var musicCollectionBridgeIds = realBridgeIds?
+                .Where(kvp => string.Equals(
+                    kvp.Key, BridgeIdKeys.AppleMusicCollectionId, StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal);
+
+            var musicCollectionProperties = musicCollectionBridgeIds is { Count: > 0 }
+                && r.WikidataProperties is { Count: > 0 }
+                    ? r.WikidataProperties
+                        .Where(kvp => musicCollectionBridgeIds.ContainsKey(kvp.Key))
+                        .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal)
+                    : null;
+
+            if (musicCollectionBridgeIds is { Count: > 0 } && musicCollectionProperties is { Count: > 0 })
+            {
+                EditionPivotRule? pivot = r.IsEditionAware
+                    ? BuildEditionPivotRule(r.MediaType)
+                    : null;
+
+                return Stage2Request.Bridge(
+                    correlationKey:     r.CorrelationKey,
+                    bridgeIds:          musicCollectionBridgeIds,
+                    wikidataProperties: musicCollectionProperties,
+                    editionPivot:       pivot,
+                    language:           language);
+            }
+
+            if (!string.IsNullOrWhiteSpace(r.AlbumTitle))
+            {
+                return Stage2Request.Music(
+                    correlationKey: r.CorrelationKey,
+                    albumTitle:     r.AlbumTitle!,
+                    artist:         r.Artist,
+                    language:       language);
+            }
         }
 
         // ── Bridge branch — at least one real (non-sentinel) external ID ────
         // Sentinel keys (those starting with '_') are stripped here so the
         // library's strict bridge resolver doesn't trip on them.
-        var realBridgeIds = r.BridgeIds?
-            .Where(kvp => !kvp.Key.StartsWith('_') && !string.IsNullOrWhiteSpace(kvp.Value))
-            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value, StringComparer.Ordinal);
-
         if (realBridgeIds is { Count: > 0 } && r.WikidataProperties is { Count: > 0 })
         {
             EditionPivotRule? pivot = r.IsEditionAware
@@ -1281,6 +1309,107 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         if (_configLoader is null) return null;
         try { return _configLoader.LoadCore().Language?.Metadata; }
         catch { return null; }
+    }
+
+    /// <summary>
+    /// Builds a parent-series text fallback for comic issues that failed both
+    /// bridge-ID and issue-title resolution. This lets Stage 2 land on the
+    /// canonical series/work QID when the issue entity itself is missing on
+    /// Wikidata, while preserving the issue-level retail metadata from Stage 1.
+    /// </summary>
+    internal TextStage2Request? BuildComicsParentFallbackRequest(
+        WikidataResolveRequest input,
+        bool disambiguate = false)
+    {
+        if (input.MediaType != MediaType.Comics
+            || string.IsNullOrWhiteSpace(input.SeriesTitle))
+            return null;
+
+        var cirrusTypes = GetCirrusTypesForMediaType(MediaType.Comics);
+        if (cirrusTypes.Count == 0)
+            return null;
+
+        var queryTitle = input.SeriesTitle!;
+        if (disambiguate)
+            queryTitle = BuildComicSeriesRollupQuery(queryTitle);
+
+        return Stage2Request.Text(
+            correlationKey:    input.CorrelationKey,
+            title:             queryTitle,
+            cirrusSearchTypes: cirrusTypes,
+            author:            null,
+            queryCleaners:     QueryCleaners.All(),
+            language:          TryGetMetadataLanguage(),
+            acceptThreshold:   ReviewThreshold / 100.0);
+    }
+
+    internal TextStage2Request? BuildMusicWorkFallbackRequest(WikidataResolveRequest input)
+    {
+        if (input.MediaType != MediaType.Music
+            || string.IsNullOrWhiteSpace(input.Title))
+            return null;
+
+        var cirrusTypes = GetMusicWorkFallbackCirrusTypes();
+        if (cirrusTypes.Count == 0)
+            return null;
+
+        return Stage2Request.Text(
+            correlationKey:    input.CorrelationKey,
+            title:             input.Title!,
+            cirrusSearchTypes: cirrusTypes,
+            author:            input.Artist ?? input.Author,
+            queryCleaners:     QueryCleaners.All(),
+            language:          TryGetMetadataLanguage(),
+            acceptThreshold:   ReviewThreshold / 100.0);
+    }
+
+    private IReadOnlyList<string> GetMusicWorkFallbackCirrusTypes()
+    {
+        if (!_config.InstanceOfClasses.TryGetValue("Music", out var musicClasses)
+            || musicClasses.Count == 0)
+        {
+            return [];
+        }
+
+        var excludedAlbumClasses = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (_config.InstanceOfClasses.TryGetValue("MusicAlbum", out var albumClasses))
+        {
+            foreach (var albumClass in albumClasses)
+                excludedAlbumClasses.Add(albumClass);
+        }
+
+        _editionPivotCache ??= _config.GetEditionPivotConfiguration();
+        var pivotRule = _editionPivotCache.GetRuleFor(MediaType.Music);
+        if (pivotRule is not null)
+        {
+            foreach (var workClass in pivotRule.WorkClasses)
+                excludedAlbumClasses.Add(workClass);
+
+            foreach (var editionClass in pivotRule.EditionClasses)
+                excludedAlbumClasses.Add(editionClass);
+        }
+
+        return musicClasses
+            .Where(c => !excludedAlbumClasses.Contains(c))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    internal static string BuildComicSeriesRollupQuery(string seriesTitle)
+    {
+        if (string.IsNullOrWhiteSpace(seriesTitle))
+            return seriesTitle;
+
+        var normalized = seriesTitle.ToLowerInvariant();
+        if (normalized.Contains("comic", StringComparison.Ordinal)
+            || normalized.Contains("series", StringComparison.Ordinal)
+            || normalized.Contains("manga", StringComparison.Ordinal)
+            || normalized.Contains("graphic novel", StringComparison.Ordinal))
+        {
+            return seriesTitle;
+        }
+
+        return $"{seriesTitle} comic book series";
     }
 
     /// <summary>
@@ -1429,8 +1558,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             return results;
         }
 
-        var mediaTypeByKey = requests.ToDictionary(r => r.CorrelationKey, r => r.MediaType, StringComparer.Ordinal);
-        await PopulateResultsAsync(libResults, results, mediaTypeByKey, ct).ConfigureAwait(false);
+        await PopulateResultsAsync(libResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
 
         // ── Pass 2: text fallback for bridge requests that came back empty ──
         // The legacy ResolveBridgeAsync issued an inline text reconciliation when
@@ -1475,7 +1603,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             {
                 var fallbackResults = await _reconciler.Stage2
                     .ResolveBatchAsync(textFallbackRequests, ct).ConfigureAwait(false);
-                await PopulateResultsAsync(fallbackResults, results, null, ct).ConfigureAwait(false);
+                await PopulateResultsAsync(fallbackResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
@@ -1483,6 +1611,133 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 _logger.LogWarning(ex,
                     "{Provider}: Stage2 text-fallback batch failed", Name);
             }
+        }
+
+        // ── Pass 3: comic parent roll-up for unresolved issue-level requests ──
+        // Some ComicVine issues do not have a corresponding issue entity on
+        // Wikidata even though the parent series/work does. Retry those items
+        // once against the series title alone so Batman-like imports can land
+        // on the parent comic series QID instead of staying QidNoMatch.
+        var musicWorkFallbackRequests = new List<IStage2Request>();
+        foreach (var input in requests)
+        {
+            if (results[input.CorrelationKey].Found)
+                continue;
+
+            var fallback = BuildMusicWorkFallbackRequest(input);
+            if (fallback is not null)
+                musicWorkFallbackRequests.Add(fallback);
+        }
+
+        if (musicWorkFallbackRequests.Count > 0)
+        {
+            _logger.LogInformation(
+                "{Provider}: Stage2 â€” music work-fallback pass for {Count} unresolved music request(s)",
+                Name, musicWorkFallbackRequests.Count);
+
+            try
+            {
+                var fallbackResults = await _reconciler.Stage2
+                    .ResolveBatchAsync(musicWorkFallbackRequests, ct).ConfigureAwait(false);
+                await PopulateResultsAsync(fallbackResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: Stage2 music work-fallback batch failed", Name);
+            }
+        }
+
+        var comicParentFallbackRequests = new List<IStage2Request>();
+        foreach (var input in requests)
+        {
+            if (results[input.CorrelationKey].Found)
+                continue;
+
+            var fallback = BuildComicsParentFallbackRequest(input);
+            if (fallback is not null)
+                comicParentFallbackRequests.Add(fallback);
+        }
+
+        if (comicParentFallbackRequests.Count > 0)
+        {
+            _logger.LogInformation(
+                "{Provider}: Stage2 — comics parent-rollup pass for {Count} unresolved issue request(s)",
+                Name, comicParentFallbackRequests.Count);
+
+            try
+            {
+                var parentResults = await _reconciler.Stage2
+                    .ResolveBatchAsync(comicParentFallbackRequests, ct).ConfigureAwait(false);
+                await PopulateResultsAsync(parentResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: Stage2 comics parent-rollup batch failed", Name);
+            }
+        }
+
+        // ── Pass 4: disambiguated comics parent roll-up for stubborn one-word series ──
+        // Very short / highly ambiguous series titles like "Batman" or "Saga"
+        // often need a comics-specific keyword to surface the series entity at
+        // the top of reconciliation results. Retry those items once with a
+        // synthesized "comic book" suffix.
+        var disambiguatedComicParentRequests = new List<IStage2Request>();
+        foreach (var input in requests)
+        {
+            if (results[input.CorrelationKey].Found)
+                continue;
+
+            var fallback = BuildComicsParentFallbackRequest(input, disambiguate: true);
+            if (fallback is not null)
+                disambiguatedComicParentRequests.Add(fallback);
+        }
+
+        if (disambiguatedComicParentRequests.Count > 0)
+        {
+            _logger.LogInformation(
+                "{Provider}: Stage2 — disambiguated comics parent-rollup pass for {Count} unresolved issue request(s)",
+                Name, disambiguatedComicParentRequests.Count);
+
+            try
+            {
+                var parentResults = await _reconciler.Stage2
+                    .ResolveBatchAsync(disambiguatedComicParentRequests, ct).ConfigureAwait(false);
+                await PopulateResultsAsync(parentResults, results, inputByCorrelationKey, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "{Provider}: Stage2 disambiguated comics parent-rollup batch failed", Name);
+            }
+        }
+
+        foreach (var input in requests)
+        {
+            if (input.MediaType != MediaType.Comics || string.IsNullOrWhiteSpace(input.SeriesTitle))
+                continue;
+
+            var resolved = await ResolveComicSeriesByExactSearchAsync(input, ct).ConfigureAwait(false);
+            if (!resolved.Found)
+                continue;
+
+            var hadExisting = results.TryGetValue(input.CorrelationKey, out var existing);
+            if (hadExisting
+                && existing!.Found
+                && string.Equals(existing.Qid, resolved.Qid, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            results[input.CorrelationKey] = resolved;
+
+            _logger.LogInformation(
+                "{Provider}: Stage2 - exact comics series search resolved {Key} -> {QID}",
+                Name, input.CorrelationKey, resolved.Qid);
         }
 
         return results;
@@ -1498,7 +1753,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     private async Task PopulateResultsAsync(
         IReadOnlyDictionary<string, Stage2Result> libResults,
         Dictionary<string, WikidataResolveResult> results,
-        IReadOnlyDictionary<string, MediaType>? mediaTypeByKey,
+        IReadOnlyDictionary<string, WikidataResolveRequest>? inputByCorrelationKey,
         CancellationToken ct)
     {
         foreach (var (correlationKey, libResult) in libResults)
@@ -1513,11 +1768,16 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 continue;
             }
 
+            var finalQid = libResult.Qid!;
+            var finalIsEdition = libResult.IsEdition;
+            var finalWorkQid = libResult.WorkQid ?? libResult.Qid!;
+            var finalEditionQid = libResult.EditionQid;
+
             var (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
-                libResult.Qid!,
-                libResult.IsEdition,
-                libResult.WorkQid,
-                libResult.EditionQid,
+                finalQid,
+                finalIsEdition,
+                finalWorkQid,
+                finalEditionQid,
                 ct).ConfigureAwait(false);
 
             // ── P31 media-type validation ─────────────────────────────────────
@@ -1525,27 +1785,59 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // verify the entity's P31 is valid for the requested media type.
             // Without this check, an ISBN shared between a novel and its film
             // adaptation can resolve to the film entity instead of the book.
-            if (mediaTypeByKey is not null
-                && mediaTypeByKey.TryGetValue(correlationKey, out var requestedMediaType)
-                && requestedMediaType != MediaType.Unknown)
+            if (inputByCorrelationKey is not null
+                && inputByCorrelationKey.TryGetValue(correlationKey, out var input)
+                && input.MediaType != MediaType.Unknown)
             {
-                var effectiveQid = libResult.WorkQid ?? libResult.Qid!;
-                if (!ValidateP31ForMediaType(claims, effectiveQid, requestedMediaType))
+                if (!ValidateP31ForMediaType(claims, finalWorkQid, input.MediaType))
                 {
                     _logger.LogInformation(
                         "{Provider}: Stage2 — rejected {Key} → {QID}: P31 does not match {MediaType}",
-                        Name, correlationKey, effectiveQid, requestedMediaType);
+                        Name, correlationKey, finalWorkQid, input.MediaType);
                     continue; // leave as NotFound — text fallback will retry
+                }
+            }
+
+            if (inputByCorrelationKey is not null
+                && inputByCorrelationKey.TryGetValue(correlationKey, out var comicInput))
+            {
+                var preferredComicSeriesQid = GetPreferredComicSeriesQid(comicInput, finalQid, claims);
+                if (!string.IsNullOrWhiteSpace(preferredComicSeriesQid))
+                {
+                    var childQid = finalQid;
+                    finalQid = preferredComicSeriesQid;
+                    finalIsEdition = false;
+                    finalWorkQid = preferredComicSeriesQid;
+                    finalEditionQid = null;
+
+                    (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
+                        finalQid,
+                        finalIsEdition,
+                        finalWorkQid,
+                        finalEditionQid,
+                        ct).ConfigureAwait(false);
+
+                    if (!ValidateP31ForMediaType(claims, finalWorkQid, comicInput.MediaType))
+                    {
+                        _logger.LogInformation(
+                            "{Provider}: Stage2 â€” rejected normalized comics parent {Key} â†’ {QID}: P31 does not match {MediaType}",
+                            Name, correlationKey, finalWorkQid, comicInput.MediaType);
+                        continue;
+                    }
+
+                    _logger.LogInformation(
+                        "{Provider}: Stage2 â€” normalized comics result {Key} from {ChildQid} to parent series {ParentQid}",
+                        Name, correlationKey, childQid, finalQid);
                 }
             }
 
             results[correlationKey] = new WikidataResolveResult
             {
                 Found               = true,
-                Qid                 = libResult.Qid,
-                IsEdition           = libResult.IsEdition,
-                WorkQid             = libResult.WorkQid ?? libResult.Qid,
-                EditionQid          = libResult.EditionQid,
+                Qid                 = finalQid,
+                IsEdition           = finalIsEdition,
+                WorkQid             = finalWorkQid,
+                EditionQid          = finalEditionQid,
                 Claims              = claims,
                 CollectedBridgeIds  = collectedBridgeIds,
                 MatchedBy           = MapStage2MatchedStrategy(libResult.MatchedBy),
@@ -1555,9 +1847,145 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             _logger.LogInformation(
                 "{Provider}: Stage2 — resolved {Key} → {QID} via {Strategy} " +
                 "(isEdition={IsEdition}, claims={ClaimCount}, bridgeIds={BridgeCount})",
-                Name, correlationKey, libResult.Qid, libResult.MatchedBy,
-                libResult.IsEdition, claims.Count, collectedBridgeIds.Count);
+                Name, correlationKey, finalQid, libResult.MatchedBy,
+                finalIsEdition, claims.Count, collectedBridgeIds.Count);
         }
+    }
+
+    internal static string? GetPreferredComicSeriesQid(
+        WikidataResolveRequest request,
+        string resolvedQid,
+        IReadOnlyList<ProviderClaim> claims)
+    {
+        if (request.MediaType != MediaType.Comics
+            || string.IsNullOrWhiteSpace(request.SeriesTitle)
+            || string.IsNullOrWhiteSpace(resolvedQid)
+            || claims.Count == 0)
+        {
+            return null;
+        }
+
+        var seriesCandidates = claims
+            .Where(c => string.Equals(c.Key, "series_qid", StringComparison.OrdinalIgnoreCase)
+                        && !string.IsNullOrWhiteSpace(c.Value))
+            .Select(claim => ParseEntityReferenceClaim(claim.Value))
+            .Where(c => c is not null)
+            .Select(c => c!.Value)
+            .Where(c => !string.IsNullOrWhiteSpace(c.Qid)
+                        && !string.Equals(c.Qid, resolvedQid, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (seriesCandidates.Count == 0)
+            return null;
+
+        var normalizedSeriesTitle = NormalizeComicSeriesLookupText(request.SeriesTitle!);
+        if (!string.IsNullOrWhiteSpace(normalizedSeriesTitle))
+        {
+            var exactMatch = seriesCandidates.FirstOrDefault(candidate =>
+                string.Equals(
+                    NormalizeComicSeriesLookupText(candidate.Label),
+                    normalizedSeriesTitle,
+                    StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(exactMatch.Qid))
+                return exactMatch.Qid;
+        }
+
+        return seriesCandidates.Count == 1 ? seriesCandidates[0].Qid : null;
+    }
+
+    private static (string Qid, string Label)? ParseEntityReferenceClaim(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var parts = value.Split("::", 2, StringSplitOptions.TrimEntries);
+        if (parts.Length == 0 || string.IsNullOrWhiteSpace(parts[0]))
+            return null;
+
+        return (parts[0], parts.Length > 1 ? parts[1] : string.Empty);
+    }
+
+    private static string NormalizeComicSeriesLookupText(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        var normalized = Regex.Replace(value, @"[^\p{L}\p{N}]+", " ");
+        return normalized.Trim().ToLowerInvariant();
+    }
+
+    private async Task<WikidataResolveResult> ResolveComicSeriesByExactSearchAsync(
+        WikidataResolveRequest request,
+        CancellationToken ct)
+    {
+        if (request.MediaType != MediaType.Comics || string.IsNullOrWhiteSpace(request.SeriesTitle))
+            return WikidataResolveResult.NotFound;
+
+        var queries = new[] { request.SeriesTitle!, BuildComicSeriesRollupQuery(request.SeriesTitle!) }
+            .Where(q => !string.IsNullOrWhiteSpace(q))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var query in queries)
+        {
+            var candidates = await ReconcileAsync(query, null, ct, MediaType.Comics).ConfigureAwait(false);
+            if (candidates.Count == 0)
+                continue;
+
+            var filtered = await FilterByMediaTypeAsync(
+                candidates,
+                MediaType.Comics,
+                ct,
+                request.SeriesTitle,
+                null,
+                null).ConfigureAwait(false);
+
+            var preferred = PickExactComicSeriesCandidate(filtered, request.SeriesTitle!);
+            if (preferred is null)
+                continue;
+
+            var (claims, collectedBridgeIds) = await BuildClaimsForResolvedQidAsync(
+                preferred.Id,
+                isEdition: false,
+                workQid: preferred.Id,
+                editionQid: null,
+                ct).ConfigureAwait(false);
+
+            if (!ValidateP31ForMediaType(claims, preferred.Id, MediaType.Comics))
+                continue;
+
+            return new WikidataResolveResult
+            {
+                Found = true,
+                Qid = preferred.Id,
+                IsEdition = false,
+                WorkQid = preferred.Id,
+                EditionQid = null,
+                Claims = claims,
+                CollectedBridgeIds = collectedBridgeIds,
+                MatchedBy = ResolveStrategy.TextReconciliation,
+            };
+        }
+
+        return WikidataResolveResult.NotFound;
+    }
+
+    private static ReconciliationResult? PickExactComicSeriesCandidate(
+        IReadOnlyList<ReconciliationResult> candidates,
+        string seriesTitle)
+    {
+        if (candidates.Count == 0 || string.IsNullOrWhiteSpace(seriesTitle))
+            return null;
+
+        var normalizedSeriesTitle = NormalizeComicSeriesLookupText(seriesTitle);
+        return candidates
+            .Where(candidate =>
+                string.Equals(
+                    NormalizeComicSeriesLookupText(candidate.Name),
+                    normalizedSeriesTitle,
+                    StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(candidate => candidate.Score)
+            .FirstOrDefault();
     }
 
     /// <summary>

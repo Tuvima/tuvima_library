@@ -125,7 +125,9 @@ string dbPath;
     else
     {
         // Peek at core.json to get library_root early (before config loader is created).
-        var earlyConfigDir = config["MediaEngine:ConfigDirectory"] ?? "config";
+        var earlyConfigDir = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
+            ?? config["MediaEngine:ConfigDirectory"]
+            ?? "config";
         var coreJsonPath = Path.Combine(earlyConfigDir, "core.json");
         string? earlyLibraryRoot = null;
         if (File.Exists(coreJsonPath))

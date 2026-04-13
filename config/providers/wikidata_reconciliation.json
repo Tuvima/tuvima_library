@@ -116,7 +116,7 @@
       "P434": "musicbrainz_artist_id",
       "P436": "musicbrainz_release_group_id",
       "P966": "musicbrainz_recording_id",
-      "P4857": "apple_music_id",
+      "P4857": "apple_music_collection_id",
       "P463": "member_of",
       "P1243": "isrc",
       "P747": "has_edition_or_translation",

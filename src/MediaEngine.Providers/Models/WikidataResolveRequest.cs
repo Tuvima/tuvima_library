@@ -76,4 +76,11 @@ public sealed class WikidataResolveRequest
 
     /// <summary>The author (used by <see cref="ResolveStrategy.TextReconciliation"/>).</summary>
     public string? Author { get; init; }
+
+    /// <summary>
+    /// Optional parent/container title for fallback roll-up resolution.
+    /// Currently used for comics to retry against the series title when the
+    /// issue-level entity is missing on Wikidata.
+    /// </summary>
+    public string? SeriesTitle { get; init; }
 }

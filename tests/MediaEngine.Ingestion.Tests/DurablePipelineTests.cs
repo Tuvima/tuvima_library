@@ -344,6 +344,15 @@ public sealed class DurablePipelineTests : IDisposable
             new WorkClaimRouter(),
             new CatalogUpsertService(workRepoLocal),
             new NoOpIngestionBatchRepository(),
+            null!, // PostPipelineService — no jobs should be leased in this test
+            new CoverArtWorker(
+                _assetRepo,
+                _canonicalRepo,
+                workRepoLocal,
+                new ImageCacheRepository(_dbFactory.Connection),
+                _heroGenerator,
+                new NoOpHttpClientFactory(),
+                NullLogger<CoverArtWorker>.Instance),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);

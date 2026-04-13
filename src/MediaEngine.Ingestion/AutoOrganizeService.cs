@@ -213,14 +213,14 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         await _assetRepo.UpdateFilePathAsync(assetId, destPath, ct).ConfigureAwait(false);
 
+        string sourcePath = asset.FilePathRoot;
         string editionFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
 
         // Move cover/hero companion files from staging to the library edition folder.
         // CoverArtWorker writes poster.jpg next to the media file (even in staging) via
         // ImagePathService.GetMediaFilePosterPath, so companion files must always be moved
         // on promotion — regardless of whether ImagePathService is active.
-        MoveCompanionFiles(stagingFolder, editionFolder,
-            "poster.jpg", "poster-thumb.jpg", "cover.jpg", "hero.jpg");
+        MoveCompanionFiles(sourcePath, destPath);
 
         // Generate cinematic hero banner from cover art.
         await GenerateHeroBannerAsync(assetId, editionFolder, ct).ConfigureAwait(false);
@@ -330,7 +330,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
 
         // Path changed (QID now available) — move file to new location.
-        var oldFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+        var oldPath = asset.FilePathRoot;
+        var oldFolder = Path.GetDirectoryName(oldPath) ?? string.Empty;
         bool relocated = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, newDest, ct)
             .ConfigureAwait(false);
 
@@ -338,9 +339,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         {
             await _assetRepo.UpdateFilePathAsync(assetId, newDest, ct).ConfigureAwait(false);
 
-            var newFolder = Path.GetDirectoryName(newDest) ?? string.Empty;
-            MoveCompanionFiles(oldFolder, newFolder,
-                "poster.jpg", "poster-thumb.jpg", "cover.jpg", "hero.jpg");
+            MoveCompanionFiles(oldPath, newDest);
 
             CleanEmptyParents(oldFolder, _options.LibraryRoot);
 
@@ -477,23 +476,88 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
     }
 
-    private static void MoveCompanionFiles(string oldFolder, string newFolder, params string[] fileNames)
+    private static void MoveCompanionFiles(string oldMediaPath, string newMediaPath)
     {
-        if (string.Equals(oldFolder, newFolder, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(oldMediaPath) || string.IsNullOrWhiteSpace(newMediaPath))
+            return;
+
+        var oldFolder = Path.GetDirectoryName(oldMediaPath) ?? string.Empty;
+        var newFolder = Path.GetDirectoryName(newMediaPath) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(oldFolder) || string.IsNullOrWhiteSpace(newFolder))
             return;
 
         Directory.CreateDirectory(newFolder);
 
-        foreach (var fileName in fileNames)
+        MoveCompanionCandidates(
+            EnumeratePosterCandidates(oldMediaPath),
+            ImagePathService.GetMediaFilePosterPath(newMediaPath));
+
+        MoveCompanionCandidates(
+            EnumeratePosterThumbCandidates(oldMediaPath),
+            ImagePathService.GetMediaFileThumbPath(newMediaPath));
+
+        MoveCompanionCandidates(
+            [Path.Combine(oldFolder, "cover.jpg")],
+            Path.Combine(newFolder, "cover.jpg"));
+
+        MoveCompanionCandidates(
+            [Path.Combine(oldFolder, "hero.jpg")],
+            Path.Combine(newFolder, "hero.jpg"));
+    }
+
+    private static void MoveCompanionCandidates(IEnumerable<string> sourceCandidates, string destinationPath)
+    {
+        var existingSources = sourceCandidates
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(File.Exists)
+            .ToList();
+
+        if (existingSources.Count == 0 || string.IsNullOrWhiteSpace(destinationPath))
+            return;
+
+        ImagePathService.EnsureDirectory(destinationPath);
+
+        foreach (var sourcePath in existingSources)
         {
-            var src = Path.Combine(oldFolder, fileName);
-            var dst = Path.Combine(newFolder, fileName);
-            if (File.Exists(src) && !File.Exists(dst))
+            if (string.Equals(sourcePath, destinationPath, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            try
             {
-                try { File.Move(src, dst); }
-                catch { /* best-effort */ }
+                if (!File.Exists(destinationPath))
+                    File.Move(sourcePath, destinationPath);
+                else
+                    File.Delete(sourcePath);
             }
+            catch { /* best-effort */ }
         }
+    }
+
+    private static IEnumerable<string> EnumeratePosterCandidates(string mediaPath)
+    {
+        var folder = Path.GetDirectoryName(mediaPath) ?? string.Empty;
+        var basename = Path.GetFileNameWithoutExtension(mediaPath);
+
+        return new[]
+        {
+            ImagePathService.GetMediaFilePosterPath(mediaPath),
+            Path.Combine(folder, "poster.jpg"),
+            Path.Combine(folder, $"{basename}-poster.jpg"),
+        };
+    }
+
+    private static IEnumerable<string> EnumeratePosterThumbCandidates(string mediaPath)
+    {
+        var folder = Path.GetDirectoryName(mediaPath) ?? string.Empty;
+        var basename = Path.GetFileNameWithoutExtension(mediaPath);
+
+        return new[]
+        {
+            ImagePathService.GetMediaFileThumbPath(mediaPath),
+            Path.Combine(folder, "poster-thumb.jpg"),
+            Path.Combine(folder, $"{basename}-poster-thumb.jpg"),
+        };
     }
 
     private static void CleanStagingBakFiles(string folder)

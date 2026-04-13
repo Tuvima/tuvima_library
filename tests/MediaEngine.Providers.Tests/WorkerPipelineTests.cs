@@ -7,6 +7,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Intelligence.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
@@ -855,6 +856,281 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
+    public async Task RetailMatchWorker_MusicGroupedTracks_UsesCollectionConsensusAcrossQueuedAlbum()
+    {
+        var providerId = Guid.NewGuid();
+        var tracks = new[]
+        {
+            new { EntityId = Guid.NewGuid(), JobId = Guid.NewGuid(), Title = "Bohemian Rhapsody", TrackNumber = "11" },
+            new { EntityId = Guid.NewGuid(), JobId = Guid.NewGuid(), Title = "You're My Best Friend", TrackNumber = "4" },
+            new { EntityId = Guid.NewGuid(), JobId = Guid.NewGuid(), Title = "Death on Two Legs", TrackNumber = "1" },
+        };
+
+        var jobRepo = new StubIdentityJobRepository();
+        var candidateRepo = new StubRetailCandidateRepository();
+        var canonicalRepo = new StubCanonicalValueRepository();
+
+        foreach (var track in tracks)
+        {
+            await jobRepo.CreateAsync(new IdentityJob
+            {
+                Id = track.JobId,
+                EntityId = track.EntityId,
+                EntityType = "MediaAsset",
+                MediaType = "Music",
+                State = "Queued",
+            });
+
+            await canonicalRepo.UpsertBatchAsync(
+            [
+                new CanonicalValue { EntityId = track.EntityId, Key = MetadataFieldConstants.Title, Value = track.Title, LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = track.EntityId, Key = MetadataFieldConstants.Artist, Value = "Queen", LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = track.EntityId, Key = MetadataFieldConstants.Album, Value = "A Night at the Opera", LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = track.EntityId, Key = MetadataFieldConstants.TrackNumber, Value = track.TrackNumber, LastScoredAt = DateTimeOffset.UtcNow },
+                new CanonicalValue { EntityId = track.EntityId, Key = MetadataFieldConstants.Year, Value = "1975", LastScoredAt = DateTimeOffset.UtcNow },
+            ]);
+        }
+
+        var wrongCollectionSearchJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 3296287,
+                  "collectionId": 1440650428,
+                  "trackId": 1440650781,
+                  "artistName": "Queen",
+                  "collectionName": "Greatest Hits",
+                  "trackName": "Bohemian Rhapsody",
+                  "trackCount": 17,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 354320,
+                  "releaseDate": "1981-10-26T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/hits-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var correctCollectionSearchJson = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 3296287,
+                  "collectionId": 1440806041,
+                  "trackId": 1440806519,
+                  "artistName": "Queen",
+                  "collectionName": "A Night at the Opera",
+                  "trackName": "Death On Two Legs (Dedicated To...)",
+                  "trackCount": 12,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 223960,
+                  "releaseDate": "1975-11-21T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/opera-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var correctLookupJson = """
+            {
+              "resultCount": 4,
+              "results": [
+                {
+                  "wrapperType": "collection",
+                  "collectionType": "Album",
+                  "artistId": 3296287,
+                  "collectionId": 1440806041,
+                  "artistName": "Queen",
+                  "collectionName": "A Night at the Opera",
+                  "trackCount": 12,
+                  "releaseDate": "1975-11-21T12:00:00Z",
+                  "primaryGenreName": "Rock"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 3296287,
+                  "collectionId": 1440806041,
+                  "trackId": 1440806519,
+                  "artistName": "Queen",
+                  "collectionName": "A Night at the Opera",
+                  "trackName": "Death On Two Legs (Dedicated To...)",
+                  "trackCount": 12,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 223960,
+                  "releaseDate": "1975-11-21T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/opera-100x100bb.jpg"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 3296287,
+                  "collectionId": 1440806041,
+                  "trackId": 1440806522,
+                  "artistName": "Queen",
+                  "collectionName": "A Night at the Opera",
+                  "trackName": "You're My Best Friend",
+                  "trackCount": 12,
+                  "trackNumber": 4,
+                  "trackTimeMillis": 170680,
+                  "releaseDate": "1975-11-21T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/opera-100x100bb.jpg"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 3296287,
+                  "collectionId": 1440806041,
+                  "trackId": 1440806529,
+                  "artistName": "Queen",
+                  "collectionName": "A Night at the Opera",
+                  "trackName": "Bohemian Rhapsody",
+                  "trackCount": 12,
+                  "trackNumber": 11,
+                  "trackTimeMillis": 354320,
+                  "releaseDate": "1975-11-21T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/opera-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var wrongLookupJson = """
+            {
+              "resultCount": 3,
+              "results": [
+                {
+                  "wrapperType": "collection",
+                  "collectionType": "Album",
+                  "artistId": 3296287,
+                  "collectionId": 1440650428,
+                  "artistName": "Queen",
+                  "collectionName": "Greatest Hits",
+                  "trackCount": 17,
+                  "releaseDate": "1981-10-26T12:00:00Z",
+                  "primaryGenreName": "Rock"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 3296287,
+                  "collectionId": 1440650428,
+                  "trackId": 1440650781,
+                  "artistName": "Queen",
+                  "collectionName": "Greatest Hits",
+                  "trackName": "Bohemian Rhapsody",
+                  "trackCount": 17,
+                  "trackNumber": 1,
+                  "trackTimeMillis": 354320,
+                  "releaseDate": "1981-10-26T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/hits-100x100bb.jpg"
+                },
+                {
+                  "wrapperType": "track",
+                  "kind": "song",
+                  "artistId": 3296287,
+                  "collectionId": 1440650428,
+                  "trackId": 1440650790,
+                  "artistName": "Queen",
+                  "collectionName": "Greatest Hits",
+                  "trackName": "You're My Best Friend",
+                  "trackCount": 17,
+                  "trackNumber": 10,
+                  "trackTimeMillis": 170680,
+                  "releaseDate": "1981-10-26T12:00:00Z",
+                  "primaryGenreName": "Rock",
+                  "artworkUrl100": "https://example.test/hits-100x100bb.jpg"
+                }
+              ]
+            }
+            """;
+
+        var requests = new List<string>();
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            candidateRepo,
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            [
+                new StubExternalMetadataProvider
+                {
+                    Name = "apple_api",
+                    ProviderId = providerId,
+                    Claims = [],
+                },
+            ],
+            new RetailMatchScoringService(
+                new FuzzyMatchingService(),
+                new StubConfigurationLoader(),
+                coverArtHash: null,
+                logger: null),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            new StubConfigurationLoader(),
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new RoutingHttpClientFactory(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requests.Add(url);
+
+                string body;
+                if (url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase))
+                {
+                    body = url.Contains("id=1440806041", StringComparison.OrdinalIgnoreCase)
+                        ? correctLookupJson
+                        : wrongLookupJson;
+                }
+                else if (url.Contains("Bohemian%20Rhapsody", StringComparison.OrdinalIgnoreCase))
+                {
+                    body = wrongCollectionSearchJson;
+                }
+                else
+                {
+                    body = correctCollectionSearchJson;
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(body, Encoding.UTF8, "application/json"),
+                };
+            }),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(3, processed);
+        Assert.Equal(3, candidateRepo.Candidates.Count);
+        Assert.Contains(requests, url => url.Contains("/lookup?id=1440806041", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(requests, url => url.Contains("/lookup?id=1440650428", StringComparison.OrdinalIgnoreCase));
+
+        foreach (var track in tracks)
+        {
+            var updatedJob = await jobRepo.GetByIdAsync(track.JobId);
+            Assert.NotNull(updatedJob);
+            Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+        }
+
+        Assert.All(candidateRepo.Candidates, candidate => Assert.Equal("AutoAccepted", candidate.Outcome));
+    }
+
+    [Fact]
     public async Task RetailMatchWorker_OutcomePriorityPrefersAmbiguousCandidateOverRejectedHighScore()
     {
         var entityId = Guid.NewGuid();
@@ -1042,6 +1318,8 @@ public sealed class WorkerPipelineTests
             new WorkClaimRouter(),
             new CatalogUpsertService(new StubWorkRepository()),
             new StubIngestionBatchRepository(),
+            null!, // PostPipelineService — not exercised because no jobs are leased
+            CoverArtWorkerTestFactory.Create(canonicalRepo, new StubWorkRepository()),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var bridgeProcessed = await bridgeWorker.PollAsync(CancellationToken.None);
@@ -1103,6 +1381,8 @@ public sealed class WorkerPipelineTests
             new WorkClaimRouter(),
             new CatalogUpsertService(new StubWorkRepository()),
             new StubIngestionBatchRepository(),
+            null!, // PostPipelineService — retained-retail organization not under test here
+            CoverArtWorkerTestFactory.Create(canonicalRepo, new StubWorkRepository()),
             NullLogger<WikidataBridgeWorker>.Instance);
 
         var processed = await worker.PollAsync(CancellationToken.None);
@@ -1132,6 +1412,7 @@ public sealed class WorkerPipelineTests
         Assert.Equal("Brian K. Vaughan", hints.AuthorHint);
         Assert.Null(hints.AlbumHint);
         Assert.Null(hints.ArtistHint);
+        Assert.Equal("Saga", hints.SeriesHint);
     }
 
     // ── Test 4: QuickHydrationWorker completes job ──

@@ -238,19 +238,16 @@ public sealed class FileOrganizer : IFileOrganizer
         if (!string.IsNullOrEmpty(destDir))
             Directory.CreateDirectory(destDir);
 
-        // Same-content check: if the destination already exists with the same
-        // file size as the source, the file is already organized — skip the move.
-        if (File.Exists(destinationPath))
+        // If the source is already at the requested destination, there is
+        // nothing left to do.
+        if (Path.GetFullPath(sourcePath).Equals(
+                Path.GetFullPath(destinationPath),
+                StringComparison.OrdinalIgnoreCase))
         {
-            var sourceInfo = new FileInfo(sourcePath);
-            var destInfo   = new FileInfo(destinationPath);
-            if (sourceInfo.Length == destInfo.Length)
-            {
-                _logger.LogInformation(
-                    "Move skipped — destination already contains identical content (same size {Bytes} bytes): {Destination}",
-                    destInfo.Length, destinationPath);
-                return true;
-            }
+            _logger.LogDebug(
+                "Move skipped — source already matches destination: {Destination}",
+                destinationPath);
+            return true;
         }
 
         // Resolve collision: if destination exists with different content, find a free name.

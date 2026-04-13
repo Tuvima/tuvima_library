@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -42,6 +43,8 @@ public sealed class WikidataBridgeWorker
     private readonly WorkClaimRouter _claimRouter;
     private readonly CatalogUpsertService _catalogUpsert;
     private readonly IIngestionBatchRepository _batchRepo;
+    private readonly PostPipelineService _postPipeline;
+    private readonly CoverArtWorker _coverArt;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
@@ -70,6 +73,8 @@ public sealed class WikidataBridgeWorker
         WorkClaimRouter claimRouter,
         CatalogUpsertService catalogUpsert,
         IIngestionBatchRepository batchRepo,
+        PostPipelineService postPipeline,
+        CoverArtWorker coverArt,
         ILogger<WikidataBridgeWorker> logger)
     {
         _jobRepo = jobRepo;
@@ -87,6 +92,8 @@ public sealed class WikidataBridgeWorker
         _claimRouter = claimRouter;
         _catalogUpsert = catalogUpsert;
         _batchRepo = batchRepo;
+        _postPipeline = postPipeline;
+        _coverArt = coverArt;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -151,8 +158,11 @@ public sealed class WikidataBridgeWorker
         {
             _logger.LogWarning("No ReconciliationAdapter available — cannot resolve bridge IDs");
             foreach (var j in jobs)
+            {
                 await _jobRepo.UpdateStateAsync(j.Id, IdentityJobState.QidNoMatch,
                     "No reconciliation adapter configured", ct);
+                await TryOrganizeRetainedRetailIdentityAsync(j, ct);
+            }
             return jobs.Count;
         }
 
@@ -209,7 +219,7 @@ public sealed class WikidataBridgeWorker
                     }
                 }
 
-                var (titleHint, authorHint, albumHint, artistHint) = BuildLookupHints(mediaType, canonicals);
+                var (titleHint, authorHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
 
                 BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
@@ -222,7 +232,8 @@ public sealed class WikidataBridgeWorker
                     TitleHint: titleHint,
                     AuthorHint: authorHint,
                     AlbumHint: albumHint,
-                    ArtistHint: artistHint));
+                    ArtistHint: artistHint,
+                    SeriesHint: seriesHint));
             }
 
             // ── Phase 4: Resolve QIDs via the unified facade ──────────────────────
@@ -251,6 +262,7 @@ public sealed class WikidataBridgeWorker
                     Artist             = ctx.ArtistHint,
                     Title              = ctx.TitleHint,
                     Author             = ctx.AuthorHint,
+                    SeriesTitle        = ctx.SeriesHint,
                 })
                 .ToList();
 
@@ -348,11 +360,12 @@ public sealed class WikidataBridgeWorker
         // on all sibling contexts so the per-job finalisation path can apply them
         // without a second HTTP call (even if the adapter's response cache would
         // have served it from memory, this makes the dedup explicit and measurable).
-        var resolvedNonMusicContexts = contexts
-            .Where(ctx => ctx.ResolvedQid is not null && ctx.MediaType != MediaType.Music)
+        var resolvedContextsNeedingFetch = contexts
+            .Where(ctx => ctx.ResolvedQid is not null
+                && (ctx.MediaType != MediaType.Music || ctx.MatchedBy == "music_album"))
             .ToList();
 
-        var qidGroups = resolvedNonMusicContexts
+        var qidGroups = resolvedContextsNeedingFetch
             .GroupBy(ctx => (ctx.ResolvedQid!, ctx.MediaType))
             .ToList();
 
@@ -524,7 +537,61 @@ public sealed class WikidataBridgeWorker
             // ALBUM, not the track. Fetching its properties would overwrite the
             // track's title/duration/artist with album-level values.
             if (ctx.MediaType == MediaType.Music)
+            {
+                if (ctx.MatchedBy == "music_album")
+                {
+                    IReadOnlyList<ProviderClaim> albumClaims;
+                    if (ctx.PreFetchedClaims is not null)
+                    {
+                        albumClaims = ctx.PreFetchedClaims;
+                    }
+                    else
+                    {
+                        try
+                        {
+                            albumClaims = await reconAdapter.FetchAsync(
+                                new ProviderLookupRequest
+                                {
+                                    EntityId       = job.EntityId,
+                                    EntityType     = EntityType.MediaAsset,
+                                    MediaType      = ctx.MediaType,
+                                    Title          = ctx.TitleHint,
+                                    PreResolvedQid = ctx.ResolvedQid,
+                                }, ct);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogWarning(ex,
+                                "Music album property fetch failed for QID {Qid} (entity {EntityId})",
+                                ctx.ResolvedQid, job.EntityId);
+                            albumClaims = [];
+                        }
+                    }
+
+                    if (albumClaims.Count > 0)
+                    {
+                        var parentScopedAlbumClaims = albumClaims
+                            .Where(c => ClaimScopeRegistry.IsParentScoped(c.Key, MediaType.Music)
+                                || BridgeIdKeys.All.Contains(c.Key))
+                            .ToList();
+
+                        if (parentScopedAlbumClaims.Count > 0)
+                        {
+                            await ScoringHelper.PersistAndScoreWithLineageAsync(
+                                job.EntityId, parentScopedAlbumClaims, reconAdapter.ProviderId, lineage,
+                                _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
+                                logger: _logger);
+
+                            await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
+                                parentScopedAlbumClaims, ct);
+                        }
+                    }
+                }
+
+                await _postPipeline.EvaluateAndOrganizeAsync(
+                    job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
                 return;
+            }
 
             // Fetch full properties now that we have a QID.
             // Phase 6 QID dedup (E1): if a pre-fetched claims set was computed
@@ -574,6 +641,9 @@ public sealed class WikidataBridgeWorker
                 await RouteToWorksAsync(lineage, job.EntityId, ctx.MediaType, ctx.ResolvedQid,
                     fullClaims, ct);
             }
+
+            await _postPipeline.EvaluateAndOrganizeAsync(
+                job.EntityId, job.Id, ctx.ResolvedQid, job.IngestionRunId, ct);
         }
         else
         {
@@ -660,6 +730,8 @@ public sealed class WikidataBridgeWorker
             await _timeline.RecordBridgeNoMatchAsync(
                 job.EntityId, job.IngestionRunId, ct);
 
+            await TryOrganizeRetainedRetailIdentityAsync(job, ct);
+
             _logger.LogInformation(
                 "Wikidata: no match for '{Title}' ({MediaType}) — {BridgeCount} bridge ID(s) tried; retaining retail identity without review [entity {EntityId}]",
                 ctx.TitleHint ?? "(unknown)", ctx.MediaType, ctx.BridgeIds.Count, job.EntityId);
@@ -689,6 +761,7 @@ public sealed class WikidataBridgeWorker
             _logger.LogWarning("No ReconciliationAdapter available — cannot resolve bridge IDs");
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidNoMatch,
                 "No reconciliation adapter configured", ct);
+            await TryOrganizeRetainedRetailIdentityAsync(job, ct);
             return;
         }
 
@@ -717,7 +790,7 @@ public sealed class WikidataBridgeWorker
             }
         }
 
-        var (titleHint, authorHint, albumHint, artistHint) = BuildLookupHints(mediaType, canonicals);
+        var (titleHint, authorHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
 
         BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
@@ -730,7 +803,8 @@ public sealed class WikidataBridgeWorker
             TitleHint:     titleHint,
             AuthorHint:    authorHint,
             AlbumHint:     albumHint,
-            ArtistHint:    artistHint);
+            ArtistHint:    artistHint,
+            SeriesHint:    seriesHint);
 
         // Resolve QID for this single job via the unified facade.
         try
@@ -748,6 +822,7 @@ public sealed class WikidataBridgeWorker
                     Artist             = artistHint,
                     Title              = titleHint,
                     Author             = authorHint,
+                    SeriesTitle        = seriesHint,
                 }, ct);
 
             if (result.Found)
@@ -802,7 +877,7 @@ public sealed class WikidataBridgeWorker
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
     }
 
-    internal static (string? TitleHint, string? AuthorHint, string? AlbumHint, string? ArtistHint) BuildLookupHints(
+    internal static (string? TitleHint, string? AuthorHint, string? AlbumHint, string? ArtistHint, string? SeriesHint) BuildLookupHints(
         MediaType mediaType,
         IReadOnlyList<CanonicalValue> canonicals)
     {
@@ -815,6 +890,7 @@ public sealed class WikidataBridgeWorker
         var authorHint = GetCanonical(canonicals, MetadataFieldConstants.Author);
         string? albumHint = null;
         string? artistHint = null;
+        string? seriesHint = null;
 
         if (mediaType == MediaType.TV)
         {
@@ -824,7 +900,7 @@ public sealed class WikidataBridgeWorker
         }
         else if (mediaType == MediaType.Comics)
         {
-            var seriesHint = GetCanonical(canonicals, MetadataFieldConstants.Series);
+            seriesHint = GetCanonical(canonicals, MetadataFieldConstants.Series);
             if (!string.IsNullOrWhiteSpace(seriesHint))
                 titleHint = BuildComicTitleHint(seriesHint, titleHint);
 
@@ -840,7 +916,7 @@ public sealed class WikidataBridgeWorker
             authorHint ??= artistHint;
         }
 
-        return (titleHint, authorHint, albumHint, artistHint);
+        return (titleHint, authorHint, albumHint, artistHint, seriesHint);
     }
 
     private static string? BuildComicTitleHint(string seriesHint, string? titleHint)
@@ -877,6 +953,29 @@ public sealed class WikidataBridgeWorker
 
         return string.Join(' ', new string(chars)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+    }
+
+    private async Task TryOrganizeRetainedRetailIdentityAsync(
+        IdentityJob job,
+        CancellationToken ct)
+    {
+        try
+        {
+            // Retained retail identity still deserves the same cover-art sidecars
+            // as QID-resolved items. Run artwork against the current media path
+            // before promotion so AutoOrganize can carry poster/thumb/hero into
+            // the final library folder.
+            await _coverArt.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct);
+
+            await _postPipeline.EvaluateAndOrganizeAsync(
+                job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Post-bridge organization failed for retained retail identity {EntityId} — pipeline continues",
+                job.EntityId);
+        }
     }
 
     /// <summary>
@@ -1136,6 +1235,7 @@ public sealed class WikidataBridgeWorker
         public string? AuthorHint { get; }
         public string? AlbumHint { get; }
         public string? ArtistHint { get; }
+        public string? SeriesHint { get; }
 
         // Populated during Phase 5 distribution.
         public string? ResolvedQid { get; set; }
@@ -1157,7 +1257,8 @@ public sealed class WikidataBridgeWorker
             string? TitleHint,
             string? AuthorHint,
             string? AlbumHint,
-            string? ArtistHint)
+            string? ArtistHint,
+            string? SeriesHint)
         {
             this.Job           = Job;
             this.MediaType     = MediaType;
@@ -1168,6 +1269,7 @@ public sealed class WikidataBridgeWorker
             this.AuthorHint    = AuthorHint;
             this.AlbumHint     = AlbumHint;
             this.ArtistHint    = ArtistHint;
+            this.SeriesHint    = SeriesHint;
         }
     }
 

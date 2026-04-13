@@ -382,6 +382,8 @@ public sealed class BatchGateTests
             new WorkClaimRouter(),
             new CatalogUpsertService(new StubWorkRepository()),
             batchRepo,
+            null!, // PostPipelineService — batch gate tests stop before organization
+            CoverArtWorkerTestFactory.Create(new StubCanonicalValueRepository(), new StubWorkRepository()),
             NullLogger<WikidataBridgeWorker>.Instance);
     }
 

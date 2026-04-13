@@ -468,6 +468,17 @@ public static class DevSeedEndpoints
             FileNameOverride: "Severance/Season 01/Severance.S01E04.The.You.You.Are.mp4",
             TestCategory: "TV pattern — dot-separated filename convention",
             ExpectedProvider: "tmdb"),
+
+        new("Ozymandias", null, 2013, "TV",
+            Series: "Breaking Bad", SeasonNumber: 5, EpisodeNumber: 14,
+            EpisodeTitle: "Ozymandias",
+            FileNameOverride: "Breaking Bad/Season 05/Breaking Bad - S05E14 - Ozymandias.mp4",
+            TestCategory: "TV pattern â€” higher season and two-digit episode, stress late-series batching",
+            ExpectedProvider: "tmdb"),
+
+        new("Spider-Man: Into the Spider-Verse", "Bob Persichetti", 2018, "Movie",
+            TestCategory: "Movie â€” colon title with subtitle and punctuation, strong TMDB match",
+            ExpectedProvider: "tmdb"),
     ];
 
     // ── FLAC Music Seed definitions ────────────────────────────────────────
@@ -483,9 +494,7 @@ public static class DevSeedEndpoints
         new("Clair de Lune", "Claude Debussy",
             Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3,
             TestCategory: "Music — classical, foreign artist name — Apple bridge IDs lack Wikidata P-code mapping",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.WikidataBridgeFailed,
-            ExpectedReason: "Apple Music bridge IDs (trackId/collectionId/artistId) do not resolve to Wikidata QID for classical compositions"),
+            ExpectIdentified: true),
 
         new("Lose Yourself", "Eminem",
             Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
@@ -509,6 +518,14 @@ public static class DevSeedEndpoints
             TestCategory: "Music — same album, track 1, Collection grouping test"),
 
         // ── Category 3: Multi-artist / featured / collaboration ───────────
+        new("Love of My Life", "Queen",
+            Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 9,
+            TestCategory: "Music â€” expands same-album Queen batch, stresses grouped retail and Wikidata batching"),
+
+        new("Seaside Rendezvous", "Queen",
+            Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 7,
+            TestCategory: "Music â€” deep-cut same album track, stresses larger grouped album distribution"),
+
         new("Under Pressure", "Queen & David Bowie",
             Album: "Hot Space", Year: 1982, Genre: "Rock", TrackNumber: 11,
             TestCategory: "Music — dual artist, ampersand separator"),
@@ -521,9 +538,7 @@ public static class DevSeedEndpoints
         new("La Vie en rose", "Édith Piaf",
             Album: "La Vie en rose", Year: 1947, Genre: "Chanson", TrackNumber: 1,
             TestCategory: "Music — French, accented artist name, classic",
-            ExpectIdentified: false,
-            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
-            ExpectedReason: "Apple Music localized search struggles with foreign-language classics; needs manual review"),
+            ExpectIdentified: true),
 
         new("Für Elise", "Ludwig van Beethoven",
             Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1,
@@ -543,6 +558,14 @@ public static class DevSeedEndpoints
             TestCategory: "Music — album same name as track, iconic single"),
 
         // ── Category 6: Instrumental / soundtrack / orchestral ────────────
+        new("We Will Rock You", "Queen",
+            Album: "News of the World", Year: 1977, Genre: "Rock", TrackNumber: 1,
+            TestCategory: "Music â€” same artist, second album group, stresses per-album natural-key batching"),
+
+        new("We Are the Champions", "Queen",
+            Album: "News of the World", Year: 1977, Genre: "Rock", TrackNumber: 2,
+            TestCategory: "Music â€” adjacent track in second Queen album group, stresses grouped batch fan-out"),
+
         new("The Imperial March", "John Williams",
             Album: "Star Wars: The Empire Strikes Back", Year: 1980, Genre: "Soundtrack", TrackNumber: 3,
             TestCategory: "Music — same artist as Across the Stars, different franchise entry"),
@@ -582,7 +605,9 @@ public static class DevSeedEndpoints
             Series: "Batman", Number: 404, Year: 1987, Genre: "Superhero",
             Summary: "Bruce Wayne returns to Gotham City after years abroad.",
             Publisher: "DC Comics", Penciller: "David Mazzucchelli",
-            TestCategory: "Comic — classic DC, series with issue number"),
+            TestCategory: "Comic — classic DC, series with issue number",
+            ExpectedReason: "When the issue item is missing on Wikidata, Stage 2 should roll up to the parent Batman comic series entity",
+            ExpectedQid: "Q2633138"),
 
         new("Saga Chapter One", Writer: "Brian K. Vaughan",
             Series: "Saga", Number: 1, Year: 2012, Genre: "Science Fiction, Fantasy",

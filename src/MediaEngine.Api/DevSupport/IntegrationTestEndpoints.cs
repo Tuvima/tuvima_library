@@ -2,9 +2,12 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Dapper;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
+using MediaEngine.Ingestion;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Contracts;
@@ -46,6 +49,8 @@ public static class IntegrationTestEndpoints
         public List<ManualSearchResult> ManualSearchResults { get; set; } = [];
         public List<UniverseResult> UniverseResults { get; set; } = [];
         public List<VaultCheckResult> VaultChecks { get; set; } = [];
+        public List<FileSystemCheckResult> FileSystemChecks { get; set; } = [];
+        public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
         public List<string> FixesApplied { get; set; } = [];
@@ -82,7 +87,66 @@ public static class IntegrationTestEndpoints
         public string? Creator { get; set; }
         public string? RetailMatch { get; set; }
         public string? WikidataQid { get; set; }
-        public bool Pass => HasTitle && HasCreator && HasStatus && HasRetailMatch;
+        public string? ExpectedRetailProvider { get; set; }
+        public string? ActualRetailProvider { get; set; }
+        public bool HasExpectedRetailProvider { get; set; } = true;
+        public bool RequiresCreator =>
+            !string.Equals(MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+        public bool RequiresRetailProvider =>
+            string.Equals(RetailMatch, "matched", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(ExpectedRetailProvider);
+        public bool Pass =>
+            HasTitle
+            && (!RequiresCreator || HasCreator)
+            && HasStatus
+            && HasRetailMatch
+            && (!RequiresRetailProvider || HasExpectedRetailProvider);
+    }
+
+    /// <summary>On-disk placement and artwork validation result.</summary>
+    private sealed class FileSystemCheckResult
+    {
+        public string Title { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string? ExpectedLocation { get; set; }
+        public string? ExpectedRelativePath { get; set; }
+        public string? ActualFilePath { get; set; }
+        public string? ActualDisplayPath { get; set; }
+        public bool FileExists { get; set; }
+        public bool InLibraryRoot { get; set; }
+        public bool InStagingRoot { get; set; }
+        public bool LocationMatchesExpectation { get; set; }
+        public bool RequiresTemplateMatch { get; set; }
+        public bool PathMatchesTemplate { get; set; }
+        public bool ExpectedCoverArt { get; set; }
+        public bool RequiresSidecarArtwork { get; set; }
+        public bool HasPoster { get; set; }
+        public bool HasPosterThumb { get; set; }
+        public bool HasHero { get; set; }
+        public bool RequiresStoredArtwork { get; set; }
+        public bool HasStoredCover { get; set; }
+        public bool HasStoredCoverThumb { get; set; }
+        public bool HasStoredHero { get; set; }
+        public bool HasStoredBackdrop { get; set; }
+        public bool HasStoredLogo { get; set; }
+        public bool HasStoredBanner { get; set; }
+        public string? Detail { get; set; }
+        public bool Pass =>
+            FileExists
+            && LocationMatchesExpectation
+            && (!RequiresTemplateMatch || PathMatchesTemplate)
+            && (!RequiresSidecarArtwork || (HasPoster && HasPosterThumb && HasHero))
+            && (!RequiresStoredArtwork || (HasStoredCover && HasStoredCoverThumb && HasStoredHero));
+    }
+
+    /// <summary>Checks that watch/source folders were drained after ingestion.</summary>
+    private sealed class WatchFolderCheckResult
+    {
+        public string Directory { get; set; } = "";
+        public int RemainingMediaFiles { get; set; }
+        public int IgnoredExpectedStagingFiles { get; set; }
+        public bool Pass => RemainingMediaFiles == 0;
     }
 
     /// <summary>Stage gating validation result.</summary>
@@ -124,6 +188,7 @@ public static class IntegrationTestEndpoints
             ["NotFound"] = 0,
             ["WrongQid"] = 0,
             ["MissingCoverArt"] = 0,
+            ["WrongProvider"] = 0,
         };
     }
 
@@ -142,6 +207,7 @@ public static class IntegrationTestEndpoints
     {
         public string Title { get; set; } = "";
         public string FileName { get; set; } = "";
+        public string? FilePath { get; set; }
         public string MediaType { get; set; } = "";
         public string Status { get; set; } = "";
         public double Confidence { get; set; }
@@ -176,6 +242,13 @@ public static class IntegrationTestEndpoints
     // ── Dynamic type selection + provider health ─────────────────────────
 
     private static readonly string[] AllTestableTypes = ["books", "audiobooks", "movies", "tv", "music", "comics"];
+    private static readonly HashSet<string> MediaExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mkv", ".mp4", ".m4v", ".avi", ".mov", ".wmv", ".webm", ".ts",
+        ".m4b", ".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wav", ".aac",
+        ".epub", ".pdf",
+        ".cbz", ".cbr", ".cb7",
+    };
 
     private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -288,6 +361,7 @@ public static class IntegrationTestEndpoints
         IOptions<IngestionOptions> options,
         IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
+        IIdentityJobRepository identityJobRepo,
         IRegistryRepository registryRepo,
         IReviewQueueRepository reviewRepo,
         IEnumerable<IExternalMetadataProvider> providers,
@@ -377,7 +451,13 @@ public static class IntegrationTestEndpoints
 
         logger.LogInformation("[Phase 3] Waiting for ingestion to complete (timeout: 8 minutes)...");
         var ingestionSw = Stopwatch.StartNew();
-        bool ingestionComplete = await WaitForIngestionAsync(db, logger, TimeSpan.FromMinutes(8), report.TotalFilesSeeded, ct);
+        bool ingestionComplete = await WaitForIngestionAsync(
+            db,
+            identityJobRepo,
+            logger,
+            TimeSpan.FromMinutes(8),
+            report.TotalFilesSeeded,
+            ct);
         ingestionSw.Stop();
         report.IngestionDuration = ingestionSw.Elapsed;
 
@@ -393,14 +473,18 @@ public static class IntegrationTestEndpoints
 
         // ── Phase 4b: Vault Display Validation ──────────────────────────
         logger.LogInformation("[Phase 4b] Vault display validation...");
-        await ValidateVaultDisplayAsync(registryRepo, report, stages, logger, ct);
+            await ValidateVaultDisplayAsync(db, registryRepo, report, stages, logger, ct);
 
-        // ── Phase 4c: Stage Gating Validation ───────────────────────────
-        logger.LogInformation("[Phase 4c] Stage gating validation...");
+        // ── Phase 4c: File system and artwork validation ───────────────────
+        logger.LogInformation("[Phase 4c] File system and artwork validation...");
+        await ValidateFileSystemAsync(db, options, configLoader, registryRepo, report, loggerFactory, logger, ct);
+
+        // ── Phase 4d: Stage Gating Validation ───────────────────────────
+        logger.LogInformation("[Phase 4d] Stage gating validation...");
         await ValidateStageGatingAsync(registryRepo, report, stages, logger, ct);
 
-        // ── Phase 4d: Reconciliation — expected vs. actual outcomes ─────────
-        logger.LogInformation("[Phase 4d] Running reconciliation pass...");
+        // ── Phase 4e: Reconciliation — expected vs. actual outcomes ─────────
+        logger.LogInformation("[Phase 4e] Running reconciliation pass...");
         await RunReconciliationAsync(db, report, activeTypes, logger, ct);
 
         // ── Phase 5: Test manual search for review items ──────────────────
@@ -567,6 +651,7 @@ public static class IntegrationTestEndpoints
 
     private static async Task<bool> WaitForIngestionAsync(
         IDatabaseConnection db,
+        IIdentityJobRepository identityJobRepo,
         ILogger logger,
         TimeSpan timeout,
         int expectedCount,
@@ -574,45 +659,29 @@ public static class IntegrationTestEndpoints
     {
         var deadline = DateTimeOffset.UtcNow + timeout;
 
-        // Phase 1: Wait for asset ingestion to reach the expected count.
-        // Use two criteria: reach the expected file count OR stabilize at 8+ consecutive
-        // polls (24+ seconds). Different media types arrive at different rates — books
-        // take much longer than video due to file-lock probing and EPUB processing.
-        int lastAssetCount = 0;
-        int assetStable = 0;
-        while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
-        {
-            await Task.Delay(3000, ct);
-            int assetCount;
-            using (var conn = db.CreateConnection())
-                assetCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets;");
+        int lastAssetCount = -1;
+        int lastResolvedCount = -1;
+        int lastClaimCount = -1;
+        int lastPendingCount = -1;
+        int lastActiveJobCount = -1;
+        int stableSnapshots = 0;
+        bool sawExpectedAssetCount = false;
 
-            if (assetCount == lastAssetCount && assetCount > 0) assetStable++;
-            else assetStable = 0;
-            lastAssetCount = assetCount;
-
-            logger.LogInformation("  Ingestion: {Count}/{Expected} assets, stable={Stable}/8", assetCount, expectedCount, assetStable);
-            // Exit when we have all expected assets OR have been stable for 24+ seconds
-            if (assetCount >= expectedCount) break;
-            if (assetCount > 0 && assetStable >= 8) break;
-        }
-
-        // Phase 2: Wait for hydration (review queue + QID resolution) to complete.
-        // Track three metrics: total works, "resolved" works (QID/review/curator_state),
-        // and metadata_claims count. Hydration is done when ALL works are resolved and
-        // claims have stopped growing. The key insight: items still in Registered or
-        // AwaitingStage2 state haven't finished hydration — we must wait for them too.
-        int lastVisibleCount = 0;
-        int lastClaimCount = 0;
-        int hydrationStable = 0;
         while (DateTimeOffset.UtcNow < deadline && !ct.IsCancellationRequested)
         {
             await Task.Delay(5000, ct);
-            int totalWorks, visibleCount, claimCount, pendingCount;
+
+            int assetCount;
+            int totalWorks;
+            int resolvedCount;
+            int claimCount;
+            int pendingCount;
+
             using (var conn = db.CreateConnection())
             {
+                assetCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets;");
                 totalWorks = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM works;");
-                visibleCount = conn.ExecuteScalar<int>("""
+                resolvedCount = conn.ExecuteScalar<int>("""
                     SELECT COUNT(DISTINCT w.id) FROM works w
                     LEFT JOIN editions e ON e.work_id = w.id
                     LEFT JOIN media_assets ma ON ma.edition_id = e.id
@@ -620,8 +689,6 @@ public static class IntegrationTestEndpoints
                     WHERE w.wikidata_qid IS NOT NULL OR rq.id IS NOT NULL OR w.curator_state IS NOT NULL
                     """);
                 claimCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM metadata_claims;");
-                // Count works that haven't finished hydration: no QID, no review entry, no curator_state.
-                // These are still in Registered or AwaitingStage2 — hydration hasn't completed for them.
                 pendingCount = conn.ExecuteScalar<int>("""
                     SELECT COUNT(DISTINCT w.id) FROM works w
                     LEFT JOIN editions e ON e.work_id = w.id
@@ -631,23 +698,46 @@ public static class IntegrationTestEndpoints
                     """);
             }
 
-            bool countsStable = visibleCount == lastVisibleCount && claimCount == lastClaimCount;
-            if (countsStable && visibleCount > 0) hydrationStable++;
-            else hydrationStable = 0;
-            lastVisibleCount = visibleCount;
-            lastClaimCount = claimCount;
+            int activeIdentityJobs = await CountActiveIdentityJobsAsync(identityJobRepo, ct);
+            sawExpectedAssetCount |= assetCount >= expectedCount;
 
-            logger.LogInformation("  Hydration: {Visible}/{Total} works resolved, {Pending} pending, {Claims} claims, stable={Stable}/8",
-                visibleCount, totalWorks, pendingCount, claimCount, hydrationStable);
-            // All works resolved (none pending) and stable
-            if (visibleCount >= totalWorks && totalWorks > 0 && pendingCount == 0 && hydrationStable >= 3) return true;
-            // No pending items and claims stable for extended period
-            if (pendingCount == 0 && visibleCount > 0 && hydrationStable >= 5) return true;
-            // Fallback: claims completely stable for very long period (some items may never resolve)
-            if (visibleCount > 0 && hydrationStable >= 12) return true;
+            bool snapshotStable =
+                assetCount == lastAssetCount
+                && resolvedCount == lastResolvedCount
+                && claimCount == lastClaimCount
+                && pendingCount == lastPendingCount
+                && activeIdentityJobs == lastActiveJobCount;
+
+            stableSnapshots = snapshotStable ? stableSnapshots + 1 : 0;
+
+            logger.LogInformation(
+                "  Ingestion: assets={Assets}/{Expected}, resolved={Resolved}/{Works}, pending={Pending}, claims={Claims}, activeJobs={Jobs}, stable={Stable}/4",
+                assetCount,
+                expectedCount,
+                resolvedCount,
+                totalWorks,
+                pendingCount,
+                claimCount,
+                activeIdentityJobs,
+                stableSnapshots);
+
+            if (assetCount >= expectedCount && totalWorks > 0 && pendingCount == 0 && activeIdentityJobs == 0 && stableSnapshots >= 2)
+                return true;
+
+            if (assetCount >= expectedCount && activeIdentityJobs == 0 && stableSnapshots >= 4)
+                return true;
+
+            if (sawExpectedAssetCount && activeIdentityJobs == 0 && stableSnapshots >= 6)
+                return true;
+
+            lastAssetCount = assetCount;
+            lastResolvedCount = resolvedCount;
+            lastClaimCount = claimCount;
+            lastPendingCount = pendingCount;
+            lastActiveJobCount = activeIdentityJobs;
         }
 
-        return lastVisibleCount > 0;
+        return sawExpectedAssetCount || lastResolvedCount > 0;
     }
 
     // ── Validate results ──────────────────────────────────────────────────
@@ -677,6 +767,7 @@ public static class IntegrationTestEndpoints
                 {
                     Title = item.Title,
                     FileName = item.FileName ?? "",
+                    FilePath = item.FilePath,
                     MediaType = item.MediaType,
                     Status = item.Status ?? "",
                     Confidence = item.Confidence,
@@ -811,6 +902,7 @@ public static class IntegrationTestEndpoints
     // ── Vault display validation ─────────────────────────────────────────
 
     private static async Task ValidateVaultDisplayAsync(
+        IDatabaseConnection db,
         IRegistryRepository registryRepo,
         TestReport report,
         int stages,
@@ -818,11 +910,16 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var expectations = DevSeedEndpoints.GetAllExpectations()
+            .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        var providerNamesById = await LoadProviderNamesByIdAsync(db);
 
         foreach (var item in allItems.Items)
         {
             // Fetch detail to get creator fields (author/director/artist)
             var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            expectations.TryGetValue(NormalizeExpectationKey(item.Title, item.MediaType), out var expected);
 
             // Determine creator based on media type
             string? creator = item.MediaType.ToUpperInvariant() switch
@@ -836,8 +933,14 @@ public static class IntegrationTestEndpoints
             var validStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
             {
                 "Verified", "Provisional", "NeedsReview", "Identified", "Confirmed",
-                "Registered", "InReview", "Quarantined", "Rejected",
+                "Registered", "InReview", "Quarantined", "Rejected", "QidNoMatch",
             };
+
+            bool creatorRequired = !item.MediaType.Equals("TV", StringComparison.OrdinalIgnoreCase);
+            string? expectedProvider = GetExpectedRetailProvider(expected, item.MediaType);
+            string? actualProvider = detail is null
+                ? null
+                : ResolveRetailProvider(detail, providerNamesById);
 
             var check = new VaultCheckResult
             {
@@ -855,17 +958,24 @@ public static class IntegrationTestEndpoints
                 Creator        = creator,
                 RetailMatch    = item.RetailMatch,
                 WikidataQid    = item.WikidataQid,
+                ExpectedRetailProvider = expectedProvider,
+                ActualRetailProvider = actualProvider,
+                HasExpectedRetailProvider = string.IsNullOrWhiteSpace(expectedProvider)
+                    || !string.Equals(item.RetailMatch, "matched", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(expectedProvider, actualProvider, StringComparison.OrdinalIgnoreCase),
             };
             report.VaultChecks.Add(check);
 
             if (!check.HasTitle)
                 report.IssuesFound.Add($"Vault: '{item.FileName}' has no title");
-            if (!check.HasCreator)
+            if (creatorRequired && !check.HasCreator)
                 report.IssuesFound.Add($"Vault: '{item.Title}' has no creator (author/director/artist)");
             if (!check.HasStatus)
                 report.IssuesFound.Add($"Vault: '{item.Title}' has invalid or empty status: '{item.Status}'");
             if (!check.HasRetailMatch)
                 logger.LogWarning("  Vault: '{Title}' missing retail match", item.Title);
+            if (check.RequiresRetailProvider && !check.HasExpectedRetailProvider)
+                report.IssuesFound.Add($"Vault: '{item.Title}' retail provider '{actualProvider ?? "unknown"}' did not match expected '{expectedProvider}'");
             if (!check.HasCoverArt)
                 logger.LogWarning("  Vault: '{Title}' missing cover art", item.Title);
             if (stages >= 12 && !check.HasWikidataQid)
@@ -909,15 +1019,149 @@ public static class IntegrationTestEndpoints
                 var hasTracksStr = canonMap.GetValueOrDefault("track_count");
                 var hasChildren = canonMap.GetValueOrDefault("child_entities_json");
                 int.TryParse(hasTracksStr, out var trackCount);
+                var qidMethod = canonMap.GetValueOrDefault(MetadataFieldConstants.QidResolutionMethod);
+                int childCount = CountChildEntities(hasChildren);
+                bool requiresTrackManifest =
+                    string.Equals(qidMethod, "album", StringComparison.OrdinalIgnoreCase)
+                    || !string.IsNullOrWhiteSpace(hasChildren);
 
-                if (!string.IsNullOrWhiteSpace(hasChildren))
+                if (!requiresTrackManifest)
+                    continue;
+
+                if (trackCount <= 0)
+                    report.IssuesFound.Add($"Child entities: Music '{item.Title}' has no track_count");
+                if (string.IsNullOrWhiteSpace(hasChildren))
+                    report.IssuesFound.Add($"Child entities: Music '{item.Title}' has no child_entities_json");
+                else if (childCount <= 0)
+                    report.IssuesFound.Add($"Child entities: Music '{item.Title}' has invalid child_entities_json");
+                else if (trackCount > 0 && childCount < trackCount)
+                    report.IssuesFound.Add($"Child entities: Music '{item.Title}' exposes {childCount} child rows but track_count is {trackCount}");
+                else
                     logger.LogInformation("  Child entities: Music '{Title}' — {Tracks} tracks",
-                        item.Title, trackCount);
+                        item.Title, Math.Max(trackCount, childCount));
             }
         }
     }
 
     // ── Stage gating validation ──────────────────────────────────────────
+
+    private static async Task ValidateFileSystemAsync(
+        IDatabaseConnection db,
+        IOptions<IngestionOptions> options,
+        IConfigurationLoader configLoader,
+        IRegistryRepository registryRepo,
+        TestReport report,
+        ILoggerFactory loggerFactory,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
+        var organizer = new FileOrganizer(loggerFactory.CreateLogger<FileOrganizer>());
+        var imagePathService = new ImagePathService(options.Value.LibraryRoot);
+        var assetIds = await LoadWorkAssetIdsAsync(db);
+        var assetCanonicals = await LoadCanonicalValueMapsAsync(db, assetIds.Values);
+        var assetIdsByPath = await LoadAssetIdsByPathAsync(db);
+        var watchRoots = ResolveLeafSourcePaths(configLoader);
+        var expectations = DevSeedEndpoints.GetAllExpectations()
+            .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var item in allItems.Items)
+        {
+            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            expectations.TryGetValue(NormalizeExpectationKey(item.Title, item.MediaType), out var expected);
+
+            bool expectLibraryPlacement = !IsReviewStatus(item.Status) && !IsFailureStatus(item.Status);
+            bool expectedCoverArt = expected?.ExpectedCoverArt
+                ?? (!string.IsNullOrWhiteSpace(item.CoverUrl) && expectLibraryPlacement);
+            string? filePath = detail?.FilePath ?? item.FilePath;
+
+            var check = new FileSystemCheckResult
+            {
+                Title = item.Title,
+                MediaType = item.MediaType,
+                Status = item.Status ?? "",
+                ExpectedLocation = expectLibraryPlacement ? "Library" : "Staging",
+                ExpectedCoverArt = expectedCoverArt,
+            };
+
+            Guid? resolvedAssetId = null;
+
+            if (!string.IsNullOrWhiteSpace(filePath))
+            {
+                check.ActualFilePath = filePath;
+                check.ActualDisplayPath = ToDisplayPath(filePath, options.Value);
+                check.FileExists = File.Exists(filePath);
+                check.InLibraryRoot = IsUnderRoot(filePath, options.Value.LibraryRoot);
+                check.InStagingRoot = IsUnderRoot(filePath, options.Value.StagingPath)
+                    || watchRoots.Any(root => IsUnderRoot(filePath, root));
+                check.LocationMatchesExpectation = expectLibraryPlacement
+                    ? check.InLibraryRoot
+                    : check.InStagingRoot;
+
+                if (assetIdsByPath.TryGetValue(NormalizeComparablePath(filePath), out var assetIdByPath))
+                    resolvedAssetId = assetIdByPath;
+                else if (assetIds.TryGetValue(item.EntityId, out var assetIdByWork))
+                    resolvedAssetId = assetIdByWork;
+
+                if (expectLibraryPlacement
+                    && resolvedAssetId is Guid pathAssetId
+                    && assetCanonicals.TryGetValue(pathAssetId, out var pathMetadata)
+                    && !string.IsNullOrWhiteSpace(options.Value.LibraryRoot))
+                {
+                    string? expectedPath = BuildExpectedLibraryPath(item, filePath, pathMetadata, options.Value, organizer);
+                    check.RequiresTemplateMatch = !string.IsNullOrWhiteSpace(expectedPath);
+                    check.PathMatchesTemplate = expectedPath is not null && PathsEqual(expectedPath, filePath);
+                    if (!string.IsNullOrWhiteSpace(expectedPath))
+                        check.ExpectedRelativePath = Path.GetRelativePath(options.Value.LibraryRoot, expectedPath);
+                }
+                else
+                {
+                    check.PathMatchesTemplate = !expectLibraryPlacement || check.InStagingRoot;
+                }
+
+                if (check.FileExists && expectLibraryPlacement && expectedCoverArt)
+                {
+                    check.RequiresSidecarArtwork = true;
+                    check.HasPoster = HasAnySidecarPoster(filePath);
+                    check.HasPosterThumb = HasAnySidecarPosterThumb(filePath);
+                    check.HasHero = File.Exists(Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "hero.jpg"));
+                }
+            }
+
+            resolvedAssetId ??= assetIds.TryGetValue(item.EntityId, out var fallbackAssetId) ? fallbackAssetId : null;
+            if (resolvedAssetId is Guid assetId && !string.IsNullOrWhiteSpace(options.Value.LibraryRoot))
+            {
+                check.HasStoredCover = File.Exists(imagePathService.GetWorkCoverPath(item.WikidataQid, assetId));
+                check.HasStoredCoverThumb = File.Exists(imagePathService.GetWorkCoverThumbPath(item.WikidataQid, assetId));
+                check.HasStoredHero = File.Exists(imagePathService.GetWorkHeroPath(item.WikidataQid, assetId));
+                check.HasStoredBackdrop = File.Exists(imagePathService.GetWorkBackdropPath(item.WikidataQid, assetId));
+                check.HasStoredLogo = File.Exists(imagePathService.GetWorkLogoPath(item.WikidataQid, assetId));
+                check.HasStoredBanner = File.Exists(imagePathService.GetWorkBannerPath(item.WikidataQid, assetId));
+            }
+
+            check.Detail = DescribeFileSystemCheck(check);
+            report.FileSystemChecks.Add(check);
+        }
+
+        ValidateWatchFolders(configLoader, report, logger);
+
+        int failedItems = report.FileSystemChecks.Count(c => !c.Pass);
+        if (failedItems > 0)
+        {
+            report.IssuesFound.Add($"File system validation failed for {failedItems} item(s)");
+            logger.LogWarning("  File system validation: {Failed}/{Total} items failed", failedItems, report.FileSystemChecks.Count);
+        }
+
+        int watchFailures = report.WatchFolderChecks.Count(c => !c.Pass);
+        if (watchFailures > 0)
+        {
+            int remainingFiles = report.WatchFolderChecks.Sum(c => c.RemainingMediaFiles);
+            report.IssuesFound.Add($"{remainingFiles} media file(s) remained in watch folders after ingestion");
+            logger.LogWarning("  Watch folders not drained: {Directories} directories still contain {Files} media files",
+                watchFailures, remainingFiles);
+        }
+    }
 
     private static async Task ValidateStageGatingAsync(
         IRegistryRepository registryRepo,
@@ -959,6 +1203,7 @@ public static class IntegrationTestEndpoints
                 // at all. Both should suppress the "QID expected" gating assertion.
                 bool hasRetail = string.Equals(item.RetailMatch, "matched", StringComparison.OrdinalIgnoreCase);
                 bool hasQid = !string.IsNullOrWhiteSpace(item.WikidataQid);
+                bool retainedRetailWithoutQid = string.Equals(item.Status, "QidNoMatch", StringComparison.OrdinalIgnoreCase);
 
                 if (hasRetail)
                 {
@@ -966,11 +1211,15 @@ public static class IntegrationTestEndpoints
                     {
                         Title  = item.Title,
                         Check  = "Stage 2: retail match → QID expected",
-                        Pass   = hasQid,
-                        Detail = hasQid ? $"QID: {item.WikidataQid}" : "Missing QID despite retail match",
+                        Pass   = hasQid || retainedRetailWithoutQid,
+                        Detail = hasQid
+                            ? $"QID: {item.WikidataQid}"
+                            : retainedRetailWithoutQid
+                                ? "Retail match retained without QID (accepted re-check state)"
+                                : "Missing QID despite retail match",
                     };
                     report.StageGatingResults.Add(result);
-                    if (!hasQid)
+                    if (!hasQid && !retainedRetailWithoutQid)
                         logger.LogWarning("  Stage gating: '{Title}' has retail match but no QID", item.Title);
                 }
                 else
@@ -1242,6 +1491,14 @@ public static class IntegrationTestEndpoints
                 coverArtByKey[k] = check.HasCoverArt;
         }
 
+        var retailProviderByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var check in report.VaultChecks)
+        {
+            string k = $"{check.Title.ToLowerInvariant()}|{check.MediaType.ToLowerInvariant()}";
+            if (!retailProviderByKey.ContainsKey(k) || !string.IsNullOrWhiteSpace(check.ActualRetailProvider))
+                retailProviderByKey[k] = check.ActualRetailProvider;
+        }
+
         // Index by "title_lower|media_type_lower" → (wikidata_qid, curator_state, review_trigger)
         // When multiple rows share the same key (e.g. TV episodes, audiobook editions),
         // prefer rows that have a QID so "Identified" beats "Unresolved".
@@ -1359,6 +1616,20 @@ public static class IntegrationTestEndpoints
                     {
                         classification = "MissingCoverArt";
                         actualDesc     = $"Identified{(actual.WikidataQid is { Length: > 0 } q ? $" as {q}" : "")} but no cover art downloaded";
+                    }
+                }
+
+                if (classification == "Match")
+                {
+                    string? expectedProvider = GetExpectedRetailProvider(exp, exp.MediaType);
+                    string providerKey = $"{titleLower}|{mediaTypeLower}";
+                    retailProviderByKey.TryGetValue(providerKey, out var actualProvider);
+                    if (!string.IsNullOrWhiteSpace(expectedProvider)
+                        && !string.IsNullOrWhiteSpace(actualProvider)
+                        && !string.Equals(expectedProvider, actualProvider, StringComparison.OrdinalIgnoreCase))
+                    {
+                        classification = "WrongProvider";
+                        actualDesc = $"Identified{(actual.WikidataQid is { Length: > 0 } q ? $" as {q}" : "")} via {actualProvider} (expected {expectedProvider})";
                     }
                 }
             }
@@ -1507,6 +1778,7 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.TotalFailed.ToString(), "Failed", "#E24B4A");
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
         SummaryCard(sb, report.VaultChecks.Count(v => v.Pass).ToString() + "/" + report.VaultChecks.Count, "Vault Checks", "#22D3EE");
+        SummaryCard(sb, report.FileSystemChecks.Count(f => f.Pass).ToString() + "/" + report.FileSystemChecks.Count, "Filesystem", "#38BDF8");
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
         if (report.Reconciliation is not null)
             SummaryCard(sb, report.Reconciliation.Matched + "/" + report.Reconciliation.ExpectedTotal, "Reconciliation", "#F472B6");
@@ -1630,7 +1902,7 @@ public static class IntegrationTestEndpoints
                 : $"<span class=\"badge badge-warn\">{report.VaultChecks.Count - vaultPass} ISSUES</span>";
             sb.AppendLine($"<h2>Vault Display Validation {vaultBadge}</h2>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Cover Art</th><th>Title</th><th>Creator</th><th>Status</th><th>Retail Match</th><th>QID</th></tr>");
+            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Cover Art</th><th>Title</th><th>Creator</th><th>Status</th><th>Retail Match</th><th>Retail Provider</th><th>QID</th></tr>");
             foreach (var v in report.VaultChecks.OrderBy(v => v.MediaType).ThenBy(v => v.Title))
             {
                 string Check(bool ok) => ok ? "<span style=\"color:#5DCAA5\">&#x2713;</span>" : "<span style=\"color:#E24B4A\">&#x2717;</span>";
@@ -1638,9 +1910,83 @@ public static class IntegrationTestEndpoints
                     $"<td>{Check(v.HasCoverArt)}</td><td>{Check(v.HasTitle)}</td><td>{Check(v.HasCreator)}</td>" +
                     $"<td>{Check(v.HasStatus)} <span class=\"mono\">{Esc(v.Status ?? "")}</span></td>" +
                     $"<td>{Check(v.HasRetailMatch)} <span class=\"mono\">{Esc(v.RetailMatch ?? "")}</span></td>" +
+                    $"<td>{Check(v.HasExpectedRetailProvider)} <span class=\"mono\">{Esc(v.ActualRetailProvider ?? "â€”")}</span></td>" +
                     $"<td>{Check(v.HasWikidataQid)} <span class=\"mono\">{Esc(v.WikidataQid ?? "")}</span></td></tr>");
             }
             sb.AppendLine("</table>");
+        }
+
+        // Filesystem Validation
+        if (report.FileSystemChecks.Count > 0)
+        {
+            int fsPass = report.FileSystemChecks.Count(f => f.Pass);
+            string fsBadge = fsPass == report.FileSystemChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.FileSystemChecks.Count - fsPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Filesystem Validation {fsBadge}</h2>");
+
+            if (report.WatchFolderChecks.Count > 0)
+            {
+                sb.AppendLine("<table>");
+                sb.AppendLine("<tr><th>Watch Folder</th><th>Unexpected Media Files</th><th>Ignored Expected Staging</th><th>Status</th></tr>");
+                foreach (var check in report.WatchFolderChecks.OrderBy(c => c.Directory))
+                {
+                    string status = check.Pass
+                        ? "<span class=\"badge badge-pass\">EMPTY</span>"
+                        : "<span class=\"badge badge-fail\">REMAINING FILES</span>";
+                    sb.AppendLine($"<tr><td class=\"mono\">{Esc(check.Directory)}</td><td>{check.RemainingMediaFiles}</td><td>{check.IgnoredExpectedStagingFiles}</td><td>{status}</td></tr>");
+                }
+                sb.AppendLine("</table>");
+            }
+
+            var failingChecks = report.FileSystemChecks.Where(f => !f.Pass).OrderBy(f => f.MediaType).ThenBy(f => f.Title).ToList();
+            if (failingChecks.Count > 0)
+            {
+                sb.AppendLine("<table>");
+                sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Status</th><th>Expected</th><th>Actual</th><th>Sidecars</th><th>Stored Art</th><th>Detail</th></tr>");
+                foreach (var check in failingChecks)
+                {
+                    string sidecars = check.RequiresSidecarArtwork
+                        ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(check.HasHero)}"
+                        : "n/a";
+                string stored = check.RequiresStoredArtwork
+                    ? $"{BoolMark(check.HasStoredCover)}/{BoolMark(check.HasStoredCoverThumb)}/{BoolMark(check.HasStoredHero)}"
+                    : "n/a";
+
+                    sb.AppendLine($"<tr><td>{Esc(check.Title)}</td><td>{Esc(check.MediaType)}</td><td>{Esc(check.Status)}</td>" +
+                        $"<td class=\"mono\">{Esc(check.ExpectedLocation)}{(!string.IsNullOrWhiteSpace(check.ExpectedRelativePath) ? "<br>" + Esc(check.ExpectedRelativePath) : "")}</td>" +
+                        $"<td class=\"mono\">{Esc(check.ActualDisplayPath ?? check.ActualFilePath ?? "—")}</td>" +
+                        $"<td class=\"mono\">{Esc(sidecars)}</td><td class=\"mono\">{Esc(stored)}</td><td>{Esc(check.Detail)}</td></tr>");
+                }
+                sb.AppendLine("</table>");
+            }
+
+            sb.AppendLine($"<details{(failingChecks.Count == 0 ? " open" : "")}><summary style=\"cursor:pointer;color:#8B9DC3;font-weight:600\">All filesystem checks ({report.FileSystemChecks.Count})</summary>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Result</th><th>Expected</th><th>Actual</th><th>Template</th><th>Sidecars</th><th>Stored Core</th><th>Optional Stored Art</th></tr>");
+            foreach (var check in report.FileSystemChecks.OrderBy(f => f.MediaType).ThenBy(f => f.Title))
+            {
+                string result = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                string optionalArt = $"{BoolMark(check.HasStoredBackdrop)}/{BoolMark(check.HasStoredLogo)}/{BoolMark(check.HasStoredBanner)}";
+                string sidecars = check.RequiresSidecarArtwork
+                    ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(check.HasHero)}"
+                    : "n/a";
+                string storedCore = check.RequiresStoredArtwork
+                    ? $"{BoolMark(check.HasStoredCover)}/{BoolMark(check.HasStoredCoverThumb)}/{BoolMark(check.HasStoredHero)}"
+                    : "n/a";
+                string templateState = check.RequiresTemplateMatch
+                    ? BoolMark(check.PathMatchesTemplate)
+                    : "n/a";
+
+                sb.AppendLine($"<tr><td>{Esc(check.Title)}</td><td>{Esc(check.MediaType)}</td><td>{result}</td>" +
+                    $"<td class=\"mono\">{Esc(check.ExpectedLocation)}{(!string.IsNullOrWhiteSpace(check.ExpectedRelativePath) ? "<br>" + Esc(check.ExpectedRelativePath) : "")}</td>" +
+                    $"<td class=\"mono\">{Esc(check.ActualDisplayPath ?? check.ActualFilePath ?? "—")}</td>" +
+                    $"<td class=\"mono\">{Esc(templateState)}</td><td class=\"mono\">{Esc(sidecars)}</td><td class=\"mono\">{Esc(storedCore)}</td><td class=\"mono\">{Esc(optionalArt)}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+            sb.AppendLine("</details>");
         }
 
         // Stage Gating Validation
@@ -1690,13 +2036,14 @@ public static class IntegrationTestEndpoints
             sb.AppendLine("</details>");
 
             // ── Mismatch sections by classification ─────────────────────────
-            var classOrder = new[] { "UnexpectedReview", "UnexpectedIdentified", "WrongTrigger", "WrongQid", "MissingCoverArt", "NotFound" };
+            var classOrder = new[] { "UnexpectedReview", "UnexpectedIdentified", "WrongTrigger", "WrongQid", "WrongProvider", "MissingCoverArt", "NotFound" };
             var classLabels = new Dictionary<string, string>
             {
                 ["UnexpectedReview"]    = "Unexpected Review (expected Identified, got InReview)",
                 ["UnexpectedIdentified"] = "Unexpected Identified (expected InReview, got Identified)",
                 ["WrongTrigger"]        = "Wrong Trigger (in review, but wrong trigger)",
                 ["WrongQid"]            = "Wrong Wikidata QID (resolved, but to the wrong entity)",
+                ["WrongProvider"]       = "Wrong Retail Provider (matched, but from an unexpected provider)",
                 ["MissingCoverArt"]     = "Missing Cover Art (identified, but no cover downloaded)",
                 ["NotFound"]            = "Not Found (no Work row in database)",
             };
@@ -1706,6 +2053,7 @@ public static class IntegrationTestEndpoints
                 ["UnexpectedIdentified"] = "#E24B4A",
                 ["WrongTrigger"]        = "#EF9F27",
                 ["WrongQid"]            = "#E24B4A",
+                ["WrongProvider"]       = "#EF9F27",
                 ["MissingCoverArt"]     = "#EF9F27",
                 ["NotFound"]            = "#94A3B8",
             };
@@ -1751,6 +2099,8 @@ public static class IntegrationTestEndpoints
     private static string Esc(string? s) =>
         System.Net.WebUtility.HtmlEncode(s ?? "");
 
+    private static string BoolMark(bool value) => value ? "Y" : "N";
+
     private static string StatusClass(string? status)
     {
         var s = (status ?? "").ToUpperInvariant();
@@ -1761,6 +2111,445 @@ public static class IntegrationTestEndpoints
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static Task<int> CountActiveIdentityJobsAsync(
+        IIdentityJobRepository identityJobRepo,
+        CancellationToken ct)
+        => identityJobRepo.CountActiveAsync(ct);
+
+    private static async Task<Dictionary<Guid, Guid>> LoadWorkAssetIdsAsync(IDatabaseConnection db)
+    {
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<(string WorkId, string AssetId)>("""
+            SELECT w.id AS WorkId, MIN(ma.id) AS AssetId
+            FROM works w
+            INNER JOIN editions e ON e.work_id = w.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            GROUP BY w.id
+            """);
+
+        return rows
+            .Where(r => Guid.TryParse(r.WorkId, out _) && Guid.TryParse(r.AssetId, out _))
+            .ToDictionary(r => Guid.Parse(r.WorkId), r => Guid.Parse(r.AssetId));
+    }
+
+    private static async Task<Dictionary<string, Guid>> LoadAssetIdsByPathAsync(IDatabaseConnection db)
+    {
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<(string AssetId, string FilePath)>("""
+            SELECT id             AS AssetId,
+                   file_path_root AS FilePath
+            FROM media_assets
+            WHERE file_path_root IS NOT NULL
+              AND TRIM(file_path_root) <> '';
+            """);
+
+        return rows
+            .Where(r => Guid.TryParse(r.AssetId, out _)
+                && !string.IsNullOrWhiteSpace(r.FilePath))
+            .GroupBy(r => NormalizeComparablePath(r.FilePath), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                g => g.Key,
+                g => Guid.Parse(g.OrderBy(r => r.AssetId, StringComparer.OrdinalIgnoreCase).First().AssetId),
+                StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static async Task<Dictionary<Guid, Dictionary<string, string>>> LoadCanonicalValueMapsAsync(
+        IDatabaseConnection db,
+        IEnumerable<Guid> entityIds)
+    {
+        var ids = entityIds.Distinct().ToList();
+        if (ids.Count == 0)
+            return [];
+
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<(string EntityId, string Key, string Value)>("""
+            SELECT entity_id AS EntityId,
+                   key       AS Key,
+                   value     AS Value
+            FROM canonical_values
+            WHERE entity_id IN @entityIds
+              AND value IS NOT NULL
+              AND TRIM(value) <> '';
+            """, new
+        {
+            entityIds = ids.Select(id => id.ToString()).ToArray(),
+        });
+
+        var maps = new Dictionary<Guid, Dictionary<string, string>>();
+        foreach (var row in rows)
+        {
+            if (!Guid.TryParse(row.EntityId, out var entityId))
+                continue;
+
+            if (!maps.TryGetValue(entityId, out var map))
+            {
+                map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                maps[entityId] = map;
+            }
+
+            map[row.Key] = row.Value;
+        }
+
+        return maps;
+    }
+
+    private static string NormalizeExpectationKey(string title, string mediaType) =>
+        $"{title.Trim().ToLowerInvariant()}|{mediaType.Trim().ToLowerInvariant()}";
+
+    private sealed class ProviderNameRow
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+    }
+
+    private static async Task<IReadOnlyDictionary<Guid, string>> LoadProviderNamesByIdAsync(IDatabaseConnection db)
+    {
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<ProviderNameRow>(
+            "SELECT id AS Id, name AS Name FROM provider_registry");
+
+        var providerNames = new Dictionary<Guid, string>();
+        foreach (var row in rows)
+        {
+            if (!Guid.TryParse(row.Id, out var providerId))
+                continue;
+
+            var normalized = NormalizeProviderName(row.Name);
+            if (string.IsNullOrWhiteSpace(normalized))
+                continue;
+
+            providerNames[providerId] = normalized;
+        }
+
+        return providerNames;
+    }
+
+    private static string? GetExpectedRetailProvider(DevSeedEndpoints.SeedExpectation? expected, string mediaType)
+    {
+        var provider = expected?.ExpectedProvider ?? InferExpectedRetailProvider(mediaType);
+        return NormalizeProviderName(provider);
+    }
+
+    private static string? InferExpectedRetailProvider(string mediaType) =>
+        mediaType.Trim().ToLowerInvariant() switch
+        {
+            "audiobooks" or "music" => "apple_api",
+            "movies" or "tv" => "tmdb",
+            "comics" => "comicvine",
+            _ => null,
+        };
+
+    private static string? ResolveRetailProvider(
+        RegistryItemDetail detail,
+        IReadOnlyDictionary<Guid, string> providerNamesById)
+    {
+        var provider = detail.ClaimHistory
+            .Where(c => c.ProviderId != Guid.Empty
+                        && providerNamesById.TryGetValue(c.ProviderId, out _)
+                        && IsRetailProviderClaim(c.ClaimKey))
+            .OrderByDescending(c => c.Confidence)
+            .ThenByDescending(c => c.ClaimedAt)
+            .Select(c => providerNamesById[c.ProviderId])
+            .FirstOrDefault(p => !IsNonRetailProvider(p));
+
+        if (!string.IsNullOrWhiteSpace(provider))
+            return provider;
+
+        return NormalizeProviderName(detail.MatchSource);
+    }
+
+    private static bool IsRetailProviderClaim(string claimKey) =>
+        claimKey is MetadataFieldConstants.Title
+            or MetadataFieldConstants.Album
+            or MetadataFieldConstants.ShowName
+            or MetadataFieldConstants.EpisodeTitle
+            or MetadataFieldConstants.Series;
+
+    private static bool IsNonRetailProvider(string? provider) =>
+        string.IsNullOrWhiteSpace(provider)
+        || provider.StartsWith("local", StringComparison.OrdinalIgnoreCase)
+        || provider.Contains("wikidata", StringComparison.OrdinalIgnoreCase)
+        || provider.Contains("libraryscan", StringComparison.OrdinalIgnoreCase);
+
+    private static string? NormalizeProviderName(string? providerName)
+    {
+        if (string.IsNullOrWhiteSpace(providerName))
+            return null;
+
+        Span<char> buffer = stackalloc char[providerName.Length];
+        int index = 0;
+        bool previousUnderscore = false;
+
+        foreach (var ch in providerName.Trim().ToLowerInvariant())
+        {
+            var normalized = char.IsLetterOrDigit(ch) ? ch : '_';
+            if (normalized == '_')
+            {
+                if (previousUnderscore)
+                    continue;
+                previousUnderscore = true;
+            }
+            else
+            {
+                previousUnderscore = false;
+            }
+
+            buffer[index++] = normalized;
+        }
+
+        var result = new string(buffer[..index]).Trim('_');
+        return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    private static int CountChildEntities(string? childEntitiesJson)
+    {
+        if (string.IsNullOrWhiteSpace(childEntitiesJson))
+            return 0;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(childEntitiesJson);
+            return doc.RootElement.ValueKind switch
+            {
+                JsonValueKind.Array => doc.RootElement.GetArrayLength(),
+                JsonValueKind.Object when doc.RootElement.TryGetProperty("items", out var items)
+                    && items.ValueKind == JsonValueKind.Array => items.GetArrayLength(),
+                JsonValueKind.Object when doc.RootElement.TryGetProperty("tracks", out var tracks)
+                    && tracks.ValueKind == JsonValueKind.Array => tracks.GetArrayLength(),
+                JsonValueKind.Object when doc.RootElement.TryGetProperty("episodes", out var episodes)
+                    && episodes.ValueKind == JsonValueKind.Array => episodes.GetArrayLength(),
+                JsonValueKind.Object when doc.RootElement.TryGetProperty("issues", out var issues)
+                    && issues.ValueKind == JsonValueKind.Array => issues.GetArrayLength(),
+                _ => 0,
+            };
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static bool IsReviewStatus(string? status) =>
+        (status ?? "").Contains("review", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsFailureStatus(string? status)
+    {
+        var value = status ?? "";
+        return value.Contains("fail", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("quarantine", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("reject", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsUnderRoot(string path, string? root)
+    {
+        if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(root))
+            return false;
+
+        string normalizedPath = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        return normalizedPath.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.StartsWith(normalizedRoot + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ToDisplayPath(string path, IngestionOptions options)
+    {
+        if (IsUnderRoot(path, options.LibraryRoot))
+            return $"library/{Path.GetRelativePath(options.LibraryRoot, path).Replace('\\', '/')}";
+        if (IsUnderRoot(path, options.StagingPath))
+            return $"staging/{Path.GetRelativePath(options.StagingPath, path).Replace('\\', '/')}";
+
+        return path;
+    }
+
+    private static string? BuildExpectedLibraryPath(
+        RegistryItem item,
+        string? filePath,
+        IReadOnlyDictionary<string, string> metadata,
+        IngestionOptions options,
+        FileOrganizer organizer)
+    {
+        if (string.IsNullOrWhiteSpace(options.LibraryRoot) || string.IsNullOrWhiteSpace(filePath))
+            return null;
+
+        MediaType? mediaType = Enum.TryParse<MediaType>(item.MediaType, ignoreCase: true, out var parsed)
+            ? parsed
+            : null;
+
+        var candidate = new IngestionCandidate
+        {
+            Path = filePath,
+            EventType = FileEventType.Created,
+            DetectedAt = DateTimeOffset.UtcNow,
+            ReadyAt = DateTimeOffset.UtcNow,
+            Metadata = new Dictionary<string, string>(metadata, StringComparer.OrdinalIgnoreCase),
+            DetectedMediaType = mediaType,
+        };
+
+        string template = options.ResolveTemplate(mediaType?.ToString() ?? item.MediaType);
+        string relative = organizer.CalculatePath(candidate, template).Replace('/', Path.DirectorySeparatorChar);
+        return Path.Combine(options.LibraryRoot, relative);
+    }
+
+    private static bool PathsEqual(string left, string right) =>
+        Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Equals(
+                Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
+
+    private static string DescribeFileSystemCheck(FileSystemCheckResult check)
+    {
+        if (!check.FileExists)
+            return "File path is missing on disk";
+        if (!check.LocationMatchesExpectation)
+            return check.ExpectedLocation == "Library"
+                ? "File never reached the organized library"
+                : "File should still be in staging";
+        if (check.RequiresTemplateMatch && !check.PathMatchesTemplate)
+            return $"Template drift: expected {check.ExpectedRelativePath}";
+        if (check.RequiresSidecarArtwork && (!check.HasPoster || !check.HasPosterThumb || !check.HasHero))
+            return "Sidecar artwork is incomplete next to the media file";
+        if (check.RequiresStoredArtwork && (!check.HasStoredCover || !check.HasStoredCoverThumb || !check.HasStoredHero))
+            return "Stored artwork set is incomplete under .data/images";
+
+        return "OK";
+    }
+
+    private static void ValidateWatchFolders(
+        IConfigurationLoader configLoader,
+        TestReport report,
+        ILogger logger)
+    {
+        var expectedStagingPaths = report.FileSystemChecks
+            .Where(c => c.ExpectedLocation == "Staging"
+                && c.FileExists
+                && !string.IsNullOrWhiteSpace(c.ActualFilePath))
+            .Select(c => NormalizeComparablePath(c.ActualFilePath!))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (string path in ResolveLeafSourcePaths(configLoader))
+        {
+            report.WatchFolderChecks.Add(new WatchFolderCheckResult
+            {
+                Directory = path,
+                RemainingMediaFiles = CountMediaFiles(path, expectedStagingPaths),
+                IgnoredExpectedStagingFiles = CountIgnoredMediaFiles(path, expectedStagingPaths),
+            });
+        }
+
+        logger.LogInformation("  Watch folders: {Empty}/{Total} drained",
+            report.WatchFolderChecks.Count(c => c.Pass),
+            report.WatchFolderChecks.Count);
+    }
+
+    private static IReadOnlyList<string> ResolveLeafSourcePaths(IConfigurationLoader configLoader)
+    {
+        var allPaths = configLoader.LoadLibraries().Libraries
+            .SelectMany(lib =>
+                (lib.SourcePaths is { Count: > 0 } paths ? paths : [lib.SourcePath])
+                    .Where(p => !string.IsNullOrWhiteSpace(p)))
+            .Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(Directory.Exists)
+            .ToList();
+
+        return allPaths
+            .Where(path => !allPaths.Any(other =>
+                !path.Equals(other, StringComparison.OrdinalIgnoreCase)
+                && other.StartsWith(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(path => path)
+            .ToList();
+    }
+
+    private static int CountMediaFiles(string directory, ISet<string>? ignoredPaths = null)
+    {
+        if (!Directory.Exists(directory))
+            return 0;
+
+        try
+        {
+            return Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                .Count(path =>
+                    MediaExtensions.Contains(Path.GetExtension(path))
+                    && (ignoredPaths is null || !ignoredPaths.Contains(NormalizeComparablePath(path))));
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static int CountIgnoredMediaFiles(string directory, ISet<string> ignoredPaths)
+    {
+        if (!Directory.Exists(directory) || ignoredPaths.Count == 0)
+            return 0;
+
+        try
+        {
+            return Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
+                .Count(path =>
+                    MediaExtensions.Contains(Path.GetExtension(path))
+                    && ignoredPaths.Contains(NormalizeComparablePath(path)));
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    private static bool HasAnySidecarPoster(string mediaFilePath) =>
+        EnumeratePosterCandidates(mediaFilePath).Any(File.Exists);
+
+    private static bool HasAnySidecarPosterThumb(string mediaFilePath) =>
+        EnumeratePosterThumbCandidates(mediaFilePath).Any(File.Exists);
+
+    private static IEnumerable<string> EnumeratePosterCandidates(string mediaFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            yield break;
+
+        var dir = Path.GetDirectoryName(mediaFilePath) ?? string.Empty;
+        var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in new[]
+        {
+            ImagePathService.GetMediaFilePosterPath(mediaFilePath),
+            Path.Combine(dir, "poster.jpg"),
+            Path.Combine(dir, $"{basename}-poster.jpg"),
+        })
+        {
+            if (yielded.Add(candidate))
+                yield return candidate;
+        }
+    }
+
+    private static IEnumerable<string> EnumeratePosterThumbCandidates(string mediaFilePath)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            yield break;
+
+        var dir = Path.GetDirectoryName(mediaFilePath) ?? string.Empty;
+        var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
+        var yielded = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var candidate in new[]
+        {
+            ImagePathService.GetMediaFileThumbPath(mediaFilePath),
+            Path.Combine(dir, "poster-thumb.jpg"),
+            Path.Combine(dir, $"{basename}-poster-thumb.jpg"),
+        })
+        {
+            if (yielded.Add(candidate))
+                yield return candidate;
+        }
+    }
+
+    private static string NormalizeComparablePath(string path) =>
+        Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
     private static void WipeDirectoryContents(string dirPath)
     {

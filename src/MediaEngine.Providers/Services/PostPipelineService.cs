@@ -124,9 +124,10 @@ public sealed class PostPipelineService
         await TryAutoResolveMetadataConflictsAsync(entityId, effectiveConfidence, ct);
 
         // 4. Organization gate
-        double organizeThreshold = wikidataQid is not null
-            ? hydration.PostHydrationOrganizeThreshold
-            : scoring.AutoLinkThreshold;
+        // A resolved retail identity is enough to promote into the library.
+        // When Stage 2 cannot resolve a Wikidata QID, the item should still
+        // retain its retail match and organize in-place for periodic re-checks.
+        double organizeThreshold = hydration.PostHydrationOrganizeThreshold;
 
         if (effectiveConfidence >= organizeThreshold)
         {

@@ -244,7 +244,14 @@ public sealed class RetailMatchWorker
         var retailAcceptThreshold   = hydrationConfig.RetailAutoAcceptThreshold;
         var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;
 
-        var representativeHints = jobHints[groupJobs[0].EntityId];
+        var orderedGroupJobs = groupJobs
+            .OrderBy(j => TryParseOrdinal(jobHints[j.EntityId].GetValueOrDefault(MetadataFieldConstants.TrackNumber), out var trackNumber)
+                ? trackNumber
+                : int.MaxValue)
+            .ThenBy(j => jobHints[j.EntityId].GetValueOrDefault(MetadataFieldConstants.Title) ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var representativeHints = jobHints[orderedGroupJobs[0].EntityId];
         var artist = representativeHints.GetValueOrDefault(MetadataFieldConstants.Artist)
             ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Author)
             ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Composer);
@@ -261,35 +268,76 @@ public sealed class RetailMatchWorker
         string? collectionId = null;
         var resolvedVia = "track search";
 
-        _logger.LogInformation(
-            "Music: searching Apple iTunes by track '{Title}' / '{Artist}' ({TrackCount} queued track(s))",
-            title ?? "(unknown)", artist ?? "(unknown artist)", groupJobs.Count);
-        trackSearchMatch = await SearchAppleTrackAsync(artist, title, album, country, lang, ct);
-        collectionId = trackSearchMatch?.CollectionId;
-
         var appleProvider = _providers.FirstOrDefault(p =>
             string.Equals(p.Name, "apple_api", StringComparison.OrdinalIgnoreCase));
 
-        if (trackSearchMatch is { SingleTrackRelease: true, TitleExact: true, ArtistExact: true }
-            && groupJobs.Count == 1)
+        if (orderedGroupJobs.Count == 1)
         {
-            var singleJob = groupJobs[0];
             _logger.LogInformation(
-                "Music: exact single-track Apple hit '{Title}' by '{Artist}' resolved directly via track search for entity {EntityId}",
-                title ?? "(unknown)",
-                artist ?? "(unknown artist)",
-                singleJob.EntityId);
+                "Music: searching Apple iTunes by track '{Title}' / '{Artist}' ({TrackCount} queued track(s))",
+                title ?? "(unknown)", artist ?? "(unknown artist)", orderedGroupJobs.Count);
 
-            await ApplyMusicTrackAsync(
-                singleJob,
-                jobHints[singleJob.EntityId],
-                [trackSearchMatch.Track],
-                trackSearchMatch.CollectionId,
-                appleProvider,
-                retailAcceptThreshold,
-                retailAmbiguousThreshold,
-                ct);
-            return;
+            trackSearchMatch = await SearchAppleTrackAsync(artist, title, album, country, lang, ct);
+            collectionId = trackSearchMatch?.CollectionId;
+
+            if (trackSearchMatch is { SingleTrackRelease: true, TitleExact: true, ArtistExact: true })
+            {
+                var singleJob = orderedGroupJobs[0];
+                _logger.LogInformation(
+                    "Music: exact single-track Apple hit '{Title}' by '{Artist}' resolved directly via track search for entity {EntityId}",
+                    title ?? "(unknown)",
+                    artist ?? "(unknown artist)",
+                    singleJob.EntityId);
+
+                await ApplyMusicTrackAsync(
+                    singleJob,
+                    jobHints[singleJob.EntityId],
+                    [trackSearchMatch.Track],
+                    trackSearchMatch.CollectionId,
+                    appleProvider,
+                    retailAcceptThreshold,
+                    retailAmbiguousThreshold,
+                    ct);
+                return;
+            }
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Music: searching Apple iTunes for album '{Album}' by '{Artist}' using {TrackCount} queued track(s)",
+                album ?? "(unknown album)", artist ?? "(unknown artist)", orderedGroupJobs.Count);
+
+            var trackSearchEvidence = new List<MusicGroupTrackSearchEvidence>(orderedGroupJobs.Count);
+            foreach (var job in orderedGroupJobs)
+            {
+                var currentHints = jobHints[job.EntityId];
+                var currentTitle = currentHints.GetValueOrDefault(MetadataFieldConstants.Title);
+                if (string.IsNullOrWhiteSpace(currentTitle))
+                    continue;
+
+                var match = await SearchAppleTrackAsync(artist, currentTitle, album, country, lang, ct);
+                if (match is null)
+                    continue;
+
+                trackSearchEvidence.Add(new MusicGroupTrackSearchEvidence(job.EntityId, currentTitle, match));
+            }
+
+            if (trackSearchEvidence.Count > 0)
+            {
+                var selection = SelectBestMusicGroupCollection(trackSearchEvidence);
+                collectionId = selection.CollectionId;
+                resolvedVia = selection.SupportCount > 1 ? "group track consensus" : "track search";
+
+                _logger.LogInformation(
+                    "Music: selected Apple collectionId={CollectionId} for '{Artist}' / '{Album}' from {SupportCount}/{TrackCount} queued track(s) (albumExact={AlbumExactCount}, score={Score:F2})",
+                    selection.CollectionId,
+                    artist ?? "(unknown artist)",
+                    album ?? "(unknown album)",
+                    selection.SupportCount,
+                    orderedGroupJobs.Count,
+                    selection.AlbumExactCount,
+                    selection.TotalScore);
+            }
         }
 
         // ── Step 2: Fall back to album-name search if track search failed.
@@ -306,10 +354,10 @@ public sealed class RetailMatchWorker
         {
             _logger.LogInformation(
                 "Music: no match for '{Title}' / '{Album}' by '{Artist}' on Apple iTunes — falling back to per-track individual search for {TrackCount} job(s)",
-                title ?? "(no title)", album ?? "(no album)", artist ?? "(no artist)", groupJobs.Count);
+                title ?? "(no title)", album ?? "(no album)", artist ?? "(no artist)", orderedGroupJobs.Count);
 
             // Last resort: process each job individually via ConfigDrivenAdapter.
-            foreach (var job in groupJobs)
+            foreach (var job in orderedGroupJobs)
             {
                 try { await ProcessJobAsync(job, ct); }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -331,7 +379,7 @@ public sealed class RetailMatchWorker
                 "RetailMatchWorker: Apple album lookup returned no tracks for collectionId={CollectionId}",
                 collectionId);
 
-            foreach (var job in groupJobs)
+            foreach (var job in orderedGroupJobs)
             {
                 try { await ProcessJobAsync(job, ct); }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -344,10 +392,10 @@ public sealed class RetailMatchWorker
 
         _logger.LogInformation(
             "Music: resolved album via {Strategy} — collectionId={CollectionId}, {TrackCount} tracks from API — distributing to {JobCount} queued track(s)",
-            resolvedVia, collectionId, allTracks.Count, groupJobs.Count);
+            resolvedVia, collectionId, allTracks.Count, orderedGroupJobs.Count);
 
         // ── Step 4: For each job, find the best-matching track and apply its claims.
-        foreach (var job in groupJobs)
+        foreach (var job in orderedGroupJobs)
         {
             var hints = jobHints[job.EntityId];
             try
@@ -1837,13 +1885,39 @@ public sealed class RetailMatchWorker
         return false;
     }
 
+    private static bool TryParseOrdinal(string? value, out int ordinal)
+    {
+        ordinal = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var digits = new string(value.Where(char.IsDigit).ToArray());
+        return !string.IsNullOrWhiteSpace(digits)
+            && int.TryParse(digits, out ordinal)
+            && ordinal > 0;
+    }
+
     private sealed record AppleTrackSearchMatch(
         string CollectionId,
         JsonNode Track,
         double Score,
         bool TitleExact,
         bool ArtistExact,
-        bool SingleTrackRelease);
+        bool SingleTrackRelease,
+        bool AlbumExact,
+        double AlbumScore);
+
+    private sealed record MusicGroupTrackSearchEvidence(
+        Guid EntityId,
+        string Title,
+        AppleTrackSearchMatch Match);
+
+    private sealed record MusicGroupCollectionSelection(
+        string CollectionId,
+        int SupportCount,
+        int AlbumExactCount,
+        double TotalAlbumScore,
+        double TotalScore);
 
     private static IReadOnlyList<string> BuildAppleTrackSearchQueries(
         string trackTitle,
@@ -1879,6 +1953,8 @@ public sealed class RetailMatchWorker
         var bestTitleExact = false;
         var bestArtistExact = false;
         var bestSingleTrackRelease = false;
+        var bestAlbumExact = false;
+        var bestAlbumScore = 0.0;
 
         foreach (var result in results)
         {
@@ -1904,6 +1980,7 @@ public sealed class RetailMatchWorker
                 : 0.0;
             var titleExact = AreEquivalentNames(trackTitle, resultTrackName);
             var artistExact = AreEquivalentNames(artist, resultArtist);
+            var albumExact = AreEquivalentNames(albumTitle, resultAlbum);
             var singleTrackRelease = resultTrackCount == 1;
 
             var combined = string.IsNullOrWhiteSpace(albumTitle)
@@ -1928,6 +2005,8 @@ public sealed class RetailMatchWorker
                 bestTitleExact = titleExact;
                 bestArtistExact = artistExact;
                 bestSingleTrackRelease = singleTrackRelease;
+                bestAlbumExact = albumExact;
+                bestAlbumScore = albumScore;
             }
         }
 
@@ -1938,8 +2017,28 @@ public sealed class RetailMatchWorker
                 bestScore,
                 bestTitleExact,
                 bestArtistExact,
-                bestSingleTrackRelease)
+                bestSingleTrackRelease,
+                bestAlbumExact,
+                bestAlbumScore)
             : null;
+    }
+
+    private static MusicGroupCollectionSelection SelectBestMusicGroupCollection(
+        IReadOnlyList<MusicGroupTrackSearchEvidence> evidence)
+    {
+        return evidence
+            .GroupBy(e => e.Match.CollectionId, StringComparer.Ordinal)
+            .Select(group => new MusicGroupCollectionSelection(
+                CollectionId: group.Key,
+                SupportCount: group.Count(),
+                AlbumExactCount: group.Count(e => e.Match.AlbumExact),
+                TotalAlbumScore: Math.Round(group.Sum(e => e.Match.AlbumScore), 4),
+                TotalScore: Math.Round(group.Sum(e => e.Match.Score), 4)))
+            .OrderByDescending(candidate => candidate.SupportCount)
+            .ThenByDescending(candidate => candidate.AlbumExactCount)
+            .ThenByDescending(candidate => candidate.TotalAlbumScore)
+            .ThenByDescending(candidate => candidate.TotalScore)
+            .First();
     }
 
     private static bool TryGetNumericSeconds(string? value, bool preferMillisecondsForLargeValues, out double seconds)
