@@ -8,7 +8,7 @@
     <DialogContent>
         <div class="sme-shell">
             <div class="sme-header">
-                <div class="sme-cover-cluster">
+                <div class="sme-cover-cluster @(IsSingleItem ? "sme-cover-cluster--single" : "sme-cover-cluster--batch")">
                     @if (IsBatchMode)
                     {
                         <div class="sme-batch-cover-grid">
@@ -131,7 +131,17 @@
                                     @foreach (var field in group.Fields)
                                     {
                                         <div class="sme-field-row">
-                                            <label class="sme-field-label">@field.Label</label>
+                                            <label class="sme-field-label">
+                                                <span>@field.Label</span>
+                                                @if (field.IdentityField)
+                                                {
+                                                    <MudTooltip Text="Used to identify the right title, edition, show, or person during matching.">
+                                                        <span class="sme-field-info" aria-label="Matching help">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 14px;" />
+                                                        </span>
+                                                    </MudTooltip>
+                                                }
+                                            </label>
                                             <div class="sme-field-control">
                                                 @if (field.InputKind == "textarea")
                                                 {
@@ -147,10 +157,6 @@
                                                            placeholder="@GetPlaceholder(field)"
                                                            value="@GetEditableValue(field.Key)"
                                                            @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))" />
-                                                }
-                                                @if (field.IdentityField)
-                                                {
-                                                    <div class="sme-field-hint">Canonical identity field</div>
                                                 }
                                             </div>
                                         </div>
@@ -283,38 +289,76 @@
                 else if (_activeTab == "artwork")
                 {
                     <div class="sme-artwork">
-                        <div class="sme-artwork-preview">
-                            @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
-                            {
-                                <img src="@CurrentCoverUrl" alt="Artwork preview" />
-                            }
-                            else
-                            {
-                                <div class="sme-cover-fallback">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 48px; opacity: 0.18;" />
-                                </div>
-                            }
-                        </div>
-
                         @if (IsSingleItem)
                         {
-                            <div class="sme-artwork-controls">
-                                <div class="sme-group-title">Artwork</div>
-                                <label class="sme-upload-btn">
-                                    <span>Select image</span>
-                                    <InputFile OnChange="HandleCoverSelectedAsync" accept="image/*" />
-                                </label>
-                                <div class="sme-field-row">
-                                    <label class="sme-field-label">Artwork URL</label>
-                                    <div class="sme-field-control">
-                                        <input class="sme-text-input"
-                                               type="url"
-                                               placeholder="https://..."
-                                               value="@_artworkUrlInput"
-                                               @oninput="HandleArtworkUrlInput" />
-                                        <div class="sme-field-hint">Changes are applied when you save.</div>
-                                    </div>
-                                </div>
+                            <div class="sme-artwork-grid">
+                                @foreach (var slot in ArtworkSlots)
+                                {
+                                    var previewUrl = GetArtworkPreviewUrl(slot.AssetType);
+                                    var slotCount = GetArtworkAssetCount(slot.AssetType);
+                                    var isPending = HasPendingArtwork(slot.AssetType);
+                                    var canUpload = slot.UploadEnabled;
+                                    var isDragTarget = IsArtworkDragTarget(slot.AssetType);
+
+                                    <section class="sme-art-slot @(isDragTarget ? "sme-art-slot--drag" : "") @(canUpload ? string.Empty : "sme-art-slot--readonly")">
+                                        <div class="sme-art-slot-header">
+                                            <div>
+                                                <div class="sme-art-slot-title">@slot.Label</div>
+                                                <div class="sme-art-slot-meta">@slot.Description</div>
+                                            </div>
+                                            @if (slotCount > 1)
+                                            {
+                                                <span class="sme-art-slot-count">@slotCount options</span>
+                                            }
+                                        </div>
+
+                                        <div class="sme-art-slot-frame sme-art-slot-frame--@slot.FrameClass"
+                                             @ondragenter="@(() => SetArtworkDragTarget(slot.AssetType))"
+                                             @ondragleave="@(() => ClearArtworkDragTarget(slot.AssetType))"
+                                             @ondragover:preventDefault="true"
+                                             @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
+                                            @if (!string.IsNullOrWhiteSpace(previewUrl))
+                                            {
+                                                <img src="@previewUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                            }
+                                            else
+                                            {
+                                                <div class="sme-cover-fallback sme-art-slot-placeholder">
+                                                    <MudIcon Icon="@slot.Icon" Style="font-size: 32px; opacity: 0.18;" />
+                                                </div>
+                                            }
+
+                                            @if (canUpload)
+                                            {
+                                                <label class="sme-art-slot-dropzone">
+                                                    <div class="sme-art-slot-drop-title">Drag and drop or browse</div>
+                                                    <div class="sme-art-slot-drop-copy">@slot.UploadHelp</div>
+                                                    <InputFile OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
+                                                               accept="image/*" />
+                                                </label>
+                                            }
+                                        </div>
+
+                                        <div class="sme-art-slot-footer">
+                                            <div class="sme-art-slot-status">
+                                                @if (isPending)
+                                                {
+                                                    <span>Ready to upload: @GetPendingArtworkFileName(slot.AssetType)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span>@GetArtworkSourceLabel(slot.AssetType)</span>
+                                                }
+                                            </div>
+                                            @if (canUpload && isPending)
+                                            {
+                                                <button class="sme-inline-btn" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">
+                                                    Clear
+                                                </button>
+                                            }
+                                        </div>
+                                    </section>
+                                }
                             </div>
                         }
                         else

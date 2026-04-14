@@ -94,7 +94,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             """,
             new
             {
-                asset.Id,
+                Id = asset.Id.ToString(),
                 asset.EntityId,
                 asset.EntityType,
                 asset.AssetTypeValue,

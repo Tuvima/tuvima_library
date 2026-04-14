@@ -20,6 +20,112 @@ else if (_data is null)
 }
 else
 {
+    @if (ReadOnly)
+    {
+        var topReviewCategories = _data.ReviewCategories
+            .Where(c => c.Value > 0)
+            .OrderByDescending(c => c.Value)
+            .Take(3)
+            .ToList();
+        var pipelineActive = GetPipelineActiveCount(_data);
+        var queuedCount = _data.PipelineStates.GetValueOrDefault("Queued");
+        var noMatchCount = _data.PipelineStates.GetValueOrDefault("RetailNoMatch") + _data.PipelineStates.GetValueOrDefault("QidNoMatch");
+
+        <div class="vo-review-grid">
+            <div class="vo-card vo-card--compact @(_data.ReviewTotal > 0 ? "vo-card--alert" : "")">
+                <div class="vo-card-header">
+                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" Style="font-size: 18px; opacity: 0.4;" />
+                    <span class="vo-card-title">Attention</span>
+                </div>
+                <div class="vo-card-value" style="@(_data.ReviewTotal > 0 ? $"color: {PaletteProvider.Current.Status.NeedsReview};" : "")">
+                    @_data.ReviewTotal
+                </div>
+                <div class="vo-card-subtitle">items waiting on a decision</div>
+                <div class="vo-card-breakdown vo-card-breakdown--stacked">
+                    @if (topReviewCategories.Count > 0)
+                    {
+                        @foreach (var cat in topReviewCategories)
+                        {
+                            <span class="vo-metric vo-metric--row">
+                                <span class="vo-metric-value">@cat.Value</span>
+                                <span class="vo-metric-label">@FormatCategory(cat.Key)</span>
+                            </span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="vo-metric-label">Nothing currently needs review.</span>
+                    }
+                </div>
+            </div>
+
+            <div class="vo-card vo-card--compact">
+                <div class="vo-card-header">
+                    <MudIcon Icon="@Icons.Material.Outlined.Sync" Style="font-size: 18px; opacity: 0.4;" />
+                    <span class="vo-card-title">Pipeline</span>
+                </div>
+                <div class="vo-card-value" style="color: @GetSuccessRateColor(_data.PipelineSuccessRate);">
+                    @pipelineActive
+                </div>
+                <div class="vo-card-subtitle">items still moving through ingestion</div>
+                <div class="vo-card-breakdown">
+                    <span class="vo-metric">
+                        <span class="vo-metric-value">@queuedCount</span>
+                        <span class="vo-metric-label">queued</span>
+                    </span>
+                    <span class="vo-metric">
+                        <span class="vo-metric-value">@noMatchCount</span>
+                        <span class="vo-metric-label">no match</span>
+                    </span>
+                    <span class="vo-metric">
+                        <span class="vo-metric-value">@((_data.PipelineSuccessRate * 100).ToString("0"))%</span>
+                        <span class="vo-metric-label">success</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="vo-card vo-card--compact vo-card--wide">
+                <div class="vo-card-header">
+                    <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="font-size: 18px; opacity: 0.4;" />
+                    <span class="vo-card-title">Library Snapshot</span>
+                </div>
+                <div class="vo-review-stats">
+                    <span class="vo-review-stat">
+                        <span class="vo-review-stat-value">@_data.TotalItems.ToString("N0")</span>
+                        <span class="vo-review-stat-label">total</span>
+                    </span>
+                    <span class="vo-review-stat">
+                        <span class="vo-review-stat-value">@_data.Added7d</span>
+                        <span class="vo-review-stat-label">new this week</span>
+                    </span>
+                    <span class="vo-review-stat">
+                        <span class="vo-review-stat-value">@_data.CompletedWithArt</span>
+                        <span class="vo-review-stat-label">visible</span>
+                    </span>
+                    <span class="vo-review-stat">
+                        <span class="vo-review-stat-value">@_data.WithQid</span>
+                        <span class="vo-review-stat-label">with QID</span>
+                    </span>
+                    <span class="vo-review-stat">
+                        <span class="vo-review-stat-value">@_data.UniverseAssigned</span>
+                        <span class="vo-review-stat-label">in universe</span>
+                    </span>
+                </div>
+                <div class="vo-card-breakdown vo-card-breakdown--media">
+                    @foreach (var mt in _data.MediaTypeCounts.OrderByDescending(m => m.Value).Take(6))
+                    {
+                        <span class="vo-media-chip">
+                            <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(mt.Key)" Style="font-size: 14px;" />
+                            <span class="vo-media-chip-label">@mt.Key</span>
+                            <span class="vo-media-chip-count">@mt.Value.ToString("N0")</span>
+                        </span>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
     <div class="vo-grid @(ReadOnly ? "vo-grid--readonly" : string.Empty)">
 
         @* â”€â”€ Intake Summary â”€â”€ *@
@@ -202,6 +308,7 @@ else
         </div>
 
     </div>
+    }
 }
 
 @code {
@@ -220,6 +327,24 @@ else
 
     private Task HandleNavigate(string target)
         => ReadOnly ? Task.CompletedTask : OnNavigate.InvokeAsync(target);
+
+    private static int GetPipelineActiveCount(LibraryOverviewViewModel data)
+    {
+        var activeStates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "Queued",
+            "RetailSearching",
+            "RetailMatched",
+            "RetailMatchedNeedsReview",
+            "BridgeSearching",
+            "QidResolved",
+            "Hydrating",
+        };
+
+        return data.PipelineStates
+            .Where(state => activeStates.Contains(state.Key))
+            .Sum(state => state.Value);
+    }
 
     private static string FormatCategory(string trigger) => trigger switch
     {
@@ -276,6 +401,13 @@ else
         padding: 8px 0;
     }
 
+    .vo-review-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+        padding: 4px 0 8px;
+    }
+
     .vo-card {
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.06);
@@ -297,6 +429,45 @@ else
 
     .vo-card--wide {
         grid-column: span 2;
+    }
+
+    .vo-card--compact {
+        padding: 16px;
+    }
+
+    .vo-card--compact .vo-card-value {
+        font-size: 1.75rem;
+        margin-bottom: 6px;
+    }
+
+    .vo-review-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .vo-review-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vo-review-stat-value {
+        font-size: 1rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vo-review-stat-label {
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.32);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
     }
 
     .vo-card--alert {
@@ -417,5 +588,11 @@ else
         font-size: 0.85rem;
         font-weight: 600;
         color: rgba(255, 255, 255, 0.7);
+    }
+
+    @@media (max-width: 768px) {
+        .vo-card--wide {
+            grid-column: span 1;
+        }
     }
 </style>

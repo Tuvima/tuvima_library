@@ -1447,6 +1447,35 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<bool> UploadEntityArtworkAsync(
+        Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var streamContent = new StreamContent(fileStream);
+            content.Add(streamContent, "file", fileName);
+
+            var encodedType = Uri.EscapeDataString(assetType);
+            var resp = await _http.PostAsync($"/metadata/{entityId}/artwork/{encodedType}", content, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /metadata/{EntityId}/artwork/{AssetType} returned {Status}: {Detail}",
+                    entityId, assetType, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/{EntityId}/artwork/{AssetType} failed", entityId, assetType);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Provider Icons ─────────────────────────────────────────────────────
 
     public async Task<bool> UploadProviderIconAsync(
@@ -3713,7 +3742,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Id             = r.Id,
                 EntityId       = r.EntityId ?? entityId,
                 AssetType      = r.AssetType ?? string.Empty,
-                ImageUrl       = r.ImageUrl,
+                ImageUrl       = r.ImageUrl is not null ? AbsoluteUrl(r.ImageUrl) : null,
                 IsPreferred    = r.IsPreferred,
                 SourceProvider = r.SourceProvider,
             }).ToList();

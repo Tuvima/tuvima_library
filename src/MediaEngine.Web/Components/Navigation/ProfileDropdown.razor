@@ -48,7 +48,7 @@
                 <!-- Functional navigation links -->
                 <button class="profile-menu-item" @onclick='() => Navigate("/review")'>
                     <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.RateReview" Size="Size.Small" />
-                    <span>Review</span>
+                    <span class="profile-menu-item-label">Review</span>
                     @if (ReviewCount > 0)
                     {
                         <span class="profile-menu-badge">@ReviewCount</span>
@@ -56,34 +56,11 @@
                 </button>
                 <button class="profile-menu-item" @onclick='() => Navigate("/collections")'>
                     <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Collections" Size="Size.Small" />
-                    <span>Collections</span>
+                    <span class="profile-menu-item-label">Collections</span>
                 </button>
                 <button class="profile-menu-item" @onclick='() => Navigate("/settings")'>
                     <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Settings" Size="Size.Small" />
-                    <span>Settings</span>
-                </button>
-
-                <div class="profile-menu-divider"></div>
-
-                <!-- Decorative links (non-functional for now) -->
-                <button class="profile-menu-item">
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Person" Size="Size.Small" />
-                    <span>Profile Settings</span>
-                </button>
-                <button class="profile-menu-item">
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.History" Size="Size.Small" />
-                    <span>Activity History</span>
-                </button>
-                <button class="profile-menu-item">
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.CloudDownload" Size="Size.Small" />
-                    <span>My Downloads</span>
-                </button>
-
-                <div class="profile-menu-divider"></div>
-
-                <button class="profile-menu-item profile-menu-item-danger">
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Logout" Size="Size.Small" />
-                    <span>Sign Out</span>
+                    <span class="profile-menu-item-label">Settings</span>
                 </button>
             </div>
         </div>
@@ -232,6 +209,9 @@
 
     /* ── Menu items container ── */
     .profile-menu-items {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
         padding: 0 8px;
     }
 
@@ -250,6 +230,7 @@
     .profile-menu-item {
         display: flex;
         align-items: center;
+        justify-content: flex-start;
         gap: 12px;
         width: 100%;
         padding: 10px 12px;
@@ -265,6 +246,12 @@
         transition: background 0.15s ease, color 0.15s ease;
     }
 
+    .profile-menu-item-label {
+        flex: 1;
+        min-width: 0;
+        text-align: left;
+    }
+
     .profile-menu-item:hover {
         background: rgba(255, 255, 255, 0.05);
         color: rgba(248, 248, 248, 0.90);
@@ -275,19 +262,6 @@
     }
 
     /* ── Danger variant ── */
-    .profile-menu-item-danger {
-        color: rgba(248, 113, 113, 0.85);
-    }
-
-    .profile-menu-item-danger:hover {
-        background: rgba(248, 113, 113, 0.05);
-        color: rgba(248, 113, 113, 1.0);
-    }
-
-    .profile-menu-item-danger:hover .mud-icon-root {
-        color: rgba(248, 113, 113, 1.0);
-    }
-
     /* ── Review count badge ── */
     .profile-menu-badge {
         margin-left: auto;

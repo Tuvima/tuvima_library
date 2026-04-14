@@ -312,6 +312,9 @@ public interface IEngineApiClient
     /// <summary>POST /metadata/{entityId}/cover — upload cover art for a media asset.</summary>
     Task<bool> UploadCoverAsync(Guid entityId, Stream fileStream, string fileName, CancellationToken ct = default);
 
+    /// <summary>POST /metadata/{entityId}/artwork/{assetType} — upload typed artwork for a media asset.</summary>
+    Task<bool> UploadEntityArtworkAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
+
     // ── Provider Icons ───────────────────────────────────────────────────────
 
     /// <summary>POST /settings/providers/{name}/icon — upload a provider icon.</summary>

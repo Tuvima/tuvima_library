@@ -7,6 +7,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
@@ -663,6 +664,106 @@ public static class MetadataEndpoints
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
+        // ── POST /metadata/{entityId}/artwork/{assetType} ───────────────────
+        group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
+            Guid entityId,
+            string assetType,
+            IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
+            ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
+            ImagePathService imagePathService,
+            HttpRequest httpRequest,
+            CancellationToken ct) =>
+        {
+            var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
+            if (normalizedAssetType is null)
+                return Results.BadRequest("Artwork type must be Banner, Backdrop, or Logo.");
+
+            if (!httpRequest.HasFormContentType)
+                return Results.BadRequest("Expected multipart form data.");
+
+            var form = await httpRequest.ReadFormAsync(ct);
+            var file = form.Files.FirstOrDefault();
+            if (file is null || file.Length == 0)
+                return Results.BadRequest("No file provided.");
+
+            if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+                return Results.BadRequest(normalizedAssetType == "Logo"
+                    ? "Logo uploads must be PNG images."
+                    : "Only JPEG and PNG images are accepted.");
+
+            var asset = await assetRepo.FindByIdAsync(entityId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset {entityId} not found.");
+
+            var wikidataQid = await ResolveAssetWikidataQidAsync(entityId, workRepo, canonicalRepo, ct);
+            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, entityId, file.ContentType, imagePathService);
+
+            foreach (var candidatePath in EnumerateArtworkCandidatePaths(normalizedAssetType, wikidataQid, entityId, imagePathService)
+                         .Where(path => !string.Equals(path, localPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                try
+                {
+                    if (File.Exists(candidatePath))
+                        File.Delete(candidatePath);
+                }
+                catch
+                {
+                    // Best-effort cleanup — a stale alternate format should not block the new upload.
+                }
+            }
+
+            ImagePathService.EnsureDirectory(localPath);
+            await using (var stream = file.OpenReadStream())
+            await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
+            {
+                await stream.CopyToAsync(fs, ct);
+            }
+
+            var storedAsset = new EntityAsset
+            {
+                Id = Guid.NewGuid(),
+                EntityId = entityId.ToString(),
+                EntityType = "Work",
+                AssetTypeValue = normalizedAssetType,
+                ImageUrl = BuildArtworkStreamUrl(entityId, normalizedAssetType),
+                LocalImagePath = localPath,
+                SourceProvider = "user_upload",
+                IsPreferred = true,
+                IsUserOverride = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+
+            await entityAssetRepo.UpsertAsync(storedAsset, ct);
+            await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
+            await canonicalRepo.UpsertBatchAsync(
+                [
+                    new CanonicalValue
+                    {
+                        EntityId = entityId,
+                        Key = GetArtworkCanonicalKey(normalizedAssetType),
+                        Value = storedAsset.ImageUrl ?? BuildArtworkStreamUrl(entityId, normalizedAssetType),
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                    }
+                ],
+                ct);
+
+            return Results.Ok(new
+            {
+                entity_id = entityId,
+                asset_type = normalizedAssetType,
+                image_url = storedAsset.ImageUrl,
+            });
+        })
+        .WithName("UploadEntityArtwork")
+        .WithSummary("Upload banner, backdrop, or logo artwork for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator()
+        .DisableAntiforgery();
+
         // ── GET /metadata/wikidata-test ────────────────────────────────────────
         //
         // Diagnostic endpoint for validating Wikidata search.  Directly calls the
@@ -1200,6 +1301,103 @@ public static class MetadataEndpoints
 
         return app;
     }
+
+    private static string? NormalizeUploadedArtworkType(string assetType) =>
+        assetType.Trim() switch
+        {
+            "banner" or "Banner" => "Banner",
+            "backdrop" or "Backdrop" => "Backdrop",
+            "logo" or "Logo" => "Logo",
+            _ => null,
+        };
+
+    private static bool IsArtworkUploadAllowed(string? contentType, string normalizedAssetType)
+    {
+        if (string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase))
+            return string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase);
+
+        return contentType is not null && (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(contentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task<string?> ResolveAssetWikidataQidAsync(
+        Guid entityId,
+        IWorkRepository workRepo,
+        ICanonicalValueRepository canonicalRepo,
+        CancellationToken ct)
+    {
+        var lineage = await workRepo.GetLineageByAssetAsync(entityId, ct);
+        var qidEntityId = lineage?.WorkId ?? entityId;
+        var canonicals = await canonicalRepo.GetByEntityAsync(qidEntityId, ct);
+
+        return canonicals
+            .FirstOrDefault(c => c.Key is "wikidata_qid"
+                && !string.IsNullOrEmpty(c.Value)
+                && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+    }
+
+    private static string BuildArtworkUploadPath(
+        string normalizedAssetType,
+        string? wikidataQid,
+        Guid entityId,
+        string? contentType,
+        ImagePathService imagePathService)
+    {
+        var extension = string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
+            ? ".png"
+            : ".jpg";
+
+        return normalizedAssetType switch
+        {
+            "Banner" => Path.ChangeExtension(imagePathService.GetWorkBannerPath(wikidataQid, entityId), extension),
+            "Backdrop" => Path.ChangeExtension(imagePathService.GetWorkBackdropPath(wikidataQid, entityId), extension),
+            "Logo" => Path.ChangeExtension(imagePathService.GetWorkLogoPath(wikidataQid, entityId), ".png"),
+            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
+        };
+    }
+
+    private static IEnumerable<string> EnumerateArtworkCandidatePaths(
+        string normalizedAssetType,
+        string? wikidataQid,
+        Guid entityId,
+        ImagePathService imagePathService)
+    {
+        string basePath = normalizedAssetType switch
+        {
+            "Banner" => imagePathService.GetWorkBannerPath(wikidataQid, entityId),
+            "Backdrop" => imagePathService.GetWorkBackdropPath(wikidataQid, entityId),
+            "Logo" => imagePathService.GetWorkLogoPath(wikidataQid, entityId),
+            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
+        };
+
+        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            Path.ChangeExtension(basePath, ".jpg"),
+            Path.ChangeExtension(basePath, ".png"),
+        };
+
+        return candidates;
+    }
+
+    private static string BuildArtworkStreamUrl(Guid entityId, string normalizedAssetType) =>
+        normalizedAssetType switch
+        {
+            "Banner" => $"/stream/{entityId}/banner",
+            "Backdrop" => $"/stream/{entityId}/backdrop",
+            "Logo" => $"/stream/{entityId}/logo",
+            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
+        };
+
+    private static string GetArtworkCanonicalKey(string normalizedAssetType) =>
+        normalizedAssetType switch
+        {
+            "Banner" => "banner",
+            "Backdrop" => "backdrop",
+            "Logo" => "logo",
+            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
+        };
 
     /// <summary>
     /// Builds a flat dictionary of all extracted fields from a search result item.

@@ -347,6 +347,84 @@ public static class StreamEndpoints
         .RequireAnyRole()
         .RequireRateLimiting("streaming");
 
+        group.MapGet("/{assetId:guid}/banner", async (
+            Guid assetId,
+            IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ImagePathService imagePathService,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
+            var bannerPath = ResolveTypedArtworkPath("Banner", wikidataQid, assetId, imagePathService);
+            if (bannerPath is null)
+                return Results.NotFound("No banner artwork found for this asset.");
+
+            var bytes = await File.ReadAllBytesAsync(bannerPath, ct);
+            return Results.File(bytes, GetImageMimeType(bannerPath), Path.GetFileName(bannerPath));
+        })
+        .WithName("GetAssetBanner")
+        .WithSummary("Serve uploaded banner artwork for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{assetId:guid}/backdrop", async (
+            Guid assetId,
+            IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ImagePathService imagePathService,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
+            var backdropPath = ResolveTypedArtworkPath("Backdrop", wikidataQid, assetId, imagePathService);
+            if (backdropPath is null)
+                return Results.NotFound("No backdrop artwork found for this asset.");
+
+            var bytes = await File.ReadAllBytesAsync(backdropPath, ct);
+            return Results.File(bytes, GetImageMimeType(backdropPath), Path.GetFileName(backdropPath));
+        })
+        .WithName("GetAssetBackdrop")
+        .WithSummary("Serve uploaded backdrop artwork for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{assetId:guid}/logo", async (
+            Guid assetId,
+            IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ImagePathService imagePathService,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
+            var logoPath = ResolveTypedArtworkPath("Logo", wikidataQid, assetId, imagePathService);
+            if (logoPath is null)
+                return Results.NotFound("No logo artwork found for this asset.");
+
+            var bytes = await File.ReadAllBytesAsync(logoPath, ct);
+            return Results.File(bytes, GetImageMimeType(logoPath), Path.GetFileName(logoPath));
+        })
+        .WithName("GetAssetLogo")
+        .WithSummary("Serve uploaded logo artwork for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
         return app;
     }
 
@@ -408,6 +486,70 @@ public static class StreamEndpoints
 
         return File.Exists(candidatePath) ? candidatePath : null;
     }
+
+    private static async Task<string?> ResolveAssetWikidataQidAsync(
+        Guid assetId,
+        IWorkRepository workRepo,
+        ICanonicalValueRepository canonicalRepo,
+        CancellationToken ct)
+    {
+        var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+        var qidEntityId = lineage?.WorkId ?? assetId;
+        var canonicals = await canonicalRepo.GetByEntityAsync(qidEntityId, ct);
+
+        return canonicals
+            .FirstOrDefault(c => c.Key is "wikidata_qid"
+                && !string.IsNullOrEmpty(c.Value)
+                && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+    }
+
+    private static string? ResolveTypedArtworkPath(
+        string assetType,
+        string? wikidataQid,
+        Guid assetId,
+        ImagePathService imagePathService)
+    {
+        foreach (var candidatePath in EnumerateTypedArtworkCandidates(assetType, wikidataQid, assetId, imagePathService))
+        {
+            if (File.Exists(candidatePath))
+                return candidatePath;
+        }
+
+        if (!string.IsNullOrEmpty(wikidataQid))
+        {
+            foreach (var pendingCandidate in EnumerateTypedArtworkCandidates(assetType, null, assetId, imagePathService))
+            {
+                if (File.Exists(pendingCandidate))
+                    return pendingCandidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static IEnumerable<string> EnumerateTypedArtworkCandidates(
+        string assetType,
+        string? wikidataQid,
+        Guid assetId,
+        ImagePathService imagePathService)
+    {
+        string basePath = assetType switch
+        {
+            "Banner" => imagePathService.GetWorkBannerPath(wikidataQid, assetId),
+            "Backdrop" => imagePathService.GetWorkBackdropPath(wikidataQid, assetId),
+            "Logo" => imagePathService.GetWorkLogoPath(wikidataQid, assetId),
+            _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
+        };
+
+        yield return Path.ChangeExtension(basePath, ".jpg");
+        yield return Path.ChangeExtension(basePath, ".png");
+    }
+
+    private static string GetImageMimeType(string path) =>
+        string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)
+            ? "image/png"
+            : "image/jpeg";
 
     /// <summary>
     /// Parses the RFC 7233 Range header value "bytes=start-end".
