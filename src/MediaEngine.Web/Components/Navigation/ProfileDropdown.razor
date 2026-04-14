@@ -46,9 +46,9 @@
                 </div>
 
                 <!-- Functional navigation links -->
-                <button class="profile-menu-item" @onclick='() => Navigate("/library")'>
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Inventory2" Size="Size.Small" />
-                    <span>Library</span>
+                <button class="profile-menu-item" @onclick='() => Navigate("/review")'>
+                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.RateReview" Size="Size.Small" />
+                    <span>Review</span>
                     @if (ReviewCount > 0)
                     {
                         <span class="profile-menu-badge">@ReviewCount</span>

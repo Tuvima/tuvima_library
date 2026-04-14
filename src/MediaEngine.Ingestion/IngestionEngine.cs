@@ -449,7 +449,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 candidate.FailureReason ?? "Lock probe exhausted",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
             if (candidate.BatchId.HasValue)
+            {
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
+                await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
+            }
             return;
         }
 
@@ -796,7 +799,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 $"Corrupt: {result.CorruptReason}",
                 DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
             if (candidate.BatchId.HasValue)
+            {
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
+                await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
+            }
             return;
         }
 
@@ -1957,6 +1963,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     FilesTotal  = count,
                     StartedAt   = DateTimeOffset.UtcNow,
                 }).GetAwaiter().GetResult();
+                PublishInitialBatchProgressAsync(batchId, count).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
@@ -2718,6 +2725,8 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 FilesTotal  = snapshot.Count,
                 StartedAt   = DateTimeOffset.UtcNow,
             }).ConfigureAwait(false);
+
+            await PublishInitialBatchProgressAsync(batchId, snapshot.Count).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -2768,6 +2777,60 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             _logger.LogDebug(ex, "Batch counter increment failed for batch {BatchId} column {Column} — pipeline continues",
                 batchId, column);
+        }
+    }
+
+    private Task PublishInitialBatchProgressAsync(Guid batchId, int totalFiles)
+        => SafePublishAsync(
+            SignalREvents.BatchProgress,
+            new BatchProgressEvent(
+                batchId,
+                totalFiles,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                null,
+                false,
+                CurrentStage: "Queued",
+                FilesQueued: totalFiles,
+                FilesActive: 0),
+            CancellationToken.None);
+
+    private async Task PublishQueuedBatchSnapshotAsync(Guid batchId, CancellationToken ct)
+    {
+        try
+        {
+            var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
+            if (batch is null) return;
+
+            var queue = Math.Max(0, batch.FilesTotal - batch.FilesFailed);
+            var progressed = batch.FilesTotal - queue;
+            var completed = batch.FilesTotal > 0 && queue == 0;
+
+            await SafePublishAsync(
+                SignalREvents.BatchProgress,
+                new BatchProgressEvent(
+                    batch.Id,
+                    batch.FilesTotal,
+                    progressed,
+                    0,
+                    0,
+                    0,
+                    batch.FilesFailed,
+                    batch.FilesTotal > 0 ? (int)Math.Round(progressed * 100.0 / batch.FilesTotal) : 0,
+                    null,
+                    completed,
+                    CurrentStage: completed ? "Complete" : "Queued",
+                    FilesQueued: queue,
+                    FilesActive: 0),
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Initial batch snapshot publish failed for {BatchId}", batchId);
         }
     }
 

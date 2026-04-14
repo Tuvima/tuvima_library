@@ -22,7 +22,6 @@ public static class LibraryEndpoints
         // â”€â”€ GET /library/overview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         group.MapGet("/overview", async (
             IRegistryRepository registryRepo,
-            IReviewQueueRepository reviewRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -35,8 +34,8 @@ public static class LibraryEndpoints
             // 3. Media type counts
             var mediaTypeCounts = await registryRepo.GetMediaTypeCountsAsync(ct);
 
-            // 4. Review pending count
-            var reviewTotal = await reviewRepo.GetPendingCountAsync(ct);
+            // 4. Review-ready count from the shared registry projection
+            var reviewTotal = fourState.InReview;
 
             // 5. Remaining aggregates via direct SQL for fields not exposed
             //    by existing repository interfaces.
@@ -44,33 +43,26 @@ public static class LibraryEndpoints
 
             // Recently added counts (24h, 7d, 30d) â€” based on media_asset created_at
             var now = DateTimeOffset.UtcNow;
-            var epoch24h = now.AddHours(-24).ToUnixTimeSeconds();
-            var epoch7d  = now.AddDays(-7).ToUnixTimeSeconds();
-            var epoch30d = now.AddDays(-30).ToUnixTimeSeconds();
+            var since24h = now.AddHours(-24).ToString("O");
+            var since7d  = now.AddDays(-7).ToString("O");
+            var since30d = now.AddDays(-30).ToString("O");
 
-            var added24h = await conn.ExecuteScalarAsync<int>("""
-                SELECT COUNT(DISTINCT w.id)
-                FROM works w
-                INNER JOIN editions e     ON e.work_id = w.id
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE ma.created_at >= @since
-                """, new { since = epoch24h });
+            const string RecentlyAddedSql = """
+                SELECT COUNT(*)
+                FROM (
+                    SELECT e.work_id,
+                           MIN(mc.claimed_at) AS first_claimed_at
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    INNER JOIN metadata_claims mc ON mc.entity_id = ma.id
+                    GROUP BY e.work_id
+                ) added
+                WHERE julianday(added.first_claimed_at) >= julianday(@since);
+                """;
 
-            var added7d = await conn.ExecuteScalarAsync<int>("""
-                SELECT COUNT(DISTINCT w.id)
-                FROM works w
-                INNER JOIN editions e     ON e.work_id = w.id
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE ma.created_at >= @since
-                """, new { since = epoch7d });
-
-            var added30d = await conn.ExecuteScalarAsync<int>("""
-                SELECT COUNT(DISTINCT w.id)
-                FROM works w
-                INNER JOIN editions e     ON e.work_id = w.id
-                INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE ma.created_at >= @since
-                """, new { since = epoch30d });
+            var added24h = await conn.ExecuteScalarAsync<int>(RecentlyAddedSql, new { since = since24h });
+            var added7d  = await conn.ExecuteScalarAsync<int>(RecentlyAddedSql, new { since = since7d });
+            var added30d = await conn.ExecuteScalarAsync<int>(RecentlyAddedSql, new { since = since30d });
 
             // Pipeline state counts from identity_jobs
             var pipelineRows = await conn.QueryAsync<(string State, int Count)>("""

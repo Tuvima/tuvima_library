@@ -45,6 +45,7 @@ public sealed class WikidataBridgeWorker
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly PostPipelineService _postPipeline;
     private readonly CoverArtWorker _coverArt;
+    private readonly BatchProgressService? _batchProgress;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
@@ -75,7 +76,8 @@ public sealed class WikidataBridgeWorker
         IIngestionBatchRepository batchRepo,
         PostPipelineService postPipeline,
         CoverArtWorker coverArt,
-        ILogger<WikidataBridgeWorker> logger)
+        ILogger<WikidataBridgeWorker> logger,
+        BatchProgressService? batchProgress = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -95,6 +97,7 @@ public sealed class WikidataBridgeWorker
         _postPipeline = postPipeline;
         _coverArt = coverArt;
         _logger = logger;
+        _batchProgress = batchProgress;
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.
@@ -163,6 +166,31 @@ public sealed class WikidataBridgeWorker
                     "No reconciliation adapter configured", ct);
                 await TryOrganizeRetainedRetailIdentityAsync(j, ct);
             }
+
+            if (_batchProgress is not null)
+            {
+                foreach (var runId in jobs
+                             .Select(j => j.IngestionRunId)
+                             .Where(id => id.HasValue)
+                             .Select(id => id!.Value)
+                             .Distinct())
+                {
+                    await _batchProgress.EmitProgressAsync(runId, isFinal: false, ct).ConfigureAwait(false);
+                }
+            }
+
+            if (_batchProgress is not null)
+            {
+                foreach (var runId in jobs
+                             .Select(j => j.IngestionRunId)
+                             .Where(id => id.HasValue)
+                             .Select(id => id!.Value)
+                             .Distinct())
+                {
+                    await _batchProgress.EmitProgressAsync(runId, isFinal: false, ct).ConfigureAwait(false);
+                }
+            }
+
             return jobs.Count;
         }
 
@@ -428,6 +456,18 @@ public sealed class WikidataBridgeWorker
         // Batch-insert all candidates in one call.
         if (allCandidates.Count > 0)
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
+
+        if (_batchProgress is not null)
+        {
+            foreach (var runId in jobs
+                         .Select(j => j.IngestionRunId)
+                         .Where(id => id.HasValue)
+                         .Select(id => id!.Value)
+                         .Distinct())
+            {
+                await _batchProgress.EmitProgressAsync(runId, isFinal: false, ct).ConfigureAwait(false);
+            }
+        }
 
         return jobs.Count;
     }

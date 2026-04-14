@@ -28,32 +28,30 @@ public static class ReviewEndpoints
         group.MapGet("/pending", async (
             int? limit,
             IReviewQueueRepository reviewRepo,
-            ICanonicalValueRepository canonicalRepo,
+            IRegistryRepository registryRepo,
             CancellationToken ct) =>
         {
-            var items = await reviewRepo.GetPendingAsync(limit ?? 50, ct);
+            var visibleReviewItems = await registryRepo.GetPageAsync(new RegistryQuery(
+                Offset: 0,
+                Limit: limit ?? 50,
+                Status: "InReview"), ct);
 
-            // Enrich each item with entity_title, media_type, cover_url, and bridge IDs.
-            var dtos = new List<ReviewItemDto>(items.Count);
-            foreach (var e in items)
+            var dtos = new List<ReviewItemDto>(visibleReviewItems.Items.Count);
+            foreach (var item in visibleReviewItems.Items)
             {
-                var canonicals = await canonicalRepo.GetByEntityAsync(e.EntityId, ct);
-                var lookup = canonicals.ToDictionary(
-                    c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+                if (item.ReviewItemId is not Guid reviewItemId)
+                    continue;
 
-                lookup.TryGetValue(MetadataFieldConstants.Title, out var title);
-                if (string.IsNullOrWhiteSpace(title))
-                    lookup.TryGetValue("file_name", out title);
-                if (string.IsNullOrWhiteSpace(title))
-                    title = "Untitled";
+                var reviewEntry = await reviewRepo.GetByIdAsync(reviewItemId, ct);
+                if (reviewEntry is null || !string.Equals(reviewEntry.Status, ReviewStatus.Pending, StringComparison.OrdinalIgnoreCase))
+                    continue;
 
-                lookup.TryGetValue(MetadataFieldConstants.MediaTypeField, out var mediaType);
-                if (!lookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var coverUrl))
-                    lookup.TryGetValue(MetadataFieldConstants.Cover, out coverUrl);
+                var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+                var bridgeIds = detail?.BridgeIds is { Count: > 0 }
+                    ? detail.BridgeIds.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+                    : null;
 
-                var bridgeIds = ExtractBridgeIdentifiers(lookup);
-
-                dtos.Add(ReviewItemDto.FromDomain(e, mediaType, title, coverUrl, bridgeIds));
+                dtos.Add(ReviewItemDto.FromDomain(reviewEntry, item.MediaType, item.Title, item.CoverUrl, bridgeIds));
             }
 
             return Results.Ok(dtos);
@@ -65,11 +63,11 @@ public static class ReviewEndpoints
 
         // ── GET /review/count ────────────────────────────────────────────────
         group.MapGet("/count", async (
-            IReviewQueueRepository reviewRepo,
+            IRegistryRepository registryRepo,
             CancellationToken ct) =>
         {
-            var count = await reviewRepo.GetPendingCountAsync(ct);
-            return Results.Ok(new ReviewCountResponse { PendingCount = count });
+            var counts = await registryRepo.GetFourStateCountsAsync(ct: ct);
+            return Results.Ok(new ReviewCountResponse { PendingCount = counts.InReview });
         })
         .WithName("GetReviewCount")
         .WithSummary("Get the number of pending review queue items (for sidebar badge).")
@@ -80,30 +78,26 @@ public static class ReviewEndpoints
         group.MapGet("/{id:guid}", async (
             Guid id,
             IReviewQueueRepository reviewRepo,
-            ICanonicalValueRepository canonicalRepo,
+            IRegistryRepository registryRepo,
             CancellationToken ct) =>
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
                 return Results.NotFound();
 
-            var canonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
-            var lookup = canonicals.ToDictionary(
-                c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+            var detail = await registryRepo.GetDetailAsync(item.EntityId, ct);
+            if (detail is null
+                || !string.Equals(detail.Status, "InReview", StringComparison.OrdinalIgnoreCase)
+                || detail.ReviewItemId != item.Id)
+            {
+                return Results.NotFound();
+            }
 
-            lookup.TryGetValue(MetadataFieldConstants.Title, out var title);
-            if (string.IsNullOrWhiteSpace(title))
-                lookup.TryGetValue("file_name", out title);
-            if (string.IsNullOrWhiteSpace(title))
-                title = "Untitled";
+            var bridgeIds = detail.BridgeIds.Count > 0
+                ? detail.BridgeIds.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
+                : null;
 
-            lookup.TryGetValue(MetadataFieldConstants.MediaTypeField, out var mediaType);
-            if (!lookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var coverUrl))
-                lookup.TryGetValue(MetadataFieldConstants.Cover, out coverUrl);
-
-            var bridgeIds = ExtractBridgeIdentifiers(lookup);
-
-            return Results.Ok(ReviewItemDto.FromDomain(item, mediaType, title, coverUrl, bridgeIds));
+            return Results.Ok(ReviewItemDto.FromDomain(item, detail.MediaType, detail.Title, detail.CoverUrl, bridgeIds));
         })
         .WithName("GetReviewItem")
         .WithSummary("Get a single review queue item with full details.")

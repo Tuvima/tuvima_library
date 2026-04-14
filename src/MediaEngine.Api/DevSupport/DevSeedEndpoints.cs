@@ -318,6 +318,13 @@ public static class DevSeedEndpoints
 
     private static readonly SeedAudiobook[] SeedAudiobooks =
     [
+        new("The Clockmaker's Kaleidoscope of Vanishing Summers", "Percival Moon", "Imogen Vale", 2020,
+            TestCategory: "Edge - synthetic audiobook title, should fail retail matching and enter review",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
+            ExpectedReason: "Synthetic audiobook title should not match any retail provider",
+            ExpectedCoverArt: false),
+
         // ── Paired with EPUB counterparts ─────────────────────────────────────
 
         new("Dune", "Frank Herbert", "Simon Vance", 1965,
@@ -381,6 +388,21 @@ public static class DevSeedEndpoints
 
     private static readonly SeedVideo[] SeedVideos =
     [
+        new("Chronicles of the Titanium Orchard", "Alistair Wren", 2023, "Movie",
+            TestCategory: "Movie - synthetic title, should fail TMDB matching and enter review",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
+            ExpectedReason: "Synthetic movie title should not match TMDB",
+            ExpectedCoverArt: false),
+
+        new("Paper Storm", null, 2023, "TV",
+            Series: "Department of Clockwork Rain", SeasonNumber: 1, EpisodeNumber: 1,
+            TestCategory: "TV - synthetic series, should fail TMDB matching and enter review",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
+            ExpectedReason: "Synthetic TV series should not match TMDB",
+            ExpectedCoverArt: false),
+
         // ── Movies ──────────────────────────────────────────────────────────
 
         new("Blade Runner 2049", "Denis Villeneuve", 2017, "Movie",
@@ -486,6 +508,14 @@ public static class DevSeedEndpoints
 
     private static readonly SeedMusic[] SeedMusicTracks =
     [
+        new("Nebula Teacup Waltz", "Professor Thimblewick",
+            Album: "Songs for Mechanical Owls", Year: 2020, Genre: "Experimental", TrackNumber: 1,
+            TestCategory: "Music - synthetic artist and track, should fail Apple Music matching and enter review",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
+            ExpectedReason: "Synthetic music track should not match Apple Music",
+            ExpectedCoverArt: false),
+
         // ── Category 1: Standard (strong Apple Music presence) ─────────────
         new("Bohemian Rhapsody", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11,
@@ -598,6 +628,16 @@ public static class DevSeedEndpoints
 
     private static readonly SeedComic[] SeedComics =
     [
+        new("Captain Semaphore #404", Writer: "Mara Quill",
+            Series: "Captain Semaphore", Number: 404, Year: 2021, Genre: "Science Fiction",
+            Summary: "A synthetic comic issue created to force a clean review-path exercise.",
+            Publisher: "Signal House", Penciller: "Ivo North",
+            TestCategory: "Comic - synthetic issue, should fail ComicVine matching and enter review",
+            ExpectIdentified: false,
+            ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
+            ExpectedReason: "Synthetic comic issue should not match ComicVine",
+            ExpectedCoverArt: false),
+
         // Comics expectations: ComicVine issue search should identify all four issues.
         // Some may still miss a Wikidata QID, but retail identification remains valid
         // and the item should stay usable without being forced into review.

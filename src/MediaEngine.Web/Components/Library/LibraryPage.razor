@@ -17,10 +17,12 @@
     @* â”€â”€ 1. TITLE ROW â”€â”€ *@
     <div class="vault-header">
         <div class="vault-title-row">
-            <h1 class="vault-title">Library</h1>
+            <h1 class="vault-title">@(ReviewOnly ? "Review" : "Library")</h1>
         </div>
 
         @* â”€â”€ 2. PRIMARY TAB ROW (categories + Action Center + Add button) â”€â”€ *@
+        @if (!ReviewOnly)
+        {
         <div class="vault-tab-row">
             <div class="vault-tab-bar">
                 @foreach (var tab in _primaryTabs)
@@ -68,6 +70,8 @@
             </div>
         }
 
+        }
+
         @if (StateContainer.BatchProgress is { IsComplete: false } bp)
         {
             <div class="vault-progress-banner">
@@ -76,7 +80,7 @@
                     {
                         <span class="vault-progress-stage">@bp.CurrentStage</span>
                     }
-                    <span class="vault-progress-count">@bp.FilesProcessed of @bp.FilesTotal files</span>
+                    <span class="vault-progress-count">@bp.FilesProcessed of @bp.FilesTotal through batch</span>
                     @if (bp.EstimatedSecondsRemaining.HasValue)
                     {
                         <span class="vault-progress-eta">~@(bp.EstimatedSecondsRemaining.Value)s remaining</span>
@@ -85,15 +89,46 @@
                 <div class="vault-progress-bar-track">
                     <div class="vault-progress-bar-fill" style="width: @(bp.FilesTotal > 0 ? bp.ProgressPercent : 0)%"></div>
                 </div>
+                <div class="vault-progress-breakdown">
+                    <span class="vault-progress-metric">Queue @bp.FilesQueued</span>
+                    <span class="vault-progress-metric">Active @bp.FilesActive</span>
+                    <span class="vault-progress-metric">Review @bp.FilesReview</span>
+                    <span class="vault-progress-metric">Ready @bp.FilesIdentified</span>
+                </div>
                 @if (bp.RecentTitles?.Count > 0)
                 {
                     <div class="vault-progress-recent">@string.Join(" Â· ", bp.RecentTitles.Take(3))</div>
                 }
             </div>
         }
+        else if (StateContainer.IngestionProgress is { } progress && !string.Equals(progress.Stage, "Complete", StringComparison.OrdinalIgnoreCase))
+        {
+            var queueCount = Math.Max(0, progress.TotalCount - progress.ProcessedCount);
+            var pct = progress.TotalCount > 0
+                ? (int)Math.Round(progress.ProcessedCount * 100.0 / progress.TotalCount)
+                : 0;
+            <div class="vault-progress-banner">
+                <div class="vault-progress-info">
+                    <span class="vault-progress-stage">@FormatIngestionStageLabel(progress.Stage)</span>
+                    <span class="vault-progress-count">@progress.ProcessedCount of @progress.TotalCount files ingested</span>
+                </div>
+                <div class="vault-progress-bar-track">
+                    <div class="vault-progress-bar-fill" style="width: @pct%"></div>
+                </div>
+                <div class="vault-progress-breakdown">
+                    <span class="vault-progress-metric">Queue @queueCount</span>
+                    @if (!string.IsNullOrWhiteSpace(progress.CurrentFile))
+                    {
+                        <span class="vault-progress-metric">@progress.CurrentFile</span>
+                    }
+                </div>
+            </div>
+        }
     </div>
 
     @* â”€â”€ 3. TOOLBAR ROW â”€â”€ *@
+    @if (!ReviewOnly)
+    {
     <div class="vault-toolbar-row">
         <LibraryToolbar ActiveTab="@_activeTab"
                       TabId="@_activeTab"
@@ -107,6 +142,7 @@
                       OnBack="NavigateBackFromGroup"
                       OnColumnPickerRequested="() => _showColumnPicker = true" />
     </div>
+    }
 
     @* â”€â”€ 5. BODY (full-width content) â”€â”€ *@
     <div class="vault-body">
@@ -270,6 +306,7 @@
 @code {
     // â”€â”€ Parameters â”€â”€
     [Parameter] public string? Tab { get; set; }
+    [Parameter] public bool ReviewOnly { get; set; }
 
     // â”€â”€ State â”€â”€
     private string _activeTab = "overview";
@@ -489,6 +526,23 @@
 
     // â”€â”€ Lifecycle â”€â”€
 
+    private static string FormatIngestionStageLabel(string stage) => stage switch
+    {
+        "Scanning" => "Scanning",
+        "Hashing" => "Hashing",
+        "Processing" => "Queuing",
+        _ => stage,
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (ReviewOnly)
+        {
+            _primaryTab = "action_center";
+            _activeTab = "action_center";
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         Orchestrator.OnActivityChanged += OnActivityChanged;
@@ -499,15 +553,36 @@
         // Load vault preferences (view modes, show unowned)
         _vaultPrefs = await ApiClient.GetLibraryPreferencesAsync() ?? new LibraryPreferencesSettings();
 
-        ReadUrlState();
+        if (ReviewOnly)
+        {
+            ReadUrlState();
+            _primaryTab = "action_center";
+            _activeTab = "action_center";
+        }
+        else
+        {
+            ReadUrlState();
 
-        // Set view mode from preferences if not overridden by URL
-        if (_viewMode == "all" && IsMediaTab(_activeTab))
-            _viewMode = GetDefaultViewMode(_activeTab);
+            // Set view mode from preferences if not overridden by URL
+            if (_viewMode == "all" && IsMediaTab(_activeTab))
+                _viewMode = GetDefaultViewMode(_activeTab);
+        }
 
         await LoadCounts();
         _mediaTypeCounts = await ApiClient.GetRegistryTypeCountsAsync();
         await LoadConflictItems();
+
+        if (ReviewOnly)
+        {
+            if (_pendingItemId.HasValue)
+            {
+                await OpenItemFromUrl(_pendingItemId.Value);
+                _pendingItemId = null;
+            }
+
+            StateHasChanged();
+            return;
+        }
 
         if (_activeTab == "overview" || _activeTab.StartsWith("ua_"))
         {
@@ -1632,7 +1707,7 @@
     private void UpdateUrl(bool replace = false)
     {
         var tab = _activeTab;
-        var path = $"/library/{tab}";
+        var path = ReviewOnly ? "/review" : $"/review/{tab}";
         var queryParts = new List<string>();
 
         // Encode drill-down group state so the browser back button works
@@ -1742,6 +1817,15 @@
 
     private async Task OpenItemFromUrl(Guid itemId)
     {
+        if (ReviewOnly)
+        {
+            var item = _conflictItems?.FirstOrDefault(i => i.EntityId == itemId);
+            var applied = await OpenSharedEditorAsync(itemId, item, SharedMediaEditorMode.Review, item?.ReviewTrigger);
+            if (applied)
+                await RefreshMediaSurfaceAsync();
+            return;
+        }
+
         if (IsMediaTab(_activeTab))
         {
             var item = _mediaItems.FirstOrDefault(i => i.EntityId == itemId);
@@ -1761,6 +1845,23 @@
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
+        if (ReviewOnly)
+        {
+            _ = InvokeAsync(async () =>
+            {
+                ReadUrlState();
+                await LoadCounts();
+                await LoadConflictItems();
+                if (_pendingItemId.HasValue)
+                {
+                    await OpenItemFromUrl(_pendingItemId.Value);
+                    _pendingItemId = null;
+                }
+                StateHasChanged();
+            });
+            return;
+        }
+
         ReadUrlState();
         _ = InvokeAsync(async () =>
         {
@@ -2220,6 +2321,18 @@
         background: #C9922E;
         border-radius: 2px;
         transition: width 0.5s ease;
+    }
+    .vault-progress-breakdown {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .vault-progress-metric {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.45);
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
     }
     .vault-progress-recent {
         font-size: 11px;

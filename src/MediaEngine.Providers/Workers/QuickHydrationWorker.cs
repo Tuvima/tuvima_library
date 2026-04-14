@@ -23,6 +23,7 @@ public sealed class QuickHydrationWorker
     private readonly CollectionAssignmentService _collectionAssignment;
     private readonly ILogger<QuickHydrationWorker> _logger;
     private readonly PostPipelineService _postPipeline;
+    private readonly BatchProgressService? _batchProgress;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ImagePathService? _imagePathService;
 
@@ -44,6 +45,7 @@ public sealed class QuickHydrationWorker
         ICanonicalValueRepository canonicalRepo,
         IConfigurationLoader configLoader,
         ILogger<QuickHydrationWorker> logger,
+        BatchProgressService? batchProgress = null,
         ImagePathService? imagePathService = null)
     {
         _jobRepo = jobRepo;
@@ -53,6 +55,7 @@ public sealed class QuickHydrationWorker
         _canonicalRepo = canonicalRepo;
         _imagePathService = imagePathService;
         _logger = logger;
+        _batchProgress = batchProgress;
 
         _batchSize = Math.Max(1, configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
     }
@@ -80,6 +83,18 @@ public sealed class QuickHydrationWorker
             {
                 _logger.LogError(ex, "QuickHydrationWorker failed for job {JobId}", job.Id);
                 await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, ex.Message, ct);
+            }
+        }
+
+        if (_batchProgress is not null)
+        {
+            foreach (var runId in jobs
+                         .Select(j => j.IngestionRunId)
+                         .Where(id => id.HasValue)
+                         .Select(id => id!.Value)
+                         .Distinct())
+            {
+                await _batchProgress.EmitProgressAsync(runId, isFinal: false, ct).ConfigureAwait(false);
             }
         }
 

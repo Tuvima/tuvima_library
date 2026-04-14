@@ -169,7 +169,9 @@ public sealed class UniverseStateContainer
     /// </summary>
     public void PushIngestionProgress(IngestionProgressEvent ev)
     {
-        _ingestionProgress = ev;
+        _ingestionProgress = string.Equals(ev.Stage, "Complete", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : ev;
 
         // Only log stage transitions (Scanning/Complete), not every tick.
         if (ev.Stage is "Scanning" or "Complete")

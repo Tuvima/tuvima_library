@@ -575,6 +575,7 @@ public sealed class DurablePipelineTests : IDisposable
     private static BatchProgressService CreateBatchProgressService() =>
         new BatchProgressService(
             new NoOpIngestionBatchRepository(),
+            new DatabaseConnection(Path.Combine(Path.GetTempPath(), $"batch-progress-{Guid.NewGuid():N}.db")),
             new NoOpEventPublisher(),
             NullLogger<BatchProgressService>.Instance);
 

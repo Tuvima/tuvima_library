@@ -936,7 +936,9 @@ public static class IntegrationTestEndpoints
                 "Registered", "InReview", "Quarantined", "Rejected", "QidNoMatch",
             };
 
-            bool creatorRequired = !item.MediaType.Equals("TV", StringComparison.OrdinalIgnoreCase);
+            bool creatorRequired =
+                !item.MediaType.Equals("TV", StringComparison.OrdinalIgnoreCase)
+                && (expected?.ExpectIdentified ?? true);
             string? expectedProvider = GetExpectedRetailProvider(expected, item.MediaType);
             string? actualProvider = detail is null
                 ? null

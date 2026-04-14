@@ -165,6 +165,15 @@ public sealed class RetailMatchWorker
         if (tvJobs.Count > 0)
             await ProcessTvBatchAsync(tvJobs, ct);
 
+        foreach (var runId in jobs
+                     .Select(j => j.IngestionRunId)
+                     .Where(id => id.HasValue)
+                     .Select(id => id!.Value)
+                     .Distinct())
+        {
+            await _batchProgress.EmitProgressAsync(runId, isFinal: false, ct).ConfigureAwait(false);
+        }
+
         return jobs.Count;
     }
 

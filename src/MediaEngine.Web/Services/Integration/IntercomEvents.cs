@@ -145,7 +145,7 @@ public sealed record FolderHealthChangedEvent(
 /// </summary>
 /// <param name="BatchId">The ingestion batch identifier.</param>
 /// <param name="FilesTotal">Total files in this batch.</param>
-/// <param name="FilesProcessed">Files that have reached a terminal state.</param>
+/// <param name="FilesProcessed">Files that have moved out of the queue (active or terminal).</param>
 /// <param name="FilesIdentified">Successfully matched and identified.</param>
 /// <param name="FilesReview">Placed in review queue.</param>
 /// <param name="FilesNoMatch">No metadata match found.</param>
@@ -155,6 +155,8 @@ public sealed record FolderHealthChangedEvent(
 /// <param name="IsComplete">True when the batch has finished.</param>
 /// <param name="RecentTitles">Display titles of the most recently processed files, or null if not provided.</param>
 /// <param name="CurrentStage">Active pipeline stage name (e.g. "RetailIdentification", "UniverseLookup"), or null if not provided.</param>
+/// <param name="FilesQueued">Files still waiting for a review decision.</param>
+/// <param name="FilesActive">Files currently being worked by the identity pipeline.</param>
 public sealed record BatchProgressEvent(
     Guid   BatchId,
     int    FilesTotal,
@@ -167,7 +169,9 @@ public sealed record BatchProgressEvent(
     int?   EstimatedSecondsRemaining,
     bool   IsComplete,
     IReadOnlyList<string>? RecentTitles = null,
-    string? CurrentStage = null);
+    string? CurrentStage = null,
+    int    FilesQueued = 0,
+    int    FilesActive = 0);
 
 // ── Hydration Pipeline Events ────────────────────────────────────────────────
 

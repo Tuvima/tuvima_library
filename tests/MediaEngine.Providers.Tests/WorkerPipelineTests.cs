@@ -13,6 +13,7 @@ using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 using MediaEngine.Storage.Services;
@@ -1507,6 +1508,7 @@ public sealed class WorkerPipelineTests
     {
         return new BatchProgressService(
             new StubIngestionBatchRepository(),
+            new DatabaseConnection(Path.Combine(Path.GetTempPath(), $"batch-progress-{Guid.NewGuid():N}.db")),
             new StubEventPublisher(),
             NullLogger<BatchProgressService>.Instance);
     }

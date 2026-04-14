@@ -982,7 +982,6 @@ app.MapReportEndpoints();
 app.MapDebugEndpoints();
 app.MapAiEndpoints();
 app.MapAiEnrichmentEndpoints();
-app.MapLibraryEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())

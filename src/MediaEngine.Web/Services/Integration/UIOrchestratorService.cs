@@ -365,7 +365,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Fetches the pending review count from the Engine and caches it.</summary>
     public async Task<int> RefreshReviewCountAsync(CancellationToken ct = default)
     {
-        _reviewCount = await _api.GetReviewCountAsync(ct);
+        await RefreshReviewCountSnapshotAsync(ct);
         return _reviewCount;
     }
 
@@ -386,7 +386,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         var ok = await _api.ResolveReviewItemAsync(id, request, ct);
         if (ok)
         {
-            _reviewCount = Math.Max(0, _reviewCount - 1);
+            await RefreshReviewCountSnapshotAsync(ct);
             _state.Invalidate();
         }
         return ok;
@@ -403,7 +403,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var ok = await _api.DismissReviewItemAsync(id, ct);
         if (ok)
-            _reviewCount = Math.Max(0, _reviewCount - 1);
+            await RefreshReviewCountSnapshotAsync(ct);
         return ok;
     }
 
@@ -413,7 +413,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         var ok = await _api.SkipUniverseAsync(id, ct);
         if (ok)
         {
-            _reviewCount = Math.Max(0, _reviewCount - 1);
+            await RefreshReviewCountSnapshotAsync(ct);
             _state.Invalidate();
         }
         return ok;
@@ -426,10 +426,24 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         var ok = await _api.ReclassifyMediaTypeAsync(entityId, mediaType, ct);
         if (ok)
         {
-            _reviewCount = Math.Max(0, _reviewCount - 1);
+            await RefreshReviewCountSnapshotAsync(ct);
             _state.Invalidate();
         }
         return ok;
+    }
+
+    private async Task RefreshReviewCountSnapshotAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            _reviewCount = await _api.GetReviewCountAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to refresh review count snapshot");
+        }
+
+        OnReviewCountChanged?.Invoke();
     }
 
     /// <summary>Fires when the review count changes (from SignalR events or explicit actions).</summary>
@@ -994,8 +1008,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             _logger.LogDebug(
                 "Intercom ← ReviewItemCreated: ReviewId={Id} EntityId={EntityId} Trigger={Trigger}",
                 ev.ReviewItemId, ev.EntityId, ev.Trigger);
-            _reviewCount++;
-            OnReviewCountChanged?.Invoke();
+            _ = RefreshReviewCountSnapshotAsync();
         });
 
         // ── "ReviewItemResolved" ─────────────────────────────────────────────
@@ -1005,9 +1018,8 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             _logger.LogDebug(
                 "Intercom ← ReviewItemResolved: ReviewId={Id} Status={Status}",
                 ev.ReviewItemId, ev.Status);
-            _reviewCount = Math.Max(0, _reviewCount - 1);
+            _ = RefreshReviewCountSnapshotAsync();
             _state.Invalidate();
-            OnReviewCountChanged?.Invoke();
         });
 
         // ── "HydrationStageCompleted" ────────────────────────────────────────

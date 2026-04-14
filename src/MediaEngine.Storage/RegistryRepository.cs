@@ -553,36 +553,20 @@ public sealed class RegistryRepository : IRegistryRepository
         }
 
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = """
+        cmd.CommandText = BuildProjectionSql() + """
             SELECT
-                (SELECT COUNT(*) FROM works w
-                 WHERE (w.curator_state IS NULL OR w.curator_state = '')
-                 AND EXISTS (
-                     SELECT 1 FROM editions e3
-                     INNER JOIN media_assets ma3 ON ma3.edition_id = e3.id
-                     INNER JOIN canonical_values cv3 ON cv3.entity_id = ma3.id
-                     WHERE e3.work_id = w.id
-                       AND cv3.key = 'wikidata_qid'
-                       AND cv3.value IS NOT NULL AND cv3.value != ''
-                       AND cv3.value NOT LIKE 'NF%'
-                 )
-                 AND NOT EXISTS (
-                     SELECT 1 FROM editions e2
-                     INNER JOIN media_assets ma2 ON ma2.edition_id = e2.id
-                     INNER JOIN review_queue rq ON rq.entity_id = ma2.id
-                     WHERE e2.work_id = w.id AND rq.status = 'Pending'
-                 )) AS Identified,
-                (SELECT COUNT(DISTINCT e.work_id)
-                 FROM review_queue rq
-                 INNER JOIN media_assets ma ON ma.id = rq.entity_id
-                 INNER JOIN editions e ON e.id = ma.edition_id
-                 INNER JOIN works w ON w.id = e.work_id
-                 WHERE rq.status = 'Pending'
-                   AND (w.curator_state IS NULL OR w.curator_state = '')) AS InReview,
-                (SELECT COUNT(*) FROM works WHERE curator_state = 'provisional') AS Provisional,
-                (SELECT COUNT(*) FROM works WHERE curator_state = 'rejected') AS Rejected,
+                COALESCE(SUM(CASE
+                        WHEN fd.status IN ('Identified', 'Confirmed', 'RetailMatched', 'QidNoMatch', 'Edited')
+                             AND fd.library_visibility = 'visible'
+                            THEN 1
+                        ELSE 0
+                    END), 0) AS Identified,
+                COALESCE(SUM(CASE WHEN fd.status = 'InReview' THEN 1 ELSE 0 END), 0) AS InReview,
+                COALESCE(SUM(CASE WHEN fd.status = 'Provisional' THEN 1 ELSE 0 END), 0) AS Provisional,
+                COALESCE(SUM(CASE WHEN fd.status = 'Rejected' THEN 1 ELSE 0 END), 0) AS Rejected,
                 (SELECT COUNT(*) FROM persons) AS PersonCount,
-                (SELECT COUNT(DISTINCT id) FROM collections) AS CollectionCount;
+                (SELECT COUNT(DISTINCT id) FROM collections) AS CollectionCount
+            FROM full_data fd;
             """;
 
         int identified = 0, inReview = 0, provisional = 0, rejected = 0, personCount = 0, collectionCount = 0;
@@ -599,15 +583,13 @@ public sealed class RegistryRepository : IRegistryRepository
             }
         }
 
-        var triggerCounts = conn.Query<(string Trigger, int Count)>("""
-            SELECT rq.trigger AS Trigger, COUNT(DISTINCT e.work_id) AS Count
-            FROM review_queue rq
-            INNER JOIN media_assets ma ON ma.id = rq.entity_id
-            INNER JOIN editions e ON e.id = ma.edition_id
-            INNER JOIN works w ON w.id = e.work_id
-            WHERE rq.status = 'Pending'
-              AND (w.curator_state IS NULL OR w.curator_state = '')
-            GROUP BY rq.trigger
+        var triggerCounts = conn.Query<(string Trigger, int Count)>(BuildProjectionSql() + """
+            SELECT fd.review_trigger AS Trigger, COUNT(*) AS Count
+            FROM full_data fd
+            WHERE fd.status = 'InReview'
+              AND fd.review_trigger IS NOT NULL
+              AND fd.review_trigger != ''
+            GROUP BY fd.review_trigger
             ORDER BY Count DESC;
             """)
             .ToDictionary(r => r.Trigger, r => r.Count);
@@ -1050,8 +1032,23 @@ public sealed class RegistryRepository : IRegistryRepository
                     END AS is_ready_for_library,
                     CASE
                         WHEN rd.curator_state IN ('rejected', 'provisional')
-                             OR (rd.review_id IS NOT NULL AND rd.review_trigger != 'WritebackFailed')
-                             OR rd.job_state IN ('RetailMatchedNeedsReview', 'QidNeedsReview')
+                             OR rd.job_state = 'QidNeedsReview'
+                             OR (
+                                 rd.review_id IS NOT NULL
+                                 AND rd.review_trigger != 'WritebackFailed'
+                                 AND (
+                                     rd.job_state IS NULL
+                                     OR rd.job_state NOT IN (
+                                         'Queued',
+                                         'RetailSearching',
+                                         'RetailMatched',
+                                         'RetailMatchedNeedsReview',
+                                         'BridgeSearching',
+                                         'QidResolved',
+                                         'Hydrating'
+                                     )
+                                 )
+                             )
                             THEN 'review_only'
                         WHEN rd.has_quality_title = 1
                              AND rd.has_resolved_media_type = 1
@@ -1064,9 +1061,23 @@ public sealed class RegistryRepository : IRegistryRepository
                     END AS library_visibility,
                     CASE
                         WHEN rd.curator_state = 'rejected' THEN 'Rejected'
-                        WHEN rd.review_id IS NOT NULL AND rd.review_trigger != 'WritebackFailed' THEN 'InReview'
-                        WHEN rd.job_state IN ('RetailMatchedNeedsReview', 'QidNeedsReview') THEN 'InReview'
                         WHEN rd.curator_state = 'provisional' THEN 'Provisional'
+                        WHEN rd.job_state = 'QidNeedsReview' THEN 'InReview'
+                        WHEN rd.review_id IS NOT NULL
+                             AND rd.review_trigger != 'WritebackFailed'
+                             AND (
+                                 rd.job_state IS NULL
+                                 OR rd.job_state NOT IN (
+                                     'Queued',
+                                     'RetailSearching',
+                                     'RetailMatched',
+                                     'RetailMatchedNeedsReview',
+                                     'BridgeSearching',
+                                     'QidResolved',
+                                     'Hydrating'
+                                 )
+                             )
+                            THEN 'InReview'
                         WHEN rd.has_valid_qid = 1 THEN 'Identified'
                         WHEN rd.job_state = 'QidNoMatch' THEN 'QidNoMatch'
                         WHEN rd.job_state IN ('RetailMatched', 'BridgeSearching', 'QidResolved', 'Hydrating', 'Completed') THEN 'RetailMatched'
