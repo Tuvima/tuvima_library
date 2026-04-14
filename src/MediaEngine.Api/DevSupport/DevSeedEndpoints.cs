@@ -1319,24 +1319,39 @@ public static class DevSeedEndpoints
         // directly into the debounce queue and are processed without any timing
         // ambiguity — no Task.Delay, no settle uncertainty.
         var libConfig = configLoader.LoadLibraries();
-        var scannedPaths = new List<string>();
-        foreach (var lib in libConfig.Libraries)
-        {
-            // Prefer SourcePaths (multi-path); fall back to legacy SourcePath.
-            var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
-                        ?? new List<string>();
-            if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
-                paths.Add(lib.SourcePath);
-
-            foreach (var srcPath in paths)
+        var scanTargets = libConfig.Libraries
+            .SelectMany(lib =>
             {
-                if (Directory.Exists(srcPath))
-                {
-                    ingestionEngine.ScanDirectory(srcPath, lib.IncludeSubdirectories);
-                    scannedPaths.Add(srcPath);
-                    logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", srcPath);
-                }
-            }
+                var paths = lib.SourcePaths?.Where(p => !string.IsNullOrWhiteSpace(p)).ToList()
+                            ?? new List<string>();
+                if (paths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
+                    paths.Add(lib.SourcePath);
+
+                return paths.Select(path => new SeedScanTarget(
+                    NormalizeDirectoryPath(path),
+                    lib.IncludeSubdirectories));
+            })
+            .Where(target => Directory.Exists(target.Path))
+            .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new SeedScanTarget(
+                group.Key,
+                group.Any(target => target.IncludeSubdirectories)))
+            .ToList();
+
+        // Prefer the most specific watch folders and drop any broad parent path
+        // that would only create duplicate empty batches during a full test run.
+        scanTargets = scanTargets
+            .Where(target => !scanTargets.Any(other =>
+                !string.Equals(target.Path, other.Path, StringComparison.OrdinalIgnoreCase)
+                && IsDirectoryAncestor(target.Path, other.Path)))
+            .ToList();
+
+        var scannedPaths = new List<string>();
+        foreach (var target in scanTargets)
+        {
+            ingestionEngine.ScanDirectory(target.Path, target.IncludeSubdirectories);
+            scannedPaths.Add(target.Path);
+            logger.LogInformation("[FullTest] ScanDirectory triggered for {Path}", target.Path);
         }
 
         // Legacy watch folder scan — only if no per-library source paths were scanned.
@@ -1387,6 +1402,19 @@ public static class DevSeedEndpoints
     /// Deletes all files and subdirectories inside a directory, preserving the directory itself.
     /// Returns the number of items deleted.
     /// </summary>
+    private sealed record SeedScanTarget(string Path, bool IncludeSubdirectories);
+
+    private static string NormalizeDirectoryPath(string path)
+        => Path.GetFullPath(path)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+    private static bool IsDirectoryAncestor(string parent, string child)
+    {
+        var normalizedParent = NormalizeDirectoryPath(parent) + Path.DirectorySeparatorChar;
+        var normalizedChild = NormalizeDirectoryPath(child) + Path.DirectorySeparatorChar;
+        return normalizedChild.StartsWith(normalizedParent, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static int WipeDirectoryContents(string dirPath, ILogger logger)
     {
         int count = 0;

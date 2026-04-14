@@ -20,10 +20,10 @@ else if (_data is null)
 }
 else
 {
-    <div class="vo-grid">
+    <div class="vo-grid @(ReadOnly ? "vo-grid--readonly" : string.Empty)">
 
         @* â”€â”€ Intake Summary â”€â”€ *@
-        <div class="vo-card vo-card--wide" @onclick='() => OnNavigate.InvokeAsync("new")'>
+        <div class="vo-card vo-card--wide" @onclick='() => HandleNavigate("new")'>
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Inventory2" Style="font-size: 18px; opacity: 0.4;" />
                 <span class="vo-card-title">Intake</span>
@@ -48,7 +48,7 @@ else
 
         @* â”€â”€ Review Backlog â”€â”€ *@
         <div class="vo-card @(_data.ReviewTotal > 0 ? "vo-card--alert" : "")"
-             @onclick='() => OnNavigate.InvokeAsync("action_center")'>
+             @onclick='() => HandleNavigate("action_center")'>
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; opacity: 0.4;" />
                 <span class="vo-card-title">Review Backlog</span>
@@ -123,7 +123,7 @@ else
         </div>
 
         @* â”€â”€ Universe Coverage â”€â”€ *@
-        <div class="vo-card" @onclick='() => OnNavigate.InvokeAsync("new")'>
+        <div class="vo-card" @onclick='() => HandleNavigate("new")'>
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Visibility" Style="font-size: 18px; opacity: 0.4;" />
                 <span class="vo-card-title">Library Readiness</span>
@@ -150,7 +150,7 @@ else
             </div>
         </div>
 
-        <div class="vo-card" @onclick='() => OnNavigate.InvokeAsync("ua_pending")'>
+        <div class="vo-card" @onclick='() => HandleNavigate("ua_pending")'>
             <div class="vo-card-header">
                 <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 18px; opacity: 0.4;" />
                 <span class="vo-card-title">Universes</span>
@@ -191,7 +191,7 @@ else
             <div class="vo-card-breakdown vo-card-breakdown--media">
                 @foreach (var mt in _data.MediaTypeCounts.OrderByDescending(m => m.Value))
                 {
-                    <span class="vo-media-chip" @onclick='() => OnNavigate.InvokeAsync(mt.Key.ToLowerInvariant())'
+                    <span class="vo-media-chip" @onclick='() => HandleNavigate(mt.Key.ToLowerInvariant())'
                           @onclick:stopPropagation="true">
                         <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(mt.Key)" Style="font-size: 14px;" />
                         <span class="vo-media-chip-label">@mt.Key</span>
@@ -206,6 +206,7 @@ else
 
 @code {
     [Parameter] public EventCallback<string> OnNavigate { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
 
     private LibraryOverviewViewModel? _data;
     private bool _loading = true;
@@ -216,6 +217,9 @@ else
         _data = await ApiClient.GetLibraryOverviewAsync();
         _loading = false;
     }
+
+    private Task HandleNavigate(string target)
+        => ReadOnly ? Task.CompletedTask : OnNavigate.InvokeAsync(target);
 
     private static string FormatCategory(string trigger) => trigger switch
     {
@@ -279,6 +283,11 @@ else
         padding: 20px;
         cursor: pointer;
         transition: background 0.15s, border-color 0.15s;
+    }
+
+    .vo-grid--readonly .vo-card,
+    .vo-grid--readonly .vo-media-chip {
+        cursor: default;
     }
 
     .vo-card:hover {

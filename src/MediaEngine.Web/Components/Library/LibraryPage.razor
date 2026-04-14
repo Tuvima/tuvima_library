@@ -72,7 +72,7 @@
 
         }
 
-        @if (StateContainer.BatchProgress is { IsComplete: false } bp)
+        @if (CurrentBatchProgress is { } bp)
         {
             <div class="vault-progress-banner">
                 <div class="vault-progress-info">
@@ -80,7 +80,7 @@
                     {
                         <span class="vault-progress-stage">@bp.CurrentStage</span>
                     }
-                    <span class="vault-progress-count">@bp.FilesProcessed of @bp.FilesTotal through batch</span>
+                    <span class="vault-progress-count">@FormatBatchProgressSummary(bp)</span>
                     @if (bp.EstimatedSecondsRemaining.HasValue)
                     {
                         <span class="vault-progress-eta">~@(bp.EstimatedSecondsRemaining.Value)s remaining</span>
@@ -101,7 +101,7 @@
                 }
             </div>
         }
-        else if (StateContainer.IngestionProgress is { } progress && !string.Equals(progress.Stage, "Complete", StringComparison.OrdinalIgnoreCase))
+        else if (CurrentIngestionProgress is { } progress)
         {
             var queueCount = Math.Max(0, progress.TotalCount - progress.ProcessedCount);
             var pct = progress.TotalCount > 0
@@ -147,6 +147,13 @@
     @* â”€â”€ 5. BODY (full-width content) â”€â”€ *@
     <div class="vault-body">
         <div class="vault-content">
+            @if (ReviewOnly)
+            {
+                <div class="vault-review-overview">
+                    <LibraryOverviewPanel ReadOnly="true" />
+                </div>
+            }
+
             @if (_activeGroupId.HasValue && !string.IsNullOrEmpty(_activeGroupType))
             {
                 @* â”€â”€ Group drill-down sub-page â”€â”€ *@
@@ -341,6 +348,7 @@
     private List<ManagedCollectionViewModel> _managedCollections = [];
     private List<ContentGroupViewModel> _contentGroups = [];
     private RegistryFourStateCountsDto _counts = new();
+    private bool _countsLoaded;
     private Dictionary<string, int> _mediaTypeCounts = new();
     private bool _hasMore;
     private int _loadedCount;
@@ -524,6 +532,18 @@
         _                  => 0,
     };
 
+    private BatchProgressEvent? CurrentBatchProgress =>
+        StateContainer.BatchProgress is { IsComplete: false } progress && ShouldShowBatchProgress(progress)
+            ? progress
+            : null;
+
+    private IngestionProgressEvent? CurrentIngestionProgress =>
+        StateContainer.IngestionProgress is { } progress
+        && !string.Equals(progress.Stage, "Complete", StringComparison.OrdinalIgnoreCase)
+        && ShouldShowIngestionProgress(progress)
+            ? progress
+            : null;
+
     // â”€â”€ Lifecycle â”€â”€
 
     private static string FormatIngestionStageLabel(string stage) => stage switch
@@ -533,6 +553,38 @@
         "Processing" => "Queuing",
         _ => stage,
     };
+
+    private bool ShouldShowBatchProgress(BatchProgressEvent progress)
+    {
+        if (!ReviewOnly)
+            return true;
+
+        var hasMeaningfulProgress = progress.FilesProcessed > 0
+            || progress.FilesActive > 0
+            || progress.FilesReview > 0
+            || progress.FilesIdentified > 0
+            || progress.FilesNoMatch > 0
+            || progress.FilesFailed > 0;
+
+        return hasMeaningfulProgress || (_countsLoaded && _counts.InReview == 0);
+    }
+
+    private bool ShouldShowIngestionProgress(IngestionProgressEvent progress)
+        => !ReviewOnly || progress.ProcessedCount > 0 || (_countsLoaded && _counts.InReview == 0);
+
+    private static string FormatBatchProgressSummary(BatchProgressEvent progress)
+    {
+        var terminalCount = progress.FilesIdentified + progress.FilesReview + progress.FilesNoMatch + progress.FilesFailed;
+        if (progress.FilesQueued == 0 && progress.FilesActive == 0 && terminalCount == progress.FilesTotal)
+        {
+            if (progress.FilesReview == progress.FilesTotal)
+                return $"{progress.FilesReview} of {progress.FilesTotal} waiting for review";
+
+            return $"{terminalCount} of {progress.FilesTotal} decided";
+        }
+
+        return $"{progress.FilesProcessed} of {progress.FilesTotal} through batch";
+    }
 
     protected override void OnParametersSet()
     {
@@ -641,7 +693,10 @@
     private async Task LoadCounts()
     {
         var counts = await ApiClient.GetRegistryFourStateCountsAsync();
-        if (counts is not null) _counts = counts;
+        if (counts is not null)
+            _counts = counts;
+
+        _countsLoaded = true;
     }
 
     private async Task LoadMediaItems(bool append = false)
@@ -2148,6 +2203,10 @@
         min-width: 0;
     }
 
+    .vault-review-overview {
+        margin-bottom: 20px;
+    }
+
     /* â”€â”€ Tablet â”€â”€ */
     @@media (max-width: 1024px) {
         .vault-title-row {
@@ -2286,7 +2345,7 @@
         background: rgba(201, 146, 46, 0.08);
         border: 1px solid rgba(201, 146, 46, 0.2);
         border-radius: 10px;
-        margin: 0 0 12px 0;
+        margin: 0 24px 12px;
         display: flex;
         flex-direction: column;
         gap: 6px;
