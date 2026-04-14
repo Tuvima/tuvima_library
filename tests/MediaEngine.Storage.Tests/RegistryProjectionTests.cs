@@ -66,18 +66,18 @@ public sealed class RegistryProjectionTests : IDisposable
         var visibleListItem = page.Items.Single(i => i.EntityId == visibleWorkId);
         var visibleDetail = await repo.GetDetailAsync(visibleWorkId);
         Assert.NotNull(visibleDetail);
-        Assert.Equal("visible", visibleListItem.VaultVisibility);
-        Assert.True(visibleListItem.IsReadyForVault);
+        Assert.Equal("visible", visibleListItem.LibraryVisibility);
+        Assert.True(visibleListItem.IsReadyForLibrary);
         Assert.Equal("present", visibleListItem.ArtworkState);
         Assert.Equal(visibleListItem.PipelineStep, visibleDetail!.PipelineStep);
-        Assert.Equal(visibleListItem.VaultVisibility, visibleDetail.VaultVisibility);
+        Assert.Equal(visibleListItem.LibraryVisibility, visibleDetail.LibraryVisibility);
         Assert.Equal(visibleListItem.ArtworkState, visibleDetail.ArtworkState);
         Assert.Equal(visibleListItem.CoverUrl, visibleDetail.CoverUrl);
 
         var qidNoMatchDetail = await repo.GetDetailAsync(qidNoMatchWorkId);
         Assert.NotNull(qidNoMatchDetail);
-        Assert.Equal("visible", qidNoMatchDetail!.VaultVisibility);
-        Assert.True(qidNoMatchDetail.IsReadyForVault);
+        Assert.Equal("visible", qidNoMatchDetail!.LibraryVisibility);
+        Assert.True(qidNoMatchDetail.IsReadyForLibrary);
         Assert.Equal("missing", qidNoMatchDetail.ArtworkState);
         Assert.Equal("Wikidata", qidNoMatchDetail.PipelineStep);
         Assert.Equal("QidNoMatch", qidNoMatchDetail.Status);
@@ -85,13 +85,13 @@ public sealed class RegistryProjectionTests : IDisposable
 
         var hiddenDetail = await repo.GetDetailAsync(hiddenWorkId);
         Assert.NotNull(hiddenDetail);
-        Assert.Equal("hidden", hiddenDetail!.VaultVisibility);
-        Assert.False(hiddenDetail.IsReadyForVault);
+        Assert.Equal("hidden", hiddenDetail!.LibraryVisibility);
+        Assert.False(hiddenDetail.IsReadyForLibrary);
         Assert.Equal("pending", hiddenDetail.ArtworkState);
 
         var reviewDetail = await repo.GetDetailAsync(reviewWorkId);
         Assert.NotNull(reviewDetail);
-        Assert.Equal("review_only", reviewDetail!.VaultVisibility);
+        Assert.Equal("review_only", reviewDetail!.LibraryVisibility);
         Assert.Equal("Retail", reviewDetail.PipelineStep);
 
         var summary = await repo.GetProjectionSummaryAsync(CancellationToken.None);
@@ -118,8 +118,8 @@ public sealed class RegistryProjectionTests : IDisposable
 
         var beforeDetail = await repo.GetDetailAsync(workId);
         Assert.NotNull(beforeDetail);
-        Assert.Equal("hidden", beforeDetail!.VaultVisibility);
-        Assert.False(beforeDetail.IsReadyForVault);
+        Assert.Equal("hidden", beforeDetail!.LibraryVisibility);
+        Assert.False(beforeDetail.IsReadyForLibrary);
         Assert.Equal("missing", beforeDetail.ArtworkState);
         Assert.Null(beforeDetail.CoverUrl);
 
@@ -128,8 +128,8 @@ public sealed class RegistryProjectionTests : IDisposable
         var afterPage = await repo.GetPageAsync(new RegistryQuery());
         var item = Assert.Single(afterPage.Items);
         Assert.Equal(workId, item.EntityId);
-        Assert.Equal("visible", item.VaultVisibility);
-        Assert.True(item.IsReadyForVault);
+        Assert.Equal("visible", item.LibraryVisibility);
+        Assert.True(item.IsReadyForLibrary);
         Assert.Equal("missing", item.ArtworkState);
         Assert.Null(item.CoverUrl);
     }

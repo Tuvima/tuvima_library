@@ -1,0 +1,271 @@
+@using MediaEngine.Domain.Constants
+@namespace MediaEngine.Web.Components.Library
+
+<div class="src-card @(IsSelected ? "src-card--selected" : "")" @onclick="OnClick">
+    <div class="src-card-thumb">
+        @if (Mode == SearchMode.Retail && !string.IsNullOrEmpty(CoverUrl))
+        {
+            <img src="@CoverUrl" alt="" loading="lazy" />
+        }
+        else if (Mode == SearchMode.Wikidata)
+        {
+            <div class="src-card-wikidata-icon">W</div>
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: rgba(255,255,255,0.15);" />
+        }
+    </div>
+    <div class="src-card-body">
+        <div class="src-card-headline">
+            @if (Mode == SearchMode.Wikidata && !string.IsNullOrEmpty(Qid))
+            {
+                <span class="src-card-qid">@Qid</span>
+                <span> · </span>
+            }
+            @GetFieldValue(DisplayConfig.Headline)
+        </div>
+        <div class="src-card-subline">
+            @GetFieldValue(DisplayConfig.Subline)
+            @{
+                var tertiaryVal = GetFieldValue(DisplayConfig.Tertiary);
+            }
+            @if (!string.IsNullOrEmpty(tertiaryVal))
+            {
+                <span> · @tertiaryVal</span>
+            }
+        </div>
+        @if (DisplayConfig.DetailFields.Count > 0)
+        {
+            <div class="src-card-details">
+                @foreach (var field in DisplayConfig.DetailFields)
+                {
+                    var val = GetFieldValue(field);
+                    if (!string.IsNullOrEmpty(val))
+                    {
+                        <span class="src-card-detail-item">@FormatFieldLabel(field): @val</span>
+                    }
+                }
+            </div>
+        }
+        <div class="src-card-bridge">
+            @foreach (var bridgeKey in DisplayConfig.BridgeLabels)
+            {
+                var bridgeVal = GetFieldValue(bridgeKey);
+                if (!string.IsNullOrEmpty(bridgeVal))
+                {
+                    <span class="src-card-bridge-chip src-card-bridge-chip--present">@FormatFieldLabel(bridgeKey) ✓</span>
+                }
+            }
+            @if (!string.IsNullOrEmpty(ProviderName))
+            {
+                <span class="src-card-source">@ProviderName</span>
+            }
+        </div>
+    </div>
+    <div class="src-card-action">
+        <button class="src-card-select-btn" @onclick="OnSelect" @onclick:stopPropagation="true">
+            Select
+        </button>
+    </div>
+</div>
+
+@code {
+    public enum SearchMode { Retail, Wikidata }
+
+    [Parameter, EditorRequired] public SearchDisplayConfig DisplayConfig { get; set; } = default!;
+    [Parameter] public SearchMode Mode { get; set; } = SearchMode.Retail;
+    [Parameter] public Dictionary<string, string> Fields { get; set; } = [];
+    [Parameter] public string? CoverUrl { get; set; }
+    [Parameter] public string? Qid { get; set; }
+    [Parameter] public string? ProviderName { get; set; }
+    [Parameter] public bool IsSelected { get; set; }
+    [Parameter] public EventCallback OnSelect { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private string? GetFieldValue(string fieldKey)
+    {
+        if (Fields.TryGetValue(fieldKey, out var val) && !string.IsNullOrWhiteSpace(val))
+            return val.Length > 120 ? val[..117] + "..." : val;
+        return null;
+    }
+
+    private static string FormatFieldLabel(string key) => key switch
+    {
+        "title" => "Title",
+        "author" => "Author",
+        "artist" => "Artist",
+        "director" => "Director",
+        "narrator" => "Narrator",
+        "year" => "Year",
+        "description" => "Description",
+        "series" => "Series",
+        "series_position" => "#",
+        "publisher" => "Publisher",
+        "page_count" => "Pages",
+        "language" => "Language",
+        "runtime" => "Runtime",
+        "duration" => "Duration",
+        "rating" => "Rating",
+        "genre" => "Genre",
+        "album" => "Album",
+        "track_number" => "Track",
+        "show_name" => "Show",
+        "episode_title" => "Episode",
+        "season_number" => "Season",
+        "episode_number" => "Episode",
+        "isbn" => "ISBN",
+        "asin" => "ASIN",
+        "tmdb_id" => "TMDB",
+        "imdb_id" => "IMDb",
+        "musicbrainz_id" => "MusicBrainz",
+        "apple_books_id" => "Apple",
+        "open_library_id" => "Open Library",
+        "comic_vine_id" => "Comic Vine",
+        "spotify_id" => "Spotify",
+        "wikidata_qid" => "QID",
+        "label" => "Name",
+        "instance_of" => "Type",
+        _ => key.Replace("_", " "),
+    };
+}
+
+<style>
+    .src-card {
+        display: flex;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.06);
+        cursor: pointer;
+        transition: background 0.15s;
+        align-items: flex-start;
+    }
+
+    .src-card:hover {
+        background: rgba(255,255,255,0.06);
+    }
+
+    .src-card--selected {
+        border-color: #C9922E;
+        background: rgba(201,146,46,0.08);
+    }
+
+    .src-card-thumb {
+        width: 48px;
+        height: 64px;
+        flex-shrink: 0;
+        border-radius: 4px;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255,255,255,0.04);
+    }
+
+    .src-card-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .src-card-wikidata-icon {
+        font-size: 20px;
+        font-weight: 700;
+        color: rgba(144,202,249,0.6);
+        font-family: serif;
+    }
+
+    .src-card-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .src-card-headline {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255,255,255,0.9);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .src-card-qid {
+        color: rgba(144,202,249,0.8);
+        font-family: monospace;
+        font-size: 11px;
+    }
+
+    .src-card-subline {
+        font-size: 11.5px;
+        color: rgba(255,255,255,0.5);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .src-card-details {
+        font-size: 11px;
+        color: rgba(255,255,255,0.35);
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .src-card-detail-item {
+        white-space: nowrap;
+    }
+
+    .src-card-bridge {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin-top: 2px;
+        align-items: center;
+    }
+
+    .src-card-bridge-chip {
+        font-size: 10px;
+        padding: 1px 5px;
+        border-radius: 3px;
+        background: rgba(255,255,255,0.06);
+        color: rgba(255,255,255,0.35);
+    }
+
+    .src-card-bridge-chip--present {
+        background: rgba(93,202,165,0.12);
+        color: rgba(93,202,165,0.7);
+    }
+
+    .src-card-source {
+        font-size: 10px;
+        color: rgba(255,255,255,0.25);
+        margin-left: auto;
+    }
+
+    .src-card-action {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+    }
+
+    .src-card-select-btn {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 4px;
+        border: 1px solid rgba(201,146,46,0.3);
+        background: rgba(201,146,46,0.1);
+        color: #C9922E;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .src-card-select-btn:hover {
+        background: rgba(201,146,46,0.2);
+    }
+</style>
+

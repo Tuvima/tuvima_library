@@ -1,0 +1,674 @@
+using System.Globalization;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
+using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Editing;
+using MediaEngine.Web.Services.Integration;
+using MudBlazor;
+
+namespace MediaEngine.Web.Components.MediaEditor;
+
+public partial class SharedMediaEditorShell
+{
+    private static readonly (string Id, string Label)[] TabDefinitions =
+    [
+        ("details", "Details"),
+        ("artwork", "Artwork"),
+        ("options", "Options"),
+        ("sorting", "Sorting"),
+        ("file", "File"),
+    ];
+
+    [Inject] protected IEngineApiClient ApiClient { get; set; } = null!;
+    [Inject] protected UIOrchestratorService Orchestrator { get; set; } = null!;
+    [Inject] protected ISnackbar Snackbar { get; set; } = null!;
+
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public MediaEditorLaunchRequest Request { get; set; } = new();
+
+    private RegistryItemDetailViewModel? _detail;
+    private List<CanonicalFieldViewModel> _canonicalValues = [];
+    private List<ClaimHistoryDto> _claims = [];
+    private List<RegistryItemHistoryDto> _history = [];
+    private MediaEditorSchema _schema = MediaEditorSchemaCatalog.Resolve(null);
+    private readonly Dictionary<string, string> _editedValues = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
+    private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
+    private string _activeTab = "details";
+    private string _canonicalTargetGroup = "";
+    private string _canonicalSearchQuery = "";
+    private string? _selectedCandidateId;
+    private bool _loading = true;
+    private bool _saving;
+    private bool _searchingCanonical;
+    private bool _confirmDiscard;
+    private IBrowserFile? _coverFile;
+    private string? _coverPreviewUrl;
+    private string? _artworkUrlInput;
+    private string _reviewSummary = "Review the item identity.";
+
+    protected IReadOnlyList<(string Id, string Label)> Tabs => TabDefinitions;
+    protected bool IsSingleItem => Request.EntityIds.Count == 1;
+    protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
+    protected Guid CurrentEntityId => Request.EntityIds[0];
+    protected bool IsDirty => _editedValues.Count > 0 || _coverFile is not null || HasCoverUrlChange;
+    protected bool HasCoverUrlChange =>
+        IsSingleItem
+        && !string.Equals((_artworkUrlInput ?? string.Empty).Trim(), (_detail?.CoverUrl ?? string.Empty).Trim(), StringComparison.OrdinalIgnoreCase);
+
+    protected string HeaderKicker =>
+        Request.Mode switch
+        {
+            SharedMediaEditorMode.Review => "Review",
+            SharedMediaEditorMode.Batch => $"{Request.EntityIds.Count} items",
+            _ => _schema.MediaType,
+        };
+
+    protected string HeaderTitle =>
+        Request.HeaderTitle
+        ?? _detail?.Title
+        ?? (IsBatchMode ? $"Edit {Request.EntityIds.Count} Items" : "Edit Item");
+
+    protected string? HeaderSubtitle =>
+        Request.HeaderSubtitle
+        ?? (IsSingleItem ? BuildHeaderSubtitle() : string.Join(" | ", Request.PreviewItems.Take(3).Select(x => x.Title)));
+
+    protected string? CurrentCoverUrl => _coverPreviewUrl ?? _detail?.CoverUrl ?? Request.CoverUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _activeTab = string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab;
+        _schema = MediaEditorSchemaCatalog.Resolve(Request.MediaType);
+
+        if (IsSingleItem)
+            await LoadSingleItemAsync();
+        else
+            await LoadBatchAsync();
+    }
+
+    private async Task LoadSingleItemAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            var detailTask = ApiClient.GetRegistryItemDetailAsync(CurrentEntityId);
+            var canonicalTask = Orchestrator.GetCanonicalValuesAsync(CurrentEntityId);
+            var claimsTask = Orchestrator.GetClaimHistoryAsync(CurrentEntityId);
+            var historyTask = ApiClient.GetItemHistoryAsync(CurrentEntityId);
+
+            await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask);
+
+            _detail = detailTask.Result;
+            _canonicalValues = canonicalTask.Result;
+            _claims = claimsTask.Result;
+            _history = historyTask.Result;
+            _schema = MediaEditorSchemaCatalog.Resolve(_detail?.MediaType ?? Request.MediaType);
+
+            if (Request.Mode == SharedMediaEditorMode.Review)
+            {
+                var target = ReviewTargetResolver.Resolve(_detail?.MediaType ?? Request.MediaType, Request.ReviewTrigger ?? _detail?.ReviewTrigger);
+                _activeTab = string.IsNullOrWhiteSpace(Request.InitialTab) ? target.InitialTab : Request.InitialTab!;
+                _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup) ? target.CanonicalTargetGroup : Request.InitialCanonicalTargetGroup!;
+                _reviewSummary = target.Summary;
+            }
+            else
+            {
+                _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup) ? _schema.DefaultTargetGroup : Request.InitialCanonicalTargetGroup!;
+            }
+
+            _canonicalSearchQuery = BuildSuggestedSearchQuery();
+            _artworkUrlInput = _detail?.CoverUrl;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task LoadBatchAsync()
+    {
+        var mediaTypes = Request.PreviewItems.Select(x => x.MediaType ?? Request.MediaType ?? "Books");
+        _schema = MediaEditorSchemaCatalog.Resolve(mediaTypes.FirstOrDefault());
+        _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup) ? _schema.DefaultTargetGroup : Request.InitialCanonicalTargetGroup!;
+        _loading = false;
+        return Task.CompletedTask;
+    }
+
+    protected bool IsTabDisabled(string tabId) => IsBatchMode && tabId is "artwork" or "file";
+
+    protected IEnumerable<MediaEditorFieldGroup> GetGroupsForTab(string tabId)
+    {
+        if (!IsBatchMode)
+            return _schema.Groups.Where(group => group.TabId == tabId);
+
+        var batchFields = MediaEditorSchemaCatalog.ResolveBatchFields(Request.PreviewItems.Select(x => x.MediaType ?? Request.MediaType ?? "Books"));
+
+        return tabId switch
+        {
+            "details" =>
+            [
+                new MediaEditorFieldGroup
+                {
+                    Id = "batch_details",
+                    Label = "Shared Fields",
+                    TabId = "details",
+                    Fields = batchFields
+                        .Where(field => !field.Key.StartsWith("sort_", StringComparison.OrdinalIgnoreCase)
+                                        && field.Key is not ("description" or "comment" or "rating"))
+                        .ToList(),
+                },
+            ],
+            "options" =>
+            [
+                new MediaEditorFieldGroup
+                {
+                    Id = "batch_options",
+                    Label = "Batch Options",
+                    TabId = "options",
+                    Fields = batchFields.Where(field => field.Key is "description" or "comment" or "rating").ToList(),
+                },
+            ],
+            "sorting" =>
+            [
+                new MediaEditorFieldGroup
+                {
+                    Id = "batch_sorting",
+                    Label = "Batch Sorting",
+                    TabId = "sorting",
+                    Fields = batchFields.Where(field => field.Key.StartsWith("sort_", StringComparison.OrdinalIgnoreCase)).ToList(),
+                },
+            ],
+            _ => [],
+        };
+    }
+
+    protected string GetPlaceholder(MediaEditorFieldDefinition field) =>
+        IsBatchMode ? "Leave unchanged" : (field.Placeholder ?? field.Label);
+
+    protected string GetEditableValue(string key)
+    {
+        if (_editedValues.TryGetValue(key, out var edited))
+            return edited;
+
+        if (IsBatchMode)
+            return string.Empty;
+
+        var values = MediaEditorSchemaCatalog.BuildValueMap(_detail, _canonicalValues);
+        return values.TryGetValue(key, out var value) ? value : string.Empty;
+    }
+
+    protected void OnFieldInput(string key, string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim();
+        var baseline = IsBatchMode ? string.Empty : GetBaselineValue(key);
+
+        if (string.Equals(normalized, baseline, StringComparison.Ordinal))
+        {
+            _editedValues.Remove(key);
+        }
+        else if (string.IsNullOrWhiteSpace(normalized))
+        {
+            _editedValues.Remove(key);
+        }
+        else
+        {
+            _editedValues[key] = normalized;
+        }
+    }
+
+    protected async Task SaveAsync()
+    {
+        if (!IsDirty)
+        {
+            MudDialog.Cancel();
+            return;
+        }
+
+        _saving = true;
+        StateHasChanged();
+
+        try
+        {
+            if (IsBatchMode)
+            {
+                if (_editedValues.Count == 0)
+                {
+                    MudDialog.Cancel();
+                    return;
+                }
+
+                var result = await ApiClient.BatchEditAsync(Request.EntityIds, new Dictionary<string, string>(_editedValues, StringComparer.OrdinalIgnoreCase));
+                if (result is null)
+                {
+                    Snackbar.Add("Batch edit failed.", Severity.Error);
+                    return;
+                }
+
+                Snackbar.Add($"Updated {result.UpdatedCount} item(s).", Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+                return;
+            }
+
+            var savedAnything = false;
+
+            if (_editedValues.Count > 0)
+            {
+                var saved = await ApiClient.SaveItemPreferencesAsync(CurrentEntityId, new Dictionary<string, string>(_editedValues, StringComparer.OrdinalIgnoreCase));
+                if (!saved)
+                {
+                    Snackbar.Add("Preference save failed.", Severity.Error);
+                    return;
+                }
+
+                savedAnything = true;
+            }
+
+            if (_coverFile is not null)
+            {
+                await using var stream = _coverFile.OpenReadStream(10 * 1024 * 1024);
+                var uploaded = await ApiClient.UploadCoverAsync(CurrentEntityId, stream, _coverFile.Name);
+                if (!uploaded)
+                {
+                    Snackbar.Add("Cover upload failed.", Severity.Error);
+                    return;
+                }
+
+                savedAnything = true;
+            }
+
+            if (HasCoverUrlChange && Uri.TryCreate(_artworkUrlInput, UriKind.Absolute, out _))
+            {
+                var applied = await ApiClient.ApplyCoverFromUrlAsync(CurrentEntityId, _artworkUrlInput!);
+                if (!applied)
+                {
+                    Snackbar.Add("Artwork URL could not be applied.", Severity.Error);
+                    return;
+                }
+
+                savedAnything = true;
+            }
+
+            if (!savedAnything)
+            {
+                MudDialog.Cancel();
+                return;
+            }
+
+            Snackbar.Add("Changes saved.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    protected void HandleClose()
+    {
+        if (IsDirty)
+        {
+            _confirmDiscard = true;
+            return;
+        }
+
+        MudDialog.Cancel();
+    }
+
+    protected void DiscardAndClose() => MudDialog.Cancel();
+
+    protected async Task HandleCoverSelectedAsync(InputFileChangeEventArgs args)
+    {
+        _coverFile = args.File;
+
+        if (_coverFile is null)
+        {
+            _coverPreviewUrl = null;
+            return;
+        }
+
+        await using var stream = _coverFile.OpenReadStream(2 * 1024 * 1024);
+        await using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        var contentType = string.IsNullOrWhiteSpace(_coverFile.ContentType) ? "image/png" : _coverFile.ContentType;
+        _coverPreviewUrl = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+    }
+
+    protected void HandleArtworkUrlInput(ChangeEventArgs args)
+    {
+        _artworkUrlInput = args.Value?.ToString();
+        _coverPreviewUrl = string.IsNullOrWhiteSpace(_artworkUrlInput) ? null : _artworkUrlInput;
+    }
+
+    protected void HandleCanonicalQueryInput(ChangeEventArgs args) =>
+        _canonicalSearchQuery = args.Value?.ToString() ?? string.Empty;
+
+    protected void SetCanonicalTargetGroup(string targetGroup)
+    {
+        _canonicalTargetGroup = targetGroup;
+        _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+        _selectedSuggestedFieldKeys.Clear();
+    }
+
+    protected async Task SearchCanonicalAsync()
+    {
+        if (!IsSingleItem)
+            return;
+
+        _searchingCanonical = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiClient.SearchItemCanonicalAsync(
+                CurrentEntityId,
+                new ItemCanonicalSearchRequestDto
+                {
+                    MediaType = _detail?.MediaType ?? Request.MediaType,
+                    TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
+                    TargetFieldGroup = _canonicalTargetGroup,
+                    DraftFields = BuildDraftFields(),
+                    QueryOverride = string.IsNullOrWhiteSpace(_canonicalSearchQuery) ? null : _canonicalSearchQuery.Trim(),
+                });
+
+            _canonicalSearchResponse = response;
+            _selectedCandidateId = null;
+            _selectedSuggestedFieldKeys.Clear();
+
+            if (response is null)
+            {
+                Snackbar.Add("Canonical search failed.", Severity.Error);
+                return;
+            }
+
+            foreach (var candidate in response.LinkedCandidates)
+            {
+                _selectedSuggestedFieldKeys[GetCandidateId(candidate)] = candidate.SuggestedFields.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+
+            foreach (var candidate in response.RetailCandidates)
+            {
+                _selectedSuggestedFieldKeys[GetCandidateId(candidate)] = candidate.SuggestedFields.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+        finally
+        {
+            _searchingCanonical = false;
+        }
+    }
+
+    protected string GetCanonicalSearchSubtitle()
+    {
+        var label = GetCanonicalTargetLabel(_canonicalTargetGroup);
+        return Request.Mode == SharedMediaEditorMode.Review
+            ? $"Resolve the blocking {label.ToLowerInvariant()} identity."
+            : $"Find the canonical {label.ToLowerInvariant()} and apply only the fields you want.";
+    }
+
+    protected string GetCanonicalTargetLabel(string targetGroup) =>
+        _schema.QuickSearchTargets.FirstOrDefault(target => string.Equals(target.Key, targetGroup, StringComparison.OrdinalIgnoreCase)).Label
+        ?? CultureInfo.CurrentCulture.TextInfo.ToTitleCase(targetGroup.Replace('_', ' '));
+
+    protected string BuildRetailCandidateSubtitle(RetailCandidateDto candidate)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(candidate.Author))
+            parts.Add(candidate.Author);
+        else if (!string.IsNullOrWhiteSpace(candidate.Director))
+            parts.Add(candidate.Director);
+
+        if (!string.IsNullOrWhiteSpace(candidate.Year))
+            parts.Add(candidate.Year);
+
+        if (!string.IsNullOrWhiteSpace(candidate.ProviderName))
+            parts.Add(candidate.ProviderName);
+
+        return parts.Count > 0 ? string.Join(" | ", parts) : "Provider candidate";
+    }
+
+    protected void KeepCurrentCanonical()
+    {
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+        Snackbar.Add("Kept the current canonical value.", Severity.Info);
+    }
+
+    protected async Task SaveAsPreferenceOnlyAsync()
+    {
+        if (_editedValues.Count == 0)
+        {
+            Snackbar.Add("There are no preference changes to save.", Severity.Info);
+            return;
+        }
+
+        await SaveAsync();
+    }
+
+    protected async Task ApplyUnlinkedCanonicalAsync()
+    {
+        if (_canonicalSearchResponse is null)
+            return;
+
+        var fields = _canonicalSearchResponse.UnlinkedFields.Count > 0
+            ? _canonicalSearchResponse.UnlinkedFields
+            : BuildDraftFields()
+                .Where(pair => MediaEditorSchemaCatalog.GetStrongFieldKeys(_canonicalTargetGroup).Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+
+        if (fields.Count == 0)
+        {
+            Snackbar.Add("There are no canonical fields to apply.", Severity.Warning);
+            return;
+        }
+
+        await ApplyCanonicalAsync(
+            linkState: "text_only",
+            providerName: null,
+            providerItemId: null,
+            requiredFields: fields,
+            suggestedFields: [],
+            acceptedSuggestedKeys: [],
+            bridgeIds: [],
+            qidFields: []);
+    }
+
+    protected void SelectCandidate(RetailCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
+    protected void SelectCandidate(UniverseCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
+
+    protected bool IsCandidateSelected(string candidateId) =>
+        string.Equals(_selectedCandidateId, candidateId, StringComparison.Ordinal);
+
+    protected bool IsSuggestedFieldSelected(string candidateId, string key) =>
+        _selectedSuggestedFieldKeys.TryGetValue(candidateId, out var selected) && selected.Contains(key);
+
+    protected void ToggleSuggestedField(string candidateId, string key, object? value)
+    {
+        var isChecked = value as bool? ?? string.Equals(value?.ToString(), "true", StringComparison.OrdinalIgnoreCase) || string.Equals(value?.ToString(), "on", StringComparison.OrdinalIgnoreCase);
+
+        if (!_selectedSuggestedFieldKeys.TryGetValue(candidateId, out var selected))
+        {
+            selected = [];
+            _selectedSuggestedFieldKeys[candidateId] = selected;
+        }
+
+        if (isChecked)
+            selected.Add(key);
+        else
+            selected.Remove(key);
+    }
+
+    protected async Task ApplyRetailCandidateAsync(RetailCandidateDto candidate)
+    {
+        if (!candidate.IsApplicable)
+            return;
+
+        await ApplyCanonicalAsync(
+            candidate.LinkState,
+            candidate.ProviderName,
+            candidate.ProviderItemId,
+            candidate.RequiredFields,
+            candidate.SuggestedFields,
+            GetAcceptedSuggestedKeys(GetCandidateId(candidate)),
+            candidate.BridgeIds,
+            candidate.QidFields);
+    }
+
+    protected async Task ApplyLinkedCandidateAsync(UniverseCandidateDto candidate)
+    {
+        if (!candidate.IsApplicable)
+            return;
+
+        await ApplyCanonicalAsync(
+            candidate.LinkState,
+            providerName: null,
+            providerItemId: null,
+            requiredFields: candidate.RequiredFields,
+            suggestedFields: candidate.SuggestedFields,
+            acceptedSuggestedKeys: GetAcceptedSuggestedKeys(GetCandidateId(candidate)),
+            bridgeIds: candidate.BridgeIds,
+            qidFields: candidate.QidFields);
+    }
+
+    private async Task ApplyCanonicalAsync(
+        string linkState,
+        string? providerName,
+        string? providerItemId,
+        Dictionary<string, string> requiredFields,
+        Dictionary<string, string> suggestedFields,
+        List<string> acceptedSuggestedKeys,
+        Dictionary<string, string> bridgeIds,
+        Dictionary<string, string> qidFields)
+    {
+        var response = await ApiClient.ApplyItemCanonicalAsync(
+            CurrentEntityId,
+            new ItemCanonicalApplyRequestDto
+            {
+                TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
+                TargetFieldGroup = _canonicalTargetGroup,
+                LinkState = linkState,
+                ProviderName = providerName,
+                ProviderItemId = providerItemId,
+                RequiredFields = requiredFields,
+                SuggestedFields = suggestedFields,
+                AcceptedSuggestedKeys = acceptedSuggestedKeys,
+                BridgeIds = bridgeIds,
+                QidFields = qidFields,
+            });
+
+        if (response is null)
+        {
+            Snackbar.Add("Canonical apply failed.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add(response.Message, Severity.Success);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private List<string> GetAcceptedSuggestedKeys(string candidateId) =>
+        _selectedSuggestedFieldKeys.TryGetValue(candidateId, out var selected)
+            ? selected.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
+            : [];
+
+    private string GetCandidateId(RetailCandidateDto candidate) =>
+        $"retail:{candidate.CandidateId}:{candidate.ProviderName}:{candidate.ProviderItemId}";
+
+    private string GetCandidateId(UniverseCandidateDto candidate) =>
+        $"linked:{candidate.CandidateId}:{candidate.Qid}";
+
+    private string BuildHeaderSubtitle()
+    {
+        if (_detail is null)
+            return string.Empty;
+
+        var parts = new List<string>();
+
+        var creator = _detail.MediaType switch
+        {
+            "Music" => GetBaselineValue("artist"),
+            "Movies" => _detail.Director,
+            "TV" => GetBaselineValue("show_name"),
+            "Audiobooks" => _detail.Narrator ?? _detail.Author,
+            _ => _detail.Author,
+        };
+
+        if (!string.IsNullOrWhiteSpace(creator))
+            parts.Add(creator);
+
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("album")) && _detail.MediaType == "Music")
+            parts.Add(GetBaselineValue("album"));
+
+        if (!string.IsNullOrWhiteSpace(_detail.Year))
+            parts.Add(_detail.Year);
+
+        return string.Join(" | ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    private string BuildSuggestedSearchQuery()
+    {
+        var values = BuildDraftFields();
+        string[] parts = _canonicalTargetGroup switch
+        {
+            "album" => new[] { GetValue(values, "artist"), GetValue(values, "album") },
+            "artist" => new[] { GetValue(values, "artist") },
+            "track" => new[] { GetValue(values, "artist"), GetValue(values, "title") },
+            "movie_identity" => new[] { GetValue(values, "title"), GetValue(values, "year") },
+            "show_episode" => new[] { GetValue(values, "show_name"), SeasonEpisodeLabel(values) },
+            "show" => new[] { GetValue(values, "show_name") },
+            "book_identity" => new[] { GetValue(values, "title"), GetValue(values, "author") },
+            "audiobook_identity" => new[] { GetValue(values, "title"), GetValue(values, "author"), GetValue(values, "narrator") },
+            "narrator" => new[] { GetValue(values, "narrator") },
+            "series" => new[] { GetValue(values, "series") },
+            "issue" => new[] { GetValue(values, "series"), GetValue(values, "series_position"), GetValue(values, "title") },
+            _ => new[] { GetValue(values, "title") },
+        };
+
+        return string.Join(" ", parts.Where(static part => !string.IsNullOrWhiteSpace(part))).Trim();
+    }
+
+    private Dictionary<string, string> BuildDraftFields()
+    {
+        var merged = MediaEditorSchemaCatalog.BuildValueMap(_detail, _canonicalValues)
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var edit in _editedValues)
+            merged[edit.Key] = edit.Value;
+
+        return merged
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private string GetBaselineValue(string key)
+    {
+        if (IsBatchMode)
+            return string.Empty;
+
+        var values = MediaEditorSchemaCatalog.BuildValueMap(_detail, _canonicalValues);
+        return values.TryGetValue(key, out var value) ? value : string.Empty;
+    }
+
+    private static string GetValue(IReadOnlyDictionary<string, string> values, string key) =>
+        values.TryGetValue(key, out var value) ? value : string.Empty;
+
+    private static string SeasonEpisodeLabel(IReadOnlyDictionary<string, string> values)
+    {
+        var season = GetValue(values, "season_number");
+        var episode = GetValue(values, "episode_number");
+        var title = GetValue(values, "episode_title");
+        return string.Join(" ", new[] { season, episode, title }.Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    private static string GetCanonicalTargetKind(string targetGroup) =>
+        targetGroup switch
+        {
+            "artist" or "narrator" => "person",
+            "album" or "series" or "show" => "container",
+            _ => "item",
+        };
+}

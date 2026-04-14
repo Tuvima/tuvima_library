@@ -23,6 +23,9 @@ public sealed class SearchUniverseRequestDto
 /// <summary>A single enriched Wikidata candidate returned from universe search.</summary>
 public sealed class UniverseCandidateDto
 {
+    [JsonPropertyName("candidate_id")]
+    public string CandidateId { get; set; } = "";
+
     [JsonPropertyName("qid")]
     public string Qid { get; set; } = "";
 
@@ -58,6 +61,30 @@ public sealed class UniverseCandidateDto
 
     [JsonPropertyName("bridge_ids")]
     public Dictionary<string, string> BridgeIds { get; set; } = [];
+
+    [JsonPropertyName("media_type_metadata")]
+    public Dictionary<string, string> MediaTypeMetadata { get; set; } = [];
+
+    [JsonPropertyName("link_state")]
+    public string LinkState { get; set; } = "linked";
+
+    [JsonPropertyName("link_status_label")]
+    public string LinkStatusLabel { get; set; } = "Linked to Wikidata";
+
+    [JsonPropertyName("is_applicable")]
+    public bool IsApplicable { get; set; }
+
+    [JsonPropertyName("blocked_reason")]
+    public string? BlockedReason { get; set; }
+
+    [JsonPropertyName("required_fields")]
+    public Dictionary<string, string> RequiredFields { get; set; } = [];
+
+    [JsonPropertyName("suggested_fields")]
+    public Dictionary<string, string> SuggestedFields { get; set; } = [];
+
+    [JsonPropertyName("qid_fields")]
+    public Dictionary<string, string> QidFields { get; set; } = [];
 
     [JsonPropertyName("match_scores")]
     public FieldMatchScoresDto? MatchScores { get; set; }
@@ -117,6 +144,9 @@ public sealed class SearchRetailRequestDto
 /// <summary>A single retail provider candidate.</summary>
 public sealed class RetailCandidateDto
 {
+    [JsonPropertyName("candidate_id")]
+    public string CandidateId { get; set; } = "";
+
     [JsonPropertyName("provider_id")]
     public string ProviderId { get; set; } = "";
 
@@ -165,6 +195,30 @@ public sealed class RetailCandidateDto
     /// <summary>Composite ranking score (fuzzy 60% + description 40%). Used for display ordering.</summary>
     [JsonPropertyName("composite_score")]
     public double CompositeScore { get; set; }
+
+    [JsonPropertyName("link_state")]
+    public string LinkState { get; set; } = "provider_only";
+
+    [JsonPropertyName("link_status_label")]
+    public string LinkStatusLabel { get; set; } = "Linked to provider only";
+
+    [JsonPropertyName("is_applicable")]
+    public bool IsApplicable { get; set; }
+
+    [JsonPropertyName("blocked_reason")]
+    public string? BlockedReason { get; set; }
+
+    [JsonPropertyName("required_fields")]
+    public Dictionary<string, string> RequiredFields { get; set; } = [];
+
+    [JsonPropertyName("suggested_fields")]
+    public Dictionary<string, string> SuggestedFields { get; set; } = [];
+
+    [JsonPropertyName("bridge_ids")]
+    public Dictionary<string, string> BridgeIds { get; set; } = [];
+
+    [JsonPropertyName("qid_fields")]
+    public Dictionary<string, string> QidFields { get; set; } = [];
 }
 
 /// <summary>A single field's description match result for UI badge rendering.</summary>
@@ -351,6 +405,144 @@ public sealed class ApplyMatchResponseDto
 
     [JsonPropertyName("message")]
     public string? Message { get; set; }
+}
+
+public sealed class ItemPreferencesRequestDto
+{
+    [JsonPropertyName("fields")]
+    public Dictionary<string, string> Fields { get; set; } = [];
+}
+
+public sealed class ItemPreferencesResponseDto
+{
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; set; }
+
+    [JsonPropertyName("fields_updated")]
+    public int FieldsUpdated { get; set; }
+
+    [JsonPropertyName("updated_keys")]
+    public List<string> UpdatedKeys { get; set; } = [];
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+}
+
+public sealed class ItemCanonicalSearchRequestDto
+{
+    [JsonPropertyName("media_type")]
+    public string? MediaType { get; set; }
+
+    [JsonPropertyName("target_kind")]
+    public string TargetKind { get; set; } = "";
+
+    [JsonPropertyName("target_field_group")]
+    public string TargetFieldGroup { get; set; } = "";
+
+    [JsonPropertyName("draft_fields")]
+    public Dictionary<string, string> DraftFields { get; set; } = [];
+
+    [JsonPropertyName("query_override")]
+    public string? QueryOverride { get; set; }
+
+    [JsonPropertyName("max_candidates")]
+    public int MaxCandidates { get; set; } = 6;
+}
+
+public sealed class ItemCanonicalSearchResponseDto
+{
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; set; }
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; set; } = "";
+
+    [JsonPropertyName("target_kind")]
+    public string TargetKind { get; set; } = "";
+
+    [JsonPropertyName("target_field_group")]
+    public string TargetFieldGroup { get; set; } = "";
+
+    [JsonPropertyName("query")]
+    public string Query { get; set; } = "";
+
+    [JsonPropertyName("retail_candidates")]
+    public List<RetailCandidateDto> RetailCandidates { get; set; } = [];
+
+    [JsonPropertyName("linked_candidates")]
+    public List<UniverseCandidateDto> LinkedCandidates { get; set; } = [];
+
+    [JsonPropertyName("fallback_actions")]
+    public List<string> FallbackActions { get; set; } = [];
+
+    [JsonPropertyName("no_result_message")]
+    public string? NoResultMessage { get; set; }
+
+    [JsonPropertyName("can_apply_unlinked_canonical")]
+    public bool CanApplyUnlinkedCanonical { get; set; }
+
+    [JsonPropertyName("missing_required_fields")]
+    public List<string> MissingRequiredFields { get; set; } = [];
+
+    [JsonPropertyName("unlinked_fields")]
+    public Dictionary<string, string> UnlinkedFields { get; set; } = [];
+
+    [JsonPropertyName("draft_fields")]
+    public Dictionary<string, string> DraftFields { get; set; } = [];
+}
+
+public sealed class ItemCanonicalApplyRequestDto
+{
+    [JsonPropertyName("target_kind")]
+    public string TargetKind { get; set; } = "";
+
+    [JsonPropertyName("target_field_group")]
+    public string TargetFieldGroup { get; set; } = "";
+
+    [JsonPropertyName("link_state")]
+    public string LinkState { get; set; } = "";
+
+    [JsonPropertyName("provider_name")]
+    public string? ProviderName { get; set; }
+
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; set; }
+
+    [JsonPropertyName("required_fields")]
+    public Dictionary<string, string> RequiredFields { get; set; } = [];
+
+    [JsonPropertyName("suggested_fields")]
+    public Dictionary<string, string> SuggestedFields { get; set; } = [];
+
+    [JsonPropertyName("accepted_suggested_keys")]
+    public List<string> AcceptedSuggestedKeys { get; set; } = [];
+
+    [JsonPropertyName("bridge_ids")]
+    public Dictionary<string, string> BridgeIds { get; set; } = [];
+
+    [JsonPropertyName("qid_fields")]
+    public Dictionary<string, string> QidFields { get; set; } = [];
+}
+
+public sealed class ItemCanonicalApplyResponseDto
+{
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; set; }
+
+    [JsonPropertyName("link_state")]
+    public string LinkState { get; set; } = "";
+
+    [JsonPropertyName("link_status_label")]
+    public string LinkStatusLabel { get; set; } = "";
+
+    [JsonPropertyName("fields_applied")]
+    public int FieldsApplied { get; set; }
+
+    [JsonPropertyName("ids_cleared")]
+    public List<string> IdsCleared { get; set; } = [];
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
 }
 
 // ── Create Manual Entry ───────────────────────────────────────────────────────

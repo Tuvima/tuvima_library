@@ -1,0 +1,437 @@
+using MediaEngine.Web.Models.ViewDTOs;
+
+namespace MediaEngine.Web.Services.Editing;
+
+public enum SharedMediaEditorMode
+{
+    Normal,
+    Review,
+    Batch,
+}
+
+public sealed class MediaEditorLaunchRequest
+{
+    public List<Guid> EntityIds { get; init; } = [];
+    public SharedMediaEditorMode Mode { get; init; } = SharedMediaEditorMode.Normal;
+    public string? InitialTab { get; init; }
+    public string? InitialCanonicalTargetGroup { get; init; }
+    public string? ReviewTrigger { get; init; }
+    public string? MediaType { get; init; }
+    public string? HeaderTitle { get; init; }
+    public string? HeaderSubtitle { get; init; }
+    public string? CoverUrl { get; init; }
+    public List<MediaEditorPreviewItem> PreviewItems { get; init; } = [];
+}
+
+public sealed class MediaEditorPreviewItem
+{
+    public Guid EntityId { get; init; }
+    public string Title { get; init; } = "";
+    public string? CoverUrl { get; init; }
+    public string? MediaType { get; init; }
+}
+
+public sealed class MediaEditorSchema
+{
+    public required string MediaType { get; init; }
+    public required string DefaultTargetGroup { get; init; }
+    public required IReadOnlyList<(string Key, string Label)> QuickSearchTargets { get; init; }
+    public required IReadOnlyList<MediaEditorFieldGroup> Groups { get; init; }
+}
+
+public sealed class MediaEditorFieldGroup
+{
+    public required string Id { get; init; }
+    public required string Label { get; init; }
+    public required string TabId { get; init; }
+    public required IReadOnlyList<MediaEditorFieldDefinition> Fields { get; init; }
+}
+
+public sealed class MediaEditorFieldDefinition
+{
+    public required string Key { get; init; }
+    public required string Label { get; init; }
+    public string InputKind { get; init; } = "text";
+    public bool SupportsBatch { get; init; } = true;
+    public bool IdentityField { get; init; }
+    public string? Placeholder { get; init; }
+}
+
+public sealed record ReviewEditorTarget(
+    string InitialTab,
+    string CanonicalTargetGroup,
+    string FocusField,
+    string Summary);
+
+public static class ReviewTargetResolver
+{
+    public static ReviewEditorTarget Resolve(string? mediaType, string? reviewTrigger)
+    {
+        var normalizedType = NormalizeMediaType(mediaType);
+        var normalizedTrigger = (reviewTrigger ?? string.Empty).Trim();
+
+        if (normalizedType == "Music")
+        {
+            return normalizedTrigger switch
+            {
+                "RetailMatchFailed" or "QidNoMatch" or "WikidataBridgeFailed"
+                    => new("details", "album", "album", "Review the album and artist identity."),
+                _ => new("details", "album", "album", "Review the music identity."),
+            };
+        }
+
+        if (normalizedType == "Audiobooks")
+        {
+            return normalizedTrigger switch
+            {
+                "QidNoMatch" or "WikidataBridgeFailed"
+                    => new("details", "narrator", "narrator", "Review the narrator identity."),
+                _ => new("details", "audiobook_identity", "title", "Review the audiobook identity."),
+            };
+        }
+
+        if (normalizedType == "TV")
+        {
+            return new("details", "show_episode", "show_name", "Review the show and episode identity.");
+        }
+
+        if (normalizedType == "Comics")
+        {
+            return new("details", "series", "series", "Review the series identity.");
+        }
+
+        if (normalizedType == "Movies")
+        {
+            return new("details", "movie_identity", "title", "Review the movie identity.");
+        }
+
+        return new("details", "book_identity", "title", "Review the item identity.");
+    }
+
+    public static string NormalizeMediaType(string? mediaType) =>
+        (mediaType ?? string.Empty).Trim() switch
+        {
+            "Book" => "Books",
+            "Comic" => "Comics",
+            "" => "Books",
+            var value => value,
+        };
+}
+
+public static class MediaEditorSchemaCatalog
+{
+    public static MediaEditorSchema Resolve(string? mediaType)
+    {
+        var normalized = ReviewTargetResolver.NormalizeMediaType(mediaType);
+        return normalized switch
+        {
+            "Music" => Music,
+            "Movies" => Movies,
+            "TV" => Tv,
+            "Audiobooks" => Audiobooks,
+            "Comics" => Comics,
+            _ => Books,
+        };
+    }
+
+    public static IReadOnlyList<MediaEditorFieldDefinition> ResolveBatchFields(IEnumerable<string> mediaTypes)
+    {
+        var normalized = mediaTypes
+            .Select(ReviewTargetResolver.NormalizeMediaType)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (normalized.Count == 1)
+        {
+            return Resolve(normalized[0]).Groups
+                .Where(group => group.TabId is "details" or "options" or "sorting")
+                .SelectMany(group => group.Fields)
+                .Where(field => field.SupportsBatch)
+                .DistinctBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        return
+        [
+            new() { Key = "title", Label = "Title" },
+            new() { Key = "year", Label = "Year" },
+            new() { Key = "genre", Label = "Genre" },
+            new() { Key = "language", Label = "Language" },
+            new() { Key = "rating", Label = "Rating" },
+        ];
+    }
+
+    public static IReadOnlyDictionary<string, string> BuildValueMap(
+        RegistryItemDetailViewModel? detail,
+        IEnumerable<CanonicalFieldViewModel> canonicals)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        static string? FindCanonicalValue(IEnumerable<CanonicalFieldViewModel> source, string key) =>
+            source.FirstOrDefault(field => string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+        static void Add(IDictionary<string, string> target, string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                target[key] = value.Trim();
+        }
+
+        foreach (var field in canonicals)
+            Add(values, field.Key, field.Value);
+
+        if (detail is null)
+            return values;
+
+        Add(values, "title", detail.Title);
+        Add(values, "author", detail.Author);
+        Add(values, "director", detail.Director);
+        Add(values, "cast_member", detail.Cast);
+        Add(values, "language", detail.Language);
+        Add(values, "genre", detail.Genre);
+        Add(values, "runtime", detail.Runtime);
+        Add(values, "description", detail.Description);
+        Add(values, "series", detail.Series);
+        Add(values, "series_position", detail.SeriesPosition);
+        Add(values, "narrator", detail.Narrator);
+        Add(values, "rating", detail.Rating);
+        Add(values, "wikidata_qid", detail.WikidataQid);
+        Add(values, "file_name", detail.FileName);
+        Add(values, "file_path", detail.FilePath);
+        Add(values, "content_hash", detail.ContentHash);
+        Add(values, "artist", FindCanonicalValue(canonicals, "artist"));
+        Add(values, "album", FindCanonicalValue(canonicals, "album"));
+        Add(values, "album_artist", FindCanonicalValue(canonicals, "album_artist"));
+        Add(values, "composer", FindCanonicalValue(canonicals, "composer"));
+        Add(values, "track_number", FindCanonicalValue(canonicals, "track_number"));
+        Add(values, "disc_number", FindCanonicalValue(canonicals, "disc_number"));
+        Add(values, "duration", FindCanonicalValue(canonicals, "duration"));
+        Add(values, "show_name", FindCanonicalValue(canonicals, "show_name"));
+        Add(values, "season_number", FindCanonicalValue(canonicals, "season_number"));
+        Add(values, "episode_number", FindCanonicalValue(canonicals, "episode_number"));
+        Add(values, "episode_title", FindCanonicalValue(canonicals, "episode_title"));
+        Add(values, "network", FindCanonicalValue(canonicals, "network"));
+        Add(values, "subtitle", FindCanonicalValue(canonicals, "subtitle"));
+        Add(values, "publisher", FindCanonicalValue(canonicals, "publisher"));
+        Add(values, "studio", FindCanonicalValue(canonicals, "studio"));
+        Add(values, "volume", FindCanonicalValue(canonicals, "volume"));
+        Add(values, "illustrator", FindCanonicalValue(canonicals, "illustrator"));
+        Add(values, "edition", FindCanonicalValue(canonicals, "edition"));
+        Add(values, "year", detail.Year ?? FindCanonicalValue(canonicals, "year"));
+        Add(values, "original_title", FindCanonicalValue(canonicals, "original_title"));
+        Add(values, "sort_title", FindCanonicalValue(canonicals, "sort_title"));
+        Add(values, "sort_artist", FindCanonicalValue(canonicals, "sort_artist"));
+        Add(values, "sort_album", FindCanonicalValue(canonicals, "sort_album"));
+        Add(values, "sort_series", FindCanonicalValue(canonicals, "sort_series"));
+        Add(values, "comment", FindCanonicalValue(canonicals, "comment"));
+        return values;
+    }
+
+    public static IReadOnlyList<string> GetStrongFieldKeys(string targetGroup) =>
+        targetGroup switch
+        {
+            "album" => ["artist", "album"],
+            "artist" => ["artist"],
+            "track" => ["artist", "album", "title", "track_number"],
+            "movie_identity" => ["title", "year", "director"],
+            "show_episode" => ["show_name", "season_number", "episode_number", "episode_title"],
+            "show" => ["show_name"],
+            "book_identity" => ["title", "author", "series", "series_position"],
+            "audiobook_identity" => ["title", "author", "narrator", "series", "series_position"],
+            "narrator" => ["narrator"],
+            "series" => ["series", "series_position"],
+            "issue" => ["series", "series_position", "title"],
+            _ => ["title"],
+        };
+
+    private static readonly MediaEditorSchema Music = new()
+    {
+        MediaType = "Music",
+        DefaultTargetGroup = "album",
+        QuickSearchTargets = [("album", "Album"), ("artist", "Artist"), ("track", "Track")],
+        Groups =
+        [
+            Group("music_identity", "Identity", "details",
+                Field("title", "Title", identity: true),
+                Field("artist", "Artist", identity: true),
+                Field("album", "Album", identity: true),
+                Field("album_artist", "Album Artist"),
+                Field("composer", "Composer"),
+                Field("genre", "Genre"),
+                Field("year", "Year"),
+                Field("track_number", "Track"),
+                Field("disc_number", "Disc"),
+                Field("duration", "Duration")),
+            Group("music_options", "Options", "options",
+                Field("description", "Description", "textarea"),
+                Field("language", "Language"),
+                Field("rating", "Rating"),
+                Field("comment", "Comment", "textarea")),
+            Group("music_sorting", "Sorting", "sorting",
+                Field("sort_title", "Sort Title"),
+                Field("sort_artist", "Sort Artist"),
+                Field("sort_album", "Sort Album")),
+        ],
+    };
+
+    private static readonly MediaEditorSchema Movies = new()
+    {
+        MediaType = "Movies",
+        DefaultTargetGroup = "movie_identity",
+        QuickSearchTargets = [("movie_identity", "Movie")],
+        Groups =
+        [
+            Group("movie_identity", "Identity", "details",
+                Field("title", "Title", identity: true),
+                Field("original_title", "Original Title"),
+                Field("year", "Year", identity: true),
+                Field("edition", "Edition"),
+                Field("director", "Director", identity: true),
+                Field("runtime", "Runtime"),
+                Field("genre", "Genre"),
+                Field("studio", "Studio"),
+                Field("language", "Language")),
+            Group("movie_options", "Options", "options",
+                Field("description", "Description", "textarea"),
+                Field("rating", "Rating"),
+                Field("comment", "Comment", "textarea")),
+            Group("movie_sorting", "Sorting", "sorting",
+                Field("sort_title", "Sort Title")),
+        ],
+    };
+
+    private static readonly MediaEditorSchema Tv = new()
+    {
+        MediaType = "TV",
+        DefaultTargetGroup = "show_episode",
+        QuickSearchTargets = [("show_episode", "Show / Episode"), ("show", "Show")],
+        Groups =
+        [
+            Group("tv_identity", "Identity", "details",
+                Field("show_name", "Show", identity: true),
+                Field("season_number", "Season", identity: true),
+                Field("episode_number", "Episode", identity: true),
+                Field("episode_title", "Episode Title"),
+                Field("year", "Year"),
+                Field("network", "Network"),
+                Field("runtime", "Runtime")),
+            Group("tv_options", "Options", "options",
+                Field("description", "Description", "textarea"),
+                Field("genre", "Genre"),
+                Field("rating", "Rating"),
+                Field("language", "Language"),
+                Field("comment", "Comment", "textarea")),
+            Group("tv_sorting", "Sorting", "sorting",
+                Field("sort_title", "Sort Episode Title"),
+                Field("sort_series", "Sort Show")),
+        ],
+    };
+
+    private static readonly MediaEditorSchema Books = new()
+    {
+        MediaType = "Books",
+        DefaultTargetGroup = "book_identity",
+        QuickSearchTargets = [("book_identity", "Book"), ("series", "Series")],
+        Groups =
+        [
+            Group("book_identity", "Identity", "details",
+                Field("title", "Title", identity: true),
+                Field("subtitle", "Subtitle"),
+                Field("author", "Author", identity: true),
+                Field("series", "Series"),
+                Field("series_position", "Series Number"),
+                Field("publisher", "Publisher"),
+                Field("year", "Year"),
+                Field("language", "Language")),
+            Group("book_options", "Options", "options",
+                Field("description", "Description", "textarea"),
+                Field("genre", "Genre"),
+                Field("rating", "Rating"),
+                Field("comment", "Comment", "textarea")),
+            Group("book_sorting", "Sorting", "sorting",
+                Field("sort_title", "Sort Title"),
+                Field("sort_series", "Sort Series")),
+        ],
+    };
+
+    private static readonly MediaEditorSchema Audiobooks = new()
+    {
+        MediaType = "Audiobooks",
+        DefaultTargetGroup = "narrator",
+        QuickSearchTargets = [("narrator", "Narrator"), ("series", "Series"), ("audiobook_identity", "Audiobook")],
+        Groups =
+        [
+            Group("audiobook_identity", "Identity", "details",
+                Field("title", "Title", identity: true),
+                Field("author", "Author", identity: true),
+                Field("narrator", "Narrator", identity: true),
+                Field("series", "Series"),
+                Field("series_position", "Series Number"),
+                Field("publisher", "Publisher"),
+                Field("year", "Year"),
+                Field("duration", "Duration")),
+            Group("audiobook_options", "Options", "options",
+                Field("description", "Description", "textarea"),
+                Field("genre", "Genre"),
+                Field("language", "Language"),
+                Field("rating", "Rating"),
+                Field("comment", "Comment", "textarea")),
+            Group("audiobook_sorting", "Sorting", "sorting",
+                Field("sort_title", "Sort Title"),
+                Field("sort_series", "Sort Series")),
+        ],
+    };
+
+    private static readonly MediaEditorSchema Comics = new()
+    {
+        MediaType = "Comics",
+        DefaultTargetGroup = "series",
+        QuickSearchTargets = [("series", "Series"), ("issue", "Issue")],
+        Groups =
+        [
+            Group("comic_identity", "Identity", "details",
+                Field("series", "Series", identity: true),
+                Field("volume", "Volume"),
+                Field("series_position", "Issue Number", identity: true),
+                Field("title", "Issue Title"),
+                Field("author", "Writer"),
+                Field("illustrator", "Artist"),
+                Field("publisher", "Publisher"),
+                Field("year", "Year")),
+            Group("comic_options", "Options", "options",
+                Field("description", "Description", "textarea"),
+                Field("genre", "Genre"),
+                Field("comment", "Comment", "textarea")),
+            Group("comic_sorting", "Sorting", "sorting",
+                Field("sort_title", "Sort Title"),
+                Field("sort_series", "Sort Series")),
+        ],
+    };
+
+    private static MediaEditorFieldDefinition Field(
+        string key,
+        string label,
+        string kind = "text",
+        bool batch = true,
+        bool identity = false) =>
+        new()
+        {
+            Key = key,
+            Label = label,
+            InputKind = kind,
+            SupportsBatch = batch,
+            IdentityField = identity,
+        };
+
+    private static MediaEditorFieldGroup Group(
+        string id,
+        string label,
+        string tabId,
+        params MediaEditorFieldDefinition[] fields) =>
+        new()
+        {
+            Id = id,
+            Label = label,
+            TabId = tabId,
+            Fields = fields,
+        };
+}

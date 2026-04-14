@@ -1,0 +1,1363 @@
+@namespace MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@using Microsoft.AspNetCore.Components.Web
+
+@inject IStringLocalizer<SharedStrings> L
+
+@if (Items.Count == 0 && !Loading)
+{
+    <div class="vmt-empty">
+        <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 3rem; opacity: 0.15; margin-bottom: 12px;" />
+        <p style="color: rgba(255,255,255,0.25); font-size: 0.85rem;">No items match your current filters.</p>
+    </div>
+}
+else
+{
+    <div class="vmt-container">
+        @if (GroupBy != "none")
+        {
+            @foreach (var group in GetGroups())
+            {
+                <div class="vmt-group">
+                    <div class="vmt-group-header" @onclick="() => ToggleGroup(group.Key)">
+                        <MudIcon Icon="@(IsGroupExpanded(group.Key) ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                 Style="font-size: 14px; opacity: 0.4;" />
+                        @{
+                            var groupAllSelected = group.Items.Count > 0 && group.Items.All(i => SelectedItems.Contains(i.EntityId));
+                        }
+                        <input type="checkbox"
+                               class="vct-checkbox"
+                               checked="@groupAllSelected"
+                               @onclick:stopPropagation="true"
+                               @onchange="() => ToggleGroupSelection(group.Items)" />
+                        <span class="vmt-group-label">@group.Label</span>
+                        <div class="vmt-group-line"></div>
+                        <span class="vmt-group-count">@group.Items.Count items</span>
+                    </div>
+                    @if (IsGroupExpanded(group.Key))
+                    {
+                        <div class="vmt-table-wrap">
+                            @RenderTable(group.Items)
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="vmt-table-wrap">
+                @RenderTable(Items)
+            </div>
+        }
+
+        @if (Loading)
+        {
+            <div class="vmt-loading">
+                <MudProgressCircular Indeterminate="true" Size="Size.Small"
+                                     Style="color: rgba(255,255,255,0.15);" />
+            </div>
+        }
+    </div>
+}
+
+@if (_hoverCover is not null)
+{
+    <div class="vmt-hover-overlay" style="top: @(_hoverY)px; left: @(_hoverX)px;">
+        <img src="@_hoverCover" alt="" class="vmt-hover-img" />
+    </div>
+}
+
+@code {
+    [Parameter] public List<LibraryColumnDef> Columns { get; set; } = [];
+    [Parameter] public List<string>? VisibleColumnKeys { get; set; }
+    [Parameter] public List<LibraryItemViewModel> Items { get; set; } = [];
+    [Parameter] public string GroupBy { get; set; } = "none";
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public int PosterSize { get; set; } = 48;
+    [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
+    [Parameter] public EventCallback<string> OnAuthorClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnEditClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
+
+    // Batch selection
+    [Parameter] public HashSet<Guid> SelectedItems { get; set; } = [];
+    [Parameter] public EventCallback<HashSet<Guid>> SelectedItemsChanged { get; set; }
+
+    // Sort callback
+    [Parameter] public string? ActiveSortKey { get; set; }
+    [Parameter] public bool SortAscending { get; set; } = true;
+    [Parameter] public EventCallback<(string sortKey, bool ascending)> OnSortRequested { get; set; }
+
+    // Drillable row indicator
+    [Parameter] public Func<LibraryItemViewModel, bool>? IsDrillable { get; set; }
+
+    private readonly Dictionary<string, bool> _expandedGroups = new();
+
+    public void ExpandAll()
+    {
+        _expandedGroups.Clear(); // default is expanded, so clearing shows all
+        StateHasChanged();
+    }
+
+    public void CollapseAll()
+    {
+        foreach (var group in GetGroups())
+            _expandedGroups[group.Key] = false;
+        StateHasChanged();
+    }
+
+    private string? _hoverCover;
+    private double _hoverX;
+    private double _hoverY;
+    private int _lastClickedIndex = -1;
+
+    private List<LibraryColumnDef> ActiveColumns =>
+        VisibleColumnKeys is { Count: > 0 }
+            ? VisibleColumnKeys
+                .Select(key => Columns.FirstOrDefault(c => c.Key == key))
+                .Where(c => c is not null)
+                .Cast<LibraryColumnDef>()
+                .ToList()
+            : Columns.Where(c => c.DefaultVisible).ToList();
+
+    private void ShowHover(string? coverUrl, MouseEventArgs e)
+    {
+        if (string.IsNullOrEmpty(coverUrl)) return;
+        _hoverCover = coverUrl;
+        _hoverX = e.ClientX + 20;
+        _hoverY = e.ClientY - 100;
+    }
+
+    private void HideHover()
+    {
+        _hoverCover = null;
+    }
+
+    private bool IsAllSelected(List<LibraryItemViewModel> items) =>
+        items.Count > 0 && items.All(i => SelectedItems.Contains(i.EntityId));
+
+    private async Task ToggleSelectAll(List<LibraryItemViewModel> items)
+    {
+        var allSelected = IsAllSelected(items);
+        var updated = new HashSet<Guid>(SelectedItems);
+        if (allSelected)
+            foreach (var item in items) updated.Remove(item.EntityId);
+        else
+            foreach (var item in items) updated.Add(item.EntityId);
+        SelectedItems = updated;
+        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+    }
+
+    private async Task ToggleItem(LibraryItemViewModel item, List<LibraryItemViewModel> contextList, MouseEventArgs e)
+    {
+        var updated = new HashSet<Guid>(SelectedItems);
+        var currentIndex = contextList.IndexOf(item);
+
+        if (e.ShiftKey && _lastClickedIndex >= 0 && currentIndex >= 0)
+        {
+            var start = Math.Min(_lastClickedIndex, currentIndex);
+            var end = Math.Max(_lastClickedIndex, currentIndex);
+            for (var i = start; i <= end; i++)
+                updated.Add(contextList[i].EntityId);
+        }
+        else
+        {
+            if (updated.Contains(item.EntityId))
+                updated.Remove(item.EntityId);
+            else
+                updated.Add(item.EntityId);
+            _lastClickedIndex = currentIndex;
+        }
+
+        SelectedItems = updated;
+        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+    }
+
+    private async Task ToggleGroupSelection(List<LibraryItemViewModel> groupItems)
+    {
+        var allSelected = groupItems.Count > 0 && groupItems.All(i => SelectedItems.Contains(i.EntityId));
+        var updated = new HashSet<Guid>(SelectedItems);
+        if (allSelected)
+            foreach (var item in groupItems) updated.Remove(item.EntityId);
+        else
+            foreach (var item in groupItems) updated.Add(item.EntityId);
+        SelectedItems = updated;
+        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+    }
+
+    private async Task RequestSort(string sortKey)
+    {
+        var ascending = ActiveSortKey == sortKey ? !SortAscending : true;
+        await OnSortRequested.InvokeAsync((sortKey, ascending));
+    }
+
+    private RenderFragment RenderTable(List<LibraryItemViewModel> items) => __builder =>
+    {
+        var cols = ActiveColumns;
+        <table class="vmt-table">
+            <thead>
+                <tr class="vmt-thead-row">
+                    @foreach (var col in cols)
+                    {
+                        var alignClass = col.Align switch
+                        {
+                            "center" => "vmt-th--center",
+                            "right" => "vmt-th--right",
+                            _ => ""
+                        };
+                        var paddingStyle = col.Key == "media" ? "padding-left: 24px;" : "";
+                        var paddingRightStyle = col.Key == "status" && GroupBy == "none" ? "padding-right: 24px;" : "";
+                        <th class="vmt-th @alignClass" style="width: @col.Width; @paddingStyle @paddingRightStyle">
+                            @if (col.RenderType == ColumnRenderType.Checkbox)
+                            {
+                                <input type="checkbox"
+                                       class="vct-checkbox"
+                                       checked="@IsAllSelected(items)"
+                                       @onchange="() => ToggleSelectAll(items)" />
+                            }
+                            else if (col.Sortable && col.SortKey is not null)
+                            {
+                                <button class="vmt-sort-header" @onclick:stopPropagation="true"
+                                        @onclick="() => RequestSort(col.SortKey!)">
+                                    @col.Label
+                                    @if (ActiveSortKey == col.SortKey)
+                                    {
+                                        <MudIcon Icon="@(SortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
+                                                 Style="font-size: 12px; margin-left: 4px; opacity: 0.7;" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.UnfoldMore"
+                                                 Style="font-size: 12px; margin-left: 4px; opacity: 0.25;" />
+                                    }
+                                </button>
+                            }
+                            else
+                            {
+                                @col.Label
+                            }
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in items)
+                {
+                    var isQuarantined = item.LibraryDisplayStatus == LibraryStatus.Quarantined;
+                    var isSelected = SelectedItems.Contains(item.EntityId);
+                    var isDrillable = IsDrillable?.Invoke(item) == true;
+                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") vmt-row--drillable"
+                        style="cursor: pointer;"
+                        @onclick="() => OnRowClicked.InvokeAsync(item.EntityId)">
+                        @foreach (var col in cols)
+                        {
+                            var tdAlignClass = col.Align switch
+                            {
+                                "center" => "vmt-td--center",
+                                "right" => "vmt-td--right",
+                                _ => ""
+                            };
+                            var tdPaddingStyle = col.Key == "media" ? "padding-left: 24px;" : "";
+                            var tdPaddingRightStyle = col.Key == "status" ? "padding-right: 24px;" : "";
+
+                            <td class="vmt-td @tdAlignClass" style="@tdPaddingStyle @tdPaddingRightStyle">
+                                @switch (col.RenderType)
+                                {
+                                    case ColumnRenderType.Checkbox:
+                                        <input type="checkbox"
+                                               class="vct-checkbox"
+                                               checked="@isSelected"
+                                               @onclick:stopPropagation="true"
+                                               @onclick="(e) => ToggleItem(item, items, e)" />
+                                        break;
+
+                                    case ColumnRenderType.MediaCell:
+                                        <div class="vmt-media-cell">
+                                            <div class="vmt-poster-wrap">
+                                                <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
+                                                     @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
+                                                     @onmouseleave="HideHover">
+                                                    @if (!string.IsNullOrEmpty(item.CoverUrl))
+                                                    {
+                                                        <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)"
+                                                                 Style="font-size: 20px; opacity: 0.25;" />
+                                                    }
+                                                </div>
+                                                <div class="vmt-type-badge" style="color: @LibraryHelpers.GetMediaTypeColor(item.MediaType);">
+                                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)" Style="font-size: 14px;" />
+                                                </div>
+                                            </div>
+                                            <div class="vmt-media-info">
+                                                @{
+                                                    var isTv = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+                                                    // For TV: prefer episode title over generic title; show name moves to a badge under the title.
+                                                    var displayTitle = isTv && !string.IsNullOrWhiteSpace(item.EpisodeTitle)
+                                                        ? item.EpisodeTitle!
+                                                        : item.Title;
+                                                }
+                                                <p class="vmt-title @(isQuarantined ? "vmt-title--muted" : "")">@displayTitle</p>
+                                                @if (isTv && !string.IsNullOrEmpty(item.ShowName))
+                                                {
+                                                    <p class="vmt-show-badge">@item.ShowName</p>
+                                                }
+                                                @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != displayTitle)
+                                                {
+                                                    <p class="vmt-original-title">@item.OriginalTitle</p>
+                                                }
+                                                @if (isTv)
+                                                {
+                                                    var subParts = new List<string>();
+                                                    if (!string.IsNullOrEmpty(item.Network)) subParts.Add(item.Network!);
+                                                    if (item.Year is not null) subParts.Add(item.Year);
+                                                    <p class="vmt-subtitle">@string.Join(" â€¢ ", subParts)</p>
+                                                }
+                                                else
+                                                {
+                                                    <p class="vmt-subtitle">@LibraryHelpers.FormatMediaType(item.MediaType) @(item.Year is not null ? $"â€¢ {item.Year}" : "")</p>
+                                                }
+                                                @{
+                                                    var creatorName = GetCreatorForMediaType(item);
+                                                }
+                                                @if (!string.IsNullOrEmpty(creatorName))
+                                                {
+                                                    var creators = creatorName.Split(new[] { " and ", " & ", ", " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                                                    @for (var ci = 0; ci < creators.Length; ci++)
+                                                    {
+                                                        var creator = creators[ci];
+                                                        @if (ci > 0)
+                                                        {
+                                                            <span class="vmt-creator-sep">, </span>
+                                                        }
+                                                        <button class="vmt-creator-link" @onclick:stopPropagation="true"
+                                                                @onclick="() => OnAuthorClicked.InvokeAsync(creator.Trim())">
+                                                            @creator.Trim().ToUpperInvariant()
+                                                        </button>
+                                                    }
+                                                }
+                                                @if (item.LibraryDisplayStatus == LibraryStatus.NeedsReview && !string.IsNullOrEmpty(item.ReviewTrigger))
+                                                {
+                                                    <p class="vmt-review-reason">@LibraryHelpers.GetReviewTriggerLabel(item.ReviewTrigger)</p>
+                                                }
+                                                @if (item.LibraryDisplayStatus == LibraryStatus.WaitingForProvider)
+                                                {
+                                                    <p class="vmt-provider-waiting">
+                                                        @if (!string.IsNullOrEmpty(item.FailedProviderName))
+                                                        {
+                                                            @($"Waiting for {item.FailedProviderName} to come back onlineâ€¦")
+                                                        }
+                                                        else
+                                                        {
+                                                            @("Waiting for provider to come back onlineâ€¦")
+                                                        }
+                                                    </p>
+                                                }
+                                            </div>
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.Pipeline:
+                                        <div class="vmt-pipeline">
+                                            <StageGate Stage="@item.Stage1" />
+                                            <StageGate Stage="@item.Stage2" />
+                                            <StageGate Stage="@item.Stage3" IsLast="true" />
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.StatusPill:
+                                        <div style="display: flex; justify-content: @(col.Align == "right" ? "flex-end" : col.Align == "center" ? "center" : "flex-start");">
+                                            <StatusPill Status="@item.LibraryDisplayStatus" QuarantineDays="@item.QuarantineDays" />
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.UniverseLink:
+                                        @if (!string.IsNullOrEmpty(item.UniverseName))
+                                        {
+                                            <span class="vmt-universe-linked">@item.UniverseName.ToUpperInvariant()</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="vmt-universe-standalone">Standalone</span>
+                                        }
+                                        break;
+
+                                    case ColumnRenderType.Date:
+                                        <span class="vct-text-cell">@FormatRelativeTime(item.CreatedAt)</span>
+                                        break;
+
+                                    case ColumnRenderType.Duration:
+                                        <span class="vct-text-cell">â€”</span>
+                                        break;
+
+                                    case ColumnRenderType.FileSize:
+                                        <span class="vct-text-cell">@LibraryHelpers.FormatFileSize(item.FileSizeBytes)</span>
+                                        break;
+
+                                    case ColumnRenderType.Rating:
+                                        <span class="vct-text-cell">â€”</span>
+                                        break;
+
+                                    case ColumnRenderType.TypeBadge:
+                                        <span class="vault-type-badge" style="@GetTypeBadgeStyle(GetPropertyValue(item, col.PropertyName))">
+                                            @LibraryHelpers.FormatMediaType(GetPropertyValue(item, col.PropertyName) ?? "")
+                                        </span>
+                                        break;
+
+                                    case ColumnRenderType.Text:
+                                        <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
+                                        break;
+
+                                    case ColumnRenderType.ClickableText:
+                                        var clickText = GetTextValue(item, col.PropertyName);
+                                        if (!string.IsNullOrEmpty(clickText))
+                                        {
+                                            var parts = clickText.Split(new[] { " and ", " & ", ", " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                                            for (var pi = 0; pi < parts.Length; pi++)
+                                            {
+                                                var part = parts[pi];
+                                                if (pi > 0)
+                                                {
+                                                    <span class="vmt-creator-sep">, </span>
+                                                }
+                                                <button class="vmt-creator-link" @onclick:stopPropagation="true"
+                                                        @onclick="() => OnAuthorClicked.InvokeAsync(part)">
+                                                    @part.ToUpperInvariant()
+                                                </button>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="vct-text-cell">â€”</span>
+                                        }
+                                        break;
+
+                                    case ColumnRenderType.ContainerCell:
+                                        <div class="vmt-media-cell">
+                                            <div class="vmt-poster-wrap">
+                                                @if (!string.IsNullOrEmpty(item.ArtistPhotoUrl))
+                                                {
+                                                    <div class="vmt-artist-photo" style="width: @(PosterSize)px; height: @(PosterSize)px;">
+                                                        <img src="@item.ArtistPhotoUrl" alt="@item.Title" class="vmt-artist-photo-img" loading="lazy" />
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="vmt-thumb" style="width: @(PosterSize)px; min-height: @(PosterSize)px;"
+                                                         @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
+                                                         @onmouseleave="HideHover">
+                                                        @if (!string.IsNullOrEmpty(item.CoverUrl))
+                                                        {
+                                                            <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="@item.Title" class="vmt-thumb-img" loading="lazy" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Person"
+                                                                     Style="font-size: 20px; opacity: 0.25;" />
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                            <div class="vmt-media-info">
+                                                <p class="vmt-title">@item.Title</p>
+                                                @{
+                                                    var subtitle = GetContainerSubtitle(item);
+                                                }
+                                                @if (!string.IsNullOrEmpty(subtitle))
+                                                {
+                                                    <p class="vmt-subtitle">@subtitle</p>
+                                                }
+                                            </div>
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.Count:
+                                        <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
+                                        break;
+
+                                    case ColumnRenderType.ManageActions:
+                                        <div class="vmt-manage-actions" @onclick:stopPropagation="true">
+                                            <button class="vmt-manage-btn vmt-manage-btn--delete" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
+                                            </button>
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.CompactCell:
+                                        <div class="vmt-compact-cell">
+                                            <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)"
+                                                     Style="font-size: 14px; opacity: 0.3; flex-shrink: 0;" />
+                                            <span class="vmt-compact-title">@item.Title</span>
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.CoverThumb:
+                                        <div class="vmt-cover-thumb" style="width: 32px; height: 32px;"
+                                             @onmouseenter="(e) => ShowHover(item.CoverUrl, e)"
+                                             @onmouseleave="HideHover">
+                                            @if (!string.IsNullOrEmpty(item.CoverUrl))
+                                            {
+                                                <img src="@(item.CoverThumbUrl ?? item.CoverUrl)" alt="" class="vmt-cover-thumb-img" loading="lazy" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(item.MediaType)"
+                                                         Style="font-size: 16px; opacity: 0.2;" />
+                                            }
+                                        </div>
+                                        break;
+
+                                    case ColumnRenderType.TitleCell:
+                                        <div class="vmt-title-cell">
+                                            <span class="vmt-status-dot" style="background: @LibraryHelpers.GetLibraryStatusColor(item.LibraryDisplayStatus);"></span>
+                                            @{
+                                                var isTvTitle = string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+                                                var cellTitle = isTvTitle && !string.IsNullOrWhiteSpace(item.EpisodeTitle)
+                                                    ? item.EpisodeTitle!
+                                                    : item.Title;
+                                            }
+                                            <span class="vmt-title-text @(isQuarantined ? "vmt-title--muted" : "")">@cellTitle</span>
+                                            @if (!string.IsNullOrEmpty(item.OriginalTitle) && item.OriginalTitle != cellTitle)
+                                            {
+                                                <span class="vmt-original-title-sub">@item.OriginalTitle</span>
+                                            }
+                                        </div>
+                                        break;
+
+                                    default:
+                                        <span class="vct-text-cell">â€”</span>
+                                        break;
+                                }
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    };
+
+    // â”€â”€ Grouping â”€â”€
+
+    private record TableGroup(string Key, string Label, List<LibraryItemViewModel> Items);
+
+    private bool IsGroupExpanded(string key)
+    {
+        if (_expandedGroups.TryGetValue(key, out var val)) return val;
+        return true;
+    }
+
+    private void ToggleGroup(string key) =>
+        _expandedGroups[key] = !IsGroupExpanded(key);
+
+    private List<TableGroup> GetGroups() => GetGroupsCore();
+
+    private List<TableGroup> GetGroupsCore()
+    {
+        if (GroupBy == "type")
+        {
+            var order = new[] { "Books", "Audiobooks", "Movies", "TV", "Comics", "Music" };
+            var byType = Items.GroupBy(i => i.MediaType ?? "Unknown").ToDictionary(g => g.Key, g => g.ToList());
+            var result = new List<TableGroup>();
+            foreach (var mt in order)
+                if (byType.TryGetValue(mt, out var items) && items.Count > 0)
+                    result.Add(new TableGroup(mt, mt, items));
+            foreach (var kvp in byType.Where(k => !order.Contains(k.Key)))
+                if (kvp.Value.Count > 0)
+                    result.Add(new TableGroup(kvp.Key, kvp.Key, kvp.Value));
+            return result;
+        }
+
+        if (GroupBy == "status")
+        {
+            var groups = new List<TableGroup>();
+            var verified   = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.Verified).ToList();
+            var provisional = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.Provisional).ToList();
+            var review      = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.NeedsReview).ToList();
+            var failed      = new List<LibraryItemViewModel>(); // Failed status removed â€” maps to NeedsReview
+            var quarantined = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.Quarantined).ToList();
+            var waiting     = Items.Where(i => i.LibraryDisplayStatus == LibraryStatus.WaitingForProvider).ToList();
+            if (verified.Count > 0)    groups.Add(new TableGroup("verified",    "Verified",              verified));
+            if (provisional.Count > 0) groups.Add(new TableGroup("provisional", "Provisional",           provisional));
+            if (review.Count > 0)      groups.Add(new TableGroup("review",      "Needs Review",          review));
+            if (waiting.Count > 0)     groups.Add(new TableGroup("waiting",     "Waiting for Provider",  waiting));
+            if (failed.Count > 0)      groups.Add(new TableGroup("failed",      "Failed",                failed));
+            if (quarantined.Count > 0) groups.Add(new TableGroup("quarantined", "Quarantined",           quarantined));
+            return groups;
+        }
+
+        if (GroupBy == "letter")
+        {
+            var byLetter = Items
+                .GroupBy(i => string.IsNullOrEmpty(i.Title) ? "#" : i.Title[0].ToString().ToUpperInvariant())
+                .OrderBy(g => g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byLetter;
+        }
+
+        if (GroupBy == "universe")
+        {
+            var byUniverse = Items
+                .GroupBy(i => i.UniverseName ?? "Standalone")
+                .OrderBy(g => g.Key == "Standalone" ? "zzz" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byUniverse;
+        }
+
+        if (GroupBy == "author")
+        {
+            var byAuthor = Items
+                .GroupBy(i => i.Author ?? i.Director ?? i.Artist ?? "Unknown")
+                .OrderBy(g => g.Key == "Unknown" ? "zzz" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byAuthor;
+        }
+
+        if (GroupBy == "artist")
+        {
+            var byArtist = Items
+                .GroupBy(i => i.Artist ?? i.Author ?? "Unknown")
+                .OrderBy(g => g.Key == "Unknown" ? "zzz" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byArtist;
+        }
+
+        if (GroupBy == "genre")
+        {
+            var byGenre = Items
+                .GroupBy(i => i.Genre ?? "Unknown")
+                .OrderBy(g => g.Key == "Unknown" ? "zzz" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byGenre;
+        }
+
+        if (GroupBy == "decade")
+        {
+            var byDecade = Items
+                .GroupBy(i => int.TryParse(i.Year, out var y) ? $"{y / 10 * 10}s" : "Unknown")
+                .OrderByDescending(g => g.Key == "Unknown" ? "0" : g.Key)
+                .Select(g => new TableGroup(g.Key, g.Key, g.ToList()))
+                .ToList();
+            return byDecade;
+        }
+
+        return [new TableGroup("all", "All", Items)];
+    }
+
+    // â”€â”€ Helpers â”€â”€
+
+    private static string? GetCreatorForMediaType(LibraryItemViewModel item) => item.MediaType switch
+    {
+        "Movies" => item.Director ?? item.Author,
+        "TV"     => null,
+        "Music"  => item.Artist ?? item.Author,
+        _        => item.Author,
+    };
+
+    private static string? GetPropertyValue(LibraryItemViewModel item, string? propertyName) =>
+        propertyName switch
+        {
+            "MediaType"      => item.MediaType,
+            "ParentContext"  => item.ShowName ?? item.Series ?? item.Album,
+            _               => null,
+        };
+
+    private static string GetTypeBadgeStyle(string? mediaType)
+    {
+        var color = LibraryHelpers.GetMediaTypeColor(mediaType ?? "");
+        return $"color: {color}; background: {LibraryHelpers.HexToRgba(color, 0.12)}; border-color: {LibraryHelpers.HexToRgba(color, 0.2)};";
+    }
+
+    /// <summary>
+    /// Subtitle shown under the container title in ContainerCell cells.
+    /// TV shows display the top billed cast (from P161) so the row reads
+    /// "Breaking Bad / Bryan Cranston, Aaron Paul, Anna Gunn" rather than
+    /// repeating the director. Other media types keep the author/creator line.
+    /// </summary>
+    private static string? GetContainerSubtitle(LibraryItemViewModel item)
+    {
+        if (string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            return item.TopCast;
+        return item.Author;
+    }
+
+    private static string GetTextValue(LibraryItemViewModel item, string? propertyName) =>
+        propertyName switch
+        {
+            "ParentContext"  => item.ShowName ?? item.Series ?? item.Album ?? "â€”",
+            "Author"        => item.Author ?? "â€”",
+            "Director"      => item.Director ?? "â€”",
+            "Artist"        => item.Artist ?? "â€”",
+            "Year"          => FormatYear(item.Year),
+            "Series"         => item.Series ?? item.UniverseName ?? "â€”",
+            "SeriesPosition" => item.SeriesPosition ?? "â€”",
+            "Narrator"       => item.Narrator ?? item.Author ?? "â€”",
+            "Genre"          => item.Genre ?? "â€”",
+            "Runtime" or "Duration" => item.Runtime ?? "â€”",
+            "Rating"         => item.Rating ?? "â€”",
+            "Album"          => item.Album ?? "â€”",
+            "TrackNumber"    => item.TrackNumber ?? "â€”",
+            "Season"        => item.Season ?? "â€”",
+            "Episode"       => item.Episode ?? "â€”",
+            "Network"       => item.Network ?? "â€”",
+            "EpisodeTitle"  => item.EpisodeTitle ?? "â€”",
+            "IssueNumber"   => "â€”",                   // placeholder
+            "Name"          => item.Title,            // Collections tab
+            "Type"          => item.MediaType ?? "â€”", // Collections tab
+            "SeriesCount"   => "â€”",                   // Universes tab
+            "PeopleCount"   => "â€”",                   // Universes tab
+            "ItemCount"     => "â€”",                   // Collections tab
+            "Featured"      => "â€”",                   // Collections tab
+            "WorkCount"     => item.TrackCount ?? "â€”", // container: work/episode/issue count
+            "SeasonCount"   => item.SeasonCount ?? "â€”", // container: season count
+            "AlbumCount"    => item.AlbumCount ?? "â€”",  // container: album count for music artists
+            "Creator"       => item.Author ?? "â€”",     // container: creator
+            _ => "â€”",
+        };
+
+    private static string FormatYear(string? year)
+    {
+        if (string.IsNullOrEmpty(year)) return "â€”";
+        // If it looks like a date (YYYY-MM-DD or longer), extract just the year.
+        if (year.Length >= 4 && char.IsDigit(year[0]) && char.IsDigit(year[1])
+            && char.IsDigit(year[2]) && char.IsDigit(year[3])
+            && (year.Length == 4 || year[4] == '-'))
+        {
+            return year[..4];
+        }
+        return year;
+    }
+
+    private static string FormatRelativeTime(DateTimeOffset dt)
+    {
+        var diff = DateTimeOffset.UtcNow - dt;
+        if (diff.TotalMinutes < 60)  return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24)    return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 30)     return $"{(int)diff.TotalDays}d ago";
+        if (diff.TotalDays < 365)    return $"{(int)(diff.TotalDays / 30)}mo ago";
+        return $"{(int)(diff.TotalDays / 365)}y ago";
+    }
+}
+
+<style>
+    /* â”€â”€ Row selection â”€â”€ */
+    .vmt-row--selected {
+        border-left: 3px solid rgba(201, 146, 46, 0.7);
+        background: rgba(201, 146, 46, 0.04);
+    }
+
+    /* â”€â”€ Checkbox â”€â”€ */
+    .vct-checkbox {
+        width: 16px;
+        height: 16px;
+        accent-color: #60A5FA;
+        cursor: pointer;
+    }
+
+    /* â”€â”€ Text cell â”€â”€ */
+    .vct-text-cell {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.55);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* â”€â”€ Reuse all vmt-* classes from VaultMediaTable â”€â”€ */
+    .vmt-container {
+        /* outer wrapper */
+    }
+
+    .vmt-table-wrap {
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        overflow: hidden;
+    }
+
+    .vmt-table {
+        width: 100%;
+        text-align: left;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    .vmt-thead-row {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgb(32, 32, 32);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+
+    .vmt-th {
+        padding: 8px 16px;
+        font-size: 10px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.60);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+    }
+
+    .vmt-th--center { text-align: center; }
+    .vmt-th--right  { text-align: right; }
+
+    .vmt-row {
+        height: 40px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        transition: background 0.15s;
+    }
+
+    .vmt-row:last-child {
+        border-bottom: none;
+    }
+
+    .vmt-row:hover {
+        background: rgba(96, 165, 250, 0.02);
+    }
+
+    .vmt-row--quarantined {
+        opacity: 0.5;
+    }
+
+    .vmt-td {
+        padding: 8px 16px;
+        vertical-align: middle;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 0;
+    }
+
+    .vmt-td--center { text-align: center; }
+    .vmt-td--right  { text-align: right; }
+
+    .vmt-media-cell {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    /* â”€â”€ Compact cell (dense list rows â€” Apple Music style) â”€â”€ */
+    .vmt-compact-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 20px;
+        padding: 2px 0;
+    }
+
+    .vmt-compact-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vmt-row .vmt-compact-cell ~ .vct-text-cell {
+        font-size: 12px;
+    }
+
+    .vmt-poster-wrap {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .vmt-thumb {
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.02);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .vmt-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.6;
+        transition: opacity 0.15s;
+    }
+
+    .vmt-thumb:hover .vmt-thumb-img {
+        opacity: 1;
+    }
+
+    /* Artist circular avatar â€” used in Music By Artist container view */
+    .vmt-artist-photo {
+        border-radius: 50%;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.04);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .vmt-artist-photo-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0.75;
+        transition: opacity 0.15s;
+    }
+
+    .vmt-artist-photo:hover .vmt-artist-photo-img {
+        opacity: 1;
+    }
+
+    .vmt-hover-overlay {
+        position: fixed;
+        z-index: 10000;
+        pointer-events: none;
+        animation: vmt-hover-fade-in 0.15s ease;
+    }
+
+    .vmt-hover-img {
+        width: 200px;
+        height: auto;
+        max-height: 300px;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 16px 64px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.08);
+    }
+
+    @@keyframes vmt-hover-fade-in {
+        from { opacity: 0; transform: scale(0.92); }
+        to   { opacity: 1; transform: scale(1); }
+    }
+
+    .vmt-type-badge {
+        position: absolute;
+        bottom: -4px;
+        right: -6px;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: #14181d;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.6);
+        z-index: 2;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    }
+
+    .vmt-media-info {
+        overflow: hidden;
+    }
+
+    .vmt-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0 0 4px 0;
+    }
+
+    .vmt-title--muted {
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vmt-original-title {
+        font-size: 0.75em;
+        color: rgba(255, 255, 255, 0.4);
+        font-style: italic;
+        margin: 2px 0 4px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vmt-subtitle {
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        margin: 0;
+    }
+
+    .vmt-show-badge {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 700;
+        color: #C9922E;
+        background: rgba(201, 146, 46, 0.12);
+        border: 1px solid rgba(201, 146, 46, 0.25);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin: 2px 0 0 0;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        line-height: 1.2;
+    }
+
+    .vmt-creator-link {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.3);
+        margin-top: 2px;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        text-align: left;
+        transition: color 0.15s;
+    }
+
+    .vmt-creator-link:hover {
+        color: #60A5FA;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .vmt-creator-sep {
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .vmt-review-reason {
+        font-size: 10px;
+        font-weight: 600;
+        color: #EF9F27;
+        margin-top: 4px;
+        font-style: italic;
+    }
+
+    .vmt-provider-waiting {
+        font-size: 10px;
+        font-weight: 600;
+        color: #38BDF8;
+        margin-top: 4px;
+        font-style: italic;
+    }
+
+    .vmt-pipeline {
+        display: flex;
+        justify-content: center;
+    }
+
+    .vmt-universe-linked {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: #A78BFA;
+    }
+
+    .vmt-universe-standalone {
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.2);
+    }
+
+    .vmt-group {
+        margin-bottom: 32px;
+    }
+
+    .vmt-group-header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 12px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        user-select: none;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vmt-group-label {
+        font-size: 10px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        white-space: nowrap;
+    }
+
+    .vmt-group-line {
+        flex: 1;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .vmt-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 80px 20px;
+        text-align: center;
+    }
+
+    .vmt-loading {
+        display: flex;
+        justify-content: center;
+        padding: 24px;
+    }
+
+    /* â”€â”€ Sort header button â”€â”€ */
+    .vmt-sort-header {
+        display: inline-flex;
+        align-items: center;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.25);
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        padding: 0;
+        transition: color 0.15s;
+    }
+
+    .vmt-sort-header:hover {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: underline;
+        text-decoration-color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* â”€â”€ Tablet â”€â”€ */
+    @@media (max-width: 1024px) {
+        .vmt-media-cell {
+            gap: 10px;
+        }
+
+        .vmt-group-header {
+            gap: 10px;
+            padding: 8px 10px;
+        }
+    }
+
+    /* â”€â”€ Mobile â”€â”€ */
+    @@media (max-width: 768px) {
+        .vmt-table-wrap {
+            border-radius: 12px;
+            border: none;
+        }
+
+        .vmt-thead-row {
+            display: none;
+        }
+
+        .vmt-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            padding: 8px 10px;
+            gap: 8px;
+        }
+
+        .vmt-td {
+            padding: 0;
+            max-width: none;
+            overflow: visible;
+            white-space: normal;
+        }
+
+        .vmt-td:nth-child(1) {
+            flex: 0 0 auto;
+        }
+
+        .vmt-td:nth-child(2) {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Hide middle columns on mobile â€” keep first two (checkbox, media) and last (status) */
+        .vmt-td:nth-child(n+3):not(:last-child) {
+            display: none;
+        }
+
+        .vmt-td:last-child {
+            flex: 0 0 auto;
+        }
+
+        .vmt-thumb {
+            width: 40px !important;
+            min-height: 40px !important;
+        }
+
+        .vmt-media-cell {
+            gap: 10px;
+        }
+
+        .vmt-title {
+            font-size: 13px;
+        }
+
+        .vmt-group-header {
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .vmt-group {
+            margin-bottom: 16px;
+        }
+
+        .vmt-hover-overlay {
+            display: none;
+        }
+    }
+
+    /* â”€â”€ Small mobile â”€â”€ */
+    @@media (max-width: 480px) {
+        .vmt-row {
+            padding: 6px 8px;
+        }
+
+        .vmt-thumb {
+            width: 36px !important;
+            min-height: 36px !important;
+        }
+
+        .vmt-title {
+            font-size: 12px;
+        }
+
+        .vmt-subtitle {
+            font-size: 9px;
+        }
+    }
+
+    /* â”€â”€ TypeBadge column chip â”€â”€ */
+    .vault-type-badge {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+        white-space: nowrap;
+    }
+
+    /* â”€â”€ Drillable row indicator â”€â”€ */
+    .vmt-row--drillable:hover .vmt-drill-chevron {
+        opacity: 0.6;
+    }
+
+    .vmt-drill-chevron {
+        opacity: 0;
+        transition: opacity 0.15s;
+        color: rgba(255, 255, 255, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+    }
+
+    /* â”€â”€ Manage actions â”€â”€ */
+    .vmt-manage-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.15s;
+    }
+
+    .vmt-row:hover .vmt-manage-actions {
+        opacity: 1;
+    }
+
+    .vmt-manage-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vmt-manage-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vmt-manage-btn--delete:hover {
+        background: rgba(239, 68, 68, 0.15);
+        color: #EF4444;
+        border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    /* â”€â”€ Cover Thumb â”€â”€ */
+    .vmt-cover-thumb {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .vmt-cover-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    /* â”€â”€ Title Cell â”€â”€ */
+    .vmt-title-cell {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .vmt-status-dot {
+        width: 6px;
+        height: 6px;
+        min-width: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .vmt-title-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.875rem;
+    }
+
+    .vmt-original-title-sub {
+        font-size: 0.7rem;
+        color: rgba(255, 255, 255, 0.3);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-left: -2px;
+    }
+</style>
+

@@ -319,7 +319,7 @@
 
             if (fields.Count > 0)
             {
-                var ok = await Orchestrator.OverrideMetadataAsync(EntityId, fields);
+        var ok = await Orchestrator.SaveItemPreferencesAsync(EntityId, fields);
                 if (ok) applied += fields.Count;
             }
 

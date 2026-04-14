@@ -1,0 +1,481 @@
+@namespace MediaEngine.Web.Components.MediaEditor
+@using System.Globalization
+@using Microsoft.AspNetCore.Components.Forms
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Editing
+
+<MudDialog Class="sme-dialog">
+    <DialogContent>
+        <div class="sme-shell">
+            <div class="sme-header">
+                <div class="sme-cover-cluster">
+                    @if (IsBatchMode)
+                    {
+                        <div class="sme-batch-cover-grid">
+                            @foreach (var preview in Request.PreviewItems.Take(4))
+                            {
+                                <div class="sme-batch-cover-cell">
+                                    @if (!string.IsNullOrWhiteSpace(preview.CoverUrl))
+                                    {
+                                        <img src="@preview.CoverUrl" alt="" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 20px; opacity: 0.22;" />
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
+                    {
+                        <img src="@CurrentCoverUrl" alt="" class="sme-cover-image" />
+                    }
+                    else
+                    {
+                        <div class="sme-cover-fallback">
+                            <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 36px; opacity: 0.2;" />
+                        </div>
+                    }
+                </div>
+
+                <div class="sme-header-copy">
+                    <div class="sme-kicker">@HeaderKicker</div>
+                    <h2 class="sme-title">@HeaderTitle</h2>
+                    @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
+                    {
+                        <div class="sme-subtitle">@HeaderSubtitle</div>
+                    }
+                    @if (IsSingleItem && !string.IsNullOrWhiteSpace(_detail?.WikidataQid))
+                    {
+                        <a class="sme-qid-link" href="https://www.wikidata.org/wiki/@_detail!.WikidataQid" target="_blank" rel="noopener">
+                            @_detail.WikidataQid
+                        </a>
+                    }
+                </div>
+
+                <button class="sme-close" @onclick="HandleClose">
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+                </button>
+            </div>
+
+            @if (Request.Mode == SharedMediaEditorMode.Review)
+            {
+                <div class="sme-review-banner">
+                    <div class="sme-review-copy">
+                        <div class="sme-review-title">Needs review</div>
+                        <div class="sme-review-text">@_reviewSummary</div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
+                    {
+                        <button class="sme-review-action" @onclick="@(() => _activeTab = "details")">
+                            Find @GetCanonicalTargetLabel(_canonicalTargetGroup)
+                        </button>
+                    }
+                </div>
+            }
+
+            <div class="sme-tabs">
+                @foreach (var tab in Tabs)
+                {
+                    <button class="sme-tab @(_activeTab == tab.Id ? "sme-tab--active" : "")"
+                            disabled="@IsTabDisabled(tab.Id)"
+                            @onclick="@(() => _activeTab = tab.Id)">
+                        @tab.Label
+                    </button>
+                }
+            </div>
+
+            <div class="sme-body">
+                @if (_loading)
+                {
+                    <div class="sme-loading">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Medium" />
+                    </div>
+                }
+                else if (_activeTab == "details")
+                {
+                    <div class="sme-details">
+                        <div class="sme-fields-pane">
+                            @if (IsSingleItem)
+                            {
+                                <div class="sme-search-toolbar">
+                                    <div class="sme-search-targets">
+                                        @foreach (var target in _schema.QuickSearchTargets)
+                                        {
+                                            <button class="sme-target-chip @(_canonicalTargetGroup == target.Key ? "sme-target-chip--active" : "")"
+                                                    @onclick="@(() => SetCanonicalTargetGroup(target.Key))">
+                                                @target.Label
+                                            </button>
+                                        }
+                                    </div>
+
+                                    <div class="sme-search-row">
+                                        <input class="sme-text-input"
+                                               placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
+                                               value="@_canonicalSearchQuery"
+                                               @oninput="HandleCanonicalQueryInput" />
+                                        <button class="sme-inline-btn sme-inline-btn--primary"
+                                                disabled="@_searchingCanonical"
+                                                @onclick="SearchCanonicalAsync">
+                                            @(_searchingCanonical ? "Searching..." : "Quick Search")
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+
+                            @foreach (var group in GetGroupsForTab("details"))
+                            {
+                                <section class="sme-group">
+                                    <div class="sme-group-title">@group.Label</div>
+                                    @foreach (var field in group.Fields)
+                                    {
+                                        <div class="sme-field-row">
+                                            <label class="sme-field-label">@field.Label</label>
+                                            <div class="sme-field-control">
+                                                @if (field.InputKind == "textarea")
+                                                {
+                                                    <textarea class="sme-textarea"
+                                                              placeholder="@GetPlaceholder(field)"
+                                                              value="@GetEditableValue(field.Key)"
+                                                              @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))"></textarea>
+                                                }
+                                                else
+                                                {
+                                                    <input class="sme-text-input"
+                                                           type="text"
+                                                           placeholder="@GetPlaceholder(field)"
+                                                           value="@GetEditableValue(field.Key)"
+                                                           @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))" />
+                                                }
+                                                @if (field.IdentityField)
+                                                {
+                                                    <div class="sme-field-hint">Canonical identity field</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </section>
+                            }
+                        </div>
+
+                        @if (IsSingleItem)
+                        {
+                            <aside class="sme-search-pane">
+                                <div class="sme-search-pane-title">Canonical Search</div>
+                                <div class="sme-search-pane-subtitle">@GetCanonicalSearchSubtitle()</div>
+
+                                @if (_canonicalSearchResponse is null)
+                                {
+                                    <div class="sme-empty-panel">
+                                        <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 24px; opacity: 0.18;" />
+                                        <span>Search for a canonical @GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant().</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    @if (_canonicalSearchResponse.LinkedCandidates.Count == 0 && _canonicalSearchResponse.RetailCandidates.Count == 0)
+                                    {
+                                        <div class="sme-empty-panel">
+                                            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 24px; opacity: 0.18;" />
+                                            <span>@(_canonicalSearchResponse.NoResultMessage ?? "No safe canonical results were found.")</span>
+                                        </div>
+
+                                        <div class="sme-fallback-actions">
+                                            <button class="sme-inline-btn" @onclick="KeepCurrentCanonical">Keep current canonical value</button>
+                                            <button class="sme-inline-btn" @onclick="SaveAsPreferenceOnlyAsync">Save as preference only</button>
+                                            @if (_canonicalSearchResponse.CanApplyUnlinkedCanonical)
+                                            {
+                                                <button class="sme-inline-btn sme-inline-btn--primary" @onclick="ApplyUnlinkedCanonicalAsync">
+                                                    Apply as unlinked canonical value
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @if (_canonicalSearchResponse.LinkedCandidates.Count > 0)
+                                        {
+                                            <div class="sme-result-section-label">Linked results</div>
+                                            @foreach (var candidate in _canonicalSearchResponse.LinkedCandidates)
+                                            {
+                                                <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
+                                                    <button class="sme-candidate-summary" @onclick="@(() => SelectCandidate(candidate))">
+                                                        <div class="sme-candidate-copy">
+                                                            <div class="sme-candidate-title">@candidate.Label</div>
+                                                            @if (!string.IsNullOrWhiteSpace(candidate.Description))
+                                                            {
+                                                                <div class="sme-candidate-description">@candidate.Description</div>
+                                                            }
+                                                            <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
+                                                        </div>
+                                                        @if (!candidate.IsApplicable)
+                                                        {
+                                                            <span class="sme-candidate-badge sme-candidate-badge--blocked">Suggestion</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="sme-candidate-badge">@candidate.LinkState</span>
+                                                        }
+                                                    </button>
+
+                                                    @if (IsCandidateSelected(GetCandidateId(candidate)))
+                                                    {
+                                                        @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
+                                                        @if (!string.IsNullOrWhiteSpace(candidate.BlockedReason))
+                                                        {
+                                                            <div class="sme-field-hint">@candidate.BlockedReason</div>
+                                                        }
+                                                        <button class="sme-inline-btn sme-inline-btn--primary"
+                                                                disabled="@(!candidate.IsApplicable)"
+                                                                @onclick="@(() => ApplyLinkedCandidateAsync(candidate))">
+                                                            Apply linked candidate
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+
+                                        @if (_canonicalSearchResponse.RetailCandidates.Count > 0)
+                                        {
+                                            <div class="sme-result-section-label">Provider results</div>
+                                            @foreach (var candidate in _canonicalSearchResponse.RetailCandidates)
+                                            {
+                                                <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
+                                                    <button class="sme-candidate-summary" @onclick="@(() => SelectCandidate(candidate))">
+                                                        <div class="sme-candidate-copy">
+                                                            <div class="sme-candidate-title">@candidate.Title</div>
+                                                            <div class="sme-candidate-description">@BuildRetailCandidateSubtitle(candidate)</div>
+                                                            <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
+                                                        </div>
+                                                        @if (!candidate.IsApplicable)
+                                                        {
+                                                            <span class="sme-candidate-badge sme-candidate-badge--blocked">Suggestion</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="sme-candidate-badge">@candidate.ProviderName</span>
+                                                        }
+                                                    </button>
+
+                                                    @if (IsCandidateSelected(GetCandidateId(candidate)))
+                                                    {
+                                                        @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
+                                                        @if (!string.IsNullOrWhiteSpace(candidate.BlockedReason))
+                                                        {
+                                                            <div class="sme-field-hint">@candidate.BlockedReason</div>
+                                                        }
+                                                        <button class="sme-inline-btn sme-inline-btn--primary"
+                                                                disabled="@(!candidate.IsApplicable)"
+                                                                @onclick="@(() => ApplyRetailCandidateAsync(candidate))">
+                                                            Apply provider candidate
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                }
+                            </aside>
+                        }
+                    </div>
+                }
+                else if (_activeTab == "artwork")
+                {
+                    <div class="sme-artwork">
+                        <div class="sme-artwork-preview">
+                            @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
+                            {
+                                <img src="@CurrentCoverUrl" alt="Artwork preview" />
+                            }
+                            else
+                            {
+                                <div class="sme-cover-fallback">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 48px; opacity: 0.18;" />
+                                </div>
+                            }
+                        </div>
+
+                        @if (IsSingleItem)
+                        {
+                            <div class="sme-artwork-controls">
+                                <div class="sme-group-title">Artwork</div>
+                                <label class="sme-upload-btn">
+                                    <span>Select image</span>
+                                    <InputFile OnChange="HandleCoverSelectedAsync" accept="image/*" />
+                                </label>
+                                <div class="sme-field-row">
+                                    <label class="sme-field-label">Artwork URL</label>
+                                    <div class="sme-field-control">
+                                        <input class="sme-text-input"
+                                               type="url"
+                                               placeholder="https://..."
+                                               value="@_artworkUrlInput"
+                                               @oninput="HandleArtworkUrlInput" />
+                                        <div class="sme-field-hint">Changes are applied when you save.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="sme-empty-panel">
+                                <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 24px; opacity: 0.18;" />
+                                <span>Artwork changes are single-item only in this pass.</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_activeTab == "options" || _activeTab == "sorting")
+                {
+                    var tabId = _activeTab;
+                    var groups = GetGroupsForTab(tabId).ToList();
+                    <div class="sme-fields-pane sme-fields-pane--single">
+                        @if (groups.Count == 0)
+                        {
+                            <div class="sme-empty-panel">
+                                <MudIcon Icon="@Icons.Material.Outlined.Tune" Style="font-size: 24px; opacity: 0.18;" />
+                                <span>No @tabId settings are available for this selection.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            @foreach (var group in groups)
+                            {
+                                <section class="sme-group">
+                                    <div class="sme-group-title">@group.Label</div>
+                                    @foreach (var field in group.Fields)
+                                    {
+                                        <div class="sme-field-row">
+                                            <label class="sme-field-label">@field.Label</label>
+                                            <div class="sme-field-control">
+                                                @if (field.InputKind == "textarea")
+                                                {
+                                                    <textarea class="sme-textarea"
+                                                              placeholder="@GetPlaceholder(field)"
+                                                              value="@GetEditableValue(field.Key)"
+                                                              @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))"></textarea>
+                                                }
+                                                else
+                                                {
+                                                    <input class="sme-text-input"
+                                                           type="text"
+                                                           placeholder="@GetPlaceholder(field)"
+                                                           value="@GetEditableValue(field.Key)"
+                                                           @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))" />
+                                                }
+                                            </div>
+                                        </div>
+                                    }
+                                </section>
+                            }
+                        }
+                    </div>
+                }
+                else if (_activeTab == "file")
+                {
+                    <div class="sme-file-tab">
+                        @if (!IsSingleItem || _detail is null)
+                        {
+                            <div class="sme-empty-panel">
+                                <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 24px; opacity: 0.18;" />
+                                <span>File inspection is available for a single item.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            <section class="sme-group">
+                                <div class="sme-group-title">File</div>
+                                <div class="sme-readonly-row"><span>Name</span><strong>@(_detail.FileName ?? "Unknown")</strong></div>
+                                <div class="sme-readonly-row"><span>Path</span><strong>@(_detail.FilePath ?? "Unknown")</strong></div>
+                                <div class="sme-readonly-row"><span>Status</span><strong>@_detail.Status</strong></div>
+                                <div class="sme-readonly-row"><span>Pipeline</span><strong>@_detail.PipelineStep</strong></div>
+                                @if (!string.IsNullOrWhiteSpace(_detail.ReviewTrigger))
+                                {
+                                    <div class="sme-readonly-row"><span>Review trigger</span><strong>@_detail.ReviewTrigger</strong></div>
+                                }
+                            </section>
+
+                            <section class="sme-group">
+                                <div class="sme-group-title">Canonical Snapshot</div>
+                                @foreach (var field in _canonicalValues.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase).Take(18))
+                                {
+                                    <div class="sme-readonly-row">
+                                        <span>@field.Key</span>
+                                        <strong>@field.Value</strong>
+                                    </div>
+                                }
+                            </section>
+
+                            <section class="sme-group">
+                                <div class="sme-group-title">Recent History</div>
+                                @if (_history.Count == 0)
+                                {
+                                    <div class="sme-field-hint">No recent history is available.</div>
+                                }
+                                else
+                                {
+                                    @foreach (var entry in _history.Take(10))
+                                    {
+                                        <div class="sme-history-row">
+                                            <div class="sme-history-title">@entry.Label</div>
+                                            @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                            {
+                                                <div class="sme-history-detail">@entry.Detail</div>
+                                            }
+                                            <div class="sme-history-time">@entry.OccurredAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</div>
+                                        </div>
+                                    }
+                                }
+                            </section>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="sme-footer">
+                @if (_confirmDiscard)
+                {
+                    <div class="sme-discard-warning">Discard unsaved changes?</div>
+                    <button class="sme-footer-btn sme-footer-btn--ghost" @onclick="@(() => _confirmDiscard = false)">Keep Editing</button>
+                    <button class="sme-footer-btn sme-footer-btn--danger" @onclick="DiscardAndClose">Discard</button>
+                }
+                else
+                {
+                    <button class="sme-footer-btn sme-footer-btn--ghost" @onclick="HandleClose">
+                        @(IsDirty ? "Cancel" : "Close")
+                    </button>
+                    <div class="sme-footer-spacer"></div>
+                    @if (IsDirty)
+                    {
+                        <button class="sme-footer-btn sme-footer-btn--primary" @onclick="SaveAsync" disabled="@_saving">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
+                            }
+                            @(IsBatchMode ? $"Apply ({Request.EntityIds.Count})" : "Save")
+                        </button>
+                    }
+                }
+            </div>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    private RenderFragment RenderSuggestedFields(string candidateId, Dictionary<string, string> fields) => @<div>
+        @if (fields.Count > 0)
+        {
+            <div class="sme-suggested-title">Optional fields</div>
+            @foreach (var field in fields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
+            {
+                <label class="sme-suggested-field">
+                    <input type="checkbox"
+                           checked="@IsSuggestedFieldSelected(candidateId, field.Key)"
+                           @onchange="@((ChangeEventArgs args) => ToggleSuggestedField(candidateId, field.Key, args.Value))" />
+                    <span>@field.Key: @field.Value</span>
+                </label>
+            }
+        }
+    </div>;
+}

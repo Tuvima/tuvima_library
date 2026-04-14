@@ -453,10 +453,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     // ── Metadata Override ────────────────────────────────────────────────
 
     /// <summary>Overrides metadata fields for an entity and invalidates the collection cache.</summary>
-    public async Task<bool> OverrideMetadataAsync(
+    public async Task<bool> SaveItemPreferencesAsync(
         Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
     {
-        var ok = await _api.OverrideMetadataAsync(entityId, fields, ct);
+        var ok = await _api.SaveItemPreferencesAsync(entityId, fields, ct);
         if (ok)
             _state.Invalidate();
         return ok;
@@ -802,6 +802,19 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         var result = await _api.ApplyRegistryMatchAsync(entityId, request, ct);
         if (result is not null)
             _state.Invalidate(); // refresh collection list since metadata changed
+        return result;
+    }
+
+    public async Task<ItemCanonicalSearchResponseDto?> SearchItemCanonicalAsync(
+        Guid entityId, ItemCanonicalSearchRequestDto request, CancellationToken ct = default)
+        => await _api.SearchItemCanonicalAsync(entityId, request, ct);
+
+    public async Task<ItemCanonicalApplyResponseDto?> ApplyItemCanonicalAsync(
+        Guid entityId, ItemCanonicalApplyRequestDto request, CancellationToken ct = default)
+    {
+        var result = await _api.ApplyItemCanonicalAsync(entityId, request, ct);
+        if (result is not null)
+            _state.Invalidate();
         return result;
     }
 

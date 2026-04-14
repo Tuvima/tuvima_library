@@ -18,11 +18,11 @@ public static class RegistryEndpoints
 {
     public static IEndpointRouteBuilder MapRegistryEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/registry")
-                       .WithTags("Registry");
+        var group = app.MapGroup("/library/items")
+                       .WithTags("Library Items");
 
         // ── GET /registry/items ───────────────────────────────────────────────
-        group.MapGet("/items", async (
+        group.MapGet("", async (
             int? offset,
             int? limit,
             string? search,
@@ -57,7 +57,7 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── GET /registry/items/{entityId}/detail ─────────────────────────────
-        group.MapGet("/items/{entityId}/detail", async (
+        group.MapGet("/{entityId}/detail", async (
             Guid entityId,
             IRegistryRepository repo,
             CancellationToken ct) =>
@@ -115,7 +115,7 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── POST /registry/items/{entityId}/apply-match ────────────────────
-        group.MapPost("/items/{entityId}/apply-match", async (
+        group.MapPost("/{entityId}/apply-match", async (
             Guid entityId,
             ApplyMatchRequest request,
             IMetadataClaimRepository claimRepo,
@@ -427,7 +427,7 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── POST /registry/items/{entityId}/create-manual ─────────────────
-        group.MapPost("/items/{entityId}/create-manual", async (
+        group.MapPost("/{entityId}/create-manual", async (
             Guid entityId,
             CreateManualRequest request,
             IMetadataClaimRepository claimRepo,
@@ -529,7 +529,7 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── DELETE /registry/items/{entityId} ───────────────────────────────
-        group.MapDelete("/items/{entityId}", async (
+        group.MapDelete("/{entityId}", async (
             Guid entityId,
             IDatabaseConnection db,
             ImagePathService imagePaths,
@@ -692,7 +692,7 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── POST /registry/items/{entityId}/reject ────────────────────────────
-        group.MapPost("/items/{entityId}/reject", async (
+        group.MapPost("/{entityId}/reject", async (
             Guid entityId,
             ISystemActivityRepository activityRepo,
             IReviewQueueRepository reviewRepo,
@@ -1213,7 +1213,7 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── POST /registry/items/{entityId}/recover ───────────────────────────
-        group.MapPost("/items/{entityId:guid}/recover", async (
+        group.MapPost("/{entityId:guid}/recover", async (
             Guid entityId,
             IDatabaseConnection db,
             IReviewQueueRepository reviewRepo,
@@ -1292,7 +1292,7 @@ public static class RegistryEndpoints
         .RequireAdminOrCurator();
 
         // ── POST /registry/items/{entityId}/provisional ─────────────────────────
-        group.MapPost("/items/{entityId:guid}/provisional", async (
+        group.MapPost("/{entityId:guid}/provisional", async (
             Guid entityId,
             ProvisionalMetadataRequest body,
             IDatabaseConnection db,
@@ -1447,7 +1447,7 @@ public static class RegistryEndpoints
         // ── GET /registry/items/{entityId}/history ────────────────────────────
         // entityId is a work ID from the registry listing. system_activity entries
         // may reference the work ID or the asset ID, so we query for both.
-        group.MapGet("/items/{entityId:guid}/history", async (
+        group.MapGet("/{entityId:guid}/history", async (
             Guid entityId,
             IDatabaseConnection db,
             CancellationToken ct) =>

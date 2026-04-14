@@ -1,6 +1,7 @@
 using MudBlazor.Services;
 using MediaEngine.Web.Components;
 using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Theming;
 using MediaEngine.Web.Services.Narration;
 using MediaEngine.Domain.Models;
@@ -88,6 +89,7 @@ builder.Services.AddHttpClient("EngineApi", client =>
 // ── State + Orchestration (scoped = one per SignalR circuit) ──────────────────
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<UIOrchestratorService>();
+builder.Services.AddScoped<MediaEditorLauncherService>();
 
 // ── Provider Catalogue (singleton = loaded once, shared across all circuits) ──
 // Caches provider UI metadata from GET /providers/catalogue. Replaces hardcoded

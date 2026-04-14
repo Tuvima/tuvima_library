@@ -1,0 +1,107 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@inject IStringLocalizer<SharedStrings> L
+
+<div class="vault-status-pill">
+    <div class="vault-status-badge" style="color: @_color; background: @_bgColor; border-color: @_borderColor; @(Status == LibraryStatus.Unowned ? "opacity: 0.5;" : "")">
+        <MudIcon Icon="@_icon" Style="font-size: 12px;" />
+        <span>@_label</span>
+    </div>
+    @if (Status == LibraryStatus.Quarantined && QuarantineDays.HasValue)
+    {
+        <span class="vault-quarantine-timer">@L["StatusPill_DeletesIn", QuarantineDays]</span>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LibraryStatus Status { get; set; }
+    [Parameter] public int? QuarantineDays { get; set; }
+
+    private string _color => Status switch
+    {
+        LibraryStatus.Verified => "#5DCAA5",
+        LibraryStatus.Provisional => "#3B82F6",
+        LibraryStatus.NeedsReview => "#EF9F27",
+        LibraryStatus.Quarantined => "rgba(255,255,255,0.5)",
+        LibraryStatus.WaitingForProvider => "#38BDF8",
+        LibraryStatus.RetailMatched => "#818CF8",
+        LibraryStatus.Unowned => "rgba(255,255,255,0.3)",
+        _ => "rgba(255,255,255,0.3)",
+    };
+
+    private string _bgColor => Status switch
+    {
+        LibraryStatus.Verified => "rgba(93,202,165,0.05)",
+        LibraryStatus.Provisional => "rgba(59,130,246,0.05)",
+        LibraryStatus.NeedsReview => "rgba(239,159,39,0.05)",
+        LibraryStatus.Quarantined => "rgba(255,255,255,0.03)",
+        LibraryStatus.WaitingForProvider => "rgba(56,189,248,0.05)",
+        LibraryStatus.RetailMatched => "rgba(129,140,248,0.05)",
+        LibraryStatus.Unowned => "rgba(255,255,255,0.02)",
+        _ => "rgba(255,255,255,0.02)",
+    };
+
+    private string _borderColor => Status switch
+    {
+        LibraryStatus.Verified => "rgba(93,202,165,0.2)",
+        LibraryStatus.Provisional => "rgba(59,130,246,0.2)",
+        LibraryStatus.NeedsReview => "rgba(239,159,39,0.2)",
+        LibraryStatus.Quarantined => "rgba(255,255,255,0.1)",
+        LibraryStatus.WaitingForProvider => "rgba(56,189,248,0.2)",
+        LibraryStatus.RetailMatched => "rgba(129,140,248,0.2)",
+        LibraryStatus.Unowned => "rgba(255,255,255,0.06)",
+        _ => "rgba(255,255,255,0.05)",
+    };
+
+    private string _icon => Status switch
+    {
+        LibraryStatus.Verified => Icons.Material.Filled.Check,
+        LibraryStatus.Provisional => Icons.Material.Filled.Info,
+        LibraryStatus.NeedsReview => Icons.Material.Filled.Warning,
+        LibraryStatus.Quarantined => Icons.Material.Filled.Close,
+        LibraryStatus.WaitingForProvider => Icons.Material.Filled.Schedule,
+        LibraryStatus.RetailMatched => Icons.Material.Outlined.Schedule,
+        LibraryStatus.Unowned => Icons.Material.Outlined.RemoveShoppingCart,
+        _ => Icons.Material.Filled.HelpOutline,
+    };
+
+    private string _label => Status switch
+    {
+        LibraryStatus.Verified => L["StatusPill_Verified"],
+        LibraryStatus.Provisional => L["StatusPill_Provisional"],
+        LibraryStatus.NeedsReview => L["StatusPill_NeedsReview"],
+        LibraryStatus.Quarantined => L["StatusPill_Quarantined"],
+        LibraryStatus.WaitingForProvider => L["StatusPill_WaitingForProvider"],
+        LibraryStatus.RetailMatched => L["StatusPill_RetailMatched"],
+        LibraryStatus.Unowned => L["StatusPill_Unowned"],
+        _ => L["StatusPill_Unknown"],
+    };
+}
+
+<style>
+    .vault-status-pill {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .vault-status-badge {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 4px 8px;
+        border-radius: 6px;
+        border: 1px solid;
+        white-space: nowrap;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+    }
+
+    .vault-quarantine-timer {
+        font-size: 9px;
+        font-weight: 700;
+        color: rgba(226, 75, 74, 0.7);
+    }
+</style>

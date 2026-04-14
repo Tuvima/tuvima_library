@@ -12,7 +12,7 @@ namespace MediaEngine.Web.Services.Integration;
 /// The catalogue is loaded lazily on first use and cached in memory for the session.
 /// All lookup methods return safe fallback values when the Engine is unreachable.
 /// Fallback display names and accent colours are sourced from <see cref="ProviderAccentMap"/>
-/// — the single authoritative static map — rather than being duplicated here.
+/// â€” the single authoritative static map â€” rather than being duplicated here.
 /// </para>
 /// </summary>
 public sealed class ProviderCatalogueService
@@ -26,7 +26,7 @@ public sealed class ProviderCatalogueService
         _api = api;
     }
 
-    // ── Catalogue access ──────────────────────────────────────────────────────
+    // â”€â”€ Catalogue access â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>Returns the full catalogue, loading it from the Engine on first call.</summary>
     public async Task<IReadOnlyList<ProviderCatalogueDto>> GetCatalogueAsync(
@@ -64,7 +64,7 @@ public sealed class ProviderCatalogueService
             string.Equals(p.ProviderId, providerId, StringComparison.OrdinalIgnoreCase));
     }
 
-    // ── Convenience accessors (safe fallbacks when catalogue not loaded) ───────
+    // â”€â”€ Convenience accessors (safe fallbacks when catalogue not loaded) â”€â”€â”€â”€â”€â”€â”€
 
     /// <summary>
     /// Returns the hex accent colour for a provider config name.
@@ -124,7 +124,7 @@ public sealed class ProviderCatalogueService
             }
         }
 
-        // Hardcoded fallback for well-known bridge IDs (matching VaultHelpers.BuildProviderUrl)
+        // Hardcoded fallback for well-known bridge IDs (matching LibraryHelpers.BuildProviderUrl)
         return bridgeKey.ToLowerInvariant() switch
         {
             "tmdb_id" when (mediaType ?? "").Contains("TV", StringComparison.OrdinalIgnoreCase)
@@ -173,7 +173,7 @@ public sealed class ProviderCatalogueService
     /// <summary>Invalidates the cached catalogue, forcing a reload on the next call.</summary>
     public void Invalidate() => _catalogue = null;
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // â”€â”€ Private helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static string ResolveMediaTypePath(string? mediaType)
     {

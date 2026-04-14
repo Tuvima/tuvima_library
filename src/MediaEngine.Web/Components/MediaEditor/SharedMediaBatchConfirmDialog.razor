@@ -1,0 +1,105 @@
+@namespace MediaEngine.Web.Components.MediaEditor
+
+<MudDialog Class="smb-dialog">
+    <DialogContent>
+        <div class="smb-shell">
+            <div class="smb-title">Are you sure you want to edit information for multiple items?</div>
+            <label class="smb-check">
+                <input type="checkbox" />
+                <span>Don't ask again</span>
+            </label>
+            <div class="smb-actions">
+                <button class="smb-btn smb-btn--primary" @onclick="Confirm">Edit Items</button>
+                <button class="smb-btn smb-btn--secondary" @onclick="Cancel">Cancel</button>
+            </div>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog.Cancel();
+}
+
+<style>
+    .smb-shell {
+        background: #1b1b1d;
+        color: #f4f4f4;
+        min-width: min(560px, 100%);
+        padding: 28px 24px 20px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.08);
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .smb-title {
+        font-size: 1.65rem;
+        font-weight: 650;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        max-width: 460px;
+    }
+
+    .smb-check {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(255,255,255,0.86);
+        font-size: 0.95rem;
+    }
+
+    .smb-check input {
+        width: 18px;
+        height: 18px;
+        accent-color: #ff445d;
+    }
+
+    .smb-actions {
+        display: flex;
+        gap: 12px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        padding-top: 18px;
+    }
+
+    .smb-btn {
+        border: none;
+        border-radius: 8px;
+        height: 40px;
+        min-width: 0;
+        flex: 1;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.12s ease, opacity 0.12s ease;
+    }
+
+    .smb-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .smb-btn--primary {
+        background: #ff445d;
+        color: white;
+    }
+
+    .smb-btn--secondary {
+        background: rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.9);
+    }
+
+    @@media (max-width: 680px) {
+        .smb-shell {
+            min-width: 0;
+            padding: 24px 18px 18px;
+        }
+
+        .smb-title {
+            font-size: 1.35rem;
+        }
+    }
+</style>

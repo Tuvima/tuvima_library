@@ -1327,19 +1327,19 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Metadata override (/metadata/{entityId}/override) ──────────────
+    // ── Vault item preferences (/vault/items/{entityId}/preferences) ────
 
-    public async Task<bool> OverrideMetadataAsync(
+    public async Task<bool> SaveItemPreferencesAsync(
         Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
     {
         try
         {
             var body = new { fields };
-            var resp = await _http.PutAsJsonAsync($"/metadata/{entityId}/override", body, ct);
+            var resp = await _http.PutAsJsonAsync($"/library/items/{entityId}/preferences", body, ct);
             if (!resp.IsSuccessStatusCode)
             {
                 var detail = await resp.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning("PUT /metadata/{EntityId}/override returned {Status}: {Detail}",
+                _logger.LogWarning("PUT /library/items/{EntityId}/preferences returned {Status}: {Detail}",
                     entityId, (int)resp.StatusCode, detail);
                 LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
             }
@@ -1347,7 +1347,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PUT /metadata/{EntityId}/override failed", entityId);
+            _logger.LogWarning(ex, "PUT /library/items/{EntityId}/preferences failed", entityId);
             LastError = ex.Message;
             return false;
         }
@@ -2307,7 +2307,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Registry (/registry) ─────────────────────────────────────────────────
+    // ── Vault items (/vault/items) ───────────────────────────────────────────
 
     public async Task<RegistryPageResponse?> GetRegistryItemsAsync(
         int offset = 0, int limit = 50,
@@ -2319,7 +2319,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var url = $"/registry/items?offset={offset}&limit={limit}";
+            var url = $"/library/items?offset={offset}&limit={limit}";
             if (!string.IsNullOrWhiteSpace(search))
                 url += $"&search={Uri.EscapeDataString(search)}";
             if (!string.IsNullOrWhiteSpace(type))
@@ -2355,7 +2355,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /registry/items failed");
+            _logger.LogWarning(ex, "GET /library/items failed");
             LastError = ex.Message;
             return null;
         }
@@ -2366,7 +2366,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var request = new { entity_ids = entityIds };
-            var response = await _http.PostAsJsonAsync("/registry/batch/approve", request, ct);
+            var response = await _http.PostAsJsonAsync("/library/items/batch/approve", request, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
         }
@@ -2382,7 +2382,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var request = new { entity_ids = entityIds };
-            var response = await _http.PostAsJsonAsync("/registry/batch/delete", request, ct);
+            var response = await _http.PostAsJsonAsync("/library/items/batch/delete", request, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
         }
@@ -2397,7 +2397,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync($"/registry/items/{entityId}/reject", new { }, ct);
+            var response = await _http.PostAsJsonAsync($"/library/items/{entityId}/reject", new { }, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
         }
@@ -2413,7 +2413,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var request = new { entity_ids = entityIds };
-            var response = await _http.PostAsJsonAsync("/registry/batch/reject", request, ct);
+            var response = await _http.PostAsJsonAsync("/library/items/batch/reject", request, ct);
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
         }
@@ -2430,7 +2430,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var detail = await _http.GetFromJsonAsync<RegistryItemDetailViewModel>(
-                $"/registry/items/{entityId}/detail", ct);
+                $"/library/items/{entityId}/detail", ct);
             if (detail?.CoverUrl is not null)
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
             if (detail?.HeroUrl is not null)
@@ -2440,7 +2440,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /registry/items/{EntityId}/detail failed", entityId);
+            _logger.LogWarning(ex, "GET /library/items/{EntityId}/detail failed", entityId);
             LastError = ex.Message;
             return null;
         }
@@ -2450,12 +2450,12 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<RegistryStatusCountsDto>("/registry/counts", ct);
+            return await _http.GetFromJsonAsync<RegistryStatusCountsDto>("/library/items/counts", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /registry/counts failed");
+            _logger.LogWarning(ex, "GET /library/items/counts failed");
             LastError = ex.Message;
             return null;
         }
@@ -2468,14 +2468,14 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var url = batchId.HasValue
-                ? $"/registry/state-counts?batchId={batchId.Value}"
-                : "/registry/state-counts";
+                ? $"/library/items/state-counts?batchId={batchId.Value}"
+                : "/library/items/state-counts";
             return await _http.GetFromJsonAsync<RegistryFourStateCountsDto>(url, ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /registry/state-counts failed");
+            _logger.LogWarning(ex, "GET /library/items/state-counts failed");
             LastError = ex.Message;
             return null;
         }
@@ -2486,7 +2486,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.GetAsync("registry/type-counts", ct);
+            var response = await _http.GetAsync("library/items/type-counts", ct);
             if (!response.IsSuccessStatusCode) return new();
             return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(cancellationToken: ct) ?? new();
         }
@@ -2674,10 +2674,10 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var resp = await _http.PostAsJsonAsync(
-                $"/registry/items/{entityId}/apply-match", request, ct);
+                $"/library/items/{entityId}/apply-match", request, ct);
             if (!resp.IsSuccessStatusCode)
             {
-                LastError = $"POST /registry/.../apply-match failed: {resp.StatusCode}";
+                LastError = $"POST /library/items/.../apply-match failed: {resp.StatusCode}";
                 return null;
             }
             return await resp.Content.ReadFromJsonAsync<ApplyMatchResponseDto>(ct);
@@ -2686,7 +2686,53 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             LastError = ex.Message;
-            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/apply-match failed", entityId);
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/apply-match failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<ItemCanonicalSearchResponseDto?> SearchItemCanonicalAsync(
+        Guid entityId, ItemCanonicalSearchRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/canonical-search", request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /library/items/.../canonical-search failed: {resp.StatusCode}";
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<ItemCanonicalSearchResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/canonical-search failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<ItemCanonicalApplyResponseDto?> ApplyItemCanonicalAsync(
+        Guid entityId, ItemCanonicalApplyRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/canonical-apply", request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /library/items/.../canonical-apply failed: {resp.StatusCode}";
+                return null;
+            }
+
+            return await resp.Content.ReadFromJsonAsync<ItemCanonicalApplyResponseDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/canonical-apply failed", entityId);
             return null;
         }
     }
@@ -2698,10 +2744,10 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var resp = await _http.PostAsJsonAsync(
-                $"/registry/items/{entityId}/create-manual", request, ct);
+                $"/library/items/{entityId}/create-manual", request, ct);
             if (!resp.IsSuccessStatusCode)
             {
-                LastError = $"POST /registry/.../create-manual failed: {resp.StatusCode}";
+                LastError = $"POST /library/items/.../create-manual failed: {resp.StatusCode}";
                 return null;
             }
             return await resp.Content.ReadFromJsonAsync<CreateManualResponseDto>(ct);
@@ -2710,7 +2756,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             LastError = ex.Message;
-            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/create-manual failed", entityId);
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/create-manual failed", entityId);
             return null;
         }
     }
@@ -2719,14 +2765,14 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var resp = await _http.DeleteAsync($"/registry/items/{entityId}", ct);
+            var resp = await _http.DeleteAsync($"/library/items/{entityId}", ct);
             return resp.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) { return false; }
         catch (Exception ex)
         {
             LastError = ex.Message;
-            _logger.LogWarning(ex, "DELETE /registry/items/{EntityId} failed", entityId);
+            _logger.LogWarning(ex, "DELETE /library/items/{EntityId} failed", entityId);
             return false;
         }
     }
@@ -2737,13 +2783,13 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var result = await _http.GetFromJsonAsync<List<RegistryItemHistoryDto>>(
-                $"/registry/items/{entityId}/history", ct);
+                $"/library/items/{entityId}/history", ct);
             return result ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /registry/items/{EntityId}/history failed", entityId);
+            _logger.LogWarning(ex, "GET /library/items/{EntityId}/history failed", entityId);
             return [];
         }
     }
@@ -2752,13 +2798,13 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var resp = await _http.PostAsJsonAsync($"/registry/items/{entityId}/recover", new { }, ct);
+            var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/recover", new { }, ct);
             return resp.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) { return false; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/recover failed", entityId);
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/recover failed", entityId);
             return false;
         }
     }
@@ -2768,7 +2814,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync($"registry/items/{entityId}/provisional", metadata, ct);
+            var response = await _http.PostAsJsonAsync($"/library/items/{entityId}/provisional", metadata, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -2783,14 +2829,14 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var resp = await _http.PostAsync($"registry/items/{entityId}/auto-register", null, ct);
+            var resp = await _http.PostAsync($"/library/items/{entityId}/auto-register", null, ct);
             if (!resp.IsSuccessStatusCode) return null;
             return await resp.Content.ReadFromJsonAsync<BatchRegistryResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "POST /registry/items/{EntityId}/auto-register failed", entityId);
+            _logger.LogWarning(ex, "POST /library/items/{EntityId}/auto-register failed", entityId);
             return null;
         }
     }
@@ -3594,7 +3640,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var raw = await _http.GetFromJsonAsync<List<UniverseCharacterRaw>>(
-                $"/vault/universes/{Uri.EscapeDataString(universeQid)}/characters", ct);
+                $"/library/universes/{Uri.EscapeDataString(universeQid)}/characters", ct);
             if (raw is null) return [];
             return raw.Select(r => new UniverseCharacterDto
             {
@@ -3609,7 +3655,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /vault/universes/{Qid}/characters failed", universeQid);
+            _logger.LogWarning(ex, "GET /library/universes/{Qid}/characters failed", universeQid);
             return [];
         }
     }
@@ -3619,7 +3665,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var raw = await _http.GetFromJsonAsync<List<CharacterRoleRaw>>(
-                $"/vault/persons/{personId}/character-roles", ct);
+                $"/library/persons/{personId}/character-roles", ct);
             if (raw is null) return [];
             return raw.Select(r => new CharacterRoleDto
             {
@@ -3635,7 +3681,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /vault/persons/{PersonId}/character-roles failed", personId);
+            _logger.LogWarning(ex, "GET /library/persons/{PersonId}/character-roles failed", personId);
             return [];
         }
     }
@@ -3645,12 +3691,12 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             await _http.PutAsJsonAsync(
-                $"/vault/characters/{fictionalEntityId}/portraits/{portraitId}/default",
+                $"/library/characters/{fictionalEntityId}/portraits/{portraitId}/default",
                 new { }, ct);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "PUT /vault/characters/{EntityId}/portraits/{PortraitId}/default failed",
+            _logger.LogWarning(ex, "PUT /library/characters/{EntityId}/portraits/{PortraitId}/default failed",
                 fictionalEntityId, portraitId);
         }
     }
@@ -3660,7 +3706,7 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var raw = await _http.GetFromJsonAsync<List<EntityAssetRaw>>(
-                $"/vault/assets/{Uri.EscapeDataString(entityId)}", ct);
+                $"/library/assets/{Uri.EscapeDataString(entityId)}", ct);
             if (raw is null) return [];
             return raw.Select(r => new EntityAssetDto
             {
@@ -3675,7 +3721,7 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /vault/assets/{EntityId} failed", entityId);
+            _logger.LogWarning(ex, "GET /library/assets/{EntityId} failed", entityId);
             return [];
         }
     }
@@ -3684,11 +3730,11 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            await _http.PostAsJsonAsync("/vault/enrichment/universe/trigger", new { }, ct);
+            await _http.PostAsJsonAsync("/library/enrichment/universe/trigger", new { }, ct);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "POST /vault/enrichment/universe/trigger failed");
+            _logger.LogWarning(ex, "POST /library/enrichment/universe/trigger failed");
         }
     }
 
@@ -3816,42 +3862,42 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── Vault Preferences ─────────────────────────────────────────────────────
 
-    public async Task<VaultPreferencesSettings?> GetVaultPreferencesAsync()
+    public async Task<LibraryPreferencesSettings?> GetLibraryPreferencesAsync()
     {
         try
         {
-            return await _http.GetFromJsonAsync<VaultPreferencesSettings>("settings/ui/vault-preferences");
+            return await _http.GetFromJsonAsync<LibraryPreferencesSettings>("settings/ui/library-preferences");
         }
         catch { return null; }
     }
 
-    public async Task SaveVaultPreferencesAsync(VaultPreferencesSettings settings)
+    public async Task SaveLibraryPreferencesAsync(LibraryPreferencesSettings settings)
     {
         try
         {
-            await _http.PutAsJsonAsync("settings/ui/vault-preferences", settings);
+            await _http.PutAsJsonAsync("settings/ui/library-preferences", settings);
         }
         catch { /* swallow — preferences are non-critical */ }
     }
 
     // ── Vault Overview ──
 
-    public async Task<VaultOverviewViewModel?> GetVaultOverviewAsync(CancellationToken ct = default)
+    public async Task<LibraryOverviewViewModel?> GetLibraryOverviewAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<VaultOverviewViewModel>("vault/overview", ct);
+            return await _http.GetFromJsonAsync<LibraryOverviewViewModel>("library/overview", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "GET /vault/overview failed");
+            _logger.LogWarning(ex, "GET /library/overview failed");
             LastError = ex.Message;
             return null;
         }
     }
 
-    public async Task<VaultBatchEditResultViewModel?> BatchEditAsync(
+    public async Task<LibraryBatchEditResultViewModel?> BatchEditAsync(
         List<Guid> entityIds, Dictionary<string, string> fieldChanges, CancellationToken ct = default)
     {
         try
@@ -3861,9 +3907,9 @@ public sealed class EngineApiClient : IEngineApiClient
                 entity_ids = entityIds,
                 field_changes = fieldChanges.Select(kv => new { key = kv.Key, value = kv.Value }).ToList(),
             };
-            var response = await _http.PostAsJsonAsync("vault/batch-edit", body, ct);
+            var response = await _http.PostAsJsonAsync("library/batch-edit", body, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<VaultBatchEditResultViewModel>(ct);
+            return await response.Content.ReadFromJsonAsync<LibraryBatchEditResultViewModel>(ct);
         }
         catch
         {
@@ -3877,7 +3923,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<UniverseCandidateViewModel>>("vault/universe-candidates", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<UniverseCandidateViewModel>>("library/universe-candidates", ct) ?? [];
         }
         catch { return []; }
     }
@@ -3886,7 +3932,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync($"vault/universe-candidates/{workId}/accept",
+            var response = await _http.PostAsJsonAsync($"library/universe-candidates/{workId}/accept",
                 new { target_collection_qid = targetCollectionQid }, ct);
             return response.IsSuccessStatusCode;
         }
@@ -3897,7 +3943,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync($"vault/universe-candidates/{workId}/reject", new { }, ct);
+            var response = await _http.PostAsJsonAsync($"library/universe-candidates/{workId}/reject", new { }, ct);
             return response.IsSuccessStatusCode;
         }
         catch { return false; }
@@ -3907,7 +3953,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync("vault/universe-candidates/batch-accept",
+            var response = await _http.PostAsJsonAsync("library/universe-candidates/batch-accept",
                 new { work_ids = workIds }, ct);
             if (!response.IsSuccessStatusCode) return 0;
             var result = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
@@ -3920,7 +3966,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<UnlinkedWorkViewModel>>("vault/universe-unlinked", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<UnlinkedWorkViewModel>>("library/universe-unlinked", ct) ?? [];
         }
         catch { return []; }
     }
@@ -3929,7 +3975,7 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync("vault/universe-assign",
+            var response = await _http.PostAsJsonAsync("library/universe-assign",
                 new { work_id = workId, collection_id = collectionId }, ct);
             return response.IsSuccessStatusCode;
         }

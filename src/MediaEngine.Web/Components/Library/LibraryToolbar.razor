@@ -1,0 +1,278 @@
+@using MediaEngine.Web.Models.ViewDTOs
+
+@inject IStringLocalizer<SharedStrings> L
+
+<div class="vault-toolbar">
+    @* â”€â”€ Search â”€â”€ *@
+    <div class="vault-search-wrap">
+        <MudIcon Icon="@Icons.Material.Outlined.Search"
+                 Class="vault-search-icon" />
+        <input type="text"
+               class="vault-search-input"
+               placeholder="@L["VaultToolbar_SearchPlaceholder"]"
+               value="@SearchText"
+               @oninput="OnSearchInput" />
+    </div>
+
+    @* â”€â”€ View Mode Switcher â”€â”€ *@
+    @{
+        var viewModes = GetViewModeOptions();
+    }
+    @if (viewModes.Count > 1)
+    {
+        <div class="vault-view-modes">
+            @foreach (var mode in viewModes)
+            {
+                var isActive = ViewMode == mode.Value;
+                <button class="vault-view-mode-btn @(isActive ? "vault-view-mode-btn--active" : "")"
+                        title="@mode.Label"
+                        @onclick="() => ViewModeChanged.InvokeAsync(mode.Value)">
+                    <MudIcon Icon="@mode.Icon" Style="font-size: 14px;" />
+                    <span>@mode.Label</span>
+                </button>
+            }
+        </div>
+    }
+
+    @* â”€â”€ Customize View button â”€â”€ *@
+    <button class="vault-customize-btn" title="Customize view"
+            @onclick="() => OnColumnPickerRequested.InvokeAsync()">
+        <MudIcon Icon="@Icons.Material.Outlined.Tune" Style="font-size: 14px;" />
+        <span>Customize</span>
+    </button>
+</div>
+
+@code {
+    // â”€â”€ Parameters â”€â”€
+    [Parameter] public string ActiveTab { get; set; } = "media";
+    [Parameter] public string SearchText { get; set; } = "";
+    [Parameter] public int PosterSize { get; set; } = 48;
+    [Parameter] public EventCallback<int> PosterSizeChanged { get; set; }
+
+    [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
+
+    // â”€â”€ New parameters â”€â”€
+
+    /// <summary>Active tab identifier for per-tab contextual controls.
+    /// Takes precedence over <see cref="ActiveTab"/> when set.</summary>
+    [Parameter] public string? TabId { get; set; }
+
+    /// <summary>Show a back button (drill-down mode).</summary>
+    [Parameter] public bool ShowBackButton { get; set; }
+
+    /// <summary>Fires when the back button is clicked.</summary>
+    [Parameter] public EventCallback OnBack { get; set; }
+
+    /// <summary>Fires when the column picker icon button is clicked.</summary>
+    [Parameter] public EventCallback OnColumnPickerRequested { get; set; }
+
+    /// <summary>Current view mode for the active tab (e.g. "all", "shows", "artists", "albums", "series").</summary>
+    [Parameter] public string ViewMode { get; set; } = "all";
+
+    /// <summary>Fires when the user switches view mode.</summary>
+    [Parameter] public EventCallback<string> ViewModeChanged { get; set; }
+
+    // â”€â”€ Computed helpers â”€â”€
+
+    /// <summary>Resolved tab ID: TabId if set, otherwise fall back to ActiveTab.</summary>
+    private string ResolvedTabId => TabId ?? ActiveTab;
+
+    private System.Timers.Timer? _debounceTimer;
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Timers.Timer(300);
+        var value = e.Value?.ToString() ?? "";
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            _debounceTimer?.Stop();
+            await InvokeAsync(() => SearchTextChanged.InvokeAsync(value));
+        };
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Start();
+    }
+
+    private record ViewModeOption(string Label, string Value, string Icon);
+
+    private List<ViewModeOption> GetViewModeOptions() => ResolvedTabId switch
+    {
+        "movies"     => [new("All Movies", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
+        "tv"         => [new("By Show", "shows", Icons.Material.Outlined.Folder)],
+        "music"      => [new("By Artist", "artists", Icons.Material.Outlined.Person), new("All Songs", "all", Icons.Material.Outlined.ViewList)],
+        "books"      => [new("All Books", "all", Icons.Material.Outlined.ViewList)],
+        "audiobooks" => [new("All Audiobooks", "all", Icons.Material.Outlined.ViewList)],
+        "comics"     => [new("By Series", "series", Icons.Material.Outlined.Folder), new("All Issues", "all", Icons.Material.Outlined.ViewList)],
+        _ => [],
+    };
+
+    public void Dispose()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+    }
+}
+
+<style>
+    .vault-toolbar {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex: 1;
+    }
+
+    /* â”€â”€ Search â”€â”€ */
+    .vault-search-wrap {
+        position: relative;
+        flex: 1;
+        max-width: 320px;
+    }
+
+    .vault-search-icon {
+        position: absolute;
+        left: 14px;
+        top: 10px;
+        font-size: 16px !important;
+        color: rgba(255, 255, 255, 0.2);
+        transition: color 0.2s;
+    }
+
+    .vault-search-wrap:focus-within .vault-search-icon {
+        color: rgba(96, 165, 250, 0.7);
+    }
+
+    .vault-search-input {
+        width: 100%;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 8px 16px 8px 40px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.85);
+        outline: none;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .vault-search-input::placeholder {
+        color: rgba(255, 255, 255, 0.2);
+    }
+
+    .vault-search-input:focus {
+        border-color: rgba(96, 165, 250, 0.3);
+        box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.15);
+    }
+
+    /* â”€â”€ Customize View button â”€â”€ */
+    .vault-customize-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+
+    .vault-customize-btn:hover {
+        color: rgba(255, 255, 255, 0.75);
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    /* â”€â”€ Tablet â”€â”€ */
+    @@media (max-width: 1024px) {
+        .vault-search-wrap {
+            max-width: 240px;
+        }
+    }
+
+    /* â”€â”€ Mobile â”€â”€ */
+    @@media (max-width: 768px) {
+        .vault-toolbar {
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .vault-search-wrap {
+            flex: 1 1 100%;
+            max-width: none;
+            order: -1;
+        }
+
+        .vault-view-modes {
+            order: 0;
+            flex: 1 1 auto;
+            justify-content: center;
+        }
+
+        .vault-customize-btn span {
+            display: none;
+        }
+
+        .vault-customize-btn {
+            padding: 6px 10px;
+        }
+    }
+
+    /* â”€â”€ Small mobile â”€â”€ */
+    @@media (max-width: 480px) {
+        .vault-view-mode-btn span {
+            display: none;
+        }
+
+        .vault-view-mode-btn {
+            padding: 5px 8px;
+        }
+    }
+
+    /* â”€â”€ View Mode Switcher â”€â”€ */
+    .vault-view-modes {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 10px;
+        padding: 3px;
+        flex-shrink: 0;
+    }
+
+    .vault-view-mode-btn {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.3);
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        padding: 5px 10px;
+        border-radius: 7px;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+
+    .vault-view-mode-btn:hover {
+        color: rgba(255, 255, 255, 0.6);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .vault-view-mode-btn--active {
+        color: rgba(96, 165, 250, 0.9);
+        background: rgba(96, 165, 250, 0.08);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    }
+</style>

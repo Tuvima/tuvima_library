@@ -975,13 +975,14 @@ app.MapCharacterEndpoints();
 app.MapCanonEndpoints();
 app.MapDeferredEnrichmentEndpoints();
 app.MapRegistryEndpoints();
+app.MapItemCanonicalEndpoints();
 app.MapTimelineEndpoints();
 app.MapSearchEndpoints();
 app.MapReportEndpoints();
 app.MapDebugEndpoints();
 app.MapAiEndpoints();
 app.MapAiEnrichmentEndpoints();
-app.MapVaultEndpoints();
+app.MapLibraryEndpoints();
 
 // ── Development-only seed endpoints ──────────────────────────────────────────
 if (app.Environment.IsDevelopment())

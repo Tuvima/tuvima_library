@@ -103,5 +103,5 @@ tools/cloudflare-api-gateway/.dev.vars
 .tmp/
 
 # Runtime-generated user preference files (written by the Dashboard)
-config/ui/vault-preferences.json
-config/ui/vault-preferences.json.bak
+config/ui/library-preferences.json
+config/ui/library-preferences.json.bak

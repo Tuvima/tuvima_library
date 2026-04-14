@@ -1,6 +1,6 @@
 @namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Models.ViewDTOs
-@using MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Components.Library
 
 @inject IEngineApiClient ApiClient
 @inject IDialogService DialogService
@@ -371,7 +371,7 @@
         // For content groups, navigate to the media group page
         if (collection.CollectionType == "ContentGroup")
         {
-            Nav.NavigateTo($"/vault/group/{collection.Id}");
+            Nav.NavigateTo($"/collection/{collection.Id}");
             return;
         }
 
@@ -616,3 +616,4 @@
         border-color: rgba(255, 255, 255, 0.1) !important;
     }
 </style>
+

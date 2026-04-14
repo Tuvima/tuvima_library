@@ -1,0 +1,160 @@
+@namespace MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+
+@inject IStringLocalizer<SharedStrings> L
+
+@if (SelectedCount > 0)
+{
+    <div class="vault-batch-bar">
+        <span class="vault-batch-count">@SelectedCount selected</span>
+
+        <button class="vault-batch-btn vault-batch-btn--edit" @onclick="() => OnEdit.InvokeAsync()">
+            Edit (@SelectedCount)
+        </button>
+
+        <button class="vault-batch-btn vault-batch-btn--delete" @onclick="() => OnDelete.InvokeAsync()">
+            Delete
+        </button>
+
+        <button class="vault-batch-btn vault-batch-btn--sync" @onclick="() => OnSyncNow.InvokeAsync()">
+            Sync Now
+        </button>
+
+        <button class="vault-batch-btn vault-batch-btn--clear" @onclick="() => OnClearSelection.InvokeAsync()">
+            ✕ Clear
+        </button>
+    </div>
+}
+
+@code {
+    [Parameter] public int SelectedCount { get; set; }
+    [Parameter] public EventCallback OnEdit { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+    [Parameter] public EventCallback OnSyncNow { get; set; }
+    [Parameter] public EventCallback OnClearSelection { get; set; }
+}
+
+<style>
+    .vault-batch-bar {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 12px 24px;
+        background: rgba(20, 24, 29, 0.95);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        z-index: 1000;
+        animation: vault-batch-slide-up 0.2s ease;
+    }
+
+    @@keyframes vault-batch-slide-up {
+        from { transform: translateX(-50%) translateY(20px); opacity: 0; }
+        to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+    }
+
+    .vault-batch-count {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 1);
+        white-space: nowrap;
+    }
+
+    .vault-batch-btn {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-radius: 8px;
+        padding: 8px 16px;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        white-space: nowrap;
+        line-height: 1;
+    }
+
+    .vault-batch-btn--edit {
+        background: rgba(201, 146, 46, 0.15);
+        color: #C9922E;
+        border: 1px solid rgba(201, 146, 46, 0.2);
+    }
+
+    .vault-batch-btn--edit:hover {
+        background: rgba(201, 146, 46, 0.25);
+    }
+
+    .vault-batch-btn--delete {
+        background: rgba(226, 75, 74, 0.15);
+        color: #E24B4A;
+        border: 1px solid rgba(226, 75, 74, 0.2);
+    }
+
+    .vault-batch-btn--delete:hover {
+        background: rgba(226, 75, 74, 0.25);
+    }
+
+    .vault-batch-btn--sync {
+        background: rgba(96, 165, 250, 0.15);
+        color: #60A5FA;
+        border: 1px solid rgba(96, 165, 250, 0.2);
+    }
+
+    .vault-batch-btn--sync:hover {
+        background: rgba(96, 165, 250, 0.25);
+    }
+
+    .vault-batch-btn--clear {
+        background: transparent;
+        color: rgba(255, 255, 255, 0.4);
+        border: none;
+    }
+
+    .vault-batch-btn--clear:hover {
+        color: rgba(255, 255, 255, 1);
+    }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vault-batch-bar {
+            bottom: 12px;
+            gap: 8px;
+            padding: 10px 16px;
+            left: 12px;
+            right: 12px;
+            transform: none;
+            border-radius: 12px;
+        }
+
+        @@keyframes vault-batch-slide-up {
+            from { transform: translateY(20px); opacity: 0; }
+            to   { transform: translateY(0);    opacity: 1; }
+        }
+
+        .vault-batch-count {
+            font-size: 12px;
+        }
+
+        .vault-batch-btn {
+            padding: 6px 12px;
+            font-size: 10px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .vault-batch-bar {
+            gap: 6px;
+            padding: 8px 12px;
+        }
+
+        .vault-batch-btn {
+            padding: 6px 8px;
+            font-size: 9px;
+        }
+    }
+</style>
+

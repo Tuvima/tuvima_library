@@ -63,8 +63,8 @@
   <data name="Nav_SearchPlaceholder" xml:space="preserve"><value>Search your library…</value></data>
   <data name="Nav_ReviewQueue" xml:space="preserve"><value>Review queue</value></data>
   <data name="Nav_CloseNavigation" xml:space="preserve"><value>Close navigation menu</value></data>
-  <data name="Nav_Vault" xml:space="preserve"><value>Vault</value></data>
-  <data name="Nav_VaultPending" xml:space="preserve"><value>Vault ({0} pending)</value></data>
+  <data name="Nav_Vault" xml:space="preserve"><value>Library</value></data>
+  <data name="Nav_VaultPending" xml:space="preserve"><value>Review ({0} pending)</value></data>
   <data name="Nav_Universes" xml:space="preserve"><value>Universes</value></data>
   <data name="Nav_ExpandNavigation" xml:space="preserve"><value>Expand navigation</value></data>
   <data name="Nav_CollapseNavigation" xml:space="preserve"><value>Collapse navigation</value></data>
@@ -79,7 +79,7 @@
   <data name="CmdPalette_SettingsSubtitle" xml:space="preserve"><value>Preferences, library, API keys</value></data>
 
   <!-- ── Vault ──────────────────────────────────────────────────────────── -->
-  <data name="Vault_Title" xml:space="preserve"><value>Vault</value></data>
+  <data name="Vault_Title" xml:space="preserve"><value>Library</value></data>
   <data name="Vault_AddMedia" xml:space="preserve"><value>Add Media</value></data>
   <data name="Vault_WaitingForProvider" xml:space="preserve"><value>Waiting for Provider</value></data>
   <data name="Vault_LoadMore" xml:space="preserve"><value>Load More</value></data>

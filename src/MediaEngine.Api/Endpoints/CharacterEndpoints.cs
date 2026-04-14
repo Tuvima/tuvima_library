@@ -3,26 +3,26 @@ using MediaEngine.Domain.Contracts;
 namespace MediaEngine.Api.Endpoints;
 
 /// <summary>
-/// Vault character endpoints — character portraits, person character roles,
+/// Library character endpoints — character portraits, person character roles,
 /// universe character lists, entity assets, and manual Stage 3 trigger.
 ///
 /// <list type="bullet">
-/// <item><c>GET  /vault/characters/{fictionalEntityId}/portraits</c> — portraits for a character with actor info</item>
-/// <item><c>PUT  /vault/characters/{fictionalEntityId}/portraits/{portraitId}/default</c> — set default portrait</item>
-/// <item><c>GET  /vault/persons/{personId}/character-roles</c> — character roles for a person</item>
-/// <item><c>GET  /vault/universes/{universeQid}/characters</c> — characters with default actor/portrait</item>
-/// <item><c>GET  /vault/assets/{entityId}</c> — entity assets grouped by type</item>
-/// <item><c>POST /vault/enrichment/universe/trigger</c> — manual Stage 3 trigger</item>
+/// <item><c>GET  /library/characters/{fictionalEntityId}/portraits</c> — portraits for a character with actor info</item>
+/// <item><c>PUT  /library/characters/{fictionalEntityId}/portraits/{portraitId}/default</c> — set default portrait</item>
+/// <item><c>GET  /library/persons/{personId}/character-roles</c> — character roles for a person</item>
+/// <item><c>GET  /library/universes/{universeQid}/characters</c> — characters with default actor/portrait</item>
+/// <item><c>GET  /library/assets/{entityId}</c> — entity assets grouped by type</item>
+/// <item><c>POST /library/enrichment/universe/trigger</c> — manual Stage 3 trigger</item>
 /// </list>
 /// </summary>
 public static class CharacterEndpoints
 {
     public static IEndpointRouteBuilder MapCharacterEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/vault")
-                       .WithTags("Vault Characters");
+        var group = app.MapGroup("/library")
+                       .WithTags("Library Characters");
 
-        // GET /vault/characters/{fictionalEntityId}/portraits
+        // GET /library/characters/{fictionalEntityId}/portraits
         // Returns all portraits for a character, enriched with actor name.
         group.MapGet("/characters/{fictionalEntityId:guid}/portraits", async (
             Guid fictionalEntityId,
@@ -53,7 +53,7 @@ public static class CharacterEndpoints
             return Results.Ok(result);
         });
 
-        // PUT /vault/characters/{fictionalEntityId}/portraits/{portraitId}/default
+        // PUT /library/characters/{fictionalEntityId}/portraits/{portraitId}/default
         // Sets a portrait as the default for its character.
         group.MapPut("/characters/{fictionalEntityId:guid}/portraits/{portraitId:guid}/default", async (
             Guid fictionalEntityId,
@@ -71,7 +71,7 @@ public static class CharacterEndpoints
             return Results.Ok(new { portrait_id = portraitId, is_default = true });
         });
 
-        // GET /vault/persons/{personId}/character-roles
+        // GET /library/persons/{personId}/character-roles
         // Returns all character roles for a person, with portraits and universe info.
         group.MapGet("/persons/{personId:guid}/character-roles", async (
             Guid personId,
@@ -106,7 +106,7 @@ public static class CharacterEndpoints
             return Results.Ok(result);
         });
 
-        // GET /vault/universes/{universeQid}/characters
+        // GET /library/universes/{universeQid}/characters
         // Returns characters in a universe with default actor/portrait.
         group.MapGet("/universes/{universeQid}/characters", async (
             string universeQid,
@@ -151,7 +151,7 @@ public static class CharacterEndpoints
             return Results.Ok(result);
         });
 
-        // GET /vault/assets/{entityId}
+        // GET /library/assets/{entityId}
         // Returns all entity assets, grouped by type.
         group.MapGet("/assets/{entityId}", async (
             string entityId,
@@ -171,7 +171,7 @@ public static class CharacterEndpoints
             return Results.Ok(result);
         });
 
-        // POST /vault/enrichment/universe/trigger
+        // POST /library/enrichment/universe/trigger
         // Manually trigger Stage 3 universe enrichment on the next cycle.
         group.MapPost("/enrichment/universe/trigger", async (
             IServiceProvider sp,
@@ -193,7 +193,7 @@ public static class CharacterEndpoints
                 Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["trigger_type"]  = "universe_sweep",
-                    ["requested_by"]  = "vault_manual",
+                    ["requested_by"]  = "library_manual",
                 },
             }, ct);
 
@@ -203,3 +203,4 @@ public static class CharacterEndpoints
         return app;
     }
 }
+

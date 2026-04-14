@@ -47,7 +47,7 @@ public sealed class CollectionGroupDetailDto
     [JsonPropertyName("artist_photo_url")]
     public string? ArtistPhotoUrl { get; init; }
 
-    /// <summary>Artist's person record ID. Populated for artist drill-down only — used to open the person detail drawer.</summary>
+    /// <summary>Artist's person record ID. Populated for artist drill-down only â€” used to open the person detail drawer.</summary>
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; init; }
 
@@ -137,15 +137,15 @@ public sealed class CollectionGroupWorkDto
 
     /// <summary>Stage 1 (retail identification) pipeline status for this work's primary asset.</summary>
     [JsonPropertyName("stage1")]
-    public VaultPipelineStageDto? Stage1 { get; init; }
+    public LibraryPipelineStageDto? Stage1 { get; init; }
 
     /// <summary>Stage 2 (Wikidata bridge) pipeline status for this work's primary asset.</summary>
     [JsonPropertyName("stage2")]
-    public VaultPipelineStageDto? Stage2 { get; init; }
+    public LibraryPipelineStageDto? Stage2 { get; init; }
 
     /// <summary>Stage 3 (universe enrichment) pipeline status for this work's primary asset.</summary>
     [JsonPropertyName("stage3")]
-    public VaultPipelineStageDto? Stage3 { get; init; }
+    public LibraryPipelineStageDto? Stage3 { get; init; }
 }
 
 /// <summary>
@@ -170,7 +170,7 @@ public sealed class CollectionGroupPersonDto
 }
 
 /// <summary>Pipeline stage indicator (state + label) for a single hydration stage.</summary>
-public sealed class VaultPipelineStageDto
+public sealed class LibraryPipelineStageDto
 {
     [JsonPropertyName("state")]
     public string State { get; init; } = "pending";
@@ -180,7 +180,7 @@ public sealed class VaultPipelineStageDto
 }
 
 /// <summary>
-/// A Content Group collection — a Universe-type collection (album, TV series, book series, movie series)
+/// A Content Group collection â€” a Universe-type collection (album, TV series, book series, movie series)
 /// that contains works of a single media type.
 /// </summary>
 public sealed class ContentGroupDto
@@ -212,27 +212,27 @@ public sealed class ContentGroupDto
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
 
-    /// <summary>Artist headshot URL — populated only when GroupByField == "artist".</summary>
+    /// <summary>Artist headshot URL â€” populated only when GroupByField == "artist".</summary>
     [JsonPropertyName("artist_photo_url")]
     public string? ArtistPhotoUrl { get; init; }
 
-    /// <summary>Person ID of the matched artist — populated alongside ArtistPhotoUrl.</summary>
+    /// <summary>Person ID of the matched artist â€” populated alongside ArtistPhotoUrl.</summary>
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; init; }
 
-    /// <summary>Network name — populated for TV show groups.</summary>
+    /// <summary>Network name â€” populated for TV show groups.</summary>
     [JsonPropertyName("network")]
     public string? Network { get; init; }
 
-    /// <summary>Year — first air date year for the group.</summary>
+    /// <summary>Year â€” first air date year for the group.</summary>
     [JsonPropertyName("year")]
     public string? Year { get; init; }
 
-    /// <summary>Number of distinct seasons — populated for TV show groups.</summary>
+    /// <summary>Number of distinct seasons â€” populated for TV show groups.</summary>
     [JsonPropertyName("season_count")]
     public int? SeasonCount { get; init; }
 
-    /// <summary>Number of distinct albums — populated for Music artist groups.</summary>
+    /// <summary>Number of distinct albums â€” populated for Music artist groups.</summary>
     [JsonPropertyName("album_count")]
     public int? AlbumCount { get; init; }
 }

@@ -1,4 +1,4 @@
-﻿using MediaEngine.Api.Models;
+using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -450,17 +450,17 @@ public static class CollectionEndpoints
                     };
 
                     // Pipeline stage stubs — state is derived from match/wikidata status.
-                    var stage1 = new VaultPipelineStageDto
+                    var stage1 = new LibraryPipelineStageDto
                     {
                         State = w.MatchLevel is "retail_only" or "work" or "edition" ? "done" : "pending",
                         Label = "Retail",
                     };
-                    var stage2 = new VaultPipelineStageDto
+                    var stage2 = new LibraryPipelineStageDto
                     {
                         State = w.WikidataStatus == "confirmed" ? "done" : "pending",
                         Label = "Wikidata",
                     };
-                    var stage3 = new VaultPipelineStageDto
+                    var stage3 = new LibraryPipelineStageDto
                     {
                         State = "pending",
                         Label = "Universe",

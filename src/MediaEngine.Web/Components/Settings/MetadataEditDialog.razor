@@ -233,7 +233,7 @@
 
         if (changes.Count > 0)
         {
-            var ok = await Orchestrator.OverrideMetadataAsync(EntityId, changes);
+            var ok = await Orchestrator.SaveItemPreferencesAsync(EntityId, changes);
             if (ok)
             {
                 Snackbar.Add($"Updated {changes.Count} field(s) successfully.", Severity.Success);

@@ -90,11 +90,11 @@ public sealed record RegistryItem
     [JsonPropertyName("pipeline_step")]
     public string PipelineStep { get; init; } = "Retail";
 
-    [JsonPropertyName("vault_visibility")]
-    public string VaultVisibility { get; init; } = "hidden";
+    [JsonPropertyName("library_visibility")]
+    public string LibraryVisibility { get; init; } = "hidden";
 
-    [JsonPropertyName("is_ready_for_vault")]
-    public bool IsReadyForVault { get; init; }
+    [JsonPropertyName("is_ready_for_library")]
+    public bool IsReadyForLibrary { get; init; }
 
     [JsonPropertyName("artwork_state")]
     public string ArtworkState { get; init; } = "pending";
@@ -168,11 +168,11 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("pipeline_step")]
     public string PipelineStep { get; init; } = "Retail";
 
-    [JsonPropertyName("vault_visibility")]
-    public string VaultVisibility { get; init; } = "hidden";
+    [JsonPropertyName("library_visibility")]
+    public string LibraryVisibility { get; init; } = "hidden";
 
-    [JsonPropertyName("is_ready_for_vault")]
-    public bool IsReadyForVault { get; init; }
+    [JsonPropertyName("is_ready_for_library")]
+    public bool IsReadyForLibrary { get; init; }
 
     [JsonPropertyName("artwork_state")]
     public string ArtworkState { get; init; } = "pending";

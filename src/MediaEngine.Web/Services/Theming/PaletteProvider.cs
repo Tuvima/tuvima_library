@@ -4,7 +4,7 @@ namespace MediaEngine.Web.Services.Theming;
 
 /// <summary>
 /// Static accessor for the colour palette, initialized at app startup.
-/// Allows static helper classes (VaultHelpers, RegistryHelpers) to read
+/// Allows static helper classes (LibraryHelpers, RegistryHelpers) to read
 /// palette colours without DI injection.
 /// </summary>
 public static class PaletteProvider

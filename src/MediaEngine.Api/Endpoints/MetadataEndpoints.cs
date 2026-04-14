@@ -1222,6 +1222,14 @@ public static class MetadataEndpoints
             fields[MetadataFieldConstants.Cover] = item.ThumbnailUrl;
         if (!string.IsNullOrEmpty(item.ProviderItemId))
             fields["provider_item_id"] = item.ProviderItemId;
+        if (item.ExtraFields is { Count: > 0 })
+        {
+            foreach (var (key, value) in item.ExtraFields)
+            {
+                if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                    fields[key] = value;
+            }
+        }
 
         return fields;
     }

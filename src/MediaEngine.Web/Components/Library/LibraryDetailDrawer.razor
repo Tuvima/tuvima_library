@@ -1,0 +1,4689 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Domain.Constants
+@using MediaEngine.Domain.Enums
+@namespace MediaEngine.Web.Components.Library
+@inject IStringLocalizer<SharedStrings> L
+@inject IEngineApiClient ApiClient
+@inject NavigationManager Nav
+
+@* â”€â”€ Backdrop â”€â”€ *@
+<div class="vdd-backdrop" @onclick="OnClose"></div>
+
+@* â”€â”€ Drawer Panel â”€â”€ *@
+<div class="vdd-drawer" @onclick:stopPropagation="true">
+
+    @* â”€â”€ 1. Pinned Header â”€â”€ *@
+    <div class="vdd-header">
+        <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                       Size="Size.Small"
+                       Style="position:absolute;top:24px;right:24px;color:rgba(255,255,255,0.5);"
+                       OnClick="OnClose" />
+
+        @if (MediaItem is not null)
+        {
+            @* â”€â”€ Media Header â”€â”€ *@
+            <div class="vdd-header-content">
+                <div class="vdd-thumb-wrap">
+                    @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
+                    {
+                        <img src="@MediaItem.CoverUrl" alt="" class="vdd-thumb-img" loading="lazy" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+                    }
+                </div>
+                <div class="vdd-header-info">
+                    <div class="vdd-badges">
+                        <span class="vdd-location-chip @GetReadinessChipClass()">
+                            @MediaItem.ReadinessLabel
+                        </span>
+                        <StatusPill Status="@MediaItem.LibraryDisplayStatus" QuarantineDays="@MediaItem.QuarantineDays" />
+                        @if (!string.IsNullOrEmpty(MediaItem.WikidataQid))
+                        {
+                            <a href="https://www.wikidata.org/wiki/@MediaItem.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
+                                <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 11px;" />
+                                @MediaItem.WikidataQid
+                            </a>
+                            @if (GetWikipediaUrl() is string mediaWikiUrl)
+                            {
+                                <a href="@mediaWikiUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                    Wikipedia
+                                </a>
+                            }
+                        }
+                    </div>
+                    <h2 class="vdd-title">@MediaItem.Title</h2>
+                    @{
+                        var drawerCreator = MediaItem.MediaType switch
+                        {
+                            "Movies" => MediaItem.Director ?? MediaItem.Author,
+                            "TV" => MediaItem.Director,
+                            "Music" => MediaItem.Artist ?? MediaItem.Author,
+                            _ => MediaItem.Author,
+                        };
+                    }
+                    @if (!string.IsNullOrEmpty(drawerCreator))
+                    {
+                        <p class="vdd-subtitle vdd-subtitle--clickable" @onclick="() => NavigateToCreatorPerson(drawerCreator)">
+                            @drawerCreator.ToUpperInvariant()
+                        </p>
+                    }
+                    <div class="vdd-meta">
+                        <span class="vdd-meta-item" style="color: @LibraryHelpers.GetMediaTypeColor(MediaItem.MediaType);">
+                            <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(MediaItem.MediaType)" Style="font-size: 14px;" />
+                            @LibraryHelpers.FormatMediaType(MediaItem.MediaType)
+                        </span>
+                        @if (!string.IsNullOrEmpty(MediaItem.Year))
+                        {
+                            <span class="vdd-meta-item">@MediaItem.Year</span>
+                        }
+                    </div>
+                    <p class="vdd-added-date">Added @MediaItem.CreatedAt.ToString("MMM dd, yyyy")</p>
+                </div>
+            </div>
+        }
+        else if (Person is not null)
+        {
+            @* â”€â”€ Person Header â”€â”€ *@
+            <div class="vdd-header-content">
+                <div class="vdd-avatar-round">
+                    @if (!string.IsNullOrEmpty(Person.HeadshotUrl))
+                    {
+                        <img src="@Person.HeadshotUrl" alt="" class="vdd-avatar-img" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 48px; color: rgba(255,255,255,0.1);" />
+                    }
+                </div>
+                <div class="vdd-header-info">
+                    <div class="vdd-badges">
+                        @foreach (var role in Person.Roles)
+                        {
+                            <span class="vdd-role-chip">@role.ToUpperInvariant()</span>
+                        }
+                        @if (!string.IsNullOrEmpty(Person.WikidataQid))
+                        {
+                            <a href="https://www.wikidata.org/wiki/@Person.WikidataQid" target="_blank" rel="noopener" class="vdd-qid-badge">
+                                <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                @Person.WikidataQid
+                            </a>
+                            @if (GetWikipediaUrl() is string personWikiUrl)
+                            {
+                                <a href="@personWikiUrl" target="_blank" rel="noopener" class="vdd-wiki-badge" title="Open Wikipedia article">
+                                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Style="font-size: 11px;" />
+                                    Wikipedia
+                                </a>
+                            }
+                        }
+                    </div>
+                    <h2 class="vdd-title">@Person.Name</h2>
+                    @if (!string.IsNullOrEmpty(Person.Occupation))
+                    {
+                        <p class="vdd-subtitle-italic">@Person.Occupation</p>
+                    }
+                </div>
+            </div>
+        }
+        else if (Universe is not null)
+        {
+            @* â”€â”€ Universe Header â”€â”€ *@
+            <div class="vdd-header-content">
+                <div class="vdd-universe-icon">
+                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 48px; color: #A78BFA;" />
+                </div>
+                <div class="vdd-header-info">
+                    <div class="vdd-badges">
+                        <StatusPill Status="LibraryStatus.Verified" />
+                    </div>
+                    <h2 class="vdd-title">@Universe.DisplayName</h2>
+                    <p class="vdd-subtitle-italic">@Universe.Description</p>
+                </div>
+            </div>
+        }
+    </div>
+
+    @* â”€â”€ 2. Scrollable Body â”€â”€ *@
+    <div class="vdd-body">
+        @if (MediaItem is not null)
+        {
+            @* â”€â”€ NeedsReview problem banner â”€â”€ *@
+            @if (MediaItem.LibraryDisplayStatus == LibraryStatus.NeedsReview && !string.IsNullOrEmpty(MediaItem.ReviewTrigger))
+            {
+                <div class="vdd-problem-banner">
+                    <div class="vdd-problem-banner-top">
+                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 18px; color: #EF9F27; flex-shrink: 0;" />
+                        <span class="vdd-problem-banner-msg">@LibraryHelpers.GetReviewTriggerLabel(MediaItem.ReviewTrigger)</span>
+                    </div>
+                    <p class="vdd-problem-banner-hint">You can search for a match in the Pipeline section below, or check the Details section for clues.</p>
+                </div>
+            }
+
+            @if (MediaItem.LibraryDisplayStatus == LibraryStatus.WaitingForProvider)
+            {
+                <div class="vdd-waiting-banner">
+                    <MudIcon Icon="@Icons.Material.Outlined.Schedule" Style="font-size: 18px;" />
+                    <span>
+                        @if (!string.IsNullOrEmpty(MediaItem.FailedProviderName))
+                        {
+                            @L["VaultDetail_WaitingForProviderNamed", MediaItem.FailedProviderName]
+                        }
+                        else
+                        {
+                            @L["VaultDetail_WaitingForProvider"]
+                        }
+                    </span>
+                </div>
+            }
+
+            var hasPipelineProblem = !IsRealRetailMatch(MediaItem.RetailMatch) || !IsWikidataMatched(MediaItem.WikidataQid);
+
+            @* â”€â”€ Details (file path + Current / Original metadata tabs) â”€â”€ *@
+            <DrawerSection @key="@($"details-{MediaItem.EntityId}")" Title="Details" Icon="@Icons.Material.Outlined.Description"
+                           DefaultOpen="@(!hasPipelineProblem)">
+                @{
+                    var detailsFolder = MediaItem.FilePath;
+                    if (!string.IsNullOrEmpty(MediaItem.FileName)
+                        && !string.IsNullOrEmpty(detailsFolder)
+                        && detailsFolder.EndsWith(MediaItem.FileName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        detailsFolder = detailsFolder[..^MediaItem.FileName.Length].TrimEnd('/', '\\');
+                    }
+                }
+
+                @* Pinned file path header *@
+                <div class="vdd-details-path">
+                    <div class="vdd-details-path-name">
+                        <MudIcon Icon="@Icons.Material.Outlined.InsertDriveFile" Style="font-size: 14px; color: rgba(255,255,255,0.35);" />
+                        <span>@(MediaItem.FileName ?? "â€”")</span>
+                    </div>
+                    @if (!string.IsNullOrEmpty(detailsFolder))
+                    {
+                        <div class="vdd-details-path-folder" title="@detailsFolder">@detailsFolder</div>
+                    }
+                </div>
+
+                @* Tab switcher *@
+                <div class="vdd-details-tabs">
+                    <button class="vdd-details-tab @(_detailsTab == 0 ? "vdd-details-tab--active" : "")"
+                            @onclick="() => _detailsTab = 0">
+                        Current Metadata
+                    </button>
+                    <button class="vdd-details-tab @(_detailsTab == 1 ? "vdd-details-tab--active" : "")"
+                            @onclick="() => _detailsTab = 1">
+                        Original Metadata
+                    </button>
+                </div>
+
+                @if (_detailsTab == 0)
+                {
+                    <div class="vdd-tab-content">
+                        <div class="vdd-metadata-list">
+                            @foreach (var (label, val) in GetCurrentMetadataRows())
+                            {
+                                <div class="vdd-claim-row">
+                                    <span class="vdd-field-label">@label</span>
+                                    <span class="vdd-field-value">@val</span>
+                                </div>
+                            }
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(MediaItem?.CoverUrl))
+                        {
+                            <div class="vdd-file-cover">
+                                <span class="vdd-field-label">Cover Art</span>
+                                <img src="@MediaItem.CoverUrl" alt="Cover" class="vdd-file-cover-img" loading="lazy" />
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="vdd-tab-content">
+                        <div class="vdd-metadata-list">
+                            @if (_claimsLoading)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else
+                            {
+                                var fileClaims = _claims.Where(c => LibraryHelpers.IsFileSource(c.ProviderId) || LibraryHelpers.IsUserSource(c.ProviderId)).ToList();
+                                @if (fileClaims.Count == 0)
+                                {
+                                    <p class="vdd-stage-hint">No file metadata extracted yet.</p>
+                                }
+                                else
+                                {
+                                    @foreach (var group in fileClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                    {
+                                        var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                        <div class="vdd-claim-row">
+                                            <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                            <span class="vdd-field-value">@bestClaim.ClaimValue</span>
+                                        </div>
+                                    }
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </DrawerSection>
+
+            @* â”€â”€ Pipeline (circles + Retail/Wikidata tabs) â”€â”€ *@
+            <DrawerSection @key="@($"pipeline-{MediaItem.EntityId}")" Title="Pipeline" Icon="@Icons.Material.Outlined.AccountTree"
+                           HasProblem="@hasPipelineProblem"
+                           DefaultOpen="@hasPipelineProblem">
+
+                @* Pipeline stage circles *@
+                <div class="vdd-pipeline-circles-wrap">
+                    <LibraryPipelineCircles
+                        Stage1="@MediaItem.Stage1"
+                        Stage2="@MediaItem.Stage2"
+                        Stage3="@MediaItem.Stage3"
+                        @bind-SelectedStage="_selectedStage" />
+                </div>
+
+                @* â”€â”€ Tab content (selected via pipeline circles) â”€â”€ *@
+                @{
+                    var hasRetail = IsRealRetailMatch(MediaItem?.RetailMatch) || IsRealRetailMatch(MediaItem?.RetailMatchDetail);
+                    var hasWikidata = IsWikidataMatched(MediaItem?.WikidataQid);
+                    var hasRetailForWiki = hasRetail;
+                    var retailClaims = _claims.Where(c =>
+                        !LibraryHelpers.IsFileSource(c.ProviderId) &&
+                        !LibraryHelpers.IsUserSource(c.ProviderId) &&
+                        !c.ProviderId.ToString().Contains("b3000003")).ToList();
+                    var wikiClaims = _claims.Where(c =>
+                        c.ProviderId.ToString().Contains("b3000003")).ToList();
+                }
+                @switch (ActiveTab)
+                {
+                    case 0:
+                        @* â”€â”€ RETAIL TAB â”€â”€ *@
+                        <div class="vdd-tab-content">
+                            @* Always-visible filter-based search (at the top) *@
+                            <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
+                                <div class="vdd-search-bar-wrap" style="margin-top: 4px;">
+                                    @* Media type row *@
+                                    <div class="vdd-search-type-row">
+                                        <span class="vdd-search-type-label">Type:</span>
+                                        <div class="vdd-dropdown-wrap">
+                                            <button class="vdd-dropdown-btn" @onclick="() => _showMediaTypeDropdown = !_showMediaTypeDropdown">
+                                                @_searchMediaType <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
+                                            </button>
+                                            @if (_showMediaTypeDropdown)
+                                            {
+                                                <div class="vdd-dropdown-menu">
+                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
+                                                    {
+                                                        <div class="vdd-dropdown-item" @onclick="() => SetRetailMediaType(mt)">@mt</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <span class="vdd-search-type-label">Quick Search:</span>
+                                        <div class="vdd-dropdown-wrap">
+                                            <button class="vdd-dropdown-btn" @onclick="() => _showCanonicalTargetDropdown = !_showCanonicalTargetDropdown">
+                                                @GetCanonicalTargetDisplayLabel(_canonicalTargetGroup)
+                                                <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
+                                            </button>
+                                            @if (_showCanonicalTargetDropdown)
+                                            {
+                                                <div class="vdd-dropdown-menu">
+                                                    @foreach (var target in GetCanonicalTargetOptions(_searchMediaType))
+                                                    {
+                                                        <div class="vdd-dropdown-item" @onclick="() => SetCanonicalTargetGroup(target.Key)">@target.Label</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @* Main search row *@
+                                    <div class="vdd-search-main-row">
+                                        <div class="vdd-search-input-group">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
+
+                                            @* Primary field selector *@
+                                            <div class="vdd-dropdown-wrap">
+                                                <button class="vdd-primary-field-btn" @onclick="() => _showPrimaryDropdown = !_showPrimaryDropdown">
+                                                    @FormatClaimKey(_primarySearchField)
+                                                    <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 12px;" />
+                                                </button>
+                                                @if (_showPrimaryDropdown)
+                                                {
+                                                    <div class="vdd-dropdown-menu">
+                                                        @foreach (var f in GetSearchableFieldsForCurrentType())
+                                                        {
+                                                            <div class="vdd-dropdown-item" @onclick="() => SetPrimaryField(f.FieldKey)">@f.DisplayLabel</div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            <input type="text" class="vdd-search-primary-input"
+                                                   placeholder="@($"Search {FormatClaimKey(_primarySearchField).ToLower()}...")"
+                                                   @bind="_primarySearchValue" @bind:event="oninput"
+                                                   @onkeydown="OnRetailSearchKeyDown" />
+
+                                            @* Add Filter button *@
+                                            <div class="vdd-dropdown-wrap">
+                                                <button class="vdd-add-filter-btn" @onclick="() => _showFilterDropdown = !_showFilterDropdown">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 14px;" />
+                                                    Add Filter
+                                                </button>
+                                                @if (_showFilterDropdown)
+                                                {
+                                                    <div class="vdd-dropdown-menu">
+                                                        @foreach (var f in GetSearchableFieldsForCurrentType())
+                                                        {
+                                                            if (f.FieldKey == _primarySearchField) continue;
+                                                            if (_searchFilters.Any(sf => sf.FieldKey == f.FieldKey)) continue;
+                                                            <div class="vdd-dropdown-item" @onclick="() => AddSearchFilter(f.FieldKey)">@f.DisplayLabel</div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <button class="vdd-search-execute-btn" @onclick="RunRetailSearch"
+                                                disabled="@(!HasAnySearchFieldValue())">
+                                            Quick Search
+                                        </button>
+                                    </div>
+
+                                    @* Filter pills *@
+                                    @if (_searchFilters.Count > 0)
+                                    {
+                                        <div class="vdd-filter-pills">
+                                            @for (int i = 0; i < _searchFilters.Count; i++)
+                                            {
+                                                var idx = i;
+                                                var filter = _searchFilters[idx];
+                                                <div class="vdd-filter-pill">
+                                                    <span class="vdd-filter-pill-label">@FormatClaimKey(filter.FieldKey):</span>
+                                                    <input type="text" class="vdd-filter-pill-input"
+                                                           value="@_searchFilters[idx].Value"
+                                                           placeholder="..."
+                                                           @oninput="(e) => UpdateFilter(idx, e.Value?.ToString())"
+                                                           @onkeydown="OnRetailSearchKeyDown" />
+                                                    <button class="vdd-filter-pill-remove" @onclick="() => RemoveFilter(idx)">
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 14px;" />
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (hasRetail && HasAnySearchFieldValue())
+                                {
+                                    <p class="vdd-rematch-warning">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                        Quick Search lets you choose a new canonical provider-backed match for this field group.
+                                    </p>
+                                }
+                            </div>
+
+                            @* Search results with field comparison cards *@
+                            @if (_searching)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else if (_hasSearched && _retailSearchResults.Count == 0)
+                            {
+                                <div class="vdd-canonical-empty-state">
+                                    <p class="vdd-stage-hint">@(_canonicalSearchResponse?.NoResultMessage ?? "No provider-backed canonical candidates found.")</p>
+                                    @if (_canonicalSearchResponse is not null)
+                                    {
+                                        <div class="vdd-fallback-actions">
+                                            <button class="vdd-cancel-match-btn" @onclick="KeepCurrentCanonicalValue">Keep current canonical value</button>
+                                            <button class="vdd-confirm-match-btn" @onclick="SaveCurrentDraftAsPreferenceAsync">Save as preference only</button>
+                                            @if (_canonicalSearchResponse.CanApplyUnlinkedCanonical)
+                                            {
+                                                <button class="vdd-confirm-match-btn" @onclick="ApplyCurrentDraftAsUnlinkedCanonicalAsync">Apply as unlinked canonical value</button>
+                                            }
+                                        </div>
+                                        @if (_canonicalSearchResponse.MissingRequiredFields.Count > 0)
+                                        {
+                                            <p class="vdd-stage-hint">Missing required anchors: @string.Join(", ", _canonicalSearchResponse.MissingRequiredFields.Select(FormatClaimKey))</p>
+                                        }
+                                    }
+                                </div>
+                            }
+                            else if (_retailSearchResults.Count > 0)
+                            {
+                                <div class="vdd-search-results" style="max-height: none;">
+                                    @foreach (var result in _retailSearchResults)
+                                    {
+                                        var isExpanded = _pendingRetailMatch == result;
+                                        var fieldComparisons = GetRetailFieldComparisons(result);
+                                        var overallScore = result.Confidence;
+                                        <div class="vdd-result-card @(isExpanded ? "vdd-result-card--expanded" : "")"
+                                             @onclick="() => SelectRetailResult(result)">
+                                            @* Header: cover + title + overall score *@
+                                            <div class="vdd-result-header">
+                                                <div class="vdd-result-cover">
+                                                    @if (!string.IsNullOrEmpty(result.CoverUrl))
+                                                    {
+                                                        <img src="@result.CoverUrl" alt="" loading="lazy" />
+                                                    }
+                                                    else
+                                                    {
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 24px; color: rgba(255,255,255,0.15);" />
+                                                    }
+                                                </div>
+                                                <div class="vdd-result-title-block">
+                                                    <span class="vdd-result-card-title">@result.Title</span>
+                                                    @{
+                                                        var displayFields = GetRetailResultFields(result);
+                                                    }
+                                                    <span class="vdd-result-card-meta">@displayFields.Subline</span>
+                                                    <span class="vdd-result-card-meta">@result.LinkStatusLabel</span>
+                                                    @if (!result.IsApplicable && !string.IsNullOrWhiteSpace(result.BlockedReason))
+                                                    {
+                                                        <span class="vdd-result-card-meta" style="color: #EF9F27;">@result.BlockedReason</span>
+                                                    }
+                                                </div>
+                                                <div class="vdd-result-score">
+                                                    <span class="vdd-result-score-val" style="color: @GetScoreColor(overallScore);">@overallScore.ToString("F2")</span>
+                                                    <div class="vdd-result-score-bar">
+                                                        @for (int s = 0; s < 5; s++)
+                                                        {
+                                                            var filled = s < (int)Math.Round(overallScore * 5);
+                                                            <div class="vdd-score-seg @(filled ? "vdd-score-seg--filled" : "")" style="@(filled ? $"background: {GetScoreColor(overallScore)};" : "")"></div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            @* Field comparison table (always visible) *@
+                                            <div class="vdd-field-compare">
+                                                <div class="vdd-compare-header-row">
+                                                    <span class="vdd-compare-col-label">YOUR FILE</span>
+                                                    <span class="vdd-compare-col-label" style="text-align: center;">â†”</span>
+                                                    <span class="vdd-compare-col-label">PROVIDER MATCH</span>
+                                                    <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
+                                                </div>
+                                                @foreach (var comp in fieldComparisons)
+                                                {
+                                                    <div class="vdd-compare-row">
+                                                        <div class="vdd-compare-cell vdd-compare-cell--yours">
+                                                            <span class="vdd-compare-field-name">@comp.FieldLabel</span>
+                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? "â€”" : comp.YourValue)</span>
+                                                        </div>
+                                                        <span class="vdd-compare-arrow">â†”</span>
+                                                        <div class="vdd-compare-cell vdd-compare-cell--theirs">
+                                                            <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? "â€”" : comp.ProviderValue)</span>
+                                                        </div>
+                                                        <div class="vdd-compare-cell vdd-compare-cell--score">
+                                                            @if (comp.Score.HasValue)
+                                                            {
+                                                                <span style="color: @GetScoreColor(comp.Score.Value); font-weight: 700; font-size: 12px;">@comp.Score.Value.ToString("F2")</span>
+                                                                <div class="vdd-score-mini-bar">
+                                                                    <div class="vdd-score-mini-fill" style="width: @(comp.Score.Value * 100)%; background: @GetScoreColor(comp.Score.Value);"></div>
+                                                                </div>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span style="color: rgba(255,255,255,0.2); font-size: 11px;">â€”</span>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            @* Extra details: description + extra fields *@
+                                            @if (!string.IsNullOrEmpty(result.Description) || (result.ExtraFields is { Count: > 0 }))
+                                            {
+                                                <div class="vdd-result-details">
+                                                    @if (!string.IsNullOrEmpty(result.Description))
+                                                    {
+                                                        <div class="vdd-result-description">@result.Description</div>
+                                                    }
+                                                    @if (result.ExtraFields is { Count: > 0 })
+                                                    {
+                                                        <div class="vdd-result-extra-fields">
+                                                            @foreach (var kv in result.ExtraFields.Where(kv => !string.IsNullOrEmpty(kv.Value)).Take(8))
+                                                            {
+                                                                <div class="vdd-extra-field-chip">
+                                                                    <span class="vdd-extra-field-key">@FormatClaimKey(kv.Key)</span>
+                                                                    <span class="vdd-extra-field-val">@kv.Value</span>
+                                                                </div>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+
+                                            @* Confirm button (only when expanded/selected) *@
+                                            @if (isExpanded)
+                                            {
+                                                <div class="vdd-result-actions">
+                                                    @if (result.RequiredFields.Count > 0)
+                                                    {
+                                                        <div class="vdd-result-details" @onclick:stopPropagation="true">
+                                                            <span class="vdd-field-label">Required Fields</span>
+                                                            <div class="vdd-result-extra-fields">
+                                                                @foreach (var kv in result.RequiredFields)
+                                                                {
+                                                                    <div class="vdd-extra-field-chip">
+                                                                        <span class="vdd-extra-field-key">@FormatClaimKey(kv.Key)</span>
+                                                                        <span class="vdd-extra-field-val">@kv.Value</span>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    @if (result.SuggestedFields.Count > 0)
+                                                    {
+                                                        <div class="vdd-result-details" @onclick:stopPropagation="true">
+                                                            <span class="vdd-field-label">Optional Fields</span>
+                                                            <div class="vdd-suggested-field-list">
+                                                                @foreach (var kv in result.SuggestedFields)
+                                                                {
+                                                                    <label class="vdd-suggested-field-item">
+                                                                        <input type="checkbox"
+                                                                               checked="@IsSuggestedFieldSelected(result.CandidateId, kv.Key)"
+                                                                               @onchange="(e) => SetSuggestedFieldSelected(result.CandidateId, kv.Key, IsChecked(e.Value))"
+                                                                               @onclick:stopPropagation="true" />
+                                                                        <span>@FormatClaimKey(kv.Key): @kv.Value</span>
+                                                                    </label>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    @if (!_confirmingRetailMatch)
+                                                    {
+                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                                @onclick="() => _confirmingRetailMatch = true"
+                                                                disabled="@(!result.IsApplicable)">
+                                                            Apply Canonical Choice
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                            @if (IsRealRetailMatch(MediaItem?.RetailMatch))
+                                                            {
+                                                                <span class="vdd-overwrite-warning">
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                    Replaces the current provider-backed canonical selection for this field group.
+                                                                </span>
+                                                            }
+                                                            <span class="vdd-confirm-prompt">Apply this canonical provider result?</span>
+                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">Yes</button>
+                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">Cancel</button>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @* Existing match status (below search and results) *@
+                            @if (hasRetail)
+                            {
+                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    @{
+                                        var retailDisplayName = GetRetailProviderDisplayName();
+                                        var isManualMatch = MediaItem?.RetailMatch?.Equals("user_manual", StringComparison.OrdinalIgnoreCase) == true;
+                                    }
+                                    <div class="vdd-match-status vdd-match-status--ok">
+                                        <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                        <span>@(isManualMatch ? "Manually matched by user" : $"Matched automatically via {retailDisplayName}")</span>
+                                    </div>
+                                    @if (GetRetailProviderUrl() is { } retailUrl)
+                                    {
+                                        <a href="@retailUrl.Url" target="_blank" rel="noopener" class="vdd-provider-link">
+                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 11px;" />
+                                            @retailUrl.Label
+                                        </a>
+                                    }
+
+                                    @* Show retail provider claims *@
+                                    @if (retailClaims.Count > 0)
+                                    {
+                                        <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                            @foreach (var group in retailClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                            {
+                                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                                <div class="vdd-claim-row">
+                                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                                    <span class="vdd-field-value">@bestClaim.ClaimValue</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        break;
+
+                    case 1:
+                        @* â”€â”€ WIKIDATA TAB â”€â”€ *@
+                        <div class="vdd-tab-content">
+                            @* Always-visible Wikidata search (at the top) *@
+                            <div class="vdd-tab-search" style="margin-top: 0; padding-top: 0; border-top: none;">
+                                <div class="vdd-search-bar-wrap" style="margin-top: 4px;">
+                                    <div class="vdd-search-type-row">
+                                        <span class="vdd-search-type-label">Type:</span>
+                                        <div class="vdd-dropdown-wrap">
+                                            <button class="vdd-dropdown-btn" @onclick="() => _showWikiMediaTypeDropdown = !_showWikiMediaTypeDropdown">
+                                                @_searchMediaType <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
+                                            </button>
+                                            @if (_showWikiMediaTypeDropdown)
+                                            {
+                                                <div class="vdd-dropdown-menu">
+                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
+                                                    {
+                                                        <div class="vdd-dropdown-item" @onclick="() => SetWikiMediaType(mt)">@mt</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                        <span class="vdd-search-type-label">Quick Search:</span>
+                                        <div class="vdd-dropdown-wrap">
+                                            <button class="vdd-dropdown-btn" @onclick="() => _showCanonicalTargetDropdown = !_showCanonicalTargetDropdown">
+                                                @GetCanonicalTargetDisplayLabel(_canonicalTargetGroup)
+                                                <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
+                                            </button>
+                                            @if (_showCanonicalTargetDropdown)
+                                            {
+                                                <div class="vdd-dropdown-menu">
+                                                    @foreach (var target in GetCanonicalTargetOptions(_searchMediaType))
+                                                    {
+                                                        <div class="vdd-dropdown-item" @onclick="() => SetCanonicalTargetGroup(target.Key)">@target.Label</div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="vdd-search-main-row">
+                                        <div class="vdd-search-input-group">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
+                                            <input type="text" class="vdd-search-primary-input"
+                                                   placeholder="@(hasWikidata ? "Search for a different canonical entity..." : "Search by name or enter a QID...")"
+                                                   @bind="_wikidataSearchQuery" @bind:event="oninput" @onkeydown="OnWikidataSearchKeyDown" />
+                                        </div>
+                                        <button class="vdd-search-execute-btn" @onclick="RunWikidataSearch"
+                                                disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery))">
+                                            Quick Search
+                                        </button>
+                                    </div>
+                                </div>
+                                @if (hasWikidata && !string.IsNullOrWhiteSpace(_wikidataSearchQuery))
+                                {
+                                    <p class="vdd-rematch-warning">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                        Quick Search lets you choose a new canonical linked entity for this field group.
+                                    </p>
+                                }
+                            </div>
+
+                            @* Search results with field comparison cards *@
+                            @if (_searchingWikidata)
+                            {
+                                <div style="padding: 8px 0; text-align: center;">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                                </div>
+                            }
+                            else if (_hasSearchedWikidata && _wikidataSearchResults.Count == 0)
+                            {
+                                <div class="vdd-canonical-empty-state">
+                                    <p class="vdd-stage-hint">@(_canonicalSearchResponse?.NoResultMessage ?? $"No linked canonical results for \"{_wikidataSearchQuery}\".")</p>
+                                    @if (_canonicalSearchResponse is not null)
+                                    {
+                                        <div class="vdd-fallback-actions">
+                                            <button class="vdd-cancel-match-btn" @onclick="KeepCurrentCanonicalValue">Keep current canonical value</button>
+                                            <button class="vdd-confirm-match-btn" @onclick="SaveCurrentDraftAsPreferenceAsync">Save as preference only</button>
+                                            @if (_canonicalSearchResponse.CanApplyUnlinkedCanonical)
+                                            {
+                                                <button class="vdd-confirm-match-btn" @onclick="ApplyCurrentDraftAsUnlinkedCanonicalAsync">Apply as unlinked canonical value</button>
+                                            }
+                                        </div>
+                                        @if (_canonicalSearchResponse.MissingRequiredFields.Count > 0)
+                                        {
+                                            <p class="vdd-stage-hint">Missing required anchors: @string.Join(", ", _canonicalSearchResponse.MissingRequiredFields.Select(FormatClaimKey))</p>
+                                        }
+                                    }
+                                </div>
+                            }
+                            else if (_wikidataSearchResults.Count > 0)
+                            {
+                                <div class="vdd-search-results" style="max-height: none;">
+                                    @foreach (var result in _wikidataSearchResults)
+                                    {
+                                        var isExpanded = _pendingWikidataMatch == result;
+                                        var wikiFieldComparisons = GetWikidataFieldComparisons(result);
+                                        <div class="vdd-result-card @(isExpanded ? "vdd-result-card--expanded" : "")"
+                                             @onclick="() => SelectWikidataResult(result)">
+                                            @* Header: icon + label/QID *@
+                                            <div class="vdd-result-header">
+                                                <div class="vdd-result-cover" style="background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.15);">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Public" Style="font-size: 24px; color: #A78BFA;" />
+                                                </div>
+                                                <div class="vdd-result-title-block">
+                                                    <span class="vdd-result-card-title">@result.Label</span>
+                                                    <div class="vdd-result-card-qid-row">
+                                                        <a href="https://www.wikidata.org/wiki/@result.Qid" target="_blank" rel="noopener" class="vdd-result-qid-link" @onclick:stopPropagation="true">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 10px;" />
+                                                            @result.Qid
+                                                        </a>
+                                                        @if (!string.IsNullOrEmpty(result.InstanceOf))
+                                                        {
+                                                            <span class="vdd-result-instance-chip">@result.InstanceOf</span>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(result.Year))
+                                                        {
+                                                            <span class="vdd-result-instance-chip">@result.Year</span>
+                                                        }
+                                                    </div>
+                                                    @if (!string.IsNullOrEmpty(result.Description))
+                                                    {
+                                                        <span class="vdd-result-card-meta" style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal;">@result.Description</span>
+                                                    }
+                                                    <span class="vdd-result-card-meta">@result.LinkStatusLabel</span>
+                                                    @if (!result.IsApplicable && !string.IsNullOrWhiteSpace(result.BlockedReason))
+                                                    {
+                                                        <span class="vdd-result-card-meta" style="color: #EF9F27;">@result.BlockedReason</span>
+                                                    }
+                                                </div>
+                                                <div class="vdd-result-score">
+                                                    @{
+                                                        var wikiScore = result.Confidence;
+                                                    }
+                                                    <span class="vdd-result-score-val" style="color: @GetScoreColor(wikiScore);">@wikiScore.ToString("F2")</span>
+                                                    <div class="vdd-result-score-bar">
+                                                        @for (int s = 0; s < 5; s++)
+                                                        {
+                                                            var filled = s < (int)Math.Round(wikiScore * 5);
+                                                            <div class="vdd-score-seg @(filled ? "vdd-score-seg--filled" : "")" style="@(filled ? $"background: {GetScoreColor(wikiScore)};" : "")"></div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            @* Field comparison table *@
+                                            @if (wikiFieldComparisons.Count > 0)
+                                            {
+                                                <div class="vdd-field-compare">
+                                                    <div class="vdd-compare-header-row">
+                                                        <span class="vdd-compare-col-label">YOUR FILE</span>
+                                                        <span class="vdd-compare-col-label" style="text-align: center;">â†”</span>
+                                                        <span class="vdd-compare-col-label">WIKIDATA</span>
+                                                        <span class="vdd-compare-col-label" style="text-align: right;">SCORE</span>
+                                                    </div>
+                                                    @foreach (var comp in wikiFieldComparisons)
+                                                    {
+                                                        <div class="vdd-compare-row">
+                                                            <div class="vdd-compare-cell vdd-compare-cell--yours">
+                                                                <span class="vdd-compare-field-name">@comp.FieldLabel</span>
+                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.YourValue) ? "â€”" : comp.YourValue)</span>
+                                                            </div>
+                                                            <span class="vdd-compare-arrow">â†”</span>
+                                                            <div class="vdd-compare-cell vdd-compare-cell--theirs">
+                                                                <span class="vdd-compare-field-val">@(string.IsNullOrEmpty(comp.ProviderValue) ? "â€”" : comp.ProviderValue)</span>
+                                                            </div>
+                                                            <div class="vdd-compare-cell vdd-compare-cell--score">
+                                                                @if (comp.Score.HasValue)
+                                                                {
+                                                                    <span style="color: @GetScoreColor(comp.Score.Value); font-weight: 700; font-size: 12px;">@comp.Score.Value.ToString("F2")</span>
+                                                                    <div class="vdd-score-mini-bar">
+                                                                        <div class="vdd-score-mini-fill" style="width: @(comp.Score.Value * 100)%; background: @GetScoreColor(comp.Score.Value);"></div>
+                                                                    </div>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span style="color: rgba(255,255,255,0.2); font-size: 11px;">â€”</span>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+
+                                            @* Confirm button (only when expanded/selected) *@
+                                            @if (isExpanded)
+                                            {
+                                                <div class="vdd-result-actions">
+                                                    @if (result.RequiredFields.Count > 0)
+                                                    {
+                                                        <div class="vdd-result-details" @onclick:stopPropagation="true">
+                                                            <span class="vdd-field-label">Required Fields</span>
+                                                            <div class="vdd-result-extra-fields">
+                                                                @foreach (var kv in result.RequiredFields)
+                                                                {
+                                                                    <div class="vdd-extra-field-chip">
+                                                                        <span class="vdd-extra-field-key">@FormatClaimKey(kv.Key)</span>
+                                                                        <span class="vdd-extra-field-val">@kv.Value</span>
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    @if (result.SuggestedFields.Count > 0)
+                                                    {
+                                                        <div class="vdd-result-details" @onclick:stopPropagation="true">
+                                                            <span class="vdd-field-label">Optional Fields</span>
+                                                            <div class="vdd-suggested-field-list">
+                                                                @foreach (var kv in result.SuggestedFields)
+                                                                {
+                                                                    <label class="vdd-suggested-field-item">
+                                                                        <input type="checkbox"
+                                                                               checked="@IsSuggestedFieldSelected(result.CandidateId, kv.Key)"
+                                                                               @onchange="(e) => SetSuggestedFieldSelected(result.CandidateId, kv.Key, IsChecked(e.Value))"
+                                                                               @onclick:stopPropagation="true" />
+                                                                        <span>@FormatClaimKey(kv.Key): @kv.Value</span>
+                                                                    </label>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    @if (!_confirmingWikidataMatch)
+                                                    {
+                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
+                                                                @onclick="() => _confirmingWikidataMatch = true"
+                                                                disabled="@(!result.IsApplicable)">
+                                                            Apply Canonical Choice
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="vdd-confirm-row" @onclick:stopPropagation="true">
+                                                            @if (IsWikidataMatched(MediaItem?.WikidataQid))
+                                                            {
+                                                                <span class="vdd-overwrite-warning">
+                                                                    <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 12px; color: #EF9F27;" />
+                                                                    Replaces the current linked canonical selection for this field group (@MediaItem?.WikidataQid).
+                                                                </span>
+                                                            }
+                                                            <span class="vdd-confirm-prompt">Apply this linked canonical result?</span>
+                                                            <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true" @onclick="() => ConfirmWikidataMatch(result)">
+                                                                Yes
+                                                            </button>
+                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+
+                            @* Existing QID status (below search and results) *@
+                            @if (hasWikidata)
+                            {
+                                <div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.04);">
+                                    <div class="vdd-match-status vdd-match-status--ok">
+                                        <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                        <a href="https://www.wikidata.org/wiki/@MediaItem?.WikidataQid" target="_blank" rel="noopener" class="vdd-pipeline-qid-link">@MediaItem?.WikidataQid</a>
+                                    </div>
+                                    <p class="vdd-match-explanation">@GetWikidataExplanation()</p>
+
+                                    @* Wikidata claims *@
+                                    @if (wikiClaims.Count > 0)
+                                    {
+                                        <div class="vdd-metadata-list" style="margin-top: 8px;">
+                                            @foreach (var group in wikiClaims.GroupBy(c => c.ClaimKey).OrderBy(g => g.Key))
+                                            {
+                                                var bestClaim = group.OrderByDescending(c => c.Confidence).First();
+                                                <div class="vdd-claim-row">
+                                                    <span class="vdd-field-label">@FormatClaimKey(group.Key)</span>
+                                                    <span class="vdd-field-value">@bestClaim.ClaimValue</span>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="vdd-match-status vdd-match-status--fail" style="margin-top: 12px;">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
+                                    <span>No Wikidata identity assigned yet</span>
+                                </div>
+                            }
+                        </div>
+                        break;
+
+                    case 2:
+                        @* â”€â”€ UNIVERSE TAB â”€â”€ *@
+                        <div class="vdd-tab-content">
+                            @if (!string.IsNullOrEmpty(MediaItem?.UniverseName))
+                            {
+                                <div class="vdd-match-status vdd-match-status--ok">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--ok"></span>
+                                    <span>Assigned to universe: @MediaItem.UniverseName</span>
+                                </div>
+                            }
+                            else if (!string.IsNullOrEmpty(MediaItem?.WikidataQid) && !MediaItem.WikidataQid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <div class="vdd-match-status vdd-match-status--warn">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--warn"></span>
+                                    <span>Wikidata linked but universe assignment pending</span>
+                                </div>
+                                <p class="vdd-stage-hint">The Engine will automatically assign a universe once enrichment completes.</p>
+                            }
+                            else
+                            {
+                                <div class="vdd-match-status vdd-match-status--fail">
+                                    <span class="vdd-pipeline-dot vdd-pipeline-dot--fail"></span>
+                                    <span>No universe assigned</span>
+                                </div>
+                                <p class="vdd-stage-hint">A Wikidata identity is needed before the Engine can determine universe membership.</p>
+                            }
+                        </div>
+                        break;
+                }
+            </DrawerSection>
+
+            <DrawerSection @key="@($"history-{MediaItem.EntityId}")" Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
+                <LibraryTimeline EntityId="@MediaItem.EntityId" />
+            </DrawerSection>
+
+            <DrawerSection @key="@($"assets-{MediaItem.EntityId}")" Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+                <div class="vdd-assets">
+                    @* Cover Art *@
+                    <div class="vdd-asset-row">
+                        <span class="vdd-asset-label">@L["VaultDetail_AssetCoverArt"]</span>
+                        <div class="vdd-asset-items">
+                            @if (!string.IsNullOrEmpty(MediaItem.CoverUrl))
+                            {
+                                <div class="vdd-asset-filled">
+                                    <img src="@MediaItem.CoverUrl" alt="Cover" class="vdd-asset-img" />
+                                    <span class="vdd-asset-source">@L["VaultDetail_AssetSourceProvider"]</span>
+                                </div>
+                            }
+                            <div class="vdd-asset-slot">
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
+                            </div>
+                        </div>
+                    </div>
+                    @* Hero Banner *@
+                    <div class="vdd-asset-row">
+                        <span class="vdd-asset-label">@L["VaultDetail_AssetHeroBanner"]</span>
+                        <div class="vdd-asset-items">
+                            @if (!string.IsNullOrEmpty(MediaItem.HeroUrl))
+                            {
+                                <div class="vdd-asset-filled vdd-asset-filled--wide">
+                                    <img src="@MediaItem.HeroUrl" alt="Hero" class="vdd-asset-img" />
+                                    <span class="vdd-asset-source">@L["VaultDetail_AssetSourceGenerated"]</span>
+                                </div>
+                            }
+                            <div class="vdd-asset-slot">
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                <span class="vdd-asset-upload">@L["VaultDetail_AssetCustom"]</span>
+                            </div>
+                        </div>
+                    </div>
+                    @* Remaining types as upload-only *@
+                    @foreach (var assetType in new[] { "Logo", "Backdrop" })
+                    {
+                        <div class="vdd-asset-row">
+                            <span class="vdd-asset-label">@assetType</span>
+                            <div class="vdd-asset-items">
+                                <div class="vdd-asset-slot">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 16px; color: rgba(255,255,255,0.15);" />
+                                    <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </DrawerSection>
+
+        }
+        else if (Person is not null)
+        {
+            @* â”€â”€ Person: delegate to PersonBiographyDrawer â”€â”€ *@
+            <PersonBiographyDrawer Person="@Person"
+                                   Aliases="@_aliases"
+                                   PersonWorks="@_personWorks"
+                                   PersonCharacterRoles="@_personCharacterRoles"
+                                   OnPersonAliasClicked="@OnPersonAliasClicked" />
+
+            @* Old person sections removed â€” all person content is now in PersonBiographyDrawer *@
+        }
+        else if (Universe is not null)
+        {
+            @* â”€â”€ Universe Sections â”€â”€ *@
+
+            @* Health Score Ring *@
+            @if (_universeHealth is not null)
+            {
+                <div class="vdd-health-ring-wrap">
+                    @{
+                        var hp = _universeHealth.HealthPercent;
+                        var ringColor = hp >= 80 ? "#5DCAA5" : hp >= 50 ? "#C9922E" : "#EF4444";
+                        var circumference = 2 * Math.PI * 22;
+                        var dashOffset = circumference * (1 - hp / 100.0);
+                    }
+                    <div class="vdd-health-ring">
+                        <svg width="64" height="64" viewBox="0 0 64 64">
+                            <circle cx="32" cy="32" r="22" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="6" />
+                            <circle cx="32" cy="32" r="22" fill="none"
+                                    stroke="@ringColor" stroke-width="6"
+                                    stroke-dasharray="@circumference.ToString("F1")"
+                                    stroke-dashoffset="@dashOffset.ToString("F1")"
+                                    stroke-linecap="round"
+                                    transform="rotate(-90 32 32)" />
+                        </svg>
+                        <span class="vdd-health-pct" style="color: @ringColor;">@((int)hp)%</span>
+                    </div>
+                    <div class="vdd-health-label-block">
+                        <span class="vdd-health-title">@L["VaultDetail_HealthScore"]</span>
+                        <span class="vdd-health-sub">@_universeHealth.EntitiesEnriched / @_universeHealth.EntitiesTotal @L["VaultDetail_EntityCounts"]</span>
+                    </div>
+                </div>
+            }
+
+            @* Entity Counts *@
+            @if (_universeHealth is not null && _universeHealth.EntitiesTotal > 0)
+            {
+                <DrawerSection Title="@L["VaultDetail_EntityCounts"]" Icon="@Icons.Material.Outlined.Category">
+                    <div class="vdd-entity-counts">
+                        <div class="vdd-entity-count-item">
+                            <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 16px; color: #A78BFA;" />
+                            <span class="vdd-entity-count-label">Characters</span>
+                            <span class="vdd-entity-count-val">@_universeCharacters.Count</span>
+                        </div>
+                        <div class="vdd-entity-count-item">
+                            <MudIcon Icon="@Icons.Material.Outlined.LocationOn" Style="font-size: 16px; color: #60A5FA;" />
+                            <span class="vdd-entity-count-label">Locations</span>
+                            <span class="vdd-entity-count-val">@(_universeHealth.EntitiesTotal - _universeCharacters.Count)</span>
+                        </div>
+                        <div class="vdd-entity-count-item">
+                            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Style="font-size: 16px; color: #C9922E;" />
+                            <span class="vdd-entity-count-label">Relationships</span>
+                            <span class="vdd-entity-count-val">@_universeHealth.RelationshipsTotal</span>
+                        </div>
+                    </div>
+                </DrawerSection>
+            }
+
+            @* Characters *@
+            <DrawerSection Title="@L["VaultDetail_SectionCharacters"]" Icon="@Icons.Material.Outlined.TheaterComedy">
+                @if (_loadingUniverseData)
+                {
+                    <div style="padding: 12px 0; text-align: center;">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: rgba(255,255,255,0.2);" />
+                    </div>
+                }
+                else if (_universeCharacters.Count == 0)
+                {
+                    <p class="vdd-empty-hint">@L["VaultDetail_HintNoCharacters"]</p>
+                }
+                else
+                {
+                    <div class="vdd-characters-grid">
+                        @foreach (var ch in _universeCharacters.Take(12))
+                        {
+                            <div class="vdd-character-item">
+                                <div class="vdd-character-avatar">
+                                    @if (!string.IsNullOrEmpty(ch.PortraitUrl))
+                                    {
+                                        <img src="@ch.PortraitUrl" alt="@ch.CharacterName" loading="lazy" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 20px; color: rgba(255,255,255,0.15);" />
+                                    }
+                                </div>
+                                <div class="vdd-character-info">
+                                    <span class="vdd-character-name">@ch.CharacterName</span>
+                                    @if (!string.IsNullOrEmpty(ch.DefaultActorName))
+                                    {
+                                        <span class="vdd-character-actor">@ch.DefaultActorName</span>
+                                    }
+                                    @if (ch.ActorCount > 1)
+                                    {
+                                        <span class="vdd-actor-count-badge">@string.Format(L["VaultDetail_ActorsCount"].ToString(), ch.ActorCount)</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (_universeCharacters.Count > 12)
+                    {
+                        <p class="vdd-stage-hint" style="margin-top: 8px;">+@(_universeCharacters.Count - 12) more â€” open Universe Explorer to see all</p>
+                    }
+                }
+            </DrawerSection>
+
+            @* Universe Content *@
+            <DrawerSection Title="@L["VaultDetail_SectionUniverseContent"]" Icon="@Icons.Material.Outlined.Layers">
+                <div class="vdd-universe-content">
+                    @if (Universe.WorkCount > 0)
+                    {
+                        <p class="vdd-field-value">@Universe.WorkCount @L["VaultDetail_WorksAcross"] @(Universe.MediaTypes ?? L["VaultDetail_VariousMediaTypes"])</p>
+                    }
+                    else
+                    {
+                        <p class="vdd-empty-hint">@L["VaultDetail_HintNoSeriesLinked"]</p>
+                    }
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="@L["VaultDetail_SectionNotablePeople"]" Icon="@Icons.Material.Outlined.People">
+                <p class="vdd-empty-hint">@L["VaultDetail_HintPeopleAssociated"]</p>
+            </DrawerSection>
+
+            <DrawerSection Title="@L["VaultDetail_SectionAssets"]" Icon="@Icons.Material.Outlined.Image" DefaultOpen="false">
+                <div class="vdd-assets">
+                    @foreach (var assetType in _assetTypes)
+                    {
+                        <div class="vdd-asset-row">
+                            <span class="vdd-asset-label">@assetType</span>
+                            <div class="vdd-asset-slot">
+                                <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size: 20px; color: rgba(255,255,255,0.08);" />
+                                <span class="vdd-asset-upload">@L["VaultDetail_AssetUpload"]</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </DrawerSection>
+
+            @* â”€â”€ History Timeline â”€â”€ *@
+            <DrawerSection Title="History" Icon="@Icons.Material.Outlined.History" DefaultOpen="false">
+                <LibraryTimeline EntityId="@Universe.Id" />
+            </DrawerSection>
+
+            @* Trigger enrichment + open explorer actions *@
+            <div class="vdd-universe-actions">
+                <button class="vdd-action-btn vdd-action-btn--primary" @onclick="OpenUniverseExplorer">
+                    <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 15px;" />
+                    @L["VaultDetail_OpenExplorer"]
+                </button>
+                <button class="vdd-action-btn" @onclick="TriggerEnrichment">
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 15px;" />
+                    @L["VaultDetail_TriggerEnrichment"]
+                </button>
+            </div>
+        }
+    </div>
+
+    @* â”€â”€ 3. Pinned Footer (Media only) â”€â”€ *@
+    @if (MediaItem is not null)
+    {
+        <div class="vdd-footer">
+            @if (_confirmPurge)
+            {
+                <div class="vdd-purge-confirm-row">
+                    <span class="vdd-purge-confirm-text">@L["VaultDetail_ConfirmPurge"]</span>
+                    <button class="vdd-purge-btn vdd-purge-btn--confirm" @onclick="HandlePurge">
+                        <span>Yes, Purge</span>
+                    </button>
+                    <button class="vdd-purge-cancel-btn" @onclick="() => _confirmPurge = false">
+                        <span>Cancel</span>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <button class="vdd-purge-btn" @onclick="HandlePurge">
+                    <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Style="font-size: 16px;" />
+                    <span>@L["VaultDetail_ActionPurgeRecord"]</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public LibraryItemViewModel? MediaItem { get; set; }
+    [Parameter] public PersonListItemDto? Person { get; set; }
+    [Parameter] public CollectionViewModel? Universe { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<Guid> OnPurge { get; set; }
+    [Parameter] public EventCallback<Guid> OnApplyMatch { get; set; }
+    [Parameter] public EventCallback<Guid> OnPersonAliasClicked { get; set; }
+    [Parameter] public EventCallback<string> OnCreatorClicked { get; set; }
+
+    private bool _confirmPurge;
+    private int _selectedStage = 0;
+    private int _detailsTab = 0;  // 0=Current Metadata, 1=Original Metadata
+    private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
+    private bool _searching;
+    private bool _hasSearched;
+    private List<RegistryItemViewModel> _searchResults = [];
+    private PersonAliasesResponseDto? _aliases;
+    private List<CollectionViewModel>? _personWorks;
+    private RegistryItemViewModel? _pendingMatch;
+    private string _selectedMediaType = "";
+    private string _searchMediaType = "";
+    private string _canonicalTargetGroup = "";
+    // New filter-based search state (replaces _activeSearchFields + _searchFieldValues)
+    private string _primarySearchField = "title";
+    private string _primarySearchValue = "";
+    private List<(string FieldKey, string Value)> _searchFilters = [];
+    private bool _showFilterDropdown;
+    private bool _showPrimaryDropdown;
+    private bool _showMediaTypeDropdown;
+    private bool _showWikiMediaTypeDropdown;
+    private bool _showCanonicalTargetDropdown;
+    private List<RetailCandidateDto> _retailSearchResults = [];
+    private RetailCandidateDto? _pendingRetailMatch;
+    private bool _confirmingRetailMatch;
+    private bool _searchingWikidata;
+    private List<UniverseCandidateDto> _wikidataSearchResults = [];
+    private UniverseCandidateDto? _pendingWikidataMatch;
+    private bool _confirmingWikidataMatch;
+    private string _wikidataSearchQuery = "";
+    private bool _hasSearchedWikidata;
+    private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
+    private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
+    private List<ClaimHistoryDto> _claims = [];
+    private bool _claimsLoading;
+
+    private void OnSearchTypeChanged(ChangeEventArgs e)
+    {
+        _searchMediaType = e.Value?.ToString() ?? "";
+        _retailSearchResults = [];
+        _pendingRetailMatch = null;
+        _primarySearchField = "title";
+        _primarySearchValue = "";
+        _searchFilters = [];
+    }
+
+    // Universe data
+    private UniverseHealthDto? _universeHealth;
+    private IReadOnlyList<UniverseCharacterDto> _universeCharacters = [];
+    private bool _loadingUniverseData;
+
+    // Person character roles
+    private IReadOnlyList<CharacterRoleDto> _personCharacterRoles = [];
+
+    private bool IsInLibrary => MediaItem?.IsReadyForLibrary == true
+                             && string.Equals(MediaItem?.LibraryVisibility, "visible", StringComparison.OrdinalIgnoreCase);
+
+    private string GetReadinessChipClass()
+    {
+        if (MediaItem is null)
+            return "vdd-location-chip--pending";
+
+        return MediaItem.ReadinessLabel switch
+        {
+            "Ready" => "vdd-location-chip--library",
+            "Needs review" => "vdd-location-chip--review",
+            _ => "vdd-location-chip--pending",
+        };
+    }
+
+    /// <summary>Returns true if the retail match is from an actual retail provider (not local_processor or library_scanner).</summary>
+    private static bool IsRealRetailMatch(string? retailMatch) =>
+        retailMatch is not "none" and not "" and not null
+        && !retailMatch.Equals("local_processor", StringComparison.OrdinalIgnoreCase)
+        && !retailMatch.Equals("library_scanner", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Returns true if a valid Wikidata QID is present (not null, empty, or NF-prefixed).</summary>
+    private static bool IsWikidataMatched(string? qid) =>
+        !string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Looks up the Wikipedia URL from claims, falling back to GoToLinkedPage for persons without claims.</summary>
+    private string? GetWikipediaUrl()
+    {
+        // Try claims first â€” stored wikipedia_url from Wikidata provider
+        if (_claims is not null && _claims.Count > 0)
+        {
+            var wikiClaim = _claims.FirstOrDefault(c =>
+                c.ClaimKey.Equals("wikipedia_url", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrEmpty(c.ClaimValue)
+                && Uri.IsWellFormedUriString(c.ClaimValue, UriKind.Absolute));
+            if (wikiClaim is not null) return wikiClaim.ClaimValue;
+        }
+
+        // Fallback: construct from QID (media item or person)
+        var qid = MediaItem?.WikidataQid ?? Person?.WikidataQid;
+        if (!string.IsNullOrEmpty(qid) && !qid.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
+            return $"https://www.wikidata.org/wiki/Special:GoToLinkedPage/{qid}/enwiki";
+
+        return null;
+    }
+
+    private int ActiveTab => _selectedStage;  // 0=Retail, 1=Wikidata, 2=Enrichment
+
+    private int GetPreferredStage()
+    {
+        if (MediaItem is null)
+            return 0;
+
+        if (MediaItem.Stage1.State is LibraryStageState.Pending or LibraryStageState.Running or LibraryStageState.Warning or LibraryStageState.Failed)
+            return 0;
+
+        if (MediaItem.Stage2.State is LibraryStageState.Pending or LibraryStageState.Running or LibraryStageState.Warning or LibraryStageState.Failed)
+            return 1;
+
+        return 2;
+    }
+
+    private async Task NavigateToCreatorPerson(string creatorName)
+    {
+        await OnCreatorClicked.InvokeAsync(creatorName);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _confirmPurge = false;
+        _selectedStage = GetPreferredStage();
+        _detailsTab = 0;
+        _searchResults = [];
+        _aliases = null;
+        _personWorks = null;
+        _pendingMatch = null;
+        _pendingRetailMatch = null;
+        _searching = false;
+        _hasSearched = false;
+        _confirmingRetailMatch = false;
+        _selectedMediaType = MediaItem?.MediaType ?? "";
+        _searchMediaType = MediaItem?.MediaType ?? "";
+        _primarySearchField = "title";
+        _primarySearchValue = "";
+        _searchFilters = [];
+        _showFilterDropdown = false;
+        _showPrimaryDropdown = false;
+        _showMediaTypeDropdown = false;
+        _showWikiMediaTypeDropdown = false;
+        _showCanonicalTargetDropdown = false;
+        _retailSearchResults = [];
+        _searchingWikidata = false;
+        _wikidataSearchResults = [];
+        _pendingWikidataMatch = null;
+        _confirmingWikidataMatch = false;
+        _wikidataSearchQuery = "";
+        _hasSearchedWikidata = false;
+        _canonicalSearchResponse = null;
+        _selectedSuggestedFieldKeys.Clear();
+        _claims = [];
+        _claimsLoading = false;
+        _universeHealth = null;
+        _universeCharacters = [];
+        _personCharacterRoles = [];
+        _canonicalTargetGroup = GetDefaultCanonicalTargetGroup(_searchMediaType);
+
+        if (MediaItem is not null)
+        {
+            _claimsLoading = true;
+            StateHasChanged();
+            _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
+            _claimsLoading = false;
+
+            // Pre-fill retail search fields from file metadata.
+            // Primary field matches each provider's highest-priority search strategy:
+            //   Comics â†’ series (ComicVine volume_search)
+            //   TV â†’ show_name (TMDB show search)
+            //   Music â†’ artist (Apple API artistTerm)
+            //   Books/Audiobooks/Movies â†’ title
+            _searchFilters = [];
+            switch (MediaItem.MediaType)
+            {
+                case "Comics":
+                    _primarySearchField = "series";
+                    _primarySearchValue = MediaItem.Series ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Title))
+                        _searchFilters.Add(("title", MediaItem.Title));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.SeriesPosition))
+                        _searchFilters.Add(("series_position", MediaItem.SeriesPosition));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Author))
+                        _searchFilters.Add(("author", MediaItem.Author));
+                    break;
+
+                case "TV":
+                    _primarySearchField = "show_name";
+                    _primarySearchValue = MediaItem.ShowName ?? MediaItem.Title ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Season))
+                        _searchFilters.Add(("season_number", MediaItem.Season));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Episode))
+                        _searchFilters.Add(("episode_number", MediaItem.Episode));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Director))
+                        _searchFilters.Add(("director", MediaItem.Director));
+                    break;
+
+                case "Music":
+                    _primarySearchField = "artist";
+                    _primarySearchValue = MediaItem.Artist ?? "";
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Album))
+                        _searchFilters.Add(("album", MediaItem.Album));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.Title))
+                        _searchFilters.Add(("title", MediaItem.Title));
+                    if (!string.IsNullOrWhiteSpace(MediaItem.TrackNumber))
+                        _searchFilters.Add(("track_number", MediaItem.TrackNumber));
+                    break;
+
+                default: // Books, Audiobooks, Movies
+                    _primarySearchField = "title";
+                    _primarySearchValue = MediaItem.Title ?? "";
+                    var creatorField = MediaItem.MediaType switch
+                    {
+                        "Movies" => "director",
+                        _ => "author",
+                    };
+                    var creatorValue = MediaItem.MediaType switch
+                    {
+                        "Movies" => MediaItem.Director,
+                        _ => MediaItem.Author,
+                    };
+                    if (!string.IsNullOrWhiteSpace(creatorValue))
+                        _searchFilters.Add((creatorField, creatorValue));
+                    if (MediaItem.MediaType == "Audiobooks" && !string.IsNullOrWhiteSpace(MediaItem.Narrator))
+                        _searchFilters.Add(("narrator", MediaItem.Narrator));
+                    break;
+            }
+            if (!string.IsNullOrEmpty(MediaItem.Year) && !_searchFilters.Any(f => f.FieldKey == "year"))
+                _searchFilters.Add(("year", MediaItem.Year));
+
+            // Pre-fill Wikidata search with title
+            _wikidataSearchQuery = MediaItem.Title ?? "";
+            _canonicalTargetGroup = GetDefaultCanonicalTargetGroup(MediaItem.MediaType);
+        }
+        else if (Person is not null)
+        {
+            var aliasTask = ApiClient.GetPersonAliasesAsync(Person.Id);
+            var rolesTask = ApiClient.GetPersonCharacterRolesAsync(Person.Id);
+            var worksTask = ApiClient.GetWorksByPersonAsync(Person.Id);
+            await Task.WhenAll(aliasTask, rolesTask, worksTask);
+            _aliases = await aliasTask;
+            _personCharacterRoles = await rolesTask;
+            _personWorks = await worksTask;
+        }
+        else if (Universe is not null && !string.IsNullOrWhiteSpace(Universe.FictionalUniverseQid))
+        {
+            _loadingUniverseData = true;
+            StateHasChanged();
+
+            var healthTask     = ApiClient.GetUniverseHealthAsync(Universe.FictionalUniverseQid);
+            var charactersTask = ApiClient.GetUniverseCharactersAsync(Universe.FictionalUniverseQid);
+            await Task.WhenAll(healthTask, charactersTask);
+            _universeHealth     = await healthTask;
+            _universeCharacters = await charactersTask;
+            _loadingUniverseData = false;
+        }
+    }
+
+    private void OpenUniverseExplorer()
+    {
+        if (Universe?.FictionalUniverseQid is { } qid)
+            Nav.NavigateTo($"/universe/{qid}/explore");
+    }
+
+    private async Task TriggerEnrichment()
+    {
+        await ApiClient.TriggerUniverseEnrichmentAsync();
+    }
+
+    private async Task RunRetailSearch()
+    {
+        var hasQuery = !string.IsNullOrWhiteSpace(_primarySearchValue)
+                       || _searchFilters.Any(f => !string.IsNullOrWhiteSpace(f.Value));
+        if (!hasQuery || string.IsNullOrWhiteSpace(_searchMediaType) || string.IsNullOrWhiteSpace(_canonicalTargetGroup) || MediaItem is null)
+            return;
+
+        _searching = true;
+        _retailSearchResults = [];
+        _wikidataSearchResults = [];
+        _pendingRetailMatch = null;
+        _confirmingRetailMatch = false;
+        _canonicalSearchResponse = null;
+        _selectedSuggestedFieldKeys.Clear();
+        StateHasChanged();
+
+            var response = await ApiClient.SearchItemCanonicalAsync(
+            MediaItem.EntityId,
+            BuildCanonicalSearchRequest(queryOverride: null));
+        if (response is not null)
+        {
+            _canonicalSearchResponse = response;
+            _retailSearchResults = response.RetailCandidates.ToList();
+            _wikidataSearchResults = response.LinkedCandidates.ToList();
+        }
+
+        _searching = false;
+        _hasSearched = true;
+    }
+
+    private async Task RunWikidataSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_wikidataSearchQuery) || string.IsNullOrWhiteSpace(_canonicalTargetGroup) || MediaItem is null)
+            return;
+
+        // Direct QID entry â€” show as a result for confirmation, don't auto-confirm
+        var trimmed = _wikidataSearchQuery.Trim();
+        if (trimmed.StartsWith("Q", StringComparison.OrdinalIgnoreCase) && trimmed.Length > 1 && trimmed[1..].All(char.IsDigit))
+        {
+            var directQid = trimmed.ToUpperInvariant();
+            _wikidataSearchResults =
+            [
+                new UniverseCandidateDto
+                {
+                    CandidateId = $"wikidata:{directQid}",
+                    Qid = directQid,
+                    Label = directQid,
+                    LinkState = "linked",
+                    LinkStatusLabel = "Linked to Wikidata",
+                    IsApplicable = true,
+                    RequiredFields = [],
+                    SuggestedFields = [],
+                    QidFields = BuildDirectQidFields(directQid),
+                    Description = "Direct QID entry â€” confirm to link this item",
+                }
+            ];
+            _canonicalSearchResponse = new ItemCanonicalSearchResponseDto
+            {
+                EntityId = MediaItem.EntityId,
+                MediaType = _searchMediaType,
+                TargetKind = GetCanonicalTargetKind(_searchMediaType, _canonicalTargetGroup),
+                TargetFieldGroup = _canonicalTargetGroup,
+                Query = directQid,
+                LinkedCandidates = _wikidataSearchResults.ToList(),
+                DraftFields = BuildCanonicalDraftFields(),
+                FallbackActions = ["Keep current canonical value", "Save as preference only", "Apply as unlinked canonical value"],
+            };
+            _searchingWikidata = false;
+            _hasSearchedWikidata = true;
+            return;
+        }
+
+        _searchingWikidata = true;
+        _retailSearchResults = [];
+        _wikidataSearchResults = [];
+        _pendingWikidataMatch = null;
+        _confirmingWikidataMatch = false;
+        _canonicalSearchResponse = null;
+        _selectedSuggestedFieldKeys.Clear();
+        StateHasChanged();
+
+            var response = await ApiClient.SearchItemCanonicalAsync(
+            MediaItem.EntityId,
+            BuildCanonicalSearchRequest(_wikidataSearchQuery.Trim()));
+        if (response is not null)
+        {
+            _canonicalSearchResponse = response;
+            _retailSearchResults = response.RetailCandidates.ToList();
+            _wikidataSearchResults = response.LinkedCandidates.ToList();
+        }
+
+        _searchingWikidata = false;
+        _hasSearchedWikidata = true;
+    }
+
+    /// <summary>Gets the current resolved metadata for the File tab.</summary>
+    private List<(string Label, string Value)> GetCurrentMetadataRows()
+    {
+        var rows = new List<(string, string)>();
+        if (MediaItem is null) return rows;
+
+        if (!string.IsNullOrEmpty(MediaItem.Title)) rows.Add(("Title", MediaItem.Title));
+        if (!string.IsNullOrEmpty(MediaItem.OriginalTitle) && MediaItem.OriginalTitle != MediaItem.Title)
+            rows.Add(("Original Title", MediaItem.OriginalTitle));
+        if (!string.IsNullOrEmpty(MediaItem.Author)) rows.Add(("Author", MediaItem.Author));
+        if (!string.IsNullOrEmpty(MediaItem.Director)) rows.Add(("Director", MediaItem.Director));
+        if (!string.IsNullOrEmpty(MediaItem.Artist)) rows.Add(("Artist", MediaItem.Artist));
+        if (!string.IsNullOrEmpty(MediaItem.Narrator)) rows.Add(("Narrator", MediaItem.Narrator));
+        if (!string.IsNullOrEmpty(MediaItem.Year)) rows.Add(("Year", MediaItem.Year));
+        rows.Add(("Media Type", MediaItem.MediaType));
+        if (!string.IsNullOrEmpty(MediaItem.Genre)) rows.Add(("Genre", MediaItem.Genre));
+        if (!string.IsNullOrEmpty(MediaItem.Series))
+            rows.Add(("Series", MediaItem.Series + (!string.IsNullOrEmpty(MediaItem.SeriesPosition) ? $" #{MediaItem.SeriesPosition}" : "")));
+        if (!string.IsNullOrEmpty(MediaItem.UniverseName)) rows.Add(("Universe", MediaItem.UniverseName));
+
+        // Music-specific
+        if (MediaItem.MediaType == "Music")
+        {
+            if (!string.IsNullOrEmpty(MediaItem.Album)) rows.Add(("Album", MediaItem.Album));
+            if (!string.IsNullOrEmpty(MediaItem.TrackNumber))
+            {
+                var trackDisplay = MediaItem.TrackNumber;
+                if (!string.IsNullOrEmpty(MediaItem.TrackCount))
+                    trackDisplay += $" of {MediaItem.TrackCount}";
+                rows.Add(("Track", trackDisplay));
+            }
+            if (!string.IsNullOrEmpty(MediaItem.DiscNumber)) rows.Add(("Disc", MediaItem.DiscNumber));
+            if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
+        }
+
+        // TV-specific
+        if (MediaItem.MediaType == "TV")
+        {
+            if (!string.IsNullOrEmpty(MediaItem.ShowName)) rows.Add(("Show", MediaItem.ShowName));
+            if (!string.IsNullOrEmpty(MediaItem.Season)) rows.Add(("Season", MediaItem.Season));
+            if (!string.IsNullOrEmpty(MediaItem.Episode)) rows.Add(("Episode", MediaItem.Episode));
+            if (!string.IsNullOrEmpty(MediaItem.EpisodeTitle)) rows.Add(("Episode Title", MediaItem.EpisodeTitle));
+            if (!string.IsNullOrEmpty(MediaItem.Network)) rows.Add(("Network", MediaItem.Network));
+            if (!string.IsNullOrEmpty(MediaItem.Duration)) rows.Add(("Runtime", FormatDuration(MediaItem.Duration)));
+            if (!string.IsNullOrEmpty(MediaItem.TopCast)) rows.Add(("Top Cast", MediaItem.TopCast));
+        }
+
+        // Audiobooks
+        if (MediaItem.MediaType == "Audiobooks" && !string.IsNullOrEmpty(MediaItem.Duration))
+            rows.Add(("Duration", FormatDuration(MediaItem.Duration)));
+
+        if (!string.IsNullOrEmpty(MediaItem.FileName)) rows.Add(("File", MediaItem.FileName));
+        if (MediaItem.FileSizeBytes.HasValue && MediaItem.FileSizeBytes.Value > 0)
+            rows.Add(("Size", LibraryHelpers.FormatFileSize(MediaItem.FileSizeBytes)));
+
+        return rows;
+    }
+
+    /// <summary>Returns a display name for the retail provider that matched this item.</summary>
+    private string GetRetailProviderDisplayName()
+    {
+        if (MediaItem is null) return "a retail provider";
+        var match = !string.IsNullOrEmpty(MediaItem.RetailMatchDetail) ? MediaItem.RetailMatchDetail : MediaItem.RetailMatch;
+        return LibraryHelpers.FormatSourceName(match ?? "");
+    }
+
+    /// <summary>Returns a short explanation of the Wikidata match for the Wikidata tab.</summary>
+    private string GetWikidataExplanation()
+    {
+        if (MediaItem is null) return "";
+        var qid = MediaItem.WikidataQid;
+        if (string.IsNullOrEmpty(qid)) return "";
+        return $"Matched to {qid} on Wikidata. Canonical data (title, author, year, genre) is sourced from Wikidata.";
+    }
+
+    /// <summary>Result display data extracted from a retail candidate using the media type registry.</summary>
+    private sealed record RetailResultDisplay(
+        string? Subline,
+        string? Tertiary,
+        List<(string Label, string Value)> Details,
+        List<(string Label, string Value)> BridgeIds);
+
+    /// <summary>
+    /// Builds media-type-aware display data for a retail search result.
+    /// Uses MediaTypeFieldRegistry to determine which fields to show per media type.
+    /// </summary>
+    private RetailResultDisplay GetRetailResultFields(RetailCandidateDto result)
+    {
+        // Parse the media type enum
+        if (!Enum.TryParse<MediaType>(_searchMediaType, true, out var mediaType))
+            mediaType = MediaType.Books;
+
+        var config = MediaTypeFieldRegistry.GetSearchDisplay(mediaType);
+
+        // Build a lookup from all available fields on the result
+        var allFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrEmpty(result.Title)) allFields["title"] = result.Title;
+        if (!string.IsNullOrEmpty(result.Author))
+        {
+            allFields["author"] = result.Author;
+            // Music display uses "artist" while providers use "author" â€” expose under both keys.
+            allFields.TryAdd("artist", result.Author);
+        }
+        if (!string.IsNullOrEmpty(result.Director)) allFields["director"] = result.Director;
+        if (!string.IsNullOrEmpty(result.Year)) allFields["year"] = result.Year;
+        if (!string.IsNullOrEmpty(result.Description)) allFields["description"] = result.Description;
+        if (!string.IsNullOrEmpty(result.ProviderItemId)) allFields["provider_item_id"] = result.ProviderItemId;
+
+        // Merge extra fields from the provider
+        foreach (var (k, v) in result.ExtraFields)
+        {
+            if (!string.IsNullOrWhiteSpace(v))
+                allFields.TryAdd(k, v);
+        }
+
+        // Extract display values using the config
+        string? subline = allFields.GetValueOrDefault(config.Subline);
+        string? tertiary = allFields.GetValueOrDefault(config.Tertiary);
+
+        // Detail fields (excluding any already shown in subline/tertiary)
+        var details = new List<(string, string)>();
+        foreach (var fieldKey in config.DetailFields)
+        {
+            if (fieldKey == config.Subline || fieldKey == config.Tertiary) continue;
+            if (allFields.TryGetValue(fieldKey, out var val) && !string.IsNullOrWhiteSpace(val))
+                details.Add((FormatClaimKey(fieldKey), val.Length > 80 ? val[..77] + "\u2026" : val));
+        }
+
+        // Bridge IDs
+        var bridges = new List<(string, string)>();
+        foreach (var bridgeKey in config.BridgeLabels)
+        {
+            if (allFields.TryGetValue(bridgeKey, out var val) && !string.IsNullOrWhiteSpace(val))
+                bridges.Add((FormatClaimKey(bridgeKey), val));
+        }
+
+        return new RetailResultDisplay(subline, tertiary, details, bridges);
+    }
+
+    private IReadOnlyList<SearchableField> GetSearchableFieldsForCurrentType()
+    {
+        if (Enum.TryParse<MediaEngine.Domain.Enums.MediaType>(_searchMediaType, true, out var mt))
+            return MediaTypeFieldRegistry.GetSearchableFields(mt);
+        return MediaTypeFieldRegistry.GetSearchableFields(MediaEngine.Domain.Enums.MediaType.Books);
+    }
+
+    private void AddSearchFilter(string fieldKey)
+    {
+        _searchFilters.Add((fieldKey, ""));
+        _showFilterDropdown = false;
+    }
+
+    private void SetPrimaryField(string fieldKey)
+    {
+        _primarySearchField = fieldKey;
+        _showPrimaryDropdown = false;
+    }
+
+    private void SetRetailMediaType(string mt)
+    {
+        _searchMediaType = mt;
+        _canonicalTargetGroup = GetDefaultCanonicalTargetGroup(mt);
+        _showMediaTypeDropdown = false;
+        _showCanonicalTargetDropdown = false;
+        _searchFilters.Clear();
+        _canonicalSearchResponse = null;
+        _retailSearchResults = [];
+        _wikidataSearchResults = [];
+        _selectedSuggestedFieldKeys.Clear();
+    }
+
+    private void SetWikiMediaType(string mt)
+    {
+        _searchMediaType = mt;
+        _canonicalTargetGroup = GetDefaultCanonicalTargetGroup(mt);
+        _showWikiMediaTypeDropdown = false;
+        _showCanonicalTargetDropdown = false;
+        _canonicalSearchResponse = null;
+        _retailSearchResults = [];
+        _wikidataSearchResults = [];
+        _selectedSuggestedFieldKeys.Clear();
+    }
+
+    private void SetCanonicalTargetGroup(string targetGroup)
+    {
+        _canonicalTargetGroup = targetGroup;
+        _showCanonicalTargetDropdown = false;
+        _canonicalSearchResponse = null;
+        _retailSearchResults = [];
+        _wikidataSearchResults = [];
+        _pendingRetailMatch = null;
+        _pendingWikidataMatch = null;
+        _confirmingRetailMatch = false;
+        _confirmingWikidataMatch = false;
+        _hasSearched = false;
+        _hasSearchedWikidata = false;
+        _selectedSuggestedFieldKeys.Clear();
+    }
+
+    private void UpdateFilter(int index, string? value)
+    {
+        if (index >= 0 && index < _searchFilters.Count)
+            _searchFilters[index] = (_searchFilters[index].FieldKey, value ?? "");
+    }
+
+    private void RemoveFilter(int index)
+    {
+        if (index >= 0 && index < _searchFilters.Count)
+            _searchFilters.RemoveAt(index);
+    }
+
+    private bool HasAnySearchFieldValue() =>
+        !string.IsNullOrWhiteSpace(_primarySearchValue)
+        || _searchFilters.Any(f => !string.IsNullOrWhiteSpace(f.Value));
+
+    private void SelectRetailResult(RetailCandidateDto result)
+    {
+        _pendingRetailMatch = _pendingRetailMatch == result ? null : result;
+        _confirmingRetailMatch = false;
+        EnsureSuggestedFieldSelection(result.CandidateId, result.SuggestedFields.Keys);
+    }
+
+    private async Task ConfirmRetailMatch(RetailCandidateDto candidate)
+    {
+        if (MediaItem is null || !candidate.IsApplicable)
+            return;
+
+        var canonicalResponse = await ApiClient.ApplyItemCanonicalAsync(MediaItem.EntityId, new ItemCanonicalApplyRequestDto
+        {
+            TargetKind = GetCanonicalTargetKind(_searchMediaType, _canonicalTargetGroup),
+            TargetFieldGroup = _canonicalTargetGroup,
+            LinkState = candidate.LinkState,
+            ProviderName = candidate.ProviderName,
+            ProviderItemId = candidate.ProviderItemId,
+            RequiredFields = new Dictionary<string, string>(candidate.RequiredFields, StringComparer.OrdinalIgnoreCase),
+            SuggestedFields = new Dictionary<string, string>(candidate.SuggestedFields, StringComparer.OrdinalIgnoreCase),
+            AcceptedSuggestedKeys = GetAcceptedSuggestedKeys(candidate.CandidateId, candidate.SuggestedFields.Keys),
+            BridgeIds = new Dictionary<string, string>(candidate.BridgeIds, StringComparer.OrdinalIgnoreCase),
+            QidFields = new Dictionary<string, string>(candidate.QidFields, StringComparer.OrdinalIgnoreCase),
+        });
+
+        if (canonicalResponse is null)
+            return;
+
+        await ReloadAfterCanonicalApply(MediaItem.EntityId, moveToStage: 1);
+        return;
+#if false
+
+        var request = new ApplyMatchRequestDto
+        {
+            Title = candidate.Title,
+            Year = candidate.Year,
+            Author = candidate.Author,
+            Director = candidate.Director,
+            Description = candidate.Description,
+            CoverUrl = candidate.CoverUrl,
+            RetailProviderName = candidate.ProviderName,
+            RetailProviderItemId = candidate.ProviderItemId,
+        };
+
+        await ApiClient.ApplyRegistryMatchAsync(MediaItem.EntityId, request);
+
+        _pendingRetailMatch = null;
+        _retailSearchResults = [];
+        _primarySearchValue = "";
+        _searchFilters = [];
+        _confirmingRetailMatch = false;
+        _hasSearched = false;
+
+        // Reload claims to reflect the new match
+        _claims = await ApiClient.GetClaimHistoryAsync(MediaItem.EntityId);
+
+        // Switch to Wikidata tab â€” Wikidata lookup kicks off automatically after retail match
+        _selectedStage = 1;
+
+        await OnApplyMatch.InvokeAsync(MediaItem.EntityId);
+#endif
+    }
+
+    private async Task OnRetailSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await RunRetailSearch();
+    }
+
+    private async Task OnWikidataSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await RunWikidataSearch();
+    }
+
+
+    private void SelectWikidataResult(UniverseCandidateDto result)
+    {
+        _pendingWikidataMatch = _pendingWikidataMatch == result ? null : result;
+        _confirmingWikidataMatch = false;
+        EnsureSuggestedFieldSelection(result.CandidateId, result.SuggestedFields.Keys);
+    }
+
+    private async Task ConfirmWikidataMatch(UniverseCandidateDto candidate)
+    {
+        if (MediaItem is null || string.IsNullOrWhiteSpace(candidate.Qid) || !candidate.IsApplicable)
+            return;
+        try
+        {
+        var canonicalResponse = await ApiClient.ApplyItemCanonicalAsync(MediaItem.EntityId, new ItemCanonicalApplyRequestDto
+            {
+                TargetKind = GetCanonicalTargetKind(_searchMediaType, _canonicalTargetGroup),
+                TargetFieldGroup = _canonicalTargetGroup,
+                LinkState = candidate.LinkState,
+                RequiredFields = new Dictionary<string, string>(candidate.RequiredFields, StringComparer.OrdinalIgnoreCase),
+                SuggestedFields = new Dictionary<string, string>(candidate.SuggestedFields, StringComparer.OrdinalIgnoreCase),
+                AcceptedSuggestedKeys = GetAcceptedSuggestedKeys(candidate.CandidateId, candidate.SuggestedFields.Keys),
+                BridgeIds = new Dictionary<string, string>(candidate.BridgeIds, StringComparer.OrdinalIgnoreCase),
+                QidFields = new Dictionary<string, string>(candidate.QidFields, StringComparer.OrdinalIgnoreCase),
+            });
+
+            if (canonicalResponse is null)
+                return;
+
+            await ReloadAfterCanonicalApply(MediaItem.EntityId, moveToStage: 1);
+            return;
+        }
+        catch (Exception)
+        {
+            _confirmingWikidataMatch = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectSearchResult(RegistryItemViewModel result)
+    {
+        // Toggle: clicking same item deselects, clicking different item selects
+        _pendingMatch = _pendingMatch?.EntityId == result.EntityId ? null : result;
+    }
+
+    private async Task ConfirmMatch(Guid entityId)
+    {
+        _pendingMatch = null;
+        _searchResults = [];
+        _primarySearchValue = "";
+        _searchFilters = [];
+        await OnApplyMatch.InvokeAsync(entityId);
+    }
+
+    private async Task HandlePurge()
+    {
+        if (_confirmPurge && MediaItem is not null)
+        {
+            await OnPurge.InvokeAsync(MediaItem.EntityId);
+            _confirmPurge = false;
+        }
+        else
+        {
+            _confirmPurge = true;
+        }
+    }
+
+    /// <summary>Formats a claim key â€” delegates to shared LibraryHelpers.</summary>
+    private static string FormatClaimKey(string key) => LibraryHelpers.FormatClaimKey(key);
+
+    private static string FormatDuration(string? duration)
+    {
+        if (string.IsNullOrEmpty(duration)) return "";
+        // Try to parse as milliseconds (common from providers)
+        if (long.TryParse(duration, out var ms))
+        {
+            var ts = TimeSpan.FromMilliseconds(ms);
+            return ts.TotalHours >= 1
+                ? $"{(int)ts.TotalHours}h {ts.Minutes:D2}m"
+                : $"{ts.Minutes}m {ts.Seconds:D2}s";
+        }
+        return duration; // Return as-is if not numeric
+    }
+
+    private ItemCanonicalSearchRequestDto BuildCanonicalSearchRequest(string? queryOverride)
+    {
+        return new ItemCanonicalSearchRequestDto
+        {
+            MediaType = _searchMediaType,
+            TargetKind = GetCanonicalTargetKind(_searchMediaType, _canonicalTargetGroup),
+            TargetFieldGroup = _canonicalTargetGroup,
+            DraftFields = BuildCanonicalDraftFields(),
+            QueryOverride = queryOverride,
+            MaxCandidates = 8,
+        };
+    }
+
+    private Dictionary<string, string> BuildCanonicalDraftFields()
+    {
+        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        static void Add(IDictionary<string, string> target, string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                target[key] = value.Trim();
+        }
+
+        if (MediaItem is not null)
+        {
+            Add(fields, "title", MediaItem.Title);
+            Add(fields, "original_title", MediaItem.OriginalTitle);
+            Add(fields, "author", MediaItem.Author);
+            Add(fields, "director", MediaItem.Director);
+            Add(fields, "artist", MediaItem.Artist);
+            Add(fields, "narrator", MediaItem.Narrator);
+            Add(fields, "year", MediaItem.Year);
+            Add(fields, "series", MediaItem.Series);
+            Add(fields, "series_position", MediaItem.SeriesPosition);
+            Add(fields, "album", MediaItem.Album);
+            Add(fields, "track_number", MediaItem.TrackNumber);
+            Add(fields, "disc_number", MediaItem.DiscNumber);
+            Add(fields, "show_name", MediaItem.ShowName);
+            Add(fields, "season_number", MediaItem.Season);
+            Add(fields, "episode_number", MediaItem.Episode);
+            Add(fields, "episode_title", MediaItem.EpisodeTitle);
+            Add(fields, "genre", MediaItem.Genre);
+            Add(fields, "duration", MediaItem.Duration);
+            Add(fields, "network", MediaItem.Network);
+        }
+
+        Add(fields, _primarySearchField, _primarySearchValue);
+        foreach (var (key, value) in _searchFilters)
+            Add(fields, key, value);
+
+        return fields;
+    }
+
+    private Dictionary<string, string> BuildCurrentStrongDraftFields()
+    {
+        var draftFields = BuildCanonicalDraftFields();
+        var keys = _canonicalTargetGroup switch
+        {
+            "album" => new[] { "artist", "album" },
+            "artist" => new[] { "artist" },
+            "narrator" => new[] { "narrator" },
+            "series" => new[] { "series", "series_position" },
+            "show" => new[] { "show_name" },
+            "show_episode" => new[] { "show_name", "season_number", "episode_number", "episode_title" },
+            "movie_identity" => new[] { "title", "year", "director" },
+            "book_identity" => new[] { "title", "author", "series", "series_position" },
+            "audiobook_identity" => new[] { "title", "author", "narrator", "series", "series_position" },
+            "issue" => new[] { "series", "series_position", "title" },
+            _ => Array.Empty<string>(),
+        };
+
+        return keys
+            .Where(draftFields.ContainsKey)
+            .ToDictionary(key => key, key => draftFields[key], StringComparer.OrdinalIgnoreCase);
+    }
+
+    private IReadOnlyList<(string Key, string Label)> GetCanonicalTargetOptions(string mediaType) =>
+        mediaType switch
+        {
+            "Music" => [("album", "Album"), ("artist", "Artist")],
+            "Audiobooks" => [("narrator", "Narrator"), ("series", "Series"), ("audiobook_identity", "Audiobook")],
+            "Books" => [("book_identity", "Book"), ("series", "Series")],
+            "Movies" => [("movie_identity", "Movie")],
+            "TV" => [("show_episode", "Show / Episode"), ("show", "Show")],
+            "Comics" => [("series", "Series"), ("issue", "Issue")],
+            _ => [("book_identity", "Identity")],
+        };
+
+    private string GetDefaultCanonicalTargetGroup(string mediaType) =>
+        mediaType switch
+        {
+            "Music" => "album",
+            "Audiobooks" => "narrator",
+            "Books" => "book_identity",
+            "Movies" => "movie_identity",
+            "TV" => "show_episode",
+            "Comics" => "series",
+            _ => "book_identity",
+        };
+
+    private string GetCanonicalTargetDisplayLabel(string targetGroup)
+    {
+        var match = GetCanonicalTargetOptions(_searchMediaType)
+            .FirstOrDefault(option => option.Key.Equals(targetGroup, StringComparison.OrdinalIgnoreCase));
+        return string.IsNullOrWhiteSpace(match.Label) ? FormatClaimKey(targetGroup) : match.Label;
+    }
+
+    private static string GetCanonicalTargetKind(string mediaType, string targetGroup) =>
+        (mediaType, targetGroup) switch
+        {
+            ("Music", "album") => "container",
+            ("Music", "artist") => "person",
+            ("Audiobooks", "narrator") => "person",
+            ("Audiobooks", "series") => "container",
+            ("Books", "series") => "container",
+            ("TV", "show") => "container",
+            ("Comics", "series") => "container",
+            _ => "item",
+        };
+
+    private Dictionary<string, string> BuildDirectQidFields(string qid)
+    {
+        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        switch (_canonicalTargetGroup)
+        {
+            case "album":
+                fields["album_qid"] = qid;
+                break;
+            case "artist":
+                fields["artist_qid"] = qid;
+                break;
+            case "narrator":
+                fields["narrator_qid"] = qid;
+                break;
+            case "series":
+            case "show":
+                fields["series_qid"] = qid;
+                break;
+            default:
+                fields["wikidata_qid"] = qid;
+                break;
+        }
+
+        return fields;
+    }
+
+    private void EnsureSuggestedFieldSelection(string candidateId, IEnumerable<string> suggestedKeys)
+    {
+        if (!_selectedSuggestedFieldKeys.TryGetValue(candidateId, out var selected))
+        {
+            _selectedSuggestedFieldKeys[candidateId] = new HashSet<string>(suggestedKeys, StringComparer.OrdinalIgnoreCase);
+            return;
+        }
+
+        foreach (var key in suggestedKeys)
+            selected.Add(key);
+    }
+
+    private bool IsSuggestedFieldSelected(string candidateId, string fieldKey) =>
+        _selectedSuggestedFieldKeys.TryGetValue(candidateId, out var selected) && selected.Contains(fieldKey);
+
+    private void SetSuggestedFieldSelected(string candidateId, string fieldKey, bool isSelected)
+    {
+        if (!_selectedSuggestedFieldKeys.TryGetValue(candidateId, out var selected))
+        {
+            selected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _selectedSuggestedFieldKeys[candidateId] = selected;
+        }
+
+        if (isSelected)
+            selected.Add(fieldKey);
+        else
+            selected.Remove(fieldKey);
+    }
+
+    private List<string> GetAcceptedSuggestedKeys(string candidateId, IEnumerable<string> suggestedKeys)
+    {
+        EnsureSuggestedFieldSelection(candidateId, suggestedKeys);
+        return _selectedSuggestedFieldKeys.TryGetValue(candidateId, out var selected)
+            ? selected.ToList()
+            : [];
+    }
+
+    private static bool IsChecked(object? value) => value switch
+    {
+        bool boolValue => boolValue,
+        string text => bool.TryParse(text, out var parsed) && parsed,
+        _ => false,
+    };
+
+    private void KeepCurrentCanonicalValue()
+    {
+        _canonicalSearchResponse = null;
+        _retailSearchResults = [];
+        _wikidataSearchResults = [];
+        _pendingRetailMatch = null;
+        _pendingWikidataMatch = null;
+        _confirmingRetailMatch = false;
+        _confirmingWikidataMatch = false;
+        _hasSearched = false;
+        _hasSearchedWikidata = false;
+        _selectedSuggestedFieldKeys.Clear();
+    }
+
+    private async Task SaveCurrentDraftAsPreferenceAsync()
+    {
+        if (MediaItem is null)
+            return;
+
+        var fields = BuildCurrentStrongDraftFields();
+        if (fields.Count == 0)
+            return;
+
+        var success = await ApiClient.SaveItemPreferencesAsync(MediaItem.EntityId, fields);
+        if (!success)
+            return;
+
+        await ReloadAfterCanonicalApply(MediaItem.EntityId, moveToStage: _selectedStage);
+    }
+
+    private async Task ApplyCurrentDraftAsUnlinkedCanonicalAsync()
+    {
+        if (MediaItem is null)
+            return;
+
+        var fields = BuildCurrentStrongDraftFields();
+        if (fields.Count == 0)
+            return;
+
+        var response = await ApiClient.ApplyItemCanonicalAsync(MediaItem.EntityId, new ItemCanonicalApplyRequestDto
+        {
+            TargetKind = GetCanonicalTargetKind(_searchMediaType, _canonicalTargetGroup),
+            TargetFieldGroup = _canonicalTargetGroup,
+            LinkState = "text_only",
+            RequiredFields = fields,
+            SuggestedFields = [],
+            AcceptedSuggestedKeys = [],
+            BridgeIds = [],
+            QidFields = [],
+        });
+
+        if (response is null)
+            return;
+
+        await ReloadAfterCanonicalApply(MediaItem.EntityId, moveToStage: _selectedStage);
+    }
+
+    private async Task ReloadAfterCanonicalApply(Guid entityId, int moveToStage)
+    {
+        _pendingRetailMatch = null;
+        _pendingWikidataMatch = null;
+        _retailSearchResults = [];
+        _wikidataSearchResults = [];
+        _canonicalSearchResponse = null;
+        _confirmingRetailMatch = false;
+        _confirmingWikidataMatch = false;
+        _hasSearched = false;
+        _hasSearchedWikidata = false;
+        _selectedSuggestedFieldKeys.Clear();
+        _selectedStage = moveToStage;
+        _claims = await ApiClient.GetClaimHistoryAsync(entityId);
+        StateHasChanged();
+        await OnApplyMatch.InvokeAsync(entityId);
+    }
+
+    // â”€â”€ Field comparison helpers â”€â”€
+
+    private record FieldComparison(string FieldLabel, string? YourValue, string? ProviderValue, double? Score);
+
+    private List<FieldComparison> GetRetailFieldComparisons(RetailCandidateDto result)
+    {
+        var comparisons = new List<FieldComparison>();
+
+        foreach (var (key, value) in result.RequiredFields.Concat(result.SuggestedFields).Take(8))
+        {
+            var current = GetCurrentFieldValue(key);
+            comparisons.Add(new(FormatClaimKey(key), current, value, ComputeFieldScore(current, value)));
+        }
+
+        if (comparisons.Count == 0)
+            comparisons.Add(new("Title", MediaItem?.Title, result.Title, ComputeFieldScore(MediaItem?.Title, result.Title)));
+
+        return comparisons;
+    }
+
+    private List<FieldComparison> GetWikidataFieldComparisons(UniverseCandidateDto result)
+    {
+        var comparisons = new List<FieldComparison>();
+
+        foreach (var (key, value) in result.RequiredFields.Concat(result.SuggestedFields).Take(8))
+        {
+            var current = GetCurrentFieldValue(key);
+            comparisons.Add(new(FormatClaimKey(key), current, value, ComputeFieldScore(current, value)));
+        }
+
+        if (comparisons.Count == 0)
+        {
+            comparisons.Add(new("Title", MediaItem?.Title, result.Label, ComputeFieldScore(MediaItem?.Title, result.Label)));
+            if (!string.IsNullOrEmpty(result.InstanceOf))
+                comparisons.Add(new("Type", MediaItem?.MediaType, result.InstanceOf, null));
+        }
+
+        return comparisons;
+    }
+
+    private string? GetCurrentFieldValue(string key) => key switch
+    {
+        "title" => MediaItem?.Title,
+        "original_title" => MediaItem?.OriginalTitle,
+        "author" => MediaItem?.Author,
+        "director" => MediaItem?.Director,
+        "artist" => MediaItem?.Artist,
+        "narrator" => MediaItem?.Narrator,
+        "year" => MediaItem?.Year,
+        "series" => MediaItem?.Series,
+        "series_position" => MediaItem?.SeriesPosition,
+        "album" => MediaItem?.Album,
+        "track_number" => MediaItem?.TrackNumber,
+        "disc_number" => MediaItem?.DiscNumber,
+        "show_name" => MediaItem?.ShowName,
+        "season_number" => MediaItem?.Season,
+        "episode_number" => MediaItem?.Episode,
+        "episode_title" => MediaItem?.EpisodeTitle,
+        "genre" => MediaItem?.Genre,
+        "duration" => MediaItem?.Duration,
+        "network" => MediaItem?.Network,
+        _ => null,
+    };
+
+    private static double? ComputeFieldScore(string? a, string? b)
+    {
+        if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b)) return null;
+        if (string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase)) return 1.0;
+
+        var aLower = a.Trim().ToLowerInvariant();
+        var bLower = b.Trim().ToLowerInvariant();
+
+        if (aLower.Contains(bLower) || bLower.Contains(aLower))
+            return 0.85;
+
+        var maxLen = Math.Max(aLower.Length, bLower.Length);
+        if (maxLen == 0) return 1.0;
+        var distance = LevenshteinDistance(aLower, bLower);
+        return Math.Max(0, 1.0 - (double)distance / maxLen);
+    }
+
+    private static int LevenshteinDistance(string s, string t)
+    {
+        var n = s.Length;
+        var m = t.Length;
+        var d = new int[n + 1, m + 1];
+        for (int i = 0; i <= n; i++) d[i, 0] = i;
+        for (int j = 0; j <= m; j++) d[0, j] = j;
+        for (int i = 1; i <= n; i++)
+            for (int j = 1; j <= m; j++)
+                d[i, j] = Math.Min(Math.Min(d[i - 1, j] + 1, d[i, j - 1] + 1),
+                    d[i - 1, j - 1] + (s[i - 1] == t[j - 1] ? 0 : 1));
+        return d[n, m];
+    }
+
+    private static string GetScoreColor(double score) =>
+        score >= 0.85 ? "#5DCAA5" : score >= 0.60 ? "#EF9F27" : "#A05050";
+
+    /// <summary>
+    /// Builds the best available external URL for the current item's retail provider match,
+    /// using bridge IDs found in loaded claims data.
+    /// </summary>
+    private (string Label, string Url)? GetRetailProviderUrl()
+    {
+        if (MediaItem is null || _claims.Count == 0) return null;
+
+        // Bridge ID keys in priority order per media type
+        string[] bridgeKeys = (MediaItem.MediaType ?? "").ToLowerInvariant() switch
+        {
+            var t when t.Contains("movie") || t.Contains("video") => ["tmdb_id", "imdb_id"],
+            "tv" => ["tmdb_id", "imdb_id"],
+            var t when t.Contains("book") || t.Contains("epub") => ["open_library_id", "apple_books_id"],
+            var t when t.Contains("audiobook") => ["apple_books_id", "open_library_id"],
+            var t when t.Contains("music") => ["musicbrainz_id"],
+            _ => ["tmdb_id", "open_library_id", "musicbrainz_id"],
+        };
+
+        foreach (var key in bridgeKeys)
+        {
+            var claim = _claims.FirstOrDefault(c =>
+                c.ClaimKey.Equals(key, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(c.ClaimValue));
+            if (claim is not null)
+            {
+                var result = LibraryHelpers.BuildProviderUrl(key, claim.ClaimValue, MediaItem.MediaType);
+                if (result is not null) return result;
+            }
+        }
+
+        return null;
+    }
+
+}
+
+<style>
+    /* â”€â”€ Pipeline Circles + Stage Panel wrapper â”€â”€ */
+    .vdd-pipeline-circles-wrap {
+        margin: 0 -4px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .vdd-stage-panel-wrap {
+        padding: 12px 4px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        margin-bottom: 4px;
+    }
+
+    .vdd-subtitle--clickable {
+        cursor: pointer;
+        transition: color 0.2s ease;
+    }
+
+    .vdd-subtitle--clickable:hover {
+        color: #C9922E;
+    }
+
+    .vdd-overwrite-warning {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #EF9F27;
+        margin-bottom: 4px;
+        width: 100%;
+    }
+
+    /* â”€â”€ Backdrop â”€â”€ */
+    .vdd-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        z-index: 10000;
+        animation: vdd-fade-in 0.2s ease;
+    }
+
+    @@keyframes vdd-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* â”€â”€ Drawer panel â”€â”€ */
+    .vdd-drawer {
+        position: fixed;
+        top: 64px;
+        right: 0;
+        width: 36rem;
+        height: calc(100vh - 64px);
+        background: #0d0f12;
+        border-left: 1px solid rgba(255, 255, 255, 0.06);
+        z-index: 10001;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 0 80px rgba(0, 0, 0, 0.9);
+        animation: vdd-slide-in 0.4s ease;
+    }
+
+    @@keyframes vdd-slide-in {
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
+    }
+
+    /* â”€â”€ Header â”€â”€ */
+    .vdd-header {
+        padding: 32px 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        background: rgba(255, 255, 255, 0.01);
+        flex-shrink: 0;
+        position: relative;
+    }
+
+    .vdd-header-content {
+        display: flex;
+        gap: 24px;
+        align-items: flex-start;
+    }
+
+    .vdd-thumb-wrap {
+        width: 128px;
+        min-height: 128px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-thumb-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-avatar-round {
+        width: 128px;
+        height: 128px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-universe-icon {
+        width: 128px;
+        height: 128px;
+        border-radius: 16px;
+        background: rgba(167, 139, 250, 0.08);
+        border: 1px solid rgba(167, 139, 250, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-header-info {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .vdd-badges {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .vdd-qid-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #A78BFA;
+        background: rgba(167, 139, 250, 0.1);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        padding: 2px 8px;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: background 0.15s;
+    }
+
+    .vdd-qid-badge:hover {
+        background: rgba(167, 139, 250, 0.2);
+    }
+
+    .vdd-wiki-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.4);
+        text-decoration: none;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        transition: color 0.15s, background 0.15s;
+    }
+
+    .vdd-wiki-badge:hover {
+        color: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .vdd-role-chip {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #60A5FA;
+        background: rgba(96, 165, 250, 0.1);
+        border: 1px solid rgba(96, 165, 250, 0.2);
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+
+    .vdd-title {
+        font-size: 26px;
+        font-weight: 900;
+        color: white;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        margin: 0;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        padding-right: 48px;
+    }
+
+    .vdd-subtitle {
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.35);
+        margin-top: 4px;
+    }
+
+    .vdd-subtitle-italic {
+        font-size: 12px;
+        font-style: italic;
+        color: rgba(255, 255, 255, 0.4);
+        margin-top: 4px;
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vdd-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 8px;
+    }
+
+    .vdd-meta-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* â”€â”€ Body â”€â”€ */
+    .vdd-body {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+    }
+
+    /* â”€â”€ Source section â”€â”€ */
+    .vdd-source {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .vdd-location-badge {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 4px 10px;
+        border-radius: 4px;
+        align-self: flex-start;
+    }
+
+    .vdd-location--library {
+        background: rgba(93, 202, 165, 0.1);
+        border: 1px solid rgba(93, 202, 165, 0.2);
+        color: #5DCAA5;
+    }
+
+    .vdd-location--staging {
+        background: rgba(239, 159, 39, 0.1);
+        border: 1px solid rgba(239, 159, 39, 0.2);
+        color: #EF9F27;
+    }
+
+    .vdd-location-chip {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 8px;
+        border-radius: 6px;
+    }
+
+    .vdd-location-chip--library {
+        background: rgba(93, 202, 165, 0.1);
+        border: 1px solid rgba(93, 202, 165, 0.2);
+        color: #5DCAA5;
+    }
+
+    .vdd-location-chip--pending {
+        background: rgba(239, 159, 39, 0.1);
+        border: 1px solid rgba(239, 159, 39, 0.2);
+        color: #EF9F27;
+    }
+
+    .vdd-location-chip--review {
+        background: rgba(160, 80, 80, 0.1);
+        border: 1px solid rgba(160, 80, 80, 0.2);
+        color: #D68989;
+    }
+
+    .vdd-file-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-file-name {
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.7);
+        word-break: break-all;
+        margin: 0;
+        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    .vdd-field-label {
+        font-size: 10px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.3);
+        flex-shrink: 0;
+    }
+
+    .vdd-field-value {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* â”€â”€ Pipeline section â”€â”€ */
+    .vdd-pipeline {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .vdd-stage-block {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 10px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .vdd-stage-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .vdd-stage-label {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vdd-stage-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .vdd-stage-status {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid;
+    }
+
+    .vdd-unmatch-btn {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 2px 8px;
+        border-radius: 4px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.4);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-unmatch-btn:hover {
+        background: rgba(255, 80, 80, 0.1);
+        border-color: rgba(255, 80, 80, 0.3);
+        color: rgba(255, 80, 80, 0.8);
+    }
+
+    .vdd-match-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 6px;
+        padding: 8px 10px;
+    }
+
+    .vdd-match-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .vdd-match-value {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.8);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vdd-match-tag {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        flex-shrink: 0;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vdd-match-tag--provider { color: #60A5FA; }
+    .vdd-match-tag--authority { color: #A78BFA; }
+
+    .vdd-stage-hint {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.3);
+        font-style: italic;
+        margin: 0;
+    }
+
+    .vdd-provider-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .vdd-provider-chip {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.5);
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-provider-chip:hover {
+        background: rgba(96, 165, 250, 0.1);
+        border-color: rgba(96, 165, 250, 0.25);
+        color: #60A5FA;
+    }
+
+    .vdd-qid-result {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #A78BFA;
+        background: rgba(167, 139, 250, 0.08);
+        border-radius: 6px;
+        padding: 8px 10px;
+    }
+
+    .vdd-universe-link {
+        font-size: 11px;
+        font-weight: 700;
+        color: #A78BFA;
+        cursor: pointer;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .vdd-cascade-note {
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.2);
+        font-style: italic;
+        margin: 0;
+        padding-top: 4px;
+    }
+
+    /* â”€â”€ Assets section â”€â”€ */
+    .vdd-assets {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .vdd-asset-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+    }
+
+    .vdd-asset-label {
+        font-size: 9px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.35);
+        flex-shrink: 0;
+    }
+
+    .vdd-asset-items {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .vdd-asset-filled {
+        position: relative;
+        width: 48px;
+        height: 48px;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    .vdd-asset-filled--wide {
+        width: 80px;
+    }
+
+    .vdd-asset-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-asset-source {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        font-size: 7px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: rgba(0, 0, 0, 0.7);
+        color: rgba(255, 255, 255, 0.6);
+        text-align: center;
+        padding: 2px 0;
+    }
+
+    .vdd-asset-slot {
+        width: 48px;
+        height: 48px;
+        border-radius: 6px;
+        border: 1px dashed rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        cursor: pointer;
+        transition: border-color 0.15s;
+    }
+
+    .vdd-asset-slot:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .vdd-asset-upload {
+        font-size: 7px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* â”€â”€ Lifecycle section â”€â”€ */
+    .vdd-lifecycle {
+        display: flex;
+        gap: 12px;
+    }
+
+    .vdd-lifecycle-card {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-lifecycle-value {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.7);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .vdd-mono {
+        font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+        font-size: 11px;
+    }
+
+    /* â”€â”€ Identities section â”€â”€ */
+    .vdd-identities {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .vdd-identity-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-identity-items {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-identity-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 600;
+    }
+
+    /* â”€â”€ Universe section â”€â”€ */
+    .vdd-universe-content {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* â”€â”€ Empty hints â”€â”€ */
+    .vdd-empty-hint {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.25);
+        font-style: italic;
+        margin: 0;
+    }
+
+    /* â”€â”€ Person Library Presence list â”€â”€ */
+    .vdd-presence-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-presence-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-presence-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vdd-presence-type {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    /* â”€â”€ Review banner â”€â”€ */
+    .vdd-review-banner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: rgba(239, 159, 39, 0.08);
+        border: 1px solid rgba(239, 159, 39, 0.15);
+        color: #EF9F27;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    .vdd-waiting-banner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        margin: 0 24px 16px 24px;
+        border-radius: 10px;
+        background: rgba(56, 189, 248, 0.08);
+        border: 1px solid rgba(56, 189, 248, 0.15);
+        color: #38BDF8;
+        font-size: 12px;
+        font-weight: 700;
+    }
+
+    /* â”€â”€ Manual search â”€â”€ */
+    .vdd-search-block {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .vdd-search-input {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.85);
+        outline: none;
+        transition: border-color 0.15s;
+    }
+
+    .vdd-search-input:focus {
+        border-color: rgba(96, 165, 250, 0.3);
+    }
+
+    .vdd-search-input::placeholder {
+        color: rgba(255, 255, 255, 0.2);
+    }
+
+    .vdd-search-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border-radius: 8px;
+        background: rgba(96, 165, 250, 0.15);
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        color: #60A5FA;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+
+    .vdd-search-btn:hover:not(:disabled) {
+        background: rgba(96, 165, 250, 0.25);
+    }
+
+    .vdd-search-btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .vdd-search-results {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 8px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .vdd-search-result-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: background 0.15s;
+        border: 1px solid transparent;
+    }
+
+    .vdd-search-result-item:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-search-result-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .vdd-search-result-item--expanded {
+        background: rgba(96, 165, 250, 0.06);
+        border-color: rgba(96, 165, 250, 0.15);
+    }
+
+    .vdd-detail-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-detail-field {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .vdd-confirm-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .vdd-confirm-prompt {
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .vdd-cancel-match-btn {
+        padding: 4px 12px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-cancel-match-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vdd-or-divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 0;
+    }
+
+    .vdd-or-divider::before,
+    .vdd-or-divider::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .vdd-or-divider span {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .vdd-purge-confirm-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        justify-content: center;
+    }
+
+    .vdd-purge-confirm-text {
+        font-size: 11px;
+        font-weight: 700;
+        color: rgba(255, 80, 80, 0.8);
+    }
+
+    .vdd-purge-cancel-btn {
+        padding: 6px 14px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-purge-cancel-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.8);
+    }
+
+    .vdd-search-result-thumb {
+        width: 36px;
+        height: 52px;
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        position: relative;
+        z-index: 1;
+    }
+
+    .vdd-search-result-thumb:hover {
+        transform: scale(3);
+        z-index: 50;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+    }
+
+    .vdd-search-result-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-search-result-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .vdd-search-result-title {
+        display: block;
+        font-size: 12px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vdd-search-result-meta {
+        display: block;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.35);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vdd-search-result-desc {
+        display: block;
+        font-size: 10px;
+        color: rgba(255, 255, 255, 0.25);
+        margin-top: 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .vdd-search-results-header {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.25);
+        padding: 6px 0 2px;
+    }
+
+    .vdd-confirm-match-btn {
+        padding: 4px 12px;
+        border-radius: 6px;
+        background: rgba(93, 202, 165, 0.15);
+        border: 1px solid rgba(93, 202, 165, 0.3);
+        color: #5DCAA5;
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        animation: vdd-pulse 0.3s ease-out;
+    }
+
+    .vdd-confirm-match-btn:hover {
+        background: rgba(93, 202, 165, 0.25);
+        border-color: rgba(93, 202, 165, 0.5);
+    }
+
+    @@keyframes vdd-pulse {
+        from { transform: scale(0.9); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+
+    .vdd-rematch-block {
+        margin-top: 8px;
+    }
+
+    .vdd-rematch-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-rematch-btn:hover {
+        background: rgba(96, 165, 250, 0.08);
+        border-color: rgba(96, 165, 250, 0.2);
+        color: #60A5FA;
+    }
+
+    /* â”€â”€ Pen name linking â”€â”€ */
+    .vdd-identity-link {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        color: #60A5FA;
+        font-weight: 600;
+        background: none;
+        border: none;
+        padding: 4px 0;
+        cursor: pointer;
+        transition: color 0.15s;
+        text-align: left;
+        width: 100%;
+    }
+
+    .vdd-identity-link:hover {
+        color: #93C5FD;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    .vdd-alias-relationship {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.25);
+        margin-left: auto;
+        flex-shrink: 0;
+    }
+
+    /* â”€â”€ Footer â”€â”€ */
+    .vdd-footer {
+        padding: 20px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        flex-shrink: 0;
+    }
+
+    .vdd-purge-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid rgba(255, 80, 80, 0.2);
+        color: rgba(255, 80, 80, 0.5);
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-purge-btn:hover {
+        background: rgba(255, 80, 80, 0.08);
+        border-color: rgba(255, 80, 80, 0.4);
+        color: rgba(255, 80, 80, 0.8);
+    }
+
+    .vdd-purge-btn--confirm {
+        background: rgba(255, 80, 80, 0.12);
+        border-color: rgba(255, 80, 80, 0.5);
+        color: rgba(255, 80, 80, 1);
+    }
+
+    /* â”€â”€ Universe Health Ring â”€â”€ */
+    .vdd-health-ring-wrap {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px 24px;
+        background: rgba(255, 255, 255, 0.02);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-health-ring {
+        position: relative;
+        width: 64px;
+        height: 64px;
+        flex-shrink: 0;
+    }
+
+    .vdd-health-pct {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 900;
+    }
+
+    .vdd-health-label-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-health-title {
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vdd-health-sub {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    /* â”€â”€ Entity Counts â”€â”€ */
+    .vdd-entity-counts {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-entity-count-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .vdd-entity-count-item:last-child { border-bottom: none; }
+
+    .vdd-entity-count-label {
+        flex: 1;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.55);
+    }
+
+    .vdd-entity-count-val {
+        font-size: 13px;
+        font-weight: 800;
+        color: white;
+    }
+
+    /* â”€â”€ Character Grid â”€â”€ */
+    .vdd-characters-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .vdd-character-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .vdd-character-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(167, 139, 250, 0.08);
+        border: 1px solid rgba(167, 139, 250, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    .vdd-character-avatar--sm {
+        width: 34px;
+        height: 34px;
+    }
+
+    .vdd-character-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-character-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .vdd-character-name {
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vdd-character-actor {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.45);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .vdd-actor-count-badge {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #C9922E;
+        background: rgba(201, 146, 46, 0.1);
+        border: 1px solid rgba(201, 146, 46, 0.2);
+        border-radius: 4px;
+        padding: 2px 5px;
+        align-self: flex-start;
+    }
+
+    /* â”€â”€ Character Roles (Person view) â”€â”€ */
+    .vdd-role-universe-group {
+        margin-bottom: 14px;
+    }
+
+    .vdd-role-universe-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255, 255, 255, 0.25);
+        display: block;
+        margin-bottom: 8px;
+    }
+
+    .vdd-roles-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .vdd-role-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        width: 60px;
+    }
+
+    /* â”€â”€ Universe Action Buttons â”€â”€ */
+    .vdd-universe-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 16px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-action-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 20px;
+        border-radius: 8px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 11px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-action-btn:hover {
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.85);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .vdd-action-btn--primary {
+        border-color: rgba(167, 139, 250, 0.3);
+        color: #A78BFA;
+    }
+
+    .vdd-action-btn--primary:hover {
+        background: rgba(167, 139, 250, 0.08);
+        border-color: rgba(167, 139, 250, 0.5);
+        color: #C4B5FD;
+    }
+
+    .vdd-type-selector {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .vdd-type-dropdown {
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 4px;
+        color: rgba(255,255,255,0.7);
+        font-size: 11px;
+        letter-spacing: 0.05em;
+        padding: 2px 6px;
+        cursor: pointer;
+        outline: none;
+        font-family: inherit;
+        text-transform: uppercase;
+    }
+
+    .vdd-type-dropdown:hover {
+        border-color: rgba(201,146,46,0.4);
+        color: rgba(255,255,255,0.9);
+    }
+
+    .vdd-type-dropdown:focus {
+        border-color: #C9922E;
+        box-shadow: 0 0 0 1px rgba(201,146,46,0.2);
+    }
+
+    .vdd-type-dropdown option {
+        background: #1a1a2e;
+        color: rgba(255,255,255,0.9);
+    }
+
+    /* â”€â”€ Pipeline matched lines â”€â”€ */
+    .vdd-pipeline-matched {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-pipeline-line {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0;
+    }
+
+    .vdd-pipeline-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .vdd-pipeline-dot--ok {
+        background: #5DCAA5;
+        box-shadow: 0 0 6px rgba(93,202,165,0.4);
+    }
+
+    .vdd-pipeline-dot--fail {
+        background: #A05050;
+        box-shadow: 0 0 6px rgba(160,80,80,0.3);
+    }
+
+    .vdd-pipeline-dot--warn {
+        background: #C9922E;
+        box-shadow: 0 0 6px rgba(201,146,46,0.4);
+    }
+
+    .vdd-pipeline-qid-link {
+        font-size: 13px;
+        font-weight: 700;
+        color: #A78BFA;
+        text-decoration: none;
+    }
+
+    .vdd-pipeline-qid-link:hover {
+        text-decoration: underline;
+    }
+
+    /* â”€â”€ Unified search â”€â”€ */
+    .vdd-unified-search {
+        margin-top: 8px;
+    }
+
+    .vdd-search-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .vdd-search-row .vdd-search-input {
+        flex: 1;
+    }
+
+    .vdd-search-row .vdd-type-dropdown {
+        width: auto;
+        min-width: 100px;
+    }
+
+    /* â”€â”€ Filter-based search UI â”€â”€ */
+    .vdd-search-bar-wrap { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .vdd-search-type-row { display: flex; align-items: center; gap: 8px; }
+    .vdd-search-type-label { font-size: 11px; color: rgba(255,255,255,0.4); }
+    .vdd-search-main-row { display: flex; gap: 8px; align-items: stretch; }
+    .vdd-search-input-group {
+        flex: 1; display: flex; align-items: center; gap: 8px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px; padding: 8px 12px;
+    }
+    .vdd-search-primary-input {
+        flex: 1; background: transparent; border: none; outline: none;
+        color: rgba(255,255,255,0.9); font-size: 13px; font-family: inherit;
+    }
+    .vdd-search-primary-input::placeholder { color: rgba(255,255,255,0.25); }
+    .vdd-primary-field-btn {
+        display: flex; align-items: center; gap: 2px;
+        font-size: 11px; color: rgba(255,255,255,0.6);
+        background: rgba(255,255,255,0.06); border: none;
+        padding: 3px 8px; border-radius: 6px; cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .vdd-primary-field-btn:hover { background: rgba(255,255,255,0.1); }
+    .vdd-add-filter-btn {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 11px; color: rgba(255,255,255,0.5);
+        background: none; border: 1px solid rgba(255,255,255,0.08);
+        padding: 3px 10px; border-radius: 8px; cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .vdd-add-filter-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.7); }
+    .vdd-search-execute-btn {
+        padding: 8px 20px; font-size: 13px; border-radius: 12px;
+        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+        color: rgba(255,255,255,0.7); cursor: pointer; white-space: nowrap; font-family: inherit;
+    }
+    .vdd-search-execute-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.9); }
+    .vdd-search-execute-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .vdd-dropdown-wrap { position: relative; }
+    .vdd-dropdown-btn {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 13px; color: rgba(255,255,255,0.8);
+        background: none; border: 1px solid rgba(255,255,255,0.1);
+        padding: 4px 12px; border-radius: 10px; cursor: pointer; font-family: inherit;
+    }
+    .vdd-dropdown-btn:hover { background: rgba(255,255,255,0.06); }
+    .vdd-dropdown-menu {
+        position: absolute; left: 0; top: calc(100% + 4px); z-index: 10;
+        min-width: 160px; background: #121826; border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); overflow: hidden;
+    }
+    .vdd-dropdown-item {
+        padding: 8px 14px; font-size: 13px; color: rgba(255,255,255,0.7);
+        cursor: pointer;
+    }
+    .vdd-dropdown-item:hover { background: rgba(255,255,255,0.06); }
+    .vdd-filter-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+    .vdd-filter-pill {
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px; padding: 6px 10px;
+    }
+    .vdd-filter-pill-label { font-size: 11px; color: rgba(255,255,255,0.4); white-space: nowrap; }
+    .vdd-filter-pill-input {
+        background: transparent; border: none; outline: none;
+        color: rgba(255,255,255,0.8); font-size: 12px; width: 100px; font-family: inherit;
+    }
+    .vdd-filter-pill-input::placeholder { color: rgba(255,255,255,0.2); }
+    .vdd-filter-pill-remove {
+        background: none; border: none; color: rgba(255,255,255,0.3);
+        cursor: pointer; padding: 0; display: flex;
+    }
+    .vdd-filter-pill-remove:hover { color: rgba(255,255,255,0.6); }
+
+    /* â”€â”€ Result detail below (not beside) â”€â”€ */
+    .vdd-search-result-detail-below {
+        padding: 10px 12px 12px;
+        border-top: 1px solid rgba(255,255,255,0.04);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-detail-description {
+        font-size: 12px;
+        color: rgba(255,255,255,0.5);
+        line-height: 1.5;
+        margin: 0;
+    }
+
+    .vdd-detail-fields-compact {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .vdd-detail-field-inline {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+
+    /* â”€â”€ Bridge ID chips â”€â”€ */
+    .vdd-bridge-chips {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        margin: 6px 0;
+    }
+
+    .vdd-bridge-chip {
+        font-size: 10px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        background: rgba(93,202,165,0.12);
+        color: rgba(93,202,165,0.7);
+    }
+
+    /* â”€â”€ Status section â”€â”€ */
+    .vdd-status {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .vdd-status-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    /* â”€â”€ Metadata section â”€â”€ */
+    .vdd-metadata {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .vdd-metadata-tabs {
+        display: flex;
+        gap: 4px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 8px;
+        padding: 3px;
+    }
+
+    .vdd-meta-tab {
+        flex: 1;
+        padding: 6px 12px;
+        border: none;
+        background: transparent;
+        color: rgba(255,255,255,0.4);
+        font-size: 10px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-meta-tab:hover {
+        color: rgba(255,255,255,0.6);
+    }
+
+    .vdd-meta-tab--active {
+        background: rgba(96,165,250,0.1);
+        color: #60A5FA;
+    }
+
+    .vdd-metadata-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    /* â”€â”€ Claims rows (FIX A6) â”€â”€ */
+    .vdd-claim-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+
+    .vdd-claim-row .vdd-field-label {
+        min-width: 80px;
+        flex-shrink: 0;
+    }
+
+    .vdd-claim-row .vdd-field-value {
+        flex: 1;
+        word-break: break-word;
+    }
+
+    .vdd-claim-confidence {
+        font-size: 11px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+        flex-shrink: 0;
+    }
+
+    /* â”€â”€ Provider URL link (FIX A7) â”€â”€ */
+    .vdd-provider-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #60A5FA;
+        text-decoration: none;
+        padding: 2px 0 2px 20px;
+        opacity: 0.7;
+        transition: opacity 0.15s;
+    }
+
+    .vdd-provider-link:hover {
+        opacity: 1;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+
+    /* â”€â”€ Alias avatar (FIX B1) â”€â”€ */
+    .vdd-alias-avatar {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.04);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .vdd-alias-avatar-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+
+    .vdd-alias-info {
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .vdd-alias-name {
+        font-size: 13px;
+        color: #60A5FA;
+    }
+
+    .vdd-alias-qid {
+        font-size: 10px;
+        font-family: 'JetBrains Mono', monospace;
+        color: rgba(255,255,255,0.2);
+        flex-shrink: 0;
+    }
+
+    /* â”€â”€ Added date subtitle â”€â”€ */
+    .vdd-added-date {
+        font-size: 10px;
+        font-weight: 600;
+        color: rgba(255,255,255,0.25);
+        margin-top: 6px;
+        margin-bottom: 0;
+    }
+
+    /* â”€â”€ NeedsReview problem banner â”€â”€ */
+    .vdd-problem-banner {
+        background: rgba(239, 159, 39, 0.08);
+        border-left: 3px solid #EF9F27;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-bottom: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-problem-banner-top {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .vdd-problem-banner-msg {
+        font-size: 13px;
+        font-weight: 700;
+        color: #EF9F27;
+        line-height: 1.4;
+    }
+
+    .vdd-problem-banner-hint {
+        font-size: 11px;
+        color: rgba(255,255,255,0.4);
+        margin: 0;
+        padding-left: 26px;
+    }
+
+    .vdd-people-list {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .vdd-person-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        transition: background 0.15s;
+    }
+
+    .vdd-person-row:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .vdd-person-avatar-sm {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        flex-shrink: 0;
+    }
+
+    .vdd-person-avatar-sm img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-person-info-col {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .vdd-person-name-link {
+        font-size: 13px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .vdd-person-row:hover .vdd-person-name-link {
+        color: #60A5FA;
+    }
+
+    .vdd-person-role-label {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* â”€â”€ Tab Content â”€â”€ */
+    .vdd-tab-content {
+        padding: 12px 4px 0;
+    }
+
+    .vdd-tab-heading {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: rgba(255,255,255,0.5);
+        margin: 0 0 10px;
+    }
+
+    .vdd-file-cover {
+        margin-top: 12px;
+    }
+
+    .vdd-file-cover-img {
+        width: 80px;
+        border-radius: 6px;
+        margin-top: 4px;
+    }
+
+    /* â”€â”€ Original Metadata Collapse â”€â”€ */
+    .vdd-original-meta {
+        margin-top: 14px;
+        border-top: 1px solid rgba(255,255,255,0.04);
+        padding-top: 10px;
+    }
+
+    .vdd-original-meta-summary {
+        font-size: 11px;
+        font-weight: 600;
+        color: rgba(255,255,255,0.4);
+        cursor: pointer;
+        user-select: none;
+        padding: 4px 0;
+    }
+
+    .vdd-original-meta-summary:hover {
+        color: rgba(255,255,255,0.6);
+    }
+
+    /* â”€â”€ Match Status â”€â”€ */
+    .vdd-match-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 13px;
+        margin-bottom: 8px;
+    }
+
+    .vdd-match-status--ok {
+        background: rgba(93,202,165,0.08);
+        color: #5DCAA5;
+    }
+
+    .vdd-match-status--warn {
+        background: rgba(239,159,39,0.08);
+        color: #EF9F27;
+    }
+
+    .vdd-match-status--fail {
+        background: rgba(160,80,80,0.08);
+        color: rgba(255,255,255,0.5);
+    }
+
+    .vdd-match-explanation {
+        font-size: 12px;
+        color: rgba(255,255,255,0.4);
+        margin: 4px 0 8px;
+        line-height: 1.4;
+    }
+
+    /* â”€â”€ Tab Search â”€â”€ */
+    .vdd-tab-search {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .vdd-rematch-warning {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: #EF9F27;
+        margin-top: 6px;
+    }
+
+    /* â”€â”€ File Information section â”€â”€ */
+    .vdd-file-info {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-file-info-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 16px;
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-file-info-row:last-child {
+        border-bottom: none;
+    }
+
+    .vdd-file-info-label {
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.4);
+        flex-shrink: 0;
+        min-width: 80px;
+    }
+
+    .vdd-file-info-value {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.75);
+        text-align: right;
+        word-break: break-all;
+        max-width: 240px;
+    }
+
+    /* â”€â”€ Result card (full-width, one at a time) â”€â”€ */
+    .vdd-result-card {
+        background: rgba(15, 23, 42, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .vdd-result-card:hover {
+        border-color: rgba(96, 165, 250, 0.15);
+        background: rgba(15, 23, 42, 0.7);
+    }
+
+    .vdd-result-card--expanded {
+        border-color: rgba(96, 165, 250, 0.3);
+        background: rgba(15, 23, 42, 0.7);
+    }
+
+    .vdd-result-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+
+    .vdd-result-cover {
+        width: 64px;
+        height: 96px;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .vdd-result-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .vdd-result-title-block {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .vdd-result-card-title {
+        font-size: 15px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .vdd-result-card-meta {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.4);
+    }
+
+    .vdd-result-card-qid-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+    }
+
+    .vdd-result-qid-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 11px;
+        color: #A78BFA;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+    .vdd-result-qid-link:hover {
+        text-decoration: underline;
+    }
+
+    .vdd-result-instance-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        color: rgba(167, 139, 250, 0.85);
+        background: rgba(167, 139, 250, 0.08);
+        border: 1px solid rgba(167, 139, 250, 0.18);
+        border-radius: 4px;
+    }
+
+    .vdd-result-details {
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.015);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .vdd-result-description {
+        font-size: 12px;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.55);
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .vdd-result-extra-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .vdd-suggested-field-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .vdd-suggested-field-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.72);
+        cursor: pointer;
+    }
+
+    .vdd-suggested-field-item input {
+        accent-color: #5DCAA5;
+    }
+
+    .vdd-canonical-empty-state {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .vdd-fallback-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .vdd-extra-field-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 8px;
+        font-size: 10px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+    }
+
+    .vdd-extra-field-key {
+        color: rgba(255, 255, 255, 0.4);
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    .vdd-extra-field-val {
+        color: rgba(255, 255, 255, 0.75);
+        font-weight: 500;
+    }
+
+    .vdd-result-score {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    .vdd-result-score-val {
+        font-size: 18px;
+        font-weight: 900;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .vdd-result-score-bar {
+        display: flex;
+        gap: 2px;
+    }
+
+    .vdd-score-seg {
+        width: 8px;
+        height: 4px;
+        border-radius: 1px;
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .vdd-score-seg--filled {
+        opacity: 1;
+    }
+
+    /* â”€â”€ Field comparison table â”€â”€ */
+    .vdd-field-compare {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .vdd-compare-header-row {
+        display: grid;
+        grid-template-columns: 1fr 24px 1fr 80px;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .vdd-compare-col-label {
+        font-size: 8px;
+        font-weight: 900;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(255, 255, 255, 0.25);
+    }
+
+    .vdd-compare-row {
+        display: grid;
+        grid-template-columns: 1fr 24px 1fr 80px;
+        gap: 8px;
+        padding: 8px 12px;
+        align-items: center;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .vdd-compare-row:last-child {
+        border-bottom: none;
+    }
+
+    .vdd-compare-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .vdd-compare-cell--score {
+        align-items: flex-end;
+        gap: 3px;
+    }
+
+    .vdd-compare-field-name {
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vdd-compare-field-val {
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .vdd-compare-arrow {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.15);
+        font-size: 11px;
+    }
+
+    .vdd-score-mini-bar {
+        width: 48px;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .vdd-score-mini-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s;
+    }
+
+    .vdd-result-actions {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    /* â”€â”€ Details section: pinned file path + Current/Original tabs â”€â”€ */
+    .vdd-details-path {
+        padding: 8px 12px 10px;
+        margin: 0 0 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .vdd-details-path-name {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.85);
+        word-break: break-all;
+    }
+
+    .vdd-details-path-folder {
+        margin-top: 2px;
+        padding-left: 20px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.4);
+        word-break: break-all;
+    }
+
+    .vdd-details-tabs {
+        display: flex;
+        gap: 4px;
+        padding: 0 8px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .vdd-details-tab {
+        background: transparent;
+        border: none;
+        color: rgba(255, 255, 255, 0.5);
+        padding: 8px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+    }
+
+    .vdd-details-tab:hover {
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    .vdd-details-tab--active {
+        color: #C9922E;
+        border-bottom-color: #C9922E;
+    }
+</style>
+

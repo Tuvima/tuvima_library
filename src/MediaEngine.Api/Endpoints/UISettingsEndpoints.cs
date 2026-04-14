@@ -176,28 +176,30 @@ public static class UISettingsEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
-        // ── Vault Preferences ──────────────────────────────────────────────
-        grp.MapGet("/vault-preferences", (IConfigurationLoader configLoader) =>
+        // ── Library Preferences ──────────────────────────────────────────────
+        grp.MapGet("/library-preferences", (IConfigurationLoader configLoader) =>
         {
-            var prefs = configLoader.LoadConfig<VaultPreferencesSettings>("ui", "vault-preferences")
-                        ?? new VaultPreferencesSettings();
+            var prefs = configLoader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences")
+                        ?? new LibraryPreferencesSettings();
             return Results.Ok(prefs);
         })
-        .WithName("GetVaultPreferences")
-        .WithSummary("Returns the current vault display preferences (view modes, show unowned).")
-        .Produces<VaultPreferencesSettings>(StatusCodes.Status200OK);
+        .WithName("GetLibraryPreferences")
+        .WithSummary("Returns the current library display preferences (view modes, show unowned).")
+        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK);
 
-        grp.MapPut("/vault-preferences", (
-            VaultPreferencesSettings settings,
+        grp.MapPut("/library-preferences", (
+            LibraryPreferencesSettings settings,
             IConfigurationLoader configLoader) =>
         {
-            configLoader.SaveConfig("ui", "vault-preferences", settings);
+            configLoader.SaveConfig("ui", "library-preferences", settings);
             return Results.Ok(settings);
         })
-        .WithName("UpdateVaultPreferences")
-        .WithSummary("Saves vault display preferences (view modes, show unowned).")
-        .Produces<VaultPreferencesSettings>(StatusCodes.Status200OK);
+        .WithName("UpdateLibraryPreferences")
+        .WithSummary("Saves library display preferences (view modes, show unowned).")
+        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK);
 
         return app;
     }
 }
+
+

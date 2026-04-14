@@ -71,7 +71,7 @@ public sealed class UniverseCharacterDto
 
 /// <summary>
 /// A typed image asset belonging to any entity in the library.
-/// Returned by GET /vault/assets/{entityId}.
+/// Returned by GET /library/assets/{entityId}.
 /// </summary>
 public sealed class EntityAssetDto
 {

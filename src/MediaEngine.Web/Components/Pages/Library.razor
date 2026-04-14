@@ -1,0 +1,10 @@
+@using MediaEngine.Web.Components.Library
+@page "/library"
+@page "/library/{Tab}"
+
+<PageTitle>Library - Tuvima</PageTitle>
+<LibraryPage Tab="@Tab" />
+
+@code {
+    [Parameter] public string? Tab { get; set; }
+}

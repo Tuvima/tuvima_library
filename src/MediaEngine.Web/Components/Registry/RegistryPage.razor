@@ -14,7 +14,7 @@
 
     @* ── Header ── *@
     <div class="registry-header">
-        <span class="registry-title">Registry</span>
+        <span class="registry-title">Library</span>
     </div>
 
     @* ── Constrained-width container for cards ── *@
@@ -24,7 +24,7 @@
         <div class="registry-library-cards">
                 @* ── Items box with heatmap bar ── *@
                 <div class="registry-items-box">
-                    <a class="registry-items-header" href="/registry/library" style="text-decoration: none; cursor: pointer;">
+                    <a class="registry-items-header" href="/library" style="text-decoration: none; cursor: pointer;">
                         <span class="registry-items-number">@(_fourStateCounts?.All ?? 0)</span>
                         <span class="registry-items-label">items</span>
                     </a>
@@ -52,7 +52,7 @@
                     </div>
                     <div class="registry-items-legend">
                         <button class="registry-legend-item"
-                                @onclick='() => Nav.NavigateTo("/registry/library?state=identified")'>
+                                @onclick='() => Nav.NavigateTo("/library?state=identified")'>
                             <span class="registry-legend-dot" style="background: #5DCAA5;"></span>
                             <span>@(_fourStateCounts?.Identified ?? 0) identified</span>
                         </button>
@@ -60,7 +60,7 @@
                         {
                             <span class="registry-legend-sep">|</span>
                             <button class="registry-legend-item"
-                                    @onclick='() => Nav.NavigateTo("/registry/library?state=review")'>
+                                    @onclick='() => Nav.NavigateTo("/review")'>
                                 <span class="registry-legend-dot" style="background: #EF9F27;"></span>
                                 <span>@(_fourStateCounts?.InReview ?? 0) in review</span>
                             </button>
@@ -69,7 +69,7 @@
                         {
                             <span class="registry-legend-sep">|</span>
                             <button class="registry-legend-item"
-                                    @onclick='() => Nav.NavigateTo("/registry/library?state=provisional")'>
+                                    @onclick='() => Nav.NavigateTo("/library?state=provisional")'>
                                 <span class="registry-legend-dot" style="background: #B4B2A9;"></span>
                                 <span>@(_fourStateCounts?.Provisional ?? 0) provisional</span>
                             </button>
@@ -78,7 +78,7 @@
                         {
                             <span class="registry-legend-sep">|</span>
                             <button class="registry-legend-item"
-                                    @onclick='() => Nav.NavigateTo("/registry/library?state=rejected")'>
+                                    @onclick='() => Nav.NavigateTo("/library?state=rejected")'>
                                 <span class="registry-legend-dot" style="background: #E24B4A;"></span>
                                 <span>@(_fourStateCounts?.Rejected ?? 0) rejected</span>
                             </button>
@@ -109,21 +109,21 @@
             @{ var rejectedCount = _fourStateCounts?.Rejected ?? 0; }
 
             <button class="registry-stat-card registry-stat-card--blue @(reportsCount == 0 ? "registry-stat-card--disabled" : "")"
-                    @onclick='() => NavigateIfNonZero(reportsCount, "/registry/library?state=reports")'
+                    @onclick='() => NavigateIfNonZero(reportsCount, "/library?state=reports")'
                     disabled="@(reportsCount == 0)">
                 <MudIcon Icon="@Icons.Material.Outlined.Feedback" Style="font-size: 18px; color: #4A90D9;" />
                 <span class="registry-stat-number" style="color: #4A90D9;">@reportsCount</span>
                 <span class="registry-stat-label">reports</span>
             </button>
             <button class="registry-stat-card registry-stat-card--amber @(reviewCount == 0 ? "registry-stat-card--disabled" : "")"
-                    @onclick='() => NavigateIfNonZero(reviewCount, "/registry/library?state=review")'
+                    @onclick='() => NavigateIfNonZero(reviewCount, "/review")'
                     disabled="@(reviewCount == 0)">
                 <MudIcon Icon="@Icons.Material.Outlined.RateReview" Style="font-size: 18px; color: #EF9F27;" />
                 <span class="registry-stat-number" style="color: #EF9F27;">@reviewCount</span>
                 <span class="registry-stat-label">in review</span>
             </button>
             <button class="registry-stat-card registry-stat-card--red @(rejectedCount == 0 ? "registry-stat-card--disabled" : "")"
-                    @onclick='() => NavigateIfNonZero(rejectedCount, "/registry/library?state=rejected")'
+                    @onclick='() => NavigateIfNonZero(rejectedCount, "/library?state=rejected")'
                     disabled="@(rejectedCount == 0)">
                 <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px; color: #E24B4A;" />
                 <span class="registry-stat-number" style="color: #E24B4A;">@rejectedCount</span>
@@ -579,7 +579,7 @@
 
         _activeTab = path switch
         {
-            "/registry/library" => "library",
+            "/library" => "library",
             _ => "activity",
         };
 
@@ -610,7 +610,7 @@
     private void SwitchTab(string tab)
     {
         if (tab == _activeTab) return;
-        var route = tab == "library" ? "/registry/library" : "/registry";
+        var route = "/library";
         if (!string.IsNullOrEmpty(_debouncedSearchTerm))
             route += $"?q={Uri.EscapeDataString(_debouncedSearchTerm)}";
         Nav.NavigateTo(route);
@@ -623,7 +623,9 @@
 
     private void NavigateToFilter(string type, string status)
     {
-        Nav.NavigateTo($"/registry/library?state={status}&type={type}");
+        Nav.NavigateTo(status == "review"
+            ? "/review"
+            : $"/library?state={status}&type={type}");
     }
 
     private async Task LoadDataAsync()
@@ -665,7 +667,7 @@
 
     private void UpdateUrlWithSearch()
     {
-        var basePath = _activeTab == "library" ? "/registry/library" : "/registry";
+        var basePath = "/library";
         var url = string.IsNullOrEmpty(_debouncedSearchTerm)
             ? basePath
             : $"{basePath}?q={Uri.EscapeDataString(_debouncedSearchTerm)}";
@@ -693,7 +695,7 @@
         var target = !string.IsNullOrEmpty(yearMonth)
             ? $"?dateFrom={Uri.EscapeDataString(yearMonth)}&dateTo={Uri.EscapeDataString(yearMonth)}"
             : "";
-        Nav.NavigateTo($"/registry/library{target}");
+        Nav.NavigateTo($"/library{target}");
     }
 
     private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)

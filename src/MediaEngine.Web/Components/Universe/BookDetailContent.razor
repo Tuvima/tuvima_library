@@ -4,6 +4,7 @@
 @inject UniverseStateContainer  State
 @inject NavigationManager       Nav
 @inject IDialogService          DialogService
+@inject MediaEditorLauncherService MediaEditorLauncher
 
 @* Edit panel for standalone mode is rendered inline below, same as embedded *@
 
@@ -823,30 +824,32 @@ else
 
     private async Task OpenMediaItemEditor()
     {
-        var parameters = new DialogParameters
+        if (_work is null)
+            return;
+
+        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
         {
-            { nameof(MediaItemEditor.EntityId), _work?.Id ?? Guid.Empty },
-            { nameof(MediaItemEditor.CollectionId), _collection?.Id ?? Guid.Empty },
-            { nameof(MediaItemEditor.MediaType), _work?.MediaType },
-            { nameof(MediaItemEditor.PreloadedCandidates), CandidatesJson ?? _cachedSearchResults },
-            { nameof(MediaItemEditor.InitialSearchQuery), _work?.Title },
-            { nameof(MediaItemEditor.WorkCanonicalValues), _work?.CanonicalValues },
-        };
+            EntityIds = [_work.Id],
+            Mode = SharedMediaEditorMode.Normal,
+            MediaType = _work.MediaType,
+            HeaderTitle = _work.Title,
+            HeaderSubtitle = ActiveWork?.Narrator
+                ?? ActiveWork?.Author
+                ?? _work.Author,
+            CoverUrl = ActiveWork?.CoverUrl ?? _work.CoverUrl,
+            PreviewItems =
+            [
+                new MediaEditorPreviewItem
+                {
+                    EntityId = _work.Id,
+                    Title = _work.Title,
+                    CoverUrl = ActiveWork?.CoverUrl ?? _work.CoverUrl,
+                    MediaType = _work.MediaType,
+                },
+            ],
+        });
 
-        var options = new DialogOptions
-        {
-            MaxWidth    = MaxWidth.Large,
-            FullWidth   = true,
-            CloseButton = false,
-            NoHeader    = false,
-            BackdropClick = true,
-        };
-
-        var dialog = await DialogService.ShowAsync<MediaItemEditor>("Edit Metadata", parameters, options);
-        var result = await dialog.Result;
-
-        // If changes were applied, reload the book detail
-        if (result is { Canceled: false })
+        if (applied)
         {
             await OnEditApplied();
         }

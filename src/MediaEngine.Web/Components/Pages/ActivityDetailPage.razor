@@ -1,4 +1,4 @@
-@page "/registry/activity"
+@page "/library/activity"
 
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Registry
@@ -9,7 +9,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
-@inject IDialogService DialogService
+@inject MediaEditorLauncherService MediaEditorLauncher
 @implements IDisposable
 
 @if (!EmbeddedMode)
@@ -23,23 +23,23 @@
     {
         @* ── Back nav ── *@
         <div class="adp-breadcrumb">
-            <button class="adp-back-btn" @onclick='() => Nav.NavigateTo("/registry")' type="button">
+            <button class="adp-back-btn" @onclick='() => Nav.NavigateTo("/library")' type="button">
                 <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 15px;" />
-                <span>Registry</span>
+                <span>Library</span>
             </button>
             <span class="adp-breadcrumb-sep">/</span>
-            <span class="adp-breadcrumb-current">Library Overview</span>
+            <span class="adp-breadcrumb-current">@(ReviewMode ? "Review" : "Library Overview")</span>
         </div>
 
         @* ── Page title ── *@
-        <h1 class="adp-page-title">Library Overview</h1>
+        <h1 class="adp-page-title">@(ReviewMode ? "Review" : "Library Overview")</h1>
     }
 
     @* ── Main content (two-column — filters inside left panel) ── *@
     <div class="adp-content">
 
         @* ── Left panel: search + filters + item list ── *@
-        <div class="adp-left-panel" style="@(_selectedItem is not null ? "" : "flex: 1;")">
+        <div class="adp-left-panel" style="@(_selectedItem is not null && !ReviewMode ? "" : "flex: 1;")">
 
             @* ── Inline search (embedded mode) ── *@
             @if (EmbeddedMode)
@@ -244,7 +244,7 @@
         </div>
 
         @* ── Right panel: inspector ── *@
-        @if (_selectedItem is not null)
+        @if (_selectedItem is not null && !ReviewMode)
         {
             <div class="adp-right-panel">
                 <RegistryInspector Item="@_selectedItem"
@@ -266,6 +266,7 @@
     // ── Parameters ──────────────────────────────────────────────────────────
 
     [Parameter] public bool EmbeddedMode { get; set; }
+    [Parameter] public bool ReviewMode { get; set; }
     [Parameter] public string? InitialTab { get; set; }
     [Parameter] public string? InitialTypeFilter { get; set; }
     [Parameter] public string? InitialDateFrom { get; set; }
@@ -326,6 +327,8 @@
         var stateParam = query["state"];
         if (!string.IsNullOrEmpty(stateParam))
             _activeTab = stateParam.ToLowerInvariant();
+        else if (ReviewMode)
+            _activeTab = "review";
         else if (EmbeddedMode && !string.IsNullOrEmpty(InitialTab))
             _activeTab = InitialTab;
 
@@ -353,6 +356,9 @@
             else
                 _activeTypeChip = "Media";
         }
+
+        if (ReviewMode)
+            _activeTypeChip = "Media";
 
         // Subscribe to live review count changes
         Orchestrator.OnReviewCountChanged += HandleReviewCountChanged;
@@ -618,16 +624,18 @@
         _selectedIds.Clear();
         if (!EmbeddedMode)
         {
-            var newUrl = $"/registry/activity?state={tab}";
+            var newUrl = $"{GetBasePath()}?state={tab}";
             Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
         }
         else
         {
-            var newUrl = $"/registry/library?state={tab}";
+            var newUrl = $"{GetBasePath()}?state={tab}";
             Nav.NavigateTo(newUrl, forceLoad: false, replace: true);
         }
         await LoadItemsAsync();
     }
+
+    private string GetBasePath() => ReviewMode ? "/review" : (EmbeddedMode ? "/library" : "/library/activity");
 
     // ── Type chip handlers ──────────────────────────────────────────────────
 
@@ -682,9 +690,36 @@
 
     // ── Event handlers ────────────────────────────────────────────────────────
 
-    private void HandleItemSelect(RegistryItemViewModel item)
+    private async Task HandleItemSelect(RegistryItemViewModel item)
     {
-        _selectedItem = _selectedItem?.EntityId == item.EntityId ? null : item;
+        if (item.MediaType is "Person" or "Universe")
+        {
+            _selectedItem = _selectedItem?.EntityId == item.EntityId ? null : item;
+            return;
+        }
+
+        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+        {
+            EntityIds = [item.EntityId],
+            Mode = ReviewMode ? SharedMediaEditorMode.Review : SharedMediaEditorMode.Normal,
+            ReviewTrigger = item.ReviewTrigger,
+            MediaType = item.MediaType,
+            HeaderTitle = item.Title,
+            CoverUrl = item.CoverUrl,
+            PreviewItems =
+            [
+                new MediaEditorPreviewItem
+                {
+                    EntityId = item.EntityId,
+                    Title = item.Title,
+                    CoverUrl = item.CoverUrl,
+                    MediaType = item.MediaType,
+                },
+            ],
+        });
+
+        if (applied)
+            await HandleItemChanged();
     }
 
     private void HandleInspectorClose()
@@ -700,7 +735,7 @@
 
         // Re-select the same item from the refreshed list so the inspector
         // updates with the latest data (e.g. new cover, status, QID).
-        if (_selectedItem is not null)
+        if (_selectedItem is not null && !ReviewMode)
         {
             _selectedItem = _items.FirstOrDefault(i => i.EntityId == _selectedItem.EntityId);
         }

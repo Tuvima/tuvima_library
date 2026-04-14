@@ -250,7 +250,7 @@ public sealed class CollectionRepository : ICollectionRepository
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
-    public Task<Collection> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default)
+    public Task<Collection?> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -264,7 +264,7 @@ public sealed class CollectionRepository : ICollectionRepository
             """, new { relType, qid });
 
         if (collectionIdStr is null)
-            return Task.FromResult<Collection>(null);
+            return Task.FromResult<Collection?>(null);
 
         var collectionId = Guid.Parse(collectionIdStr);
 
@@ -274,7 +274,7 @@ public sealed class CollectionRepository : ICollectionRepository
             """, new { id = collectionId.ToString() });
 
         if (collection is null)
-            return Task.FromResult<Collection>(null);
+            return Task.FromResult<Collection?>(null);
 
         NormalizeCollection(collection);
 
@@ -286,7 +286,7 @@ public sealed class CollectionRepository : ICollectionRepository
 
         collection.Relationships.AddRange(rels);
 
-        return Task.FromResult<Collection>(collection);
+        return Task.FromResult<Collection?>(collection);
     }
 
     /// <inheritdoc/>
@@ -422,7 +422,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public Task<Collection> FindByDisplayNameAsync(string displayName, CancellationToken ct = default)
+    public Task<Collection?> FindByDisplayNameAsync(string displayName, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -625,7 +625,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public Task<Collection> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default)
+    public Task<Collection?> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -695,7 +695,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public Task<Collection> GetByIdAsync(Guid collectionId, CancellationToken ct = default)
+    public Task<Collection?> GetByIdAsync(Guid collectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -711,7 +711,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public Task<Collection> FindByQidAsync(string qid, CancellationToken ct = default)
+    public Task<Collection?> FindByQidAsync(string qid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -1049,12 +1049,12 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public Task<Collection> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default)
+    public Task<Collection?> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        Collection collection       = null;
+        Collection? collection      = null;
         var  works     = new Dictionary<Guid, Work>();
 
         using (var cmd = conn.CreateCommand())
@@ -1133,7 +1133,7 @@ public sealed class CollectionRepository : ICollectionRepository
         }
 
         if (collection is null)
-            return Task.FromResult<Collection>(null);
+            return Task.FromResult<Collection?>(null);
 
         // Canonical values for all loaded works.
         if (works.Count > 0)
@@ -1170,7 +1170,7 @@ public sealed class CollectionRepository : ICollectionRepository
             }
         }
 
-        return Task.FromResult<Collection>(collection);
+        return Task.FromResult<Collection?>(collection);
     }
 
     /// <inheritdoc/>
@@ -1188,7 +1188,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Collection> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default)
+    public async Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();

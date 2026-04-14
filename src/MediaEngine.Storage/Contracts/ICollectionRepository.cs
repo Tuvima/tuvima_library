@@ -20,14 +20,14 @@ public interface ICollectionRepository
     /// Returns null when no collection with that name exists.
     /// Used by Great Inhale to avoid creating duplicate collections.
     /// </summary>
-    Task<Collection> FindByDisplayNameAsync(string displayName, CancellationToken ct = default);
+    Task<Collection?> FindByDisplayNameAsync(string displayName, CancellationToken ct = default);
 
     /// <summary>
     /// Finds a collection that has a <see cref="CollectionRelationship"/> matching the given
     /// relationship type and Wikidata QID. Returns the Collection with relationships loaded,
     /// or null if no match exists.
     /// </summary>
-    Task<Collection> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default);
+    Task<Collection?> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default);
 
     /// <summary>
     /// Inserts a new Collection (identified by <see cref="Collection.Id"/>) if it does not
@@ -99,7 +99,7 @@ public interface ICollectionRepository
     Task SetParentCollectionAsync(Guid collectionId, Guid? parentCollectionId, CancellationToken ct = default);
 
     /// <summary>Finds a Parent Collection by franchise/universe QID from collection_relationships.</summary>
-    Task<Collection> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default);
+    Task<Collection?> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default);
 
     /// <summary>
     /// Returns the IDs of all Collections that have a <c>collection_relationships</c> row with the given
@@ -118,12 +118,12 @@ public interface ICollectionRepository
     /// Returns the <see cref="Collection"/> row for a single Collection by its ID (no Works or relationships loaded).
     /// Returns null when the Collection does not exist.
     /// </summary>
-    Task<Collection> GetByIdAsync(Guid collectionId, CancellationToken ct = default);
+    Task<Collection?> GetByIdAsync(Guid collectionId, CancellationToken ct = default);
 
     /// <summary>
     /// Finds a Collection by its Wikidata QID. Returns null if no Collection has this QID.
     /// </summary>
-    Task<Collection> FindByQidAsync(string qid, CancellationToken ct = default);
+    Task<Collection?> FindByQidAsync(string qid, CancellationToken ct = default);
 
     /// <summary>Finds an Edition by its Wikidata QID. Returns null when no match exists.</summary>
     Task<Edition?> FindEditionByQidAsync(string wikidataQid, CancellationToken ct = default);
@@ -174,7 +174,7 @@ public interface ICollectionRepository
     /// Returns a single collection by ID with all child Works and their CanonicalValues loaded.
     /// Returns null when no collection with this ID exists.
     /// </summary>
-    Task<Collection> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default);
+    Task<Collection?> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default);
 
     /// <summary>
     /// Returns the collection_id for a given work ID.
@@ -184,7 +184,7 @@ public interface ICollectionRepository
     Task<Guid?> GetCollectionIdByWorkIdAsync(Guid workId, CancellationToken ct = default);
 
     /// <summary>Finds a collection by its rule hash for deduplication.</summary>
-    Task<Collection> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default);
+    Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default);
 
     /// <summary>Returns all enabled collections for placement resolution.</summary>
     Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default);

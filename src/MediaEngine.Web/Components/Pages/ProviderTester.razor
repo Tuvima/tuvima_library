@@ -4,13 +4,13 @@
 @using MediaEngine.Domain.Constants
 @using MediaEngine.Domain.Enums
 @using MediaEngine.Web.Models.ViewDTOs
-@using MediaEngine.Web.Components.Vault
+@using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 @inject IEngineApiClient ApiClient
 @inject ProviderCatalogueService Catalogue
 
-<PageTitle>Provider Tester — Tuvima Library</PageTitle>
+<PageTitle>Provider Tester â€” Tuvima Library</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
 
@@ -20,11 +20,11 @@
     </MudText>
     <MudText Typo="Typo.body2" Class="mb-6"
              Style="color: rgba(248,248,248,0.55);">
-        Search retail providers and Wikidata using the same attribute-targeted methodology as the Vault.
+        Search retail providers and Wikidata using the same attribute-targeted methodology as the library editor.
         Select a media type and optionally filter to a specific provider.
     </MudText>
 
-    @* ── Filters ── *@
+    @* â”€â”€ Filters â”€â”€ *@
     <MudPaper Elevation="0" Class="pa-4 mb-4"
               Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
         <MudGrid>
@@ -80,7 +80,7 @@
         </MudGrid>
     </MudPaper>
 
-    @* ── Search Fields ── *@
+    @* â”€â”€ Search Fields â”€â”€ *@
     <MudPaper Elevation="0" Class="pa-4 mb-4"
               Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;">
 
@@ -121,7 +121,7 @@
         </MudGrid>
     </MudPaper>
 
-    @* ── Loading ── *@
+    @* â”€â”€ Loading â”€â”€ *@
     @if (_loading)
     {
         <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
@@ -131,13 +131,13 @@
         </MudText>
     }
 
-    @* ── Error ── *@
+    @* â”€â”€ Error â”€â”€ *@
     @if (!string.IsNullOrEmpty(_error))
     {
         <MudAlert Severity="Severity.Error" Class="mb-4" Variant="Variant.Outlined">@_error</MudAlert>
     }
 
-    @* ── Wikidata Results ── *@
+    @* â”€â”€ Wikidata Results â”€â”€ *@
     @if (_universeResults is { Count: > 0 })
     {
         <div class="d-flex align-center gap-4 mb-4" style="color: rgba(248,248,248,0.55);">
@@ -202,7 +202,7 @@
                         </div>
                     </div>
 
-                    @* ── Expanded details ── *@
+                    @* â”€â”€ Expanded details â”€â”€ *@
                     @if (isExpanded)
                     {
                         <div class="px-3 pb-3" style="padding-left: 75px;" @onclick:stopPropagation="true">
@@ -250,7 +250,7 @@
                                         <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                                                  Style="font-size: 0.65rem; height: 20px; color: rgba(248,248,248,0.5); border-color: rgba(255,255,255,0.1);"
                                                  title="@val">
-                                            @VaultHelpers.FormatClaimKey(key)
+                                            @LibraryHelpers.FormatClaimKey(key)
                                         </MudChip>
                                     }
                                 </div>
@@ -283,7 +283,7 @@
         </MudPaper>
     }
 
-    @* ── Retail Results ── *@
+    @* â”€â”€ Retail Results â”€â”€ *@
     @if (_results is { Count: > 0 })
     {
         @* Stats bar *@
@@ -401,7 +401,7 @@
                             </div>
                         </div>
 
-                        @* ── Expanded detail panel ── *@
+                        @* â”€â”€ Expanded detail panel â”€â”€ *@
                         @if (isExpanded)
                         {
                             <div class="pt-detail-panel" @onclick:stopPropagation="true">
@@ -517,7 +517,7 @@
                                             @foreach (var (key, val) in result.ExtraFields.OrderBy(kv => kv.Key))
                                             {
                                                 <span style="font-size: 0.7rem;">
-                                                    <span style="color: rgba(248,248,248,0.3);">@VaultHelpers.FormatClaimKey(key):</span>
+                                                    <span style="color: rgba(248,248,248,0.3);">@LibraryHelpers.FormatClaimKey(key):</span>
                                                     <span style="color: rgba(248,248,248,0.55);">@(val.Length > 120 ? val[..117] + "..." : val)</span>
                                                 </span>
                                             }
@@ -539,7 +539,7 @@
                                                          Size="Size.Small"
                                                          Variant="Variant.Outlined"
                                                          Style="@($"font-size: 0.65rem; height: 22px; color: {(fm.Matched ? "#4CAF50" : "rgba(248,248,248,0.35)")}; border-color: {(fm.Matched ? "rgba(76,175,80,0.3)" : "rgba(255,255,255,0.08)")};")">
-                                                    @VaultHelpers.FormatClaimKey(fm.FieldKey)
+                                                    @LibraryHelpers.FormatClaimKey(fm.FieldKey)
                                                     @(fm.Matched ? " \u2713" : " \u2717")
                                                 </MudChip>
                                             }
@@ -585,7 +585,7 @@
 
 @code {
 
-    // ── State ────────────────────────────────────────────────────────────────
+    // â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private string _selectedMediaType = "Books";
     private string _selectedProvider = "all";
@@ -607,7 +607,7 @@
     private static readonly string[] _mediaTypes =
         ["Books", "Audiobooks", "Music", "Movies", "TV", "Comics"];
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────
+    // â”€â”€ Lifecycle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     protected override async Task OnInitializedAsync()
     {
@@ -616,7 +616,7 @@
         RefreshSearchableFields();
     }
 
-    // ── Filter changes ───────────────────────────────────────────────────────
+    // â”€â”€ Filter changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void OnMediaTypeChanged(string newType)
     {
@@ -661,7 +661,7 @@
         }
     }
 
-    // ── Field management ─────────────────────────────────────────────────────
+    // â”€â”€ Field management â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void ToggleField(string key)
     {
@@ -690,7 +690,7 @@
             await RunSearch();
     }
 
-    // ── Expand/Collapse ─────────────────────────────────────────────────────
+    // â”€â”€ Expand/Collapse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void ToggleExpand(string resultKey)
     {
@@ -702,7 +702,7 @@
         _expandedUniverseResult = _expandedUniverseResult == qid ? null : qid;
     }
 
-    // ── Search ───────────────────────────────────────────────────────────────
+    // â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private async Task RunSearch()
     {
@@ -788,7 +788,7 @@
         }
     }
 
-    // ── Result display helpers ───────────────────────────────────────────────
+    // â”€â”€ Result display helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private string? GetSubline(RetailCandidateDto result)
     {
@@ -812,7 +812,7 @@
         {
             if (key == display.Subline || key == display.Tertiary) continue;
             if (allFields.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
-                details.Add((VaultHelpers.FormatClaimKey(key), val.Length > 80 ? val[..77] + "\u2026" : val));
+                details.Add((LibraryHelpers.FormatClaimKey(key), val.Length > 80 ? val[..77] + "\u2026" : val));
         }
         return details;
     }
@@ -826,7 +826,7 @@
         foreach (var key in display.BridgeLabels)
         {
             if (allFields.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val))
-                bridges.Add((VaultHelpers.FormatClaimKey(key), val));
+                bridges.Add((LibraryHelpers.FormatClaimKey(key), val));
         }
         return bridges;
     }
@@ -859,7 +859,7 @@
         return lookup;
     }
 
-    // ── Formatting helpers ───────────────────────────────────────────────────
+    // â”€â”€ Formatting helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static Color GetScoreColor(double score) => score switch
     {
@@ -875,7 +875,7 @@
         _ => "rgba(248,248,248,0.55)",
     };
 
-    // FormatClaimKey is shared via VaultHelpers.FormatClaimKey()
+    // FormatClaimKey is shared via LibraryHelpers.FormatClaimKey()
 
     private static MediaType ParseMediaType(string? s)
     {
@@ -897,3 +897,5 @@
         _ => null,
     };
 }
+
+

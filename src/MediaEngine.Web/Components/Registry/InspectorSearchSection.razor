@@ -11,18 +11,18 @@
 {
     @* ── Already-matched state ── *@
     <div class="isearch-section">
-        <span class="isearch-section-label">REMATCH</span>
+        <span class="isearch-section-label">QUICK SEARCH</span>
 
         <div class="isearch-matched-banner">
             <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Style="font-size: 13px; color: rgba(93,202,165,0.7);" />
-            <span>Already matched — search to rematch</span>
+            <span>Already matched — search to update the canonical choice</span>
         </div>
 
         @* Search input row *@
         <div class="isearch-input-row">
             <input class="isearch-input isearch-input--muted"
                    type="text"
-                   placeholder="Search to rematch…"
+                   placeholder="Search to update the canonical choice..."
                    @bind="_query"
                    @bind:event="oninput"
                    @onkeydown="HandleSearchKeyDown" />
@@ -51,7 +51,7 @@
         @* Hint *@
         @if (!_hasSearched)
         {
-            <span class="isearch-hint">Press Enter to rematch</span>
+            <span class="isearch-hint">Press Enter to quick search</span>
         }
         else if (_candidates.Count > 0)
         {
@@ -198,14 +198,14 @@
                 {
                     <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 14px;" />
                 }
-                <span>Rematch as '@TruncateTitle(_selectedCandidate.Title)'</span>
+                <span>Apply '@TruncateTitle(_selectedCandidate.Title)' as canonical</span>
             </button>
         }
         else
         {
             <button class="isearch-btn-register isearch-btn-register--disabled" disabled>
                 <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 14px;" />
-                <span>Select a candidate to rematch</span>
+                <span>Select a candidate to apply canonically</span>
             </button>
         }
 

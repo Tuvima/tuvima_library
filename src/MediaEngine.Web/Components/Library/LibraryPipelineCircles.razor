@@ -1,0 +1,172 @@
+@using MediaEngine.Web.Models.ViewDTOs
+@namespace MediaEngine.Web.Components.Library
+
+<div class="pipeline-circles">
+    @for (int i = 0; i < 3; i++)
+    {
+        var stage = i;
+        var stageInfo = GetStageInfo(stage);
+        var isSelected = SelectedStage == stage;
+        var stateClass = GetStateClass(stageInfo.State);
+        var isRunning = stageInfo.State == LibraryStageState.Running;
+
+        <div class="pipeline-circle-wrapper" @onclick="() => OnStageSelected(stage)">
+            <div class="pipeline-circle @stateClass @(isSelected ? "selected" : "") @(isRunning ? "running" : "")"
+                 title="@stageInfo.Label">
+                <span class="circle-icon">@GetStageIcon(stage)</span>
+            </div>
+            <span class="circle-label @(isSelected ? "selected" : "")">@GetStageName(stage)</span>
+        </div>
+
+        @if (i < 2)
+        {
+            <div class="pipeline-connector @GetConnectorClass(i)"></div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public LibraryPipelineStage? Stage1 { get; set; }
+    [Parameter] public LibraryPipelineStage? Stage2 { get; set; }
+    [Parameter] public LibraryPipelineStage? Stage3 { get; set; }
+    [Parameter] public int SelectedStage { get; set; }
+    [Parameter] public EventCallback<int> SelectedStageChanged { get; set; }
+
+    private LibraryPipelineStage GetStageInfo(int stage) => stage switch
+    {
+        0 => Stage1 ?? new() { State = LibraryStageState.Pending, Label = "Retail: Pending" },
+        1 => Stage2 ?? new() { State = LibraryStageState.Pending, Label = "Wikidata: Pending" },
+        2 => Stage3 ?? new() { State = LibraryStageState.Pending, Label = "Enrichment: Pending" },
+        _ => new() { State = LibraryStageState.Pending, Label = "" },
+    };
+
+    private string GetStageName(int stage) => stage switch
+    {
+        0 => "Retail",
+        1 => "Wikidata",
+        2 => "Enrichment",
+        _ => ""
+    };
+
+    private string GetStageIcon(int stage) => stage switch
+    {
+        0 => "\U0001F6D2",
+        1 => "\U0001F30D",
+        2 => "\u2728",
+        _ => ""
+    };
+
+    private string GetStateClass(LibraryStageState state) => state switch
+    {
+        LibraryStageState.Completed => "state-completed",
+        LibraryStageState.Running => "state-running",
+        LibraryStageState.Warning => "state-warning",
+        LibraryStageState.Failed => "state-failed",
+        _ => "state-pending",
+    };
+
+    private string GetConnectorClass(int fromStage)
+    {
+        var fromInfo = GetStageInfo(fromStage);
+        return fromInfo.State switch
+        {
+            LibraryStageState.Completed => "state-completed",
+            LibraryStageState.Running => "state-running",
+            LibraryStageState.Warning => "state-warning",
+            LibraryStageState.Failed => "state-failed",
+            _ => "state-pending",
+        };
+    }
+
+    private async Task OnStageSelected(int stage)
+    {
+        SelectedStage = stage;
+        await SelectedStageChanged.InvokeAsync(stage);
+    }
+}
+
+<style>
+    .pipeline-circles {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px 0;
+        gap: 0;
+    }
+
+    .pipeline-circle-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        gap: 6px;
+    }
+
+    .pipeline-circle {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        border: 3px solid rgba(255,255,255,0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        background: rgba(255,255,255,0.04);
+    }
+
+    .pipeline-circle.selected {
+        border-width: 3px;
+        transform: scale(1.1);
+    }
+
+    .pipeline-circle.state-completed { border-color: #5DCAA5; }
+    .pipeline-circle.state-running { border-color: #90CAF9; }
+    .pipeline-circle.state-warning { border-color: #EF9F27; }
+    .pipeline-circle.state-failed { border-color: #A05050; }
+    .pipeline-circle.state-pending { border-color: rgba(255,255,255,0.12); }
+
+    .pipeline-circle.state-completed.selected { background: rgba(93,202,165,0.15); box-shadow: 0 0 20px rgba(93,202,165,0.4); }
+    .pipeline-circle.state-running.selected { background: rgba(144,202,249,0.15); box-shadow: 0 0 20px rgba(144,202,249,0.4); }
+    .pipeline-circle.state-warning.selected { background: rgba(239,159,39,0.15); box-shadow: 0 0 20px rgba(239,159,39,0.4); }
+    .pipeline-circle.state-failed.selected { background: rgba(160,80,80,0.15); box-shadow: 0 0 20px rgba(160,80,80,0.4); }
+    .pipeline-circle.state-pending.selected { background: rgba(255,255,255,0.08); box-shadow: 0 0 20px rgba(255,255,255,0.15); }
+
+    .pipeline-circle.running {
+        animation: circle-pulse 1.4s ease-in-out infinite;
+    }
+
+    @@keyframes circle-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .circle-icon { font-size: 20px; line-height: 1; }
+
+    .circle-label {
+        font-size: 11px;
+        color: rgba(255,255,255,0.5);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    .circle-label.selected {
+        color: rgba(255,255,255,1.0);
+        font-weight: 700;
+    }
+
+    .pipeline-connector {
+        width: 28px;
+        height: 2px;
+        margin-bottom: 22px;
+        background: rgba(255,255,255,0.12);
+        flex-shrink: 0;
+    }
+
+    .pipeline-connector.state-completed { background: #5DCAA5; }
+    .pipeline-connector.state-running { background: #90CAF9; }
+    .pipeline-connector.state-warning { background: #EF9F27; }
+    .pipeline-connector.state-failed { background: #A05050; }
+    .pipeline-connector.state-pending { background: rgba(255,255,255,0.12); }
+</style>
+

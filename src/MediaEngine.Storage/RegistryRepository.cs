@@ -51,7 +51,7 @@ public sealed class RegistryRepository : IRegistryRepository
         }
         else if (!query.IncludeAll)
         {
-            conditions.Add("fd.vault_visibility = 'visible'");
+            conditions.Add("fd.library_visibility = 'visible'");
         }
 
         if (query.MinConfidence.HasValue)
@@ -129,8 +129,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.top_cast,
                 fd.qid_resolution_method,
                 fd.pipeline_step,
-                fd.vault_visibility,
-                fd.is_ready_for_vault,
+                fd.library_visibility,
+                fd.is_ready_for_library,
                 fd.artwork_state,
                 fd.artwork_source,
                 fd.artwork_settled_at
@@ -190,8 +190,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 TopCast = reader.IsDBNull(38) ? null : reader.GetString(38),
                 QidResolutionMethod = reader.IsDBNull(39) ? null : reader.GetString(39),
                 PipelineStep = reader.IsDBNull(40) ? "Retail" : reader.GetString(40),
-                VaultVisibility = reader.IsDBNull(41) ? "hidden" : reader.GetString(41),
-                IsReadyForVault = !reader.IsDBNull(42) && reader.GetInt32(42) == 1,
+                LibraryVisibility = reader.IsDBNull(41) ? "hidden" : reader.GetString(41),
+                IsReadyForLibrary = !reader.IsDBNull(42) && reader.GetInt32(42) == 1,
                 ArtworkState = reader.IsDBNull(43) ? "pending" : reader.GetString(43),
                 ArtworkSource = reader.IsDBNull(44) ? null : reader.GetString(44),
                 ArtworkSettledAt = reader.IsDBNull(45) ? null : ParseDateTimeOffset(reader.GetString(45)),
@@ -235,8 +235,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.candidates_json       AS CandidatesJson,
                 fd.has_user_locks        AS HasUserLocks,
                 fd.pipeline_step         AS PipelineStep,
-                fd.vault_visibility      AS VaultVisibility,
-                fd.is_ready_for_vault    AS IsReadyForVault,
+                fd.library_visibility      AS LibraryVisibility,
+                fd.is_ready_for_library    AS IsReadyForLibrary,
                 fd.artwork_state         AS ArtworkState,
                 fd.artwork_source        AS ArtworkSource,
                 fd.artwork_settled_at    AS ArtworkSettledAt,
@@ -431,8 +431,8 @@ public sealed class RegistryRepository : IRegistryRepository
             ClaimHistory = claims,
             BridgeIds = bridgeIds,
             PipelineStep = projection?.PipelineStep ?? "Retail",
-            VaultVisibility = projection?.VaultVisibility ?? "hidden",
-            IsReadyForVault = projection?.IsReadyForVault ?? false,
+            LibraryVisibility = projection?.LibraryVisibility ?? "hidden",
+            IsReadyForLibrary = projection?.IsReadyForLibrary ?? false,
             ArtworkState = projection?.ArtworkState ?? "pending",
             ArtworkSource = projection?.ArtworkSource,
             ArtworkSettledAt = ParseDateTimeOffset(projection?.ArtworkSettledAt),
@@ -447,14 +447,14 @@ public sealed class RegistryRepository : IRegistryRepository
         var row = conn.QueryFirst<StatusCountsRow>(BuildProjectionSql() + """
             SELECT
                 COUNT(*) AS Total,
-                SUM(CASE WHEN fd.status = 'InReview' OR fd.vault_visibility = 'review_only' THEN 1 ELSE 0 END) AS NeedsReview,
-                SUM(CASE WHEN fd.status IN ('Identified', 'Confirmed', 'RetailMatched', 'QidNoMatch', 'Edited') AND fd.vault_visibility = 'visible' THEN 1 ELSE 0 END) AS AutoApproved,
+                SUM(CASE WHEN fd.status = 'InReview' OR fd.library_visibility = 'review_only' THEN 1 ELSE 0 END) AS NeedsReview,
+                SUM(CASE WHEN fd.status IN ('Identified', 'Confirmed', 'RetailMatched', 'QidNoMatch', 'Edited') AND fd.library_visibility = 'visible' THEN 1 ELSE 0 END) AS AutoApproved,
                 SUM(CASE WHEN fd.status = 'Edited' THEN 1 ELSE 0 END) AS Edited,
                 SUM(CASE WHEN fd.has_duplicate = 1 THEN 1 ELSE 0 END) AS Duplicate,
-                SUM(CASE WHEN fd.vault_visibility = 'hidden' THEN 1 ELSE 0 END) AS Staging,
+                SUM(CASE WHEN fd.library_visibility = 'hidden' THEN 1 ELSE 0 END) AS Staging,
                 SUM(CASE WHEN fd.artwork_state != 'present' THEN 1 ELSE 0 END) AS MissingImages,
                 SUM(CASE WHEN fd.artwork_settled_at >= datetime('now', '-24 hours') THEN 1 ELSE 0 END) AS RecentlyUpdated,
-                SUM(CASE WHEN fd.confidence BETWEEN 0.40 AND 0.85 AND fd.vault_visibility != 'review_only' THEN 1 ELSE 0 END) AS LowConfidence,
+                SUM(CASE WHEN fd.confidence BETWEEN 0.40 AND 0.85 AND fd.library_visibility != 'review_only' THEN 1 ELSE 0 END) AS LowConfidence,
                 SUM(CASE WHEN fd.status = 'Rejected' THEN 1 ELSE 0 END) AS Rejected
             FROM full_data fd;
             """);
@@ -491,11 +491,11 @@ public sealed class RegistryRepository : IRegistryRepository
                            AND fd.wikidata_qid != ''
                            AND fd.wikidata_qid NOT LIKE 'NF%'
                          THEN 1 ELSE 0 END) AS StaleItems,
-                SUM(CASE WHEN fd.vault_visibility = 'hidden' THEN 1 ELSE 0 END) AS HiddenByQualityGate,
+                SUM(CASE WHEN fd.library_visibility = 'hidden' THEN 1 ELSE 0 END) AS HiddenByQualityGate,
                 SUM(CASE WHEN fd.artwork_state = 'pending' THEN 1 ELSE 0 END) AS ArtPending,
-                SUM(CASE WHEN fd.vault_visibility = 'review_only' AND fd.pipeline_step = 'Retail' THEN 1 ELSE 0 END) AS RetailNeedsReview,
+                SUM(CASE WHEN fd.library_visibility = 'review_only' AND fd.pipeline_step = 'Retail' THEN 1 ELSE 0 END) AS RetailNeedsReview,
                 SUM(CASE WHEN fd.status = 'QidNoMatch' THEN 1 ELSE 0 END) AS QidNoMatch,
-                SUM(CASE WHEN fd.vault_visibility = 'visible' AND fd.artwork_state = 'present' THEN 1 ELSE 0 END) AS CompletedWithArt
+                SUM(CASE WHEN fd.library_visibility = 'visible' AND fd.artwork_state = 'present' THEN 1 ELSE 0 END) AS CompletedWithArt
             FROM full_data fd;
             """, new { staleThreshold });
 
@@ -624,7 +624,7 @@ public sealed class RegistryRepository : IRegistryRepository
             FROM full_data fd
             WHERE fd.media_type IS NOT NULL AND fd.media_type != ''
               AND fd.status NOT IN ('Rejected', 'Provisional', 'InReview')
-              AND fd.vault_visibility = 'visible'
+              AND fd.library_visibility = 'visible'
             GROUP BY fd.media_type;
             """);
         return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));
@@ -1047,7 +1047,7 @@ public sealed class RegistryRepository : IRegistryRepository
                                  OR (rd.artwork_state = 'missing' AND rd.artwork_settled_at IS NOT NULL)
                              )
                             THEN 1 ELSE 0
-                    END AS is_ready_for_vault,
+                    END AS is_ready_for_library,
                     CASE
                         WHEN rd.curator_state IN ('rejected', 'provisional')
                              OR (rd.review_id IS NOT NULL AND rd.review_trigger != 'WritebackFailed')
@@ -1061,7 +1061,7 @@ public sealed class RegistryRepository : IRegistryRepository
                              )
                             THEN 'visible'
                         ELSE 'hidden'
-                    END AS vault_visibility,
+                    END AS library_visibility,
                     CASE
                         WHEN rd.curator_state = 'rejected' THEN 'Rejected'
                         WHEN rd.review_id IS NOT NULL AND rd.review_trigger != 'WritebackFailed' THEN 'InReview'
@@ -1193,8 +1193,8 @@ public sealed class RegistryRepository : IRegistryRepository
         public string? CandidatesJson { get; set; }
         public bool HasUserLocks { get; set; }
         public string PipelineStep { get; set; } = "Retail";
-        public string VaultVisibility { get; set; } = "hidden";
-        public bool IsReadyForVault { get; set; }
+        public string LibraryVisibility { get; set; } = "hidden";
+        public bool IsReadyForLibrary { get; set; }
         public string ArtworkState { get; set; } = "pending";
         public string? ArtworkSource { get; set; }
         public string? ArtworkSettledAt { get; set; }

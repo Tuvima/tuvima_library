@@ -1,0 +1,421 @@
+@namespace MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@inject IJSRuntime JS
+
+@if (_initialized)
+{
+    <div class="vcp-overlay" @onclick="OnClose">
+        <div class="vcp-panel" @onclick:stopPropagation="true">
+
+            @* ── Header ── *@
+            <div class="vcp-header">
+                <span>Columns</span>
+                <button class="vcp-close-btn" @onclick="OnClose" aria-label="Close">✕</button>
+            </div>
+
+            @* ── Column list ── *@
+            <div class="vcp-list">
+                @for (var i = 0; i < _orderedKeys.Count; i++)
+                {
+                    var index = i;
+                    var key = _orderedKeys[index];
+                    var col = _columnMap.GetValueOrDefault(key);
+                    if (col is null) continue;
+
+                    var isVisible = _visibleSet.Contains(key);
+                    var isDragging = _dragIndex == index;
+                    var isDragOver = _dragOverIndex == index;
+
+                    <div class="vcp-row @(isDragging ? "vcp-row--dragging" : "") @(isDragOver ? "vcp-row--dragover" : "")"
+                         draggable="true"
+                         @ondragstart="() => OnDragStart(index)"
+                         @ondragend="OnDragEnd"
+                         @ondragover:preventDefault="true"
+                         @ondragover="() => OnDragOver(index)"
+                         @ondrop:preventDefault="true"
+                         @ondrop="() => OnDrop(index)">
+
+                        @* Drag handle *@
+                        <span class="vcp-drag-handle" title="Drag to reorder">
+                            <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Style="font-size: 16px;" />
+                        </span>
+
+                        @* Label *@
+                        <span class="vcp-label">@col.Label</span>
+
+                        @* Toggle *@
+                        <input type="checkbox"
+                               class="vcp-toggle"
+                               checked="@isVisible"
+                               @onchange="() => ToggleColumn(key)" />
+                    </div>
+                }
+            </div>
+
+            @* ── Footer ── *@
+            <div class="vcp-footer">
+                <button class="vcp-reset-btn" @onclick="ResetDefaults">Reset to Defaults</button>
+            </div>
+
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public List<LibraryColumnDef> AllColumns { get; set; } = [];
+    [Parameter] public List<string> VisibleKeys { get; set; } = [];
+    [Parameter] public EventCallback<List<string>> VisibleKeysChanged { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string ViewKey { get; set; } = "all";
+
+    // Internal state
+    private List<string> _orderedKeys = [];
+    private HashSet<string> _visibleSet = [];
+    private Dictionary<string, LibraryColumnDef> _columnMap = [];
+    private bool _initialized;
+
+    private int? _dragIndex;
+    private int? _dragOverIndex;
+
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        await base.SetParametersAsync(parameters);
+
+        if (!_initialized && AllColumns.Count > 0)
+        {
+            // Build map for quick lookup (exclude checkbox — always visible, not shown)
+            _columnMap = AllColumns
+                .Where(c => c.Key != "checkbox")
+                .ToDictionary(c => c.Key, c => c);
+
+            // Initialize order from AllColumns definition
+            _orderedKeys = _columnMap.Keys.ToList();
+
+            // Initialize visible set from VisibleKeys parameter (excluding checkbox)
+            _visibleSet = VisibleKeys
+                .Where(k => k != "checkbox" && _columnMap.ContainsKey(k))
+                .ToHashSet();
+
+            // If nothing visible yet, fall back to defaults
+            if (_visibleSet.Count == 0)
+            {
+                _visibleSet = _columnMap.Values
+                    .Where(c => c.DefaultVisible)
+                    .Select(c => c.Key)
+                    .ToHashSet();
+            }
+
+            _initialized = true;
+        }
+    }
+
+    // ── localStorage persistence ─────────────────────────────────────────────
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var stored = await JS.InvokeAsync<string?>("localStorage.getItem", $"vault-columns-{ViewKey}");
+            if (!string.IsNullOrEmpty(stored))
+            {
+                try
+                {
+                    var keys = System.Text.Json.JsonSerializer.Deserialize<List<string>>(stored);
+                    if (keys is { Count: > 0 })
+                    {
+                        // Restore order from stored keys (excluding checkbox, restricted to known columns)
+                        var knownKeys = new HashSet<string>(_columnMap.Keys);
+                        var restoredOrder = keys
+                            .Where(k => k != "checkbox" && knownKeys.Contains(k))
+                            .ToList();
+                        // Append any new columns not in stored list (at the end)
+                        foreach (var k in _columnMap.Keys)
+                            if (!restoredOrder.Contains(k))
+                                restoredOrder.Add(k);
+                        _orderedKeys = restoredOrder;
+
+                        _visibleSet = keys
+                            .Where(k => k != "checkbox" && knownKeys.Contains(k))
+                            .ToHashSet();
+
+                        await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
+                        StateHasChanged();
+                    }
+                }
+                catch { /* ignore corrupt localStorage */ }
+            }
+        }
+    }
+
+    private async Task SaveToLocalStorage()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(GetVisibleKeys());
+        await JS.InvokeVoidAsync("localStorage.setItem", $"vault-columns-{ViewKey}", json);
+    }
+
+    // ── Drag & Drop ──────────────────────────────────────────────────────────
+
+    private void OnDragStart(int index)
+    {
+        _dragIndex = index;
+        _dragOverIndex = null;
+    }
+
+    private void OnDragOver(int index)
+    {
+        _dragOverIndex = index;
+    }
+
+    private void OnDragEnd()
+    {
+        _dragIndex = null;
+        _dragOverIndex = null;
+    }
+
+    private async Task OnDrop(int index)
+    {
+        if (_dragIndex is null || _dragIndex == index)
+        {
+            _dragIndex = null;
+            _dragOverIndex = null;
+            return;
+        }
+
+        var item = _orderedKeys[_dragIndex.Value];
+        _orderedKeys.RemoveAt(_dragIndex.Value);
+        _orderedKeys.Insert(index, item);
+
+        _dragIndex = null;
+        _dragOverIndex = null;
+
+        await SaveToLocalStorage();
+        await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
+    }
+
+    // ── Toggle ───────────────────────────────────────────────────────────────
+
+    private async Task ToggleColumn(string key)
+    {
+        if (_visibleSet.Contains(key))
+            _visibleSet.Remove(key);
+        else
+            _visibleSet.Add(key);
+
+        await SaveToLocalStorage();
+        await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
+    }
+
+    // ── Reset ────────────────────────────────────────────────────────────────
+
+    private async Task ResetDefaults()
+    {
+        // Restore original order from AllColumns
+        _orderedKeys = _columnMap.Keys.ToList();
+
+        // Restore default visibility
+        _visibleSet = _columnMap.Values
+            .Where(c => c.DefaultVisible)
+            .Select(c => c.Key)
+            .ToHashSet();
+
+        await JS.InvokeVoidAsync("localStorage.removeItem", $"vault-columns-{ViewKey}");
+        await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    /// <summary>Returns the current visible key list in ordered sequence, prepending "checkbox".</summary>
+    private List<string> GetVisibleKeys()
+    {
+        var result = new List<string> { "checkbox" };
+        result.AddRange(_orderedKeys.Where(k => _visibleSet.Contains(k)));
+        return result;
+    }
+}
+
+<style>
+    /* ── Overlay ── */
+    .vcp-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 1300;
+    }
+
+    /* ── Panel ── */
+    .vcp-panel {
+        position: absolute;
+        right: 0;
+        top: 64px;
+        bottom: 0;
+        width: min(280px, 85vw);
+        background: #14181d;
+        border-left: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        flex-direction: column;
+        animation: vcp-slide-in 0.2s ease;
+        overflow: hidden;
+    }
+
+    @@keyframes vcp-slide-in {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    /* ── Header ── */
+    .vcp-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 14px;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+        flex-shrink: 0;
+    }
+
+    .vcp-close-btn {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.35);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 4px;
+        line-height: 1;
+        transition: color 0.15s, background 0.15s;
+    }
+
+    .vcp-close-btn:hover {
+        color: rgba(255, 255, 255, 0.8);
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    /* ── List ── */
+    .vcp-list {
+        flex: 1;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+    }
+
+    .vcp-list::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .vcp-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .vcp-list::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 2px;
+    }
+
+    /* ── Row ── */
+    .vcp-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        user-select: none;
+        transition: background 0.1s;
+    }
+
+    .vcp-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .vcp-row--dragging {
+        background: rgba(96, 165, 250, 0.1);
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        opacity: 0.7;
+    }
+
+    .vcp-row--dragover {
+        background: rgba(96, 165, 250, 0.08);
+        border-bottom: 1px solid rgba(96, 165, 250, 0.4);
+    }
+
+    /* ── Drag handle ── */
+    .vcp-drag-handle {
+        display: flex;
+        align-items: center;
+        color: rgba(255, 255, 255, 0.25);
+        cursor: grab;
+        flex-shrink: 0;
+        transition: color 0.15s;
+    }
+
+    .vcp-row:hover .vcp-drag-handle {
+        color: rgba(255, 255, 255, 0.45);
+    }
+
+    .vcp-drag-handle:active {
+        cursor: grabbing;
+    }
+
+    /* ── Label ── */
+    .vcp-label {
+        flex: 1;
+        font-size: 12px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.6);
+        letter-spacing: 0.01em;
+    }
+
+    /* ── Toggle ── */
+    .vcp-toggle {
+        flex-shrink: 0;
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+        accent-color: #60A5FA;
+    }
+
+    /* ── Footer ── */
+    .vcp-footer {
+        padding: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        flex-shrink: 0;
+    }
+
+    .vcp-reset-btn {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.35);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        cursor: pointer;
+        padding: 6px 0;
+        transition: color 0.15s;
+    }
+
+    .vcp-reset-btn:hover {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    /* ── Mobile ── */
+    @@media (max-width: 768px) {
+        .vcp-panel {
+            top: 0;
+            width: 100%;
+            max-width: 320px;
+        }
+
+        .vcp-row {
+            padding: 10px 12px;
+        }
+    }
+</style>
+

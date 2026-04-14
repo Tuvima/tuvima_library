@@ -48,7 +48,7 @@ public static class IntegrationTestEndpoints
         public List<MediaTypeResult> MediaTypeResults { get; set; } = [];
         public List<ManualSearchResult> ManualSearchResults { get; set; } = [];
         public List<UniverseResult> UniverseResults { get; set; } = [];
-        public List<VaultCheckResult> VaultChecks { get; set; } = [];
+        public List<LibraryCheckResult> LibraryChecks { get; set; } = [];
         public List<FileSystemCheckResult> FileSystemChecks { get; set; } = [];
         public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
@@ -70,8 +70,8 @@ public static class IntegrationTestEndpoints
         public ReconciliationReport? ReconciliationReport { get; set; }
     }
 
-    /// <summary>Per-item Vault display validation result.</summary>
-    private sealed class VaultCheckResult
+    /// <summary>Per-item library display validation result.</summary>
+    private sealed class LibraryCheckResult
     {
         public string Title { get; set; } = "";
         public string MediaType { get; set; } = "";
@@ -942,7 +942,7 @@ public static class IntegrationTestEndpoints
                 ? null
                 : ResolveRetailProvider(detail, providerNamesById);
 
-            var check = new VaultCheckResult
+            var check = new LibraryCheckResult
             {
                 Title          = item.Title,
                 MediaType      = item.MediaType,
@@ -964,27 +964,27 @@ public static class IntegrationTestEndpoints
                     || !string.Equals(item.RetailMatch, "matched", StringComparison.OrdinalIgnoreCase)
                     || string.Equals(expectedProvider, actualProvider, StringComparison.OrdinalIgnoreCase),
             };
-            report.VaultChecks.Add(check);
+            report.LibraryChecks.Add(check);
 
             if (!check.HasTitle)
-                report.IssuesFound.Add($"Vault: '{item.FileName}' has no title");
+                report.IssuesFound.Add($"Library: '{item.FileName}' has no title");
             if (creatorRequired && !check.HasCreator)
-                report.IssuesFound.Add($"Vault: '{item.Title}' has no creator (author/director/artist)");
+                report.IssuesFound.Add($"Library: '{item.Title}' has no creator (author/director/artist)");
             if (!check.HasStatus)
-                report.IssuesFound.Add($"Vault: '{item.Title}' has invalid or empty status: '{item.Status}'");
+                report.IssuesFound.Add($"Library: '{item.Title}' has invalid or empty status: '{item.Status}'");
             if (!check.HasRetailMatch)
-                logger.LogWarning("  Vault: '{Title}' missing retail match", item.Title);
+                logger.LogWarning("  Library: '{Title}' missing retail match", item.Title);
             if (check.RequiresRetailProvider && !check.HasExpectedRetailProvider)
-                report.IssuesFound.Add($"Vault: '{item.Title}' retail provider '{actualProvider ?? "unknown"}' did not match expected '{expectedProvider}'");
+                report.IssuesFound.Add($"Library: '{item.Title}' retail provider '{actualProvider ?? "unknown"}' did not match expected '{expectedProvider}'");
             if (!check.HasCoverArt)
-                logger.LogWarning("  Vault: '{Title}' missing cover art", item.Title);
+                logger.LogWarning("  Library: '{Title}' missing cover art", item.Title);
             if (stages >= 12 && !check.HasWikidataQid)
-                logger.LogWarning("  Vault: '{Title}' missing Wikidata QID (Stage 2 expected)", item.Title);
+                logger.LogWarning("  Library: '{Title}' missing Wikidata QID (Stage 2 expected)", item.Title);
         }
 
-        int passCount = report.VaultChecks.Count(v => v.Pass);
-        logger.LogInformation("  Vault checks: {Pass}/{Total} items pass core validation",
-            passCount, report.VaultChecks.Count);
+        int passCount = report.LibraryChecks.Count(v => v.Pass);
+        logger.LogInformation("  Library checks: {Pass}/{Total} items pass core validation",
+            passCount, report.LibraryChecks.Count);
 
         // ── Child entity validation (TV episodes, Music tracks) ──────────
         foreach (var item in allItems.Items)
@@ -1482,7 +1482,7 @@ public static class IntegrationTestEndpoints
         // Keyed by "title_lower|media_type_lower" → HasCoverArt flag. Used below
         // to enforce per-seed ExpectedCoverArt assertions.
         var coverArtByKey = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        foreach (var check in report.VaultChecks)
+        foreach (var check in report.LibraryChecks)
         {
             string k = $"{check.Title.ToLowerInvariant()}|{check.MediaType.ToLowerInvariant()}";
             // Prefer the "has cover art" result if any duplicate key already exists —
@@ -1492,7 +1492,7 @@ public static class IntegrationTestEndpoints
         }
 
         var retailProviderByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-        foreach (var check in report.VaultChecks)
+        foreach (var check in report.LibraryChecks)
         {
             string k = $"{check.Title.ToLowerInvariant()}|{check.MediaType.ToLowerInvariant()}";
             if (!retailProviderByKey.ContainsKey(k) || !string.IsNullOrWhiteSpace(check.ActualRetailProvider))
@@ -1777,7 +1777,7 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.TotalNeedsReview.ToString(), "Needs Review", "#EF9F27");
         SummaryCard(sb, report.TotalFailed.ToString(), "Failed", "#E24B4A");
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
-        SummaryCard(sb, report.VaultChecks.Count(v => v.Pass).ToString() + "/" + report.VaultChecks.Count, "Vault Checks", "#22D3EE");
+        SummaryCard(sb, report.LibraryChecks.Count(v => v.Pass).ToString() + "/" + report.LibraryChecks.Count, "Library Checks", "#22D3EE");
         SummaryCard(sb, report.FileSystemChecks.Count(f => f.Pass).ToString() + "/" + report.FileSystemChecks.Count, "Filesystem", "#38BDF8");
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
         if (report.Reconciliation is not null)
@@ -1893,17 +1893,17 @@ public static class IntegrationTestEndpoints
         }
         sb.AppendLine("</table>");
 
-        // Vault Display Validation
-        if (report.VaultChecks.Count > 0)
+        // Library Display Validation
+        if (report.LibraryChecks.Count > 0)
         {
-            int vaultPass = report.VaultChecks.Count(v => v.Pass);
-            string vaultBadge = vaultPass == report.VaultChecks.Count
+            int vaultPass = report.LibraryChecks.Count(v => v.Pass);
+            string vaultBadge = vaultPass == report.LibraryChecks.Count
                 ? "<span class=\"badge badge-pass\">ALL PASS</span>"
-                : $"<span class=\"badge badge-warn\">{report.VaultChecks.Count - vaultPass} ISSUES</span>";
-            sb.AppendLine($"<h2>Vault Display Validation {vaultBadge}</h2>");
+                : $"<span class=\"badge badge-warn\">{report.LibraryChecks.Count - vaultPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Library Display Validation {vaultBadge}</h2>");
             sb.AppendLine("<table>");
             sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Cover Art</th><th>Title</th><th>Creator</th><th>Status</th><th>Retail Match</th><th>Retail Provider</th><th>QID</th></tr>");
-            foreach (var v in report.VaultChecks.OrderBy(v => v.MediaType).ThenBy(v => v.Title))
+            foreach (var v in report.LibraryChecks.OrderBy(v => v.MediaType).ThenBy(v => v.Title))
             {
                 string Check(bool ok) => ok ? "<span style=\"color:#5DCAA5\">&#x2713;</span>" : "<span style=\"color:#E24B4A\">&#x2717;</span>";
                 sb.AppendLine($"<tr><td>{Esc(v.Title)}</td><td>{Esc(v.MediaType)}</td>" +
