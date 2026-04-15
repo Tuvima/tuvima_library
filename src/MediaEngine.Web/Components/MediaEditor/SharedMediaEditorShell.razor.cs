@@ -13,10 +13,21 @@ public partial class SharedMediaEditorShell
     private static readonly (string Id, string Label)[] TabDefinitions =
     [
         ("details", "Details"),
+        ("universe", "Universe"),
         ("artwork", "Artwork"),
         ("options", "Options"),
         ("sorting", "Sorting"),
         ("file", "File"),
+    ];
+
+    private static readonly string[] ReclassifyMediaTypes =
+    [
+        "Books",
+        "Audiobooks",
+        "Movies",
+        "TV",
+        "Music",
+        "Comics",
     ];
 
     private static readonly ArtworkSlotDefinition[] ArtworkSlotDefinitions =
@@ -50,8 +61,10 @@ public partial class SharedMediaEditorShell
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
     private string? _selectedCandidateId;
+    private string _selectedMediaType = "Books";
     private bool _loading = true;
     private bool _saving;
+    private bool _reclassifying;
     private bool _searchingCanonical;
     private bool _confirmDiscard;
     private string? _dragTargetArtworkType;
@@ -115,6 +128,7 @@ public partial class SharedMediaEditorShell
             _history = historyTask.Result;
             _entityAssets = assetsTask.Result;
             _schema = MediaEditorSchemaCatalog.Resolve(_detail?.MediaType ?? Request.MediaType);
+            _selectedMediaType = _detail?.MediaType ?? Request.MediaType ?? "Books";
             _pendingArtworkFiles.Clear();
             _pendingArtworkPreviewUrls.Clear();
             _dragTargetArtworkType = null;
@@ -149,7 +163,10 @@ public partial class SharedMediaEditorShell
         return Task.CompletedTask;
     }
 
-    protected bool IsTabDisabled(string tabId) => IsBatchMode && tabId is "artwork" or "file";
+    protected bool IsTabDisabled(string tabId) => IsBatchMode && tabId is "universe" or "artwork" or "file";
+
+    protected bool CanReclassifyMediaType =>
+        IsSingleItem && (Request.Mode == SharedMediaEditorMode.Review || !string.IsNullOrWhiteSpace(_detail?.MediaType));
 
     protected IEnumerable<MediaEditorFieldGroup> GetGroupsForTab(string tabId)
     {
@@ -324,6 +341,37 @@ public partial class SharedMediaEditorShell
     }
 
     protected void DiscardAndClose() => MudDialog.Cancel();
+
+    protected async Task ReclassifyMediaTypeAsync()
+    {
+        if (!CanReclassifyMediaType || string.IsNullOrWhiteSpace(_selectedMediaType))
+            return;
+
+        _reclassifying = true;
+        StateHasChanged();
+
+        try
+        {
+            var ok = await Orchestrator.ReclassifyMediaTypeAsync(CurrentEntityId, _selectedMediaType);
+            if (!ok)
+            {
+                Snackbar.Add("Media type change failed.", Severity.Error);
+                return;
+            }
+
+            _canonicalSearchResponse = null;
+            _editedValues.Clear();
+            _selectedSuggestedFieldKeys.Clear();
+            _selectedCandidateId = null;
+            await LoadSingleItemAsync();
+            Snackbar.Add($"Media type updated to {_selectedMediaType}.", Severity.Success);
+        }
+        finally
+        {
+            _reclassifying = false;
+            StateHasChanged();
+        }
+    }
 
     protected async Task HandleArtworkSelectedAsync(string assetType, InputFileChangeEventArgs args)
     {
@@ -803,4 +851,14 @@ public partial class SharedMediaEditorShell
         string ImageClass,
         bool UploadEnabled,
         string UploadHelp);
+
+    protected string? GetUniverseExploreUrl() =>
+        !string.IsNullOrWhiteSpace(_detail?.UniverseSummary?.UniverseQid)
+            ? $"/universe/{_detail.UniverseSummary.UniverseQid}/explore"
+            : null;
+
+    protected string FormatUniverseStatus(string? status) =>
+        string.IsNullOrWhiteSpace(status)
+            ? "Pending"
+            : status.Replace("_", " ");
 }

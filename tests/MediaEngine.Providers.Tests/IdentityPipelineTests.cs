@@ -145,6 +145,9 @@ public sealed class IdentityPipelineTests
         Assert.Contains(IdentityJobState.QidNeedsReview, states);
         Assert.Contains(IdentityJobState.QidNoMatch, states);
         Assert.Contains(IdentityJobState.Hydrating, states);
+        Assert.Contains(IdentityJobState.UniverseEnriching, states);
+        Assert.Contains(IdentityJobState.Ready, states);
+        Assert.Contains(IdentityJobState.ReadyWithoutUniverse, states);
         Assert.Contains(IdentityJobState.Completed, states);
         Assert.Contains(IdentityJobState.Failed, states);
     }

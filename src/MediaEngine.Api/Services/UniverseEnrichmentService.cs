@@ -2,35 +2,36 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Providers.Adapters;
+using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
 
 /// <summary>
-/// Stage 3: Universe Enrichment background service.
+/// Stage 3 universe enrichment coordinator.
 ///
-/// Runs on a cron schedule (default: 3 AM daily) to enrich works that have
-/// confirmed Wikidata QIDs with fictional entity data, relationship graph
-/// edges, and images.  Absorbs the work previously done inline by Pass 2
-/// in HydrationPipelineService.
+/// Handles two modes:
+/// 1. Inline, coalesced batches queued immediately after quick hydration.
+/// 2. Maintenance sweeps for missed or stale items.
 ///
-/// Per-work pipeline:
-///   1. Fictional entity discovery (IRecursiveFictionalEntityService)
-///   2. Entity property fetch (ReconciliationAdapter.LookupFictionalEntityAsync)
-///   3. Relationship population (IRelationshipPopulationService)
-///   4. Image enrichment (IImageEnrichmentService)
-///   5. Narrative root resolution (INarrativeRootResolver)
-///   6. Lore Delta: stale entity refresh via Wikidata revision checks
+/// File-level completion is gated by the core Stage 3 work only. Enhancers run
+/// after that and do not hold the primary batch queue open.
 /// </summary>
-public sealed class UniverseEnrichmentService : BackgroundService
+public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnrichmentScheduler
 {
+    private static readonly TimeSpan InlineSilenceWindow = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan LoopInterval = TimeSpan.FromSeconds(5);
+    private const int InlineBatchMaxWorks = 50;
+
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<UniverseEnrichmentService> _logger;
-
-    /// <summary>Set by <see cref="TriggerManualSweep"/> to skip the next cron wait.</summary>
     private readonly ManualResetEventSlim _manualTrigger = new(initialState: false);
+    private readonly Dictionary<string, InlineUniverseBatch> _inlineBatches = new(StringComparer.OrdinalIgnoreCase);
+    private readonly object _inlineLock = new();
+
+    private DateTimeOffset _maintenanceReadyAtUtc = DateTimeOffset.UtcNow.AddMinutes(5);
+    private DateTimeOffset _nextMaintenanceRunUtc = DateTimeOffset.UtcNow.AddMinutes(5);
 
     public UniverseEnrichmentService(
         IServiceScopeFactory scopeFactory,
@@ -40,545 +41,485 @@ public sealed class UniverseEnrichmentService : BackgroundService
         ArgumentNullException.ThrowIfNull(logger);
 
         _scopeFactory = scopeFactory;
-        _logger       = logger;
+        _logger = logger;
+    }
+
+    public ValueTask QueueInlineAsync(UniverseEnrichmentRequest request, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        lock (_inlineLock)
+        {
+            if (!_inlineBatches.TryGetValue(request.BatchKey, out var batch))
+            {
+                batch = new InlineUniverseBatch(request.BatchKey);
+                _inlineBatches[request.BatchKey] = batch;
+            }
+
+            batch.Upsert(request);
+        }
+
+        _logger.LogInformation(
+            "[UNIVERSE-ENRICH] Queued inline Stage 3 item {EntityId} ({Title}) in batch {BatchKey}",
+            request.EntityId,
+            request.WorkTitle ?? request.WorkQid,
+            request.BatchKey);
+
+        return ValueTask.CompletedTask;
     }
 
     /// <summary>
-    /// Signals the background loop to start a sweep immediately rather than
-    /// waiting for the next cron slot. Used by the manual trigger API endpoint.
+    /// Signals the background loop to start a maintenance sweep immediately rather than
+    /// waiting for the next scheduled slot.
     /// </summary>
     public void TriggerManualSweep()
     {
-        _logger.LogInformation("[UNIVERSE-ENRICH] Manual sweep triggered");
+        _logger.LogInformation("[UNIVERSE-ENRICH] Manual maintenance sweep triggered");
         _manualTrigger.Set();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Initial delay — let ingestion, hydration, and AI services settle.
-        await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+        ReloadMaintenanceSchedule();
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await ProcessSweepAsync(stoppingToken);
-            }
-            catch (OperationCanceledException) { break; }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "[UNIVERSE-ENRICH] Sweep failed");
-            }
+                await ProcessDueInlineBatchesAsync(stoppingToken).ConfigureAwait(false);
 
-            // Reset manual trigger before computing next scheduled delay.
-            _manualTrigger.Reset();
-
-            // Reload config each iteration so schedule changes take effect.
-            string cron;
-            try
-            {
-                using var configScope = _scopeFactory.CreateScope();
-                var configLoader = configScope.ServiceProvider.GetRequiredService<IConfigurationLoader>();
-                var maintenance = configLoader.LoadMaintenance();
-                cron = maintenance.Schedules.TryGetValue("universe_enrichment", out var s) ? s : "0 3 * * *";
-            }
-            catch
-            {
-                cron = "0 3 * * *";
-            }
-
-            if (string.IsNullOrWhiteSpace(cron)) cron = "0 3 * * *";
-
-            var delay = CronScheduler.UntilNext(cron, TimeSpan.FromHours(24));
-            _logger.LogInformation("[UNIVERSE-ENRICH] Next sweep in {Delay}", delay);
-
-            // Wait for either the cron delay or a manual trigger, whichever comes first.
-            try
-            {
-                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-                cts.CancelAfter(delay);
-                await Task.Run(() => _manualTrigger.Wait(cts.Token), stoppingToken);
+                if (ShouldRunMaintenanceSweep())
+                {
+                    await ProcessMaintenanceSweepAsync(stoppingToken).ConfigureAwait(false);
+                    _manualTrigger.Reset();
+                    ReloadMaintenanceSchedule();
+                }
             }
             catch (OperationCanceledException)
             {
-                if (stoppingToken.IsCancellationRequested) break;
-                // Cron delay elapsed normally — continue to next sweep.
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[UNIVERSE-ENRICH] Background loop failed");
+            }
+
+            try
+            {
+                await Task.Delay(LoopInterval, stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
             }
         }
     }
 
-    private async Task ProcessSweepAsync(CancellationToken ct)
+    private async Task ProcessDueInlineBatchesAsync(CancellationToken ct)
+    {
+        List<InlineUniverseBatch> dueBatches;
+        lock (_inlineLock)
+        {
+            var now = DateTimeOffset.UtcNow;
+            dueBatches = _inlineBatches.Values
+                .Where(batch => batch.IsDue(now))
+                .OrderBy(batch => batch.FirstQueuedAtUtc)
+                .ToList();
+
+            foreach (var due in dueBatches)
+                _inlineBatches.Remove(due.BatchKey);
+        }
+
+        foreach (var batch in dueBatches)
+        {
+            ct.ThrowIfCancellationRequested();
+            await ProcessInlineBatchAsync(batch, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ProcessInlineBatchAsync(InlineUniverseBatch batch, CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
-        var configLoader = scope.ServiceProvider.GetRequiredService<IConfigurationLoader>();
-        var config = configLoader.LoadHydration();
+        var services = ResolveServices(scope.ServiceProvider);
+        var config = services.ConfigurationLoader.LoadHydration();
 
         if (!config.Stage3Enabled)
         {
-            _logger.LogDebug("[UNIVERSE-ENRICH] Stage 3 disabled — skipping sweep");
+            _logger.LogInformation("[UNIVERSE-ENRICH] Stage 3 disabled; completing inline batch {BatchKey} without core work", batch.BatchKey);
+
+            foreach (var request in batch.Requests)
+            {
+                await CompleteInlineJobAsync(
+                    request,
+                    hasUniversePath: false,
+                    services.JobRepository,
+                    services.BatchProgress,
+                    ct).ConfigureAwait(false);
+            }
+
             return;
         }
-
-        var canonicalRepo  = scope.ServiceProvider.GetRequiredService<ICanonicalValueRepository>();
-        var entityRepo     = scope.ServiceProvider.GetRequiredService<IFictionalEntityRepository>();
-        var entityService  = scope.ServiceProvider.GetRequiredService<IRecursiveFictionalEntityService>();
-        var relationshipSvc = scope.ServiceProvider.GetRequiredService<IRelationshipPopulationService>();
-        var narrativeRoot  = scope.ServiceProvider.GetRequiredService<INarrativeRootResolver>();
-        var imageService   = scope.ServiceProvider.GetRequiredService<IImageEnrichmentService>();
-        var reconAdapter   = scope.ServiceProvider.GetService<ReconciliationAdapter>();
-        var collectionRepo        = scope.ServiceProvider.GetService<ICollectionRepository>();
-
-        var maxItems    = config.Stage3MaxItemsPerSweep > 0 ? config.Stage3MaxItemsPerSweep : 50;
-        var refreshDays = config.Stage3RefreshDays > 0 ? config.Stage3RefreshDays : 30;
-        var maxDepth    = config.Stage3MaxDepth > 0 ? config.Stage3MaxDepth : 2;
-        var rateLimitMs = config.Stage3RateLimitMs > 0 ? config.Stage3RateLimitMs : 3000;
 
         _logger.LogInformation(
-            "[UNIVERSE-ENRICH] Starting Stage 3 sweep (max {Max} items, refresh {Days}d, depth {Depth})",
-            maxItems, refreshDays, maxDepth);
+            "[UNIVERSE-ENRICH] Processing inline batch {BatchKey} with {Count} item(s)",
+            batch.BatchKey,
+            batch.Requests.Count);
 
-        // Find works with confirmed Wikidata QIDs.
-        // Strategy: get entities that have a "wikidata_qid" canonical value (confirmed identity).
-        // We check their fictional entities' enriched_at to decide eligibility.
-        var entitiesWithQid = await canonicalRepo.GetEntitiesNeedingEnrichmentAsync(
-            hasField:    "wikidata_qid",
-            missingField: "__stage3_universe_enriched__",   // Synthetic: no entity has this field yet
-            limit:       maxItems * 2,                       // Over-fetch to allow filtering
-            ct:          ct).ConfigureAwait(false);
-
-        if (entitiesWithQid.Count == 0)
+        for (var index = 0; index < batch.Requests.Count; index++)
         {
-            _logger.LogDebug("[UNIVERSE-ENRICH] No entities with confirmed QIDs found");
+            var request = batch.Requests[index];
+            await ProcessResolvedEntityAsync(
+                request,
+                Stage3Source.Inline,
+                index + 1,
+                batch.Requests.Count,
+                services,
+                ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ProcessMaintenanceSweepAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var services = ResolveServices(scope.ServiceProvider);
+        var config = services.ConfigurationLoader.LoadHydration();
+
+        if (!config.Stage3Enabled)
+        {
+            _logger.LogDebug("[UNIVERSE-ENRICH] Stage 3 disabled; skipping maintenance sweep");
             return;
         }
 
-        int processed = 0;
-        int skipped = 0;
+        var maxItems = config.Stage3MaxItemsPerSweep > 0 ? config.Stage3MaxItemsPerSweep : 50;
+        var refreshDays = config.Stage3RefreshDays > 0 ? config.Stage3RefreshDays : 30;
         var staleThreshold = DateTimeOffset.UtcNow.AddDays(-refreshDays);
 
-        // ── Collection-level expansion for TV and Music ──────────────────────────────────
-        // For TV episodes and music tracks, group refresh at the collection (show/album) level.
-        // When any work in a collection is stale, all siblings in that collection are included in
-        // the batch so the entire show or album refreshes together.
-        var expandedEntityList = new List<Guid>(entitiesWithQid);
-        if (collectionRepo is not null)
+        var candidateIds = await services.CanonicalRepository.GetEntitiesNeedingEnrichmentAsync(
+            hasField: "wikidata_qid",
+            missingField: "__stage3_maintenance_cursor__",
+            limit: Math.Max(maxItems * 8, 200),
+            ct: ct).ConfigureAwait(false);
+
+        var requests = new List<UniverseEnrichmentRequest>(maxItems);
+        foreach (var entityId in candidateIds)
         {
-            var collectionsAlreadyExpanded = new HashSet<Guid>();
+            ct.ThrowIfCancellationRequested();
+            if (requests.Count >= maxItems)
+                break;
 
-            foreach (var entityId in entitiesWithQid)
+            var canonicals = await services.CanonicalRepository.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+            var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+
+            if (!lookup.TryGetValue("wikidata_qid", out var workQid) || string.IsNullOrWhiteSpace(workQid))
+                continue;
+
+            if (lookup.TryGetValue("stage3_enriched_at", out var stage3EnrichedAt)
+                && DateTimeOffset.TryParse(stage3EnrichedAt, out var enrichedAt)
+                && enrichedAt > staleThreshold)
             {
-                if (ct.IsCancellationRequested) break;
-
-                try
-                {
-                    var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct)
-                        .ConfigureAwait(false);
-
-                    var mediaTypeRaw = canonicals
-                        .FirstOrDefault(c => string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase))
-                        ?.Value;
-
-                    if (!Enum.TryParse<MediaType>(mediaTypeRaw, ignoreCase: true, out var mediaType))
-                        continue;
-
-                    if (mediaType != MediaType.TV && mediaType != MediaType.Music)
-                        continue;
-
-                    // Check if this work is actually stale before expanding its collection.
-                    var lastEnriched = canonicals
-                        .FirstOrDefault(c => string.Equals(c.Key, "stage3_enriched_at", StringComparison.OrdinalIgnoreCase))
-                        ?.Value;
-
-                    bool isStale = string.IsNullOrWhiteSpace(lastEnriched)
-                        || !DateTimeOffset.TryParse(lastEnriched, out var lastDate)
-                        || lastDate <= staleThreshold;
-
-                    if (!isStale) continue;
-
-                    // Find collection siblings and add them to the batch.
-                    var collectionId = await collectionRepo.GetCollectionIdByWorkIdAsync(entityId, ct)
-                        .ConfigureAwait(false);
-
-                    if (collectionId is null || collectionsAlreadyExpanded.Contains(collectionId.Value))
-                        continue;
-
-                    collectionsAlreadyExpanded.Add(collectionId.Value);
-
-                    var collection = await collectionRepo.GetCollectionWithWorksAsync(collectionId.Value, ct)
-                        .ConfigureAwait(false);
-
-                    if (collection is null) continue;
-
-                    // Add all sibling work IDs that are not already in the list.
-                    var existingSet = new HashSet<Guid>(expandedEntityList);
-                    int added = 0;
-                    foreach (var siblingWork in collection.Works)
-                    {
-                        if (existingSet.Add(siblingWork.Id))
-                        {
-                            expandedEntityList.Add(siblingWork.Id);
-                            added++;
-                        }
-                    }
-
-                    if (added > 0)
-                        _logger.LogDebug(
-                            "[UNIVERSE-ENRICH] Collection-level expand: added {Count} sibling works from collection {CollectionId} ({MediaType})",
-                            added, collectionId.Value, mediaType);
-                }
-                catch (OperationCanceledException) { throw; }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "[UNIVERSE-ENRICH] Collection expansion check failed for entity {Id} — skipping", entityId);
-                }
+                continue;
             }
+
+            var title = GetBestTitle(lookup);
+            var mediaType = lookup.TryGetValue("media_type", out var mediaTypeValue) && !string.IsNullOrWhiteSpace(mediaTypeValue)
+                ? mediaTypeValue
+                : nameof(MediaType.Unknown);
+
+            requests.Add(new UniverseEnrichmentRequest(
+                Guid.Empty,
+                entityId,
+                null,
+                workQid,
+                mediaType,
+                $"maintenance:{mediaType}",
+                title));
         }
 
-        for (int i = 0; i < expandedEntityList.Count && processed < maxItems; i++)
+        if (requests.Count == 0)
         {
-            if (ct.IsCancellationRequested) break;
+            _logger.LogDebug("[UNIVERSE-ENRICH] No stale or missing entities found for maintenance sweep");
+            return;
+        }
 
-            var entityId = expandedEntityList[i];
+        _logger.LogInformation(
+            "[UNIVERSE-ENRICH] Processing maintenance sweep with {Count} item(s)",
+            requests.Count);
+
+        for (var index = 0; index < requests.Count; index++)
+        {
+            var request = requests[index];
+            await ProcessResolvedEntityAsync(
+                request,
+                Stage3Source.Maintenance,
+                index + 1,
+                requests.Count,
+                services,
+                ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ProcessResolvedEntityAsync(
+        UniverseEnrichmentRequest request,
+        Stage3Source source,
+        int processedCount,
+        int totalCount,
+        ResolvedServices services,
+        CancellationToken ct)
+    {
+        try
+        {
+            var canonicals = await services.CanonicalRepository.GetByEntityAsync(request.EntityId, ct).ConfigureAwait(false);
+            var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+            var narrativeRoot = await services.NarrativeRootResolver.ResolveAsync(request.EntityId, ct).ConfigureAwait(false);
+            var hasUniversePath = HasUniversePath(lookup, narrativeRoot);
+            var workTitle = request.WorkTitle ?? GetBestTitle(lookup) ?? request.WorkQid;
+
+            await PublishUniverseProgressAsync(
+                services.EventPublisher,
+                request.WorkQid,
+                workTitle,
+                processedCount,
+                totalCount,
+                hasUniversePath ? "Core universe" : "No universe path",
+                ct).ConfigureAwait(false);
+
+            if (hasUniversePath)
+            {
+                await services.Enrichment.RunUniverseCorePassAsync(request.EntityId, request.WorkQid, ct).ConfigureAwait(false);
+            }
+
+            await MarkStage3SettledAsync(services.CanonicalRepository, request.EntityId, ct).ConfigureAwait(false);
+
+            if (source == Stage3Source.Inline)
+            {
+                await CompleteInlineJobAsync(
+                    request,
+                    hasUniversePath,
+                    services.JobRepository,
+                    services.BatchProgress,
+                    ct).ConfigureAwait(false);
+            }
+
+            await PublishUniverseProgressAsync(
+                services.EventPublisher,
+                request.WorkQid,
+                workTitle,
+                processedCount,
+                totalCount,
+                "Enhancers",
+                ct).ConfigureAwait(false);
 
             try
             {
-                // Get the work's canonical values to extract QID and title.
-                var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct)
-                    .ConfigureAwait(false);
-
-                var qidValue = canonicals
-                    .FirstOrDefault(c => string.Equals(c.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase))
-                    ?.Value;
-
-                if (string.IsNullOrWhiteSpace(qidValue) || !qidValue.StartsWith('Q'))
-                {
-                    skipped++;
-                    continue;
-                }
-
-                // Check if this work's universe data was already enriched recently.
-                var lastEnriched = canonicals
-                    .FirstOrDefault(c => string.Equals(c.Key, "stage3_enriched_at", StringComparison.OrdinalIgnoreCase))
-                    ?.Value;
-
-                if (!string.IsNullOrWhiteSpace(lastEnriched)
-                    && DateTimeOffset.TryParse(lastEnriched, out var lastDate)
-                    && lastDate > staleThreshold)
-                {
-                    skipped++;
-                    continue;
-                }
-
-                var workTitle = canonicals
-                    .FirstOrDefault(c => string.Equals(c.Key, "title", StringComparison.OrdinalIgnoreCase))
-                    ?.Value;
-
-                _logger.LogDebug(
-                    "[UNIVERSE-ENRICH] Processing work {Title} ({QID}) [{Index}/{Total}]",
-                    workTitle ?? "(untitled)", qidValue, processed + 1, maxItems);
-
-                // ── Step 1: Narrative root resolution ─────────────────────────
-                var root = await narrativeRoot.ResolveAsync(entityId, ct)
-                    .ConfigureAwait(false);
-
-                var narrativeRootQid   = root?.Qid;
-                var narrativeRootLabel = root?.Label;
-
-                // ── Step 2: Fictional entity discovery ────────────────────────
-                if (reconAdapter is not null && !string.IsNullOrWhiteSpace(narrativeRootQid))
-                {
-                    try
-                    {
-                        // Discover fictional entity references from the work's claims.
-                        var entityRefs = ExtractFictionalEntityRefs(canonicals);
-
-                        if (entityRefs.Count > 0)
-                        {
-                            await entityService.EnrichAsync(
-                                qidValue, workTitle,
-                                narrativeRootQid, narrativeRootLabel,
-                                entityRefs, ct).ConfigureAwait(false);
-
-                            _logger.LogDebug(
-                                "[UNIVERSE-ENRICH] Discovered {Count} fictional entities for {QID}",
-                                entityRefs.Count, qidValue);
-                        }
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        _logger.LogWarning(ex,
-                            "[UNIVERSE-ENRICH] Fictional entity discovery failed for {QID}; continuing",
-                            qidValue);
-                    }
-                }
-
-                // ── Step 3: Image enrichment ──────────────────────────────────
-                try
-                {
-                    await imageService.EnrichWorkImagesAsync(entityId, qidValue, ct)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex,
-                        "[UNIVERSE-ENRICH] Image enrichment failed for {QID}; continuing",
-                        qidValue);
-                }
-
-                // ── Step 4: Mark Stage 3 complete ─────────────────────────────
-                await canonicalRepo.UpsertBatchAsync(
-                [
-                    new Domain.Entities.CanonicalValue
-                    {
-                        EntityId          = entityId,
-                        Key               = "stage3_enriched_at",
-                        Value             = DateTimeOffset.UtcNow.ToString("o"),
-                        LastScoredAt      = DateTimeOffset.UtcNow,
-                        WinningProviderId = Guid.Empty,  // System marker
-                    }
-                ], ct).ConfigureAwait(false);
-
-                // ── Timeline: Stage 3 universe_grouped event ─────────────────
-                try
-                {
-                    var timelineRepo = scope.ServiceProvider.GetService<IEntityTimelineRepository>();
-                    if (timelineRepo is not null)
-                    {
-                        await timelineRepo.InsertEventAsync(new EntityEvent
-                        {
-                            EntityId    = entityId,
-                            EntityType  = "Work",
-                            EventType   = "universe_grouped",
-                            Stage       = 3,
-                            Trigger     = "universe_enrichment",
-                            ResolvedQid = qidValue,
-                            Detail      = $"Universe enrichment complete for \"{workTitle ?? "(untitled)"}\" ({qidValue})",
-                        }, ct).ConfigureAwait(false);
-                    }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogWarning(ex,
-                        "[UNIVERSE-ENRICH] Failed to write Stage 3 timeline event for entity {Id}",
-                        entityId);
-                }
-
-                processed++;
-
-                _logger.LogDebug(
-                    "[UNIVERSE-ENRICH] Completed {Title} ({QID})",
-                    workTitle ?? "(untitled)", qidValue);
-
-                // Rate limit between works.
-                if (i < expandedEntityList.Count - 1 && processed < maxItems)
-                    await Task.Delay(rateLimitMs, ct).ConfigureAwait(false);
+                await services.Enrichment.RunUniverseEnhancerPassAsync(request.EntityId, request.WorkQid, ct).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
-                _logger.LogWarning(ex,
-                    "[UNIVERSE-ENRICH] Failed to process entity {Id} — skipping",
-                    entityId);
+                _logger.LogWarning(
+                    ex,
+                    "[UNIVERSE-ENRICH] Enhancer phase failed for {Qid} ({EntityId}); core completion already recorded",
+                    request.WorkQid,
+                    request.EntityId);
             }
         }
-
-        _logger.LogInformation(
-            "[UNIVERSE-ENRICH] Sweep complete — {Processed} works processed, {Skipped} skipped",
-            processed, skipped);
-
-        // ── Lore Delta: refresh stale fictional entities ───────────────────
-        await ProcessLoreDeltaAsync(scope, entityRepo, refreshDays, maxItems, ct)
-            .ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Checks fictional entities whose <c>enriched_at</c> is older than
-    /// <paramref name="refreshDays"/> days against current Wikidata revision IDs.
-    /// Entities with upstream changes have their <c>enriched_at</c> cleared so
-    /// the next sweep re-enriches them.  Emits a <c>LoreDeltaDiscovered</c>
-    /// SignalR event when changes are found.
-    /// </summary>
-    private async Task ProcessLoreDeltaAsync(
-        IServiceScope scope,
-        IFictionalEntityRepository entityRepo,
-        int refreshDays,
-        int maxItems,
-        CancellationToken ct)
-    {
-        var loreDeltaService = scope.ServiceProvider.GetService<ILoreDeltaService>();
-        var eventPublisher   = scope.ServiceProvider.GetService<IEventPublisher>();
-
-        if (loreDeltaService is null)
+        catch (OperationCanceledException)
         {
-            _logger.LogDebug("[LORE-DELTA] ILoreDeltaService not registered — skipping stale check");
-            return;
-        }
-
-        IReadOnlyList<Domain.Entities.FictionalEntity> staleEntities;
-        try
-        {
-            staleEntities = await entityRepo.GetStaleEntitiesAsync(refreshDays, maxItems, ct)
-                .ConfigureAwait(false);
+            throw;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "[LORE-DELTA] Failed to query stale entities");
-            return;
-        }
+            _logger.LogWarning(
+                ex,
+                "[UNIVERSE-ENRICH] Failed to process {Qid} ({EntityId}) for {Source}",
+                request.WorkQid,
+                request.EntityId,
+                source);
 
-        if (staleEntities.Count == 0)
-        {
-            _logger.LogDebug("[LORE-DELTA] No stale entities found (threshold: {Days}d)", refreshDays);
-            return;
-        }
-
-        _logger.LogInformation(
-            "[LORE-DELTA] Checking {Count} stale entities for Wikidata revision changes",
-            staleEntities.Count);
-
-        // Group by universe so we can batch-call LoreDeltaService per universe.
-        var byUniverse = staleEntities
-            .Where(e => !string.IsNullOrWhiteSpace(e.FictionalUniverseQid))
-            .GroupBy(e => e.FictionalUniverseQid!)
-            .ToList();
-
-        int totalChanged = 0;
-
-        foreach (var group in byUniverse)
-        {
-            if (ct.IsCancellationRequested) break;
-
-            var universeQid = group.Key;
-
-            try
+            if (source == Stage3Source.Inline && request.JobId != Guid.Empty)
             {
-                var deltaResults = await loreDeltaService.CheckForUpdatesAsync(universeQid, ct)
-                    .ConfigureAwait(false);
+                await services.JobRepository.UpdateStateAsync(
+                    request.JobId,
+                    IdentityJobState.Failed,
+                    ex.Message,
+                    ct).ConfigureAwait(false);
 
-                int changedInUniverse = 0;
-
-                foreach (var result in deltaResults.Where(r => r.HasChanged))
+                if (request.IngestionRunId.HasValue)
                 {
-                    // Find the matching entity by QID.
-                    var entity = staleEntities.FirstOrDefault(
-                        e => string.Equals(e.WikidataQid, result.EntityQid, StringComparison.OrdinalIgnoreCase));
-
-                    if (entity is null) continue;
-
-                    // Mark for re-enrichment by clearing enriched_at.
-                    await entityRepo.UpdateEnrichmentAsync(
-                        entity.Id,
-                        description: entity.Description,
-                        imageUrl:    entity.ImageUrl,
-                        enrichedAt:  DateTimeOffset.MinValue,   // Signals "needs re-enrichment"
-                        ct).ConfigureAwait(false);
-
-                    // Timeline: record Lore Delta discovery.
-                    try
-                    {
-                        var timelineRepo = scope.ServiceProvider.GetService<IEntityTimelineRepository>();
-                        if (timelineRepo is not null)
-                        {
-                            await timelineRepo.InsertEventAsync(new EntityEvent
-                            {
-                                EntityId    = entity.Id,
-                                EntityType  = "Work",
-                                EventType   = "universe_refreshed",
-                                Stage       = 3,
-                                Trigger     = "lore_delta",
-                                ResolvedQid = result.EntityQid,
-                                Detail      = $"Lore Delta: \"{result.Label ?? result.EntityQid}\" marked for re-enrichment (rev {result.CachedRevision} → {result.CurrentRevision})",
-                            }, ct).ConfigureAwait(false);
-                        }
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        _logger.LogDebug(ex,
-                            "[LORE-DELTA] Failed to write universe_refreshed timeline event for entity {Id}",
-                            entity.Id);
-                    }
-
-                    changedInUniverse++;
-                    totalChanged++;
-
-                    _logger.LogDebug(
-                        "[LORE-DELTA] Marked {Label} ({Qid}) for re-enrichment (rev {Cached} → {Current})",
-                        result.Label, result.EntityQid, result.CachedRevision, result.CurrentRevision);
-                }
-
-                // Emit SignalR event if changes were found in this universe.
-                if (changedInUniverse > 0 && eventPublisher is not null)
-                {
-                    try
-                    {
-                        await eventPublisher.PublishAsync(
-                            SignalREvents.LoreDeltaDiscovered,
-                            new { UniverseQid = universeQid, ChangedCount = changedInUniverse },
-                            ct).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex, "[LORE-DELTA] Failed to publish LoreDeltaDiscovered event");
-                    }
+                    await services.BatchProgress.EmitProgressAsync(request.IngestionRunId.Value, isFinal: false, ct)
+                        .ConfigureAwait(false);
                 }
             }
-            catch (OperationCanceledException) { throw; }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex,
-                    "[LORE-DELTA] Lore Delta check failed for universe {Qid} — skipping",
-                    universeQid);
-            }
-        }
-
-        if (totalChanged > 0)
-        {
-            _logger.LogInformation(
-                "[LORE-DELTA] {Changed} entities marked for re-enrichment across {Universes} universes",
-                totalChanged, byUniverse.Count);
-        }
-        else
-        {
-            _logger.LogDebug("[LORE-DELTA] No Wikidata changes detected in {Count} stale entities",
-                staleEntities.Count);
         }
     }
 
-    /// <summary>
-    /// Extracts fictional entity references from a work's canonical values.
-    /// Looks for P674 (characters), P840 (narrative location), and similar
-    /// Wikidata property keys that contain QID::Label pairs.
-    /// </summary>
-    private static IReadOnlyList<Domain.Models.FictionalEntityReference> ExtractFictionalEntityRefs(
-        IReadOnlyList<Domain.Entities.CanonicalValue> canonicals)
+    private static async Task CompleteInlineJobAsync(
+        UniverseEnrichmentRequest request,
+        bool hasUniversePath,
+        IIdentityJobRepository jobRepository,
+        BatchProgressService batchProgress,
+        CancellationToken ct)
     {
-        var refs = new List<Domain.Models.FictionalEntityReference>();
-
-        foreach (var cv in canonicals)
+        if (request.JobId != Guid.Empty)
         {
-            string? entitySubType = cv.Key switch
-            {
-                "character"          => "Character",
-                "characters"         => "Character",
-                "narrative_location" => "Location",
-                "location"           => "Location",
-                "organization"       => "Organization",
-                _                    => null,
-            };
-
-            if (entitySubType is null) continue;
-            if (string.IsNullOrWhiteSpace(cv.Value)) continue;
-
-            // Values may be in QID::Label format.
-            var parts = cv.Value.Split("::", 2);
-            var qid   = parts[0].Trim();
-            var label = parts.Length > 1 ? parts[1].Trim() : qid;
-
-            if (!qid.StartsWith('Q')) continue;
-
-            refs.Add(new Domain.Models.FictionalEntityReference(qid, label, entitySubType));
+            await jobRepository.UpdateStateAsync(
+                request.JobId,
+                hasUniversePath ? IdentityJobState.Ready : IdentityJobState.ReadyWithoutUniverse,
+                ct: ct).ConfigureAwait(false);
         }
 
-        return refs;
+        if (request.IngestionRunId.HasValue)
+        {
+            await batchProgress.EmitProgressAsync(request.IngestionRunId.Value, isFinal: false, ct)
+                .ConfigureAwait(false);
+        }
+    }
+
+    private void ReloadMaintenanceSchedule()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var configLoader = scope.ServiceProvider.GetRequiredService<IConfigurationLoader>();
+            var maintenance = configLoader.LoadMaintenance();
+            var cron = maintenance.Schedules.TryGetValue("universe_enrichment", out var configuredCron)
+                ? configuredCron
+                : "0 3 * * *";
+
+            var delay = CronScheduler.UntilNext(string.IsNullOrWhiteSpace(cron) ? "0 3 * * *" : cron, TimeSpan.FromHours(24));
+            _nextMaintenanceRunUtc = DateTimeOffset.UtcNow + delay;
+        }
+        catch
+        {
+            _nextMaintenanceRunUtc = DateTimeOffset.UtcNow.AddHours(24);
+        }
+    }
+
+    private bool ShouldRunMaintenanceSweep()
+    {
+        var now = DateTimeOffset.UtcNow;
+        return now >= _maintenanceReadyAtUtc
+            && (_manualTrigger.IsSet || now >= _nextMaintenanceRunUtc);
+    }
+
+    private static async Task MarkStage3SettledAsync(
+        ICanonicalValueRepository canonicalRepository,
+        Guid entityId,
+        CancellationToken ct)
+    {
+        await canonicalRepository.UpsertBatchAsync(
+        [
+            new CanonicalValue
+            {
+                EntityId = entityId,
+                Key = "stage3_enriched_at",
+                Value = DateTimeOffset.UtcNow.ToString("o"),
+                LastScoredAt = DateTimeOffset.UtcNow,
+                WinningProviderId = Guid.Empty,
+            }
+        ], ct).ConfigureAwait(false);
+    }
+
+    private static async Task PublishUniverseProgressAsync(
+        IEventPublisher eventPublisher,
+        string workQid,
+        string workTitle,
+        int processedCount,
+        int totalCount,
+        string currentStep,
+        CancellationToken ct)
+    {
+        await eventPublisher.PublishAsync(
+            SignalREvents.UniverseEnrichmentProgress,
+            new
+            {
+                WorkQid = workQid,
+                WorkTitle = workTitle,
+                ProcessedCount = processedCount,
+                TotalCount = totalCount,
+                CurrentStep = currentStep,
+            },
+            ct).ConfigureAwait(false);
+    }
+
+    private static bool HasUniversePath(
+        IReadOnlyDictionary<string, string> canonicalLookup,
+        NarrativeRoot? narrativeRoot)
+    {
+        if (narrativeRoot is not null && !string.IsNullOrWhiteSpace(narrativeRoot.Qid))
+            return true;
+
+        return canonicalLookup.ContainsKey("fictional_universe_qid")
+            || canonicalLookup.ContainsKey("franchise_qid")
+            || canonicalLookup.ContainsKey("series_qid")
+            || canonicalLookup.ContainsKey("character")
+            || canonicalLookup.ContainsKey("characters")
+            || canonicalLookup.ContainsKey("characters_qid")
+            || canonicalLookup.ContainsKey("narrative_location")
+            || canonicalLookup.ContainsKey("narrative_location_qid")
+            || canonicalLookup.ContainsKey("location")
+            || canonicalLookup.ContainsKey("organization");
+    }
+
+    private static string? GetBestTitle(IReadOnlyDictionary<string, string> lookup)
+    {
+        if (lookup.TryGetValue(MetadataFieldConstants.Title, out var title) && !string.IsNullOrWhiteSpace(title))
+            return title;
+
+        if (lookup.TryGetValue(MetadataFieldConstants.ShowName, out var showName) && !string.IsNullOrWhiteSpace(showName))
+            return showName;
+
+        return null;
+    }
+
+    private static ResolvedServices ResolveServices(IServiceProvider services)
+        => new(
+            services.GetRequiredService<IConfigurationLoader>(),
+            services.GetRequiredService<ICanonicalValueRepository>(),
+            services.GetRequiredService<IEnrichmentService>(),
+            services.GetRequiredService<INarrativeRootResolver>(),
+            services.GetRequiredService<IIdentityJobRepository>(),
+            services.GetRequiredService<BatchProgressService>(),
+            services.GetRequiredService<IEventPublisher>());
+
+    private sealed class InlineUniverseBatch
+    {
+        private readonly Dictionary<Guid, UniverseEnrichmentRequest> _requests = new();
+
+        public InlineUniverseBatch(string batchKey)
+        {
+            BatchKey = batchKey;
+            FirstQueuedAtUtc = DateTimeOffset.UtcNow;
+            LastQueuedAtUtc = FirstQueuedAtUtc;
+        }
+
+        public string BatchKey { get; }
+        public DateTimeOffset FirstQueuedAtUtc { get; }
+        public DateTimeOffset LastQueuedAtUtc { get; private set; }
+        public IReadOnlyList<UniverseEnrichmentRequest> Requests => _requests.Values.ToList();
+
+        public void Upsert(UniverseEnrichmentRequest request)
+        {
+            _requests[request.EntityId] = request;
+            LastQueuedAtUtc = DateTimeOffset.UtcNow;
+        }
+
+        public bool IsDue(DateTimeOffset now)
+            => _requests.Count >= InlineBatchMaxWorks
+                || LastQueuedAtUtc <= now - InlineSilenceWindow;
+    }
+
+    private sealed record ResolvedServices(
+        IConfigurationLoader ConfigurationLoader,
+        ICanonicalValueRepository CanonicalRepository,
+        IEnrichmentService Enrichment,
+        INarrativeRootResolver NarrativeRootResolver,
+        IIdentityJobRepository JobRepository,
+        BatchProgressService BatchProgress,
+        IEventPublisher EventPublisher);
+
+    private enum Stage3Source
+    {
+        Inline,
+        Maintenance,
     }
 }

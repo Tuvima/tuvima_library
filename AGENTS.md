@@ -59,6 +59,7 @@ Practical startup order:
 
 Runtime notes:
 
+- Before starting any development work, kill any running `MediaEngine.Api` and `MediaEngine.Web` `dotnet` processes first. This avoids locked binaries, stale runtime state, and confusing verification results.
 - Run from the repo root so the Engine can resolve `config/`
 - `src/MediaEngine.Api` launch settings set `TUVIMA_CONFIG_DIR=../../config` for normal `dotnet run`
 - The Dashboard defaults to `Engine:BaseUrl = http://localhost:61495`

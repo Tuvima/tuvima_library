@@ -172,9 +172,9 @@ public sealed class IngestionOptions
     /// <summary>
     /// Interval in seconds between polling sweeps of the Watch Folder.
     /// Acts as a safety net when <see cref="System.IO.FileSystemWatcher"/>
-    /// misses OS events. Set to 0 to disable polling. Default: 30.
+    /// misses OS events. Set to 0 to disable polling. Default: 300.
     /// </summary>
-    public int PollIntervalSeconds { get; set; } = 30;
+    public int PollIntervalSeconds { get; set; } = 300;
 
     // ── Language configuration ────────────────────────────────────────
 

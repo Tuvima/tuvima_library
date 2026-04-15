@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;
@@ -389,10 +390,87 @@ public sealed class RegistryRepository : IRegistryRepository
         if (!string.IsNullOrWhiteSpace(projection?.WikidataQid) && !bridgeIds.ContainsKey(BridgeIdKeys.WikidataQid))
             bridgeIds[BridgeIdKeys.WikidataQid] = projection.WikidataQid;
 
+        var latestJobState = conn.QueryFirstOrDefault<string?>("""
+            SELECT state
+            FROM identity_jobs
+            WHERE entity_id = @entityId
+            ORDER BY updated_at DESC, created_at DESC
+            LIMIT 1;
+            """, new { entityId = assetIdStr });
+
         if (projection is null && canonicalValues.Count == 0)
             return Task.FromResult<RegistryItemDetail?>(null);
 
         Guid? reviewItemId = rqRow == default ? null : Guid.Parse(rqRow.Id);
+        var universeQid = Canonical("fictional_universe_qid")
+            ?? Canonical("franchise_qid")
+            ?? Canonical("series_qid");
+        var universeName = Canonical("fictional_universe")
+            ?? Canonical("franchise")
+            ?? Canonical("series");
+        var narrativeRootQid = Canonical("fictional_universe_qid")
+            ?? Canonical("franchise_qid")
+            ?? Canonical("series_qid");
+        var stage3EnrichedAt = ParseDateTimeOffset(Canonical("stage3_enriched_at"));
+        var workQidForUniverse = projection?.WikidataQid ?? Canonical(BridgeIdKeys.WikidataQid);
+        var linkedEntityCount = 0;
+        var linkedRelationshipCount = 0;
+        var linkedPortraitCount = 0;
+
+        if (!string.IsNullOrWhiteSpace(workQidForUniverse))
+        {
+            linkedEntityCount = conn.QueryFirstOrDefault<int>("""
+                SELECT COUNT(DISTINCT entity_id)
+                FROM fictional_entity_work_links
+                WHERE work_qid = @workQid;
+                """, new { workQid = workQidForUniverse });
+
+            linkedRelationshipCount = conn.QueryFirstOrDefault<int>("""
+                WITH linked_qids AS (
+                    SELECT fe.wikidata_qid
+                    FROM fictional_entities fe
+                    INNER JOIN fictional_entity_work_links fewl ON fewl.entity_id = fe.id
+                    WHERE fewl.work_qid = @workQid
+                )
+                SELECT COUNT(*)
+                FROM entity_relationships
+                WHERE subject_qid IN (SELECT wikidata_qid FROM linked_qids)
+                   OR object_qid IN (SELECT wikidata_qid FROM linked_qids);
+                """, new { workQid = workQidForUniverse });
+
+            linkedPortraitCount = conn.QueryFirstOrDefault<int>("""
+                SELECT COUNT(DISTINCT cp.id)
+                FROM character_portraits cp
+                INNER JOIN fictional_entity_work_links fewl ON fewl.entity_id = cp.fictional_entity_id
+                WHERE fewl.work_qid = @workQid;
+                """, new { workQid = workQidForUniverse });
+        }
+
+        var stage3Status = latestJobState switch
+        {
+            nameof(IdentityJobState.UniverseEnriching) => "UniverseEnriching",
+            nameof(IdentityJobState.Ready) => "Ready",
+            nameof(IdentityJobState.ReadyWithoutUniverse) => "ReadyWithoutUniverse",
+            nameof(IdentityJobState.Completed) => "Ready",
+            nameof(IdentityJobState.Failed) => "Failed",
+            _ when stage3EnrichedAt.HasValue && !string.IsNullOrWhiteSpace(universeQid) => "Ready",
+            _ when stage3EnrichedAt.HasValue => "ReadyWithoutUniverse",
+            _ => "Pending",
+        };
+        var universeSummary = new UniverseSummaryDto
+        {
+            UniverseStatus = !string.IsNullOrWhiteSpace(universeQid)
+                ? "linked"
+                : stage3Status == "ReadyWithoutUniverse" ? "not_applicable" : "unlinked",
+            UniverseName = universeName,
+            UniverseQid = universeQid,
+            NarrativeRootQid = narrativeRootQid,
+            Stage3Status = stage3Status,
+            Stage3EnrichedAt = stage3EnrichedAt,
+            EntityCount = linkedEntityCount,
+            RelationshipCount = linkedRelationshipCount,
+            PortraitCount = linkedPortraitCount,
+        };
         var detail = new RegistryItemDetail
         {
             EntityId = entityId,
@@ -436,6 +514,7 @@ public sealed class RegistryRepository : IRegistryRepository
             ArtworkState = projection?.ArtworkState ?? "pending",
             ArtworkSource = projection?.ArtworkSource,
             ArtworkSettledAt = ParseDateTimeOffset(projection?.ArtworkSettledAt),
+            UniverseSummary = universeSummary,
         };
 
         return Task.FromResult<RegistryItemDetail?>(detail);

@@ -66,6 +66,22 @@
                         <div class="sme-review-title">Needs review</div>
                         <div class="sme-review-text">@_reviewSummary</div>
                     </div>
+                    @if (CanReclassifyMediaType)
+                    {
+                        <div class="sme-review-reclassify">
+                            <select class="sme-text-input" @bind="_selectedMediaType">
+                                @foreach (var mediaType in ReclassifyMediaTypes)
+                                {
+                                    <option value="@mediaType">@mediaType</option>
+                                }
+                            </select>
+                            <button class="sme-review-action"
+                                    disabled="@_reclassifying"
+                                    @onclick="ReclassifyMediaTypeAsync">
+                                @(_reclassifying ? "Updating..." : "Change type")
+                            </button>
+                        </div>
+                    }
                     @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
                     {
                         <button class="sme-review-action" @onclick="@(() => _activeTab = "details")">
@@ -283,6 +299,40 @@
                                     }
                                 }
                             </aside>
+                        }
+                    </div>
+                }
+                else if (_activeTab == "universe")
+                {
+                    <div class="sme-file-tab">
+                        @if (!IsSingleItem || _detail?.UniverseSummary is null)
+                        {
+                            <div class="sme-empty-panel">
+                                <MudIcon Icon="@Icons.Material.Outlined.AutoAwesomeMotion" Style="font-size: 24px; opacity: 0.18;" />
+                                <span>Universe details are available for a single item after identity loads.</span>
+                            </div>
+                        }
+                        else
+                        {
+                            var summary = _detail.UniverseSummary;
+                            <section class="sme-group">
+                                <div class="sme-group-title">Universe</div>
+                                <div class="sme-readonly-row"><span>Status</span><strong>@FormatUniverseStatus(summary.UniverseStatus)</strong></div>
+                                <div class="sme-readonly-row"><span>Stage 3</span><strong>@FormatUniverseStatus(summary.Stage3Status)</strong></div>
+                                <div class="sme-readonly-row"><span>Name</span><strong>@(summary.UniverseName ?? "None")</strong></div>
+                                <div class="sme-readonly-row"><span>Universe QID</span><strong>@(summary.UniverseQid ?? "—")</strong></div>
+                                <div class="sme-readonly-row"><span>Narrative root</span><strong>@(summary.NarrativeRootQid ?? "—")</strong></div>
+                                <div class="sme-readonly-row"><span>Entities</span><strong>@summary.EntityCount</strong></div>
+                                <div class="sme-readonly-row"><span>Relationships</span><strong>@summary.RelationshipCount</strong></div>
+                                <div class="sme-readonly-row"><span>Portraits</span><strong>@summary.PortraitCount</strong></div>
+                                <div class="sme-readonly-row"><span>Last enriched</span><strong>@(summary.Stage3EnrichedAt?.LocalDateTime.ToString("g", CultureInfo.CurrentCulture) ?? "Pending")</strong></div>
+                                @if (!string.IsNullOrWhiteSpace(GetUniverseExploreUrl()))
+                                {
+                                    <div class="sme-file-actions">
+                                        <a class="sme-inline-btn sme-inline-btn--primary" href="@GetUniverseExploreUrl()">Open graph</a>
+                                    </div>
+                                }
+                            </section>
                         }
                     </div>
                 }

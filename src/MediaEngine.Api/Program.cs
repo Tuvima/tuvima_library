@@ -769,6 +769,7 @@ builder.Services.AddSingleton<DescriptionEnrichmentWorker>();
 
 // Enrichment orchestrator
 builder.Services.AddSingleton<IEnrichmentService, EnrichmentService>();
+builder.Services.AddSingleton<IUniverseEnrichmentScheduler>(sp => sp.GetRequiredService<MediaEngine.Api.Services.UniverseEnrichmentService>());
 builder.Services.AddSingleton<MediaEngine.Providers.Services.CollectionAssignmentService>();
 
 // Pipeline workers
@@ -845,7 +846,8 @@ builder.Services.AddHostedService<MediaEngine.Api.Services.VibeBatchService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.SeriesAlignmentBackgroundService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.TasteProfileBackgroundService>();
 builder.Services.AddHostedService<MediaEngine.Api.Services.DescriptionIntelligenceBatchService>();
-builder.Services.AddHostedService<MediaEngine.Api.Services.UniverseEnrichmentService>();
+builder.Services.AddSingleton<MediaEngine.Api.Services.UniverseEnrichmentService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<MediaEngine.Api.Services.UniverseEnrichmentService>());
 
 // Pipeline hosted services.
 builder.Services.AddHostedService<MediaEngine.Api.Services.RetailMatchHostedService>();

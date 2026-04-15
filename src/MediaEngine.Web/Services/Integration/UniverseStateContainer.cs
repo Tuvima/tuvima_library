@@ -24,6 +24,7 @@ public sealed class UniverseStateContainer
     private bool                       _loaded;
     private IngestionProgressEvent?    _ingestionProgress;
     private BatchProgressEvent?        _batchProgress;
+    private UniverseEnrichmentProgressEvent? _universeEnrichmentProgress;
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
     private string[]?                  _activeLaneMediaTypes;
     private readonly List<PersonEnrichedEvent> _personUpdates = [];
@@ -63,6 +64,7 @@ public sealed class UniverseStateContainer
     /// Null when no batch is active.
     /// </summary>
     public BatchProgressEvent?              BatchProgress               => _batchProgress;
+    public UniverseEnrichmentProgressEvent? UniverseEnrichmentProgress  => _universeEnrichmentProgress;
 
     public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates        => _personUpdates;
 
@@ -194,6 +196,35 @@ public sealed class UniverseStateContainer
     public void PushBatchProgress(BatchProgressEvent ev)
     {
         _batchProgress = ev.IsComplete ? null : ev;
+
+        if (!string.IsNullOrWhiteSpace(ev.CurrentFileTitle) && !string.IsNullOrWhiteSpace(ev.CurrentStage))
+        {
+            PushActivity(new ActivityEntry(
+                DateTimeOffset.UtcNow,
+                ActivityKind.IngestionProgress,
+                "sync",
+                $"{ev.CurrentStage}: {ev.CurrentFileTitle}",
+                $"{ev.FilesProcessed} of {ev.FilesTotal} files processed"));
+        }
+
+        OnStateChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Called when a <c>"UniverseEnrichmentProgress"</c> event arrives on the Intercom collection.
+    /// Keeps a live Stage 3 snapshot and adds a rolling feed entry per file-stage transition.
+    /// </summary>
+    public void PushUniverseEnrichmentProgress(UniverseEnrichmentProgressEvent ev)
+    {
+        _universeEnrichmentProgress = ev;
+
+        PushActivity(new ActivityEntry(
+            DateTimeOffset.UtcNow,
+            ActivityKind.MetadataUpdated,
+            "auto_awesome",
+            $"{ev.CurrentStep}: {ev.WorkTitle}",
+            $"{ev.ProcessedCount} of {ev.TotalCount} in Stage 3"));
+
         OnStateChanged?.Invoke();
     }
 

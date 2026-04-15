@@ -1416,10 +1416,10 @@ public sealed class WorkerPipelineTests
         Assert.Equal("Saga", hints.SeriesHint);
     }
 
-    // ── Test 4: QuickHydrationWorker completes job ──
+    // ── Test 4: QuickHydrationWorker queues Stage 3 after quick hydration ──
 
     [Fact]
-    public async Task QuickHydrationWorker_CompletesJob()
+    public async Task QuickHydrationWorker_QueuesStage3AfterQuickHydration()
     {
         var entityId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
@@ -1446,6 +1446,7 @@ public sealed class WorkerPipelineTests
         var reviewRepo = new StubReviewQueueRepository();
         var organizer = new StubAutoOrganizeService();
         var batchProgress = CreateStubBatchProgressService();
+        var universeScheduler = new StubUniverseEnrichmentScheduler();
 
         var postPipeline = new PostPipelineService(
             claimRepo,
@@ -1469,6 +1470,8 @@ public sealed class WorkerPipelineTests
             collectionAssignment,
             postPipeline,
             canonicalRepo,
+            new NoOpCollectionRepository(),
+            universeScheduler,
             configLoader,
             NullLogger<QuickHydrationWorker>.Instance);
 
@@ -1478,11 +1481,14 @@ public sealed class WorkerPipelineTests
 
         var updatedJob = await jobRepo.GetByIdAsync(jobId);
         Assert.NotNull(updatedJob);
-        Assert.Equal(IdentityJobState.Completed.ToString(), updatedJob!.State);
+        Assert.Equal(IdentityJobState.UniverseEnriching.ToString(), updatedJob!.State);
 
         Assert.Single(enrichment.Calls);
         Assert.Equal(entityId, enrichment.Calls[0].EntityId);
         Assert.Equal(qid, enrichment.Calls[0].Qid);
+        Assert.Single(universeScheduler.Requests);
+        Assert.Equal(entityId, universeScheduler.Requests[0].EntityId);
+        Assert.Equal(qid, universeScheduler.Requests[0].WorkQid);
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -1618,6 +1624,8 @@ public sealed class WorkerPipelineTests
 
         public Task<int> CountActiveAsync(CancellationToken ct = default)
             => Task.FromResult(_jobs.Count(j =>
+                j.State != IdentityJobState.Ready.ToString() &&
+                j.State != IdentityJobState.ReadyWithoutUniverse.ToString() &&
                 j.State != IdentityJobState.Completed.ToString() &&
                 j.State != IdentityJobState.Failed.ToString()));
     }
@@ -1941,8 +1949,29 @@ public sealed class WorkerPipelineTests
         public Task RunUniversePassAsync(Guid entityId, string qid, CancellationToken ct = default)
             => Task.CompletedTask;
 
+        public Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task RunUniverseEnhancerPassAsync(Guid entityId, string qid, CancellationToken ct = default)
+            => Task.CompletedTask;
+
         public Task RunSingleEnrichmentAsync(Guid entityId, string qid, EnrichmentType type, CancellationToken ct = default)
             => Task.CompletedTask;
+    }
+
+    private sealed class StubUniverseEnrichmentScheduler : IUniverseEnrichmentScheduler
+    {
+        public List<UniverseEnrichmentRequest> Requests { get; } = [];
+
+        public ValueTask QueueInlineAsync(UniverseEnrichmentRequest request, CancellationToken ct = default)
+        {
+            Requests.Add(request);
+            return ValueTask.CompletedTask;
+        }
+
+        public void TriggerManualSweep()
+        {
+        }
     }
 
     // ── StubReviewQueueRepository ───────────────────────────────────────
@@ -2101,8 +2130,8 @@ public sealed class WorkerPipelineTests
     private sealed class NoOpCollectionRepository : ICollectionRepository
     {
         public Task<IReadOnlyList<Collection>> GetAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
-        public Task<Collection> FindByDisplayNameAsync(string displayName, CancellationToken ct = default) => Task.FromResult<Collection>(null!);
-        public Task<Collection> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default) => Task.FromResult<Collection>(null!);
+        public Task<Collection?> FindByDisplayNameAsync(string displayName, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
+        public Task<Collection?> FindByRelationshipQidAsync(string relType, string qid, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
         public Task<Guid> UpsertAsync(Collection collection, CancellationToken ct = default) => Task.FromResult(collection.Id);
         public Task InsertRelationshipsAsync(IReadOnlyList<CollectionRelationship> relationships, CancellationToken ct = default) => Task.CompletedTask;
         public Task<Guid?> GetWorkIdByMediaAssetAsync(Guid mediaAssetId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
@@ -2114,11 +2143,11 @@ public sealed class WorkerPipelineTests
         public Task<int> PruneOrphanedHierarchyAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<IReadOnlyList<Collection>> GetChildCollectionsAsync(Guid parentCollectionId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
         public Task SetParentCollectionAsync(Guid collectionId, Guid? parentCollectionId, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<Collection> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default) => Task.FromResult<Collection>(null!);
+        public Task<Collection?> FindParentCollectionByRelationshipAsync(string qid, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
         public Task<IReadOnlyList<Guid>> FindCollectionIdsByFranchiseQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Guid>>([]);
         public Task<IReadOnlyList<CollectionRelationship>> GetRelationshipsAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionRelationship>>([]);
-        public Task<Collection> GetByIdAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection>(null!);
-        public Task<Collection> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<Collection>(null!);
+        public Task<Collection?> GetByIdAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
+        public Task<Collection?> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
         public Task<Edition?> FindEditionByQidAsync(string wikidataQid, CancellationToken ct = default) => Task.FromResult<Edition?>(null);
         public Task<Edition> CreateEditionAsync(Guid workId, string? formatLabel, string? wikidataQid, CancellationToken ct = default) => Task.FromResult(new Edition { Id = Guid.NewGuid(), WorkId = workId });
         public Task UpdateMatchLevelAsync(Guid workId, string matchLevel, CancellationToken ct = default) => Task.CompletedTask;
@@ -2132,9 +2161,9 @@ public sealed class WorkerPipelineTests
         public Task AddCollectionItemAsync(CollectionItem item, CancellationToken ct = default) => Task.CompletedTask;
         public Task RemoveCollectionItemAsync(Guid itemId, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<Collection>> GetContentGroupsAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
-        public Task<Collection> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection>(null!);
+        public Task<Collection?> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
         public Task<Guid?> GetCollectionIdByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
-        public Task<Collection> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Collection>(null!);
+        public Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default) => Task.FromResult<Collection?>(null);
         public Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Collection>>([]);
     }
 

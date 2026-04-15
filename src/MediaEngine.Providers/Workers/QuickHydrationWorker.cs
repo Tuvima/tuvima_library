@@ -2,6 +2,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
@@ -25,6 +26,8 @@ public sealed class QuickHydrationWorker
     private readonly PostPipelineService _postPipeline;
     private readonly BatchProgressService? _batchProgress;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ICollectionRepository _collectionRepo;
+    private readonly IUniverseEnrichmentScheduler _universeEnrichment;
     private readonly ImagePathService? _imagePathService;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
@@ -43,6 +46,8 @@ public sealed class QuickHydrationWorker
         CollectionAssignmentService collectionAssignment,
         PostPipelineService postPipeline,
         ICanonicalValueRepository canonicalRepo,
+        ICollectionRepository collectionRepo,
+        IUniverseEnrichmentScheduler universeEnrichment,
         IConfigurationLoader configLoader,
         ILogger<QuickHydrationWorker> logger,
         BatchProgressService? batchProgress = null,
@@ -53,6 +58,8 @@ public sealed class QuickHydrationWorker
         _collectionAssignment = collectionAssignment;
         _postPipeline = postPipeline;
         _canonicalRepo = canonicalRepo;
+        _collectionRepo = collectionRepo;
+        _universeEnrichment = universeEnrichment;
         _imagePathService = imagePathService;
         _logger = logger;
         _batchProgress = batchProgress;
@@ -107,7 +114,7 @@ public sealed class QuickHydrationWorker
 
         if (string.IsNullOrEmpty(job.ResolvedQid))
         {
-            _logger.LogWarning("QuickHydrationWorker: job {JobId} has no resolved QID — skipping", job.Id);
+            _logger.LogWarning("QuickHydrationWorker: job {JobId} has no resolved QID; skipping", job.Id);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Failed, "No resolved QID", ct);
             return;
         }
@@ -131,16 +138,13 @@ public sealed class QuickHydrationWorker
             job.ResolvedQid,
             job.EntityId);
 
-        // STRICT ORDERING: Stage 2 has resolved a QID (we only lease QidResolved jobs),
-        // so before any cover art enrichment runs, sweep historical _pending images into
-        // the QID-keyed slot. CoverArtWorker (invoked from RunQuickPassAsync) must NEVER
-        // fire before this sweep completes — otherwise covers downloaded by an earlier
-        // pre-QID pass remain orphaned in _pending/{assetId12}/.
+        // Strict ordering: move any pre-QID pending images into the resolved slot
+        // before cover-art download runs in the quick pass.
         if (_imagePathService is not null)
         {
             await _imagePathService.SweepPendingToQidAsync(job.EntityId, job.ResolvedQid, ct);
             _logger.LogInformation(
-                "Swept pending images for entity {EntityId} → {Qid}",
+                "Swept pending images for entity {EntityId} -> {Qid}",
                 job.EntityId, job.ResolvedQid);
         }
 
@@ -155,19 +159,74 @@ public sealed class QuickHydrationWorker
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Collection assignment failed for entity {EntityId} — continuing", job.EntityId);
+            _logger.LogWarning(ex, "Collection assignment failed for entity {EntityId}; continuing", job.EntityId);
         }
 
         await _postPipeline.EvaluateAndOrganizeAsync(
             job.EntityId, job.Id, job.ResolvedQid, job.IngestionRunId, ct);
 
-        await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.Completed, ct: ct);
+        var refreshedCanonicals = await _canonicalRepo.GetByEntityAsync(job.EntityId, ct).ConfigureAwait(false);
+        var batchKey = await BuildUniverseBatchKeyAsync(job.EntityId, job.ResolvedQid, job.MediaType, refreshedCanonicals, ct)
+            .ConfigureAwait(false);
+
+        await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.UniverseEnriching, ct: ct);
+        await _universeEnrichment.QueueInlineAsync(
+            new UniverseEnrichmentRequest(
+                job.Id,
+                job.EntityId,
+                job.IngestionRunId,
+                job.ResolvedQid,
+                job.MediaType,
+                batchKey,
+                titleForLog),
+            ct).ConfigureAwait(false);
+
         _logger.LogInformation(
-            "Identified: '{Title}'{AuthorPart} — {Qid} ({MediaType}) [entity {EntityId}]",
+            "Hydration ready for Stage 3: '{Title}'{AuthorPart} — {Qid} ({MediaType}) [entity {EntityId}]",
             titleForLog,
             string.IsNullOrWhiteSpace(authorForLog) ? string.Empty : $" by {authorForLog}",
             job.ResolvedQid,
             job.MediaType,
             job.EntityId);
+    }
+
+    private async Task<string> BuildUniverseBatchKeyAsync(
+        Guid entityId,
+        string workQid,
+        string mediaType,
+        IReadOnlyList<CanonicalValue> canonicals,
+        CancellationToken ct)
+    {
+        var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+        var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct).ConfigureAwait(false);
+        var collectionId = workId.HasValue
+            ? await _collectionRepo.GetCollectionIdByWorkIdAsync(workId.Value, ct).ConfigureAwait(false)
+            : null;
+
+        return mediaType switch
+        {
+            nameof(MediaType.Movies) => $"movie:work:{workQid}",
+            nameof(MediaType.TV) when collectionId.HasValue => $"tv:collection:{collectionId.Value}",
+            nameof(MediaType.TV) when lookup.TryGetValue("series_qid", out var tvSeriesQid) && !string.IsNullOrWhiteSpace(tvSeriesQid)
+                => $"tv:series:{tvSeriesQid}",
+            nameof(MediaType.TV) => $"tv:work:{workQid}",
+            nameof(MediaType.Music) when collectionId.HasValue => $"music:collection:{collectionId.Value}",
+            nameof(MediaType.Music) when lookup.TryGetValue("musicbrainz_release_group_id", out var releaseGroupId) && !string.IsNullOrWhiteSpace(releaseGroupId)
+                => $"music:release-group:{releaseGroupId}",
+            nameof(MediaType.Music) => $"music:work:{workQid}",
+            nameof(MediaType.Books) when collectionId.HasValue => $"book:collection:{collectionId.Value}",
+            nameof(MediaType.Books) when lookup.TryGetValue("series_qid", out var bookSeriesQid) && !string.IsNullOrWhiteSpace(bookSeriesQid)
+                => $"book:series:{bookSeriesQid}",
+            nameof(MediaType.Books) => $"book:work:{workQid}",
+            nameof(MediaType.Audiobooks) when collectionId.HasValue => $"audiobook:collection:{collectionId.Value}",
+            nameof(MediaType.Audiobooks) when lookup.TryGetValue("series_qid", out var audioSeriesQid) && !string.IsNullOrWhiteSpace(audioSeriesQid)
+                => $"audiobook:series:{audioSeriesQid}",
+            nameof(MediaType.Audiobooks) => $"audiobook:work:{workQid}",
+            nameof(MediaType.Comics) when collectionId.HasValue => $"comic:collection:{collectionId.Value}",
+            nameof(MediaType.Comics) when lookup.TryGetValue("series_qid", out var comicSeriesQid) && !string.IsNullOrWhiteSpace(comicSeriesQid)
+                => $"comic:series:{comicSeriesQid}",
+            nameof(MediaType.Comics) => $"comic:work:{workQid}",
+            _ => $"work:{workQid}",
+        };
     }
 }

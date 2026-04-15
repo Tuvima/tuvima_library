@@ -3,10 +3,12 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using Microsoft.Extensions.Logging;
+using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Workers;
 
@@ -25,6 +27,8 @@ public sealed class PersonEnrichmentWorker
     private readonly IRecursiveIdentityService _identity;
     private readonly IMetadataHarvestingService _harvesting;
     private readonly IPersonRepository _personRepo;
+    private readonly IFictionalEntityRepository _fictionalEntityRepo;
+    private readonly ReconciliationAdapter? _reconciliationAdapter;
     private readonly PersonReconciliationService? _personReconciliation;
     private readonly ILogger<PersonEnrichmentWorker> _logger;
 
@@ -34,7 +38,9 @@ public sealed class PersonEnrichmentWorker
         IRecursiveIdentityService identity,
         IMetadataHarvestingService harvesting,
         IPersonRepository personRepo,
+        IFictionalEntityRepository fictionalEntityRepo,
         ILogger<PersonEnrichmentWorker> logger,
+        ReconciliationAdapter? reconciliationAdapter = null,
         PersonReconciliationService? personReconciliation = null)
     {
         _claimRepo = claimRepo;
@@ -42,6 +48,8 @@ public sealed class PersonEnrichmentWorker
         _identity = identity;
         _harvesting = harvesting;
         _personRepo = personRepo;
+        _fictionalEntityRepo = fictionalEntityRepo;
+        _reconciliationAdapter = reconciliationAdapter;
         _logger = logger;
         _personReconciliation = personReconciliation;
     }
@@ -120,11 +128,9 @@ public sealed class PersonEnrichmentWorker
                     if (searchResult is not null)
                     {
                         _logger.LogInformation(
-                            "Person enrichment writeback: {OldName} → {NewName} ({Qid}) (role: {Role})",
+                            "Person enrichment writeback: {OldName} -> {NewName} ({Qid}) (role: {Role})",
                             unlinked.Name, searchResult.Name, searchResult.WikidataQid, unlinked.Role);
 
-                        // Fix 3: persist the resolved QID/name and create the person record
-                        // so the People tab shows the real name instead of "Unknown Person (Qxxx)".
                         await PersistReconciledPersonAsync(
                             entityId, unlinked.Name, unlinked.Role,
                             searchResult.WikidataQid, searchResult.Name, ct);
@@ -155,15 +161,12 @@ public sealed class PersonEnrichmentWorker
         string resolvedName,
         CancellationToken ct)
     {
-        // Check whether a Person row already exists for this QID (created by a prior run
-        // or by RecursiveIdentityService for a QID-linked reference from the same asset).
         var existing = await _personRepo.FindByQidAsync(resolvedQid, ct).ConfigureAwait(false);
 
         Guid personId;
         if (existing is not null)
         {
             personId = existing.Id;
-            // Update name in case the existing record was created as a stub with the raw name.
             if (!string.Equals(existing.Name, resolvedName, StringComparison.OrdinalIgnoreCase))
             {
                 await _personRepo.UpdateEnrichmentAsync(existing.Id, resolvedQid,
@@ -174,23 +177,20 @@ public sealed class PersonEnrichmentWorker
         }
         else
         {
-            // No existing record — create a new Person stub with the resolved name + QID.
-            // RecursiveIdentityService will enrich it on the next pass via the harvest queue.
             var newPerson = await _personRepo.CreateAsync(new Person
             {
-                Name        = resolvedName,
-                Roles       = [role],
+                Name = resolvedName,
+                Roles = [role],
                 WikidataQid = resolvedQid,
             }, ct).ConfigureAwait(false);
 
             personId = newPerson.Id;
 
             _logger.LogDebug(
-                "Created person record for reconciled '{RawName}' → '{ResolvedName}' ({Qid}), id={Id}",
+                "Created person record for reconciled '{RawName}' -> '{ResolvedName}' ({Qid}), id={Id}",
                 rawName, resolvedName, resolvedQid, personId);
         }
 
-        // Link the person to the media asset so the detail drawer shows library presence.
         await _personRepo.LinkToMediaAssetAsync(mediaAssetId, personId, role, ct)
             .ConfigureAwait(false);
 
@@ -200,19 +200,74 @@ public sealed class PersonEnrichmentWorker
     }
 
     /// <summary>
-    /// Fetches P161 (cast member) claims with P453 (character) qualifiers from Wikidata
-    /// and links actors to fictional entities.
+    /// Fetches P161 (cast member) claims with P453 (character role) qualifiers from Wikidata
+    /// and links actors to fictional entities already known for the same work.
     /// </summary>
     public async Task EnrichActorCharacterMappingsAsync(
         Guid entityId, string workQid, CancellationToken ct)
     {
-        // Actor-character mapping requires the full Wikidata reconciler which lives
-        // in HydrationPipelineService. This worker handles the person-side enrichment;
-        // the mapping logic is delegated when called from the EnrichmentService
-        // during Universe pass (which has access to the reconciler).
-        _logger.LogDebug(
-            "Actor-character mapping for entity {EntityId} (QID {Qid}) — " +
-            "delegated to Universe pass via HydrationPipelineService",
-            entityId, workQid);
+        if (_reconciliationAdapter is null)
+        {
+            _logger.LogDebug(
+                "Actor-character mapping skipped for entity {EntityId} ({Qid}) because ReconciliationAdapter is unavailable",
+                entityId, workQid);
+            return;
+        }
+
+        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+        var mediaType = canonicals
+            .FirstOrDefault(c => string.Equals(c.Key, "media_type", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+
+        if (!string.Equals(mediaType, nameof(MediaType.Movies), StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(mediaType, nameof(MediaType.TV), StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var extension = await _reconciliationAdapter.ExtendAsync([workQid], ["P161"], ct).ConfigureAwait(false);
+        if (!extension.TryGetValue(workQid, out var properties)
+            || !properties.TryGetValue("P161", out var castClaims)
+            || castClaims.Count == 0)
+        {
+            _logger.LogDebug(
+                "Actor-character mapping found no cast-member claims for entity {EntityId} ({Qid})",
+                entityId, workQid);
+            return;
+        }
+
+        var linkCount = 0;
+        foreach (var castClaim in castClaims)
+        {
+            var performerQid = castClaim.Value?.EntityId ?? castClaim.Value?.RawValue;
+            if (string.IsNullOrWhiteSpace(performerQid))
+                continue;
+
+            var person = await _personRepo.FindByQidAsync(performerQid, ct).ConfigureAwait(false);
+            if (person is null)
+                continue;
+
+            if (!castClaim.Qualifiers.TryGetValue("P453", out var characterValues) || characterValues.Count == 0)
+                continue;
+
+            foreach (var characterValue in characterValues)
+            {
+                if (characterValue.Kind != WikidataValueKind.EntityId || string.IsNullOrWhiteSpace(characterValue.EntityId))
+                    continue;
+
+                var fictionalEntity = await _fictionalEntityRepo.FindByQidAsync(characterValue.EntityId, ct).ConfigureAwait(false);
+                if (fictionalEntity is null)
+                    continue;
+
+                await _personRepo.LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid, ct).ConfigureAwait(false);
+                linkCount++;
+            }
+        }
+
+        _logger.LogInformation(
+            "Actor-character mapping created {Count} link(s) for entity {EntityId} ({Qid})",
+            linkCount,
+            entityId,
+            workQid);
     }
 }

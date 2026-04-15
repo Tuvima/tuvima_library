@@ -48,9 +48,21 @@ public enum IdentityJobState
     /// <summary>QuickHydrationWorker is running canonical hydration (Quick pass).</summary>
     Hydrating = 9,
 
-    /// <summary>Pipeline completed successfully. Entity is fully identified and hydrated.</summary>
-    Completed = 10,
+    /// <summary>Stage 3 core universe enrichment is queued or actively running for this file.</summary>
+    UniverseEnriching = 10,
+
+    /// <summary>Pipeline completed successfully with applicable universe enrichment.</summary>
+    Ready = 11,
+
+    /// <summary>Pipeline completed successfully, but no Stage 3 universe path applied.</summary>
+    ReadyWithoutUniverse = 12,
+
+    /// <summary>
+    /// Legacy terminal success state kept for backward compatibility with older rows.
+    /// New code should prefer <see cref="Ready"/> or <see cref="ReadyWithoutUniverse"/>.
+    /// </summary>
+    Completed = 13,
 
     /// <summary>Terminal failure after max retries. Requires manual intervention.</summary>
-    Failed = 11,
+    Failed = 14,
 }

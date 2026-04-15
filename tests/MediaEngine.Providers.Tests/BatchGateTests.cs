@@ -487,7 +487,11 @@ public sealed class BatchGateTests
         public Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default) => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
         public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default) => Task.FromResult(0);
         public Task ReleaseLeaseAsync(Guid jobId, CancellationToken ct = default) => Task.CompletedTask;
-        public Task<int> CountActiveAsync(CancellationToken ct = default) => Task.FromResult(_jobs.Count(j => j.State != IdentityJobState.Completed.ToString() && j.State != IdentityJobState.Failed.ToString()));
+        public Task<int> CountActiveAsync(CancellationToken ct = default) => Task.FromResult(_jobs.Count(j =>
+            j.State != IdentityJobState.Ready.ToString() &&
+            j.State != IdentityJobState.ReadyWithoutUniverse.ToString() &&
+            j.State != IdentityJobState.Completed.ToString() &&
+            j.State != IdentityJobState.Failed.ToString()));
     }
 
     // ── SpyIngestionBatchRepository ──────────────────────────────────────

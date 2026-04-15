@@ -26,6 +26,18 @@ public interface IEnrichmentService
     Task RunUniversePassAsync(Guid entityId, string qid, CancellationToken ct = default);
 
     /// <summary>
+    /// Core Stage 3 universe pass that gates file-level completion.
+    /// Runs child discovery, fictional entity enrichment, and actor-character mapping.
+    /// </summary>
+    Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default);
+
+    /// <summary>
+    /// Non-blocking Stage 3 enhancers that improve a file after core universe work completes.
+    /// Runs image enrichment, description enrichment, and write-back.
+    /// </summary>
+    Task RunUniverseEnhancerPassAsync(Guid entityId, string qid, CancellationToken ct = default);
+
+    /// <summary>
     /// Targeted re-run: re-run one enrichment type for one entity.
     /// Useful for "re-download cover art" or "re-fetch persons" from the Dashboard.
     /// </summary>

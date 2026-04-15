@@ -923,6 +923,16 @@ public sealed class UIOrchestratorService : IAsyncDisposable
             _state.PushBatchProgress(ev);
         });
 
+        // ── "UniverseEnrichmentProgress" ────────────────────────────────────
+        // Live Stage 3 progress for inline or maintenance universe enrichment.
+        _hubConnection.On<UniverseEnrichmentProgressEvent>(SignalREvents.UniverseEnrichmentProgress, ev =>
+        {
+            _logger.LogDebug(
+                "Intercom ← UniverseEnrichmentProgress: {Step} {Done}/{Total} — {Title} ({Qid})",
+                ev.CurrentStep, ev.ProcessedCount, ev.TotalCount, ev.WorkTitle, ev.WorkQid);
+            _state.PushUniverseEnrichmentProgress(ev);
+        });
+
         // ── "RetagSweepProgress" ─────────────────────────────────────────────
         // Periodic progress tick while the auto re-tag sweep is running.
         _hubConnection.On<RetagSweepProgressDto>(SignalREvents.RetagSweepProgress, ev =>

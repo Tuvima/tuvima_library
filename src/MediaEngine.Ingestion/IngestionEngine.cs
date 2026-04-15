@@ -131,9 +131,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     private readonly List<FileEvent> _fswBuffer = [];
     private readonly HashSet<string> _fswBufferedPaths = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _enqueuedPaths = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PollFingerprint> _pollFingerprints = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _fswBufferLock = new();
     private Timer? _fswFlushTimer;
     private static readonly TimeSpan FswQuietPeriod = TimeSpan.FromSeconds(30);
+    private readonly record struct PollFingerprint(long Length, DateTime LastWriteUtc);
 
     public IngestionEngine(
         IFileWatcher              watcher,
@@ -358,6 +360,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             _fswBuffer.Clear();
             _fswBufferedPaths.Clear();
             _enqueuedPaths.Clear();
+            _pollFingerprints.Clear();
         }
 
         _logger.LogInformation("IngestionEngine: FSW paused (watcher stopped, event buffer cleared).");
@@ -372,6 +375,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         {
             _enqueuedPaths.Clear();
             _fswBufferedPaths.Clear();
+            _pollFingerprints.Clear();
         }
 
         // Restart the FSW — new OS events will flow into BufferFswEvent again.
@@ -1915,10 +1919,15 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
                     continue;
 
+                // Seed the polling fingerprint cache during the initial scan so the
+                // fallback sweep does not immediately reconsider settled files.
+                var normalizedPath = Path.GetFullPath(filePath);
+                TrackPollFingerprint(normalizedPath, GetPollFingerprint(filePath));
+
                 // Skip files already tracked by the database (path-based pre-filter).
                 // The pipeline's hash check remains the authoritative duplicate guard
                 // for files whose path has changed since initial ingestion.
-                if (knownPaths.Contains(Path.GetFullPath(filePath)))
+                if (knownPaths.Contains(normalizedPath))
                 {
                     skipped++;
                     continue;
@@ -2008,14 +2017,26 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     ? SearchOption.AllDirectories
                     : SearchOption.TopDirectoryOnly;
 
-                // Re-enqueue every file in the watcher on each sweep.
-                // Files that have already been organized are moved out of the
-                // watcher directory and will naturally disappear from subsequent
-                // sweeps. Files still present get routed through the hash-based
-                // duplicate check: if already ingested, TryReorganizeExistingAsync
-                // moves them to the library. The debounce queue coalesces rapid
-                // events for the same path, preventing queue flooding.
-                int enqueued = 0;
+                var rawKnownPaths = await _assetRepo.GetAllFilePathsAsync(ct).ConfigureAwait(false);
+                var knownPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var trackedPath in rawKnownPaths)
+                {
+                    try
+                    {
+                        knownPaths.Add(Path.GetFullPath(trackedPath));
+                    }
+                    catch
+                    {
+                        // Ignore malformed stored paths and continue the sweep.
+                    }
+                }
+
+                int inspected = 0;
+                int changed = 0;
+                int queued = 0;
+                int unchanged = 0;
+                int ignored = 0;
+                int missing = 0;
                 foreach (var filePath in Directory.EnumerateFiles(
                              _options.WatchDirectory, "*.*", searchOption))
                 {
@@ -2025,26 +2046,66 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     if (filePath.Contains(Path.DirectorySeparatorChar + ".data" + Path.DirectorySeparatorChar,
                             StringComparison.OrdinalIgnoreCase)
                         || filePath.Contains('/' + ".data" + '/', StringComparison.OrdinalIgnoreCase))
+                    {
+                        ignored++;
                         continue;
+                    }
 
                     // Skip non-media files (sidecar data, cover art, manifests).
                     if (NonMediaExtensions.Contains(Path.GetExtension(filePath)))
+                    {
+                        ignored++;
                         continue;
+                    }
+
+                    inspected++;
+
+                    var normalizedPath = Path.GetFullPath(filePath);
+                    var fingerprint = GetPollFingerprint(filePath);
+                    var trackedInDb = knownPaths.Contains(normalizedPath);
+                    var hasPreviousFingerprint = TryGetPollFingerprint(normalizedPath, out var previousFingerprint);
+                    var fingerprintChanged = hasPreviousFingerprint && previousFingerprint != fingerprint;
+
+                    if (fingerprintChanged)
+                        changed++;
+
+                    if (!trackedInDb)
+                        missing++;
+
+                    if (hasPreviousFingerprint && !fingerprintChanged && trackedInDb)
+                    {
+                        unchanged++;
+                        continue;
+                    }
+
+                    TrackPollFingerprint(normalizedPath, fingerprint);
 
                     var pollEvt = new FileEvent
                     {
-                        Path      = filePath,
+                        Path      = normalizedPath,
                         EventType = FileEventType.Created,
                         OccurredAt = DateTimeOffset.UtcNow,
                     };
-                    BufferFswEvent(pollEvt);
-                    enqueued++;
+
+                    if (BufferFswEvent(pollEvt))
+                    {
+                        queued++;
+                    }
+                    else
+                    {
+                        ignored++;
+                    }
                 }
 
-                if (enqueued > 0)
-                    _logger.LogInformation(
-                        "Poll sweep: enqueued {Count} file(s) from {Dir}",
-                        enqueued, _options.WatchDirectory);
+                _logger.LogInformation(
+                    "Poll sweep: inspected {Inspected}, changed {Changed}, queued {Queued}, unchanged {Unchanged}, ignored {Ignored}, missing {Missing} in {Dir}",
+                    inspected,
+                    changed,
+                    queued,
+                    unchanged,
+                    ignored,
+                    missing,
+                    _options.WatchDirectory);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -2660,18 +2721,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     /// (e.g. from <see cref="ScanExistingFiles"/>) are passed directly to
     /// the debounce queue.
     /// </summary>
-    private void BufferFswEvent(FileEvent evt)
+    private bool BufferFswEvent(FileEvent evt)
     {
         // Skip non-media files (images, subtitles, metadata sidecars) — same
         // filter applied by ScanExistingFiles and PollWatchDirectoryAsync.
         if (NonMediaExtensions.Contains(Path.GetExtension(evt.Path)))
-            return;
+            return false;
 
         // Events from ScanExistingFiles already have a batch — pass through.
         if (evt.BatchId is not null)
         {
             _debounce.Enqueue(evt);
-            return;
+            return true;
         }
 
         lock (_fswBufferLock)
@@ -2679,7 +2740,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Deduplicate: skip if this path was already enqueued in ANY batch
             // (prevents poll sweep re-detecting files still being processed).
             if (!_enqueuedPaths.Add(evt.Path))
-                return;
+                return false;
 
             _fswBufferedPaths.Add(evt.Path);
             _fswBuffer.Add(evt);
@@ -2691,6 +2752,32 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 null,
                 FswQuietPeriod,
                 Timeout.InfiniteTimeSpan);
+
+            return true;
+        }
+    }
+
+    private static PollFingerprint GetPollFingerprint(string filePath)
+    {
+        var info = new FileInfo(filePath);
+        return new PollFingerprint(
+            info.Exists ? info.Length : 0,
+            info.Exists ? info.LastWriteTimeUtc : DateTime.MinValue);
+    }
+
+    private bool TryGetPollFingerprint(string path, out PollFingerprint fingerprint)
+    {
+        lock (_fswBufferLock)
+        {
+            return _pollFingerprints.TryGetValue(path, out fingerprint);
+        }
+    }
+
+    private void TrackPollFingerprint(string path, PollFingerprint fingerprint)
+    {
+        lock (_fswBufferLock)
+        {
+            _pollFingerprints[path] = fingerprint;
         }
     }
 

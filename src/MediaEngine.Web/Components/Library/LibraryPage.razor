@@ -76,11 +76,19 @@
         {
             <div class="vault-progress-banner">
                 <div class="vault-progress-info">
+                    @if (bp.FilesActive > 0)
+                    {
+                        <MudProgressCircular Class="vault-progress-spinner" Indeterminate="true" Size="Size.Small" />
+                    }
                     @if (!string.IsNullOrEmpty(bp.CurrentStage))
                     {
                         <span class="vault-progress-stage">@bp.CurrentStage</span>
                     }
                     <span class="vault-progress-count">@FormatBatchProgressSummary(bp)</span>
+                    @if (!string.IsNullOrWhiteSpace(bp.CurrentFileTitle))
+                    {
+                        <span class="vault-progress-current">@bp.CurrentFileTitle</span>
+                    }
                     @if (bp.EstimatedSecondsRemaining.HasValue)
                     {
                         <span class="vault-progress-eta">~@(bp.EstimatedSecondsRemaining.Value)s remaining</span>
@@ -93,11 +101,23 @@
                     <span class="vault-progress-metric">Queue @bp.FilesQueued</span>
                     <span class="vault-progress-metric">Active @bp.FilesActive</span>
                     <span class="vault-progress-metric">Review @bp.FilesReview</span>
-                    <span class="vault-progress-metric">Ready @bp.FilesIdentified</span>
+                    <span class="vault-progress-metric">Ready @(bp.FilesReady + bp.FilesReadyWithoutUniverse)</span>
                 </div>
-                @if (bp.RecentTitles?.Count > 0)
+                @if (LivePipelineFeed.Count > 0)
                 {
-                    <div class="vault-progress-recent">@string.Join(" Â· ", bp.RecentTitles.Take(3))</div>
+                    <div class="vault-progress-feed">
+                        @foreach (var entry in LivePipelineFeed)
+                        {
+                            <div class="vault-progress-feed-item">
+                                <span class="vault-progress-feed-time">@entry.OccurredAt.ToLocalTime().ToString("h:mm tt")</span>
+                                <span class="vault-progress-feed-summary">@entry.Summary</span>
+                                @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                {
+                                    <span class="vault-progress-feed-detail">@entry.Detail</span>
+                                }
+                            </div>
+                        }
+                    </div>
                 }
             </div>
         }
@@ -537,6 +557,12 @@
             ? progress
             : null;
 
+    private IReadOnlyList<ActivityEntry> LivePipelineFeed =>
+        StateContainer.ActivityLog
+            .Where(entry => entry.Kind is ActivityKind.IngestionProgress or ActivityKind.MetadataUpdated)
+            .Take(6)
+            .ToList();
+
     private IngestionProgressEvent? CurrentIngestionProgress =>
         StateContainer.IngestionProgress is { } progress
         && !string.Equals(progress.Stage, "Complete", StringComparison.OrdinalIgnoreCase)
@@ -574,16 +600,17 @@
 
     private static string FormatBatchProgressSummary(BatchProgressEvent progress)
     {
-        var terminalCount = progress.FilesIdentified + progress.FilesReview + progress.FilesNoMatch + progress.FilesFailed;
+        var readyCount = progress.FilesReady + progress.FilesReadyWithoutUniverse;
+        var terminalCount = readyCount + progress.FilesReview + progress.FilesNoMatch + progress.FilesFailed;
         if (progress.FilesQueued == 0 && progress.FilesActive == 0 && terminalCount == progress.FilesTotal)
         {
             if (progress.FilesReview == progress.FilesTotal)
                 return $"{progress.FilesReview} of {progress.FilesTotal} waiting for review";
 
-            return $"{terminalCount} of {progress.FilesTotal} decided";
+            return $"{terminalCount} of {progress.FilesTotal} files processed";
         }
 
-        return $"{progress.FilesProcessed} of {progress.FilesTotal} through batch";
+        return $"{readyCount + progress.FilesReview + progress.FilesNoMatch + progress.FilesFailed} of {progress.FilesTotal} files processed";
     }
 
     protected override void OnParametersSet()
@@ -2356,6 +2383,9 @@
         gap: 12px;
         font-size: 12px;
     }
+    .vault-progress-spinner {
+        color: rgba(201, 146, 46, 0.9);
+    }
     .vault-progress-stage {
         font-weight: 700;
         color: rgba(201, 146, 46, 0.9);
@@ -2364,6 +2394,13 @@
     }
     .vault-progress-count {
         color: rgba(255, 255, 255, 0.6);
+    }
+    .vault-progress-current {
+        color: rgba(255, 255, 255, 0.42);
+        max-width: 320px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
     .vault-progress-eta {
         color: rgba(255, 255, 255, 0.35);
@@ -2399,6 +2436,32 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+    .vault-progress-feed {
+        display: grid;
+        gap: 6px;
+    }
+    .vault-progress-feed-item {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 6px 10px;
+        align-items: center;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.46);
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.03);
+    }
+    .vault-progress-feed-time {
+        color: rgba(255, 255, 255, 0.28);
+        white-space: nowrap;
+    }
+    .vault-progress-feed-summary {
+        color: rgba(255, 255, 255, 0.62);
+    }
+    .vault-progress-feed-detail {
+        grid-column: 2;
+        color: rgba(255, 255, 255, 0.35);
     }
 </style>
 

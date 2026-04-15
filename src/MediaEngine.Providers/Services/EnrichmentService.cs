@@ -52,13 +52,23 @@ public sealed class EnrichmentService : IEnrichmentService
     public async Task RunUniversePassAsync(Guid entityId, string qid, CancellationToken ct = default)
     {
         _logger.LogInformation("Universe pass starting for entity {Id} (QID {Qid})", entityId, qid);
+        await RunUniverseCorePassAsync(entityId, qid, ct);
+        await RunUniverseEnhancerPassAsync(entityId, qid, ct);
+        _logger.LogInformation("Universe pass completed for entity {Id}", entityId);
+    }
+
+    public async Task RunUniverseCorePassAsync(Guid entityId, string qid, CancellationToken ct = default)
+    {
         await _children.DiscoverAsync(entityId, qid, ct);
         await _fictional.EnrichAsync(entityId, qid, ct);
         await _persons.EnrichActorCharacterMappingsAsync(entityId, qid, ct);
+    }
+
+    public async Task RunUniverseEnhancerPassAsync(Guid entityId, string qid, CancellationToken ct = default)
+    {
         await _images.EnrichWorkImagesAsync(entityId, qid, ct);
         await _descriptions.EnrichAsync(entityId, qid, ct);
         await _writeBack.WriteMetadataAsync(entityId, "universe_enrichment", ct);
-        _logger.LogInformation("Universe pass completed for entity {Id}", entityId);
     }
 
     public async Task RunSingleEnrichmentAsync(Guid entityId, string qid, EnrichmentType type, CancellationToken ct = default)

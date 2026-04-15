@@ -88,6 +88,15 @@
       "pen_names": ["P742", "P527", "P1773"],
       "group": ["P527", "P463"]
     },
+    "character_properties": {
+      "core": ["P31", "P1441", "P170", "P21", "P171", "P22", "P25", "P26", "P3373", "P40", "P1344", "P1066", "P463", "P551", "P451", "P945", "P69", "P39", "P607", "P1416", "P18"]
+    },
+    "location_properties": {
+      "core": ["P31", "P131", "P361", "P625", "P170", "P18"]
+    },
+    "organization_properties": {
+      "core": ["P31", "P527", "P169", "P749", "P170", "P18"]
+    },
     "audiobook_edition_properties": ["P175", "P2047", "P5749", "P123"],
     "property_labels": {
       "P31": "instance_of",
@@ -139,12 +148,30 @@
       "P2047": "duration",
       "P123": "publisher",
       "P800": "notable_work",
+      "P1441": "present_in_work",
+      "P170": "creator",
+      "P21": "gender",
+      "P171": "species",
+      "P22": "father",
+      "P25": "mother",
+      "P26": "spouse",
+      "P3373": "sibling",
+      "P40": "child",
+      "P1344": "opponent",
+      "P551": "residence",
+      "P131": "located_in",
+      "P361": "part_of",
+      "P625": "coordinate_location",
+      "P169": "head_of",
+      "P749": "parent_organization",
       "P451": "partner",
       "P69": "educated_at",
       "P945": "allegiance",
       "P39": "position_held",
       "P607": "conflict",
-      "P449": "network"
+      "P449": "network",
+      "P1066": "student_of",
+      "P1416": "affiliation"
     }
   }
 }

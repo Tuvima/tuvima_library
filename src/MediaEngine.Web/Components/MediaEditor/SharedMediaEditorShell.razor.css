@@ -120,6 +120,18 @@
     border-bottom: 1px solid rgba(201,146,46,0.18);
 }
 
+.sme-review-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.sme-review-reclassify {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .sme-review-title {
     font-weight: 700;
 }
@@ -507,6 +519,13 @@
     color: rgba(255,255,255,0.56);
 }
 
+.sme-file-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+}
+
 .sme-history-title {
     font-weight: 600;
 }
@@ -571,6 +590,11 @@
     .sme-review-banner {
         padding-left: 18px;
         padding-right: 18px;
+    }
+
+    .sme-review-banner {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .sme-body,

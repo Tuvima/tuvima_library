@@ -164,6 +164,39 @@ public sealed class RegistryItemViewModel
 
     [JsonPropertyName("artwork_settled_at")]
     public DateTimeOffset? ArtworkSettledAt { get; set; }
+
+    [JsonPropertyName("universe_summary")]
+    public UniverseSummaryViewModel? UniverseSummary { get; set; }
+}
+
+public sealed class UniverseSummaryViewModel
+{
+    [JsonPropertyName("universe_status")]
+    public string UniverseStatus { get; set; } = "unlinked";
+
+    [JsonPropertyName("universe_name")]
+    public string? UniverseName { get; set; }
+
+    [JsonPropertyName("universe_qid")]
+    public string? UniverseQid { get; set; }
+
+    [JsonPropertyName("narrative_root_qid")]
+    public string? NarrativeRootQid { get; set; }
+
+    [JsonPropertyName("stage3_status")]
+    public string Stage3Status { get; set; } = "pending";
+
+    [JsonPropertyName("stage3_enriched_at")]
+    public DateTimeOffset? Stage3EnrichedAt { get; set; }
+
+    [JsonPropertyName("entity_count")]
+    public int EntityCount { get; set; }
+
+    [JsonPropertyName("relationship_count")]
+    public int RelationshipCount { get; set; }
+
+    [JsonPropertyName("portrait_count")]
+    public int PortraitCount { get; set; }
 }
 
 /// <summary>Paginated registry response.</summary>
@@ -344,6 +377,9 @@ public sealed class RegistryItemDetailViewModel
 
     [JsonPropertyName("artwork_settled_at")]
     public DateTimeOffset? ArtworkSettledAt { get; set; }
+
+    [JsonPropertyName("universe_summary")]
+    public UniverseSummaryViewModel? UniverseSummary { get; set; }
 }
 
 /// <summary>Canonical value with conflict info.</summary>

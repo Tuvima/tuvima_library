@@ -339,6 +339,7 @@ else
             "BridgeSearching",
             "QidResolved",
             "Hydrating",
+            "UniverseEnriching",
         };
 
         return data.PipelineStates
@@ -367,6 +368,9 @@ else
         "QidResolved" => "QID resolved",
         "QidNoMatch" => "No QID match",
         "Hydrating" => "Hydrating",
+        "UniverseEnriching" => "Universe enriching",
+        "Ready" => "Ready",
+        "ReadyWithoutUniverse" => "Ready (no universe)",
         "Completed" => "Completed",
         "Failed" => "Failed",
         _ => state,

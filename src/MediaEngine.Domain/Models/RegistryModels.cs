@@ -182,6 +182,22 @@ public sealed record RegistryItemDetail
 
     [JsonPropertyName("artwork_settled_at")]
     public DateTimeOffset? ArtworkSettledAt { get; init; }
+
+    [JsonPropertyName("universe_summary")]
+    public UniverseSummaryDto? UniverseSummary { get; init; }
+}
+
+public sealed record UniverseSummaryDto
+{
+    [JsonPropertyName("universe_status")] public string UniverseStatus { get; init; } = "unlinked";
+    [JsonPropertyName("universe_name")] public string? UniverseName { get; init; }
+    [JsonPropertyName("universe_qid")] public string? UniverseQid { get; init; }
+    [JsonPropertyName("narrative_root_qid")] public string? NarrativeRootQid { get; init; }
+    [JsonPropertyName("stage3_status")] public string Stage3Status { get; init; } = "pending";
+    [JsonPropertyName("stage3_enriched_at")] public DateTimeOffset? Stage3EnrichedAt { get; init; }
+    [JsonPropertyName("entity_count")] public int EntityCount { get; init; }
+    [JsonPropertyName("relationship_count")] public int RelationshipCount { get; init; }
+    [JsonPropertyName("portrait_count")] public int PortraitCount { get; init; }
 }
 
 /// <summary>A canonical value with conflict and provider info.</summary>

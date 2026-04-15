@@ -53,7 +53,7 @@
     }
     else if (IsUniverse)
     {
-        @* ── Universe stub view ── *@
+        var summary = Detail?.UniverseSummary;
         <div class="ids-row">
             <span class="ids-key">Name</span>
             <span class="ids-value">@Item.Title</span>
@@ -73,9 +73,62 @@
             <span class="ids-status-chip"
                   style="background: @StatusBgColor; color: @StatusColor;">@StatusLabel</span>
         </div>
-        <div class="ids-row ids-row--last">
-            <span class="ids-placeholder">Universe details will be available in a future update.</span>
-        </div>
+        @if (summary is null)
+        {
+            <div class="ids-row ids-row--last">
+                <span class="ids-placeholder">Universe details are still loading.</span>
+            </div>
+        }
+        else
+        {
+            <div class="ids-universe-summary">
+                <div class="ids-universe-summary-title">Universe</div>
+                <div class="ids-universe-grid">
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Stage 3</span>
+                        <strong>@FormatUniverseStatus(summary.Stage3Status)</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Root</span>
+                        <strong>@(summary.NarrativeRootQid ?? "—")</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Entities</span>
+                        <strong>@summary.EntityCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Relationships</span>
+                        <strong>@summary.RelationshipCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Portraits</span>
+                        <strong>@summary.PortraitCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Last enriched</span>
+                        <strong>@FormatUniverseDate(summary.Stage3EnrichedAt)</strong>
+                    </div>
+                </div>
+                <div class="ids-universe-links">
+                    @if (!string.IsNullOrWhiteSpace(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="/universe/@summary.UniverseQid/explore">
+                            Open graph
+                        </a>
+                    }
+                    @if (IsValidQid(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="https://www.wikidata.org/wiki/@summary.UniverseQid"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            Wikidata
+                        </a>
+                    }
+                </div>
+            </div>
+        }
     }
     else
     {
@@ -151,6 +204,65 @@
             <span class="ids-key">Added</span>
             <span class="ids-value">@Item.CreatedAt.ToLocalTime().ToString("MMMM d, yyyy")</span>
         </div>
+
+        @if (Detail?.UniverseSummary is { } summary)
+        {
+            <div class="ids-universe-summary">
+                <div class="ids-universe-summary-title">Universe</div>
+                <div class="ids-universe-grid">
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Status</span>
+                        <strong>@FormatUniverseStatus(summary.UniverseStatus)</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Stage 3</span>
+                        <strong>@FormatUniverseStatus(summary.Stage3Status)</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Universe</span>
+                        <strong>@(summary.UniverseName ?? "Not linked")</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Root</span>
+                        <strong>@(summary.NarrativeRootQid ?? "—")</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Entities</span>
+                        <strong>@summary.EntityCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Relationships</span>
+                        <strong>@summary.RelationshipCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Portraits</span>
+                        <strong>@summary.PortraitCount</strong>
+                    </div>
+                    <div class="ids-universe-cell">
+                        <span class="ids-universe-label">Last enriched</span>
+                        <strong>@FormatUniverseDate(summary.Stage3EnrichedAt)</strong>
+                    </div>
+                </div>
+                <div class="ids-universe-links">
+                    @if (!string.IsNullOrWhiteSpace(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="/universe/@summary.UniverseQid/explore">
+                            Open graph
+                        </a>
+                    }
+                    @if (IsValidQid(summary.UniverseQid))
+                    {
+                        <a class="ids-link-pill"
+                           href="https://www.wikidata.org/wiki/@summary.UniverseQid"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            Wikidata
+                        </a>
+                    }
+                </div>
+            </div>
+        }
 
         @* ── Linked Data section ── *@
         @if (HasLinkedData())
@@ -251,6 +363,12 @@
 
     private string? GetWorkQid()
         => Detail is not null ? GetCanonicalValue("wikidata_qid") : Item.WikidataQid;
+
+    private static string FormatUniverseStatus(string? status)
+        => string.IsNullOrWhiteSpace(status) ? "Pending" : status.Replace("_", " ");
+
+    private static string FormatUniverseDate(DateTimeOffset? value)
+        => value?.ToLocalTime().ToString("MMM d, yyyy h:mm tt") ?? "Pending";
 
     private bool HasLinkedData()
     {
@@ -489,5 +607,55 @@
         height: 12px;
         flex-shrink: 0;
         opacity: 0.7;
+    }
+
+    .ids-universe-summary {
+        margin-top: 16px;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.025);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+    }
+
+    .ids-universe-summary-title {
+        font-size: 10px;
+        font-weight: 700;
+        color: rgba(200, 190, 220, 0.35);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 10px;
+    }
+
+    .ids-universe-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
+    }
+
+    .ids-universe-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .ids-universe-label {
+        font-size: 10px;
+        color: rgba(200, 190, 220, 0.45);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .ids-universe-cell strong {
+        font-size: 12px;
+        color: #e8e2f2;
+        word-break: break-word;
+    }
+
+    .ids-universe-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 12px;
     }
 </style>

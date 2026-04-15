@@ -70,6 +70,10 @@ public sealed record IngestionProgressEvent(
 /// <param name="CurrentStage">Active pipeline stage name, or null.</param>
 /// <param name="FilesQueued">Files still waiting for a review decision.</param>
 /// <param name="FilesActive">Files currently being worked by the identity pipeline.</param>
+/// <param name="FilesReady">Files that completed the core pipeline with applicable universe enrichment.</param>
+/// <param name="FilesReadyWithoutUniverse">Files that completed without an applicable Stage 3 universe path.</param>
+/// <param name="CurrentFileTitle">Best-known title currently active in the pipeline, or null.</param>
+/// <param name="LifecycleStage">Canonical file-level lifecycle stage name, or null.</param>
 public sealed record BatchProgressEvent(
     Guid   BatchId,
     int    FilesTotal,
@@ -84,4 +88,8 @@ public sealed record BatchProgressEvent(
     IReadOnlyList<string>? RecentTitles = null,
     string? CurrentStage = null,
     int    FilesQueued = 0,
-    int    FilesActive = 0);
+    int    FilesActive = 0,
+    int    FilesReady = 0,
+    int    FilesReadyWithoutUniverse = 0,
+    string? CurrentFileTitle = null,
+    string? LifecycleStage = null);

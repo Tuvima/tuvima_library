@@ -13,6 +13,17 @@ namespace MediaEngine.Providers.Services;
 /// </summary>
 public sealed class BatchProgressService
 {
+    private static readonly string[] ActiveStates =
+    [
+        "RetailSearching",
+        "RetailMatched",
+        "RetailMatchedNeedsReview",
+        "BridgeSearching",
+        "QidResolved",
+        "Hydrating",
+        "UniverseEnriching",
+    ];
+
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly IDatabaseConnection _db;
     private readonly IEventPublisher _eventPublisher;
@@ -74,11 +85,13 @@ public sealed class BatchProgressService
             if (batch is null) return;
 
             using var conn = _db.CreateConnection();
-            var snapshot = await conn.QueryFirstOrDefaultAsync<BatchRunSnapshot>("""
+            var snapshot = await conn.QueryFirstOrDefaultAsync<BatchRunSnapshot>(
+                """
                 WITH latest_jobs AS (
                     SELECT
                         entity_id,
                         state,
+                        updated_at,
                         ROW_NUMBER() OVER (
                             PARTITION BY entity_id
                             ORDER BY updated_at DESC, created_at DESC
@@ -87,7 +100,7 @@ public sealed class BatchProgressService
                     WHERE ingestion_run_id = @batchId
                 ),
                 job_states AS (
-                    SELECT entity_id, state
+                    SELECT entity_id, state, updated_at
                     FROM latest_jobs
                     WHERE rn = 1
                 ),
@@ -97,50 +110,77 @@ public sealed class BatchProgressService
                     WHERE status = 'Pending'
                 )
                 SELECT
-                    COALESCE(SUM(CASE WHEN js.state = 'Completed' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesIdentified,
+                    COALESCE(SUM(CASE WHEN js.state IN ('Ready', 'Completed') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
+                    COALESCE(SUM(CASE WHEN js.state = 'ReadyWithoutUniverse' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReadyWithoutUniverse,
                     COALESCE(SUM(CASE
                         WHEN js.state = 'QidNeedsReview' THEN 1
                         WHEN pr.entity_id IS NOT NULL
-                             AND js.state NOT IN (
-                                 'Queued',
-                                 'RetailSearching',
-                                 'RetailMatched',
-                                 'RetailMatchedNeedsReview',
-                                 'BridgeSearching',
-                                 'QidResolved',
-                                 'Hydrating'
-                             )
+                             AND js.state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'RetailNoMatch', 'QidNoMatch', 'Failed')
                             THEN 1
                         ELSE 0
                     END), 0) AS FilesReview,
-                    COALESCE(SUM(CASE WHEN js.state IN ('RetailNoMatch', 'QidNoMatch') THEN 1 ELSE 0 END), 0) AS FilesNoMatch,
-                    COALESCE(SUM(CASE WHEN js.state = 'Failed' THEN 1 ELSE 0 END), 0) AS PipelineFailed,
-                    COALESCE(SUM(CASE WHEN js.state IN (
-                        'RetailSearching',
-                        'RetailMatched',
-                        'RetailMatchedNeedsReview',
-                        'BridgeSearching',
-                        'QidResolved',
-                        'Hydrating'
-                    ) THEN 1 ELSE 0 END), 0) AS FilesActive,
+                    COALESCE(SUM(CASE WHEN js.state IN ('RetailNoMatch', 'QidNoMatch') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesNoMatch,
+                    COALESCE(SUM(CASE WHEN js.state = 'Failed' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS PipelineFailed,
                     COALESCE(SUM(CASE WHEN js.state = 'Queued' THEN 1 ELSE 0 END), 0) AS QueuedJobs,
                     COALESCE(SUM(CASE WHEN js.state = 'RetailSearching' THEN 1 ELSE 0 END), 0) AS RetailSearching,
                     COALESCE(SUM(CASE WHEN js.state = 'RetailMatched' THEN 1 ELSE 0 END), 0) AS RetailMatched,
                     COALESCE(SUM(CASE WHEN js.state = 'RetailMatchedNeedsReview' THEN 1 ELSE 0 END), 0) AS RetailMatchedNeedsReview,
                     COALESCE(SUM(CASE WHEN js.state = 'BridgeSearching' THEN 1 ELSE 0 END), 0) AS BridgeSearching,
                     COALESCE(SUM(CASE WHEN js.state = 'QidResolved' THEN 1 ELSE 0 END), 0) AS QidResolved,
-                    COALESCE(SUM(CASE WHEN js.state = 'Hydrating' THEN 1 ELSE 0 END), 0) AS Hydrating
+                    COALESCE(SUM(CASE WHEN js.state = 'Hydrating' THEN 1 ELSE 0 END), 0) AS Hydrating,
+                    COALESCE(SUM(CASE WHEN js.state = 'UniverseEnriching' THEN 1 ELSE 0 END), 0) AS UniverseEnriching
                 FROM job_states js
                 LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
-                """, new { batchId = batchId.ToString() }).ConfigureAwait(false) ?? new BatchRunSnapshot();
+                """,
+                new { batchId = batchId.ToString() }).ConfigureAwait(false) ?? new BatchRunSnapshot();
+
+            var currentFileTitle = await conn.QueryFirstOrDefaultAsync<string?>(
+                """
+                WITH latest_jobs AS (
+                    SELECT
+                        entity_id,
+                        state,
+                        updated_at,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY entity_id
+                            ORDER BY updated_at DESC, created_at DESC
+                        ) AS rn
+                    FROM identity_jobs
+                    WHERE ingestion_run_id = @batchId
+                ),
+                active_job AS (
+                    SELECT entity_id, state, updated_at
+                    FROM latest_jobs
+                    WHERE rn = 1
+                      AND state IN @activeStates
+                    ORDER BY updated_at DESC
+                    LIMIT 1
+                )
+                SELECT cv.value
+                FROM active_job aj
+                INNER JOIN canonical_values cv ON cv.entity_id = aj.entity_id
+                WHERE cv.key IN ('title', 'show_name')
+                ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END
+                LIMIT 1;
+                """,
+                new { batchId = batchId.ToString(), activeStates = ActiveStates }).ConfigureAwait(false);
 
             var total = batch.FilesTotal;
             var failed = batch.FilesFailed + snapshot.PipelineFailed;
+            var ready = snapshot.FilesReady;
+            var readyWithoutUniverse = snapshot.FilesReadyWithoutUniverse;
+            var identified = ready + readyWithoutUniverse;
             var review = snapshot.FilesReview;
-            var identified = snapshot.FilesIdentified;
             var noMatch = snapshot.FilesNoMatch;
-            var active = snapshot.FilesActive;
-            var queued = Math.Max(0, total - identified - review - noMatch - failed - active);
+            var queued = snapshot.QueuedJobs;
+            var active = snapshot.RetailSearching
+                + snapshot.RetailMatched
+                + snapshot.RetailMatchedNeedsReview
+                + snapshot.BridgeSearching
+                + snapshot.QidResolved
+                + snapshot.Hydrating
+                + snapshot.UniverseEnriching;
+
             var progressed = Math.Max(0, total - queued);
             var pct = total > 0 ? (int)Math.Round(progressed * 100.0 / total) : 0;
             var completed = total > 0 && queued == 0 && active == 0;
@@ -158,6 +198,9 @@ public sealed class BatchProgressService
                 await _batchRepo.CompleteAsync(batchId, "completed", ct).ConfigureAwait(false);
             }
 
+            var lifecycleStage = ResolveLifecycleStage(snapshot, queued, review, completed);
+            var currentStage = ResolveStageLabel(lifecycleStage, completed);
+
             await _eventPublisher.PublishAsync(
                 SignalREvents.BatchProgress,
                 new BatchProgressEvent(
@@ -171,9 +214,13 @@ public sealed class BatchProgressService
                     pct,
                     etaSecs,
                     isFinal || completed,
-                    CurrentStage: ResolveStageLabel(snapshot, queued, completed),
+                    CurrentStage: currentStage,
                     FilesQueued: queued,
-                    FilesActive: active),
+                    FilesActive: active,
+                    FilesReady: ready,
+                    FilesReadyWithoutUniverse: readyWithoutUniverse,
+                    CurrentFileTitle: currentFileTitle,
+                    LifecycleStage: lifecycleStage),
                 ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -182,22 +229,48 @@ public sealed class BatchProgressService
         }
     }
 
-    private static string ResolveStageLabel(BatchRunSnapshot snapshot, int queued, bool completed) =>
+    private static string ResolveLifecycleStage(BatchRunSnapshot snapshot, int queued, int review, bool completed)
+    {
+        if (completed)
+            return "Complete";
+
+        if (snapshot.UniverseEnriching > 0)
+            return "UniverseEnriching";
+
+        if (snapshot.BridgeSearching > 0 || snapshot.QidResolved > 0 || snapshot.Hydrating > 0)
+            return "ResolvingUniverse";
+
+        if (snapshot.RetailSearching > 0 || snapshot.RetailMatched > 0 || snapshot.RetailMatchedNeedsReview > 0)
+            return "Identifying";
+
+        if (review > 0)
+            return "Review";
+
+        if (queued > 0)
+            return "Queued";
+
+        return "Processing";
+    }
+
+    private static string ResolveStageLabel(string lifecycleStage, bool completed) =>
         completed ? "Complete" :
-        snapshot.Hydrating > 0 || snapshot.QidResolved > 0 ? "Hydrating" :
-        snapshot.BridgeSearching > 0 ? "Resolving universes" :
-        snapshot.RetailSearching > 0 ? "Identifying" :
-        snapshot.RetailMatched > 0 || snapshot.RetailMatchedNeedsReview > 0 ? "Preparing universe lookup" :
-        queued > 0 ? "Queued" :
-        "Processing";
+        lifecycleStage switch
+        {
+            "UniverseEnriching" => "Enriching universe",
+            "ResolvingUniverse" => "Resolving universe",
+            "Identifying" => "Identifying",
+            "Review" => "Review",
+            "Queued" => "Queued",
+            _ => "Processing",
+        };
 
     private sealed class BatchRunSnapshot
     {
-        public int FilesIdentified { get; init; }
+        public int FilesReady { get; init; }
+        public int FilesReadyWithoutUniverse { get; init; }
         public int FilesReview { get; init; }
         public int FilesNoMatch { get; init; }
         public int PipelineFailed { get; init; }
-        public int FilesActive { get; init; }
         public int QueuedJobs { get; init; }
         public int RetailSearching { get; init; }
         public int RetailMatched { get; init; }
@@ -205,5 +278,6 @@ public sealed class BatchProgressService
         public int BridgeSearching { get; init; }
         public int QidResolved { get; init; }
         public int Hydrating { get; init; }
+        public int UniverseEnriching { get; init; }
     }
 }

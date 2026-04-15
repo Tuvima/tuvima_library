@@ -36,7 +36,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 FROM   identity_jobs
                 WHERE  entity_id = @EntityId
                   AND  pass = @Pass
-                  AND  state NOT IN ('Completed', 'Failed')
+                  AND  state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed')
             );
             """,
             new
@@ -68,7 +68,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             SelectSql + """
              WHERE entity_id = @entityId
              ORDER BY CASE
-                          WHEN state IN ('Completed', 'Failed') THEN 1
+                          WHEN state IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed') THEN 1
                           ELSE 0
                       END,
                       updated_at DESC,
@@ -223,7 +223,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<IdentityJobRow>(
             SelectSql + """
-                 WHERE state NOT IN ('Completed', 'Failed', 'RetailNoMatch')
+                 WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
                    AND updated_at < @cutoff
                  ORDER BY updated_at ASC
                  LIMIT @limit;
@@ -244,12 +244,13 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                        WHEN 'RetailSearching' THEN 'Queued'
                        WHEN 'BridgeSearching' THEN 'RetailMatched'
                        WHEN 'Hydrating'       THEN 'QidResolved'
+                       WHEN 'UniverseEnriching' THEN 'QidResolved'
                    END,
                    lease_owner      = NULL,
                    lease_expires_at = NULL,
                    last_error       = 'Reclaimed from stuck intermediate state',
                    updated_at       = @now
-            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating')
+            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
               AND  (lease_owner IS NULL OR lease_expires_at < @now)
               AND  updated_at < @cutoff
               AND  attempt_count < 5;
@@ -288,7 +289,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         return await conn.ExecuteScalarAsync<int>(
-            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')");
+            "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Completed', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')");
     }
 
     public async Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(
