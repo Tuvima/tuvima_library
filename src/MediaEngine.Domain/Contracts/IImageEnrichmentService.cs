@@ -13,8 +13,8 @@ public interface IImageEnrichmentService
     /// Downloads backdrops, logos, banners for the work; matches character art
     /// to performer-character pairs; upgrades hero images from backdrops.
     /// </summary>
-    /// <param name="workId">The work's database ID.</param>
+    /// <param name="assetId">The media asset ID used for artwork storage and stream routes.</param>
     /// <param name="workQid">The work's confirmed Wikidata QID.</param>
     /// <param name="ct">Cancellation token.</param>
-    Task EnrichWorkImagesAsync(Guid workId, string workQid, CancellationToken ct = default);
+    Task EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default);
 }

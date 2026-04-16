@@ -2,6 +2,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
@@ -17,17 +18,20 @@ public sealed class FictionalEntityWorker
     private readonly INarrativeRootResolver _narrativeRootResolver;
     private readonly IRecursiveFictionalEntityService _fictionalEntityService;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly IWorkRepository _workRepo;
     private readonly ILogger<FictionalEntityWorker> _logger;
 
     public FictionalEntityWorker(
         INarrativeRootResolver narrativeRootResolver,
         IRecursiveFictionalEntityService fictionalEntityService,
         ICanonicalValueRepository canonicalRepo,
+        IWorkRepository workRepo,
         ILogger<FictionalEntityWorker> logger)
     {
         _narrativeRootResolver = narrativeRootResolver;
         _fictionalEntityService = fictionalEntityService;
         _canonicalRepo = canonicalRepo;
+        _workRepo = workRepo;
         _logger = logger;
     }
 
@@ -37,10 +41,13 @@ public sealed class FictionalEntityWorker
     /// </summary>
     public async Task EnrichAsync(Guid entityId, string workQid, CancellationToken ct)
     {
-        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+        var canonicalEntityId = await ResolveCanonicalEntityIdAsync(entityId, ct);
+        var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
+        if (canonicals.Count == 0 && canonicalEntityId != entityId)
+            canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
 
         // 1. Resolve narrative root
-        var narrativeRoot = await _narrativeRootResolver.ResolveAsync(entityId, ct);
+        var narrativeRoot = await _narrativeRootResolver.ResolveAsync(canonicalEntityId, ct);
 
         if (narrativeRoot is null)
         {
@@ -73,6 +80,12 @@ public sealed class FictionalEntityWorker
             workQid, workLabel,
             narrativeRoot.Qid, narrativeRoot.Label,
             entityRefs, ct);
+    }
+
+    private async Task<Guid> ResolveCanonicalEntityIdAsync(Guid entityId, CancellationToken ct)
+    {
+        var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+        return lineage?.TargetForParentScope ?? entityId;
     }
 
     /// <summary>

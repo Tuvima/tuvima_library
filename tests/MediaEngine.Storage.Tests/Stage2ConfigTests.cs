@@ -115,6 +115,28 @@ public sealed class Stage2ConfigTests
             Assert.Null(config!.GetRuleFor(mt));
     }
 
+    [Fact]
+    public void WikidataConfig_IncludesStage3HierarchyAndTvBridgeProperties()
+    {
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
+        Assert.True(File.Exists(path), $"wikidata_reconciliation.json not found at {path}");
+
+        var json = File.ReadAllText(path);
+        var reconConfig = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOpts);
+        Assert.NotNull(reconConfig);
+
+        var workProps = reconConfig!.DataExtension.WorkProperties;
+        Assert.Contains("P8345", workProps.Core);
+        Assert.Contains("P1434", workProps.Core);
+        Assert.Contains("P4835", workProps.Bridges);
+
+        var labels = reconConfig.DataExtension.PropertyLabels;
+        Assert.Equal("franchise", labels["P8345"]);
+        Assert.Equal("fictional_universe", labels["P1434"]);
+        Assert.Equal("tvdb_id", labels["P4835"]);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
 
     private static string FindRepoRoot()

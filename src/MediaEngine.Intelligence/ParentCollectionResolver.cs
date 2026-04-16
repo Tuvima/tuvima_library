@@ -10,9 +10,11 @@ namespace MediaEngine.Intelligence;
 /// Examines Collection relationships to detect franchise-level groupings and promote
 /// sibling Collections under a common Parent Collection.
 ///
-/// A Parent Collection is created when 2+ Collections share a <see cref="CollectionRelationship"/>
-/// with the same <c>rel_qid</c> and a <c>rel_type</c> in
-/// ("franchise", "fictional_universe").
+/// A Parent Collection is created when either:
+/// 1. 2+ Collections share a <see cref="CollectionRelationship"/> with the same
+///    <c>rel_qid</c> and a <c>rel_type</c> in ("franchise", "fictional_universe"), or
+/// 2. A single ContentGroup Collection exposes a broader franchise/universe QID that is
+///    different from the Collection's own <c>wikidata_qid</c>.
 ///
 /// The Parent Collection is itself a Collection row with <c>parent_collection_id = NULL</c>,
 /// its <see cref="Collection.DisplayName"/> taken from the relationship's
@@ -80,7 +82,7 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
         foreach (var rel in franchiseRels)
         {
             ct.ThrowIfCancellationRequested();
-            await ProcessFranchiseAsync(collectionId, rel, ct).ConfigureAwait(false);
+            await ProcessFranchiseAsync(collection, rel, ct).ConfigureAwait(false);
         }
     }
 
@@ -89,17 +91,18 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
     // -------------------------------------------------------------------------
 
     private async Task ProcessFranchiseAsync(
-        Guid collectionId,
+        Collection collection,
         CollectionRelationship rel,
         CancellationToken ct)
     {
+        var collectionId = collection.Id;
         string qid   = rel.RelQid;
         string label = rel.RelLabel ?? qid;
 
         // a) Check if a Parent Collection already exists for this franchise QID.
         var existing = await _collectionRepo.FindParentCollectionByRelationshipAsync(qid, ct).ConfigureAwait(false);
 
-        if (existing is not null)
+        if (existing is not null && existing.Id != collectionId)
         {
             // Parent Collection exists — assign this Collection as a child if not already done.
             // (FindParentCollectionByRelationshipAsync returns collections with parent_collection_id IS NULL,
@@ -112,13 +115,24 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
             return;
         }
 
+        if (existing is not null)
+        {
+            _logger.LogDebug(
+                "ParentCollectionResolver: Ignoring self-match for Collection {CollectionId} (franchise QID {Qid}).",
+                collectionId,
+                qid);
+        }
+
         // b) No Parent Collection yet — check whether 2+ sibling Collections share this QID.
         var siblingIds = await _collectionRepo.FindCollectionIdsByFranchiseQidAsync(qid, ct).ConfigureAwait(false);
+        var hasBroaderUniverseQid =
+            !string.IsNullOrWhiteSpace(collection.WikidataQid)
+            && !string.Equals(collection.WikidataQid, qid, StringComparison.OrdinalIgnoreCase);
 
         // Filter out collections that already have a parent (they've been processed before).
         // We collect IDs to re-parent after creating the new Parent Collection.
         // Note: We include the current collection in the sibling set — it will be set too.
-        if (siblingIds.Count < 2)
+        if (siblingIds.Count < 2 && !hasBroaderUniverseQid)
         {
             // Only one Collection (this one) carries this franchise QID — not enough to form a group.
             _logger.LogDebug(
@@ -134,6 +148,8 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
             DisplayName    = label,
             CreatedAt      = DateTimeOffset.UtcNow,
             UniverseStatus = "Unknown",
+            CollectionType = "Universe",
+            Resolution     = "materialized",
             // ParentCollectionId remains null — Parent Collections are top-level.
         };
 
@@ -141,8 +157,8 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
 
         _logger.LogInformation(
             "ParentCollectionResolver: Created Parent Collection {ParentCollectionId} '{Label}' for franchise QID {Qid} " +
-            "({SiblingCount} sibling(s)).",
-            parentCollection.Id, label, qid, siblingIds.Count);
+            "({SiblingCount} sibling(s), broaderMatch={HasBroaderUniverseQid}).",
+            parentCollection.Id, label, qid, siblingIds.Count, hasBroaderUniverseQid);
 
         // d) Add a franchise relationship to the Parent Collection so future calls to
         //    FindParentCollectionByRelationshipAsync can locate it.

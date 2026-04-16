@@ -1462,6 +1462,7 @@ public sealed class WorkerPipelineTests
         var collectionAssignment = new CollectionAssignmentService(
             new NoOpCollectionRepository(),
             canonicalRepo,
+            new StubWorkRepository(),
             NullLogger<CollectionAssignmentService>.Instance);
 
         var worker = new QuickHydrationWorker(

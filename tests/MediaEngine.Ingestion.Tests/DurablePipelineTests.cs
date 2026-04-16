@@ -402,6 +402,7 @@ public sealed class DurablePipelineTests : IDisposable
         var collectionAssignment = new CollectionAssignmentService(
             new NoOpCollectionRepository(),
             new NoOpCanonicalValueRepository(),
+            new NoOpWorkRepository(),
             NullLogger<CollectionAssignmentService>.Instance);
 
         var worker = new QuickHydrationWorker(
@@ -1006,6 +1007,21 @@ public sealed class DurablePipelineTests : IDisposable
 
         public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
             => Task.CompletedTask;
+    }
+
+    private sealed class NoOpWorkRepository : IWorkRepository
+    {
+        public Task<Guid?> FindParentByKeyAsync(MediaType mediaType, string parentKey, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid?> FindChildByOrdinalAsync(Guid parentWorkId, int ordinal, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid?> FindChildByTitleAsync(Guid parentWorkId, string title, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid?> FindByExternalIdentifierAsync(string scheme, string value, CancellationToken ct = default) => Task.FromResult<Guid?>(null);
+        public Task<Guid> InsertParentAsync(MediaType mediaType, string parentKey, Guid? grandparentWorkId, int? ordinal, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task<Guid> InsertChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task<Guid> InsertStandaloneAsync(MediaType mediaType, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task<Guid> InsertCatalogChildAsync(MediaType mediaType, Guid parentWorkId, int? ordinal, IReadOnlyDictionary<string, string>? externalIdentifiers, CancellationToken ct = default) => Task.FromResult(Guid.NewGuid());
+        public Task PromoteCatalogToOwnedAsync(Guid workId, CancellationToken ct = default) => Task.CompletedTask;
+        public Task WriteExternalIdentifiersAsync(Guid workId, IReadOnlyDictionary<string, string> identifiers, CancellationToken ct = default) => Task.CompletedTask;
+        public Task<WorkLineage?> GetLineageByAssetAsync(Guid assetId, CancellationToken ct = default) => Task.FromResult<WorkLineage?>(null);
     }
 
     private sealed class NoOpReviewQueueRepository : IReviewQueueRepository

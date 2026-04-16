@@ -21,6 +21,7 @@ public sealed class CollectionAssignmentService
 {
     private readonly ICollectionRepository _collectionRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly IWorkRepository _workRepo;
     private readonly ILogger<CollectionAssignmentService> _logger;
 
     // Per-QID semaphores serialise concurrent find-or-create calls so two
@@ -32,10 +33,12 @@ public sealed class CollectionAssignmentService
     public CollectionAssignmentService(
         ICollectionRepository collectionRepo,
         ICanonicalValueRepository canonicalRepo,
+        IWorkRepository workRepo,
         ILogger<CollectionAssignmentService> logger)
     {
         _collectionRepo = collectionRepo;
         _canonicalRepo = canonicalRepo;
+        _workRepo = workRepo;
         _logger = logger;
     }
 
@@ -45,26 +48,27 @@ public sealed class CollectionAssignmentService
     /// </summary>
     public async Task AssignAsync(Guid entityId, CancellationToken ct = default)
     {
-        // Resolve the Work ID from the entity (MediaAsset) ID
-        var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct);
+        var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+
+        Guid? workId = lineage?.WorkId;
+        if (workId is null)
+            workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct);
+
         if (workId is null)
         {
             _logger.LogDebug("CollectionAssignment: no work found for entity {EntityId}", entityId);
             return;
         }
 
-        // Skip if work already has a collection_id
         var existingCollectionId = await _collectionRepo.GetCollectionIdByWorkIdAsync(workId.Value, ct);
-        if (existingCollectionId is not null)
-        {
-            _logger.LogDebug("CollectionAssignment: work {WorkId} already assigned to collection {CollectionId}",
-                workId, existingCollectionId);
-            return;
-        }
 
-        // Load canonical values — keyed by the MediaAsset entity ID (not the Work ID),
-        // because the pipeline stores canonicals under job.EntityId which is the asset.
-        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+        // Stage 3 hierarchy claims are parent-scoped, so TV/music/book items need
+        // the root work's canonicals instead of the file asset's canonicals.
+        var canonicalEntityId = lineage?.TargetForParentScope ?? workId.Value;
+        var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
+        if (canonicals.Count == 0 && canonicalEntityId != entityId)
+            canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+
         var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
 
         // Try to find a parent QID from Wikidata relationship properties.
@@ -77,6 +81,21 @@ public sealed class CollectionAssignmentService
         {
             _logger.LogDebug("CollectionAssignment: no parent QID for work {WorkId} — standalone", workId);
             return;
+        }
+
+        if (existingCollectionId is not null)
+        {
+            var existingCollection = await _collectionRepo.GetByIdAsync(existingCollectionId.Value, ct);
+            if (existingCollection is not null)
+            {
+                await EnsureCollectionRelationshipsAsync(existingCollection.Id, lookup, ct);
+
+                _logger.LogDebug(
+                    "CollectionAssignment: work {WorkId} already assigned to collection {CollectionId}",
+                    workId,
+                    existingCollectionId);
+                return;
+            }
         }
 
         // Find or create a ContentGroup collection for this parent QID.
@@ -118,6 +137,8 @@ public sealed class CollectionAssignmentService
                     "CollectionAssignment: created ContentGroup collection '{Name}' ({Qid}) for work {WorkId}",
                     collection.DisplayName, parentQid, workId);
             }
+
+            await EnsureCollectionRelationshipsAsync(collection.Id, lookup, ct);
         }
         finally
         {
@@ -198,5 +219,57 @@ public sealed class CollectionAssignmentService
         }
 
         return true;
+    }
+
+    private async Task EnsureCollectionRelationshipsAsync(
+        Guid collectionId,
+        Dictionary<string, string> lookup,
+        CancellationToken ct)
+    {
+        var desiredRelationships = BuildCollectionRelationships(collectionId, lookup);
+        if (desiredRelationships.Count == 0)
+            return;
+
+        var existingRelationships = await _collectionRepo.GetRelationshipsAsync(collectionId, ct);
+        var missingRelationships = desiredRelationships
+            .Where(candidate => !existingRelationships.Any(existing =>
+                string.Equals(existing.RelType, candidate.RelType, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(existing.RelQid, candidate.RelQid, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        if (missingRelationships.Count == 0)
+            return;
+
+        await _collectionRepo.InsertRelationshipsAsync(missingRelationships, ct);
+
+        _logger.LogInformation(
+            "CollectionAssignment: added {Count} relationship(s) to collection {CollectionId}",
+            missingRelationships.Count,
+            collectionId);
+    }
+
+    private static IReadOnlyList<CollectionRelationship> BuildCollectionRelationships(
+        Guid collectionId,
+        Dictionary<string, string> lookup)
+    {
+        var relationships = new List<CollectionRelationship>();
+        foreach (var claimKey in new[] { "series", "franchise", "fictional_universe" })
+        {
+            if (!TryGetQid(lookup, claimKey, out var qid, out var label))
+                continue;
+
+            relationships.Add(new CollectionRelationship
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = collectionId,
+                RelType = claimKey,
+                RelQid = qid,
+                RelLabel = label,
+                Confidence = 1.0,
+                DiscoveredAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        return relationships;
     }
 }

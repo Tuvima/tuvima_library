@@ -303,21 +303,19 @@ public sealed class CollectionRepository : ICollectionRepository
 
             const string sql = """
                 INSERT OR IGNORE INTO collection_relationships (id, collection_id, rel_type, rel_qid, rel_label, confidence, discovered_at)
-                VALUES (@id, @collectionId, @relType, @relQid, @relLabel, @confidence, @discoveredAt);
+                VALUES (@Id, @CollectionId, @RelType, @RelQid, @RelLabel, @Confidence, @DiscoveredAt);
                 """;
 
-            var rows = relationships.Select(r => new
+            foreach (var relationship in relationships)
             {
-                id           = r.Id.ToString(),
-                collectionId        = r.CollectionId.ToString(),
-                r.RelType,
-                r.RelQid,
-                relLabel     = r.RelLabel,
-                r.Confidence,
-                discoveredAt = r.DiscoveredAt.ToString("O"),
-            });
-
-            conn.Execute(sql, rows, transaction: tx);
+                // Use the entity's CLR property names directly so SQLite receives
+                // the exact parameter names Dapper binds for Guid/DateTimeOffset handlers.
+                await conn.ExecuteAsync(new CommandDefinition(
+                    sql,
+                    relationship,
+                    transaction: tx,
+                    cancellationToken: ct));
+            }
             tx.Commit();
         }
         finally
@@ -606,6 +604,9 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         ct.ThrowIfCancellationRequested();
 
+        if (parentCollectionId == collectionId)
+            return;
+
         await _db.AcquireWriteLockAsync(ct);
         try
         {
@@ -655,6 +656,7 @@ public sealed class CollectionRepository : ICollectionRepository
             WHERE  hr.rel_qid = @qid
               AND  hr.rel_type IN ('franchise', 'fictional_universe')
               AND  h.parent_collection_id IS NULL
+              AND  COALESCE(h.collection_type, 'Universe') <> 'ContentGroup'
             LIMIT  1;
             """, new { qid });
 

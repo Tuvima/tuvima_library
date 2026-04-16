@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -7,6 +8,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -22,9 +24,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private readonly IEntityAssetRepository _assetRepo;
     private readonly ICharacterPortraitRepository _portraitRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly IWorkRepository _workRepo;
     private readonly IFictionalEntityRepository _entityRepo;
     private readonly IPersonRepository _personRepo;
     private readonly IProviderConfigurationRepository _providerConfigRepo;
+    private readonly IConfigurationLoader _configLoader;
     private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IImageCacheRepository _imageCache;
     private readonly ImagePathService _imagePaths;
@@ -33,6 +37,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private readonly ILogger<ImageEnrichmentService> _logger;
 
     private const string FanartBaseUrl = "https://webservice.fanart.tv/v3";
+    private const string FanartProviderConfigName = "fanart_tv";
     private const double CharacterMatchThreshold = 0.70;
 
     /// <summary>
@@ -54,6 +59,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ["Music"] = [
             ("artistbackground", AssetType.Backdrop),
             ("musiclogo",        AssetType.Logo),
+            ("albumcover",       AssetType.Backdrop),
+            ("cdart",            AssetType.Logo),
         ],
     };
 
@@ -70,9 +77,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         IEntityAssetRepository assetRepo,
         ICharacterPortraitRepository portraitRepo,
         ICanonicalValueRepository canonicalRepo,
+        IWorkRepository workRepo,
         IFictionalEntityRepository entityRepo,
         IPersonRepository personRepo,
         IProviderConfigurationRepository providerConfigRepo,
+        IConfigurationLoader configLoader,
         IHeroBannerGenerator heroGenerator,
         IImageCacheRepository imageCache,
         ImagePathService imagePaths,
@@ -83,9 +92,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ArgumentNullException.ThrowIfNull(assetRepo);
         ArgumentNullException.ThrowIfNull(portraitRepo);
         ArgumentNullException.ThrowIfNull(canonicalRepo);
+        ArgumentNullException.ThrowIfNull(workRepo);
         ArgumentNullException.ThrowIfNull(entityRepo);
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(providerConfigRepo);
+        ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(heroGenerator);
         ArgumentNullException.ThrowIfNull(imageCache);
         ArgumentNullException.ThrowIfNull(imagePaths);
@@ -96,9 +107,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         _assetRepo           = assetRepo;
         _portraitRepo        = portraitRepo;
         _canonicalRepo       = canonicalRepo;
+        _workRepo            = workRepo;
         _entityRepo          = entityRepo;
         _personRepo          = personRepo;
         _providerConfigRepo  = providerConfigRepo;
+        _configLoader        = configLoader;
         _heroGenerator       = heroGenerator;
         _imageCache          = imageCache;
         _imagePaths          = imagePaths;
@@ -108,29 +121,41 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     }
 
     /// <inheritdoc/>
-    public async Task EnrichWorkImagesAsync(Guid workId, string workQid, CancellationToken ct = default)
+    public async Task EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(workQid);
 
-        _logger.LogInformation("[IMAGE-ENRICH] Starting image enrichment for work {WorkId} ({WorkQid})", workId, workQid);
+        var context = await ResolveImageWorkContextAsync(assetId, ct);
+        _logger.LogInformation(
+            "[IMAGE-ENRICH] Starting image enrichment for asset {AssetId} using canonical entity {CanonicalEntityId} ({WorkQid})",
+            assetId,
+            context.CanonicalEntityId,
+            workQid);
 
         // ── Step 1: Read bridge IDs from canonical values ──
-        var canonicals = await _canonicalRepo.GetByEntityAsync(workId, ct);
-        var tmdbId = GetCanonical(canonicals, BridgeIdKeys.TmdbId);
-        var tvdbId = GetCanonical(canonicals, BridgeIdKeys.TvdbId);
-        var mbId   = GetCanonical(canonicals, BridgeIdKeys.MusicBrainzId);
-        var mediaTypeStr = GetCanonical(canonicals, MetadataFieldConstants.MediaTypeField);
+        var canonicalLookup = await LoadEffectiveCanonicalLookupAsync(
+            context.CanonicalEntityId,
+            assetId,
+            ct);
+        var tmdbId = GetCanonical(canonicalLookup, BridgeIdKeys.TmdbId, "tmdb_movie_id", "tmdb_tv_id");
+        var tvdbId = GetCanonical(canonicalLookup, BridgeIdKeys.TvdbId);
+        var musicBrainzArtistId = GetCanonical(canonicalLookup, BridgeIdKeys.MusicBrainzId, "musicbrainz_artist_id");
+        var musicBrainzReleaseGroupId = GetCanonical(canonicalLookup, BridgeIdKeys.MusicBrainzReleaseGroupId);
+        var mediaTypeStr = GetCanonical(canonicalLookup, MetadataFieldConstants.MediaTypeField);
 
-        if (tmdbId is null && tvdbId is null && mbId is null)
+        if (tmdbId is null
+            && tvdbId is null
+            && musicBrainzArtistId is null
+            && musicBrainzReleaseGroupId is null)
         {
             _logger.LogDebug("[IMAGE-ENRICH] No bridge IDs for Fanart.tv — skipping work {WorkQid}", workQid);
             return;
         }
 
         // ── Step 2: Resolve API key ──
-        var apiKey = await _providerConfigRepo.GetDecryptedValueAsync(
-            WellKnownProviders.FanartTv.ToString(), "api_key", ct);
+        var fanartConfig = _configLoader.LoadProvider(FanartProviderConfigName);
+        var apiKey = await ResolveFanartApiKeyAsync(fanartConfig, ct);
 
         if (string.IsNullOrEmpty(apiKey))
         {
@@ -139,7 +164,15 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         }
 
         // ── Step 3: Call Fanart.tv API ──
-        var (json, resolvedMediaType) = await CallFanartApiAsync(tmdbId, tvdbId, mbId, mediaTypeStr, apiKey, ct);
+        var (json, resolvedMediaType) = await CallFanartApiAsync(
+            tmdbId,
+            tvdbId,
+            musicBrainzArtistId,
+            musicBrainzReleaseGroupId,
+            mediaTypeStr,
+            apiKey,
+            fanartConfig?.Name,
+            ct);
         if (json is null) return;
 
         // ── Step 4: Parse response and download work-level assets ──
@@ -149,7 +182,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             foreach (var (jsonField, assetType) in mappings)
             {
                 var localPath = await ProcessImageArrayAsync(
-                    json, jsonField, assetType, workId, workQid, resolvedMediaType, ct);
+                    json, jsonField, assetType, assetId, workQid, resolvedMediaType, ct);
 
                 if (assetType == AssetType.Backdrop && localPath is not null)
                     backdropPath = localPath;
@@ -159,16 +192,16 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         // ── Step 5: Regenerate hero from backdrop (higher quality than cover) ──
         if (backdropPath is not null && File.Exists(backdropPath))
         {
-            await RegenerateHeroFromBackdropAsync(workId, workQid, backdropPath, ct);
+            await RegenerateHeroFromBackdropAsync(assetId, workQid, backdropPath, ct);
         }
 
         // ── Steps 6–7: Character art matching ──
         if (CharacterArtFields.TryGetValue(resolvedMediaType, out var charField))
         {
-            await MatchCharacterArtAsync(json, charField, workId, workQid, ct);
+            await MatchCharacterArtAsync(json, charField, assetId, workQid, ct);
         }
 
-        _logger.LogInformation("[IMAGE-ENRICH] Image enrichment complete for work {WorkId} ({WorkQid})", workId, workQid);
+        _logger.LogInformation("[IMAGE-ENRICH] Image enrichment complete for asset {AssetId} ({WorkQid})", assetId, workQid);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -180,32 +213,73 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     /// Returns the parsed JSON response and the resolved media type string.
     /// </summary>
     private async Task<(JsonNode? Json, string MediaType)> CallFanartApiAsync(
-        string? tmdbId, string? tvdbId, string? mbId,
-        string? mediaTypeStr, string apiKey, CancellationToken ct)
+        string? tmdbId,
+        string? tvdbId,
+        string? musicBrainzArtistId,
+        string? musicBrainzReleaseGroupId,
+        string? mediaTypeStr,
+        string apiKey,
+        string? clientName,
+        CancellationToken ct)
     {
-        // Determine URL and media type from available bridge IDs
         string url;
         string resolvedMediaType;
 
-        if (tmdbId is not null && IsMovieType(mediaTypeStr))
+        if (IsMovieType(mediaTypeStr))
         {
+            if (string.IsNullOrWhiteSpace(tmdbId))
+                return (null, "Movies");
+
             url = $"{FanartBaseUrl}/movies/{tmdbId}?api_key={apiKey}";
             resolvedMediaType = "Movies";
         }
-        else if (tvdbId is not null)
+        else if (IsTvType(mediaTypeStr))
+        {
+            if (string.IsNullOrWhiteSpace(tvdbId))
+            {
+                _logger.LogDebug("[IMAGE-ENRICH] TV work has no TVDB id — skipping Fanart.tv lookup");
+                return (null, "TV");
+            }
+
+            url = $"{FanartBaseUrl}/tv/{tvdbId}?api_key={apiKey}";
+            resolvedMediaType = "TV";
+        }
+        else if (IsMusicType(mediaTypeStr))
+        {
+            if (!string.IsNullOrWhiteSpace(musicBrainzArtistId))
+            {
+                url = $"{FanartBaseUrl}/music/{musicBrainzArtistId}?api_key={apiKey}";
+                resolvedMediaType = "Music";
+            }
+            else if (!string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId))
+            {
+                url = $"{FanartBaseUrl}/music/albums/{musicBrainzReleaseGroupId}?api_key={apiKey}";
+                resolvedMediaType = "Music";
+            }
+            else
+            {
+                _logger.LogDebug("[IMAGE-ENRICH] Music work has no MusicBrainz artist or release-group id — skipping Fanart.tv lookup");
+                return (null, "Music");
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(tvdbId))
         {
             url = $"{FanartBaseUrl}/tv/{tvdbId}?api_key={apiKey}";
             resolvedMediaType = "TV";
         }
-        else if (tmdbId is not null)
+        else if (!string.IsNullOrWhiteSpace(tmdbId))
         {
-            // TMDB ID without explicit movie type — try TV (TMDB IDs work for both)
             url = $"{FanartBaseUrl}/movies/{tmdbId}?api_key={apiKey}";
             resolvedMediaType = "Movies";
         }
-        else if (mbId is not null)
+        else if (!string.IsNullOrWhiteSpace(musicBrainzArtistId))
         {
-            url = $"{FanartBaseUrl}/music/{mbId}?api_key={apiKey}";
+            url = $"{FanartBaseUrl}/music/{musicBrainzArtistId}?api_key={apiKey}";
+            resolvedMediaType = "Music";
+        }
+        else if (!string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId))
+        {
+            url = $"{FanartBaseUrl}/music/albums/{musicBrainzReleaseGroupId}?api_key={apiKey}";
             resolvedMediaType = "Music";
         }
         else
@@ -215,7 +289,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
         try
         {
-            using var client = _httpFactory.CreateClient("fanart_tv");
+            using var client = _httpFactory.CreateClient(
+                string.IsNullOrWhiteSpace(clientName) ? FanartProviderConfigName : clientName);
             var response = await client.GetAsync(url, ct);
 
             if (!response.IsSuccessStatusCode)
@@ -243,18 +318,22 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     /// </summary>
     private async Task<string?> ProcessImageArrayAsync(
         JsonNode json, string jsonField, AssetType assetType,
-        Guid workId, string workQid, string mediaType,
+        Guid assetId, string workQid, string mediaType,
         CancellationToken ct)
     {
-        var imageArray = json[jsonField]?.AsArray();
-        if (imageArray is null || imageArray.Count == 0) return null;
+        var imageArray = ResolveImageArray(json, jsonField);
+        if (imageArray is null || imageArray.Count == 0)
+        {
+            _logger.LogDebug("[IMAGE-ENRICH] No {JsonField} images returned for {WorkQid}", jsonField, workQid);
+            return null;
+        }
 
         // Pick best image: prefer English, then highest likes
         var best = imageArray
             .Where(n => n is not null)
             .OrderByDescending(n =>
                 string.Equals(n!["lang"]?.GetValue<string>(), "en", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
-            .ThenByDescending(n => n!["likes"]?.GetValue<int>() ?? 0)
+            .ThenByDescending(GetLikes)
             .FirstOrDefault();
 
         var imageUrl = best?["url"]?.GetValue<string>();
@@ -263,9 +342,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         // Resolve local path based on asset type
         var localPath = assetType switch
         {
-            AssetType.Backdrop => _imagePaths.GetWorkBackdropPath(workQid, workId),
-            AssetType.Logo     => _imagePaths.GetWorkLogoPath(workQid, workId),
-            AssetType.Banner   => _imagePaths.GetWorkBannerPath(workQid, workId),
+            AssetType.Backdrop => _imagePaths.GetWorkBackdropPath(workQid, assetId),
+            AssetType.Logo     => _imagePaths.GetWorkLogoPath(workQid, assetId),
+            AssetType.Banner   => _imagePaths.GetWorkBannerPath(workQid, assetId),
             _                  => null,
         };
 
@@ -288,7 +367,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         await _assetRepo.UpsertAsync(new EntityAsset
         {
             Id             = Guid.NewGuid(),
-            EntityId       = workId.ToString(),
+            EntityId       = assetId.ToString(),
             EntityType     = "Work",
             AssetTypeValue = assetType.ToString(),
             ImageUrl       = imageUrl,
@@ -311,25 +390,25 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     /// which produces better results than the cover-art-derived hero.
     /// </summary>
     private async Task RegenerateHeroFromBackdropAsync(
-        Guid workId, string workQid, string backdropPath, CancellationToken ct)
+        Guid assetId, string workQid, string backdropPath, CancellationToken ct)
     {
         try
         {
-            var imageDir = _imagePaths.GetWorkImageDir(workQid, workId);
+            var imageDir = _imagePaths.GetWorkImageDir(workQid, assetId);
             var heroResult = await _heroGenerator.GenerateAsync(backdropPath, imageDir, ct);
 
             var heroCanonicals = new List<CanonicalValue>
             {
                 new()
                 {
-                    EntityId     = workId,
+                    EntityId     = assetId,
                     Key          = "hero",
-                    Value        = $"/stream/{workId}/hero",
+                    Value        = $"/stream/{assetId}/hero",
                     LastScoredAt = DateTimeOffset.UtcNow,
                 },
             };
             heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
-                workId,
+                assetId,
                 coverState: "present",
                 coverSource: null,
                 heroState: "present",
@@ -340,7 +419,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             {
                 heroCanonicals.Add(new CanonicalValue
                 {
-                    EntityId     = workId,
+                    EntityId     = assetId,
                     Key          = "dominant_color",
                     Value        = heroResult.DominantHexColor,
                     LastScoredAt = DateTimeOffset.UtcNow,
@@ -356,7 +435,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         {
             await _canonicalRepo.UpsertBatchAsync(
                 ArtworkCanonicalHelper.CreateFlags(
-                    workId,
+                    assetId,
                     coverState: "present",
                     coverSource: null,
                     heroState: "missing",
@@ -365,6 +444,30 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 ct);
             _logger.LogWarning(ex, "[IMAGE-ENRICH] Hero regeneration from backdrop failed for {WorkQid}", workQid);
         }
+    }
+
+    private async Task<string?> ResolveFanartApiKeyAsync(
+        MediaEngine.Storage.Models.ProviderConfiguration? fanartConfig,
+        CancellationToken ct)
+    {
+        var apiKey = fanartConfig?.HttpClient?.ApiKey;
+        if (!string.IsNullOrWhiteSpace(apiKey))
+            return apiKey;
+
+        apiKey = await _providerConfigRepo.GetDecryptedValueAsync(
+            WellKnownProviders.FanartTv.ToString(),
+            "api_key",
+            ct);
+
+        return string.IsNullOrWhiteSpace(apiKey) ? null : apiKey;
+    }
+
+    private async Task<ImageWorkContext> ResolveImageWorkContextAsync(Guid entityId, CancellationToken ct)
+    {
+        var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+        return lineage is null
+            ? new ImageWorkContext(entityId, entityId)
+            : new ImageWorkContext(entityId, lineage.TargetForParentScope);
     }
 
     /// <summary>
@@ -517,12 +620,100 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         }
     }
 
-    /// <summary>Gets a canonical value by key, or null if missing.</summary>
-    private static string? GetCanonical(IReadOnlyList<CanonicalValue> canonicals, string key) =>
-        canonicals.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+    private async Task<Dictionary<string, string>> LoadEffectiveCanonicalLookupAsync(
+        Guid canonicalEntityId,
+        Guid assetId,
+        CancellationToken ct)
+    {
+        var lookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var canonical in await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct))
+        {
+            if (!string.IsNullOrWhiteSpace(canonical.Key)
+                && !string.IsNullOrWhiteSpace(canonical.Value)
+                && !lookup.ContainsKey(canonical.Key))
+            {
+                lookup[canonical.Key] = canonical.Value;
+            }
+        }
+
+        if (assetId == canonicalEntityId)
+            return lookup;
+
+        foreach (var canonical in await _canonicalRepo.GetByEntityAsync(assetId, ct))
+        {
+            if (!string.IsNullOrWhiteSpace(canonical.Key)
+                && !string.IsNullOrWhiteSpace(canonical.Value)
+                && !lookup.ContainsKey(canonical.Key))
+            {
+                lookup[canonical.Key] = canonical.Value;
+            }
+        }
+
+        return lookup;
+    }
+
+    private static JsonArray? ResolveImageArray(JsonNode json, string jsonField)
+    {
+        if (json[jsonField] is JsonArray directArray && directArray.Count > 0)
+            return directArray;
+
+        if (json["albums"] is not JsonObject albums)
+            return null;
+
+        foreach (var (_, albumNode) in albums)
+        {
+            if (albumNode?[jsonField] is JsonArray nestedArray && nestedArray.Count > 0)
+                return nestedArray;
+        }
+
+        return null;
+    }
+
+    private static int GetLikes(JsonNode? node) =>
+        TryGetInt(node?["likes"], out var likes) ? likes : 0;
+
+    private static bool TryGetInt(JsonNode? node, out int value)
+    {
+        value = 0;
+
+        if (node is not JsonValue jsonValue)
+            return false;
+
+        if (jsonValue.TryGetValue<int>(out value))
+            return true;
+
+        if (jsonValue.TryGetValue<string>(out var text))
+            return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+
+        return false;
+    }
+
+    /// <summary>Gets the first canonical value for the provided keys, or null if missing.</summary>
+    private static string? GetCanonical(
+        IReadOnlyDictionary<string, string> canonicals,
+        params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (canonicals.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
+    }
 
     /// <summary>Checks if the media type string indicates a movie (not TV).</summary>
     private static bool IsMovieType(string? mediaType) =>
         string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(mediaType, "Movie", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsTvType(string? mediaType) =>
+        string.Equals(mediaType, "TV", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(mediaType, "Television", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMusicType(string? mediaType) =>
+        string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase);
+
+    private sealed record ImageWorkContext(Guid AssetId, Guid CanonicalEntityId);
 }

@@ -268,9 +268,14 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
     {
         try
         {
-            var canonicals = await services.CanonicalRepository.GetByEntityAsync(request.EntityId, ct).ConfigureAwait(false);
-            var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
-            var narrativeRoot = await services.NarrativeRootResolver.ResolveAsync(request.EntityId, ct).ConfigureAwait(false);
+            var stage3Scope = await ResolveStage3ScopeAsync(
+                request.EntityId,
+                services.WorkRepository,
+                services.CanonicalRepository,
+                ct).ConfigureAwait(false);
+
+            var lookup = stage3Scope.Canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
+            var narrativeRoot = await services.NarrativeRootResolver.ResolveAsync(stage3Scope.CanonicalEntityId, ct).ConfigureAwait(false);
             var hasUniversePath = HasUniversePath(lookup, narrativeRoot);
             var workTitle = request.WorkTitle ?? GetBestTitle(lookup) ?? request.WorkQid;
 
@@ -441,6 +446,25 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
             ct).ConfigureAwait(false);
     }
 
+    private static async Task<Stage3Scope> ResolveStage3ScopeAsync(
+        Guid entityId,
+        IWorkRepository workRepository,
+        ICanonicalValueRepository canonicalRepository,
+        CancellationToken ct)
+    {
+        var lineage = await workRepository.GetLineageByAssetAsync(entityId, ct).ConfigureAwait(false);
+        var canonicalEntityId = lineage?.TargetForParentScope ?? entityId;
+        var canonicals = await canonicalRepository.GetByEntityAsync(canonicalEntityId, ct).ConfigureAwait(false);
+
+        if (canonicals.Count == 0 && canonicalEntityId != entityId)
+        {
+            canonicalEntityId = entityId;
+            canonicals = await canonicalRepository.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+        }
+
+        return new Stage3Scope(canonicalEntityId, canonicals);
+    }
+
     private static bool HasUniversePath(
         IReadOnlyDictionary<string, string> canonicalLookup,
         NarrativeRoot? narrativeRoot)
@@ -475,6 +499,7 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         => new(
             services.GetRequiredService<IConfigurationLoader>(),
             services.GetRequiredService<ICanonicalValueRepository>(),
+            services.GetRequiredService<IWorkRepository>(),
             services.GetRequiredService<IEnrichmentService>(),
             services.GetRequiredService<INarrativeRootResolver>(),
             services.GetRequiredService<IIdentityJobRepository>(),
@@ -511,11 +536,16 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
     private sealed record ResolvedServices(
         IConfigurationLoader ConfigurationLoader,
         ICanonicalValueRepository CanonicalRepository,
+        IWorkRepository WorkRepository,
         IEnrichmentService Enrichment,
         INarrativeRootResolver NarrativeRootResolver,
         IIdentityJobRepository JobRepository,
         BatchProgressService BatchProgress,
         IEventPublisher EventPublisher);
+
+    private sealed record Stage3Scope(
+        Guid CanonicalEntityId,
+        IReadOnlyList<CanonicalValue> Canonicals);
 
     private enum Stage3Source
     {

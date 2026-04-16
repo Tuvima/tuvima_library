@@ -1175,7 +1175,9 @@ public sealed class RegistryRepository : IRegistryRepository
                         ELSE 'none'
                     END AS wikidata_match,
                     CASE
-                        WHEN rd.job_state IN ('RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved', 'QidNeedsReview', 'QidNoMatch', 'Hydrating', 'Completed')
+                        WHEN COALESCE(NULLIF(rd.retail_match_detail, ''), '') != ''
+                            THEN 'matched'
+                        WHEN rd.job_state IN ('RetailMatched', 'RetailMatchedNeedsReview', 'BridgeSearching', 'QidResolved', 'QidNeedsReview', 'QidNoMatch', 'Hydrating', 'Ready', 'ReadyWithoutUniverse', 'Completed')
                             THEN 'matched'
                         WHEN rd.job_state = 'RetailNoMatch' THEN 'failed'
                         WHEN rd.review_trigger IN ('AuthorityMatchFailed', 'RetailMatchFailed', 'ContentMatchFailed')

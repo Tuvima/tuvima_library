@@ -1,6 +1,8 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Workers;
+using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -18,6 +20,8 @@ public sealed class EnrichmentService : IEnrichmentService
     private readonly DescriptionEnrichmentWorker _descriptions;
     private readonly IImageEnrichmentService _images;
     private readonly IWriteBackService _writeBack;
+    private readonly ICollectionRepository _collectionRepo;
+    private readonly IParentCollectionResolver _parentCollectionResolver;
     private readonly ILogger<EnrichmentService> _logger;
 
     public EnrichmentService(
@@ -28,6 +32,8 @@ public sealed class EnrichmentService : IEnrichmentService
         DescriptionEnrichmentWorker descriptions,
         IImageEnrichmentService images,
         IWriteBackService writeBack,
+        ICollectionRepository collectionRepo,
+        IParentCollectionResolver parentCollectionResolver,
         ILogger<EnrichmentService> logger)
     {
         _coverArt = coverArt;
@@ -37,6 +43,8 @@ public sealed class EnrichmentService : IEnrichmentService
         _descriptions = descriptions;
         _images = images;
         _writeBack = writeBack;
+        _collectionRepo = collectionRepo;
+        _parentCollectionResolver = parentCollectionResolver;
         _logger = logger;
     }
 
@@ -62,6 +70,7 @@ public sealed class EnrichmentService : IEnrichmentService
         await _children.DiscoverAsync(entityId, qid, ct);
         await _fictional.EnrichAsync(entityId, qid, ct);
         await _persons.EnrichActorCharacterMappingsAsync(entityId, qid, ct);
+        await ResolveParentCollectionAsync(entityId, ct);
     }
 
     public async Task RunUniverseEnhancerPassAsync(Guid entityId, string qid, CancellationToken ct = default)
@@ -98,5 +107,18 @@ public sealed class EnrichmentService : IEnrichmentService
                 await _writeBack.WriteMetadataAsync(entityId, "manual_enrichment", ct);
                 break;
         }
+    }
+
+    private async Task ResolveParentCollectionAsync(Guid entityId, CancellationToken ct)
+    {
+        var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct);
+        if (!workId.HasValue)
+            return;
+
+        var collectionId = await _collectionRepo.GetCollectionIdByWorkIdAsync(workId.Value, ct);
+        if (!collectionId.HasValue)
+            return;
+
+        await _parentCollectionResolver.ResolveParentCollectionAsync(collectionId.Value, ct);
     }
 }
