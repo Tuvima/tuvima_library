@@ -2,7 +2,7 @@
 param(
     [string]$EngineUrl = "http://localhost:61495",
     [ValidateSet(1, 12, 123)]
-    [int]$Stages = 12,
+    [int]$Stages = 123,
     [string[]]$Types = @("books", "audiobooks", "movies", "tv", "music", "comics"),
     [string]$OutputPath = "",
     [switch]$NoOpen

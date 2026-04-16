@@ -52,6 +52,7 @@ public static class IntegrationTestEndpoints
         public List<FileSystemCheckResult> FileSystemChecks { get; set; } = [];
         public List<WatchFolderCheckResult> WatchFolderChecks { get; set; } = [];
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
+        public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
         public List<string> FixesApplied { get; set; } = [];
         public int TotalItems { get; set; }
@@ -109,6 +110,7 @@ public static class IntegrationTestEndpoints
         public string Title { get; set; } = "";
         public string MediaType { get; set; } = "";
         public string Status { get; set; } = "";
+        public string? WikidataQid { get; set; }
         public string? ExpectedLocation { get; set; }
         public string? ExpectedRelativePath { get; set; }
         public string? ActualFilePath { get; set; }
@@ -159,6 +161,18 @@ public static class IntegrationTestEndpoints
     }
 
     // ── Reconciliation models ─────────────────────────────────────────────
+
+    /// <summary>Type-level evidence that Stage 3 fanart assets were stored.</summary>
+    private sealed class Stage3FanartSummary
+    {
+        public string MediaType { get; set; } = "";
+        public int EligibleCount { get; set; }
+        public int WithAnyFanart { get; set; }
+        public int WithBackdrop { get; set; }
+        public int WithLogo { get; set; }
+        public int WithBanner { get; set; }
+        public bool Pass => EligibleCount == 0 || WithAnyFanart > 0;
+    }
 
     private sealed class ReconciliationItemResult
     {
@@ -476,8 +490,15 @@ public static class IntegrationTestEndpoints
             await ValidateVaultDisplayAsync(db, registryRepo, report, stages, logger, ct);
 
         // ── Phase 4c: File system and artwork validation ───────────────────
-        logger.LogInformation("[Phase 4c] File system and artwork validation...");
-        await ValidateFileSystemAsync(db, options, configLoader, registryRepo, report, loggerFactory, logger, ct);
+        if (stages < 123)
+        {
+            logger.LogInformation("[Phase 4c] File system and artwork validation...");
+            await ValidateFileSystemAsync(db, options, configLoader, registryRepo, report, loggerFactory, logger, ct);
+        }
+        else
+        {
+            logger.LogInformation("[Phase 4c] Deferring file system validation until after Stage 3 artwork completes...");
+        }
 
         // ── Phase 4d: Stage Gating Validation ───────────────────────────
         logger.LogInformation("[Phase 4d] Stage gating validation...");
@@ -500,6 +521,13 @@ public static class IntegrationTestEndpoints
         {
             logger.LogInformation("[Phase 7] Triggering Stage 3 Universe Enrichment...");
             await RunStage3EnrichmentAsync(context, registryRepo, db, report, logger, ct);
+            await Task.Delay(TimeSpan.FromSeconds(5), ct);
+
+            logger.LogInformation("[Phase 7b] File system and Stage 3 artwork validation...");
+            report.FileSystemChecks.Clear();
+            report.WatchFolderChecks.Clear();
+            await ValidateFileSystemAsync(db, options, configLoader, registryRepo, report, loggerFactory, logger, ct);
+            ValidateStage3FanartAsync(report, logger);
         }
 
         sw.Stop();
@@ -987,6 +1015,11 @@ public static class IntegrationTestEndpoints
         int passCount = report.LibraryChecks.Count(v => v.Pass);
         logger.LogInformation("  Library checks: {Pass}/{Total} items pass core validation",
             passCount, report.LibraryChecks.Count);
+        if (passCount != report.LibraryChecks.Count)
+        {
+            report.IssuesFound.Add(
+                $"Library display validation failed for {report.LibraryChecks.Count - passCount} item(s)");
+        }
 
         // ── Child entity validation (TV episodes, Music tracks) ──────────
         foreach (var item in allItems.Items)
@@ -1083,6 +1116,7 @@ public static class IntegrationTestEndpoints
                 Title = item.Title,
                 MediaType = item.MediaType,
                 Status = item.Status ?? "",
+                WikidataQid = item.WikidataQid,
                 ExpectedLocation = expectLibraryPlacement ? "Library" : "Staging",
                 ExpectedCoverArt = expectedCoverArt,
             };
@@ -1781,6 +1815,8 @@ public static class IntegrationTestEndpoints
         SummaryCard(sb, report.ManualSearchResults.Count(s => s.Pass).ToString() + "/" + report.ManualSearchResults.Count, "Search Tests", "#A78BFA");
         SummaryCard(sb, report.LibraryChecks.Count(v => v.Pass).ToString() + "/" + report.LibraryChecks.Count, "Library Checks", "#22D3EE");
         SummaryCard(sb, report.FileSystemChecks.Count(f => f.Pass).ToString() + "/" + report.FileSystemChecks.Count, "Filesystem", "#38BDF8");
+        if (report.Stage3FanartSummaries.Count > 0)
+            SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
         SummaryCard(sb, report.StageGatingResults.Count(g => g.Pass).ToString() + "/" + report.StageGatingResults.Count, "Stage Gating", "#FB923C");
         if (report.Reconciliation is not null)
             SummaryCard(sb, report.Reconciliation.Matched + "/" + report.Reconciliation.ExpectedTotal, "Reconciliation", "#F472B6");
@@ -1989,6 +2025,25 @@ public static class IntegrationTestEndpoints
             }
             sb.AppendLine("</table>");
             sb.AppendLine("</details>");
+        }
+
+        if (report.Stage3FanartSummaries.Count > 0)
+        {
+            int fanartPass = report.Stage3FanartSummaries.Count(s => s.Pass);
+            string fanartBadge = fanartPass == report.Stage3FanartSummaries.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.Stage3FanartSummaries.Count - fanartPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Stage 3 Artwork Validation {fanartBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Media Type</th><th>Eligible QID Items</th><th>Any Fanart</th><th>Backdrops</th><th>Logos</th><th>Banners</th><th>Status</th></tr>");
+            foreach (var summary in report.Stage3FanartSummaries.OrderBy(s => s.MediaType))
+            {
+                string badge = summary.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackdrop}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{badge}</td></tr>");
+            }
+            sb.AppendLine("</table>");
         }
 
         // Stage Gating Validation
@@ -2393,6 +2448,49 @@ public static class IntegrationTestEndpoints
         string template = options.ResolveTemplate(mediaType?.ToString() ?? item.MediaType);
         string relative = organizer.CalculatePath(candidate, template).Replace('/', Path.DirectorySeparatorChar);
         return Path.Combine(options.LibraryRoot, relative);
+    }
+
+    private static void ValidateStage3FanartAsync(TestReport report, ILogger logger)
+    {
+        report.Stage3FanartSummaries.Clear();
+
+        foreach (var mediaType in new[] { "Movies", "TV", "Music" })
+        {
+            var eligible = report.FileSystemChecks
+                .Where(check =>
+                    string.Equals(check.MediaType, mediaType, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(check.ExpectedLocation, "Library", StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrWhiteSpace(check.WikidataQid)
+                    && check.FileExists
+                    && check.LocationMatchesExpectation)
+                .ToList();
+
+            if (eligible.Count == 0)
+                continue;
+
+            var summary = new Stage3FanartSummary
+            {
+                MediaType = mediaType,
+                EligibleCount = eligible.Count,
+                WithAnyFanart = eligible.Count(check => check.HasStoredBackdrop || check.HasStoredLogo || check.HasStoredBanner),
+                WithBackdrop = eligible.Count(check => check.HasStoredBackdrop),
+                WithLogo = eligible.Count(check => check.HasStoredLogo),
+                WithBanner = eligible.Count(check => check.HasStoredBanner),
+            };
+
+            report.Stage3FanartSummaries.Add(summary);
+            logger.LogInformation(
+                "  Stage 3 fanart: {MediaType} {WithAny}/{Eligible} items have backdrop/logo/banner evidence",
+                summary.MediaType,
+                summary.WithAnyFanart,
+                summary.EligibleCount);
+
+            if (!summary.Pass)
+            {
+                report.IssuesFound.Add(
+                    $"Stage 3 fanart: no stored backdrop/logo/banner assets were created for eligible {summary.MediaType} items");
+            }
+        }
     }
 
     private static bool PathsEqual(string left, string right) =>
