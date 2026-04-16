@@ -91,8 +91,7 @@ public static class IntegrationTestEndpoints
         public string? ExpectedRetailProvider { get; set; }
         public string? ActualRetailProvider { get; set; }
         public bool HasExpectedRetailProvider { get; set; } = true;
-        public bool RequiresCreator =>
-            !string.Equals(MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+        public bool RequiresCreator { get; set; } = true;
         public bool RequiresRetailProvider =>
             string.Equals(RetailMatch, "matched", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(ExpectedRetailProvider);
@@ -988,6 +987,7 @@ public static class IntegrationTestEndpoints
                 Creator        = creator,
                 RetailMatch    = item.RetailMatch,
                 WikidataQid    = item.WikidataQid,
+                RequiresCreator = creatorRequired,
                 ExpectedRetailProvider = expectedProvider,
                 ActualRetailProvider = actualProvider,
                 HasExpectedRetailProvider = string.IsNullOrWhiteSpace(expectedProvider)
@@ -1553,7 +1553,7 @@ public static class IntegrationTestEndpoints
 
         foreach (var exp in expectations)
         {
-            string titleLower = exp.Title.ToLowerInvariant();
+            string titleLower = (exp.ReconciliationTitle ?? exp.Title).ToLowerInvariant();
             string mediaTypeLower = exp.MediaType.ToLowerInvariant();
 
             string expectedDesc = exp.ExpectIdentified

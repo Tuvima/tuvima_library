@@ -83,7 +83,8 @@ public static class DevSeedEndpoints
         string? ExpectedReason = null,
         string? ExpectedProvider = null,
         string? ExpectedQid = null,
-        bool ExpectedCoverArt = true);
+        bool ExpectedCoverArt = true,
+        string? ReconciliationTitle = null);
 
     /// <summary>A seed FLAC music track definition.</summary>
     private sealed record SeedMusic(
@@ -401,7 +402,8 @@ public static class DevSeedEndpoints
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
             ExpectedReason: "Synthetic TV series should not match TMDB",
-            ExpectedCoverArt: false),
+            ExpectedCoverArt: false,
+            ReconciliationTitle: "Department of Clockwork Rain"),
 
         // ── Movies ──────────────────────────────────────────────────────────
 
@@ -1513,7 +1515,8 @@ public static class DevSeedEndpoints
         string? ExpectedReason,
         string? ExpectedProvider = null,
         string? ExpectedQid = null,
-        bool ExpectedCoverArt = true);
+        bool ExpectedCoverArt = true,
+        string? ReconciliationTitle = null);
 
     /// <summary>
     /// Seeds every canonical test fixture (Books, Audiobooks, Movies, TV, Music, Comics)
@@ -1709,7 +1712,8 @@ public static class DevSeedEndpoints
                 ExpectedReason: v.ExpectedReason,
                 ExpectedProvider: v.ExpectedProvider,
                 ExpectedQid: v.ExpectedQid,
-                ExpectedCoverArt: v.ExpectedCoverArt));
+                ExpectedCoverArt: v.ExpectedCoverArt,
+                ReconciliationTitle: v.ReconciliationTitle));
         }
 
         // Music
