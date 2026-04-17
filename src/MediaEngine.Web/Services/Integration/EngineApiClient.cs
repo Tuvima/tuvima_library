@@ -3485,12 +3485,13 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default)
+    public async Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, Guid? profileId = null, CancellationToken ct = default)
     {
         try
         {
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items?limit={limit}", profileId);
             return await _http.GetFromJsonAsync<List<CollectionItemViewModel>>(
-                $"/collections/{collectionId}/items?limit={limit}", ct) ?? [];
+                url, ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -3498,6 +3499,38 @@ public sealed class EngineApiClient : IEngineApiClient
             _logger.LogWarning(ex, "GET /collections/{CollectionId}/items failed", collectionId);
             LastError = ex.Message;
             return [];
+        }
+    }
+
+    public async Task<bool> AddCollectionItemAsync(Guid collectionId, Guid workId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items", profileId);
+            var resp = await _http.PostAsJsonAsync(url, new { work_id = workId }, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /collections/{CollectionId}/items failed", collectionId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> RemoveCollectionItemAsync(Guid collectionId, Guid itemId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items/{itemId}", profileId);
+            var resp = await _http.DeleteAsync(url, ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /collections/{CollectionId}/items/{ItemId} failed", collectionId, itemId);
+            LastError = ex.Message;
+            return false;
         }
     }
 

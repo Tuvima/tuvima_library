@@ -697,7 +697,13 @@ public interface IEngineApiClient
     Task<List<ContentGroupViewModel>> GetSystemViewGroupsAsync(string? mediaType = null, string? groupField = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/{id}/items?limit= — curated items for a collection.</summary>
-    Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default);
+    Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, Guid? profileId = null, CancellationToken ct = default);
+
+    /// <summary>POST /collections/{id}/items — add a work to a playlist.</summary>
+    Task<bool> AddCollectionItemAsync(Guid collectionId, Guid workId, Guid? profileId = null, CancellationToken ct = default);
+
+    /// <summary>DELETE /collections/{id}/items/{itemId} — remove a work from a playlist.</summary>
+    Task<bool> RemoveCollectionItemAsync(Guid collectionId, Guid itemId, Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>PUT /collections/{id}/enabled — toggle collection enabled state.</summary>
     Task<bool> UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default);

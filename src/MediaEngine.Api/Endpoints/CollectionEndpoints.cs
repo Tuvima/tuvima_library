@@ -1270,7 +1270,6 @@ public static class CollectionEndpoints
         group.MapGet("/system-views", async (
             string? mediaType,
             string? groupField,
-            ICollectionRepository collectionRepo,
             IDatabaseConnection db,
             IPersonRepository personRepo,
             ILoggerFactory loggerFactory,
@@ -1281,39 +1280,16 @@ public static class CollectionEndpoints
             log.LogInformation("[ByAlbum] system-views called — mediaType={MediaType} groupField={GroupField}",
                 mediaType ?? "(none)", groupField ?? "(none)");
 
-            // Load all System collections that have a group_by_field (these are the view collections seeded by CollectionSeeder)
-            var systemCollections = await collectionRepo.GetByTypeAsync("System", ct);
-            var viewCollections = systemCollections
-                .Where(h => !string.IsNullOrWhiteSpace(h.GroupByField) && h.Resolution == "query")
+            var viewCollections = BuiltInBrowseCollectionCatalog
+                .GetSystemViewDefinitions(mediaType, groupField)
+                .Select(view => view.ToCollection())
                 .ToList();
-
-            log.LogInformation("[ByAlbum] Found {Total} System collections with a group_by_field; filtering for mediaType/groupField",
-                viewCollections.Count);
-
-            // Filter by mediaType and groupField if provided
-            if (!string.IsNullOrWhiteSpace(mediaType))
-            {
-                viewCollections = viewCollections.Where(h =>
-                {
-                    var predicates = CollectionRuleEvaluator.ParseRules(h.RuleJson);
-                    return predicates.Any(p =>
-                        p.Field.Equals("media_type", StringComparison.OrdinalIgnoreCase) &&
-                        p.Value?.Equals(mediaType, StringComparison.OrdinalIgnoreCase) == true);
-                }).ToList();
-            }
-
-            if (!string.IsNullOrWhiteSpace(groupField))
-            {
-                viewCollections = viewCollections
-                    .Where(h => h.GroupByField!.Equals(groupField, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-            }
 
             log.LogInformation("[ByAlbum] After filter: {Count} matching view collections", viewCollections.Count);
 
             if (viewCollections.Count == 0)
             {
-                log.LogWarning("[ByAlbum] No matching System view collections — check CollectionSeeder seeded 'Music by Album' with group_by_field='album' and media_type predicate 'Music'");
+                log.LogWarning("[ByAlbum] No matching dynamic browse view definitions were found.");
                 return Results.Ok(new List<ContentGroupDto>());
             }
 
@@ -1518,7 +1494,7 @@ public static class CollectionEndpoints
             return Results.Ok(result.OrderBy(r => r.DisplayName).ToList());
         })
         .WithName("GetSystemViewGroups")
-        .WithSummary("Resolves System view collections (By Show, By Artist, By Album) as content groups for the Vault container views.")
+        .WithSummary("Resolves built-in browse views (By Show, By Artist, By Album) as dynamic content groups for the Vault container views.")
         .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
@@ -1649,6 +1625,80 @@ public static class CollectionEndpoints
         .Produces<List<CollectionItemDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
+        group.MapPost("/{id:guid}/items", async (
+            Guid id,
+            CollectionItemAddRequest body,
+            ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
+                || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest("Only saved/manual collections support direct item membership.");
+            }
+            if (body.WorkId == Guid.Empty)
+                return Results.BadRequest("work_id is required.");
+
+            var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
+            if (existingItems.Any(item => item.WorkId == body.WorkId))
+                return Results.Ok();
+
+            var nextSortOrder = existingItems.Count == 0
+                ? 1
+                : existingItems.Max(item => item.SortOrder) + 1;
+
+            await collectionRepo.AddCollectionItemAsync(new CollectionItem
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = id,
+                WorkId = body.WorkId,
+                SortOrder = nextSortOrder,
+                AddedAt = DateTimeOffset.UtcNow,
+            }, ct);
+
+            return Results.Ok();
+        })
+        .WithName("AddCollectionItem")
+        .WithSummary("Adds a work to a saved/manual collection.")
+        .RequireAnyRole();
+
+        group.MapDelete("/{id:guid}/items/{itemId:guid}", async (
+            Guid id,
+            Guid itemId,
+            ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
+                || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest("Only saved/manual collections support direct item membership.");
+            }
+
+            var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
+            if (!existingItems.Any(item => item.Id == itemId))
+                return Results.NotFound();
+
+            await collectionRepo.RemoveCollectionItemAsync(itemId, ct);
+            return Results.Ok();
+        })
+        .WithName("RemoveCollectionItem")
+        .WithSummary("Removes a work from a saved/manual collection.")
+        .RequireAnyRole();
+
         // PUT /collections/{id}/enabled — toggle collection visibility.
         group.MapPut("/{id:guid}/enabled", async (
             Guid id,
@@ -1758,20 +1808,17 @@ public static class CollectionEndpoints
         group.MapGet("/resolve/by-name", async (
             string? name,
             int? limit,
-            ICollectionRepository collectionRepo,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(name))
                 return Results.BadRequest("name parameter is required");
 
-            // Find the first System collection with this display name (case-insensitive).
-            var systemCollections = await collectionRepo.GetByTypeAsync("System", ct);
-            var collection = systemCollections.FirstOrDefault(h =>
-                string.Equals(h.DisplayName, name, StringComparison.OrdinalIgnoreCase));
+            var definition = BuiltInBrowseCollectionCatalog.FindByName(name);
+            var collection = definition?.ToCollection();
 
             if (collection is null)
-                return Results.NotFound($"No System collection found with name '{name}'");
+                return Results.NotFound($"No dynamic browse view found with name '{name}'");
 
             var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
             if (predicates.Count == 0)
@@ -1876,8 +1923,9 @@ public static class CollectionEndpoints
                 ? CollectionRuleEvaluator.ComputeRuleHash(body.Rules)
                 : null;
 
-            var resolution = body.CollectionType is "Playlist" or "System" or "Mix"
-                ? "materialized" : "query";
+            var resolution = body.CollectionType is "Playlist" || body.Rules.Count == 0
+                ? "materialized"
+                : "query";
 
             var collection = new Collection
             {
@@ -1894,7 +1942,7 @@ public static class CollectionEndpoints
                 MatchMode = body.MatchMode,
                 SortField = body.SortField,
                 SortDirection = body.SortDirection,
-                LiveUpdating = body.LiveUpdating,
+                LiveUpdating = resolution == "query" && body.LiveUpdating,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
             CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile.Id);
@@ -1964,11 +2012,24 @@ public static class CollectionEndpoints
                 CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile?.Id);
             }
 
-            if (body.Rules is { Count: > 0 })
+            if (body.Rules is not null)
             {
-                collection.RuleJson = System.Text.Json.JsonSerializer.Serialize(body.Rules);
-                collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(body.Rules);
+                if (body.Rules.Count > 0)
+                {
+                    collection.RuleJson = System.Text.Json.JsonSerializer.Serialize(body.Rules);
+                    collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(body.Rules);
+                    collection.Resolution = "query";
+                }
+                else
+                {
+                    collection.RuleJson = null;
+                    collection.RuleHash = null;
+                    collection.Resolution = "materialized";
+                }
             }
+
+            if (string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+                collection.LiveUpdating = false;
 
             collection.ModifiedAt = DateTimeOffset.UtcNow;
             await collectionRepo.UpsertAsync(collection, ct);

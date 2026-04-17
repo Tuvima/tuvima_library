@@ -1,307 +1,58 @@
-using System.Text.Json;
-using MediaEngine.Domain.Aggregates;
-using MediaEngine.Domain.Models;
+using MediaEngine.Api.Models;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
 
 /// <summary>
-/// Seeds default managed collections (System Lists, Personalized Mixes, and sample Smart Collections)
-/// on first run when no non-Universe collections exist. Called during application startup.
-/// Also seeds system view collections (idempotent) that drive all Vault views.
+/// Normalizes legacy generated collection data so authored collection screens only
+/// contain real user-managed objects. Browse-only groupings are now generated
+/// dynamically and no longer require persisted System/Mix/sample collections.
 /// </summary>
 public static class CollectionSeeder
 {
-    public static async Task SeedManagedCollectionsAsync(ICollectionRepository collectionRepo, CancellationToken ct = default)
+    public static Task SeedManagedCollectionsAsync(
+        ICollectionRepository collectionRepo,
+        IDatabaseConnection db,
+        CancellationToken ct = default) =>
+        RemoveLegacyGeneratedCollectionsAsync(db, ct);
+
+    private static Task RemoveLegacyGeneratedCollectionsAsync(
+        IDatabaseConnection db,
+        CancellationToken ct)
     {
-        // Always seed system view collections (idempotent — checks by rule_hash)
-        await SeedSystemViewCollectionsAsync(collectionRepo, ct);
+        ct.ThrowIfCancellationRequested();
 
-        var counts = await collectionRepo.GetCountsByTypeAsync(ct);
-        // System and ContentGroup collections are auto-generated — don't count them when
-        // deciding whether to seed Smart/Mix/Playlist collections for the first time.
-        var userCreatedCount = counts
-            .Where(c => c.Key is not "System" and not "ContentGroup" and not "Universe")
-            .Sum(c => c.Value);
-        if (userCreatedCount > 0)
-            return; // Already seeded
+        var legacyNames = string.Join(", ", BuiltInBrowseCollectionCatalog.LegacyGeneratedNames.Select(Quote));
 
-        var now = DateTimeOffset.UtcNow;
+        const string generatedTypes = "'System', 'Mix'";
+        var whereClause = $"""
+            collection_type IN ({generatedTypes})
+            OR (profile_id IS NULL AND display_name IN ({legacyNames}))
+            """;
 
-        // ── System Lists ────────────────────────────────────────────────────
-        var systemLists = new[]
-        {
-            ("Reading List",      "Books, Comics — per user, progress tracked",    "MenuBook",    "Books, Comics"),
-            ("Watchlist",         "Movies — per user, progress tracked",            "Visibility",  "Movies"),
-            ("Currently Watching","TV — per user, progress tracked",                "LiveTv",      "TV"),
-            ("Listening Queue",   "Audiobooks, Music — per user, progress tracked", "Headphones", "Audiobooks, Music"),
-            ("Favorites",         "Any media — per user",                           "Favorite",    "Any"),
-        };
+        using var conn = db.CreateConnection();
+        using var tx = conn.BeginTransaction();
+        using var cmd = conn.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = $"""
+            DELETE FROM collection_items
+            WHERE collection_id IN (SELECT id FROM collections WHERE {whereClause});
 
-        foreach (var (name, desc, icon, _) in systemLists)
-        {
-            await collectionRepo.UpsertAsync(new Collection
-            {
-                Id          = Guid.NewGuid(),
-                DisplayName = name,
-                CollectionType     = "System",
-                Description = desc,
-                IconName    = icon,
-                Scope       = "library",
-                IsEnabled   = true,
-                MinItems    = 0,
-                CreatedAt   = now,
-            }, ct);
-        }
+            DELETE FROM collection_placements
+            WHERE collection_id IN (SELECT id FROM collections WHERE {whereClause});
 
-        // ── Personalized Mixes ──────────────────────────────────────────────
-        var mixes = new[]
-        {
-            ("Continue",              "In-progress items across all lists",                  "PlayCircle",   "Real-time"),
-            ("Heavy Rotation",        "Most consumed in last 30 days",                      "Fire",         "Daily"),
-            ("Discovery Queue",       "Matches your taste, untouched",                      "Explore",      "Daily"),
-            ("New For You",           "Recently added, matches taste profile",              "AutoAwesome",  "On ingestion"),
-            ("Because You Liked...",  "Similar to highly-rated items",                      "Link",         "On rating change"),
-            ("Taste Mix",             "Per taste cluster",                                   "Palette",      "Weekly"),
-            ("On Repeat",             "High consumption recently",                          "Repeat",       "Daily"),
-            ("Rediscover",            "Loved 6+ months ago, untouched since",               "History",      "Weekly"),
-        };
+            DELETE FROM collection_relationships
+            WHERE collection_id IN (SELECT id FROM collections WHERE {whereClause});
 
-        foreach (var (name, desc, icon, schedule) in mixes)
-        {
-            await collectionRepo.UpsertAsync(new Collection
-            {
-                Id              = Guid.NewGuid(),
-                DisplayName     = name,
-                CollectionType         = "Mix",
-                Description     = desc,
-                IconName        = icon,
-                Scope           = "user",
-                IsEnabled       = true,
-                MinItems        = 0,
-                RefreshSchedule = schedule,
-                CreatedAt       = now,
-            }, ct);
-        }
+            DELETE FROM collections
+            WHERE {whereClause};
+            """;
+        cmd.ExecuteNonQuery();
+        tx.Commit();
 
-        // ── Sample Smart Collections ───────────────────────────────────────────────
-        var smartCollections = new[]
-        {
-            ("By Genre: Science Fiction", "Genre: Science Fiction, Min 3 items, Any media", "Label",    128, """[{"field":"genre","op":"eq","value":"Science Fiction"}]"""),
-            ("By Genre: Mystery",         "Genre: Mystery, Min 3 items, Any media",         "Label",     64, """[{"field":"genre","op":"eq","value":"Mystery"}]"""),
-            ("By Genre: Biography",       "Genre: Biography, Min 3 items, Any media",       "Label",     22, """[{"field":"genre","op":"eq","value":"Biography"}]"""),
-            ("By Vibe: Atmospheric",      "Vibe: atmospheric, Min 5 items, Any media",      "Waves",     43, """[{"field":"vibe","op":"eq","value":"atmospheric"}]"""),
-            ("By Vibe: Cozy",             "Vibe: cozy, Min 5 items, Any media",             "Waves",     18, """[{"field":"vibe","op":"eq","value":"cozy"}]"""),
-            ("By Vibe: Cerebral",         "Vibe: cerebral, Min 5 items, Any media",         "Waves",     31, """[{"field":"vibe","op":"eq","value":"cerebral"}]"""),
-            ("By Author: Frank Herbert",  "Author role, Min 3 works",                       "Person",    12, """[{"field":"author","op":"eq","value":"Frank Herbert"}]"""),
-            ("By Director: Denis Villeneuve", "Director role, Min 3 works",                 "Person",     7, """[{"field":"director","op":"eq","value":"Denis Villeneuve"}]"""),
-            ("By Narrator: Steven Pacey", "Narrator role, Min 3 works",                     "Person",     9, """[{"field":"narrator","op":"eq","value":"Steven Pacey"}]"""),
-            ("By Decade: 1980s",          "Published/released 1980-1989, Min 5 items",      "Calendar",  56, """[{"field":"decade","op":"eq","value":"1980s"}]"""),
-            ("By Decade: 2010s",          "Published/released 2010-2019, Min 5 items",      "Calendar", 203, """[{"field":"decade","op":"eq","value":"2010s"}]"""),
-            ("Recently Added",            "Added in last 30 days",                           "Clock",     34, """[{"field":"added_within_days","op":"lte","value":"30"}]"""),
-            ("Highest Rated",             "Rating 4+ from providers",                        "Star",      89, """[{"field":"provider_rating","op":"gte","value":"4"}]"""),
-            ("Unrated",                   "No user rating",                                  "RadioButton",412, """[{"field":"user_rating","op":"eq","value":"unrated"}]"""),
-        };
-
-        foreach (var (name, desc, icon, mockCount, ruleJson) in smartCollections)
-        {
-            await collectionRepo.UpsertAsync(new Collection
-            {
-                Id          = Guid.NewGuid(),
-                DisplayName = name,
-                CollectionType     = "Smart",
-                Description = desc,
-                IconName    = icon,
-                Scope       = "library",
-                IsEnabled   = true,
-                MinItems    = name.Contains("Vibe") ? 5 : 3,
-                RuleJson    = ruleJson,
-                CreatedAt   = now,
-            }, ct);
-        }
-
-        // ── Sample Playlists ────────────────────────────────────────────────
-        var playlists = new[]
-        {
-            ("Workout Mix",      "User-created playlist", "QueueMusic", 24),
-            ("Movie Marathon",   "User-created playlist", "QueueMusic",  8),
-            ("Commute Rotation", "User-created playlist", "QueueMusic", 16),
-        };
-
-        foreach (var (name, desc, icon, _) in playlists)
-        {
-            await collectionRepo.UpsertAsync(new Collection
-            {
-                Id          = Guid.NewGuid(),
-                DisplayName = name,
-                CollectionType     = "Playlist",
-                Description = desc,
-                IconName    = icon,
-                Scope       = "user",
-                IsEnabled   = true,
-                MinItems    = 0,
-                CreatedAt   = now,
-            }, ct);
-        }
+        return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// Seeds permanent, non-editable System view collections that drive all Vault views.
-    /// Idempotent — checks by rule_hash before creating. These collections are query-resolved
-    /// (evaluated at display time via CollectionRuleEvaluator) and cannot be deleted or edited.
-    /// </summary>
-    private static async Task SeedSystemViewCollectionsAsync(ICollectionRepository collectionRepo, CancellationToken ct)
-    {
-        var now = DateTimeOffset.UtcNow;
-
-        // Each entry: (display_name, description, icon, rule predicates, group_by_field, sort_field)
-        var viewCollections = new (string Name, string Desc, string Icon, CollectionRulePredicate[] Rules, string? GroupBy, string? Sort)[]
-        {
-            // ── Media views ──────────────────────────────────────────
-            ("Recently Added", "Items added in the last 30 days",
-                "NewReleases",
-                [new() { Field = "added_within_days", Op = "lte", Value = "30" }],
-                null, "newest"),
-
-            ("All Movies", "Every movie in your library",
-                "VideoLibrary",
-                [new() { Field = "media_type", Op = "eq", Value = "Movies" }],
-                null, "title"),
-
-            ("TV by Show", "TV episodes grouped by show",
-                "LiveTv",
-                [new() { Field = "media_type", Op = "eq", Value = "TV" }],
-                "show_name", "newest"),
-
-            ("Music by Artist", "Music grouped by artist",
-                "MusicNote",
-                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
-                "artist", "title"),
-
-            ("Music by Album", "Music grouped by album",
-                "Album",
-                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
-                "album", "title"),
-
-            ("All Songs", "Every song in your library",
-                "QueueMusic",
-                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
-                null, "title"),
-
-            ("All Books", "Every book in your library",
-                "MenuBook",
-                [new() { Field = "media_type", Op = "eq", Value = "Books" }],
-                null, "title"),
-
-            ("All Audiobooks", "Every audiobook in your library",
-                "Headphones",
-                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
-                null, "title"),
-
-            ("All Comics", "Every comic in your library",
-                "AutoStories",
-                [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
-                null, "title"),
-
-            ("Books by Series", "Books grouped by series",
-                "LibraryBooks",
-                [new() { Field = "media_type", Op = "eq", Value = "Books" }],
-                "series", "title"),
-
-            ("Audiobooks by Series", "Audiobooks grouped by series",
-                "Headphones",
-                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
-                "series", "title"),
-
-            ("Comics by Series", "Comics grouped by series",
-                "AutoStories",
-                [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
-                "series", "title"),
-
-            // ── Flat views for types that only had grouped views ─────
-            ("All TV", "Every TV episode in your library",
-                "LiveTv",
-                [new() { Field = "media_type", Op = "eq", Value = "TV" }],
-                null, "title"),
-
-            // ── Creator-based views ─────────────────────────────────
-            ("Movies by Director", "Movies grouped by director",
-                "TheaterComedy",
-                [new() { Field = "media_type", Op = "eq", Value = "Movies" }],
-                "director", "title"),
-
-            ("Movies by Genre", "Movies grouped by genre",
-                "Category",
-                [new() { Field = "media_type", Op = "eq", Value = "Movies" }],
-                "genre", "title"),
-
-            ("TV by Genre", "TV grouped by genre",
-                "Category",
-                [new() { Field = "media_type", Op = "eq", Value = "TV" }],
-                "genre", "title"),
-
-            ("Books by Author", "Books grouped by author",
-                "Person",
-                [new() { Field = "media_type", Op = "eq", Value = "Books" }],
-                "author", "title"),
-
-            ("Audiobooks by Author", "Audiobooks grouped by author",
-                "Person",
-                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
-                "author", "title"),
-
-            ("Audiobooks by Narrator", "Audiobooks grouped by narrator",
-                "RecordVoiceOver",
-                [new() { Field = "media_type", Op = "eq", Value = "Audiobooks" }],
-                "narrator", "title"),
-
-            ("Music by Genre", "Music grouped by genre",
-                "Category",
-                [new() { Field = "media_type", Op = "eq", Value = "Music" }],
-                "genre", "title"),
-
-            ("Comics by Writer", "Comics grouped by writer",
-                "Person",
-                [new() { Field = "media_type", Op = "eq", Value = "Comics" }],
-                "author", "title"),
-        };
-
-        foreach (var (name, desc, icon, rules, groupBy, sort) in viewCollections)
-        {
-            var ruleJson = JsonSerializer.Serialize(rules);
-            // Include group_by_field in the hash so that collections with identical rules
-            // but different grouping (e.g. "All Books" vs "Books by Series") get
-            // distinct hashes and are both seeded.
-            var baseHash = CollectionRuleEvaluator.ComputeRuleHash(rules);
-            var ruleHash = string.IsNullOrWhiteSpace(groupBy)
-                ? baseHash
-                : CollectionRuleEvaluator.ComputeRuleHash(
-                    [..rules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = groupBy }]);
-
-            // Skip if a collection with the same rule_hash already exists
-            var existing = await collectionRepo.FindByRuleHashAsync(ruleHash, ct);
-            if (existing is not null) continue;
-
-            await collectionRepo.UpsertAsync(new Collection
-            {
-                Id            = Guid.NewGuid(),
-                DisplayName   = name,
-                CollectionType       = "System",
-                Description   = desc,
-                IconName      = icon,
-                Scope         = "library",
-                IsEnabled     = true,
-                MinItems      = 0,
-                RuleJson      = ruleJson,
-                RuleHash      = ruleHash,
-                Resolution    = "query",
-                GroupByField  = groupBy,
-                SortField     = sort,
-                SortDirection = sort == "newest" ? "desc" : "asc",
-                LiveUpdating  = true,
-                CreatedAt     = now,
-            }, ct);
-        }
-    }
+    private static string Quote(string value) => $"'{value.Replace("'", "''")}'";
 }

@@ -58,6 +58,13 @@ else
 
     @* Type-specific swimlanes *@
     <div class="home-swimlanes">
+        @if (_recentlyAdded.Count > 0)
+        {
+            <PosterSwimlane Title="Recently Added"
+                            Items="@_recentlyAdded"
+                            OnItemSelected="HandleItemSelected" />
+        }
+
         @if (_continueItems.Count > 0)
         {
             <PosterSwimlane Title="Pick Up Where You Left Off"
@@ -96,6 +103,22 @@ else
                             OnItemSelected="HandleItemSelected"
                             SeeAllRoute="/listen" />
         }
+
+        @if (_newAudiobooks.Count > 0)
+        {
+            <PosterSwimlane Title="New Audiobooks"
+                            Items="@_newAudiobooks"
+                            OnItemSelected="HandleItemSelected"
+                            SeeAllRoute="/listen" />
+        }
+
+        @if (_newComics.Count > 0)
+        {
+            <PosterSwimlane Title="New Comics"
+                            Items="@_newComics"
+                            OnItemSelected="HandleItemSelected"
+                            SeeAllRoute="/read" />
+        }
     </div>
 }
 
@@ -104,7 +127,6 @@ else
     private bool _seeding;
 
     // ── Data ──────────────────────────────────────────────────────────────
-    private List<CollectionViewModel> _collections = [];
     private List<WorkViewModel> _libraryWorks = [];
     private List<JourneyItemViewModel> _journeyItems = [];
 
@@ -116,10 +138,13 @@ else
 
     // ── Swimlanes ─────────────────────────────────────────────────────────
     private List<PosterItemViewModel> _continueItems = [];
+    private List<PosterItemViewModel> _recentlyAdded = [];
     private List<PosterItemViewModel> _newBooks = [];
     private List<PosterItemViewModel> _newMovies = [];
     private List<PosterItemViewModel> _newMusic = [];
     private List<PosterItemViewModel> _newTV = [];
+    private List<PosterItemViewModel> _newAudiobooks = [];
+    private List<PosterItemViewModel> _newComics = [];
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
 
@@ -133,16 +158,30 @@ else
     private async Task LoadAsync()
     {
         _loading = true;
+        _libraryWorks = [];
+        _journeyItems = [];
+
         try
         {
-            _collections = await Orchestrator.GetCollectionsAsync();
             _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
-            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
-            BuildHeroItems();
-            BuildSwimlanes();
         }
-        catch { /* Engine unreachable — show empty */ }
-        finally { _loading = false; }
+        catch
+        {
+            _libraryWorks = [];
+        }
+
+        try
+        {
+            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
+        }
+        catch
+        {
+            _journeyItems = [];
+        }
+
+        BuildHeroItems();
+        BuildSwimlanes();
+        _loading = false;
     }
 
     private void BuildHeroItems()
@@ -189,6 +228,11 @@ else
 
     private void BuildSwimlanes()
     {
+        _recentlyAdded = _libraryWorks
+            .Take(20)
+            .Select(work => PosterItemViewModel.FromWork(work))
+            .ToList();
+
         _continueItems = _journeyItems
             .OrderByDescending(j => j.LastAccessed)
             .Take(10)
@@ -218,6 +262,20 @@ else
 
         _newMusic = _libraryWorks
             .Where(w => IsMediaType(w, "music"))
+            .OrderByDescending(w => w.Year ?? "0000")
+            .Take(20)
+            .Select(w => PosterItemViewModel.FromWork(w))
+            .ToList();
+
+        _newAudiobooks = _libraryWorks
+            .Where(w => IsMediaType(w, "audiobook"))
+            .OrderByDescending(w => w.Year ?? "0000")
+            .Take(20)
+            .Select(w => PosterItemViewModel.FromWork(w))
+            .ToList();
+
+        _newComics = _libraryWorks
+            .Where(w => IsMediaType(w, "comic"))
             .OrderByDescending(w => w.Year ?? "0000")
             .Take(20)
             .Select(w => PosterItemViewModel.FromWork(w))

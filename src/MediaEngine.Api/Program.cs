@@ -992,10 +992,11 @@ if (app.Environment.IsDevelopment())
     app.MapIntegrationTestEndpoints();
 }
 
-// Seed default managed collections (System Lists, Mixes, Smart Collections) on first run
+// Remove legacy generated collections so authored collection screens stay user-driven.
 {
     var collectionRepo = app.Services.GetRequiredService<ICollectionRepository>();
-    MediaEngine.Api.Services.CollectionSeeder.SeedManagedCollectionsAsync(collectionRepo).GetAwaiter().GetResult();
+    var db = app.Services.GetRequiredService<IDatabaseConnection>();
+    MediaEngine.Api.Services.CollectionSeeder.SeedManagedCollectionsAsync(collectionRepo, db).GetAwaiter().GetResult();
 }
 
 app.Run();

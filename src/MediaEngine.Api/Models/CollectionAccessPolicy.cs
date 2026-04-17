@@ -44,8 +44,8 @@ public static class CollectionAccessPolicy
     }
 
     public static bool IsManagedCollectionType(string collectionType) =>
-        !string.Equals(collectionType, "Universe", StringComparison.OrdinalIgnoreCase)
-        && !string.Equals(collectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase);
+        string.Equals(collectionType, "Custom", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
 
     public static void ApplyVisibility(Collection collection, string visibility, Guid? activeProfileId)
     {

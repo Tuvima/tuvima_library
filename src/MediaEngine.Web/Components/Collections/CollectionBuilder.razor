@@ -1,196 +1,373 @@
 @namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 
 @inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 
 <div class="collection-builder-overlay" @onclick="OnCancel">
     <div class="collection-builder" @onclick:stopPropagation>
-        <h2 class="collection-builder-title">@(EditingCollection is not null ? "Edit Collection" : "New Collection")</h2>
+        <div class="collection-builder-header">
+            <div class="collection-builder-header-copy">
+                <div class="collection-builder-title-row">
+                    <div class="collection-builder-title-icon">
+                        <MudIcon Icon="@(IsPlaylist ? Icons.Material.Outlined.QueueMusic : Icons.Material.Outlined.Collections)"
+                                 Style="font-size: 1.1rem;" />
+                    </div>
+                    <div>
+                        <h2 class="collection-builder-title">@(EditingCollection is not null ? "Edit Collection" : "New Collection")</h2>
+                        <p class="collection-builder-subtitle">
+                            @if (SupportsManualItems)
+                            {
+                                <span>Manual collections use saved membership. This is where playlists and hand-curated sets should live.</span>
+                            }
+                            else
+                            {
+                                <span>Rule-driven collections stay live and act like saved browse feeds.</span>
+                            }
+                        </p>
+                    </div>
+                </div>
+            </div>
 
-        <MudTextField @bind-Value="_name"
-                      Placeholder="Collection name..."
-                      Variant="Variant.Outlined"
-                      Immediate="true"
-                      Class="collection-builder-field" />
-
-        <MudTextField @bind-Value="_description"
-                      Placeholder="Description (optional)"
-                      Variant="Variant.Outlined"
-                      Immediate="true"
-                      Lines="3"
-                      Class="collection-builder-field" />
-
-        <div class="collection-builder-grid">
-            <MudSelect T="string"
-                       Value="_collectionType"
-                       ValueChanged="OnCollectionTypeChanged"
-                       Label="Collection type"
-                       Variant="Variant.Outlined"
-                       Disabled="@(EditingCollection is not null)"
-                       Class="collection-builder-field">
-                <MudSelectItem T="string" Value="@("Custom")">Collection</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Playlist")">Playlist</MudSelectItem>
-            </MudSelect>
-
-            <MudTextField @bind-Value="_iconName"
-                          Placeholder="Icon name (optional)"
-                          Variant="Variant.Outlined"
-                          Immediate="true"
-                          Class="collection-builder-field" />
+            <MudIconButton Icon="@Icons.Material.Filled.Close"
+                           Size="Size.Small"
+                           OnClick="OnCancel"
+                           Style="color: rgba(248,248,248,0.45);" />
         </div>
 
-        <div class="collection-builder-helper collection-builder-helper--tight">
-            @if (string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
-            {
-                <span>Playlists are intended for manual membership. Rules are disabled for this collection type.</span>
-            }
-            else
-            {
-                <span>Collections can stay manual or use live rules to populate themselves.</span>
-            }
-        </div>
+        <div class="collection-builder-body">
+            <DrawerSection Title="Identity" Icon="@Icons.Material.Outlined.Badge" DefaultOpen="true">
+                <MudTextField @bind-Value="_name"
+                              Label="Name"
+                              Placeholder="Collection name..."
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Class="collection-builder-field" />
 
-        <div class="collection-builder-section">
-            <div class="collection-builder-section-title">Visibility</div>
-            <MudRadioGroup T="string" @bind-Value="_visibility">
-                <MudRadio T="string" Value="@("private")" Color="Color.Primary" Dense="true">
-                    Private
-                </MudRadio>
-                @if (CanManageSharedCollections)
-                {
-                    <MudRadio T="string" Value="@("shared")" Color="Color.Primary" Dense="true">
-                        Shared with all users
+                <MudTextField @bind-Value="_description"
+                              Label="Description"
+                              Placeholder="Description (optional)"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Lines="3"
+                              Class="collection-builder-field" />
+
+                <div class="collection-builder-grid">
+                    <MudSelect T="string"
+                               Value="_collectionType"
+                               ValueChanged="OnCollectionTypeChanged"
+                               Label="Collection type"
+                               Variant="Variant.Outlined"
+                               Disabled="@(EditingCollection is not null)"
+                               Class="collection-builder-field">
+                        <MudSelectItem T="string" Value="@("Custom")">Collection</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Playlist")">Playlist</MudSelectItem>
+                    </MudSelect>
+
+                    <MudTextField @bind-Value="_iconName"
+                                  Label="Icon"
+                                  Placeholder="Icon name (optional)"
+                                  Variant="Variant.Outlined"
+                                  Immediate="true"
+                                  Class="collection-builder-field" />
+                </div>
+
+                <div class="collection-builder-helper collection-builder-helper--tight">
+                    @if (IsPlaylist)
+                    {
+                        <span>Playlists are intended for manual membership. Rules are disabled for this collection type.</span>
+                    }
+                    else if (SupportsManualItems)
+                    {
+                        <span>This collection is in manual mode. Add or remove items directly from the Items section below.</span>
+                    }
+                    else
+                    {
+                        <span>Collections can stay manual or use live rules to populate themselves.</span>
+                    }
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Access" Icon="@Icons.Material.Outlined.Groups" DefaultOpen="true">
+                <MudRadioGroup T="string" @bind-Value="_visibility">
+                    <MudRadio T="string" Value="@("private")" Color="Color.Primary" Dense="true">
+                        Private
                     </MudRadio>
-                }
-            </MudRadioGroup>
-            <div class="collection-builder-helper">
-                @if (_visibility == "shared")
+                    @if (CanManageSharedCollections)
+                    {
+                        <MudRadio T="string" Value="@("shared")" Color="Color.Primary" Dense="true">
+                            Shared with all users
+                        </MudRadio>
+                    }
+                </MudRadioGroup>
+                <div class="collection-builder-helper">
+                    @if (_visibility == "shared")
+                    {
+                        <span>Shared collections are visible to every profile and editable by administrators or curators.</span>
+                    }
+                    else
+                    {
+                        <span>Private collections belong to the active profile only.</span>
+                    }
+                </div>
+            </DrawerSection>
+
+            <DrawerSection Title="Rules" Icon="@Icons.Material.Outlined.FilterAlt" DefaultOpen="@(!SupportsManualItems)">
+                <MudCheckBox T="bool"
+                             Value="_rulesEnabled"
+                             ValueChanged="@(async (bool value) => await OnRulesEnabledChanged(value))"
+                             Color="Color.Error"
+                             Dense="true"
+                             Disabled="@IsPlaylist"
+                             Label="Build this collection from matching rules" />
+
+                <div class="collection-builder-helper">
+                    @if (IsPlaylist)
+                    {
+                        <span>Playlists do not use smart rules.</span>
+                    }
+                    else if (_rulesEnabled)
+                    {
+                        <span>Rule-based collections stay live as your library changes.</span>
+                    }
+                    else
+                    {
+                        <span>Rules are off. This collection will use saved membership instead.</span>
+                    }
+                </div>
+
+                @if (_rulesEnabled)
                 {
-                    <span>Shared collections are visible to every profile and editable by administrators or curators.</span>
+                    <div class="collection-builder-rules">
+                        @for (var i = 0; i < _rules.Count; i++)
+                        {
+                            var idx = i;
+                            var rule = _rules[idx];
+
+                            <div class="collection-builder-rule-row">
+                                <MudSelect T="string"
+                                           Value="rule.Field"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Style="min-width: 140px;"
+                                           ValueChanged="(string value) => { rule.Field = value; _ = OnRuleChanged(); }">
+                                    <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("director")">Director</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("artist")">Artist</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("narrator")">Narrator</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("album")">Album</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("series")">Series</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("show_name")">Show</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("decade")">Decade</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("vibe")">Vibe</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("publisher")">Publisher</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("language")">Language</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("added_within_days")">Added Within</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
+                                </MudSelect>
+
+                                <MudSelect T="string"
+                                           @bind-Value="rule.Op"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Style="min-width: 120px;">
+                                    @foreach (var op in GetOperatorsForField(rule.Field))
+                                    {
+                                        <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
+                                    }
+                                </MudSelect>
+
+                                <MudTextField @bind-Value="rule.Value"
+                                              Variant="Variant.Outlined"
+                                              Margin="Margin.Dense"
+                                              Style="flex: 1; min-width: 120px;"
+                                              Placeholder="Value..."
+                                              Immediate="true"
+                                              DebounceInterval="500"
+                                              OnDebounceIntervalElapsed="_ => RunPreview()" />
+
+                                <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                                               OnClick="() => AddRule(idx)" aria-label="Add rule" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small"
+                                               Disabled="@(_rules.Count == 1)"
+                                               OnClick="() => RemoveRule(idx)" aria-label="Remove rule" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="collection-builder-section">
+                        <span class="collection-builder-inline-label">Match:</span>
+                        <MudRadioGroup T="string" @bind-Value="_matchMode">
+                            <MudRadio T="string" Value="@("all")" Color="Color.Primary" Dense="true">ALL rules</MudRadio>
+                            <MudRadio T="string" Value="@("any")" Color="Color.Primary" Dense="true">ANY rule</MudRadio>
+                        </MudRadioGroup>
+                    </div>
+                }
+            </DrawerSection>
+
+            @if (_rulesEnabled)
+            {
+                <DrawerSection Title="Preview" Icon="@Icons.Material.Outlined.Visibility" DefaultOpen="true">
+                    @if (_previewResult is null)
+                    {
+                        <div class="collection-builder-helper">
+                            <span>Add at least one rule value to preview matching media.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="collection-builder-preview">
+                            <div class="collection-builder-preview-header">
+                                <span>@_previewResult.Count items match</span>
+                            </div>
+                            @foreach (var item in _previewResult.Items.Take(10))
+                            {
+                                <div class="collection-builder-preview-item">
+                                    <span class="collection-builder-preview-type">@item.MediaType[..Math.Min(2, item.MediaType.Length)]</span>
+                                    <span class="collection-builder-preview-title">@item.Title</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.Year))
+                                    {
+                                        <span class="collection-builder-preview-year">(@item.Year)</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </DrawerSection>
+            }
+
+            @if (SupportsManualItems)
+            {
+                <DrawerSection Title="Items" Icon="@Icons.Material.Outlined.CollectionsBookmark" DefaultOpen="true">
+                    @if (_loadingLibraryItems || _loadingManualItems)
+                    {
+                        <div class="collection-builder-loading">
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                            <span>Loading collection items…</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <MudTextField @bind-Value="_itemSearchText"
+                                      Label="Add items"
+                                      Placeholder="Search title, creator, or media type"
+                                      Variant="Variant.Outlined"
+                                      Immediate="true"
+                                      Class="collection-builder-field" />
+
+                        <div class="collection-builder-manual-grid">
+                            <div>
+                                <div class="collection-builder-section-title">Available</div>
+                                @if (FilteredLibraryItems.Count == 0)
+                                {
+                                    <div class="collection-builder-helper">
+                                        <span>No matching items available to add.</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="collection-builder-item-list">
+                                        @foreach (var work in FilteredLibraryItems)
+                                        {
+                                            <div class="collection-builder-item-row">
+                                                <div class="collection-builder-item-copy">
+                                                    <span class="collection-builder-item-title">@work.Title</span>
+                                                    <span class="collection-builder-item-meta">@FormatWorkMeta(work)</span>
+                                                </div>
+                                                <MudIconButton Icon="@Icons.Material.Outlined.AddCircle"
+                                                               Size="Size.Small"
+                                                               OnClick="() => AddManualItemAsync(work)"
+                                                               aria-label="Add item" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+
+                            <div>
+                                <div class="collection-builder-section-title">Saved</div>
+                                @if (_manualItems.Count == 0)
+                                {
+                                    <div class="collection-builder-helper">
+                                        @if (EditingCollection is null)
+                                        {
+                                            <span>Add items now and they will be attached when you create the collection.</span>
+                                        }
+                                        else
+                                        {
+                                            <span>This collection does not have any saved items yet.</span>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="collection-builder-item-list">
+                                        @foreach (var item in _manualItems.OrderBy(item => item.SortOrder))
+                                        {
+                                            <div class="collection-builder-item-row">
+                                                <div class="collection-builder-item-copy">
+                                                    <span class="collection-builder-item-title">@item.Title</span>
+                                                    <span class="collection-builder-item-meta">@FormatManualItemMeta(item)</span>
+                                                </div>
+                                                <MudIconButton Icon="@Icons.Material.Outlined.RemoveCircle"
+                                                               Size="Size.Small"
+                                                               Color="Color.Error"
+                                                               OnClick="() => RemoveManualItemAsync(item)"
+                                                               aria-label="Remove item" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </DrawerSection>
+            }
+
+            <DrawerSection Title="Behavior" Icon="@Icons.Material.Outlined.Tune" DefaultOpen="false">
+                @if (SupportsManualItems)
+                {
+                    <div class="collection-builder-helper">
+                        <span>Manual collections save exactly the items you choose.</span>
+                    </div>
                 }
                 else
                 {
-                    <span>Private collections belong to the active profile only.</span>
-                }
-            </div>
-        </div>
-
-        <div class="collection-builder-section">
-            <MudCheckBox @bind-Value="_rulesEnabled" Color="Color.Error" Dense="true"
-                         Disabled="@string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase)"
-                         Label="Build this collection from matching rules" />
-        </div>
-
-        @if (_rulesEnabled)
-        {
-            <div class="collection-builder-rules">
-                @for (var i = 0; i < _rules.Count; i++)
-                {
-                    var idx = i;
-                    var rule = _rules[idx];
-
-                    <div class="collection-builder-rule-row">
-                        <MudSelect T="string"
-                                   Value="rule.Field"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Style="min-width: 140px;"
-                                   ValueChanged="(string value) => { rule.Field = value; _ = OnRuleChanged(); }">
-                            <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("director")">Director</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("artist")">Artist</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("narrator")">Narrator</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("album")">Album</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("series")">Series</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("show_name")">Show</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("decade")">Decade</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("vibe")">Vibe</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("publisher")">Publisher</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("language")">Language</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("added_within_days")">Added Within</MudSelectItem>
-                            <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
-                        </MudSelect>
-
-                        <MudSelect T="string"
-                                   @bind-Value="rule.Op"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Style="min-width: 120px;">
-                            @foreach (var op in GetOperatorsForField(rule.Field))
-                            {
-                                <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
-                            }
-                        </MudSelect>
-
-                        <MudTextField @bind-Value="rule.Value"
-                                      Variant="Variant.Outlined"
-                                      Margin="Margin.Dense"
-                                      Style="flex: 1; min-width: 120px;"
-                                      Placeholder="Value..."
-                                      Immediate="true"
-                                      DebounceInterval="500"
-                                      OnDebounceIntervalElapsed="_ => RunPreview()" />
-
-                        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
-                                       OnClick="() => AddRule(idx)" aria-label="Add rule" />
-                        <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small"
-                                       Disabled="@(_rules.Count == 1)"
-                                       OnClick="() => RemoveRule(idx)" aria-label="Remove rule" />
+                    <MudCheckBox @bind-Value="_liveUpdating" Color="Color.Error" Dense="true"
+                                 Label="Live updating" />
+                    <div class="collection-builder-helper">
+                        <span>When enabled, the collection re-evaluates its rules as the library changes.</span>
                     </div>
                 }
-            </div>
-
-            <div class="collection-builder-section">
-                <span class="collection-builder-inline-label">Match:</span>
-                <MudRadioGroup T="string" @bind-Value="_matchMode">
-                    <MudRadio T="string" Value="@("all")" Color="Color.Primary" Dense="true">ALL rules</MudRadio>
-                    <MudRadio T="string" Value="@("any")" Color="Color.Primary" Dense="true">ANY rule</MudRadio>
-                </MudRadioGroup>
-            </div>
-        }
-
-        <div class="collection-builder-section">
-            <MudCheckBox @bind-Value="_liveUpdating" Color="Color.Error" Dense="true"
-                         Label="Live updating" />
+            </DrawerSection>
         </div>
-
-        @if (_previewResult is not null)
-        {
-            <div class="collection-builder-preview">
-                <div class="collection-builder-preview-header">
-                    <span>@_previewResult.Count items match</span>
-                </div>
-                @foreach (var item in _previewResult.Items.Take(10))
-                {
-                    <div class="collection-builder-preview-item">
-                        <span class="collection-builder-preview-type">@item.MediaType[..Math.Min(2, item.MediaType.Length)]</span>
-                        <span class="collection-builder-preview-title">@item.Title</span>
-                        @if (!string.IsNullOrWhiteSpace(item.Year))
-                        {
-                            <span class="collection-builder-preview-year">(@item.Year)</span>
-                        }
-                    </div>
-                }
-            </div>
-        }
 
         <div class="collection-builder-actions">
-            <MudButton Variant="Variant.Filled"
-                       Color="Color.Error"
-                       OnClick="SaveCollection"
-                       Disabled="_saving"
-                       Style="flex: 1;">
-                @(EditingCollection is not null ? "Save" : "Create Collection")
-            </MudButton>
-            <MudButton Variant="Variant.Outlined"
-                       OnClick="OnCancel"
-                       Style="flex: 1;">
-                Cancel
-            </MudButton>
+            <div class="collection-builder-helper">
+                @if (SupportsManualItems)
+                {
+                    <span>@_manualItems.Count item(s) staged for this collection.</span>
+                }
+            </div>
+
+            <div class="collection-builder-action-buttons">
+                <MudButton Variant="Variant.Outlined"
+                           OnClick="OnCancel"
+                           Disabled="_saving">
+                    Cancel
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Error"
+                           OnClick="SaveCollection"
+                           Disabled="_saving">
+                    @(EditingCollection is not null ? "Save" : "Create Collection")
+                </MudButton>
+            </div>
         </div>
     </div>
 </div>
@@ -213,6 +390,23 @@
     private bool _liveUpdating = true;
     private bool _saving;
     private CollectionPreviewResult? _previewResult;
+    private string _itemSearchText = string.Empty;
+    private bool _loadingLibraryItems;
+    private bool _loadingManualItems;
+    private List<WorkViewModel> _libraryItems = [];
+    private List<ManualCollectionItem> _manualItems = [];
+
+    private bool IsPlaylist => string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
+    private bool SupportsManualItems => IsPlaylist || !_rulesEnabled;
+
+    private List<WorkViewModel> FilteredLibraryItems =>
+        _libraryItems
+            .Where(work => !SelectedWorkIds.Contains(work.Id))
+            .Where(work => string.IsNullOrWhiteSpace(_itemSearchText) || MatchesSearch(work, _itemSearchText))
+            .Take(10)
+            .ToList();
+
+    private HashSet<Guid> SelectedWorkIds => _manualItems.Select(item => item.WorkId).ToHashSet();
 
     protected override void OnInitialized()
     {
@@ -226,7 +420,7 @@
         _visibility = EditingCollection.Visibility;
         _matchMode = EditingCollection.MatchMode;
         _liveUpdating = EditingCollection.LiveUpdating;
-        _rulesEnabled = !string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
+        _rulesEnabled = !string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(EditingCollection.RuleJson))
             return;
@@ -239,7 +433,7 @@
             if (parsed is { Count: > 0 })
             {
                 _rules = parsed;
-                if (!string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
                     _rulesEnabled = true;
             }
         }
@@ -249,10 +443,83 @@
         }
     }
 
+    protected override async Task OnInitializedAsync()
+    {
+        if (SupportsManualItems)
+            await EnsureManualCollectionContextAsync();
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _rules.Any(rule => !string.IsNullOrWhiteSpace(rule.Value)))
+        if (firstRender && _rulesEnabled && _rules.Any(rule => !string.IsNullOrWhiteSpace(rule.Value)))
             await RunPreview();
+    }
+
+    private async Task EnsureManualCollectionContextAsync()
+    {
+        await EnsureLibraryItemsLoadedAsync();
+        await LoadManualItemsAsync();
+    }
+
+    private async Task EnsureLibraryItemsLoadedAsync()
+    {
+        if (_libraryItems.Count > 0 || _loadingLibraryItems)
+            return;
+
+        _loadingLibraryItems = true;
+        StateHasChanged();
+
+        try
+        {
+            _libraryItems = await Orchestrator.GetLibraryWorksAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load library items: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loadingLibraryItems = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadManualItemsAsync()
+    {
+        _loadingManualItems = true;
+        StateHasChanged();
+
+        try
+        {
+            if (EditingCollection is null)
+            {
+                _manualItems = [];
+                return;
+            }
+
+            var items = await ApiClient.GetCollectionItemsAsync(EditingCollection.Id, 200, ActiveProfileId);
+            _manualItems = items
+                .OrderBy(item => item.SortOrder)
+                .Select(item => new ManualCollectionItem
+                {
+                    Id = item.Id,
+                    WorkId = item.WorkId,
+                    Title = item.Title,
+                    Creator = item.Creator,
+                    MediaType = item.MediaType,
+                    SortOrder = item.SortOrder,
+                })
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Failed to load saved items: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _loadingManualItems = false;
+            StateHasChanged();
+        }
     }
 
     private void AddRule(int afterIndex) =>
@@ -266,17 +533,87 @@
 
     private async Task OnRuleChanged() => await RunPreview();
 
-    private Task OnCollectionTypeChanged(string value)
+    private async Task OnRulesEnabledChanged(bool value)
     {
-        _collectionType = value;
-        if (string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+        _rulesEnabled = value;
+        if (!_rulesEnabled)
         {
-            _rulesEnabled = false;
+            _liveUpdating = false;
             _previewResult = null;
+            await EnsureManualCollectionContextAsync();
         }
 
         StateHasChanged();
-        return Task.CompletedTask;
+    }
+
+    private async Task OnCollectionTypeChanged(string value)
+    {
+        _collectionType = value;
+        if (IsPlaylist)
+        {
+            _rulesEnabled = false;
+            _liveUpdating = false;
+            _previewResult = null;
+        }
+        else if (_rules.All(rule => string.IsNullOrWhiteSpace(rule.Value)))
+        {
+            _rulesEnabled = true;
+        }
+
+        if (SupportsManualItems)
+            await EnsureManualCollectionContextAsync();
+
+        StateHasChanged();
+    }
+
+    private async Task AddManualItemAsync(WorkViewModel work)
+    {
+        if (SelectedWorkIds.Contains(work.Id))
+            return;
+
+        if (EditingCollection is not null)
+        {
+            var ok = await ApiClient.AddCollectionItemAsync(EditingCollection.Id, work.Id, ActiveProfileId);
+            if (!ok)
+            {
+                Snackbar.Add("Failed to add the item to this collection.", Severity.Error);
+                return;
+            }
+
+            await LoadManualItemsAsync();
+            return;
+        }
+
+        _manualItems.Add(new ManualCollectionItem
+        {
+            Id = Guid.Empty,
+            WorkId = work.Id,
+            Title = work.Title,
+            Creator = work.Author,
+            MediaType = work.MediaType,
+            SortOrder = _manualItems.Count == 0 ? 1 : _manualItems.Max(item => item.SortOrder) + 1,
+        });
+
+        StateHasChanged();
+    }
+
+    private async Task RemoveManualItemAsync(ManualCollectionItem item)
+    {
+        if (EditingCollection is not null)
+        {
+            var ok = await ApiClient.RemoveCollectionItemAsync(EditingCollection.Id, item.Id, ActiveProfileId);
+            if (!ok)
+            {
+                Snackbar.Add("Failed to remove the item from this collection.", Severity.Error);
+                return;
+            }
+
+            await LoadManualItemsAsync();
+            return;
+        }
+
+        _manualItems.RemoveAll(existing => existing.WorkId == item.WorkId);
+        StateHasChanged();
     }
 
     private async Task RunPreview()
@@ -336,7 +673,7 @@
                     rules,
                     _matchMode,
                     _visibility,
-                    _liveUpdating,
+                    _rulesEnabled && _liveUpdating,
                     null,
                     null,
                     ActiveProfileId)
@@ -349,7 +686,7 @@
                     _matchMode,
                     null,
                     "desc",
-                    _liveUpdating,
+                    _rulesEnabled && _liveUpdating,
                     _visibility,
                     ActiveProfileId);
 
@@ -358,6 +695,9 @@
                 Snackbar.Add("Failed to save collection.", Severity.Error);
                 return;
             }
+
+            if (EditingCollection is null && SupportsManualItems && _manualItems.Count > 0)
+                await AttachStagedManualItemsAsync();
 
             Snackbar.Add(
                 EditingCollection is not null
@@ -378,7 +718,71 @@
         }
     }
 
+    private async Task AttachStagedManualItemsAsync()
+    {
+        var collections = await ApiClient.GetManagedCollectionsAsync(ActiveProfileId);
+        var createdCollection = collections
+            .Where(collection => string.Equals(collection.Name, _name, StringComparison.OrdinalIgnoreCase))
+            .Where(collection => string.Equals(collection.CollectionType, _collectionType, StringComparison.OrdinalIgnoreCase))
+            .Where(collection => string.Equals(collection.Visibility, _visibility, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(collection => collection.CreatedAt)
+            .FirstOrDefault();
+
+        if (createdCollection is null)
+        {
+            Snackbar.Add("The collection was created, but staged items will need to be added after reopening it.", Severity.Info);
+            return;
+        }
+
+        var failures = 0;
+        foreach (var item in _manualItems)
+        {
+            if (!await ApiClient.AddCollectionItemAsync(createdCollection.Id, item.WorkId, ActiveProfileId))
+                failures++;
+        }
+
+        if (failures > 0)
+            Snackbar.Add($"{failures} item(s) could not be added automatically. Reopen the collection to finish curation.", Severity.Warning);
+    }
+
+    private static bool MatchesSearch(WorkViewModel work, string query) =>
+        work.Title.Contains(query, StringComparison.OrdinalIgnoreCase)
+        || (work.Author?.Contains(query, StringComparison.OrdinalIgnoreCase) ?? false)
+        || work.MediaType.Contains(query, StringComparison.OrdinalIgnoreCase);
+
+    private static string FormatWorkMeta(WorkViewModel work)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(work.Author))
+            parts.Add(work.Author);
+        if (!string.IsNullOrWhiteSpace(work.MediaType))
+            parts.Add(work.MediaType);
+        if (!string.IsNullOrWhiteSpace(work.Year))
+            parts.Add(work.Year);
+        return parts.Count == 0 ? "Library item" : string.Join(" • ", parts);
+    }
+
+    private static string FormatManualItemMeta(ManualCollectionItem item)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(item.Creator))
+            parts.Add(item.Creator);
+        if (!string.IsNullOrWhiteSpace(item.MediaType))
+            parts.Add(item.MediaType);
+        return parts.Count == 0 ? "Saved item" : string.Join(" • ", parts);
+    }
+
     private sealed record OpDef(string Key, string Label);
+
+    private sealed class ManualCollectionItem
+    {
+        public Guid Id { get; init; }
+        public Guid WorkId { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public string? Creator { get; init; }
+        public string MediaType { get; init; } = string.Empty;
+        public int SortOrder { get; init; }
+    }
 
     private static List<OpDef> GetOperatorsForField(string field) => field switch
     {
@@ -394,31 +798,75 @@
     .collection-builder-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: rgba(5, 8, 15, 0.72);
         display: flex;
-        align-items: center;
-        justify-content: center;
+        align-items: stretch;
+        justify-content: flex-end;
         z-index: 1500;
-        backdrop-filter: blur(4px);
+        backdrop-filter: blur(8px);
     }
 
     .collection-builder {
-        background: #161b29;
+        background: linear-gradient(180deg, rgba(24, 28, 40, 0.98) 0%, rgba(15, 18, 29, 0.98) 100%);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 18px;
+        border-radius: 28px 0 0 28px;
         padding: 24px;
-        width: min(760px, 96vw);
-        max-height: 88vh;
+        width: min(760px, 100vw);
+        height: 100vh;
         overflow-y: auto;
-        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+        box-shadow: -24px 0 64px rgba(0, 0, 0, 0.45);
+    }
+
+    .collection-builder-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+        padding-bottom: 18px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .collection-builder-title-row {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+    }
+
+    .collection-builder-title-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #f0c062;
+        background: linear-gradient(135deg, rgba(201, 146, 46, 0.24), rgba(201, 146, 46, 0.08));
+        border: 1px solid rgba(201, 146, 46, 0.18);
+        flex-shrink: 0;
     }
 
     .collection-builder-title {
-        margin: 0 0 18px;
+        margin: 0;
         color: rgba(248, 248, 248, 0.95);
         font-family: 'Montserrat', sans-serif;
         font-size: 1.2rem;
         font-weight: 700;
+    }
+
+    .collection-builder-subtitle {
+        margin: 6px 0 0;
+        color: rgba(248, 248, 248, 0.5);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.84rem;
+        line-height: 1.5;
+        max-width: 440px;
+    }
+
+    .collection-builder-body {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
     }
 
     .collection-builder-field {
@@ -450,6 +898,7 @@
         color: rgba(248, 248, 248, 0.55);
         font-family: 'Montserrat', sans-serif;
         font-size: 0.82rem;
+        line-height: 1.5;
     }
 
     .collection-builder-helper--tight {
@@ -517,14 +966,91 @@
         color: rgba(248, 248, 248, 0.45);
     }
 
+    .collection-builder-manual-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .collection-builder-item-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .collection-builder-item-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .collection-builder-item-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .collection-builder-item-title {
+        color: rgba(248, 248, 248, 0.9);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .collection-builder-item-meta {
+        color: rgba(248, 248, 248, 0.45);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .collection-builder-loading {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(248, 248, 248, 0.6);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.84rem;
+    }
+
     .collection-builder-actions {
         display: flex;
-        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
         margin-top: 18px;
+        padding-top: 18px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .collection-builder-action-buttons {
+        display: flex;
+        gap: 12px;
     }
 
     @@media (max-width: 900px) {
+        .collection-builder {
+            width: 100vw;
+            border-radius: 0;
+        }
+
         .collection-builder-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .collection-builder-manual-grid,
+        .collection-builder-rule-row {
             grid-template-columns: 1fr;
         }
 
@@ -535,6 +1061,15 @@
 
         .collection-builder-actions {
             flex-direction: column;
+            align-items: stretch;
+        }
+
+        .collection-builder-action-buttons {
+            width: 100%;
+        }
+
+        .collection-builder-action-buttons > * {
+            flex: 1;
         }
     }
 </style>

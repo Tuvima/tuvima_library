@@ -1435,7 +1435,8 @@
         _selectedCollection = _managedCollections.FirstOrDefault(h => h.Id == collectionId);
         if (_selectedCollection is not null)
         {
-            _selectedCollectionItems = await ApiClient.GetCollectionItemsAsync(collectionId, 20);
+            var activeProfileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
+            _selectedCollectionItems = await ApiClient.GetCollectionItemsAsync(collectionId, 20, activeProfileId);
         }
         UpdateUrl();
     }

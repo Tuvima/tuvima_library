@@ -834,7 +834,7 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         var collections = (await conn.QueryAsync<Collection>(
-            $"SELECT {CollectionSelectColumns} FROM collections WHERE collection_type NOT IN ('Universe', 'ContentGroup') ORDER BY collection_type, display_name")).ToList();
+            $"SELECT {CollectionSelectColumns} FROM collections WHERE collection_type IN ('Custom', 'Playlist') ORDER BY collection_type, display_name")).ToList();
         collections.ForEach(h => NormalizeCollection(h));
         return collections;
     }
@@ -845,7 +845,7 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<(string CollectionType, int Count)>(
-            "SELECT collection_type AS CollectionType, COUNT(*) AS Count FROM collections WHERE collection_type NOT IN ('Universe', 'ContentGroup') GROUP BY collection_type");
+            "SELECT collection_type AS CollectionType, COUNT(*) AS Count FROM collections WHERE collection_type IN ('Custom', 'Playlist') GROUP BY collection_type");
         return rows.ToDictionary(r => r.CollectionType, r => r.Count);
     }
 
