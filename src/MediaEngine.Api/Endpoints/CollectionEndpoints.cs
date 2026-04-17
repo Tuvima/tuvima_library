@@ -1526,36 +1526,44 @@ public static class CollectionEndpoints
 
         // GET /collections/managed — all non-Universe collections for the Vault Collections tab.
         group.MapGet("/managed", async (
+            Guid? profileId,
             ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collections = await collectionRepo.GetManagedCollectionsAsync(ct);
             var dtos = new List<ManagedCollectionDto>();
-            foreach (var collection in collections)
+            foreach (var collection in collections.Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile)))
             {
-                // For Smart collections, item count is from works.collection_id; for others, from collection_items
-                int count = collection.CollectionType == "Smart"
-                    ? collection.Works.Count
-                    : await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
-                dtos.Add(ManagedCollectionDto.FromDomain(collection, count));
+                var count = await GetManagedCollectionItemCountAsync(collection, collectionRepo, db, ct);
+                dtos.Add(ManagedCollectionDto.FromDomain(collection, count, activeProfile));
             }
+
             return Results.Ok(dtos);
         })
         .WithName("GetManagedCollections")
-        .WithSummary("List all non-Universe collections (Smart, System, Mix, Playlist) for the Vault Collections tab.")
+        .WithSummary("List authored collections accessible to the active profile.")
         .Produces<List<ManagedCollectionDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // GET /collections/managed/counts — type → count for stats bar.
         group.MapGet("/managed/counts", async (
+            Guid? profileId,
             ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
             CancellationToken ct) =>
         {
-            var counts = await collectionRepo.GetCountsByTypeAsync(ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var counts = (await collectionRepo.GetManagedCollectionsAsync(ct))
+                .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
+                .GroupBy(collection => collection.CollectionType)
+                .ToDictionary(grouping => grouping.Key, grouping => grouping.Count());
             return Results.Ok(counts);
         })
         .WithName("GetManagedCollectionCounts")
-        .WithSummary("Returns collection count grouped by type for the Vault stats bar.")
+        .WithSummary("Returns authored collection count grouped by type for the active profile.")
         .Produces<Dictionary<string, int>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
@@ -1564,9 +1572,17 @@ public static class CollectionEndpoints
             Guid id,
             int? limit,
             ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
+                return Results.Forbid();
+
             int take = limit is > 0 ? limit.Value : 20;
             var items = await collectionRepo.GetCollectionItemsAsync(id, take, ct);
 
@@ -1638,8 +1654,16 @@ public static class CollectionEndpoints
             Guid id,
             EnabledRequest body,
             ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
             CancellationToken ct) =>
         {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
+
             await collectionRepo.UpdateCollectionEnabledAsync(id, body.Enabled, ct);
             return Results.Ok();
         })
@@ -1652,8 +1676,16 @@ public static class CollectionEndpoints
             Guid id,
             FeaturedRequest body,
             ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
             CancellationToken ct) =>
         {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
+
             await collectionRepo.UpdateCollectionFeaturedAsync(id, body.Featured, ct);
             return Results.Ok();
         })
@@ -1813,12 +1845,28 @@ public static class CollectionEndpoints
         // POST /collections — create a new collection
         group.MapPost("/", async (
             CollectionCreateRequest body,
+            Guid? profileId,
             ICollectionRepository collectionRepo,
             ICollectionPlacementRepository placementRepo,
+            IProfileRepository profileRepo,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.Name))
                 return Results.BadRequest("Collection name is required.");
+
+            if (!CollectionAccessPolicy.IsManagedCollectionType(body.CollectionType))
+                return Results.BadRequest($"Collection type '{body.CollectionType}' is reserved for browse-only system data.");
+
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            if (activeProfile is null)
+                return Results.BadRequest("profileId is required to create a collection.");
+
+            var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
+            if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)
+                && !CollectionAccessPolicy.CanManageSharedCollections(activeProfile))
+            {
+                return Results.Forbid();
+            }
 
             var ruleJson = body.Rules.Count > 0
                 ? System.Text.Json.JsonSerializer.Serialize(body.Rules)
@@ -1838,7 +1886,6 @@ public static class CollectionEndpoints
                 Description = body.Description,
                 IconName = body.IconName,
                 CollectionType = body.CollectionType,
-                Scope = body.CollectionType is "Playlist" or "Custom" ? "user" : "library",
                 IsEnabled = true,
                 MinItems = 0,
                 RuleJson = ruleJson,
@@ -1850,6 +1897,7 @@ public static class CollectionEndpoints
                 LiveUpdating = body.LiveUpdating,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
+            CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile.Id);
 
             await collectionRepo.UpsertAsync(collection, ct);
 
@@ -1883,10 +1931,17 @@ public static class CollectionEndpoints
             Guid id,
             CollectionUpdateRequest body,
             ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
             CancellationToken ct) =>
         {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
 
             if (body.Name is not null) collection.DisplayName = body.Name;
             if (body.Description is not null) collection.Description = body.Description;
@@ -1897,6 +1952,17 @@ public static class CollectionEndpoints
             if (body.LiveUpdating.HasValue) collection.LiveUpdating = body.LiveUpdating.Value;
             if (body.IsEnabled.HasValue) collection.IsEnabled = body.IsEnabled.Value;
             if (body.IsFeatured.HasValue) collection.IsFeatured = body.IsFeatured.Value;
+            if (!string.IsNullOrWhiteSpace(body.Visibility))
+            {
+                var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
+                if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)
+                    && !CollectionAccessPolicy.CanManageSharedCollections(activeProfile))
+                {
+                    return Results.Forbid();
+                }
+
+                CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile?.Id);
+            }
 
             if (body.Rules is { Count: > 0 })
             {
@@ -1916,11 +1982,18 @@ public static class CollectionEndpoints
         group.MapDelete("/{id:guid}", async (
             Guid id,
             ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
             CancellationToken ct) =>
         {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be deleted here.");
             if (collection.CollectionType == "System") return Results.BadRequest("System collections cannot be deleted.");
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
 
             await collectionRepo.UpdateCollectionEnabledAsync(id, false, ct);
             return Results.Ok();
@@ -2031,6 +2104,41 @@ public static class CollectionEndpoints
     public sealed record FeaturedRequest(bool Featured);
 
     // ── Private helpers ───────────────────────────────────────────────────────
+
+    private static async Task<Profile?> ResolveActiveProfileAsync(
+        Guid? profileId,
+        IProfileRepository profileRepo,
+        CancellationToken ct)
+    {
+        if (!profileId.HasValue)
+            return null;
+
+        return await profileRepo.GetByIdAsync(profileId.Value, ct);
+    }
+
+    private static async Task<int> GetManagedCollectionItemCountAsync(
+        Collection collection,
+        ICollectionRepository collectionRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        if (string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(collection.RuleJson))
+        {
+            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
+            if (predicates.Count == 0)
+                return 0;
+
+            var evaluator = new CollectionRuleEvaluator(db);
+            return evaluator.Evaluate(
+                predicates,
+                collection.MatchMode,
+                collection.SortField,
+                collection.SortDirection).Count;
+        }
+
+        return await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
+    }
 
     private static bool WorkMatchesQuery(WorkDto w, string query) =>
         w.CanonicalValues.Any(cv =>

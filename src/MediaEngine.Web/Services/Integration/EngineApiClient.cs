@@ -3402,11 +3402,21 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── Managed Collections (Vault Collections tab) ────────────────────────────────────────
 
-    public async Task<List<ManagedCollectionViewModel>> GetManagedCollectionsAsync(CancellationToken ct = default)
+    private static string AppendCollectionProfileQuery(string url, Guid? profileId)
+    {
+        if (!profileId.HasValue)
+            return url;
+
+        var separator = url.Contains('?', StringComparison.Ordinal) ? "&" : "?";
+        return $"{url}{separator}profileId={profileId.Value:D}";
+    }
+
+    public async Task<List<ManagedCollectionViewModel>> GetManagedCollectionsAsync(Guid? profileId = null, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<ManagedCollectionViewModel>>("/collections/managed", ct) ?? [];
+            var url = AppendCollectionProfileQuery("/collections/managed", profileId);
+            return await _http.GetFromJsonAsync<List<ManagedCollectionViewModel>>(url, ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -3417,11 +3427,12 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(CancellationToken ct = default)
+    public async Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(Guid? profileId = null, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<Dictionary<string, int>>("/collections/managed/counts", ct) ?? new();
+            var url = AppendCollectionProfileQuery("/collections/managed/counts", profileId);
+            return await _http.GetFromJsonAsync<Dictionary<string, int>>(url, ct) ?? new();
         }
         catch (OperationCanceledException) { return new(); }
         catch (Exception ex)
@@ -3539,22 +3550,36 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     public async Task<bool> CreateCollectionAsync(
-        string name, List<CollectionRulePredicateViewModel> rules, string matchMode,
-        string? sortField, string sortDirection, bool liveUpdating, CancellationToken ct = default)
+        string name,
+        string? description,
+        string? iconName,
+        string collectionType,
+        List<CollectionRulePredicateViewModel> rules,
+        string matchMode,
+        string? sortField,
+        string sortDirection,
+        bool liveUpdating,
+        string visibility,
+        Guid? profileId = null,
+        CancellationToken ct = default)
     {
         try
         {
             var body = new
             {
                 name,
-                collection_type = "Custom",
+                description,
+                icon_name = iconName,
+                visibility,
+                collection_type = collectionType,
                 rules = rules.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(),
                 match_mode = matchMode,
                 sort_field = sortField,
                 sort_direction = sortDirection,
                 live_updating = liveUpdating,
             };
-            var response = await _http.PostAsJsonAsync("/collections", body, ct);
+            var url = AppendCollectionProfileQuery("/collections", profileId);
+            var response = await _http.PostAsJsonAsync(url, body, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -3566,20 +3591,35 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     public async Task<bool> UpdateCollectionAsync(
-        Guid collectionId, string? name, List<CollectionRulePredicateViewModel>? rules,
-        string? matchMode, bool? isEnabled, bool? isFeatured, CancellationToken ct = default)
+        Guid collectionId,
+        string? name,
+        string? description,
+        string? iconName,
+        List<CollectionRulePredicateViewModel>? rules,
+        string? matchMode,
+        string? visibility,
+        bool? liveUpdating,
+        bool? isEnabled,
+        bool? isFeatured,
+        Guid? profileId = null,
+        CancellationToken ct = default)
     {
         try
         {
             var body = new
             {
                 name,
-                rules = rules?.Select(r => new { field = r.Field, op = r.Op, value = r.Value }).ToList(),
+                description,
+                icon_name = iconName,
+                visibility,
+                rules = rules?.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(),
                 match_mode = matchMode,
+                live_updating = liveUpdating,
                 is_enabled = isEnabled,
                 is_featured = isFeatured,
             };
-            var response = await _http.PutAsJsonAsync($"/collections/{collectionId}", body, ct);
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}", profileId);
+            var response = await _http.PutAsJsonAsync(url, body, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -3590,11 +3630,12 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<bool> DeleteCollectionAsync(Guid collectionId, CancellationToken ct = default)
+    public async Task<bool> DeleteCollectionAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default)
     {
         try
         {
-            var response = await _http.DeleteAsync($"/collections/{collectionId}", ct);
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}", profileId);
+            var response = await _http.DeleteAsync(url, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)

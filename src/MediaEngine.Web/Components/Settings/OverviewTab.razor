@@ -1,0 +1,242 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
+
+<div class="st-page settings-overview-page">
+    <div class="settings-overview-summary">
+        <LibraryOverviewPanel ReadOnly="true" />
+    </div>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mt-4" />
+    }
+    else
+    {
+        <div class="settings-overview-grid">
+            <MudPaper Elevation="0" Class="settings-overview-card">
+                <div class="st-label">System</div>
+                <MudText Typo="Typo.h6" Class="mb-2">Heartbeat</MudText>
+                <MudText Typo="Typo.body2" Class="settings-overview-copy">
+                    Live status from the engine, grounded in the same health checks the dashboard uses.
+                </MudText>
+
+                <div class="settings-overview-metrics">
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Status</span>
+                        <span class="settings-overview-metric-value @(_systemStatus?.IsHealthy == true ? "settings-overview-metric-value--healthy" : "settings-overview-metric-value--warning")">
+                            @(_systemStatus?.IsHealthy == true ? "Online" : "Unavailable")
+                        </span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Version</span>
+                        <span class="settings-overview-metric-value">@(_systemStatus?.Version ?? "Unknown")</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Language</span>
+                        <span class="settings-overview-metric-value">@(_serverGeneral?.DisplayLanguage ?? _systemStatus?.Language ?? "en")</span>
+                    </div>
+                </div>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="settings-overview-card">
+                <div class="st-label">Deep Enrichment</div>
+                <MudText Typo="Typo.h6" Class="mb-2">Stage 3 coverage</MudText>
+                <MudText Typo="Typo.body2" Class="settings-overview-copy">
+                    Universe assignment and deferred enrichment coverage across the current library.
+                </MudText>
+
+                <div class="settings-overview-metrics">
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Stage 3 ready</span>
+                        <span class="settings-overview-metric-value">@(_overview is null ? "0" : _overview.EnrichedStage3.ToString("N0"))</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Universe assigned</span>
+                        <span class="settings-overview-metric-value">@(_overview is null ? "0" : _overview.UniverseAssigned.ToString("N0"))</span>
+                    </div>
+                    <div class="settings-overview-metric">
+                        <span class="settings-overview-metric-label">Art pending</span>
+                        <span class="settings-overview-metric-value">@(_overview is null ? "0" : _overview.ArtPending.ToString("N0"))</span>
+                    </div>
+                </div>
+            </MudPaper>
+
+            <MudPaper Elevation="0" Class="settings-overview-card">
+                <div class="st-label">Quick Links</div>
+                <MudText Typo="Typo.h6" Class="mb-2">Continue work</MudText>
+                <MudText Typo="Typo.body2" Class="settings-overview-copy">
+                    Jump straight to the parts of settings that usually need attention first.
+                </MudText>
+
+                <div class="settings-overview-actions">
+                    <MudButton Href="/settings/review"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Outlined.RateReview">
+                        Review @ReviewCount
+                    </MudButton>
+                    <MudButton Href="/settings/providers"
+                               Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Outlined.Collections">
+                        Providers
+                    </MudButton>
+                    <MudButton Href="/settings/system"
+                               Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Outlined.Dns">
+                        System
+                    </MudButton>
+                    <MudButton Href="/settings/folders"
+                               Variant="Variant.Outlined"
+                               Color="Color.Default"
+                               StartIcon="@Icons.Material.Outlined.FolderOpen">
+                        Folders
+                    </MudButton>
+                </div>
+            </MudPaper>
+        </div>
+
+        <MudPaper Elevation="0" Class="settings-overview-card settings-overview-card--full">
+            <div class="st-label">Coming Next</div>
+            <MudText Typo="Typo.h6" Class="mb-2">Overview will keep growing</MudText>
+            <MudText Typo="Typo.body2" Class="settings-overview-copy">
+                Additional statistics will land here as more trustworthy live metrics are wired through the engine. Until then, this page stays focused on the signals the app can verify today.
+            </MudText>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    [Parameter] public int ReviewCount { get; set; }
+
+    private bool _loading = true;
+    private SystemStatusViewModel? _systemStatus;
+    private ServerGeneralSettingsDto? _serverGeneral;
+    private LibraryOverviewViewModel? _overview;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+
+        try
+        {
+            _systemStatus = await Orchestrator.GetSystemStatusAsync();
+        }
+        catch
+        {
+            _systemStatus = null;
+        }
+
+        try
+        {
+            _serverGeneral = await Orchestrator.GetServerGeneralAsync();
+        }
+        catch
+        {
+            _serverGeneral = null;
+        }
+
+        try
+        {
+            _overview = await ApiClient.GetLibraryOverviewAsync();
+        }
+        catch
+        {
+            _overview = null;
+        }
+
+        _loading = false;
+    }
+}
+
+<style>
+    .settings-overview-page {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .settings-overview-summary .vo-review-grid {
+        margin-top: 0;
+    }
+
+    .settings-overview-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+    }
+
+    .settings-overview-card {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 22px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .settings-overview-card--full {
+        grid-column: 1 / -1;
+    }
+
+    .settings-overview-copy {
+        color: rgba(248, 248, 248, 0.56);
+        line-height: 1.6;
+    }
+
+    .settings-overview-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .settings-overview-metric {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .settings-overview-metric-label {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(248, 248, 248, 0.4);
+    }
+
+    .settings-overview-metric-value {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.92);
+    }
+
+    .settings-overview-metric-value--healthy {
+        color: #6bd58d;
+    }
+
+    .settings-overview-metric-value--warning {
+        color: #f0b25f;
+    }
+
+    .settings-overview-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    @@media (max-width: 1000px) {
+        .settings-overview-grid,
+        .settings-overview-metrics {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

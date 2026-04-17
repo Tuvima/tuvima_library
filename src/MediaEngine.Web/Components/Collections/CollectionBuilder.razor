@@ -8,17 +8,78 @@
     <div class="collection-builder" @onclick:stopPropagation>
         <h2 class="collection-builder-title">@(EditingCollection is not null ? "Edit Collection" : "New Collection")</h2>
 
-        @* ── Name ── *@
         <MudTextField @bind-Value="_name"
                       Placeholder="Collection name..."
                       Variant="Variant.Outlined"
-                      Style="margin-bottom: 16px;"
-                      Immediate="true" />
+                      Immediate="true"
+                      Class="collection-builder-field" />
 
-        @* ── Rules ── *@
-        <div class="collection-builder-rules-header">
+        <MudTextField @bind-Value="_description"
+                      Placeholder="Description (optional)"
+                      Variant="Variant.Outlined"
+                      Immediate="true"
+                      Lines="3"
+                      Class="collection-builder-field" />
+
+        <div class="collection-builder-grid">
+            <MudSelect T="string"
+                       Value="_collectionType"
+                       ValueChanged="OnCollectionTypeChanged"
+                       Label="Collection type"
+                       Variant="Variant.Outlined"
+                       Disabled="@(EditingCollection is not null)"
+                       Class="collection-builder-field">
+                <MudSelectItem T="string" Value="@("Custom")">Collection</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Playlist")">Playlist</MudSelectItem>
+            </MudSelect>
+
+            <MudTextField @bind-Value="_iconName"
+                          Placeholder="Icon name (optional)"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Class="collection-builder-field" />
+        </div>
+
+        <div class="collection-builder-helper collection-builder-helper--tight">
+            @if (string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+            {
+                <span>Playlists are intended for manual membership. Rules are disabled for this collection type.</span>
+            }
+            else
+            {
+                <span>Collections can stay manual or use live rules to populate themselves.</span>
+            }
+        </div>
+
+        <div class="collection-builder-section">
+            <div class="collection-builder-section-title">Visibility</div>
+            <MudRadioGroup T="string" @bind-Value="_visibility">
+                <MudRadio T="string" Value="@("private")" Color="Color.Primary" Dense="true">
+                    Private
+                </MudRadio>
+                @if (CanManageSharedCollections)
+                {
+                    <MudRadio T="string" Value="@("shared")" Color="Color.Primary" Dense="true">
+                        Shared with all users
+                    </MudRadio>
+                }
+            </MudRadioGroup>
+            <div class="collection-builder-helper">
+                @if (_visibility == "shared")
+                {
+                    <span>Shared collections are visible to every profile and editable by administrators or curators.</span>
+                }
+                else
+                {
+                    <span>Private collections belong to the active profile only.</span>
+                }
+            </div>
+        </div>
+
+        <div class="collection-builder-section">
             <MudCheckBox @bind-Value="_rulesEnabled" Color="Color.Error" Dense="true"
-                         Label="Match for the following rules:" />
+                         Disabled="@string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase)"
+                         Label="Build this collection from matching rules" />
         </div>
 
         @if (_rulesEnabled)
@@ -30,10 +91,12 @@
                     var rule = _rules[idx];
 
                     <div class="collection-builder-rule-row">
-                        <MudSelect T="string" Value="rule.Field"
-                                   Variant="Variant.Outlined" Dense="true"
+                        <MudSelect T="string"
+                                   Value="rule.Field"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
                                    Style="min-width: 140px;"
-                                   ValueChanged="(string v) => { rule.Field = v; _ = OnRuleChanged(); }">
+                                   ValueChanged="(string value) => { rule.Field = value; _ = OnRuleChanged(); }">
                             <MudSelectItem T="string" Value="@("media_type")">Media Type</MudSelectItem>
                             <MudSelectItem T="string" Value="@("genre")">Genre</MudSelectItem>
                             <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
@@ -52,8 +115,10 @@
                             <MudSelectItem T="string" Value="@("provider_rating")">Rating</MudSelectItem>
                         </MudSelect>
 
-                        <MudSelect T="string" @bind-Value="rule.Op"
-                                   Variant="Variant.Outlined" Dense="true"
+                        <MudSelect T="string"
+                                   @bind-Value="rule.Op"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
                                    Style="min-width: 120px;">
                             @foreach (var op in GetOperatorsForField(rule.Field))
                             {
@@ -62,7 +127,8 @@
                         </MudSelect>
 
                         <MudTextField @bind-Value="rule.Value"
-                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Variant="Variant.Outlined"
+                                      Margin="Margin.Dense"
                                       Style="flex: 1; min-width: 120px;"
                                       Placeholder="Value..."
                                       Immediate="true"
@@ -71,15 +137,15 @@
 
                         <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
                                        OnClick="() => AddRule(idx)" aria-label="Add rule" />
-                        <MudIconButton Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small"
+                        <MudIconButton Icon="@Icons.Material.Filled.Remove" Size="Size.Small"
+                                       Disabled="@(_rules.Count == 1)"
                                        OnClick="() => RemoveRule(idx)" aria-label="Remove rule" />
                     </div>
                 }
             </div>
 
-            @* ── Match mode ── *@
-            <div class="collection-builder-match-mode">
-                <span style="font-size: 0.82rem; color: rgba(248,248,248,0.6);">Match:</span>
+            <div class="collection-builder-section">
+                <span class="collection-builder-inline-label">Match:</span>
                 <MudRadioGroup T="string" @bind-Value="_matchMode">
                     <MudRadio T="string" Value="@("all")" Color="Color.Primary" Dense="true">ALL rules</MudRadio>
                     <MudRadio T="string" Value="@("any")" Color="Color.Primary" Dense="true">ANY rule</MudRadio>
@@ -87,33 +153,11 @@
             </div>
         }
 
-        @* ── Limit ── *@
-        <div class="collection-builder-limit-row">
-            <MudCheckBox @bind-Value="_limitEnabled" Color="Color.Default" Dense="true" />
-            <span style="font-size: 0.85rem; color: rgba(248,248,248,0.7);">Limit to</span>
-            <MudNumericField T="int" @bind-Value="_limitCount"
-                             Variant="Variant.Outlined" Margin="Margin.Dense"
-                             Style="width: 80px;" Min="1" Max="1000" />
-            <span style="font-size: 0.85rem; color: rgba(248,248,248,0.7);">items</span>
-            <span style="font-size: 0.85rem; color: rgba(248,248,248,0.5); margin-left: 8px;">selected by</span>
-            <MudSelect T="string" @bind-Value="_limitSort"
-                       Variant="Variant.Outlined" Dense="true"
-                       Style="min-width: 120px;">
-                <MudSelectItem T="string" Value="@("random")">random</MudSelectItem>
-                <MudSelectItem T="string" Value="@("newest")">newest</MudSelectItem>
-                <MudSelectItem T="string" Value="@("oldest")">oldest</MudSelectItem>
-                <MudSelectItem T="string" Value="@("title")">name</MudSelectItem>
-                <MudSelectItem T="string" Value="@("rating")">highest rated</MudSelectItem>
-            </MudSelect>
-        </div>
-
-        @* ── Live updating ── *@
-        <div class="collection-builder-live-row">
+        <div class="collection-builder-section">
             <MudCheckBox @bind-Value="_liveUpdating" Color="Color.Error" Dense="true"
                          Label="Live updating" />
         </div>
 
-        @* ── Preview ── *@
         @if (_previewResult is not null)
         {
             <div class="collection-builder-preview">
@@ -125,7 +169,7 @@
                     <div class="collection-builder-preview-item">
                         <span class="collection-builder-preview-type">@item.MediaType[..Math.Min(2, item.MediaType.Length)]</span>
                         <span class="collection-builder-preview-title">@item.Title</span>
-                        @if (!string.IsNullOrEmpty(item.Year))
+                        @if (!string.IsNullOrWhiteSpace(item.Year))
                         {
                             <span class="collection-builder-preview-year">(@item.Year)</span>
                         }
@@ -134,14 +178,17 @@
             </div>
         }
 
-        @* ── Actions ── *@
         <div class="collection-builder-actions">
-            <MudButton Variant="Variant.Filled" Color="Color.Error"
-                       OnClick="SaveCollection" Disabled="_saving"
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       OnClick="SaveCollection"
+                       Disabled="_saving"
                        Style="flex: 1;">
                 @(EditingCollection is not null ? "Save" : "Create Collection")
             </MudButton>
-            <MudButton Variant="Variant.Outlined" OnClick="OnCancel" Style="flex: 1;">
+            <MudButton Variant="Variant.Outlined"
+                       OnClick="OnCancel"
+                       Style="flex: 1;">
                 Cancel
             </MudButton>
         </div>
@@ -152,55 +199,64 @@
     [Parameter] public EventCallback OnSave { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public CollectionListItemViewModel? EditingCollection { get; set; }
+    [Parameter] public Guid? ActiveProfileId { get; set; }
+    [Parameter] public bool CanManageSharedCollections { get; set; }
 
-    private string _name = "";
+    private string _name = string.Empty;
+    private string? _description;
+    private string? _iconName;
+    private string _collectionType = "Custom";
+    private string _visibility = "private";
     private bool _rulesEnabled = true;
     private List<CollectionRulePredicateViewModel> _rules = [new()];
     private string _matchMode = "all";
-    private bool _limitEnabled;
-    private int _limitCount = 25;
-    private string _limitSort = "random";
     private bool _liveUpdating = true;
     private bool _saving;
     private CollectionPreviewResult? _previewResult;
 
     protected override void OnInitialized()
     {
-        if (EditingCollection is not null)
-        {
-            _name = EditingCollection.Name;
-            _matchMode = EditingCollection.MatchMode;
-            _liveUpdating = EditingCollection.LiveUpdating;
+        if (EditingCollection is null)
+            return;
 
-            // Parse existing rules
-            if (!string.IsNullOrWhiteSpace(EditingCollection.RuleJson))
+        _name = EditingCollection.Name;
+        _description = EditingCollection.Description;
+        _iconName = EditingCollection.IconName;
+        _collectionType = EditingCollection.CollectionType;
+        _visibility = EditingCollection.Visibility;
+        _matchMode = EditingCollection.MatchMode;
+        _liveUpdating = EditingCollection.LiveUpdating;
+        _rulesEnabled = !string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(EditingCollection.RuleJson))
+            return;
+
+        try
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<List<CollectionRulePredicateViewModel>>(
+                EditingCollection.RuleJson,
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (parsed is { Count: > 0 })
             {
-                try
-                {
-                    var parsed = System.Text.Json.JsonSerializer.Deserialize<List<CollectionRulePredicateViewModel>>(
-                        EditingCollection.RuleJson,
-                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                    if (parsed is { Count: > 0 })
-                    {
-                        _rules = parsed;
-                        _rulesEnabled = true;
-                    }
-                }
-                catch { /* use defaults */ }
+                _rules = parsed;
+                if (!string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+                    _rulesEnabled = true;
             }
+        }
+        catch
+        {
+            // Keep defaults when an older rule payload cannot be parsed.
         }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _rules.Any(r => !string.IsNullOrEmpty(r.Value)))
+        if (firstRender && _rules.Any(rule => !string.IsNullOrWhiteSpace(rule.Value)))
             await RunPreview();
     }
 
-    private void AddRule(int afterIndex)
-    {
+    private void AddRule(int afterIndex) =>
         _rules.Insert(afterIndex + 1, new CollectionRulePredicateViewModel());
-    }
 
     private void RemoveRule(int index)
     {
@@ -208,31 +264,41 @@
             _rules.RemoveAt(index);
     }
 
-    private async Task OnRuleChanged()
+    private async Task OnRuleChanged() => await RunPreview();
+
+    private Task OnCollectionTypeChanged(string value)
     {
-        await RunPreview();
+        _collectionType = value;
+        if (string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+        {
+            _rulesEnabled = false;
+            _previewResult = null;
+        }
+
+        StateHasChanged();
+        return Task.CompletedTask;
     }
 
     private async Task RunPreview()
     {
-        if (!_rulesEnabled || _rules.All(r => string.IsNullOrEmpty(r.Value)))
+        if (!_rulesEnabled)
         {
             _previewResult = null;
             return;
         }
 
         var validRules = _rules
-            .Where(r => !string.IsNullOrEmpty(r.Value))
+            .Where(rule => !string.IsNullOrWhiteSpace(rule.Value))
             .ToList();
 
-        if (validRules.Count == 0) return;
-
-        try
+        if (validRules.Count == 0)
         {
-            _previewResult = await ApiClient.PreviewCollectionRulesAsync(validRules, _matchMode, 20);
-            StateHasChanged();
+            _previewResult = null;
+            return;
         }
-        catch { /* preview is best-effort */ }
+
+        _previewResult = await ApiClient.PreviewCollectionRulesAsync(validRules, _matchMode, 20);
+        StateHasChanged();
     }
 
     private async Task SaveCollection()
@@ -243,30 +309,61 @@
             return;
         }
 
+        if (!CanManageSharedCollections)
+            _visibility = "private";
+
+        if (!string.Equals(_visibility, "shared", StringComparison.OrdinalIgnoreCase) && !ActiveProfileId.HasValue)
+        {
+            Snackbar.Add("An active profile is required to save a private collection.", Severity.Warning);
+            return;
+        }
+
         _saving = true;
         StateHasChanged();
 
         try
         {
             var rules = _rulesEnabled
-                ? _rules.Where(r => !string.IsNullOrEmpty(r.Value)).ToList()
+                ? _rules.Where(rule => !string.IsNullOrWhiteSpace(rule.Value)).ToList()
                 : [];
 
-            if (EditingCollection is not null)
+            var ok = EditingCollection is not null
+                ? await ApiClient.UpdateCollectionAsync(
+                    EditingCollection.Id,
+                    _name,
+                    _description,
+                    _iconName,
+                    rules,
+                    _matchMode,
+                    _visibility,
+                    _liveUpdating,
+                    null,
+                    null,
+                    ActiveProfileId)
+                : await ApiClient.CreateCollectionAsync(
+                    _name,
+                    _description,
+                    _iconName,
+                    _collectionType,
+                    rules,
+                    _matchMode,
+                    null,
+                    "desc",
+                    _liveUpdating,
+                    _visibility,
+                    ActiveProfileId);
+
+            if (!ok)
             {
-                await ApiClient.UpdateCollectionAsync(
-                    EditingCollection.Id, _name, rules, _matchMode,
-                    null, null);
-                Snackbar.Add($"Collection \"{_name}\" updated.", Severity.Success);
+                Snackbar.Add("Failed to save collection.", Severity.Error);
+                return;
             }
-            else
-            {
-                await ApiClient.CreateCollectionAsync(
-                    _name, rules, _matchMode,
-                    _limitEnabled ? _limitSort : null,
-                    "desc", _liveUpdating);
-                Snackbar.Add($"Collection \"{_name}\" created.", Severity.Success);
-            }
+
+            Snackbar.Add(
+                EditingCollection is not null
+                    ? $"Collection \"{_name}\" updated."
+                    : $"Collection \"{_name}\" created.",
+                Severity.Success);
 
             await OnSave.InvokeAsync();
         }
@@ -277,6 +374,7 @@
         finally
         {
             _saving = false;
+            StateHasChanged();
         }
     }
 
@@ -295,7 +393,7 @@
 <style>
     .collection-builder-overlay {
         position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
+        inset: 0;
         background: rgba(0, 0, 0, 0.6);
         display: flex;
         align-items: center;
@@ -305,34 +403,65 @@
     }
 
     .collection-builder {
-        background: #1a1d2e;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        padding: 28px;
-        width: 600px;
-        max-width: 95vw;
-        max-height: 85vh;
+        background: #161b29;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        padding: 24px;
+        width: min(760px, 96vw);
+        max-height: 88vh;
         overflow-y: auto;
-        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
     }
 
     .collection-builder-title {
+        margin: 0 0 18px;
+        color: rgba(248, 248, 248, 0.95);
         font-family: 'Montserrat', sans-serif;
         font-size: 1.2rem;
         font-weight: 700;
-        color: rgba(248, 248, 248, 0.9);
-        margin: 0 0 20px;
     }
 
-    .collection-builder-rules-header {
-        margin-bottom: 12px;
+    .collection-builder-field {
+        margin-bottom: 14px;
+    }
+
+    .collection-builder-section {
+        margin-bottom: 16px;
+    }
+
+    .collection-builder-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .collection-builder-section-title {
+        margin-bottom: 8px;
+        color: rgba(248, 248, 248, 0.78);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.86rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .collection-builder-helper,
+    .collection-builder-inline-label {
+        color: rgba(248, 248, 248, 0.55);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.82rem;
+    }
+
+    .collection-builder-helper--tight {
+        margin-top: -6px;
+        margin-bottom: 14px;
     }
 
     .collection-builder-rules {
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        margin-bottom: 16px;
+        gap: 10px;
+        margin-bottom: 14px;
     }
 
     .collection-builder-rule-row {
@@ -341,68 +470,71 @@
         align-items: center;
     }
 
-    .collection-builder-match-mode {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 16px;
-        padding: 8px 0;
-    }
-
-    .collection-builder-limit-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 12px;
-    }
-
-    .collection-builder-live-row {
-        margin-bottom: 16px;
-    }
-
     .collection-builder-preview {
-        background: rgba(0, 0, 0, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 8px;
-        padding: 12px;
-        margin-bottom: 20px;
-        max-height: 200px;
-        overflow-y: auto;
+        border-radius: 14px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.02);
+        margin-bottom: 16px;
     }
 
     .collection-builder-preview-header {
+        margin-bottom: 10px;
+        color: rgba(248, 248, 248, 0.76);
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.78rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.5);
-        margin-bottom: 8px;
+        font-size: 0.86rem;
+        font-weight: 700;
     }
 
     .collection-builder-preview-item {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 4px 0;
-        font-size: 0.82rem;
+        gap: 10px;
+        padding: 6px 0;
+        color: rgba(248, 248, 248, 0.78);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.84rem;
     }
 
     .collection-builder-preview-type {
-        font-size: 0.65rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        font-size: 0.72rem;
         font-weight: 700;
-        text-transform: uppercase;
-        background: rgba(255, 255, 255, 0.06);
-        padding: 2px 6px;
-        border-radius: 4px;
-        color: rgba(248, 248, 248, 0.4);
-        min-width: 24px;
-        text-align: center;
     }
 
-    .collection-builder-preview-title { color: rgba(248, 248, 248, 0.8); }
-    .collection-builder-preview-year { color: rgba(248, 248, 248, 0.4); font-size: 0.78rem; }
+    .collection-builder-preview-title {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .collection-builder-preview-year {
+        color: rgba(248, 248, 248, 0.45);
+    }
 
     .collection-builder-actions {
         display: flex;
         gap: 12px;
+        margin-top: 18px;
+    }
+
+    @@media (max-width: 900px) {
+        .collection-builder-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .collection-builder-rule-row {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .collection-builder-actions {
+            flex-direction: column;
+        }
     }
 </style>

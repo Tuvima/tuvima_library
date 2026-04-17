@@ -3,11 +3,11 @@
 @namespace MediaEngine.Web.Components.Pages
 @inject NavigationManager Nav
 
-@* Backward-compatibility redirect: /server-settings now forwards to /settings/library. *@
+@* Backward-compatibility redirect: /server-settings now forwards to /settings/system. *@
 
 @code {
     protected override void OnInitialized()
     {
-        Nav.NavigateTo("/settings/library", replace: true);
+        Nav.NavigateTo("/settings/system", replace: true);
     }
 }

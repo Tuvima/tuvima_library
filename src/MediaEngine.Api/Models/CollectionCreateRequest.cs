@@ -12,6 +12,9 @@ public sealed class CollectionCreateRequest
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
+    [JsonPropertyName("visibility")]
+    public string Visibility { get; init; } = CollectionAccessPolicy.PrivateVisibility;
+
     [JsonPropertyName("icon_name")]
     public string? IconName { get; init; }
 
@@ -63,6 +66,9 @@ public sealed class CollectionUpdateRequest
 
     [JsonPropertyName("description")]
     public string? Description { get; init; }
+
+    [JsonPropertyName("visibility")]
+    public string? Visibility { get; init; }
 
     [JsonPropertyName("icon_name")]
     public string? IconName { get; init; }

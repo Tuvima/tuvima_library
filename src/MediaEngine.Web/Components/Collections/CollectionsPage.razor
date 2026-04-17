@@ -1,29 +1,21 @@
 @namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Models.ViewDTOs
-@using MediaEngine.Web.Components.Library
 
 @inject IEngineApiClient ApiClient
-@inject IDialogService DialogService
+@inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-@inject IStringLocalizer<SharedStrings> L
-@inject NavigationManager Nav
-
-@implements IDisposable
 
 <div class="collections-layout">
-
-    @* ── Title ── *@
     <div class="collections-header">
         <h1 class="collections-title">Collections</h1>
-        <p class="collections-subtitle">Browse, create, and manage your library's collections — from auto-generated groups to custom playlists.</p>
+        <p class="collections-subtitle">Manage saved collections, playlists, and shared sets. Browse-specific groups are generated dynamically on the Home and library views.</p>
     </div>
 
-    @* ── Tab bar ── *@
     <div class="collections-tab-row">
         <div class="collections-tab-bar">
             @foreach (var tab in _tabs)
             {
-                <button class="collections-tab @(_activeTab == tab.Id ? "collections-tab--active" : "")"
+                <button class="collections-tab @(_activeTab == tab.Id ? "collections-tab--active" : null)"
                         @onclick="() => SwitchTab(tab.Id)">
                     <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
                     <span>@tab.Label</span>
@@ -40,10 +32,9 @@
         </button>
     </div>
 
-    @* ── Toolbar ── *@
     <div class="collections-toolbar">
         <MudTextField @bind-Value="_searchText"
-                      Placeholder="Search collections..."
+                      Placeholder="Search saved collections..."
                       Variant="Variant.Outlined"
                       Adornment="Adornment.Start"
                       AdornmentIcon="@Icons.Material.Filled.Search"
@@ -53,25 +44,10 @@
                       Class="collections-search"
                       Style="max-width: 320px;" />
 
-        <MudSelect T="string" Value="_mediaTypeFilter"
-                   Placeholder="All Media Types"
-                   Variant="Variant.Outlined"
-                   Dense="true"
-                   Style="max-width: 180px;"
-                   ValueChanged="OnMediaTypeFilterChanged">
-            <MudSelectItem T="string" Value="@((string?)null)">All Media Types</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Movie")">Movies</MudSelectItem>
-            <MudSelectItem T="string" Value="@("TV")">TV</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Music")">Music</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Book")">Books</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Audiobook")">Audiobooks</MudSelectItem>
-            <MudSelectItem T="string" Value="@("Comic")">Comics</MudSelectItem>
-        </MudSelect>
-
         <MudSelect T="string" Value="_sortBy"
                    Variant="Variant.Outlined"
                    Dense="true"
-                   Style="max-width: 160px;"
+                   Style="max-width: 180px;"
                    ValueChanged="OnSortChanged">
             <MudSelectItem T="string" Value="@("name")">Name</MudSelectItem>
             <MudSelectItem T="string" Value="@("items")">Item Count</MudSelectItem>
@@ -80,11 +56,10 @@
         </MudSelect>
     </div>
 
-    @* ── Collection table ── *@
     <div class="collections-table-wrap">
         @if (_loading)
         {
-            <div style="display: flex; justify-content: center; padding: 48px;">
+            <div class="collections-loading">
                 <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
             </div>
         }
@@ -92,9 +67,9 @@
         {
             <div class="collections-empty">
                 <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 48px; opacity: 0.3;" />
-                <p style="margin-top: 12px; opacity: 0.5;">No collections found.</p>
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="OpenBuilder" Style="margin-top: 16px;">
-                    Create Your First Collection
+                <p>No saved collections found for this profile.</p>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="OpenBuilder">
+                    Create Collection
                 </MudButton>
             </div>
         }
@@ -104,25 +79,27 @@
                 <thead>
                     <tr>
                         <th style="width: 44px;"></th>
-                        <th style="width: 40%; text-align: left;">Name</th>
-                        <th style="width: 12%; text-align: left;">Type</th>
-                        <th style="width: 12%; text-align: center;">Items</th>
+                        <th style="width: 42%; text-align: left;">Name</th>
+                        <th style="width: 14%; text-align: left;">Type</th>
+                        <th style="width: 12%; text-align: center;">Access</th>
+                        <th style="width: 10%; text-align: center;">Items</th>
                         <th style="width: 12%; text-align: center;">Status</th>
-                        <th style="width: 10%; text-align: center;">Featured</th>
                         <th style="width: 80px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach (var collection in _filteredCollections)
                     {
-                        <tr class="collections-row" @onclick="() => OnCollectionClicked(collection)">
+                        <tr class="collections-row @(collection.CanEdit ? null : "collections-row--readonly")"
+                            @onclick="() => OnCollectionClicked(collection)">
                             <td style="text-align: center;">
-                                <MudIcon Icon="@GetTypeIcon(collection.CollectionType)" Size="Size.Small"
-                                         Style="@($"color: {GetTypeColor(collection.CollectionType)}; opacity: 0.8;")" />
+                                <MudIcon Icon="@GetTypeIcon(collection.CollectionType)"
+                                         Size="Size.Small"
+                                         Style="@($"color: {GetTypeColor(collection.CollectionType)}; opacity: 0.85;")" />
                             </td>
                             <td>
                                 <div class="collections-name-cell">
-                                    @if (collection.CoverUrl is not null)
+                                    @if (!string.IsNullOrWhiteSpace(collection.CoverUrl))
                                     {
                                         <img src="@collection.CoverUrl" class="collections-thumb" alt="" />
                                     }
@@ -134,7 +111,7 @@
                                     }
                                     <div class="collections-name-text">
                                         <span class="collections-name">@collection.Name</span>
-                                        @if (!string.IsNullOrEmpty(collection.Description))
+                                        @if (!string.IsNullOrWhiteSpace(collection.Description))
                                         {
                                             <span class="collections-desc">@collection.Description</span>
                                         }
@@ -147,21 +124,22 @@
                                 </span>
                             </td>
                             <td style="text-align: center;">
-                                <span style="opacity: 0.7;">@collection.ItemCount</span>
+                                <span class="collections-type-chip" style="@($"background: {GetVisibilityColor(collection)}22; color: {GetVisibilityColor(collection)};")">
+                                    @GetVisibilityLabel(collection)
+                                </span>
+                            </td>
+                            <td style="text-align: center;">
+                                <span class="collections-muted">@collection.ItemCount</span>
                             </td>
                             <td style="text-align: center;">
                                 <span class="collections-status-pill collections-status-@collection.Status.ToLowerInvariant()">@collection.Status</span>
                             </td>
                             <td style="text-align: center;">
-                                @if (collection.IsFeatured)
-                                {
-                                    <MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" Style="color: #EAB308;" />
-                                }
-                            </td>
-                            <td style="text-align: center;">
-                                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small"
+                                <MudIconButton Icon="@(collection.CanEdit ? Icons.Material.Outlined.Edit : Icons.Material.Outlined.Visibility)"
+                                               Size="Size.Small"
+                                               Disabled="@(!collection.CanEdit)"
                                                OnClick="@(() => OnEditCollection(collection))"
-                                               aria-label="Edit" />
+                                               aria-label="Edit collection" />
                             </td>
                         </tr>
                     }
@@ -170,32 +148,34 @@
         }
     </div>
 
-    @* ── Collection Builder Dialog ── *@
     @if (_showBuilder)
     {
         <CollectionBuilder OnSave="OnBuilderSave"
-                    OnCancel="() => _showBuilder = false"
-                    EditingCollection="@_editingCollection" />
+                           OnCancel="() => _showBuilder = false"
+                           EditingCollection="@_editingCollection"
+                           ActiveProfileId="@_activeProfile?.Id"
+                           CanManageSharedCollections="@CanManageSharedCollections" />
     }
 </div>
 
 @code {
-    private sealed record TabDef(string Id, string Label, string Icon, int Count);
-
-    private List<TabDef> _tabs = [];
+    private IReadOnlyList<CollectionManagementTab> _tabs = [];
     private string _activeTab = "all";
-    private string _searchText = "";
-    private string? _mediaTypeFilter;
+    private string _searchText = string.Empty;
     private string _sortBy = "name";
     private bool _loading;
     private bool _showBuilder;
+    private ProfileViewModel? _activeProfile;
     private CollectionListItemViewModel? _editingCollection;
-
     private List<CollectionListItemViewModel> _allCollections = [];
     private List<CollectionListItemViewModel> _filteredCollections = [];
 
+    private bool CanManageSharedCollections =>
+        _activeProfile?.Role is "Administrator" or "Curator";
+
     protected override async Task OnInitializedAsync()
     {
+        _activeProfile = await Orchestrator.GetActiveProfileAsync();
         await LoadCollections();
     }
 
@@ -206,51 +186,32 @@
 
         try
         {
-            // Load all collections — both managed (smart, system, mix, playlist) and content groups
-            var managedTask = ApiClient.GetManagedCollectionsAsync();
-            var contentTask = ApiClient.GetContentGroupsAsync();
-            await Task.WhenAll(managedTask, contentTask);
-
-            var managed = managedTask.Result;
-            var contentGroups = contentTask.Result;
-
-            _allCollections = [];
-
-            // Convert managed collections
-            foreach (var h in managed)
-            {
-                _allCollections.Add(new CollectionListItemViewModel
+            var managedCollections = await ApiClient.GetManagedCollectionsAsync(_activeProfile?.Id);
+            _allCollections = managedCollections
+                .Select(collection => new CollectionListItemViewModel
                 {
-                    Id = h.Id,
-                    Name = h.Name,
-                    Description = h.Description,
-                    IconName = h.IconName,
-                    CollectionType = h.CollectionType,
-                    Scope = h.Scope,
-                    IsEnabled = h.IsEnabled,
-                    IsFeatured = h.IsFeatured,
-                    ItemCount = h.ItemCount,
-                    RuleJson = h.RuleJson,
-                    CreatedAt = h.CreatedAt,
-                });
-            }
-
-            // Convert content groups
-            foreach (var g in contentGroups)
-            {
-                _allCollections.Add(new CollectionListItemViewModel
-                {
-                    Id = g.CollectionId,
-                    Name = g.DisplayName,
-                    CollectionType = "ContentGroup",
-                    IsEnabled = true,
-                    ItemCount = g.WorkCount,
-                    PrimaryMediaType = g.PrimaryMediaType,
-                    CoverUrl = g.CoverUrl,
-                    Creator = g.Creator,
-                    CreatedAt = g.CreatedAt,
-                });
-            }
+                    Id = collection.Id,
+                    Name = collection.Name,
+                    Description = collection.Description,
+                    IconName = collection.IconName,
+                    CollectionType = collection.CollectionType,
+                    Resolution = collection.Resolution,
+                    Scope = collection.Scope,
+                    ProfileId = collection.ProfileId,
+                    Visibility = collection.Visibility,
+                    IsEnabled = collection.IsEnabled,
+                    IsFeatured = collection.IsFeatured,
+                    ItemCount = collection.ItemCount,
+                    RuleJson = collection.RuleJson,
+                    MatchMode = collection.MatchMode,
+                    SortField = collection.SortField,
+                    SortDirection = collection.SortDirection,
+                    LiveUpdating = collection.LiveUpdating,
+                    CreatedAt = collection.CreatedAt,
+                    CanEdit = collection.CanEdit,
+                    CanShare = collection.CanShare,
+                })
+                .ToList();
 
             UpdateTabs();
             ApplyFilters();
@@ -264,20 +225,7 @@
 
     private void UpdateTabs()
     {
-        var all = _allCollections.Count;
-        var browse = _allCollections.Count(c => c.CollectionType == "ContentGroup");
-        var forYou = _allCollections.Count(c => c.CollectionType is "Smart" or "Mix");
-        var lists = _allCollections.Count(c => c.CollectionType is "System" or "Playlist");
-        var mine = _allCollections.Count(c => c.CollectionType == "Custom");
-
-        _tabs =
-        [
-            new("all", "All", Icons.Material.Outlined.Dashboard, all),
-            new("browse", "Browse", Icons.Material.Outlined.Explore, browse),
-            new("foryou", "For You", Icons.Material.Outlined.AutoAwesome, forYou),
-            new("lists", "Lists", Icons.Material.Outlined.PlaylistPlay, lists),
-            new("mine", "Mine", Icons.Material.Outlined.Person, mine),
-        ];
+        _tabs = CollectionManagementTabs.Build(_allCollections, _activeProfile?.Id);
     }
 
     private void SwitchTab(string tabId)
@@ -288,52 +236,31 @@
 
     private void ApplyFilters()
     {
-        var query = _allCollections.AsEnumerable();
+        var query = CollectionManagementTabs.Filter(_allCollections, _activeTab, _activeProfile?.Id);
 
-        // Tab filter
-        query = _activeTab switch
+        if (!string.IsNullOrWhiteSpace(_searchText))
         {
-            "browse" => query.Where(c => c.CollectionType == "ContentGroup"),
-            "foryou" => query.Where(c => c.CollectionType is "Smart" or "Mix"),
-            "lists" => query.Where(c => c.CollectionType is "System" or "Playlist"),
-            "mine" => query.Where(c => c.CollectionType == "Custom"),
-            _ => query,
-        };
-
-        // Media type filter
-        if (!string.IsNullOrEmpty(_mediaTypeFilter))
-        {
-            query = query.Where(h =>
-                string.Equals(h.PrimaryMediaType, _mediaTypeFilter, StringComparison.OrdinalIgnoreCase)
-                || (h.Description?.Contains(_mediaTypeFilter, StringComparison.OrdinalIgnoreCase) ?? false));
+            query = query.Where(collection =>
+                collection.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || (collection.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
         }
 
-        // Search
-        if (!string.IsNullOrEmpty(_searchText))
-        {
-            query = query.Where(h =>
-                h.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-                || (h.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
-        }
-
-        // Sort
         _filteredCollections = (_sortBy switch
         {
-            "items" => query.OrderByDescending(h => h.ItemCount),
-            "newest" => query.OrderByDescending(h => h.CreatedAt),
-            "type" => query.OrderBy(h => h.CollectionType).ThenBy(h => h.Name),
-            _ => query.OrderBy(h => h.Name),
+            "items" => query.OrderByDescending(collection => collection.ItemCount),
+            "newest" => query.OrderByDescending(collection => collection.CreatedAt),
+            "type" => query.OrderBy(collection => collection.CollectionType).ThenBy(collection => collection.Name),
+            _ => query.OrderBy(collection => collection.Name),
         }).ToList();
 
         StateHasChanged();
     }
 
-    private void ApplySort() => ApplyFilters();
-
-    private async Task OnMediaTypeFilterChanged(string? value)
+    private Task OnSearchChanged(string text)
     {
-        _mediaTypeFilter = value;
-        await LoadCollections();
+        _searchText = text;
+        ApplyFilters();
+        return Task.CompletedTask;
     }
 
     private void OnSortChanged(string value)
@@ -342,20 +269,26 @@
         ApplyFilters();
     }
 
-    private void OnSearchChanged(string text)
-    {
-        _searchText = text;
-        ApplyFilters();
-    }
-
     private void OpenBuilder()
     {
+        if (_activeProfile is null)
+        {
+            Snackbar.Add("Choose an active profile before creating a collection.", Severity.Warning);
+            return;
+        }
+
         _editingCollection = null;
         _showBuilder = true;
     }
 
     private void OnEditCollection(CollectionListItemViewModel collection)
     {
+        if (!collection.CanEdit)
+        {
+            Snackbar.Add("This collection is read-only for the active profile.", Severity.Info);
+            return;
+        }
+
         _editingCollection = collection;
         _showBuilder = true;
     }
@@ -368,20 +301,12 @@
 
     private void OnCollectionClicked(CollectionListItemViewModel collection)
     {
-        // For content groups, navigate to the media group page
-        if (collection.CollectionType == "ContentGroup")
-        {
-            Nav.NavigateTo($"/collection/{collection.Id}");
-            return;
-        }
-
-        // For other collections, open edit
-        OnEditCollection(collection);
+        if (collection.CanEdit)
+            OnEditCollection(collection);
     }
 
     private static string GetTypeIcon(string collectionType) => collectionType switch
     {
-        "ContentGroup" => Icons.Material.Outlined.Folder,
         "Smart" => Icons.Material.Outlined.AutoAwesome,
         "System" => Icons.Material.Outlined.Bookmark,
         "Mix" => Icons.Material.Outlined.Tune,
@@ -392,7 +317,6 @@
 
     private static string GetTypeColor(string collectionType) => collectionType switch
     {
-        "ContentGroup" => "#64B5F6",
         "Smart" => "#81C784",
         "System" => "#4DB6AC",
         "Mix" => "#CE93D8",
@@ -403,7 +327,6 @@
 
     private static string GetTypeLabel(string collectionType) => collectionType switch
     {
-        "ContentGroup" => "Content Group",
         "Smart" => "Smart",
         "System" => "System",
         "Mix" => "Mix",
@@ -412,7 +335,11 @@
         _ => collectionType,
     };
 
-    public void Dispose() { }
+    private static string GetVisibilityLabel(CollectionListItemViewModel collection) =>
+        collection.IsShared ? "Shared" : "Private";
+
+    private static string GetVisibilityColor(CollectionListItemViewModel collection) =>
+        collection.IsShared ? "#60A5FA" : "#A78BFA";
 }
 
 <style>
@@ -435,92 +362,92 @@
 
     .collections-subtitle {
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        color: rgba(248, 248, 248, 0.45);
+        font-size: 0.9rem;
+        color: rgba(248, 248, 248, 0.5);
         margin: 6px 0 0;
+        max-width: 780px;
     }
 
-    .collections-tab-row {
+    .collections-tab-row,
+    .collections-toolbar {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 16px;
         margin-bottom: 16px;
+    }
+
+    .collections-tab-row {
         border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         padding-bottom: 12px;
     }
 
     .collections-tab-bar {
         display: flex;
-        gap: 4px;
+        gap: 6px;
         overflow-x: auto;
         scrollbar-width: none;
     }
 
     .collections-tab {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
-        border: none;
-        border-radius: 8px;
-        background: transparent;
-        color: rgba(248, 248, 248, 0.55);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
-        font-weight: 500;
+        gap: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(248, 248, 248, 0.7);
+        padding: 10px 14px;
+        border-radius: 999px;
         cursor: pointer;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
         white-space: nowrap;
-        transition: all 0.15s ease;
     }
 
-    .collections-tab:hover { background: rgba(255, 255, 255, 0.06); color: rgba(248, 248, 248, 0.8); }
-    .collections-tab--active { background: rgba(234, 179, 8, 0.12); color: #EAB308; font-weight: 600; }
+    .collections-tab--active {
+        background: rgba(96, 165, 250, 0.16);
+        border-color: rgba(96, 165, 250, 0.45);
+        color: rgba(248, 248, 248, 0.95);
+    }
 
     .collections-tab-badge {
-        font-size: 0.68rem;
-        font-weight: 600;
-        background: rgba(255, 255, 255, 0.08);
-        padding: 1px 6px;
-        border-radius: 10px;
-        min-width: 20px;
-        text-align: center;
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-size: 0.72rem;
     }
-
-    .collections-tab--active .collections-tab-badge { background: rgba(234, 179, 8, 0.2); color: #EAB308; }
 
     .collections-add-btn {
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 6px;
-        padding: 8px 16px;
-        border: 1px solid rgba(234, 179, 8, 0.3);
-        border-radius: 8px;
-        background: rgba(234, 179, 8, 0.08);
-        color: #EAB308;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
-        font-weight: 600;
+        gap: 8px;
+        border: 1px solid rgba(234, 179, 8, 0.45);
+        background: rgba(234, 179, 8, 0.12);
+        color: rgba(248, 248, 248, 0.95);
+        padding: 10px 14px;
+        border-radius: 999px;
         cursor: pointer;
-        white-space: nowrap;
-        transition: all 0.15s ease;
-    }
-
-    .collections-add-btn:hover { background: rgba(234, 179, 8, 0.15); }
-
-    .collections-toolbar {
-        display: flex;
-        gap: 12px;
-        align-items: center;
-        margin-bottom: 16px;
-        flex-wrap: wrap;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.85rem;
     }
 
     .collections-table-wrap {
-        background: rgba(255, 255, 255, 0.02);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
+        border-radius: 18px;
         overflow: hidden;
+        background: rgba(7, 11, 19, 0.88);
+    }
+
+    .collections-loading,
+    .collections-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 48px 24px;
+        color: rgba(248, 248, 248, 0.6);
+        font-family: 'Montserrat', sans-serif;
     }
 
     .collections-table {
@@ -528,30 +455,35 @@
         border-collapse: collapse;
     }
 
-    .collections-table thead th {
+    .collections-table th {
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(248, 248, 248, 0.55);
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.7rem;
-        font-weight: 600;
-        letter-spacing: 0.06em;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: rgba(248, 248, 248, 0.35);
-        padding: 12px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 14px 12px;
     }
 
     .collections-row {
         cursor: pointer;
-        transition: background 0.15s ease;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .collections-row:hover { background: rgba(255, 255, 255, 0.03); }
+    .collections-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .collections-row--readonly {
+        cursor: default;
+    }
 
     .collections-row td {
-        padding: 10px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        padding: 14px 12px;
+        color: rgba(248, 248, 248, 0.86);
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        color: rgba(248, 248, 248, 0.75);
+        font-size: 0.9rem;
     }
 
     .collections-name-cell {
@@ -560,60 +492,87 @@
         gap: 12px;
     }
 
-    .collections-thumb {
-        width: 40px;
-        height: 40px;
-        border-radius: 6px;
+    .collections-thumb,
+    .collections-thumb-placeholder {
+        width: 42px;
+        height: 58px;
+        border-radius: 10px;
         object-fit: cover;
         flex-shrink: 0;
     }
 
     .collections-thumb-placeholder {
-        width: 40px;
-        height: 40px;
-        border-radius: 6px;
-        background: rgba(255, 255, 255, 0.05);
         display: flex;
         align-items: center;
         justify-content: center;
-        flex-shrink: 0;
-        color: rgba(248, 248, 248, 0.25);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(248, 248, 248, 0.45);
     }
 
-    .collections-name-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-    .collections-name { font-weight: 600; color: rgba(248, 248, 248, 0.9); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .collections-desc { font-size: 0.75rem; color: rgba(248, 248, 248, 0.4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .collections-name-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+    }
 
-    .collections-type-chip {
-        font-size: 0.72rem;
-        font-weight: 600;
-        padding: 3px 10px;
-        border-radius: 12px;
+    .collections-name {
+        font-weight: 700;
+        color: rgba(248, 248, 248, 0.96);
+    }
+
+    .collections-desc {
+        color: rgba(248, 248, 248, 0.5);
+        font-size: 0.82rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
         white-space: nowrap;
     }
 
+    .collections-type-chip,
     .collections-status-pill {
-        font-size: 0.72rem;
-        font-weight: 600;
-        padding: 3px 10px;
-        border-radius: 12px;
-    }
-
-    .collections-status-active { background: rgba(129, 199, 132, 0.15); color: #81C784; }
-    .collections-status-disabled { background: rgba(158, 158, 158, 0.15); color: #9E9E9E; }
-    .collections-status-empty { background: rgba(255, 183, 77, 0.15); color: #FFB74D; }
-
-    .collections-empty {
-        display: flex;
-        flex-direction: column;
+        display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 64px 24px;
-        color: rgba(248, 248, 248, 0.5);
+        border-radius: 999px;
+        padding: 6px 10px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
     }
 
-    .collections-search ::deep .mud-input-outlined .mud-input-outlined-border {
-        border-color: rgba(255, 255, 255, 0.1) !important;
+    .collections-status-active {
+        background: rgba(93, 202, 165, 0.18);
+        color: #5DCAA5;
+    }
+
+    .collections-status-disabled {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(248, 248, 248, 0.55);
+    }
+
+    .collections-status-empty {
+        background: rgba(239, 159, 39, 0.14);
+        color: #EF9F27;
+    }
+
+    .collections-muted {
+        color: rgba(248, 248, 248, 0.66);
+    }
+
+    @@media (max-width: 960px) {
+        .collections-tab-row,
+        .collections-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .collections-table-wrap {
+            overflow-x: auto;
+        }
+
+        .collections-table {
+            min-width: 860px;
+        }
     }
 </style>
-

@@ -2,208 +2,122 @@
 @page "/settings/{Section}"
 @rendermode InteractiveServer
 @namespace MediaEngine.Web.Components.Pages
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
-@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
-@using MediaEngine.Web.Models.ViewDTOs
+<PageTitle>@BrowserTitle</PageTitle>
 
-<PageTitle>Settings — Tuvima Library</PageTitle>
+<div class="settings-shell">
+    <section class="settings-shell-hero">
+        <div class="settings-shell-hero-copy">
+            <span class="settings-shell-eyebrow">Settings</span>
+            <div class="settings-shell-title-row">
+                <h1 class="settings-shell-title">@GetHeroTitle()</h1>
+                <span class="settings-shell-status @GetStatusClass()">@GetStatusLabel()</span>
+            </div>
+            <p class="settings-shell-subtitle">@GetSectionDescription(_activeSection)</p>
+        </div>
 
-@* ── Dock-clearing wrapper (desktop: clears 64px floating dock) ── *@
-<div class="settings-page-outer">
+        <div class="settings-shell-stats">
+            <a href="/settings/review" class="settings-shell-stat settings-shell-stat--interactive">
+                <span class="settings-shell-stat-label">Pending review</span>
+                <span class="settings-shell-stat-value">@_reviewCount</span>
+            </a>
+            <div class="settings-shell-stat">
+                <span class="settings-shell-stat-label">Current area</span>
+                <span class="settings-shell-stat-value">@CurrentGroup.Label</span>
+            </div>
+            <div class="settings-shell-stat">
+                <span class="settings-shell-stat-label">Version</span>
+                <span class="settings-shell-stat-value">@(_systemStatus?.Version ?? "Unavailable")</span>
+            </div>
+        </div>
 
-    @* ── Page header ────────────────────────────────────────────── *@
-    <div class="settings-page-header">
-        <h1 class="settings-page-title">@L["Settings_Title"]</h1>
-        <p class="settings-page-subtitle">@L["Settings_Subtitle"]</p>
-    </div>
+        <nav class="settings-shell-primary-tabs" aria-label="Settings sections">
+            @foreach (var group in VisibleGroups)
+            {
+                var route = SettingsNav.RouteFor(group.DefaultSection);
+                var isActive = string.Equals(group.Key, CurrentGroup.Key, StringComparison.OrdinalIgnoreCase);
+                var groupBadge = GetBadgeCount(SettingsNav.GetItem(group.DefaultSection));
 
-    @* ── Content area ───────────────────────────────────────────── *@
-    <div class="settings-content-area">
-        @RenderActiveTab
-    </div>
+                <a href="@route" class="settings-shell-tab @(isActive ? "settings-shell-tab--active" : null)">
+                    <MudIcon Icon="@group.Icon" Class="settings-shell-tab-icon" />
+                    <span>@group.Label</span>
+                    @if (groupBadge > 0)
+                    {
+                        <span class="settings-shell-badge">@groupBadge</span>
+                    }
+                </a>
+            }
+        </nav>
 
-</div>
-
-@* ── Curator's Drawer (migrated from ServerSettings.razor) ───────────── *@
-<CuratorsDrawer Open="@_drawerOpen"
-                OpenChanged="@OnDrawerOpenChanged"
-                EntityId="@_drawerEntityId"
-                CurrentTitle="@_drawerTitle"
-                OnCorrected="@OnDrawerCorrected" />
-
-@code {
-    // ── Route parameter ─────────────────────────────────────────────────────
-
-    [Parameter] public string? Section { get; set; }
-
-    // ── Active section state ────────────────────────────────────────────────
-
-    private SettingsSection _activeSection = SettingsSection.Profile;
-
-    // Default to Administrator until profile session management is wired.
-    private string _currentRole = "Administrator";
-
-    // ── Badge data ──────────────────────────────────────────────────────────
-
-    private int _reviewCount;
-
-    // ── Curator's Drawer state (migrated from ServerSettings.razor) ─────────
-
-    private bool   _drawerOpen;
-    private Guid   _drawerEntityId;
-    private string _drawerTitle = string.Empty;
-
-    // ── Lifecycle ───────────────────────────────────────────────────────────
-
-    protected override async Task OnInitializedAsync()
-    {
-        // Redirect to home if settings page is disabled for this device class.
-        if (DeviceContext.IsPageDisabled("settings")
-            || (DeviceContext.IsPageDisabled("preferences")
-                && DeviceContext.IsPageDisabled("server_settings")))
+        @if (CurrentGroupItems.Count > 1)
         {
-            Nav.NavigateTo("/", replace: true);
-            return;
+            <nav class="settings-shell-secondary-tabs" aria-label="@($"{CurrentGroup.Label} pages")">
+                @foreach (var item in CurrentGroupItems)
+                {
+                    var badge = GetBadgeCount(item);
+                    var isActive = item.Value == _activeSection;
+
+                    <a href="@SettingsNav.RouteFor(item.Value)"
+                       class="settings-shell-subtab @(isActive ? "settings-shell-subtab--active" : null)">
+                        <span>@item.Label</span>
+                        @if (badge > 0)
+                        {
+                            <span class="settings-shell-badge settings-shell-badge--sub">@badge</span>
+                        }
+                    </a>
+                }
+            </nav>
         }
+    </section>
 
-        // Parse deep-link route parameter.
-        ParseSection();
-
-        // Fetch badge counts eagerly.
-        await LoadReviewCountAsync();
-
-        // Keep badge live while the Settings page is open.
-        Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
-    }
-
-    protected override void OnParametersSet()
-    {
-        ParseSection();
-    }
-
-    public void Dispose()
-    {
-        Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
-    }
-
-    private void OnReviewCountChanged()
-    {
-        _reviewCount = Orchestrator.ReviewCount;
-        InvokeAsync(StateHasChanged);
-    }
-
-    // ── Deep-link parsing ───────────────────────────────────────────────────
-
-    private void ParseSection()
-    {
-        var parsed = SettingsNav.ParseFromRoute(Section);
-        if (parsed.HasValue)
-            _activeSection = parsed.Value;
-    }
-
-    // ── Badge data loading ──────────────────────────────────────────────────
-
-    private async Task LoadReviewCountAsync()
-    {
-        try
+    <section class="settings-shell-panel">
+        @switch (_activeSection)
         {
-            _reviewCount = await Orchestrator.RefreshReviewCountAsync();
-        }
-        catch
-        {
-            // Engine may be offline — badge stays at 0.
-        }
-    }
-
-    // ── Curator's Drawer handlers (migrated from ServerSettings.razor) ──────
-
-    /// <summary>
-    /// Opens the Curator's Drawer for a specific entity.
-    /// Called by child components (e.g. ConflictsTab) when the user clicks "Resolve".
-    /// </summary>
-    public void OpenCuratorsDrawer(Guid entityId, string title)
-    {
-        _drawerEntityId = entityId;
-        _drawerTitle    = title;
-        _drawerOpen     = true;
-        StateHasChanged();
-    }
-
-    private async Task OnDrawerOpenChanged(bool open)
-    {
-        _drawerOpen = open;
-        await Task.CompletedTask;
-    }
-
-    private void OnDrawerCorrected()
-    {
-        _drawerOpen = false;
-        StateHasChanged();
-    }
-
-    private void OnConflictResolveClicked((Guid EntityId, string Key) args)
-    {
-        OpenCuratorsDrawer(args.EntityId, $"Resolve: {args.Key}");
-    }
-
-    // ── Role helpers ────────────────────────────────────────────────────────
-
-    private bool HasAdminAccess =>
-        string.Equals(_currentRole, "Administrator", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(_currentRole, "Curator", StringComparison.OrdinalIgnoreCase);
-
-    // ── Content rendering ───────────────────────────────────────────────────
-
-    private RenderFragment RenderActiveTab => __builder =>
-    {
-        switch (_activeSection)
-        {
-            // ── Preferences ──────────────────────────────────────────────
+            case SettingsSection.Overview:
+                <OverviewTab ReviewCount="_reviewCount" />
+                break;
+            case SettingsSection.Review:
+                <LibraryPage ReviewOnly="true"
+                             ShowReviewOverview="false"
+                             HideTitleRow="true"
+                             ReviewRoute="/settings/review" />
+                break;
             case SettingsSection.Profile:
                 <ProfileTab />
                 break;
             case SettingsSection.Playback:
                 <PlaybackTab />
                 break;
-
-            // ── Providers ────────────────────────────────────────────────
-            case SettingsSection.ProviderConnections:
-                // Absorbed into ProviderPriority — redirect
-                Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.ProviderPriority), replace: true);
-                break;
-            case SettingsSection.ProviderPriority:
-                <ProviderPriorityTab />
-                break;
-            case SettingsSection.WikidataConfig:
-                <WikidataConfigTab />
-                break;
-
-            // ── Intelligence ─────────────────────────────────────────────
-            case SettingsSection.AiModels:
-                <ModelsTab />
-                break;
-            case SettingsSection.AiFeatures:
-                <AiFeaturesTab />
-                break;
-            case SettingsSection.VibeVocabulary:
-                <VibeVocabularyTab />
-                break;
-            case SettingsSection.AiSchedule:
-                <AiScheduleTab />
-                break;
-
-            // ── Library ──────────────────────────────────────────────────
-            case SettingsSection.LibraryFolders:
+            case SettingsSection.Folders:
                 <LibrariesTab />
                 break;
-
-            // ── Server ───────────────────────────────────────────────────
-            case SettingsSection.StatusDashboard:
-                <StatusDashboardTab />
+            case SettingsSection.Providers:
+                <ProviderPriorityTab />
+                break;
+            case SettingsSection.Wikidata:
+                <WikidataConfigTab />
+                break;
+            case SettingsSection.Models:
+                <ModelsTab />
+                break;
+            case SettingsSection.Features:
+                <AiFeaturesTab />
+                break;
+            case SettingsSection.Vocabulary:
+                <VibeVocabularyTab />
+                break;
+            case SettingsSection.Schedule:
+                <AiScheduleTab />
+                break;
+            case SettingsSection.System:
+                <SystemTab />
                 break;
             case SettingsSection.Security:
                 <SecurityTab />
@@ -221,57 +135,490 @@
                 <SetupTab />
                 break;
         }
+    </section>
+</div>
+
+<CuratorsDrawer Open="@_drawerOpen"
+                OpenChanged="@OnDrawerOpenChanged"
+                EntityId="@_drawerEntityId"
+                CurrentTitle="@_drawerTitle"
+                OnCorrected="@OnDrawerCorrected" />
+
+@code {
+    [Parameter] public string? Section { get; set; }
+
+    private SettingsSection _activeSection = SettingsSection.Overview;
+    private readonly string _currentRole = "Administrator";
+
+    private int _reviewCount;
+    private SystemStatusViewModel? _systemStatus;
+    private bool _shellStateLoading = true;
+
+    private bool _drawerOpen;
+    private Guid _drawerEntityId;
+    private string _drawerTitle = string.Empty;
+
+    private IReadOnlyList<SettingsGroupDef> VisibleGroups => SettingsNav.FilteredGroups(_currentRole).ToList();
+    private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
+    private IReadOnlyList<SettingsItemDef> CurrentGroupItems => SettingsNav.FilteredItems(CurrentGroup, _currentRole);
+    private string BrowserTitle => $"{GetHeroTitle()} - Tuvima Library";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (DeviceContext.IsPageDisabled("settings")
+            || (DeviceContext.IsPageDisabled("preferences")
+                && DeviceContext.IsPageDisabled("server_settings")))
+        {
+            Nav.NavigateTo("/", replace: true);
+            return;
+        }
+
+        ResolveSectionAndNormalize();
+        await LoadShellStateAsync();
+
+        Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
+    }
+
+    protected override void OnParametersSet()
+    {
+        ResolveSectionAndNormalize();
+    }
+
+    public void Dispose()
+    {
+        Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
+    }
+
+    public void OpenCuratorsDrawer(Guid entityId, string title)
+    {
+        _drawerEntityId = entityId;
+        _drawerTitle = title;
+        _drawerOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadShellStateAsync()
+    {
+        _shellStateLoading = true;
+
+        try
+        {
+            _reviewCount = await Orchestrator.RefreshReviewCountAsync();
+        }
+        catch
+        {
+            _reviewCount = 0;
+        }
+
+        try
+        {
+            _systemStatus = await Orchestrator.GetSystemStatusAsync();
+        }
+        catch
+        {
+            _systemStatus = null;
+        }
+
+        _shellStateLoading = false;
+    }
+
+    private void ResolveSectionAndNormalize()
+    {
+        var resolution = SettingsNav.ResolveRoute(Section, _currentRole);
+        _activeSection = resolution.Section;
+
+        var currentPath = NormalizePath(Nav.ToBaseRelativePath(Nav.Uri));
+        var targetPath = NormalizePath(resolution.CanonicalRoute);
+
+        if (!string.Equals(currentPath, targetPath, StringComparison.OrdinalIgnoreCase))
+        {
+            Nav.NavigateTo(resolution.CanonicalRoute, replace: true);
+        }
+    }
+
+    private static string NormalizePath(string path)
+    {
+        var relative = path.Split('?', '#')[0].Trim();
+        if (string.IsNullOrWhiteSpace(relative))
+            return "/";
+
+        return "/" + relative.Trim('/').TrimEnd('/');
+    }
+
+    private void OnReviewCountChanged()
+    {
+        _reviewCount = Orchestrator.ReviewCount;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnDrawerOpenChanged(bool open)
+    {
+        _drawerOpen = open;
+        await Task.CompletedTask;
+    }
+
+    private void OnDrawerCorrected()
+    {
+        _drawerOpen = false;
+        StateHasChanged();
+    }
+
+    private int GetBadgeCount(SettingsItemDef item) =>
+        string.Equals(item.BadgeKey, "review", StringComparison.OrdinalIgnoreCase)
+            ? _reviewCount
+            : 0;
+
+    private string GetHeroTitle() =>
+        _activeSection == SettingsSection.Overview
+            ? "Settings"
+            : SettingsNav.GetItem(_activeSection).Label;
+
+    private string GetStatusLabel()
+    {
+        if (_shellStateLoading)
+            return "Checking engine";
+
+        return _systemStatus?.IsHealthy == true ? "Engine online" : "Engine unavailable";
+    }
+
+    private string GetStatusClass()
+    {
+        if (_shellStateLoading)
+            return "settings-shell-status--loading";
+
+        return _systemStatus?.IsHealthy == true
+            ? "settings-shell-status--healthy"
+            : "settings-shell-status--warning";
+    }
+
+    private static string GetSectionDescription(SettingsSection section) => section switch
+    {
+        SettingsSection.Overview => "Operational overview for ingestion, review, and library readiness.",
+        SettingsSection.Review => "Resolve uncertain matches and keep the ingestion queue moving.",
+        SettingsSection.Profile => "Account identity, locale, and personal defaults.",
+        SettingsSection.Playback => "Default behavior for the built-in readers and players.",
+        SettingsSection.Folders => "Watch paths, library roots, and file organization settings.",
+        SettingsSection.Providers => "Provider priority, credentials, and enrichment coverage.",
+        SettingsSection.Wikidata => "Identity resolution and Stage 3 universe enrichment controls.",
+        SettingsSection.Models => "Installed AI models and runtime choices.",
+        SettingsSection.Features => "Feature flags and AI workflow controls.",
+        SettingsSection.Vocabulary => "Vocabulary tuning for vibe and recommendation features.",
+        SettingsSection.Schedule => "Background timing for enrichment and AI jobs.",
+        SettingsSection.System => "Live server health and core runtime settings.",
+        SettingsSection.Security => "Connection rules, API keys, and access controls.",
+        SettingsSection.Users => "Profiles, roles, and user management.",
+        SettingsSection.Activity => "Recent operational history and retention.",
+        SettingsSection.Maintenance => "Repair, cleanup, and recovery tools.",
+        SettingsSection.Setup => "Guided configuration and readiness checks.",
+        _ => "Settings",
     };
 }
 
 <style>
-    /* ── Outer wrapper: dock-clearing left indent (desktop only) ─── */
-    @@media (min-width: 769px) {
-        .settings-page-outer {
-            padding-left: 16px;
-        }
-    }
-
-    /* ── Page header ─────────────────────────────────────────────────── */
-    .settings-page-header {
-        margin-bottom: 28px;
-        padding-top: 4px;
-    }
-
-    .settings-page-title {
-        font-size: 30px;
-        font-weight: 900;
-        color: #fff;
-        letter-spacing: -0.02em;
-        line-height: 1;
-        margin: 0 0 6px 0;
-    }
-
-    .settings-page-subtitle {
-        font-size: 0.82rem;
-        color: rgba(248, 248, 248, 0.38);
-        margin: 0;
-        line-height: 1.5;
-    }
-
-    /* ── Content area ────────────────────────────────────────────────── */
-    .settings-content-area {
+    .settings-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        padding: 4px 0 32px;
         min-width: 0;
-        max-width: 1100px;
     }
 
-    /* ── Mobile / narrow viewport overrides ──────────────────────────── */
+    .settings-shell-hero {
+        position: relative;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 24px;
+        border-radius: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background:
+            radial-gradient(circle at top right, rgba(201, 146, 46, 0.18), transparent 36%),
+            linear-gradient(180deg, rgba(11, 17, 35, 0.92), rgba(8, 11, 20, 0.96));
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    .settings-shell-hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -15% -45% auto;
+        width: 320px;
+        height: 320px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.10), transparent 68%);
+        pointer-events: none;
+    }
+
+    .settings-shell-hero-copy,
+    .settings-shell-stats,
+    .settings-shell-primary-tabs,
+    .settings-shell-secondary-tabs {
+        position: relative;
+        z-index: 1;
+    }
+
+    .settings-shell-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(248, 248, 248, 0.48);
+    }
+
+    .settings-shell-title-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+        margin-top: 6px;
+    }
+
+    .settings-shell-title {
+        margin: 0;
+        font-size: clamp(2rem, 3vw, 2.65rem);
+        font-weight: 900;
+        letter-spacing: -0.04em;
+        color: rgba(255, 255, 255, 0.96);
+    }
+
+    .settings-shell-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.78);
+    }
+
+    .settings-shell-status::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.9;
+    }
+
+    .settings-shell-status--healthy {
+        color: #65d28d;
+    }
+
+    .settings-shell-status--warning {
+        color: #f0b25f;
+    }
+
+    .settings-shell-status--loading {
+        color: rgba(255, 255, 255, 0.72);
+    }
+
+    .settings-shell-subtitle {
+        max-width: 720px;
+        margin: 0;
+        font-size: 0.98rem;
+        line-height: 1.7;
+        color: rgba(248, 248, 248, 0.58);
+    }
+
+    .settings-shell-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .settings-shell-stat {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.04);
+        text-decoration: none;
+    }
+
+    .settings-shell-stat--interactive {
+        transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
+    }
+
+    .settings-shell-stat--interactive:hover {
+        transform: translateY(-1px);
+        border-color: rgba(201, 146, 46, 0.35);
+        background: rgba(201, 146, 46, 0.10);
+    }
+
+    .settings-shell-stat-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(248, 248, 248, 0.42);
+    }
+
+    .settings-shell-stat-value {
+        font-size: 1.18rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+        color: rgba(255, 255, 255, 0.92);
+    }
+
+    .settings-shell-primary-tabs,
+    .settings-shell-secondary-tabs {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        scrollbar-width: none;
+        padding-bottom: 2px;
+    }
+
+    .settings-shell-primary-tabs::-webkit-scrollbar,
+    .settings-shell-secondary-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .settings-shell-tab,
+    .settings-shell-subtab {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+    }
+
+    .settings-shell-tab {
+        padding: 12px 16px;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(248, 248, 248, 0.68);
+        font-size: 0.86rem;
+        font-weight: 700;
+    }
+
+    .settings-shell-tab:hover,
+    .settings-shell-subtab:hover {
+        transform: translateY(-1px);
+        color: rgba(255, 255, 255, 0.92);
+        border-color: rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .settings-shell-tab--active {
+        color: rgba(255, 255, 255, 0.96);
+        border-color: rgba(201, 146, 46, 0.32);
+        background: rgba(201, 146, 46, 0.14);
+        box-shadow: inset 0 0 0 1px rgba(201, 146, 46, 0.10);
+    }
+
+    .settings-shell-tab-icon {
+        font-size: 1rem;
+    }
+
+    .settings-shell-subtab {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.025);
+        color: rgba(248, 248, 248, 0.58);
+        font-size: 0.82rem;
+        font-weight: 700;
+    }
+
+    .settings-shell-subtab--active {
+        color: rgba(255, 255, 255, 0.94);
+        border-color: rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .settings-shell-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 7px;
+        border-radius: 999px;
+        background: rgba(201, 146, 46, 0.20);
+        color: #f4d9a0;
+        font-size: 0.72rem;
+        font-weight: 800;
+    }
+
+    .settings-shell-badge--sub {
+        min-width: 20px;
+        height: 20px;
+        font-size: 0.68rem;
+    }
+
+    .settings-shell-panel {
+        min-width: 0;
+        border-radius: 26px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: linear-gradient(180deg, rgba(10, 14, 25, 0.92), rgba(8, 11, 20, 0.95));
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+        overflow: hidden;
+    }
+
+    .settings-shell-panel .st-page {
+        padding: 24px;
+    }
+
+    .settings-shell-panel .vault-layout {
+        padding: 0;
+    }
+
+    .settings-shell-panel .vault-header {
+        padding: 24px 24px 0;
+    }
+
+    .settings-shell-panel .vault-body {
+        padding-top: 0;
+    }
+
+    .settings-shell-panel .mud-paper {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border-color: rgba(255, 255, 255, 0.06) !important;
+        border-radius: 18px !important;
+    }
+
+    .settings-shell-panel .mud-divider {
+        border-color: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    @@media (max-width: 900px) {
+        .settings-shell-stats {
+            grid-template-columns: 1fr;
+        }
+    }
+
     @@media (max-width: 768px) {
-        .settings-page-title {
-            font-size: 24px;
+        .settings-shell {
+            gap: 18px;
         }
 
-        .settings-content-area > .mud-paper {
-            padding: 16px !important;
+        .settings-shell-hero {
+            padding: 18px;
+            border-radius: 22px;
         }
 
-        .settings-content-area .mud-paper .mud-paper {
-            padding: 14px !important;
+        .settings-shell-panel {
+            border-radius: 20px;
+        }
+
+        .settings-shell-panel .st-page,
+        .settings-shell-panel .vault-header {
+            padding: 18px;
+        }
+
+        .settings-shell-title {
+            font-size: 1.7rem;
         }
     }
 </style>

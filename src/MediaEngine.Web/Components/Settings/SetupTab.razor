@@ -1,6 +1,8 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject IStringLocalizer<SharedStrings> L
 @inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
+@inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
 
 @* Setup Wizard — Re-run the setup wizard or inspect the current server configuration.
    All values are read-only summary fields; editing happens in the dedicated tabs.
@@ -65,7 +67,7 @@
         </MudStack>
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/server">
+                   Href="/settings/system">
             @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
@@ -84,7 +86,7 @@
         </MudStack>
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/general">
+                   Href="/settings/profile">
             @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
@@ -104,7 +106,7 @@
         </MudStack>
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/libraries">
+                   Href="/settings/folders">
             @L["Setup_Reconfigure"]
         </MudButton>
     </MudStack>
@@ -135,7 +137,7 @@
         </MudStack>
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/library"
+                   Href="/settings/providers"
                    Style="margin-top: 16px;">
             @L["Setup_Reconfigure"]
         </MudButton>
@@ -165,7 +167,7 @@
         </MudStack>
         <MudButton Variant="Variant.Text" Size="Size.Small"
                    StartIcon="@Icons.Material.Outlined.Edit"
-                   Href="/settings/ai"
+                   Href="/settings/models"
                    Style="margin-top: 16px;">
             @L["Setup_Reconfigure"]
         </MudButton>
@@ -189,9 +191,9 @@
 
     // ── State (placeholder data) ─────────────────────────────────────────────────
 
-    private readonly string _serverName  = "Tuvima Library";
-    private readonly string _language    = "English";
-    private readonly string _libraryRoot = "/media/library";
+    private string _serverName  = "Tuvima Library";
+    private string _language    = "English";
+    private string _libraryRoot = "/media/library";
 
     private sealed record ProviderSummary(string Name, string LangLabel);
 
@@ -199,6 +201,19 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var serverGeneral = await Orchestrator.GetServerGeneralAsync();
+        if (serverGeneral is not null)
+        {
+            _serverName = serverGeneral.ServerName;
+            _language = serverGeneral.DisplayLanguage;
+        }
+
+        var folderSettings = await ApiClient.GetFolderSettingsAsync();
+        if (folderSettings is not null && !string.IsNullOrWhiteSpace(folderSettings.LibraryRoot))
+        {
+            _libraryRoot = folderSettings.LibraryRoot;
+        }
+
         var catalogue = await CatalogueService.GetCatalogueAsync();
         _configuredProviders = catalogue
             .Where(p => p.Name != "local_filesystem" && p.Enabled)

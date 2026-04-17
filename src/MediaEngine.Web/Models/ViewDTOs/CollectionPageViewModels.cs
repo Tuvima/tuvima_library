@@ -10,6 +10,8 @@ public sealed class CollectionListItemViewModel
     public string CollectionType { get; init; } = "Smart";
     public string Resolution { get; init; } = "query";
     public string Scope { get; init; } = "library";
+    public Guid? ProfileId { get; init; }
+    public string Visibility { get; init; } = "private";
     public bool IsEnabled { get; init; } = true;
     public bool IsFeatured { get; init; }
     public int ItemCount { get; init; }
@@ -24,6 +26,10 @@ public sealed class CollectionListItemViewModel
     public string? CoverUrl { get; init; }
     public string? Creator { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
+    public bool CanEdit { get; init; }
+    public bool CanShare { get; init; }
+    public bool IsShared => string.Equals(Visibility, "shared", StringComparison.OrdinalIgnoreCase);
+    public bool IsPlaylist => string.Equals(CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>A resolved item returned from collection rule evaluation.</summary>

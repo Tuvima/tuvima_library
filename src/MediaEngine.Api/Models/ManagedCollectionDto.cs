@@ -30,6 +30,9 @@ public sealed class ManagedCollectionDto
     [JsonPropertyName("profile_id")]
     public Guid? ProfileId { get; init; }
 
+    [JsonPropertyName("visibility")]
+    public string Visibility { get; init; } = CollectionAccessPolicy.PrivateVisibility;
+
     [JsonPropertyName("is_enabled")]
     public bool IsEnabled { get; init; } = true;
 
@@ -75,7 +78,16 @@ public sealed class ManagedCollectionDto
     [JsonPropertyName("modified_at")]
     public DateTimeOffset? ModifiedAt { get; init; }
 
-    public static ManagedCollectionDto FromDomain(Collection collection, int itemCount) => new()
+    [JsonPropertyName("can_edit")]
+    public bool CanEdit { get; init; }
+
+    [JsonPropertyName("can_share")]
+    public bool CanShare { get; init; }
+
+    public static ManagedCollectionDto FromDomain(
+        Collection collection,
+        int itemCount,
+        Profile? activeProfile) => new()
     {
         Id              = collection.Id,
         Name            = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
@@ -84,6 +96,7 @@ public sealed class ManagedCollectionDto
         CollectionType         = collection.CollectionType,
         Scope           = collection.Scope,
         ProfileId       = collection.ProfileId,
+        Visibility      = CollectionAccessPolicy.ResolveVisibility(collection),
         IsEnabled       = collection.IsEnabled,
         IsFeatured      = collection.IsFeatured,
         MinItems        = collection.MinItems,
@@ -99,5 +112,7 @@ public sealed class ManagedCollectionDto
         Status          = !collection.IsEnabled ? "Disabled" : itemCount == 0 ? "Empty" : "Active",
         CreatedAt       = collection.CreatedAt,
         ModifiedAt      = collection.ModifiedAt,
+        CanEdit         = CollectionAccessPolicy.CanEdit(collection, activeProfile),
+        CanShare        = CollectionAccessPolicy.CanManageSharedCollections(activeProfile),
     };
 }

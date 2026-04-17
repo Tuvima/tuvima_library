@@ -106,6 +106,9 @@ public sealed class ManagedCollectionViewModel
     [JsonPropertyName("profile_id")]
     public Guid? ProfileId { get; set; }
 
+    [JsonPropertyName("visibility")]
+    public string Visibility { get; set; } = "private";
+
     [JsonPropertyName("is_enabled")]
     public bool IsEnabled { get; set; } = true;
 
@@ -117,6 +120,24 @@ public sealed class ManagedCollectionViewModel
 
     [JsonPropertyName("rule_json")]
     public string? RuleJson { get; set; }
+
+    [JsonPropertyName("resolution")]
+    public string Resolution { get; set; } = "query";
+
+    [JsonPropertyName("rule_hash")]
+    public string? RuleHash { get; set; }
+
+    [JsonPropertyName("match_mode")]
+    public string MatchMode { get; set; } = "all";
+
+    [JsonPropertyName("sort_field")]
+    public string? SortField { get; set; }
+
+    [JsonPropertyName("sort_direction")]
+    public string SortDirection { get; set; } = "desc";
+
+    [JsonPropertyName("live_updating")]
+    public bool LiveUpdating { get; set; } = true;
 
     [JsonPropertyName("refresh_schedule")]
     public string? RefreshSchedule { get; set; }
@@ -133,7 +154,16 @@ public sealed class ManagedCollectionViewModel
     [JsonPropertyName("modified_at")]
     public DateTimeOffset? ModifiedAt { get; set; }
 
+    [JsonPropertyName("can_edit")]
+    public bool CanEdit { get; set; }
+
+    [JsonPropertyName("can_share")]
+    public bool CanShare { get; set; }
+
     // ── Computed display helpers ──
+
+    public bool IsShared =>
+        string.Equals(Visibility, "shared", StringComparison.OrdinalIgnoreCase);
 
     public string TypeColor => CollectionType switch
     {

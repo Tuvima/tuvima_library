@@ -16,9 +16,12 @@
 
     @* â”€â”€ 1. TITLE ROW â”€â”€ *@
     <div class="vault-header">
-        <div class="vault-title-row">
-            <h1 class="vault-title">@(ReviewOnly ? "Review" : "Library")</h1>
-        </div>
+        @if (!HideTitleRow)
+        {
+            <div class="vault-title-row">
+                <h1 class="vault-title">@(ReviewOnly ? "Review" : "Library")</h1>
+            </div>
+        }
 
         @* â”€â”€ 2. PRIMARY TAB ROW (categories + Action Center + Add button) â”€â”€ *@
         @if (!ReviewOnly)
@@ -167,7 +170,7 @@
     @* â”€â”€ 5. BODY (full-width content) â”€â”€ *@
     <div class="vault-body">
         <div class="vault-content">
-            @if (ReviewOnly)
+            @if (ReviewOnly && ShowReviewOverview)
             {
                 <div class="vault-review-overview">
                     <LibraryOverviewPanel ReadOnly="true" />
@@ -334,6 +337,9 @@
     // â”€â”€ Parameters â”€â”€
     [Parameter] public string? Tab { get; set; }
     [Parameter] public bool ReviewOnly { get; set; }
+    [Parameter] public bool ShowReviewOverview { get; set; } = true;
+    [Parameter] public bool HideTitleRow { get; set; }
+    [Parameter] public string ReviewRoute { get; set; } = "/review";
 
     // â”€â”€ State â”€â”€
     private string _activeTab = "overview";
@@ -940,8 +946,11 @@
         if (_managedCollections.Count > 0) return; // already loaded
         StateHasChanged();
 
-        var collectionsTask   = ApiClient.GetManagedCollectionsAsync();
-        var countsTask = ApiClient.GetManagedCollectionCountsAsync();
+        var activeProfile = await Orchestrator.GetActiveProfileAsync();
+        var activeProfileId = activeProfile?.Id;
+
+        var collectionsTask = ApiClient.GetManagedCollectionsAsync(activeProfileId);
+        var countsTask = ApiClient.GetManagedCollectionCountsAsync(activeProfileId);
         var groupsTask = ApiClient.GetContentGroupsAsync();
 
         await Task.WhenAll(collectionsTask, countsTask, groupsTask);
@@ -1789,7 +1798,7 @@
     private void UpdateUrl(bool replace = false)
     {
         var tab = _activeTab;
-        var path = ReviewOnly ? "/review" : $"/review/{tab}";
+        var path = ReviewOnly ? ReviewRoute : $"/review/{tab}";
         var queryParts = new List<string>();
 
         // Encode drill-down group state so the browser back button works
