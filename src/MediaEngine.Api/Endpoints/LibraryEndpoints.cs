@@ -130,6 +130,34 @@ public static class LibraryEndpoints
                     LEFT JOIN metadata_claims mc ON mc.entity_id = ma.id
                     GROUP BY ma.id, e.work_id, ma.file_path_root
                 ),
+                pending_review_works AS (
+                    SELECT DISTINCT
+                        e.work_id AS work_id
+                    FROM review_queue rq
+                    INNER JOIN media_assets ma ON ma.id = rq.entity_id
+                    INNER JOIN editions e ON e.id = ma.edition_id
+                    WHERE rq.status = 'Pending'
+                ),
+                latest_job_states AS (
+                    SELECT
+                        work_id AS work_id,
+                        state AS state
+                    FROM (
+                        SELECT
+                            e.work_id AS work_id,
+                            ij.state AS state,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY e.work_id
+                                ORDER BY
+                                    COALESCE(ij.updated_at, ij.created_at) DESC,
+                                    ij.created_at DESC
+                            ) AS row_num
+                        FROM identity_jobs ij
+                        INNER JOIN media_assets ma ON ma.id = ij.entity_id
+                        INNER JOIN editions e ON e.id = ma.edition_id
+                    ) ranked_jobs
+                    WHERE row_num = 1
+                ),
                 ranked_assets AS (
                     SELECT
                         w.id AS work_id,
@@ -149,8 +177,13 @@ public static class LibraryEndpoints
                     INNER JOIN asset_dates ad ON ad.work_id = w.id
                     LEFT JOIN works p ON p.id = w.parent_work_id
                     LEFT JOIN works gp ON gp.id = p.parent_work_id
+                    LEFT JOIN pending_review_works prw ON prw.work_id = w.id
+                    LEFT JOIN latest_job_states ljs ON ljs.work_id = w.id
                     WHERE w.work_kind != 'parent'
                       AND COALESCE(w.is_catalog_only, 0) = 0
+                      AND COALESCE(w.curator_state, '') NOT IN ('rejected', 'provisional')
+                      AND prw.work_id IS NULL
+                      AND COALESCE(ljs.state, '') != 'QidNeedsReview'
                       AND ad.file_path_root NOT LIKE '%/.data/staging/%'
                       AND ad.file_path_root NOT LIKE '%\\.data\\staging\\%'
                 )

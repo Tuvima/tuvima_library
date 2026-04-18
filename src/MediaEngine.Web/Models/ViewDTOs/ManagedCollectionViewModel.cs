@@ -70,9 +70,9 @@ public sealed class ContentGroupViewModel
     public string MediaTypeColor => PrimaryMediaType switch
     {
         "TV"         => "#FBBF24",
-        "Music"      => "#22D3EE",
+        "Music"      => "#1ED760",
         "Books"      => "#5DCAA5",
-        "Audiobooks" => "#A78BFA",
+        "Audiobooks" => "#84CC16",
         "Movies"     => "#60A5FA",
         "Comics"     => "#FB923C",
         _            => "#60A5FA",

@@ -1,363 +1,368 @@
 @page "/watch"
+@inject DiscoveryComposerService Discovery
 @inject UIOrchestratorService Orchestrator
-@inject NavigationManager Nav
+@inject UniverseStateContainer State
 @implements IDisposable
-@using MediaEngine.Web.Models.ViewDTOs
 
-<PageTitle>Watch — Tuvima</PageTitle>
+<PageTitle>Watch - Tuvima</PageTitle>
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                       Style="border-radius: 4px;" />
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius: 4px;" />
 }
 else
 {
-    <GlobalBackground ImageUrl="@(_spotlight?.HeroUrl ?? _spotlight?.CoverUrl)" Color="@Accent" />
+    <GlobalBackground ImageUrl="@_page.Hero?.BackgroundImageUrl" Color="@_page.AccentColor" />
 
-    <div class="watch-page">
-
-        @* ── Spotlight (Landscape / cinematic) ── *@
-        @if (_spotlight is not null)
+    <div class="watch-discovery-page">
+        @if (_page.Hero is not null)
         {
-            <CompactHero Data="@_spotlight"
-                         Mode="CompactHero.SpotlightMode.Landscape"
-                         AccentColor="@Accent"
-                         Eyebrow="@_spotlightEyebrow"
-                         FallbackLabel="Play"
-                         FallbackIcon="@MudBlazor.Icons.Material.Filled.PlayArrow"
-                         OnClicked="HandleSpotlightClick"
-                         OnCtaClicked="HandleSpotlightCta" />
+            <DiscoveryHero Hero="@_page.Hero" />
         }
 
-        @* ── Sub-filter tabs ── *@
-        <div class="watch-tabs">
-            @foreach (var opt in _subFilters)
+        @if (_page.Hubs.Count > 0)
+        {
+            <DiscoveryHubStrip Hubs="@_page.Hubs"
+                               Title="Watch collections"
+                               Subtitle="Shows, franchises, and dynamic viewing groups inspired by streaming-style browsing." />
+        }
+
+        <div class="watch-discovery-shelves">
+            @foreach (var shelf in _page.Shelves)
             {
-                <button class="watch-tab @(_activeSubFilter == opt ? "active" : "")"
-                        style="@(_activeSubFilter == opt ? $"color: {Accent}; border-bottom-color: {Accent};" : "")"
-                        @onclick="() => OnSubFilterChanged(opt)">
-                    @opt
-                </button>
+                <DiscoveryShelf Shelf="@shelf" />
             }
         </div>
 
-        @* ── Filter strip ── *@
-        <div class="watch-filters">
-            <div class="watch-search">
-                <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Search" Size="Size.Small"
-                         Style="font-size: 14px; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(148,163,184,0.50);" />
-                <input type="text" placeholder="Search movies and TV..."
-                       value="@_searchText" @oninput="OnSearchInput" class="watch-search-input" />
-            </div>
-        </div>
-
-        @if (!HasAnyFilter)
-        {
-            @* ── Trending (recently added with cover art) ── *@
-            @if (_trending.Count > 0)
-            {
-                <PosterSwimlane Title="Trending Now" Items="@_trending" OnItemSelected="HandleItemSelected" />
-            }
-
-            @* ── New Movies ── *@
-            @if (_newMovies.Count > 0 && _activeSubFilter != "TV")
-            {
-                <PosterSwimlane Title="New Movies" Items="@_newMovies" OnItemSelected="HandleItemSelected" />
-            }
-
-            @* ── TV Shows ── *@
-            @if (_newTV.Count > 0 && _activeSubFilter != "Movies")
-            {
-                <PosterSwimlane Title="TV Shows" Items="@_newTV" OnItemSelected="HandleItemSelected" />
-            }
-
-            @* ── Top genres ── *@
-            @foreach (var group in _byGenre.Take(5))
-            {
-                <PosterSwimlane Title="@group.Name" Items="@group.Items" OnItemSelected="HandleItemSelected" />
-            }
-        }
-        else
-        {
-            @* ── Filtered grid ── *@
-            <div class="watch-grid-section">
-                <div class="watch-grid-header">
-                    <h3 class="watch-grid-title">Results (@_filteredWorks.Count)</h3>
+        <section class="watch-discovery-catalog-shell">
+            <div class="watch-discovery-catalog-header">
+                <div>
+                    <h2 class="watch-discovery-catalog-title">Browse your watch library</h2>
+                    <p class="watch-discovery-catalog-copy">
+                        Keep home personal, and use watch for direct discovery across movies, TV, genres, and collection groupings.
+                    </p>
                 </div>
-                <div class="watch-grid">
-                    @foreach (var work in _filteredWorks)
+
+                <div class="watch-discovery-toolbar">
+                    <div class="watch-discovery-tabs">
+                        @foreach (var tab in _tabs)
+                        {
+                            <button type="button"
+                                    class="watch-discovery-tab @(_activeTab == tab ? "is-active" : "")"
+                                    style="@(_activeTab == tab ? $"--tab-accent: {_page.AccentColor};" : string.Empty)"
+                                    @onclick="() => SetTab(tab)">
+                                @tab
+                            </button>
+                        }
+                    </div>
+
+                    <div class="watch-discovery-filters">
+                        <div class="watch-discovery-genres">
+                            @foreach (var genre in AvailableGenres)
+                            {
+                                <button type="button"
+                                        class="watch-discovery-chip @(_activeGenre == genre ? "is-active" : "")"
+                                        style="@(_activeGenre == genre ? $"--chip-accent: {_page.AccentColor};" : string.Empty)"
+                                        @onclick="() => SetGenre(genre)">
+                                    @genre
+                                </button>
+                            }
+                        </div>
+
+                        <MudTextField T="string"
+                                      Value="_searchText"
+                                      ValueChanged="OnSearchChanged"
+                                      Placeholder="Search movies, shows, creators, and genres..."
+                                      Variant="Variant.Outlined"
+                                      Immediate="true"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                                      Class="watch-discovery-search" />
+
+                        <MudSelect T="string"
+                                   Value="_sortBy"
+                                   ValueChanged="OnSortChanged"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="watch-discovery-sort">
+                            <MudSelectItem T="string" Value="@("Newest")">Newest</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Title")">Title</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Year")">Year</MudSelectItem>
+                        </MudSelect>
+                    </div>
+                </div>
+            </div>
+
+            @if (_filteredCatalog.Count == 0)
+            {
+                <div class="watch-discovery-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.Movie"
+                             Style="font-size: 48px; color: rgba(255,255,255,0.18);" />
+                    <p>No watch titles match these filters.</p>
+                </div>
+            }
+            else
+            {
+                <div class="watch-discovery-catalog">
+                    @foreach (var card in _filteredCatalog)
                     {
-                        var item = PosterItemViewModel.FromWork(work);
-                        <LibraryCard Item="@item" OnItemSelected="HandleItemSelected" />
+                        <DiscoveryCard Item="@card" />
                     }
                 </div>
-                @if (_filteredWorks.Count == 0)
-                {
-                    <div class="watch-empty">
-                        <MudIcon Icon="@MudBlazor.Icons.Material.Filled.Movie"
-                                 Style="font-size: 48px; color: rgba(248,248,248,0.15);" />
-                        <p>No titles match your search.</p>
-                    </div>
-                }
-            </div>
-        }
+            }
+        </section>
     </div>
 }
 
 @code {
-    private const string Accent = "#60A5FA";
-    private static readonly string[] _mediaTypes = ["Movie", "video", "TV"];
-    private static readonly string[] _subFilters = ["All", "Movies", "TV"];
+    private static readonly string[] _tabs = ["All", "Movies", "TV"];
 
     private bool _loading = true;
-    private string _activeSubFilter = "All";
-    private string _searchText = "";
+    private string _activeTab = "All";
+    private string _activeGenre = "All genres";
+    private string _searchText = string.Empty;
+    private string _sortBy = "Newest";
+    private DiscoveryPageViewModel _page = new() { Key = "watch", AccentColor = "#60A5FA" };
+    private List<DiscoveryCardViewModel> _filteredCatalog = [];
 
-    private List<WorkViewModel> _allWorks = [];
-    private List<WorkViewModel> _filteredWorks = [];
-    private List<JourneyItemViewModel> _journeyItems = [];
-
-    private List<PosterItemViewModel> _trending = [];
-    private List<PosterItemViewModel> _newMovies = [];
-    private List<PosterItemViewModel> _newTV = [];
-    private List<NamedGroup> _byGenre = [];
-
-    private HeroData? _spotlight;
-    private string _spotlightEyebrow = "Featured";
-
-    private bool HasAnyFilter =>
-        _activeSubFilter != "All" || !string.IsNullOrWhiteSpace(_searchText);
-
-    private sealed record NamedGroup(string Name, IReadOnlyList<PosterItemViewModel> Items);
+    private IReadOnlyList<string> AvailableGenres =>
+        ["All genres", .. _page.Catalog
+            .SelectMany(card => card.Genres)
+            .Where(genre => !string.IsNullOrWhiteSpace(genre))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+            .Take(8)];
 
     protected override async Task OnInitializedAsync()
     {
-        Nav.LocationChanged += OnLocationChanged;
+        State.OnStateChanged += OnStateChanged;
         await Orchestrator.StartSignalRAsync();
         await LoadAsync();
-    }
-
-    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
-    {
-        if (new Uri(e.Location).AbsolutePath.Trim('/') == "watch")
-        {
-            await LoadAsync();
-            await InvokeAsync(StateHasChanged);
-        }
     }
 
     private async Task LoadAsync()
     {
         _loading = true;
+
         try
         {
-            var works = await Orchestrator.GetLibraryWorksAsync();
-            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
-
-            _allWorks = works
-                .Where(w => _mediaTypes.Any(mt =>
-                    (w.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            BuildSpotlight();
-            BuildSwimlanes();
+            _page = await Discovery.BuildWatchAsync();
             ApplyFilters();
         }
-        catch { /* Engine unreachable — show empty */ }
-        finally { _loading = false; }
-    }
-
-    private void BuildSpotlight()
-    {
-        // Journey data is books-only today — skip and use "recently added with cover art".
-        var newest = _allWorks
-            .Where(w => !string.IsNullOrEmpty(w.CoverUrl))
-            .OrderByDescending(w =>
-                w.CanonicalValues.Select(cv => cv.LastScoredAt).DefaultIfEmpty(DateTimeOffset.MinValue).Max())
-            .FirstOrDefault();
-
-        _spotlight = newest is not null ? HeroData.FromWork(newest, null) : null;
-        _spotlightEyebrow = "Featured";
-    }
-
-    private void BuildSwimlanes()
-    {
-        _trending = _allWorks
-            .Where(w => !string.IsNullOrEmpty(w.CoverUrl))
-            .OrderByDescending(w =>
-                w.CanonicalValues.Select(cv => cv.LastScoredAt).DefaultIfEmpty(DateTimeOffset.MinValue).Max())
-            .Take(15)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _newMovies = _allWorks
-            .Where(w => (w.MediaType ?? "").Contains("movie", StringComparison.OrdinalIgnoreCase)
-                     || (w.MediaType ?? "").Contains("video", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _newTV = _allWorks
-            .Where(w => (w.MediaType ?? "").Contains("tv", StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _byGenre = _allWorks
-            .Where(w => w.Genres.Count > 0)
-            .SelectMany(w => w.Genres.Select(g => (Genre: g, Work: w)))
-            .GroupBy(x => x.Genre, StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.Count() >= 3)
-            .OrderByDescending(g => g.Count())
-            .Take(5)
-            .Select(g => new NamedGroup(g.Key,
-                g.Select(x => PosterItemViewModel.FromWork(x.Work)).ToList()))
-            .ToList();
+        catch
+        {
+            _page = new DiscoveryPageViewModel
+            {
+                Key = "watch",
+                AccentColor = "#60A5FA",
+                EmptyTitle = "Nothing to watch yet.",
+                EmptySubtitle = "Movies and TV appear here once they are added to the library."
+            };
+            _filteredCatalog = [];
+        }
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private void ApplyFilters()
     {
-        var works = _allWorks.AsEnumerable();
+        IEnumerable<DiscoveryCardViewModel> cards = _page.Catalog;
 
-        if (_activeSubFilter == "Movies")
-            works = works.Where(w => (w.MediaType ?? "").Contains("movie", StringComparison.OrdinalIgnoreCase)
-                                   || (w.MediaType ?? "").Contains("video", StringComparison.OrdinalIgnoreCase));
-        else if (_activeSubFilter == "TV")
-            works = works.Where(w => (w.MediaType ?? "").Contains("tv", StringComparison.OrdinalIgnoreCase));
+        cards = _activeTab switch
+        {
+            "Movies" => cards.Where(card => string.Equals(card.MediaKind, "Movie", StringComparison.OrdinalIgnoreCase)),
+            "TV" => cards.Where(card => string.Equals(card.MediaKind, "TV", StringComparison.OrdinalIgnoreCase)),
+            _ => cards
+        };
+
+        if (!string.Equals(_activeGenre, "All genres", StringComparison.OrdinalIgnoreCase))
+        {
+            cards = cards.Where(card => card.Genres.Any(genre => string.Equals(genre, _activeGenre, StringComparison.OrdinalIgnoreCase)));
+        }
 
         if (!string.IsNullOrWhiteSpace(_searchText))
         {
             var term = _searchText.Trim();
-            works = works.Where(w =>
-                (w.Title?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (w.Director?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (w.Author?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+            cards = cards.Where(card => MatchesSearch(card, term));
         }
 
-        _filteredWorks = works.OrderBy(w => w.Title).ToList();
+        cards = _sortBy switch
+        {
+            "Title" => cards.OrderBy(card => card.Title, StringComparer.OrdinalIgnoreCase),
+            "Year" => cards.OrderByDescending(card => card.SortYear).ThenBy(card => card.Title, StringComparer.OrdinalIgnoreCase),
+            _ => cards.OrderByDescending(card => card.SortTimestamp).ThenBy(card => card.Title, StringComparer.OrdinalIgnoreCase)
+        };
+
+        _filteredCatalog = cards.ToList();
     }
 
-    private void OnSubFilterChanged(string filter) { _activeSubFilter = filter; ApplyFilters(); }
-    private void OnSearchInput(ChangeEventArgs e)   { _searchText = e.Value?.ToString() ?? ""; ApplyFilters(); }
+    private static bool MatchesSearch(DiscoveryCardViewModel card, string term) =>
+        card.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || (card.Subtitle?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (card.Creator?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (card.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || card.Genres.Any(genre => genre.Contains(term, StringComparison.OrdinalIgnoreCase));
 
-    private void HandleItemSelected(PosterItemViewModel item) => Nav.NavigateTo(item.NavigationUrl);
-    private void HandleSpotlightClick() { if (_spotlight?.EntityId is { } id) Nav.NavigateTo($"/book/{id}"); }
-    private void HandleSpotlightCta()    { if (_spotlight?.EntityId is { } id) Nav.NavigateTo($"/book/{id}"); }
+    private void SetTab(string tab)
+    {
+        _activeTab = tab;
+        ApplyFilters();
+    }
 
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    private void SetGenre(string genre)
+    {
+        _activeGenre = genre;
+        ApplyFilters();
+    }
+
+    private Task OnSearchChanged(string value)
+    {
+        _searchText = value;
+        ApplyFilters();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSortChanged(string value)
+    {
+        _sortBy = value;
+        ApplyFilters();
+        return Task.CompletedTask;
+    }
+
+    private void OnStateChanged()
+    {
+        _ = InvokeAsync(LoadAsync);
+    }
+
+    public void Dispose()
+    {
+        State.OnStateChanged -= OnStateChanged;
+    }
 }
 
 <style>
-    .watch-page {
+    .watch-discovery-page {
+        display: flex;
+        flex-direction: column;
+        gap: 34px;
         padding: 0 1.5rem 5rem;
     }
 
+    .watch-discovery-shelves {
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+    }
+
+    .watch-discovery-catalog-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+    }
+
+    .watch-discovery-catalog-title {
+        margin: 0;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(1.5rem, 2vw, 2.15rem);
+        font-weight: 700;
+        line-height: 1;
+        color: rgba(248, 250, 252, 0.96);
+    }
+
+    .watch-discovery-catalog-copy {
+        margin: 10px 0 0;
+        max-width: 640px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.94rem;
+        line-height: 1.6;
+        color: rgba(148, 163, 184, 0.88);
+    }
+
+    .watch-discovery-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 18px;
+    }
+
+    .watch-discovery-tabs,
+    .watch-discovery-genres {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .watch-discovery-tab,
+    .watch-discovery-chip {
+        min-height: 38px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(226, 232, 240, 0.86);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .watch-discovery-tab:hover,
+    .watch-discovery-chip:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .watch-discovery-tab.is-active,
+    .watch-discovery-chip.is-active {
+        border-color: color-mix(in srgb, var(--tab-accent, var(--chip-accent)) 54%, rgba(255,255,255,0.12));
+        background: color-mix(in srgb, var(--tab-accent, var(--chip-accent)) 18%, rgba(255,255,255,0.02));
+        color: rgba(248, 250, 252, 0.96);
+    }
+
+    .watch-discovery-filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 420px) 160px;
+        gap: 14px;
+        align-items: start;
+    }
+
+    .watch-discovery-search,
+    .watch-discovery-sort {
+        width: 100%;
+    }
+
+    .watch-discovery-catalog {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+    }
+
+    .watch-discovery-empty {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        color: rgba(226, 232, 240, 0.7);
+        font-family: 'Montserrat', sans-serif;
+    }
+
     @@media (min-width: 768px) {
-        .watch-page {
+        .watch-discovery-page {
             padding: 0 4rem 5rem;
         }
     }
 
-    /* ── Sub-filter tabs ── */
-    .watch-tabs {
-        display: flex;
-        gap: 28px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        margin-bottom: 1.5rem;
-        margin-top: 0.5rem;
-    }
-
-    .watch-tab {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 13px;
-        font-weight: 600;
-        color: rgba(148, 163, 184, 0.65);
-        background: none;
-        border: none;
-        border-bottom: 2px solid transparent;
-        padding: 10px 0;
-        cursor: pointer;
-        transition: color 0.2s ease, border-color 0.2s ease;
-    }
-
-    .watch-tab:hover { color: rgba(248, 248, 248, 0.85); }
-    .watch-tab.active { font-weight: 700; }
-
-    /* ── Filter strip ── */
-    .watch-filters {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .watch-search {
-        position: relative;
-        flex: 1;
-        min-width: 180px;
-        max-width: 260px;
-    }
-
-    .watch-search-input {
-        width: 100%;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 10px;
-        padding: 9px 18px 9px 38px;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 12px;
-        color: white;
-        outline: none;
-        transition: all 0.2s ease;
-    }
-
-    .watch-search-input::placeholder { color: rgba(148, 163, 184, 0.50); }
-    .watch-search-input:focus {
-        border-color: rgba(255, 255, 255, 0.15);
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    /* ── Filtered grid ── */
-    .watch-grid-section { margin-top: 1rem; }
-
-    .watch-grid-header {
-        padding-left: 16px;
-        margin-bottom: 1rem;
-    }
-
-    .watch-grid-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: clamp(1.25rem, 1.4vw, 1.55rem);
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.90);
-        margin: 0;
-    }
-
-    .watch-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 2rem 1.5rem;
-        padding-left: 16px;
-    }
-
-    @@media (min-width: 640px)  { .watch-grid { grid-template-columns: repeat(3, 1fr); } }
-    @@media (min-width: 768px)  { .watch-grid { grid-template-columns: repeat(4, 1fr); } }
-    @@media (min-width: 1024px) { .watch-grid { grid-template-columns: repeat(5, 1fr); } }
-    @@media (min-width: 1280px) { .watch-grid { grid-template-columns: repeat(6, 1fr); } }
-
-    .watch-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        padding: 3rem 1rem;
-        color: rgba(248, 248, 248, 0.45);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.9rem;
+    @@media (max-width: 960px) {
+        .watch-discovery-filters {
+            grid-template-columns: 1fr;
+        }
     }
 </style>

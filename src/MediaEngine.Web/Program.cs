@@ -4,6 +4,7 @@ using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Theming;
 using MediaEngine.Web.Services.Narration;
+using MediaEngine.Web.Services.Discovery;
 using MediaEngine.Domain.Models;
 using Microsoft.AspNetCore.Localization;
 using System.Globalization;
@@ -90,6 +91,7 @@ builder.Services.AddHttpClient("EngineApi", client =>
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<UIOrchestratorService>();
 builder.Services.AddScoped<MediaEditorLauncherService>();
+builder.Services.AddScoped<DiscoveryComposerService>();
 
 // ── Provider Catalogue (singleton = loaded once, shared across all circuits) ──
 // Caches provider UI metadata from GET /providers/catalogue. Replaces hardcoded

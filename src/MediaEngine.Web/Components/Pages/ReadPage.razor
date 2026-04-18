@@ -1,412 +1,369 @@
 @page "/read"
+@inject DiscoveryComposerService Discovery
 @inject UIOrchestratorService Orchestrator
-@inject NavigationManager Nav
+@inject UniverseStateContainer State
 @implements IDisposable
-@using MediaEngine.Web.Models.ViewDTOs
 
-<PageTitle>Read — Tuvima</PageTitle>
+<PageTitle>Read - Tuvima</PageTitle>
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                       Style="border-radius: 4px;" />
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius: 4px;" />
 }
 else
 {
-    <GlobalBackground ImageUrl="@_spotlight?.CoverUrl" Color="@Accent" />
+    <GlobalBackground ImageUrl="@_page.Hero?.BackgroundImageUrl" Color="@_page.AccentColor" />
 
-    <div class="read-page">
-
-        @* ── Spotlight (Portrait) ── *@
-        @if (_spotlight is not null)
+    <div class="read-discovery-page">
+        @if (_page.Hero is not null)
         {
-            <CompactHero Data="@_spotlight"
-                         Mode="CompactHero.SpotlightMode.Portrait"
-                         AccentColor="@Accent"
-                         Eyebrow="@_spotlightEyebrow"
-                         FallbackLabel="Open"
-                         FallbackIcon="@MudBlazor.Icons.Material.Filled.AutoStories"
-                         OnClicked="HandleSpotlightClick"
-                         OnCtaClicked="HandleSpotlightCta" />
+            <DiscoveryHero Hero="@_page.Hero" />
         }
 
-        @* ── Sub-filter tabs ── *@
-        <div class="read-tabs">
-            @foreach (var opt in _subFilters)
+        @if (_page.Hubs.Count > 0)
+        {
+            <DiscoveryHubStrip Hubs="@_page.Hubs"
+                               Title="Reading collections"
+                               Subtitle="Series, sagas, and grouped shelves built dynamically from your library." />
+        }
+
+        <div class="read-discovery-shelves">
+            @foreach (var shelf in _page.Shelves)
             {
-                <button class="read-tab @(_activeSubFilter == opt ? "active" : "")"
-                        style="@(_activeSubFilter == opt ? $"color: {Accent}; border-bottom-color: {Accent};" : "")"
-                        @onclick="() => OnSubFilterChanged(opt)">
-                    @opt
-                </button>
+                <DiscoveryShelf Shelf="@shelf" />
             }
         </div>
 
-        @* ── Filter strip ── *@
-        <div class="read-filters">
-            <div class="read-status">
-                @foreach (var stat in new[] { "All", "In Progress", "Finished" })
-                {
-                    <button class="read-status-btn @(_activeStatus == stat ? "active" : "")"
-                            style="@(_activeStatus == stat ? $"color: {Accent};" : "")"
-                            @onclick="() => OnStatusChanged(stat)">
-                        @stat
-                    </button>
-                }
+        <section class="read-discovery-catalog-shell">
+            <div class="read-discovery-catalog-header">
+                <div>
+                    <h2 class="read-discovery-catalog-title">Browse your reading library</h2>
+                    <p class="read-discovery-catalog-copy">
+                        Search, filter, and sort books and comics without leaving the discovery flow.
+                    </p>
+                </div>
+
+                <div class="read-discovery-toolbar">
+                    <div class="read-discovery-tabs">
+                        @foreach (var tab in _tabs)
+                        {
+                            <button type="button"
+                                    class="read-discovery-tab @(_activeTab == tab ? "is-active" : "")"
+                                    style="@(_activeTab == tab ? $"--tab-accent: {_page.AccentColor};" : string.Empty)"
+                                    @onclick="() => SetTab(tab)">
+                                @tab
+                            </button>
+                        }
+                    </div>
+
+                    <div class="read-discovery-filters">
+                        <div class="read-discovery-status">
+                            @foreach (var status in _statuses)
+                            {
+                                <button type="button"
+                                        class="read-discovery-chip @(_activeStatus == status ? "is-active" : "")"
+                                        style="@(_activeStatus == status ? $"--chip-accent: {_page.AccentColor};" : string.Empty)"
+                                        @onclick="() => SetStatus(status)">
+                                    @status
+                                </button>
+                            }
+                        </div>
+
+                        <MudTextField T="string"
+                                      Value="_searchText"
+                                      ValueChanged="OnSearchChanged"
+                                      Placeholder="Search titles, creators, and series..."
+                                      Variant="Variant.Outlined"
+                                      Immediate="true"
+                                      Adornment="Adornment.Start"
+                                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                                      Class="read-discovery-search" />
+
+                        <MudSelect T="string"
+                                   Value="_sortBy"
+                                   ValueChanged="OnSortChanged"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="read-discovery-sort">
+                            <MudSelectItem T="string" Value="@("Newest")">Newest</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Title")">Title</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Year")">Year</MudSelectItem>
+                        </MudSelect>
+                    </div>
+                </div>
             </div>
-            <div class="read-search">
-                <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Search" Size="Size.Small"
-                         Style="font-size: 14px; position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: rgba(148,163,184,0.50);" />
-                <input type="text" placeholder="Search your library..."
-                       value="@_searchText" @oninput="OnSearchInput" class="read-search-input" />
-            </div>
-        </div>
 
-        @* ── Currently Reading ── *@
-        @if (_currentlyReading.Count > 0 && !HasAnyFilter)
-        {
-            <PosterSwimlane Title="Currently Reading"
-                            Items="@_currentlyReading"
-                            OnItemSelected="HandleItemSelected" />
-        }
-
-        @* ── Recently Added ── *@
-        @if (_recentlyAdded.Count > 0 && !HasAnyFilter)
-        {
-            <PosterSwimlane Title="Recently Added"
-                            Items="@_recentlyAdded"
-                            OnItemSelected="HandleItemSelected" />
-        }
-
-        @* ── By Author swimlanes ── *@
-        @if (!HasAnyFilter)
-        {
-            @foreach (var group in _byAuthor.Take(4))
+            @if (_filteredCatalog.Count == 0)
             {
-                <PosterSwimlane Title="@group.Name"
-                                Items="@group.Items"
-                                OnItemSelected="HandleItemSelected" />
-            }
-        }
-
-        @* ── Library / filtered results ── *@
-        <div class="read-shelf">
-            <div class="read-shelf-header">
-                <h3 class="read-shelf-title">@(HasAnyFilter ? $"Results ({_filteredWorks.Count})" : "Your Library")</h3>
-            </div>
-            <div class="read-grid">
-                @foreach (var work in _filteredWorks)
-                {
-                    var item = PosterItemViewModel.FromWork(work);
-                    <LibraryCard Item="@item" OnItemSelected="HandleItemSelected" />
-                }
-            </div>
-            @if (_filteredWorks.Count == 0)
-            {
-                <div class="read-empty">
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Filled.AutoStories"
-                             Style="font-size: 48px; color: rgba(248,248,248,0.15);" />
-                    <p>No titles match these filters.</p>
+                <div class="read-discovery-empty">
+                    <MudIcon Icon="@Icons.Material.Filled.AutoStories"
+                             Style="font-size: 48px; color: rgba(255,255,255,0.18);" />
+                    <p>No reading titles match these filters.</p>
                 </div>
             }
-        </div>
+            else
+            {
+                <div class="read-discovery-catalog">
+                    @foreach (var card in _filteredCatalog)
+                    {
+                        <DiscoveryCard Item="@card" />
+                    }
+                </div>
+            }
+        </section>
     </div>
 }
 
 @code {
-    private const string Accent = "#5DCAA5";
-    private static readonly string[] _mediaTypes = ["Book", "epub", "Comic", "cbz", "cbr"];
-    private static readonly string[] _subFilters = ["All", "Books", "Comics"];
+    private static readonly string[] _tabs = ["All", "Books", "Comics"];
+    private static readonly string[] _statuses = ["All", "In Progress", "Finished"];
 
     private bool _loading = true;
-    private string _activeSubFilter = "All";
+    private string _activeTab = "All";
     private string _activeStatus = "All";
-    private string _searchText = "";
-
-    private List<WorkViewModel> _allWorks = [];
-    private List<WorkViewModel> _filteredWorks = [];
-    private List<JourneyItemViewModel> _journeyItems = [];
-
-    private List<PosterItemViewModel> _currentlyReading = [];
-    private List<PosterItemViewModel> _recentlyAdded = [];
-    private List<NamedGroup> _byAuthor = [];
-
-    private HeroData? _spotlight;
-    private string _spotlightEyebrow = "Continue Reading";
-
-    private bool HasAnyFilter =>
-        _activeSubFilter != "All" ||
-        _activeStatus != "All" ||
-        !string.IsNullOrWhiteSpace(_searchText);
-
-    private sealed record NamedGroup(string Name, IReadOnlyList<PosterItemViewModel> Items);
+    private string _searchText = string.Empty;
+    private string _sortBy = "Newest";
+    private DiscoveryPageViewModel _page = new() { Key = "read", AccentColor = "#5DCAA5" };
+    private List<DiscoveryCardViewModel> _filteredCatalog = [];
 
     protected override async Task OnInitializedAsync()
     {
-        Nav.LocationChanged += OnLocationChanged;
+        State.OnStateChanged += OnStateChanged;
         await Orchestrator.StartSignalRAsync();
         await LoadAsync();
-    }
-
-    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
-    {
-        if (new Uri(e.Location).AbsolutePath.Trim('/') == "read")
-        {
-            await LoadAsync();
-            await InvokeAsync(StateHasChanged);
-        }
     }
 
     private async Task LoadAsync()
     {
         _loading = true;
+
         try
         {
-            var works = await Orchestrator.GetLibraryWorksAsync();
-            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
-
-            _allWorks = works
-                .Where(w => _mediaTypes.Any(mt =>
-                    (w.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            BuildSpotlight();
-            BuildSwimlanes();
+            _page = await Discovery.BuildReadAsync();
             ApplyFilters();
         }
-        catch { /* Engine unreachable — show empty */ }
-        finally { _loading = false; }
-    }
-
-    private void BuildSpotlight()
-    {
-        var topJourney = _journeyItems
-            .Where(j => _mediaTypes.Any(mt =>
-                (j.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
-            .OrderByDescending(j => j.LastAccessed)
-            .FirstOrDefault();
-
-        if (topJourney is not null)
+        catch
         {
-            _spotlight = HeroData.FromJourney(topJourney);
-            _spotlightEyebrow = "Continue Reading";
+            _page = new DiscoveryPageViewModel
+            {
+                Key = "read",
+                AccentColor = "#5DCAA5",
+                EmptyTitle = "Nothing to read yet.",
+                EmptySubtitle = "Books and comics appear here once they are added to the library."
+            };
+            _filteredCatalog = [];
         }
-        else
+        finally
         {
-            var newest = _allWorks
-                .Where(w => !string.IsNullOrEmpty(w.CoverUrl))
-                .OrderByDescending(w => w.Year ?? "0000")
-                .FirstOrDefault();
-            _spotlight = newest is not null ? HeroData.FromWork(newest, null) : null;
-            _spotlightEyebrow = "Recently Added";
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
         }
-    }
-
-    private void BuildSwimlanes()
-    {
-        _currentlyReading = _journeyItems
-            .Where(j => _mediaTypes.Any(mt =>
-                (j.MediaType ?? "").Contains(mt, StringComparison.OrdinalIgnoreCase)))
-            .Where(j => j.ProgressPct is > 0 and < 100)
-            .OrderByDescending(j => j.LastAccessed)
-            .Take(10)
-            .Select(PosterItemViewModel.FromJourney)
-            .ToList();
-
-        _recentlyAdded = _allWorks
-            .OrderByDescending(w =>
-                w.CanonicalValues.Select(cv => cv.LastScoredAt).DefaultIfEmpty(DateTimeOffset.MinValue).Max())
-            .Take(15)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _byAuthor = _allWorks
-            .Where(w => !string.IsNullOrEmpty(w.Author))
-            .GroupBy(w => w.Author!, StringComparer.OrdinalIgnoreCase)
-            .Where(g => g.Count() >= 2)
-            .OrderByDescending(g => g.Count())
-            .Take(4)
-            .Select(g => new NamedGroup(g.Key,
-                g.OrderBy(w => w.Year ?? "9999").Select(w => PosterItemViewModel.FromWork(w)).ToList()))
-            .ToList();
     }
 
     private void ApplyFilters()
     {
-        var works = _allWorks.AsEnumerable();
+        IEnumerable<DiscoveryCardViewModel> cards = _page.Catalog;
 
-        if (_activeSubFilter == "Books")
-            works = works.Where(w => (w.MediaType ?? "").Contains("book", StringComparison.OrdinalIgnoreCase)
-                                   || (w.MediaType ?? "").Contains("epub", StringComparison.OrdinalIgnoreCase));
-        else if (_activeSubFilter == "Comics")
-            works = works.Where(w => (w.MediaType ?? "").Contains("comic", StringComparison.OrdinalIgnoreCase)
-                                   || (w.MediaType ?? "").Contains("cbz", StringComparison.OrdinalIgnoreCase)
-                                   || (w.MediaType ?? "").Contains("cbr", StringComparison.OrdinalIgnoreCase));
+        cards = _activeTab switch
+        {
+            "Books" => cards.Where(card => string.Equals(card.MediaKind, "Book", StringComparison.OrdinalIgnoreCase)),
+            "Comics" => cards.Where(card => string.Equals(card.MediaKind, "Comic", StringComparison.OrdinalIgnoreCase)),
+            _ => cards
+        };
 
-        if (_activeStatus == "In Progress")
+        cards = _activeStatus switch
         {
-            var ids = _journeyItems.Where(j => j.ProgressPct is > 0 and < 100).Select(j => j.WorkId).ToHashSet();
-            works = works.Where(w => ids.Contains(w.Id));
-        }
-        else if (_activeStatus == "Finished")
-        {
-            var ids = _journeyItems.Where(j => j.ProgressPct >= 100).Select(j => j.WorkId).ToHashSet();
-            works = works.Where(w => ids.Contains(w.Id));
-        }
+            "In Progress" => cards.Where(card => card.ProgressPct is > 0 and < 99.5),
+            "Finished" => cards.Where(card => card.ProgressPct >= 99.5),
+            _ => cards
+        };
 
         if (!string.IsNullOrWhiteSpace(_searchText))
         {
             var term = _searchText.Trim();
-            works = works.Where(w =>
-                (w.Title?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (w.Author?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false));
+            cards = cards.Where(card => MatchesSearch(card, term));
         }
 
-        _filteredWorks = works.OrderBy(w => w.Title).ToList();
+        cards = _sortBy switch
+        {
+            "Title" => cards.OrderBy(card => card.Title, StringComparer.OrdinalIgnoreCase),
+            "Year" => cards.OrderByDescending(card => card.SortYear).ThenBy(card => card.Title, StringComparer.OrdinalIgnoreCase),
+            _ => cards.OrderByDescending(card => card.SortTimestamp).ThenBy(card => card.Title, StringComparer.OrdinalIgnoreCase)
+        };
+
+        _filteredCatalog = cards.ToList();
     }
 
-    private void OnSubFilterChanged(string filter) { _activeSubFilter = filter; ApplyFilters(); }
-    private void OnStatusChanged(string status)   { _activeStatus    = status; ApplyFilters(); }
-    private void OnSearchInput(ChangeEventArgs e)  { _searchText = e.Value?.ToString() ?? ""; ApplyFilters(); }
+    private static bool MatchesSearch(DiscoveryCardViewModel card, string term) =>
+        card.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+        || (card.Subtitle?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (card.Creator?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (card.CollectionKey?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || (card.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
+        || card.Genres.Any(genre => genre.Contains(term, StringComparison.OrdinalIgnoreCase));
 
-    private void HandleItemSelected(PosterItemViewModel item) => Nav.NavigateTo(item.NavigationUrl);
-    private void HandleSpotlightClick() { if (_spotlight?.EntityId is { } id) Nav.NavigateTo($"/book/{id}"); }
-    private void HandleSpotlightCta()    { if (_spotlight?.EntityId is { } id) Nav.NavigateTo($"/book/{id}"); }
+    private void SetTab(string tab)
+    {
+        _activeTab = tab;
+        ApplyFilters();
+    }
 
-    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+    private void SetStatus(string status)
+    {
+        _activeStatus = status;
+        ApplyFilters();
+    }
+
+    private Task OnSearchChanged(string value)
+    {
+        _searchText = value;
+        ApplyFilters();
+        return Task.CompletedTask;
+    }
+
+    private Task OnSortChanged(string value)
+    {
+        _sortBy = value;
+        ApplyFilters();
+        return Task.CompletedTask;
+    }
+
+    private void OnStateChanged()
+    {
+        _ = InvokeAsync(LoadAsync);
+    }
+
+    public void Dispose()
+    {
+        State.OnStateChanged -= OnStateChanged;
+    }
 }
 
 <style>
-    .read-page {
+    .read-discovery-page {
+        display: flex;
+        flex-direction: column;
+        gap: 34px;
         padding: 0 1.5rem 5rem;
     }
 
+    .read-discovery-shelves {
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+    }
+
+    .read-discovery-catalog-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+    }
+
+    .read-discovery-catalog-header {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .read-discovery-catalog-title {
+        margin: 0;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(1.5rem, 2vw, 2.15rem);
+        font-weight: 700;
+        line-height: 1;
+        color: rgba(248, 250, 252, 0.96);
+    }
+
+    .read-discovery-catalog-copy {
+        margin: 10px 0 0;
+        max-width: 620px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.94rem;
+        line-height: 1.6;
+        color: rgba(148, 163, 184, 0.88);
+    }
+
+    .read-discovery-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .read-discovery-tabs,
+    .read-discovery-status {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .read-discovery-tab,
+    .read-discovery-chip {
+        min-height: 38px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(226, 232, 240, 0.86);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.74rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .read-discovery-tab:hover,
+    .read-discovery-chip:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .read-discovery-tab.is-active,
+    .read-discovery-chip.is-active {
+        border-color: color-mix(in srgb, var(--tab-accent, var(--chip-accent)) 54%, rgba(255,255,255,0.12));
+        background: color-mix(in srgb, var(--tab-accent, var(--chip-accent)) 18%, rgba(255,255,255,0.02));
+        color: rgba(248, 250, 252, 0.96);
+    }
+
+    .read-discovery-filters {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 420px) 160px;
+        gap: 14px;
+        align-items: start;
+    }
+
+    .read-discovery-search,
+    .read-discovery-sort {
+        width: 100%;
+    }
+
+    .read-discovery-catalog {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 22px;
+    }
+
+    .read-discovery-empty {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        color: rgba(226, 232, 240, 0.7);
+        font-family: 'Montserrat', sans-serif;
+    }
+
     @@media (min-width: 768px) {
-        .read-page {
+        .read-discovery-page {
             padding: 0 4rem 5rem;
         }
     }
 
-    /* ── Sub-filter tabs ── */
-    .read-tabs {
-        display: flex;
-        gap: 28px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        margin-bottom: 1.5rem;
-        margin-top: 0.5rem;
-    }
-
-    .read-tab {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 13px;
-        font-weight: 600;
-        color: rgba(148, 163, 184, 0.65);
-        background: none;
-        border: none;
-        border-bottom: 2px solid transparent;
-        padding: 10px 0;
-        cursor: pointer;
-        transition: color 0.2s ease, border-color 0.2s ease;
-    }
-
-    .read-tab:hover { color: rgba(248, 248, 248, 0.85); }
-    .read-tab.active { font-weight: 700; }
-
-    /* ── Filter strip ── */
-    .read-filters {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 1rem;
-        margin-bottom: 2rem;
-    }
-
-    .read-status {
-        display: flex;
-        gap: 1.25rem;
-    }
-
-    .read-status-btn {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
-        color: rgba(148, 163, 184, 0.55);
-        background: none;
-        border: none;
-        cursor: pointer;
-        padding: 0;
-        transition: color 0.2s ease;
-    }
-
-    .read-status-btn:hover { color: rgba(248, 248, 248, 0.90); }
-
-    .read-search {
-        position: relative;
-        flex: 1;
-        min-width: 180px;
-        max-width: 260px;
-    }
-
-    .read-search-input {
-        width: 100%;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 10px;
-        padding: 9px 18px 9px 38px;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 12px;
-        color: white;
-        outline: none;
-        transition: all 0.2s ease;
-    }
-
-    .read-search-input::placeholder { color: rgba(148, 163, 184, 0.50); }
-    .read-search-input:focus {
-        border-color: rgba(255, 255, 255, 0.15);
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    /* ── Shelf / library grid ── */
-    .read-shelf {
-        margin-top: 1.5rem;
-    }
-
-    .read-shelf-header {
-        padding-left: 16px;
-        margin-bottom: 1rem;
-    }
-
-    .read-shelf-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: clamp(1.25rem, 1.4vw, 1.55rem);
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.90);
-        margin: 0;
-    }
-
-    .read-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 2rem 1.5rem;
-        padding-left: 16px;
-    }
-
-    @@media (min-width: 640px)  { .read-grid { grid-template-columns: repeat(3, 1fr); } }
-    @@media (min-width: 768px)  { .read-grid { grid-template-columns: repeat(4, 1fr); } }
-    @@media (min-width: 1024px) { .read-grid { grid-template-columns: repeat(5, 1fr); } }
-    @@media (min-width: 1280px) { .read-grid { grid-template-columns: repeat(6, 1fr); } }
-
-    .read-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        padding: 3rem 1rem;
-        color: rgba(248, 248, 248, 0.45);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.9rem;
+    @@media (max-width: 960px) {
+        .read-discovery-filters {
+            grid-template-columns: 1fr;
+        }
     }
 </style>

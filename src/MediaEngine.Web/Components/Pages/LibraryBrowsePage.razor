@@ -1,36 +1,33 @@
 @page "/"
-@inject UIOrchestratorService  Orchestrator
-@inject UniverseStateContainer  State
-@inject DeviceContextService    DeviceContext
-@inject NavigationManager       Nav
-@inject IWebHostEnvironment     Env
+@inject DiscoveryComposerService Discovery
+@inject UIOrchestratorService Orchestrator
+@inject UniverseStateContainer State
+@inject IWebHostEnvironment Env
 @inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
-
-@using MediaEngine.Web.Models.ViewDTOs
 
 <PageTitle>Tuvima Library</PageTitle>
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                       Style="border-radius: 4px;" />
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Style="border-radius: 4px;" />
 }
-else if (_libraryWorks.Count == 0)
+else if (IsEmpty)
 {
-    @* ── Empty state ── *@
-    <div class="browse-empty-state">
-        <img src="/images/tuvima-icon.svg" alt="Tuvima" class="browse-empty-icon" />
-        <h2 class="browse-empty-title">@L["Home_EmptyTitle"]</h2>
-        <p class="browse-empty-subtitle">@L["Home_EmptySubtitle"]</p>
+    <div class="home-discovery-empty">
+        <img src="/images/tuvima-icon.svg" alt="Tuvima" class="home-discovery-empty-icon" />
+        <h2 class="home-discovery-empty-title">@L["Home_EmptyTitle"]</h2>
+        <p class="home-discovery-empty-subtitle">@L["Home_EmptySubtitle"]</p>
 
         @if (Env.IsDevelopment())
         {
-            <MudButton Variant="Variant.Filled" Color="Color.Warning"
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Warning"
                        StartIcon="@Icons.Material.Filled.AutoStories"
                        Size="MudBlazor.Size.Large"
-                       OnClick="HandleSeedLibrary" Disabled="@_seeding"
-                       Style="font-family: 'Montserrat', sans-serif; font-weight: 600; text-transform: none; border-radius: 8px;">
+                       OnClick="HandleSeedLibraryAsync"
+                       Disabled="@_seeding"
+                       Style="font-family: 'Montserrat', sans-serif; font-weight: 600; text-transform: none; border-radius: 999px;">
                 @if (_seeding)
                 {
                     <MudProgressCircular Size="MudBlazor.Size.Small" Indeterminate="true" Class="mr-2" />
@@ -46,107 +43,40 @@ else if (_libraryWorks.Count == 0)
 }
 else
 {
-    <GlobalBackground ImageUrl="@_ambientImage" Color="@_ambientColor" />
+    <GlobalBackground ImageUrl="@_page.Hero?.BackgroundImageUrl" Color="@_page.AccentColor" />
 
-    @if (_heroItems.Count > 0)
-    {
-        <HeroCarousel Items="@_heroItems"
-                      OnItemSelected="HandleHeroClick"
-                      OnCtaClicked="HandleHeroCta"
-                      OnActiveItemChanged="OnHeroChanged" />
-    }
-
-    @* Type-specific swimlanes *@
-    <div class="home-swimlanes">
-        @if (_recentlyAdded.Count > 0)
+    <div class="home-discovery-page">
+        @if (_page.Hero is not null)
         {
-            <PosterSwimlane Title="Recently Added"
-                            Items="@_recentlyAdded"
-                            OnItemSelected="HandleItemSelected" />
+            <DiscoveryHero Hero="@_page.Hero" />
         }
 
-        @if (_continueItems.Count > 0)
+        @if (_page.Hubs.Count > 0)
         {
-            <PosterSwimlane Title="Pick Up Where You Left Off"
-                            Items="@_continueItems"
-                            OnItemSelected="HandleItemSelected" />
+            <DiscoveryHubStrip Hubs="@_page.Hubs"
+                               Title="Library hubs"
+                               Subtitle="Collections, franchises, albums, and series assembled automatically from your library." />
         }
 
-        @if (_newBooks.Count > 0)
-        {
-            <PosterSwimlane Title="New Books"
-                            Items="@_newBooks"
-                            OnItemSelected="HandleItemSelected"
-                            SeeAllRoute="/read" />
-        }
-
-        @if (_newMovies.Count > 0)
-        {
-            <PosterSwimlane Title="New Movies"
-                            Items="@_newMovies"
-                            OnItemSelected="HandleItemSelected"
-                            SeeAllRoute="/watch" />
-        }
-
-        @if (_newTV.Count > 0)
-        {
-            <PosterSwimlane Title="New TV Shows"
-                            Items="@_newTV"
-                            OnItemSelected="HandleItemSelected"
-                            SeeAllRoute="/watch" />
-        }
-
-        @if (_newMusic.Count > 0)
-        {
-            <PosterSwimlane Title="New Music"
-                            Items="@_newMusic"
-                            OnItemSelected="HandleItemSelected"
-                            SeeAllRoute="/listen" />
-        }
-
-        @if (_newAudiobooks.Count > 0)
-        {
-            <PosterSwimlane Title="New Audiobooks"
-                            Items="@_newAudiobooks"
-                            OnItemSelected="HandleItemSelected"
-                            SeeAllRoute="/listen" />
-        }
-
-        @if (_newComics.Count > 0)
-        {
-            <PosterSwimlane Title="New Comics"
-                            Items="@_newComics"
-                            OnItemSelected="HandleItemSelected"
-                            SeeAllRoute="/read" />
-        }
+        <div class="home-discovery-shelves">
+            @foreach (var shelf in _page.Shelves)
+            {
+                <DiscoveryShelf Shelf="@shelf" />
+            }
+        </div>
     </div>
 }
 
 @code {
     private bool _loading = true;
     private bool _seeding;
+    private DiscoveryPageViewModel _page = new() { Key = "home" };
 
-    // ── Data ──────────────────────────────────────────────────────────────
-    private List<WorkViewModel> _libraryWorks = [];
-    private List<JourneyItemViewModel> _journeyItems = [];
-
-    // ── Hero ─────────────────────────────────────────────────────────────
-    private List<HeroData> _heroItems = [];
-    private HeroData? _activeHero;
-    private string? _ambientImage;
-    private string _ambientColor = "#C9922E";
-
-    // ── Swimlanes ─────────────────────────────────────────────────────────
-    private List<PosterItemViewModel> _continueItems = [];
-    private List<PosterItemViewModel> _recentlyAdded = [];
-    private List<PosterItemViewModel> _newBooks = [];
-    private List<PosterItemViewModel> _newMovies = [];
-    private List<PosterItemViewModel> _newMusic = [];
-    private List<PosterItemViewModel> _newTV = [];
-    private List<PosterItemViewModel> _newAudiobooks = [];
-    private List<PosterItemViewModel> _newComics = [];
-
-    // ── Lifecycle ─────────────────────────────────────────────────────────
+    private bool IsEmpty =>
+        _page.Hero is null
+        && _page.Hubs.Count == 0
+        && _page.Shelves.Count == 0
+        && _page.Catalog.Count == 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -158,172 +88,47 @@ else
     private async Task LoadAsync()
     {
         _loading = true;
-        _libraryWorks = [];
-        _journeyItems = [];
 
         try
         {
-            _libraryWorks = await Orchestrator.GetLibraryWorksAsync();
+            _page = await Discovery.BuildHomeAsync();
         }
         catch
         {
-            _libraryWorks = [];
-        }
-
-        try
-        {
-            _journeyItems = await Orchestrator.GetJourneyAsync(limit: 10);
-        }
-        catch
-        {
-            _journeyItems = [];
-        }
-
-        BuildHeroItems();
-        BuildSwimlanes();
-        _loading = false;
-    }
-
-    private void BuildHeroItems()
-    {
-        var heroes = new List<HeroData>();
-
-        // Priority: in-progress items
-        foreach (var journey in _journeyItems.OrderByDescending(j => j.LastAccessed).Take(3))
-        {
-            heroes.Add(HeroData.FromJourney(journey));
-        }
-
-        // Fill remaining slots with newest items that have cover art
-        if (heroes.Count < 3)
-        {
-            var existingIds = heroes.Select(h => h.EntityId).ToHashSet();
-            var newest = _libraryWorks
-                .Where(w => !string.IsNullOrEmpty(w.CoverUrl) && !existingIds.Contains(w.Id))
-                .OrderByDescending(w => w.Year ?? "0000")
-                .Take(3 - heroes.Count);
-            foreach (var w in newest)
+            _page = new DiscoveryPageViewModel
             {
-                heroes.Add(HeroData.FromWork(w, null));
-            }
+                Key = "home",
+                EmptyTitle = "Your home screen is waiting for its first story.",
+                EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own."
+            };
         }
-
-        _heroItems = heroes;
-        _activeHero = _heroItems.FirstOrDefault();
-        UpdateAmbient();
+        finally
+        {
+            _loading = false;
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
-    private void UpdateAmbient()
-    {
-        _ambientImage = _activeHero?.CoverUrl;
-        _ambientColor = _activeHero?.DominantColor ?? "#C9922E";
-    }
-
-    private void OnHeroChanged(HeroData hero)
-    {
-        _activeHero = hero;
-        UpdateAmbient();
-        StateHasChanged();
-    }
-
-    private void BuildSwimlanes()
-    {
-        _recentlyAdded = _libraryWorks
-            .Take(20)
-            .Select(work => PosterItemViewModel.FromWork(work))
-            .ToList();
-
-        _continueItems = _journeyItems
-            .OrderByDescending(j => j.LastAccessed)
-            .Take(10)
-            .Select(PosterItemViewModel.FromJourney)
-            .ToList();
-
-        _newBooks = _libraryWorks
-            .Where(w => IsMediaType(w, "book", "epub"))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _newMovies = _libraryWorks
-            .Where(w => IsMediaType(w, "movie"))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _newTV = _libraryWorks
-            .Where(w => IsMediaType(w, "tv"))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _newMusic = _libraryWorks
-            .Where(w => IsMediaType(w, "music"))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _newAudiobooks = _libraryWorks
-            .Where(w => IsMediaType(w, "audiobook"))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-
-        _newComics = _libraryWorks
-            .Where(w => IsMediaType(w, "comic"))
-            .OrderByDescending(w => w.Year ?? "0000")
-            .Take(20)
-            .Select(w => PosterItemViewModel.FromWork(w))
-            .ToList();
-    }
-
-    private static bool IsMediaType(WorkViewModel w, params string[] terms)
-    {
-        var mt = (w.MediaType ?? "").ToLowerInvariant();
-        return terms.Any(t => mt.Contains(t));
-    }
-
-    // ── Navigation handlers ──────────────────────────────────────────────
-
-    private void HandleItemSelected(PosterItemViewModel item) =>
-        Nav.NavigateTo(item.NavigationUrl);
-
-    private void HandleHeroClick(HeroData hero)
-    {
-        Nav.NavigateTo($"/book/{hero.EntityId}");
-    }
-
-    private void HandleHeroCta(HeroData hero)
-    {
-        Nav.NavigateTo($"/book/{hero.EntityId}");
-    }
-
-    // ── Seed library (dev only) ──────────────────────────────────────────
-
-    private async Task HandleSeedLibrary()
+    private async Task HandleSeedLibraryAsync()
     {
         _seeding = true;
-        StateHasChanged();
-        await Orchestrator.SeedLibraryAsync();
-        _seeding = false;
-        await LoadAsync();
-        StateHasChanged();
-    }
+        await InvokeAsync(StateHasChanged);
 
-    // ── SignalR live refresh ──────────────────────────────────────────────
+        try
+        {
+            await Orchestrator.SeedLibraryAsync();
+            await LoadAsync();
+        }
+        finally
+        {
+            _seeding = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
 
     private void OnStateChanged()
     {
-        InvokeAsync(async () =>
-        {
-            await LoadAsync();
-            StateHasChanged();
-        });
+        _ = InvokeAsync(LoadAsync);
     }
 
     public void Dispose()
@@ -333,54 +138,56 @@ else
 }
 
 <style>
-    .browse-empty-state {
+    .home-discovery-page {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(28px, 4vw, 42px);
+        padding: 0 1.5rem 5rem;
+    }
+
+    .home-discovery-shelves {
+        display: flex;
+        flex-direction: column;
+        gap: 36px;
+    }
+
+    .home-discovery-empty {
+        min-height: 60vh;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        min-height: 60vh;
         gap: 16px;
-        text-align: center;
         padding: 2rem;
+        text-align: center;
     }
 
-    .browse-empty-icon {
+    .home-discovery-empty-icon {
         width: 80px;
         height: 80px;
         opacity: 0.4;
-        margin-bottom: 8px;
     }
 
-    .browse-empty-title {
+    .home-discovery-empty-title {
+        margin: 0;
         font-family: 'Montserrat', sans-serif;
-        font-size: 1.6rem;
+        font-size: 1.7rem;
         font-weight: 700;
-        color: rgba(248, 248, 248, 0.85);
-        margin: 0;
+        color: rgba(248, 248, 248, 0.88);
     }
 
-    .browse-empty-subtitle {
+    .home-discovery-empty-subtitle {
+        margin: 0;
+        max-width: 460px;
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.95rem;
-        font-weight: 400;
-        color: rgba(248, 248, 248, 0.50);
-        max-width: 420px;
-        line-height: 1.5;
-        margin: 0;
-    }
-
-    .home-swimlanes {
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
-        padding: 0 1.5rem;
-        padding-bottom: 5rem;
+        font-size: 0.96rem;
+        line-height: 1.6;
+        color: rgba(248, 248, 248, 0.56);
     }
 
     @@media (min-width: 768px) {
-        .home-swimlanes {
-            padding: 0 4rem;
-            padding-bottom: 5rem;
+        .home-discovery-page {
+            padding: 0 4rem 5rem;
         }
     }
 </style>

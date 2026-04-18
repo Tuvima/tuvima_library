@@ -1,0 +1,380 @@
+@namespace MediaEngine.Web.Components.Discovery
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<MudDialog Class="add-to-collection-dialog">
+    <DialogContent>
+        <div class="add-to-collection-shell">
+            <div class="add-to-collection-header">
+                <div class="add-to-collection-eyebrow">Collections</div>
+                <h2 class="add-to-collection-title">Add "@WorkTitle" to a collection</h2>
+                <p class="add-to-collection-copy">
+                    Pick an existing collection to surface this title in curated rows and mixes.
+                </p>
+            </div>
+
+            <div class="add-to-collection-toolbar">
+                <MudTextField T="string"
+                              Value="_searchText"
+                              ValueChanged="OnSearchChanged"
+                              Placeholder="Search collections..."
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                              Class="add-to-collection-search" />
+            </div>
+
+            @if (_loading)
+            {
+                <div class="add-to-collection-state">
+                    <MudProgressCircular Indeterminate="true" Size="Size.Large" />
+                    <span>Loading collections...</span>
+                </div>
+            }
+            else if (FilteredCollections.Count == 0)
+            {
+                <div class="add-to-collection-state">
+                    <MudIcon Icon="@Icons.Material.Filled.CollectionsBookmark"
+                             Style="font-size: 40px; color: rgba(255,255,255,0.25);" />
+                    <span>No collections match that search.</span>
+                </div>
+            }
+            else
+            {
+                <div class="add-to-collection-list">
+                    @foreach (var collection in FilteredCollections)
+                    {
+                        var isSelected = _selectedCollectionId == collection.Id;
+                        <button type="button"
+                                class="add-to-collection-item @(isSelected ? "is-selected" : "")"
+                                style="--collection-accent: @collection.TypeColor;"
+                                @onclick="() => SelectCollection(collection.Id)">
+                            <div class="add-to-collection-item-main">
+                                <div class="add-to-collection-item-name">@collection.Name</div>
+                                @if (!string.IsNullOrWhiteSpace(collection.Description))
+                                {
+                                    <div class="add-to-collection-item-description">@collection.Description</div>
+                                }
+                            </div>
+                            <div class="add-to-collection-item-meta">
+                                <span class="add-to-collection-chip">@collection.TypeLabel</span>
+                                <span class="add-to-collection-count">@collection.ItemCount items</span>
+                            </div>
+                        </button>
+                    }
+                </div>
+            }
+
+            <div class="add-to-collection-actions">
+                <button type="button" class="add-to-collection-btn add-to-collection-btn-secondary" @onclick="Cancel">
+                    Cancel
+                </button>
+                <button type="button"
+                        class="add-to-collection-btn add-to-collection-btn-primary"
+                        disabled="@(_saving || _selectedCollectionId is null)"
+                        @onclick="SaveAsync">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Class="mr-2" />
+                    }
+                    Add to collection
+                </button>
+            </div>
+        </div>
+    </DialogContent>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter, EditorRequired] public Guid WorkId { get; set; }
+    [Parameter, EditorRequired] public string WorkTitle { get; set; } = string.Empty;
+
+    private readonly List<ManagedCollectionViewModel> _collections = [];
+    private Guid? _selectedCollectionId;
+    private bool _loading = true;
+    private bool _saving;
+    private string _searchText = string.Empty;
+
+    private IReadOnlyList<ManagedCollectionViewModel> FilteredCollections =>
+        _collections
+            .Where(collection =>
+                string.IsNullOrWhiteSpace(_searchText)
+                || collection.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || (collection.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+                || collection.TypeLabel.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var collections = await ApiClient.GetManagedCollectionsAsync();
+            _collections.AddRange(
+                collections
+                    .Where(collection => collection.IsEnabled)
+                    .OrderByDescending(collection => collection.IsFeatured)
+                    .ThenByDescending(collection => collection.ItemCount)
+                    .ThenBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase));
+
+            _selectedCollectionId = _collections.FirstOrDefault()?.Id;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task OnSearchChanged(string value)
+    {
+        _searchText = value;
+        return Task.CompletedTask;
+    }
+
+    private void SelectCollection(Guid id)
+    {
+        _selectedCollectionId = id;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_selectedCollectionId is null)
+        {
+            return;
+        }
+
+        _saving = true;
+
+        try
+        {
+            var ok = await ApiClient.AddCollectionItemAsync(_selectedCollectionId.Value, WorkId);
+            if (!ok)
+            {
+                Snackbar.Add("The item could not be added to that collection.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Added \"{WorkTitle}\" to the selected collection.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}
+
+<style>
+    .add-to-collection-shell {
+        min-width: min(680px, 100vw - 32px);
+        max-width: 760px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 28px;
+        border-radius: 24px;
+        background:
+            linear-gradient(180deg, rgba(14, 20, 36, 0.98) 0%, rgba(7, 10, 18, 0.98) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: #f8fafc;
+    }
+
+    .add-to-collection-header {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .add-to-collection-eyebrow {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.72);
+    }
+
+    .add-to-collection-title {
+        margin: 0;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(1.5rem, 2vw, 2rem);
+        font-weight: 700;
+        line-height: 1.05;
+        color: rgba(248, 250, 252, 0.96);
+    }
+
+    .add-to-collection-copy {
+        margin: 0;
+        max-width: 560px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        color: rgba(226, 232, 240, 0.72);
+    }
+
+    .add-to-collection-search {
+        width: 100%;
+    }
+
+    .add-to-collection-state {
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        color: rgba(226, 232, 240, 0.68);
+        font-family: 'Montserrat', sans-serif;
+    }
+
+    .add-to-collection-list {
+        display: grid;
+        gap: 12px;
+        max-height: min(420px, 55vh);
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .add-to-collection-item {
+        width: 100%;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        padding: 16px 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .add-to-collection-item:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .add-to-collection-item.is-selected {
+        border-color: color-mix(in srgb, var(--collection-accent) 70%, white 8%);
+        background: color-mix(in srgb, var(--collection-accent) 14%, rgba(255, 255, 255, 0.02));
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--collection-accent) 40%, transparent);
+    }
+
+    .add-to-collection-item-main {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .add-to-collection-item-name {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.98rem;
+        font-weight: 700;
+        color: rgba(248, 250, 252, 0.95);
+    }
+
+    .add-to-collection-item-description {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.86rem;
+        line-height: 1.45;
+        color: rgba(226, 232, 240, 0.66);
+    }
+
+    .add-to-collection-item-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 10px;
+        white-space: nowrap;
+    }
+
+    .add-to-collection-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        font-family: 'Montserrat', sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.86);
+    }
+
+    .add-to-collection-count {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+        color: rgba(148, 163, 184, 0.82);
+    }
+
+    .add-to-collection-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .add-to-collection-btn {
+        min-width: 160px;
+        height: 44px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: none;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+
+    .add-to-collection-btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+    }
+
+    .add-to-collection-btn:disabled {
+        opacity: 0.55;
+        cursor: default;
+    }
+
+    .add-to-collection-btn-primary {
+        background: linear-gradient(135deg, #1ce783 0%, #6ee7b7 100%);
+        color: #04110a;
+    }
+
+    .add-to-collection-btn-secondary {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(248, 250, 252, 0.92);
+    }
+
+    @@media (max-width: 720px) {
+        .add-to-collection-shell {
+            min-width: min(100vw - 24px, 100%);
+            padding: 22px 18px;
+        }
+
+        .add-to-collection-item {
+            grid-template-columns: 1fr;
+        }
+
+        .add-to-collection-item-meta {
+            align-items: flex-start;
+        }
+
+        .add-to-collection-actions {
+            flex-direction: column-reverse;
+        }
+
+        .add-to-collection-btn {
+            width: 100%;
+        }
+    }
+</style>

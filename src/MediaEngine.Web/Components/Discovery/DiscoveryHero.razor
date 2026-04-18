@@ -1,0 +1,317 @@
+@namespace MediaEngine.Web.Components.Discovery
+@inject NavigationManager Nav
+
+@if (Hero is not null)
+{
+    <section class="discovery-hero-shell" style="--hero-accent: @Hero.AccentColor;">
+        <div class="discovery-hero-backdrop" style="@BackgroundStyle"></div>
+
+        <div class="discovery-hero-content">
+            <div class="discovery-hero-copy">
+                @if (!string.IsNullOrWhiteSpace(Hero.Eyebrow))
+                {
+                    <div class="discovery-hero-eyebrow">@Hero.Eyebrow</div>
+                }
+
+                <h1 class="discovery-hero-title">@Hero.Title</h1>
+
+                @if (!string.IsNullOrWhiteSpace(Hero.Subtitle))
+                {
+                    <div class="discovery-hero-subtitle">@Hero.Subtitle</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Hero.MetaText))
+                {
+                    <div class="discovery-hero-meta">@Hero.MetaText</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Hero.Description))
+                {
+                    <p class="discovery-hero-description">@Hero.Description</p>
+                }
+
+                @if (Hero.ProgressPct is > 0)
+                {
+                    <div class="discovery-hero-progress">
+                        <div class="discovery-hero-progress-label">Progress</div>
+                        <div class="discovery-hero-progress-bar">
+                            <div class="discovery-hero-progress-fill" style="width: @($"{Math.Min(100, Hero.ProgressPct.Value):F0}%");"></div>
+                        </div>
+                    </div>
+                }
+
+                <div class="discovery-hero-actions">
+                    <button type="button" class="discovery-hero-btn discovery-hero-btn-primary" @onclick="OpenPrimary">
+                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Class="mr-1" />
+                        @Hero.PrimaryActionLabel
+                    </button>
+
+                    @if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
+                    {
+                        <button type="button" class="discovery-hero-btn discovery-hero-btn-secondary" @onclick="OpenSecondary">
+                            <MudIcon Icon="@Icons.Material.Outlined.Info" Class="mr-1" />
+                            @Hero.SecondaryActionLabel
+                        </button>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Hero.PreviewImageUrl))
+            {
+                <div class="discovery-hero-preview">
+                    <img src="@Hero.PreviewImageUrl" alt="@Hero.Title" class="discovery-hero-preview-image" />
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public DiscoveryHeroViewModel Hero { get; set; } = default!;
+
+    private string BackgroundStyle
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Hero.BackgroundImageUrl))
+            {
+                return "background: linear-gradient(135deg, rgba(11,17,30,0.95) 0%, rgba(5,8,14,0.98) 100%);";
+            }
+
+            return
+                $"background-image: linear-gradient(90deg, rgba(5,8,14,0.96) 0%, rgba(5,8,14,0.86) 34%, rgba(5,8,14,0.28) 72%, rgba(5,8,14,0.88) 100%), url('{Hero.BackgroundImageUrl}');";
+        }
+    }
+
+    private void OpenPrimary()
+    {
+        Nav.NavigateTo(Hero.PrimaryNavigationUrl);
+    }
+
+    private void OpenSecondary()
+    {
+        if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
+        {
+            Nav.NavigateTo(Hero.SecondaryNavigationUrl);
+        }
+    }
+}
+
+<style>
+    .discovery-hero-shell {
+        position: relative;
+        overflow: hidden;
+        border-radius: 34px;
+        min-height: clamp(420px, 54vw, 620px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(5, 8, 14, 0.92);
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+    }
+
+    .discovery-hero-backdrop {
+        position: absolute;
+        inset: 0;
+        background-position: center center;
+        background-size: cover;
+        transform: scale(1.02);
+    }
+
+    .discovery-hero-backdrop::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 220px;
+        background: linear-gradient(180deg, transparent 0%, rgba(5, 8, 14, 0.96) 100%);
+    }
+
+    .discovery-hero-content {
+        position: relative;
+        z-index: 1;
+        min-height: inherit;
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(220px, 340px);
+        align-items: end;
+        gap: 28px;
+        padding: clamp(28px, 5vw, 48px);
+    }
+
+    .discovery-hero-copy {
+        max-width: 760px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding-top: 40px;
+    }
+
+    .discovery-hero-eyebrow {
+        display: inline-flex;
+        width: fit-content;
+        align-items: center;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--hero-accent) 18%, rgba(255, 255, 255, 0.02));
+        border: 1px solid color-mix(in srgb, var(--hero-accent) 38%, rgba(255, 255, 255, 0.12));
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(226, 232, 240, 0.94);
+    }
+
+    .discovery-hero-title {
+        margin: 0;
+        font-family: Georgia, 'Times New Roman', serif;
+        font-size: clamp(2.8rem, 6vw, 5.8rem);
+        font-weight: 700;
+        line-height: 0.93;
+        letter-spacing: -0.04em;
+        color: rgba(248, 250, 252, 0.98);
+        text-wrap: balance;
+    }
+
+    .discovery-hero-subtitle {
+        font-family: 'Montserrat', sans-serif;
+        font-size: clamp(1rem, 1.6vw, 1.2rem);
+        font-weight: 600;
+        color: rgba(226, 232, 240, 0.88);
+    }
+
+    .discovery-hero-meta {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: color-mix(in srgb, var(--hero-accent) 72%, white 14%);
+    }
+
+    .discovery-hero-description {
+        margin: 0;
+        max-width: 640px;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.98rem;
+        line-height: 1.7;
+        color: rgba(226, 232, 240, 0.76);
+    }
+
+    .discovery-hero-progress {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-width: 320px;
+        margin-top: 4px;
+    }
+
+    .discovery-hero-progress-label {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(148, 163, 184, 0.92);
+    }
+
+    .discovery-hero-progress-bar {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.14);
+    }
+
+    .discovery-hero-progress-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--hero-accent) 0%, rgba(255, 255, 255, 0.92) 100%);
+    }
+
+    .discovery-hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 8px;
+    }
+
+    .discovery-hero-btn {
+        min-height: 48px;
+        border: none;
+        border-radius: 999px;
+        padding: 0 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+
+    .discovery-hero-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .discovery-hero-btn-primary {
+        background: linear-gradient(135deg, var(--hero-accent) 0%, rgba(255,255,255,0.92) 100%);
+        color: #051018;
+    }
+
+    .discovery-hero-btn-secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(248, 250, 252, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .discovery-hero-preview {
+        align-self: end;
+        justify-self: end;
+        width: min(100%, 320px);
+        aspect-ratio: 2 / 3;
+        overflow: hidden;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 28px 50px rgba(0, 0, 0, 0.34);
+        background: rgba(11, 17, 30, 0.88);
+    }
+
+    .discovery-hero-preview-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    @@media (max-width: 960px) {
+        .discovery-hero-content {
+            grid-template-columns: 1fr;
+            align-items: end;
+        }
+
+        .discovery-hero-preview {
+            width: min(58vw, 280px);
+            justify-self: start;
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .discovery-hero-shell {
+            min-height: 0;
+            border-radius: 26px;
+        }
+
+        .discovery-hero-content {
+            padding: 22px;
+        }
+
+        .discovery-hero-copy {
+            gap: 12px;
+            padding-top: 20px;
+        }
+
+        .discovery-hero-preview {
+            width: min(58vw, 220px);
+        }
+    }
+</style>

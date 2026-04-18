@@ -3447,7 +3447,17 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<ContentGroupViewModel>>("/collections/content-groups", ct) ?? [];
+            var groups = await _http.GetFromJsonAsync<List<ContentGroupViewModel>>("/collections/content-groups", ct) ?? [];
+            foreach (var group in groups)
+            {
+                if (group.CoverUrl is not null)
+                    group.CoverUrl = AbsoluteUrl(group.CoverUrl);
+
+                if (group.ArtistPhotoUrl is not null)
+                    group.ArtistPhotoUrl = AbsoluteUrl(group.ArtistPhotoUrl);
+            }
+
+            return groups;
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -3490,8 +3500,14 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items?limit={limit}", profileId);
-            return await _http.GetFromJsonAsync<List<CollectionItemViewModel>>(
-                url, ct) ?? [];
+            var items = await _http.GetFromJsonAsync<List<CollectionItemViewModel>>(url, ct) ?? [];
+            foreach (var item in items)
+            {
+                if (item.CoverUrl is not null)
+                    item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+            }
+
+            return items;
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)

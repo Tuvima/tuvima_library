@@ -106,10 +106,10 @@
         if (string.IsNullOrEmpty(mediaType)) return "transparent";
         var t = mediaType.ToLowerInvariant();
         if (t.Contains("book") || t.Contains("epub")) return "#5DCAA5";
-        if (t.Contains("audio") || t.Contains("m4b")) return "#A78BFA";
+        if (t.Contains("audio") || t.Contains("m4b")) return "#84CC16";
         if (t.Contains("movie") || t.Contains("video")) return "#60A5FA";
         if (t.Contains("tv")) return "#FBBF24";
-        if (t.Contains("music")) return "#22D3EE";
+        if (t.Contains("music")) return "#1ED760";
         if (t.Contains("comic")) return "#7C4DFF";
         return "transparent";
     }

@@ -51,7 +51,7 @@ public static class ContentLanes
     {
         "read"   => "#5DCAA5", // Green — reading
         "watch"  => "#60A5FA", // Blue — watching
-        "listen" => "#A78BFA", // Purple — listening
+        "listen" => "#1ED760", // Green — listening
         _        => "#C9922E", // Golden amber — brand default
     };
 }
