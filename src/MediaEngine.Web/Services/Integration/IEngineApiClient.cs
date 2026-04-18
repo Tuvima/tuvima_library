@@ -718,7 +718,7 @@ public interface IEngineApiClient
     Task<bool> CreateCollectionAsync(string name, string? description, string? iconName, string collectionType, List<CollectionRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, string visibility, Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>PUT /collections/{id} — update a collection.</summary>
-    Task<bool> UpdateCollectionAsync(Guid collectionId, string? name, string? description, string? iconName, List<CollectionRulePredicateViewModel>? rules, string? matchMode, string? visibility, bool? liveUpdating, bool? isEnabled, bool? isFeatured, Guid? profileId = null, CancellationToken ct = default);
+    Task<bool> UpdateCollectionAsync(Guid collectionId, string? name, string? description, string? iconName, List<CollectionRulePredicateViewModel>? rules, string? matchMode, string? visibility, string? sortField, string? sortDirection, bool? liveUpdating, bool? isEnabled, bool? isFeatured, Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>DELETE /collections/{id} — soft delete.</summary>
     Task<bool> DeleteCollectionAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);

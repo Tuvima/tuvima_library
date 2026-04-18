@@ -857,6 +857,15 @@ public partial class SharedMediaEditorShell
             ? $"/universe/{_detail.UniverseSummary.UniverseQid}/explore"
             : null;
 
+    protected string GetArtworkSlotMeta(ArtworkSlotDefinition slot) => slot.FrameClass switch
+    {
+        "portrait" => "Portrait cover",
+        "hero" or "backdrop" => "Wide background",
+        "banner" => "Wide banner",
+        "logo" => "Contained logo",
+        _ => slot.UploadHelp,
+    };
+
     protected string FormatUniverseStatus(string? status) =>
         string.IsNullOrWhiteSpace(status)
             ? "Pending"

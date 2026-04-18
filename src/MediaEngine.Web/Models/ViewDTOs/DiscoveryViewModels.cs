@@ -7,6 +7,18 @@ public enum DiscoveryCardShape
     Square,
 }
 
+public enum DiscoveryCardPresentation
+{
+    Default,
+    TvSeries,
+    MovieSeries,
+    BookSeries,
+    ComicSeries,
+    AudiobookSeries,
+    Album,
+    Artist,
+}
+
 public sealed class DiscoveryHeroViewModel
 {
     public string Eyebrow { get; init; } = string.Empty;
@@ -39,6 +51,7 @@ public sealed class DiscoveryCardViewModel
     public string MediaKind { get; init; } = string.Empty;
     public string AccentColor { get; init; } = "#60A5FA";
     public DiscoveryCardShape Shape { get; init; } = DiscoveryCardShape.Portrait;
+    public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
     public string NavigationUrl { get; init; } = "/";
     public string? DetailsNavigationUrl { get; init; }
     public string PrimaryActionLabel { get; init; } = "Open";

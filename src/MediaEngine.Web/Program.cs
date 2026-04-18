@@ -91,6 +91,7 @@ builder.Services.AddHttpClient("EngineApi", client =>
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<UIOrchestratorService>();
 builder.Services.AddScoped<MediaEditorLauncherService>();
+builder.Services.AddScoped<CollectionEditorLauncherService>();
 builder.Services.AddScoped<DiscoveryComposerService>();
 
 // ── Provider Catalogue (singleton = loaded once, shared across all circuits) ──

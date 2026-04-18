@@ -374,18 +374,18 @@
 
 .sme-artwork-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
 }
 
 .sme-art-slot {
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 18px;
-    padding: 18px;
+    border-radius: 16px;
+    padding: 14px;
     background: rgba(255,255,255,0.02);
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 10px;
 }
 
 .sme-art-slot--drag {
@@ -396,21 +396,42 @@
 .sme-art-slot-header,
 .sme-art-slot-footer {
     display: flex;
-    align-items: start;
+    align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: 10px;
+}
+
+.sme-art-slot-heading {
+    min-width: 0;
+}
+
+.sme-art-slot-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sme-art-slot-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    color: rgba(255,255,255,0.52);
+    background: rgba(255,255,255,0.05);
 }
 
 .sme-art-slot-title {
-    font-size: 0.92rem;
+    font-size: 0.88rem;
     font-weight: 700;
 }
 
 .sme-art-slot-meta,
 .sme-art-slot-status {
     color: rgba(255,255,255,0.58);
-    font-size: 0.82rem;
-    line-height: 1.45;
+    font-size: 0.76rem;
+    line-height: 1.35;
 }
 
 .sme-art-slot-count {
@@ -427,13 +448,13 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 16px;
+    border-radius: 14px;
     border: 1px solid rgba(255,255,255,0.08);
     background:
         radial-gradient(circle at top, rgba(197,58,56,0.12), transparent 48%),
         rgba(255,255,255,0.03);
     overflow: hidden;
-    min-height: 180px;
+    min-height: 112px;
 }
 
 .sme-art-slot-frame--portrait {
@@ -451,7 +472,7 @@
 
 .sme-art-slot-frame--logo {
     aspect-ratio: 16 / 5;
-    min-height: 160px;
+    min-height: 92px;
 }
 
 .sme-art-slot-image {
@@ -462,7 +483,7 @@
 
 .sme-art-slot-image--contain {
     object-fit: contain;
-    padding: 22px;
+    padding: 14px;
 }
 
 .sme-art-slot-placeholder {
@@ -470,33 +491,33 @@
     height: 100%;
 }
 
-.sme-art-slot-dropzone {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    bottom: 12px;
-    border-radius: 14px;
-    padding: 12px 14px;
-    background: rgba(10,14,23,0.78);
+.sme-art-slot-picker {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 112px;
+    border-radius: 12px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.04);
     border: 1px dashed rgba(255,255,255,0.14);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     overflow: hidden;
+    cursor: pointer;
 }
 
-.sme-art-slot-drop-title {
-    font-size: 0.84rem;
+.sme-art-slot-picker-title {
+    font-size: 0.76rem;
     font-weight: 700;
     color: rgba(248,248,248,0.92);
 }
 
-.sme-art-slot-drop-copy {
+.sme-art-slot-picker-copy {
     margin-top: 2px;
-    font-size: 0.76rem;
+    font-size: 0.7rem;
     color: rgba(255,255,255,0.56);
 }
 
-.sme-art-slot-dropzone input {
+.sme-art-slot-picker input {
     position: absolute;
     inset: 0;
     opacity: 0;
@@ -609,7 +630,7 @@
     }
 
     .sme-artwork-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .sme-search-row,
@@ -620,5 +641,16 @@
 
     .sme-field-label {
         padding-top: 0;
+    }
+}
+
+@media (max-width: 720px) {
+    .sme-artwork-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .sme-art-slot-footer {
+        flex-direction: column;
+        align-items: stretch;
     }
 }

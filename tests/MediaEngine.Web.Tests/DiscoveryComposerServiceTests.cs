@@ -60,34 +60,122 @@ public sealed class DiscoveryComposerServiceTests
     public void ComposeHome_UsesCollectionPreviewImagesWhenGroupArtIsMissing()
     {
         var service = new DiscoveryComposerService(null!);
-        var collectionId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var tvGroupId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var movieGroupId = Guid.Parse("55555555-5555-5555-5555-555555555555");
+        var bookGroupId = Guid.Parse("66666666-6666-6666-6666-666666666666");
+        var comicGroupId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var audiobookGroupId = Guid.Parse("88888888-8888-8888-8888-888888888888");
 
         var groups = new[]
         {
             new ContentGroupViewModel
             {
-                CollectionId = collectionId,
-                DisplayName = "Sci-Fi Shelf",
+                CollectionId = tvGroupId,
+                DisplayName = "The Expanse",
+                PrimaryMediaType = "TV",
+                WorkCount = 10,
+                CoverUrl = "/art/tv-cover.jpg",
+                SeasonCount = 2,
+                CreatedAt = DateTimeOffset.UtcNow,
+            },
+            new ContentGroupViewModel
+            {
+                CollectionId = movieGroupId,
+                DisplayName = "Mission: Impossible",
+                PrimaryMediaType = "Movies",
+                WorkCount = 7,
+                CreatedAt = DateTimeOffset.UtcNow,
+            },
+            new ContentGroupViewModel
+            {
+                CollectionId = bookGroupId,
+                DisplayName = "The Stormlight Archive",
                 PrimaryMediaType = "Books",
                 WorkCount = 4,
+                CreatedAt = DateTimeOffset.UtcNow,
+            },
+            new ContentGroupViewModel
+            {
+                CollectionId = comicGroupId,
+                DisplayName = "Saga",
+                PrimaryMediaType = "Comics",
+                WorkCount = 3,
+                CreatedAt = DateTimeOffset.UtcNow,
+            },
+            new ContentGroupViewModel
+            {
+                CollectionId = audiobookGroupId,
+                DisplayName = "Murderbot Diaries",
+                PrimaryMediaType = "Audiobooks",
+                WorkCount = 6,
+                CreatedAt = DateTimeOffset.UtcNow,
+            },
+        };
+
+        var albumGroups = new[]
+        {
+            new ContentGroupViewModel
+            {
+                CollectionId = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+                DisplayName = "The Record",
+                PrimaryMediaType = "Music",
+                WorkCount = 12,
+                CoverUrl = "/art/album.jpg",
+                Creator = "boygenius",
+                Year = "2023",
+                CreatedAt = DateTimeOffset.UtcNow,
+            }
+        };
+
+        var artistGroups = new[]
+        {
+            new ContentGroupViewModel
+            {
+                CollectionId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"),
+                DisplayName = "boygenius",
+                PrimaryMediaType = "Music",
+                WorkCount = 18,
+                ArtistPhotoUrl = "/art/artist.jpg",
+                Creator = "boygenius",
                 CreatedAt = DateTimeOffset.UtcNow,
             }
         };
 
         var previewImages = new Dictionary<Guid, IReadOnlyList<string>>
         {
-            [collectionId] = ["/art/one.jpg", "/art/two.jpg", "/art/three.jpg"]
+            [movieGroupId] = ["/art/one.jpg", "/art/two.jpg", "/art/three.jpg"]
         };
 
-        var page = service.ComposeHome([], [], groups, previewImages);
-        var collectionShelf = Assert.Single(page.Shelves, shelf => shelf.Title == "Collections built from your library");
-        var collectionCard = Assert.Single(collectionShelf.Items);
-        var hub = Assert.Single(page.Hubs);
+        var page = service.ComposeHome([], [], groups, previewImages, albumGroups, artistGroups);
 
-        Assert.Equal(3, collectionCard.PreviewImages.Count);
-        Assert.Equal("/art/one.jpg", collectionCard.PreviewImages[0]);
-        Assert.Equal(3, hub.PreviewImages.Count);
-        Assert.Equal("/art/two.jpg", hub.PreviewImages[1]);
+        Assert.Empty(page.Hubs);
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "TV Series");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Movie Series");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Book Series");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Comic Series");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Albums");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Artists");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Audiobook Series");
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Title == "Collections built from your library");
+
+        var tvCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "TV Series").Items);
+        Assert.Equal(DiscoveryCardPresentation.TvSeries, tvCard.Presentation);
+        Assert.Equal("/art/tv-cover.jpg", tvCard.CoverUrl);
+
+        var movieCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Movie Series").Items);
+        Assert.Equal(DiscoveryCardPresentation.MovieSeries, movieCard.Presentation);
+        Assert.Equal(3, movieCard.PreviewImages.Count);
+        Assert.Equal("/art/one.jpg", movieCard.PreviewImages[0]);
+
+        var albumCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Albums").Items);
+        Assert.Equal(DiscoveryCardPresentation.Album, albumCard.Presentation);
+        Assert.Contains("/listen/music?", albumCard.NavigationUrl, StringComparison.Ordinal);
+        Assert.Contains("groupField=album", albumCard.NavigationUrl, StringComparison.Ordinal);
+
+        var artistCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Artists").Items);
+        Assert.Equal(DiscoveryCardPresentation.Artist, artistCard.Presentation);
+        Assert.Equal("/art/artist.jpg", artistCard.CoverUrl);
+        Assert.Contains("groupField=artist", artistCard.NavigationUrl, StringComparison.Ordinal);
     }
 
     private static WorkViewModel CreateWork(

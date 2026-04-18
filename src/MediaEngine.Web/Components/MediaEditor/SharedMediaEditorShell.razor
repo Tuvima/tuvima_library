@@ -352,9 +352,16 @@
 
                                     <section class="sme-art-slot @(isDragTarget ? "sme-art-slot--drag" : "") @(canUpload ? string.Empty : "sme-art-slot--readonly")">
                                         <div class="sme-art-slot-header">
-                                            <div>
-                                                <div class="sme-art-slot-title">@slot.Label</div>
-                                                <div class="sme-art-slot-meta">@slot.Description</div>
+                                            <div class="sme-art-slot-heading">
+                                                <div class="sme-art-slot-title-row">
+                                                    <div class="sme-art-slot-title">@slot.Label</div>
+                                                    <MudTooltip Text="@slot.Description">
+                                                        <span class="sme-art-slot-info" aria-label="@($"{slot.Label} help")">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 14px;" />
+                                                        </span>
+                                                    </MudTooltip>
+                                                </div>
+                                                <div class="sme-art-slot-meta">@GetArtworkSlotMeta(slot)</div>
                                             </div>
                                             @if (slotCount > 1)
                                             {
@@ -378,18 +385,18 @@
                                                 </div>
                                             }
 
+                                        </div>
+
+                                        <div class="sme-art-slot-footer">
                                             @if (canUpload)
                                             {
-                                                <label class="sme-art-slot-dropzone">
-                                                    <div class="sme-art-slot-drop-title">Drag and drop or browse</div>
-                                                    <div class="sme-art-slot-drop-copy">@slot.UploadHelp</div>
+                                                <label class="sme-art-slot-picker">
+                                                    <span class="sme-art-slot-picker-title">Upload</span>
+                                                    <span class="sme-art-slot-picker-copy">Drop or browse</span>
                                                     <InputFile OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
                                                                accept="image/*" />
                                                 </label>
                                             }
-                                        </div>
-
-                                        <div class="sme-art-slot-footer">
                                             <div class="sme-art-slot-status">
                                                 @if (isPending)
                                                 {

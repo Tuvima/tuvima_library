@@ -1,8 +1,10 @@
 @namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Editing
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
+@inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject ISnackbar Snackbar
 
 <div class="collections-layout">
@@ -148,14 +150,6 @@
         }
     </div>
 
-    @if (_showBuilder)
-    {
-        <CollectionBuilder OnSave="OnBuilderSave"
-                           OnCancel="() => _showBuilder = false"
-                           EditingCollection="@_editingCollection"
-                           ActiveProfileId="@_activeProfile?.Id"
-                           CanManageSharedCollections="@CanManageSharedCollections" />
-    }
 </div>
 
 @code {
@@ -164,9 +158,7 @@
     private string _searchText = string.Empty;
     private string _sortBy = "name";
     private bool _loading;
-    private bool _showBuilder;
     private ProfileViewModel? _activeProfile;
-    private CollectionListItemViewModel? _editingCollection;
     private List<CollectionListItemViewModel> _allCollections = [];
     private List<CollectionListItemViewModel> _filteredCollections = [];
 
@@ -269,7 +261,7 @@
         ApplyFilters();
     }
 
-    private void OpenBuilder()
+    private async Task OpenBuilder()
     {
         if (_activeProfile is null)
         {
@@ -277,11 +269,17 @@
             return;
         }
 
-        _editingCollection = null;
-        _showBuilder = true;
+        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
+        {
+            ActiveProfileId = _activeProfile.Id,
+            CanManageSharedCollections = CanManageSharedCollections,
+        });
+
+        if (changed)
+            await LoadCollections();
     }
 
-    private void OnEditCollection(CollectionListItemViewModel collection)
+    private async Task OnEditCollection(CollectionListItemViewModel collection)
     {
         if (!collection.CanEdit)
         {
@@ -289,20 +287,21 @@
             return;
         }
 
-        _editingCollection = collection;
-        _showBuilder = true;
+        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
+        {
+            EditingCollection = collection,
+            ActiveProfileId = _activeProfile?.Id,
+            CanManageSharedCollections = CanManageSharedCollections,
+        });
+
+        if (changed)
+            await LoadCollections();
     }
 
-    private async Task OnBuilderSave()
-    {
-        _showBuilder = false;
-        await LoadCollections();
-    }
-
-    private void OnCollectionClicked(CollectionListItemViewModel collection)
+    private async Task OnCollectionClicked(CollectionListItemViewModel collection)
     {
         if (collection.CanEdit)
-            OnEditCollection(collection);
+            await OnEditCollection(collection);
     }
 
     private static string GetTypeIcon(string collectionType) => collectionType switch

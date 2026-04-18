@@ -2,17 +2,13 @@
 @inject NavigationManager Nav
 @inject IDialogService DialogService
 
-<div class="discovery-card @ShapeClass @(_expanded ? "is-expanded" : "")"
+<div class="discovery-card @ShapeClass @PresentationClass @(_expanded ? "is-expanded" : "")"
      style="--discovery-accent: @Item.AccentColor;"
      tabindex="0"
      @onkeydown="HandleKeyDown">
     <div class="discovery-card-frame">
         <div class="discovery-card-media" @onclick="OpenPrimary">
-            @if (!string.IsNullOrWhiteSpace(ImageUrl))
-            {
-                <img src="@ImageUrl" alt="@Item.Title" class="discovery-card-image" loading="lazy" />
-            }
-            else if (PreviewImages.Count > 0)
+            @if (ShowPreviewStack)
             {
                 <div class="discovery-card-stack" aria-hidden="true">
                     @for (var index = 0; index < PreviewImages.Count; index++)
@@ -24,6 +20,10 @@
                              style="@GetStackStyle(index)" />
                     }
                 </div>
+            }
+            else if (!string.IsNullOrWhiteSpace(ImageUrl))
+            {
+                <img src="@ImageUrl" alt="@Item.Title" class="discovery-card-image" loading="lazy" />
             }
             else
             {
@@ -124,9 +124,32 @@
         _ => "is-portrait",
     };
 
-    private string ImageUrl => Item.Shape == DiscoveryCardShape.Landscape
-        ? Item.BackdropUrl ?? Item.CoverUrl ?? string.Empty
-        : Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty;
+    private string PresentationClass => Item.Presentation switch
+    {
+        DiscoveryCardPresentation.TvSeries => "is-tv-series",
+        DiscoveryCardPresentation.MovieSeries => "is-movie-series",
+        DiscoveryCardPresentation.BookSeries => "is-book-series",
+        DiscoveryCardPresentation.ComicSeries => "is-comic-series",
+        DiscoveryCardPresentation.AudiobookSeries => "is-audiobook-series",
+        DiscoveryCardPresentation.Album => "is-album",
+        DiscoveryCardPresentation.Artist => "is-artist",
+        _ => "is-default",
+    };
+
+    private bool ShowPreviewStack =>
+        (Item.Presentation == DiscoveryCardPresentation.MovieSeries && PreviewImages.Count > 0)
+        || (string.IsNullOrWhiteSpace(ImageUrl) && PreviewImages.Count > 0);
+
+    private string ImageUrl => Item.Presentation switch
+    {
+        DiscoveryCardPresentation.TvSeries => Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
+        DiscoveryCardPresentation.Album => Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
+        DiscoveryCardPresentation.Artist => Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
+        DiscoveryCardPresentation.MovieSeries when PreviewImages.Count > 0 => string.Empty,
+        _ => Item.Shape == DiscoveryCardShape.Landscape
+            ? Item.BackdropUrl ?? Item.CoverUrl ?? string.Empty
+            : Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
+    };
 
     private IReadOnlyList<string> PreviewImages =>
         Item.PreviewImages
@@ -142,12 +165,20 @@
         _ => Icons.Material.Filled.AutoStories,
     };
 
-    private string FallbackIcon => Item.MediaKind switch
+    private string FallbackIcon => Item.Presentation switch
     {
-        "Movie" or "TV" => Icons.Material.Filled.Movie,
-        "Music" => Icons.Material.Filled.Album,
-        "Audiobook" => Icons.Material.Filled.Headphones,
-        _ => Icons.Material.Filled.MenuBook,
+        DiscoveryCardPresentation.Album => Icons.Material.Filled.Album,
+        DiscoveryCardPresentation.Artist => Icons.Material.Filled.Person,
+        DiscoveryCardPresentation.MovieSeries or DiscoveryCardPresentation.TvSeries => Icons.Material.Filled.Movie,
+        DiscoveryCardPresentation.ComicSeries => Icons.Material.Filled.AutoStories,
+        DiscoveryCardPresentation.AudiobookSeries => Icons.Material.Filled.Headphones,
+        _ => Item.MediaKind switch
+        {
+            "Movie" or "TV" => Icons.Material.Filled.Movie,
+            "Music" => Icons.Material.Filled.Album,
+            "Audiobook" => Icons.Material.Filled.Headphones,
+            _ => Icons.Material.Filled.MenuBook,
+        },
     };
 
     private void ToggleExpanded()
@@ -303,6 +334,11 @@
         transition: transform 0.45s ease;
     }
 
+    .discovery-card.is-tv-series .discovery-card-image,
+    .discovery-card.is-artist .discovery-card-image {
+        object-position: center top;
+    }
+
     .discovery-card:hover .discovery-card-image,
     .discovery-card:focus-within .discovery-card-image,
     .discovery-card.is-expanded .discovery-card-image {
@@ -322,6 +358,10 @@
         box-shadow: 0 20px 36px rgba(0, 0, 0, 0.34);
         border: 1px solid rgba(255, 255, 255, 0.14);
         opacity: 0.98;
+    }
+
+    .discovery-card.is-movie-series .discovery-card-stack-image {
+        border-radius: 16px;
     }
 
     .discovery-card-fallback {

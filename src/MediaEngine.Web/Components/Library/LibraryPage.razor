@@ -19,7 +19,7 @@
         @if (!HideTitleRow)
         {
             <div class="vault-title-row">
-                <h1 class="vault-title">@(ReviewOnly ? "Review" : "Library")</h1>
+                <h1 class="vault-title">@DisplayTitle</h1>
             </div>
         }
 
@@ -28,22 +28,41 @@
         {
         <div class="vault-tab-row">
             <div class="vault-tab-bar">
-                @foreach (var tab in _primaryTabs)
+                @if (HidePrimaryTabsForPreset)
                 {
-                    <button class="vault-tab @(_primaryTab == tab.Id ? "vault-tab--active" : "")"
-                            @onclick="() => SwitchPrimaryTab(tab.Id)">
-                        <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
-                        <span>@tab.Label</span>
-                    </button>
+                    @foreach (var tab in VisibleMediaTabs)
+                    {
+                        var count = GetTabBadgeCount(tab.Id);
+                        <button class="vault-tab @(_activeTab == tab.Id ? "vault-tab--active" : "")"
+                                @onclick="() => SwitchTab(tab.Id)">
+                            <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
+                            <span>@tab.Label</span>
+                            @if (count > 0)
+                            {
+                                <span class="vault-tab-badge">@(count >= 1000 ? $"{count/1000.0:0.#}k" : count)</span>
+                            }
+                        </button>
+                    }
                 }
-                @if (_actionCenterTotal > 0)
+                else
                 {
-                    <button class="vault-tab vault-tab--action-center @(_primaryTab == "action_center" ? "vault-tab--active" : "") vault-tab--alert"
-                            @onclick='() => SwitchPrimaryTab("action_center")'>
-                        <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 16px;" />
-                        <span>Action Center</span>
-                        <span class="vault-tab-badge vault-tab-badge--alert">@_actionCenterTotal</span>
-                    </button>
+                    @foreach (var tab in PrimaryTabsForDisplay)
+                    {
+                        <button class="vault-tab @(_primaryTab == tab.Id ? "vault-tab--active" : "")"
+                                @onclick="() => SwitchPrimaryTab(tab.Id)">
+                            <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
+                            <span>@tab.Label</span>
+                        </button>
+                    }
+                    @if (_actionCenterTotal > 0)
+                    {
+                        <button class="vault-tab vault-tab--action-center @(_primaryTab == "action_center" ? "vault-tab--active" : "") vault-tab--alert"
+                                @onclick='() => SwitchPrimaryTab("action_center")'>
+                            <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 16px;" />
+                            <span>Action Center</span>
+                            <span class="vault-tab-badge vault-tab-badge--alert">@_actionCenterTotal</span>
+                        </button>
+                    }
                 }
             </div>
             <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
@@ -53,7 +72,10 @@
         </div>
 
         @* â”€â”€ 3. SUB-TAB ROW (context-aware, only when not action_center) â”€â”€ *@
-        @if (_primaryTab != "action_center" && _primaryTab != "overview" && _subTabs.TryGetValue(_primaryTab, out var subs))
+        @if (!HidePrimaryTabsForPreset
+            && _primaryTab != "action_center"
+            && _primaryTab != "overview"
+            && TryGetVisibleSubTabs(_primaryTab, out var subs))
         {
             <div class="vault-subtab-row">
                 <div class="vault-tab-bar vault-tab-bar--sub">
@@ -202,7 +224,15 @@
             }
             else if (IsMediaTab(_activeTab))
             {
-                @if (IsContainerView)
+                @if (IsAlbumGridView)
+                {
+                    <LibraryMusicGrid Items="@_mediaItems"
+                                      Loading="@_loading"
+                                      CardSize="196"
+                                      OnCardClicked="OnMediaRowClicked"
+                                      OnAlbumNameClicked="OnAlbumNameClickedFromGroup" />
+                }
+                else if (IsContainerView)
                 {
                     @* Container view: show content groups (shows, albums, series, artists) *@
                     <LibraryConfigurableTable @ref="_configurableTableRef"
@@ -340,6 +370,7 @@
     [Parameter] public bool ShowReviewOverview { get; set; } = true;
     [Parameter] public bool HideTitleRow { get; set; }
     [Parameter] public string ReviewRoute { get; set; } = "/review";
+    [Parameter] public LibrarySurfacePreset? Preset { get; set; }
 
     // â”€â”€ State â”€â”€
     private string _activeTab = "overview";
@@ -499,11 +530,28 @@
         ("ua_unlinked", "Unlinked",          Icons.Material.Outlined.LinkOff),
     ];
 
+    private string DisplayTitle => ReviewOnly ? "Review" : Preset?.Title ?? "Library";
+
+    private HashSet<string> AllowedMediaTabs => Preset?.VisibleMediaTabs.Count > 0
+        ? new HashSet<string>(Preset.VisibleMediaTabs, StringComparer.OrdinalIgnoreCase)
+        : new HashSet<string>(_mediaTabIds, StringComparer.OrdinalIgnoreCase);
+
+    private bool HidePrimaryTabsForPreset => !ReviewOnly && (Preset?.HidePrimaryTabs ?? false) && Preset?.VisibleMediaTabs.Count > 0;
+
+    private IReadOnlyList<(string Id, string Label, string Icon)> VisibleMediaTabs =>
+        _subTabs["media"]
+            .Where(tab => AllowedMediaTabs.Contains(tab.Id))
+            .ToArray();
+
+    private IReadOnlyList<(string Id, string Label, string Icon)> PrimaryTabsForDisplay => _primaryTabs;
+
     // â”€â”€ Tab helpers â”€â”€
 
     private static readonly string[] _mediaTabIds = ["new", "movies", "tv", "music", "books", "audiobooks", "comics"];
 
     private static bool IsMediaTab(string tabId) => _mediaTabIds.Contains(tabId);
+
+    private bool IsAllowedMediaTab(string tabId) => AllowedMediaTabs.Contains(tabId);
 
     private static string? GetMediaTypeForTab(string tabId) => tabId switch
     {
@@ -521,14 +569,51 @@
     /// _mediaItems list itself, so LoadMediaItems() (not LoadContainerItems()) must run for that view.</summary>
     private bool IsContainerView => _viewMode is "shows" or "artists" or "series";
 
+    private bool IsAlbumGridView => _activeTab == "music" && _viewMode == "albums";
+
+    private string GetConfiguredDefaultTab()
+    {
+        var presetDefault = Preset?.DefaultMediaTab;
+        if (!string.IsNullOrWhiteSpace(presetDefault) && IsAllowedMediaTab(presetDefault))
+            return presetDefault;
+
+        return VisibleMediaTabs.FirstOrDefault().Id ?? "new";
+    }
+
+    private bool TryGetVisibleSubTabs(string primaryId, out (string Id, string Label, string Icon)[] tabs)
+    {
+        tabs = [];
+        if (!_subTabs.TryGetValue(primaryId, out var allTabs))
+            return false;
+
+        tabs = primaryId == "media"
+            ? allTabs.Where(tab => IsAllowedMediaTab(tab.Id)).ToArray()
+            : allTabs;
+
+        return tabs.Length > 0;
+    }
+
+    private static string NormalizeViewMode(string tabId, string? viewMode)
+    {
+        var normalized = string.IsNullOrWhiteSpace(viewMode) ? "all" : viewMode.Trim().ToLowerInvariant();
+        return (tabId, normalized) switch
+        {
+            ("music", "all") => "tracks",
+            _ => normalized,
+        };
+    }
+
     /// <summary>Returns the default view mode for a given tab (from saved preferences or built-in defaults).</summary>
     private string GetDefaultViewMode(string tabId)
     {
+        if (Preset?.DefaultViewModes.TryGetValue(tabId, out var presetMode) == true)
+            return NormalizeViewMode(tabId, presetMode);
+
         // TV is always by-show â€” never flat
         if (tabId == "tv") return "shows";
-        return _vaultPrefs.ViewModes.TryGetValue(tabId, out var saved) ? saved : tabId switch
+        return _vaultPrefs.ViewModes.TryGetValue(tabId, out var saved) ? NormalizeViewMode(tabId, saved) : tabId switch
         {
-            "music"     => "artists",
+            "music"     => "tracks",
             "comics"    => "series",
             _           => "all",
         };
@@ -625,7 +710,11 @@
         {
             _primaryTab = "action_center";
             _activeTab = "action_center";
+            return;
         }
+
+        if (IsMediaTab(_activeTab) && !IsAllowedMediaTab(_activeTab))
+            _activeTab = GetConfiguredDefaultTab();
     }
 
     protected override async Task OnInitializedAsync()
@@ -832,8 +921,8 @@
     /// </summary>
     private string? GetSystemViewFlatCollectionName() => (_activeTab, _viewMode) switch
     {
-        ("music", "all") => "All Songs",
-        _                => null,
+        ("music", "all" or "tracks") => "All Songs",
+        _                            => null,
     };
 
     /// <summary>Loads content groups for the current tab's container view and converts to display items.</summary>
@@ -1060,7 +1149,7 @@
             _activeTab = "overview";
             StateHasChanged();
         }
-        else if (_subTabs.TryGetValue(primaryId, out var subs) && subs.Length > 0)
+        else if (TryGetVisibleSubTabs(primaryId, out var subs))
         {
             await SwitchTab(subs[0].Id);
         }
@@ -1072,6 +1161,9 @@
 
     private async Task SwitchTab(string tabId)
     {
+        if (IsMediaTab(tabId) && !IsAllowedMediaTab(tabId))
+            tabId = GetConfiguredDefaultTab();
+
         if (_activeTab == tabId) return; // already on this tab
         _activeTab = tabId;
         _searchText = "";
@@ -1090,7 +1182,7 @@
             _primaryTab = "overview";
 
         // Set view mode from saved preferences
-        _viewMode = IsMediaTab(tabId) ? GetDefaultViewMode(tabId) : "all";
+        _viewMode = IsMediaTab(tabId) ? NormalizeViewMode(tabId, GetDefaultViewMode(tabId)) : "all";
 
         if (tabId.StartsWith("ua_"))
         {
@@ -1174,12 +1266,13 @@
 
     private async Task OnViewModeChanged(string newMode)
     {
-        if (_viewMode == newMode) return;
-        _viewMode = newMode;
+        var normalizedMode = NormalizeViewMode(_activeTab, newMode);
+        if (_viewMode == normalizedMode) return;
+        _viewMode = normalizedMode;
         _selectedItems.Clear();
 
         // Save preference
-        _vaultPrefs.ViewModes[_activeTab] = newMode;
+        _vaultPrefs.ViewModes[_activeTab] = normalizedMode;
         _ = ApiClient.SaveLibraryPreferencesAsync(_vaultPrefs); // fire-and-forget
 
         if (IsContainerView)
@@ -1799,7 +1892,12 @@
     private void UpdateUrl(bool replace = false)
     {
         var tab = _activeTab;
-        var path = ReviewOnly ? ReviewRoute : $"/review/{tab}";
+        var routeBase = string.IsNullOrWhiteSpace(Preset?.RouteBase) ? "/review" : Preset!.RouteBase.TrimEnd('/');
+        var path = ReviewOnly
+            ? ReviewRoute
+            : tab == "overview"
+                ? routeBase
+                : $"{routeBase}/{tab}";
         var queryParts = new List<string>();
 
         // Encode drill-down group state so the browser back button works
@@ -1845,6 +1943,7 @@
     private void ReadUrlState()
     {
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var resolvedTab = ReviewOnly ? "action_center" : GetConfiguredDefaultTab();
 
         if (!string.IsNullOrEmpty(Tab))
         {
@@ -1860,16 +1959,22 @@
             var allSubTabIds = _subTabs.Values.SelectMany(arr => arr).Select(t => t.Id).ToHashSet();
             if (_tabs.Any(t => t.Id == tabLower) || allSubTabIds.Contains(tabLower))
             {
-                _activeTab = tabLower;
-                // Set primary tab to match
-                if (IsMediaTab(tabLower))
-                    _primaryTab = "media";
-                else if (tabLower.StartsWith("people"))
-                    _primaryTab = "people";
-                else if (tabLower.StartsWith("universes"))
-                    _primaryTab = "universes";
+                if (!IsMediaTab(tabLower) || IsAllowedMediaTab(tabLower))
+                    resolvedTab = tabLower;
             }
         }
+
+        _activeTab = resolvedTab;
+        _primaryTab = resolvedTab switch
+        {
+            _ when ReviewOnly => "action_center",
+            _ when IsMediaTab(resolvedTab) => "media",
+            _ when resolvedTab.StartsWith("ua_", StringComparison.OrdinalIgnoreCase) => "universe_alignment",
+            _ when resolvedTab.StartsWith("people", StringComparison.OrdinalIgnoreCase) => "people",
+            _ when resolvedTab.StartsWith("universes", StringComparison.OrdinalIgnoreCase) => "universes",
+            _ => "overview",
+        };
+        _viewMode = IsMediaTab(_activeTab) ? GetDefaultViewMode(_activeTab) : "all";
 
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
 

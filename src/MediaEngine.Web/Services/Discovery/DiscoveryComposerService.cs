@@ -1,6 +1,8 @@
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace MediaEngine.Web.Services.Discovery;
 
@@ -18,21 +20,25 @@ public sealed class DiscoveryComposerService
         var worksTask = _api.GetLibraryWorksAsync(ct);
         var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
         var groupsTask = _api.GetContentGroupsAsync(ct);
+        var musicAlbumGroupsTask = _api.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album", ct: ct);
+        var musicArtistGroupsTask = _api.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist", ct: ct);
 
-        await Task.WhenAll(worksTask, journeyTask, groupsTask);
+        await Task.WhenAll(worksTask, journeyTask, groupsTask, musicAlbumGroupsTask, musicArtistGroupsTask);
 
         var works = await worksTask;
         var journey = await journeyTask;
         var groups = await groupsTask;
+        var musicAlbumGroups = await musicAlbumGroupsTask;
+        var musicArtistGroups = await musicArtistGroupsTask;
         var previewImages = await LoadCollectionPreviewImagesAsync(
             groups
                 .OrderByDescending(group => group.WorkCount)
                 .ThenByDescending(group => group.CreatedAt)
                 .Where(group => string.IsNullOrWhiteSpace(group.CoverUrl) && string.IsNullOrWhiteSpace(group.ArtistPhotoUrl))
-                .Take(12),
+                .Take(18),
             ct);
 
-        return ComposeHome(works, journey, groups, previewImages);
+        return ComposeHome(works, journey, groups, previewImages, musicAlbumGroups, musicArtistGroups);
     }
 
     public async Task<DiscoveryPageViewModel> BuildReadAsync(CancellationToken ct = default)
@@ -108,21 +114,25 @@ public sealed class DiscoveryComposerService
         IReadOnlyList<WorkViewModel> works,
         IReadOnlyList<JourneyItemViewModel> journey,
         IReadOnlyList<ContentGroupViewModel> groups,
-        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages = null)
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages = null,
+        IReadOnlyList<ContentGroupViewModel>? musicAlbumGroups = null,
+        IReadOnlyList<ContentGroupViewModel>? musicArtistGroups = null)
     {
         var orderedWorks = works.OrderByDescending(GetSortTimestamp).ThenByDescending(work => ParseYear(work.Year)).ToList();
         var progressLookup = BuildProgressLookup(journey);
         var catalog = orderedWorks.Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))).ToList();
+        var orderedMusicAlbumGroups = (musicAlbumGroups ?? [])
+            .OrderByDescending(group => group.WorkCount)
+            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var orderedMusicArtistGroups = (musicArtistGroups ?? [])
+            .OrderByDescending(group => group.WorkCount)
+            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
         var continueCards = journey
             .OrderByDescending(item => item.LastAccessed)
             .Select(ToJourneyCard)
-            .ToList();
-
-        var collectionCards = groups
-            .OrderByDescending(group => group.WorkCount)
-            .ThenByDescending(group => group.CreatedAt)
-            .Select(group => ToCollectionCard(group, OverrideShapeForGroup(group, "home"), GetPreviewImages(groupPreviewImages, group.CollectionId)))
             .ToList();
 
         var shelves = new List<DiscoveryShelfViewModel>();
@@ -137,16 +147,7 @@ public sealed class DiscoveryComposerService
             });
         }
 
-        if (collectionCards.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Collections built from your library",
-                Subtitle = "Dynamic series, shows, and albums surfaced automatically",
-                Items = TakeShelfItems(collectionCards, 10),
-                SeeAllRoute = "/collections",
-            });
-        }
+        shelves.AddRange(BuildHomeCollectionShelves(groups, orderedMusicAlbumGroups, orderedMusicArtistGroups, groupPreviewImages));
 
         foreach (var shelf in BuildAffinityShelves(
                      catalog.Where(card => IsReadKind(card.MediaKind)).ToList(),
@@ -180,12 +181,7 @@ public sealed class DiscoveryComposerService
                 journeyEyebrow: "Continue with your library",
                 workEyebrow: "Recently added for you",
                 groupEyebrow: "Featured collection"),
-            Hubs = groups
-                .OrderByDescending(group => group.WorkCount)
-                .ThenByDescending(group => group.CreatedAt)
-                .Take(8)
-                .Select(group => ToHub(group, GetPreviewImages(groupPreviewImages, group.CollectionId)))
-                .ToList(),
+            Hubs = [],
             Shelves = shelves,
             Catalog = catalog,
             EmptyTitle = "Your home screen is waiting for its first story",
@@ -558,6 +554,132 @@ public sealed class DiscoveryComposerService
             .ToList();
     }
 
+    private static IReadOnlyList<DiscoveryShelfViewModel> BuildHomeCollectionShelves(
+        IReadOnlyList<ContentGroupViewModel> contentGroups,
+        IReadOnlyList<ContentGroupViewModel> musicAlbumGroups,
+        IReadOnlyList<ContentGroupViewModel> musicArtistGroups,
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages)
+    {
+        var shelves = new List<DiscoveryShelfViewModel>();
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "TV Series",
+            subtitle: "Shows and seasons organized from your library",
+            seeAllRoute: "/watch/tv",
+            items: contentGroups
+                .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Tv)
+                .Select(group => ToCollectionCard(
+                    group,
+                    DiscoveryCardShape.Landscape,
+                    DiscoveryCardPresentation.TvSeries,
+                    GetPreviewImages(groupPreviewImages, group.CollectionId))));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Movie Series",
+            subtitle: "Franchises and sequels presented as stacked movie cards",
+            seeAllRoute: "/watch/movies",
+            items: contentGroups
+                .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Movie)
+                .Select(group => ToCollectionCard(
+                    group,
+                    DiscoveryCardShape.Landscape,
+                    DiscoveryCardPresentation.MovieSeries,
+                    GetPreviewImages(groupPreviewImages, group.CollectionId))));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Book Series",
+            subtitle: "Reading sequences collected from the books you own",
+            seeAllRoute: "/read/books",
+            items: contentGroups
+                .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Book)
+                .Select(group => ToCollectionCard(
+                    group,
+                    DiscoveryCardShape.Portrait,
+                    DiscoveryCardPresentation.BookSeries,
+                    GetPreviewImages(groupPreviewImages, group.CollectionId))));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Comic Series",
+            subtitle: "Issue runs and comic arcs grouped for quick browsing",
+            seeAllRoute: "/read/comics",
+            items: contentGroups
+                .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Comic)
+                .Select(group => ToCollectionCard(
+                    group,
+                    DiscoveryCardShape.Portrait,
+                    DiscoveryCardPresentation.ComicSeries,
+                    GetPreviewImages(groupPreviewImages, group.CollectionId))));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Albums",
+            subtitle: "Album-first listening with cover art at the center",
+            seeAllRoute: "/listen/music",
+            items: musicAlbumGroups.Select(group => ToSystemViewCard(
+                group,
+                groupType: "album",
+                groupField: "album",
+                routeBase: "/listen",
+                routeTab: "music",
+                presentation: DiscoveryCardPresentation.Album,
+                shape: DiscoveryCardShape.Square)));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Artists",
+            subtitle: "Artist-led listening built from the music already in your library",
+            seeAllRoute: "/listen/music",
+            items: musicArtistGroups.Select(group => ToSystemViewCard(
+                group,
+                groupType: "artist",
+                groupField: "artist",
+                routeBase: "/listen",
+                routeTab: "music",
+                presentation: DiscoveryCardPresentation.Artist,
+                shape: DiscoveryCardShape.Square)));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Audiobook Series",
+            subtitle: "Series-aware audiobook browsing without recommendations",
+            seeAllRoute: "/listen/audiobooks",
+            items: contentGroups
+                .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Audiobook)
+                .Select(group => ToCollectionCard(
+                    group,
+                    DiscoveryCardShape.Portrait,
+                    DiscoveryCardPresentation.AudiobookSeries,
+                    GetPreviewImages(groupPreviewImages, group.CollectionId))));
+
+        return shelves;
+    }
+
+    private static void AddHomeCollectionShelf(
+        ICollection<DiscoveryShelfViewModel> shelves,
+        string title,
+        string subtitle,
+        string seeAllRoute,
+        IEnumerable<DiscoveryCardViewModel> items)
+    {
+        var shelfItems = TakeShelfItems(items, 10);
+        if (shelfItems.Count == 0)
+        {
+            return;
+        }
+
+        shelves.Add(new DiscoveryShelfViewModel
+        {
+            Title = title,
+            Subtitle = subtitle,
+            Items = shelfItems,
+            SeeAllRoute = seeAllRoute,
+        });
+    }
+
     private static int GetAffinityScore(
         IEnumerable<JourneyItemViewModel> journey,
         Func<DiscoveryBucket, bool> matches)
@@ -739,8 +861,26 @@ public sealed class DiscoveryComposerService
         ContentGroupViewModel group,
         DiscoveryCardShape shape,
         IReadOnlyList<string>? previewImages = null)
+        => ToCollectionCard(group, shape, DiscoveryCardPresentation.Default, previewImages);
+
+    private static DiscoveryCardViewModel ToCollectionCard(
+        ContentGroupViewModel group,
+        DiscoveryCardShape shape,
+        DiscoveryCardPresentation presentation,
+        IReadOnlyList<string>? previewImages = null,
+        string? navigationUrl = null,
+        string? detailsNavigationUrl = null,
+        string? primaryActionLabel = null)
     {
         var bucket = GetBucket(group.PrimaryMediaType);
+        var prefersArtistImage = presentation == DiscoveryCardPresentation.Artist;
+        var coverUrl = prefersArtistImage
+            ? group.ArtistPhotoUrl ?? group.CoverUrl
+            : group.CoverUrl ?? group.ArtistPhotoUrl;
+        var backdropUrl = prefersArtistImage
+            ? group.ArtistPhotoUrl ?? group.CoverUrl
+            : group.CoverUrl ?? group.ArtistPhotoUrl;
+
         return new DiscoveryCardViewModel
         {
             Id = group.CollectionId,
@@ -748,22 +888,43 @@ public sealed class DiscoveryComposerService
             Title = group.DisplayName,
             Subtitle = group.Creator ?? group.Network,
             Description = BuildGroupDescriptionSafe(group),
-            CoverUrl = group.CoverUrl ?? group.ArtistPhotoUrl,
-            BackdropUrl = group.CoverUrl ?? group.ArtistPhotoUrl,
+            CoverUrl = coverUrl,
+            BackdropUrl = backdropUrl,
             PreviewImages = previewImages ?? [],
             MetaText = JoinPartsSafe(group.PrimaryMediaType, group.Year, CountLabel(group)),
             MediaKind = NormalizeDisplayKind(group.PrimaryMediaType),
             AccentColor = !string.IsNullOrWhiteSpace(group.MediaTypeColor) ? group.MediaTypeColor : AccentForBucket(bucket),
             Shape = shape,
-            NavigationUrl = $"/collection/{group.CollectionId}",
-            DetailsNavigationUrl = $"/collection/{group.CollectionId}",
-            PrimaryActionLabel = "Explore",
+            Presentation = presentation,
+            NavigationUrl = navigationUrl ?? $"/collection/{group.CollectionId}",
+            DetailsNavigationUrl = detailsNavigationUrl ?? navigationUrl ?? $"/collection/{group.CollectionId}",
+            PrimaryActionLabel = primaryActionLabel ?? "Explore",
             Creator = group.Creator,
             CollectionKey = group.DisplayName,
             SortYear = ParseYear(group.Year),
             SortTimestamp = group.CreatedAt,
             IsCollection = true,
         };
+    }
+
+    private static DiscoveryCardViewModel ToSystemViewCard(
+        ContentGroupViewModel group,
+        string groupType,
+        string groupField,
+        string routeBase,
+        string routeTab,
+        DiscoveryCardPresentation presentation,
+        DiscoveryCardShape shape)
+    {
+        var navigationUrl = BuildSystemViewNavigationUrl(routeBase, routeTab, groupType, groupField, group.DisplayName, group.PrimaryMediaType);
+        return ToCollectionCard(
+            group,
+            shape,
+            presentation,
+            previewImages: [],
+            navigationUrl: navigationUrl,
+            detailsNavigationUrl: navigationUrl,
+            primaryActionLabel: "Browse");
     }
 
     private static DiscoveryHubViewModel ToHub(ContentGroupViewModel group, IReadOnlyList<string>? previewImages = null) => new()
@@ -779,6 +940,19 @@ public sealed class DiscoveryComposerService
         CountLabel = CountLabel(group),
         NavigationUrl = $"/collection/{group.CollectionId}",
     };
+
+    private static string BuildSystemViewNavigationUrl(
+        string routeBase,
+        string routeTab,
+        string groupType,
+        string groupField,
+        string groupName,
+        string mediaType)
+    {
+        var path = $"{routeBase.TrimEnd('/')}/{routeTab}";
+        var groupId = CreateDeterministicGuid($"{groupField}:{groupName}");
+        return $"{path}?group={groupId}&groupType={Uri.EscapeDataString(groupType)}&groupName={Uri.EscapeDataString(groupName)}&groupField={Uri.EscapeDataString(groupField)}&groupMediaType={Uri.EscapeDataString(mediaType)}";
+    }
 
     private static Dictionary<Guid, double> BuildProgressLookup(IEnumerable<JourneyItemViewModel> journey) =>
         journey
@@ -822,6 +996,12 @@ public sealed class DiscoveryComposerService
         DiscoveryBucket.Movie or DiscoveryBucket.Tv => "Continue watching",
         _ => "Continue",
     };
+
+    private static Guid CreateDeterministicGuid(string value)
+    {
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value));
+        return new Guid(bytes);
+    }
 
     private static string NormalizeDisplayKind(string? mediaType)
     {
