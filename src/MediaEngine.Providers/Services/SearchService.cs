@@ -92,6 +92,7 @@ public sealed class SearchService : ISearchService
 
         // Build endpoint map for cover art enrichment
         var provConfigs = _configLoader.LoadAllProviders();
+        var (language, country) = GetConfiguredLocale();
         var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
             providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
@@ -119,8 +120,8 @@ public sealed class SearchService : ISearchService
                 Title      = searchQuery,
                 Author     = request.LocalAuthor,
                 BaseUrl    = GetProviderBaseUrl(wikidataProvider.Name, providerEndpoints),
-                Language   = "en",
-                Country    = "us",
+                Language   = language,
+                Country    = country,
             };
 
             var searchResults = await wikidataProvider.SearchAsync(
@@ -204,6 +205,7 @@ public sealed class SearchService : ISearchService
 
         // Build endpoint map for URLs/country/language
         var provConfigs = _configLoader.LoadAllProviders();
+        var (language, country) = GetConfiguredLocale();
         var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
             providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
@@ -263,6 +265,7 @@ public sealed class SearchService : ISearchService
         Dictionary<string, Dictionary<string, string>> providerEndpoints,
         CancellationToken ct)
     {
+        var (language, country) = GetConfiguredLocale();
         string? coverUrl     = null;
         string? retailAuthor = null;
 
@@ -282,8 +285,8 @@ public sealed class SearchService : ISearchService
                         MediaType  = mediaType,
                         Title      = candidate.Label,
                         BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
-                        Language   = "en",
-                        Country    = "us",
+                        Language   = language,
+                        Country    = country,
                     };
 
                     var results = await provider.SearchAsync(retailRequest, 1, ct).ConfigureAwait(false);
@@ -318,8 +321,8 @@ public sealed class SearchService : ISearchService
                             MediaType  = mediaType,
                             Title      = originalQuery,
                             BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
-                            Language   = "en",
-                            Country    = "us",
+                            Language   = language,
+                            Country    = country,
                         };
 
                         var results = await provider.SearchAsync(retailRequest, 1, ct).ConfigureAwait(false);
@@ -384,6 +387,7 @@ public sealed class SearchService : ISearchService
     {
         try
         {
+            var (language, country) = GetConfiguredLocale();
             // When structured search fields are provided, extract title/author
             // for the provider query template (e.g. "{title} {author}").
             // Falls back to the combined query string when fields are absent.
@@ -442,8 +446,8 @@ public sealed class SearchService : ISearchService
                 Isbn          = fieldIsbn,
                 Asin          = fieldAsin,
                 BaseUrl       = GetProviderBaseUrl(provider.Name, providerEndpoints),
-                Language      = "en",
-                Country       = "us",
+                Language      = language,
+                Country       = country,
                 Hints         = searchFields is { Count: > 0 }
                     ? new Dictionary<string, string>(searchFields)
                     : null,
@@ -598,6 +602,18 @@ public sealed class SearchService : ISearchService
             }
         }
         return hints;
+    }
+
+    private (string Language, string Country) GetConfiguredLocale()
+    {
+        var core = _configLoader.LoadCore();
+        var language = string.IsNullOrWhiteSpace(core.Language.Metadata)
+            ? "en"
+            : core.Language.Metadata.Trim();
+        var country = string.IsNullOrWhiteSpace(core.Country)
+            ? "US"
+            : core.Country.Trim().ToUpperInvariant();
+        return (language, country);
     }
 
     /// <summary>

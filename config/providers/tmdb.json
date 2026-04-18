@@ -46,6 +46,7 @@
     "media_types": ["Movies", "TV"],
     "entity_types": ["Work", "MediaAsset"]
   },
+  "language_strategy": "localized",
 
   "search_strategies": [
     {

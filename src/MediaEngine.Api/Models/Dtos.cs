@@ -592,6 +592,9 @@ public sealed class ProviderStatusResponse
     [JsonPropertyName("max_concurrency")]
     public int MaxConcurrency { get; init; } = 1;
 
+    [JsonPropertyName("language_strategy")]
+    public string LanguageStrategy { get; init; } = "source";
+
     [JsonPropertyName("available_fields")]
     public List<string> AvailableFields { get; init; } = [];
 
@@ -740,6 +743,9 @@ public sealed class ProviderConfigUpdateRequest
 
     [JsonPropertyName("max_concurrency")]
     public int? MaxConcurrency { get; init; }
+
+    [JsonPropertyName("language_strategy")]
+    public string? LanguageStrategy { get; init; }
 
     [JsonPropertyName("field_mappings")]
     public List<FieldMappingUpdateDto>? FieldMappings { get; init; }

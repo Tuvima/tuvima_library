@@ -516,6 +516,9 @@ public static class SettingsEndpoints
                 ProviderDomain.Music     => (MediaType.Music, "Abbey Road", "The Beatles", (string?)null, (string?)null),
                 _                        => (MediaType.Books, "The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", "B007978NPG"),
             };
+            var core = configLoader.LoadCore();
+            var language = ResolveMetadataLanguage(core);
+            var country = ResolveProviderCountry(core);
 
             var testRequest = new ProviderLookupRequest
             {
@@ -528,6 +531,8 @@ public static class SettingsEndpoints
                 Asin        = testAsin,
                 BaseUrl     = baseUrl ?? string.Empty,
                 SparqlBaseUrl = sparqlUrl,
+                Language    = language,
+                Country     = country,
             };
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -623,6 +628,9 @@ public static class SettingsEndpoints
             {
                 mediaType = parsed;
             }
+            var core = configLoader.LoadCore();
+            var language = ResolveMetadataLanguage(core);
+            var country = ResolveProviderCountry(core);
 
             var lookup = new ProviderLookupRequest
             {
@@ -635,6 +643,8 @@ public static class SettingsEndpoints
                 Asin          = request.Asin,
                 BaseUrl       = baseUrl ?? string.Empty,
                 SparqlBaseUrl = sparqlUrl,
+                Language      = language,
+                Country       = country,
             };
 
             var claims = await adapter.FetchAsync(lookup, ct);
@@ -668,6 +678,16 @@ public static class SettingsEndpoints
             if (existing is null)
                 return Results.NotFound(new { error = $"Provider '{name}' not found." });
 
+            string? normalizedLanguageStrategy = null;
+            if (request.LanguageStrategy is not null
+                && !TryNormalizeLanguageStrategy(request.LanguageStrategy, out normalizedLanguageStrategy))
+            {
+                return Results.BadRequest(new
+                {
+                    error = "language_strategy must be one of: source, localized, both.",
+                });
+            }
+
             // Update mutable fields.
             if (request.Enabled.HasValue)
                 existing.Enabled = request.Enabled.Value;
@@ -686,6 +706,8 @@ public static class SettingsEndpoints
             }
             if (request.CapabilityTags is not null)
                 existing.CapabilityTags = request.CapabilityTags;
+            if (request.LanguageStrategy is not null)
+                existing.LanguageStrategyRaw = normalizedLanguageStrategy!;
 
             // Config-driven field mappings: replace the entire list if provided.
             if (request.FieldMappings is not null)
@@ -1115,6 +1137,7 @@ public static class SettingsEndpoints
             Endpoints        = provider.Endpoints,
             ThrottleMs       = provider.ThrottleMs,
             MaxConcurrency   = provider.MaxConcurrency,
+            LanguageStrategy = provider.LanguageStrategyRaw,
             AvailableFields  = provider.AvailableFields,
             MediaTypes       = mediaTypes,
             RequiresApiKey   = provider.RequiresApiKey,
@@ -1140,6 +1163,32 @@ public static class SettingsEndpoints
             LastFailureReason    = healthRecord?.LastFailureReason,
             DownSince            = healthRecord?.DownSince?.ToString("o"),
         };
+    }
+
+    private static string ResolveMetadataLanguage(CoreConfiguration core) =>
+        string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata.Trim();
+
+    private static string ResolveProviderCountry(CoreConfiguration core) =>
+        string.IsNullOrWhiteSpace(core.Country) ? "US" : core.Country.Trim().ToUpperInvariant();
+
+    private static bool TryNormalizeLanguageStrategy(string? value, out string? normalized)
+    {
+        normalized = null;
+
+        if (value is null)
+            return false;
+
+        var candidate = value.Trim().ToLowerInvariant();
+        switch (candidate)
+        {
+            case "source":
+            case "localized":
+            case "both":
+                normalized = candidate;
+                return true;
+            default:
+                return false;
+        }
     }
 
     /// <summary>

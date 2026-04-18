@@ -11,6 +11,7 @@
   "throttle_ms": 500,
   "max_concurrency": 3,
   "cache_ttl_hours": 168,
+  "language_strategy": "both",
   "batch_size": 50,
   "reconciliation": {
     "auto_accept_threshold": 95,

@@ -741,6 +741,7 @@
 
     // ── Live catalogue (populated on init from ProviderCatalogueService) ─────────
     private IReadOnlyList<ProviderCatalogueDto> _liveCatalogue = [];
+    private Dictionary<string, ProviderStatusDto> _providerStatusByKey = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
@@ -754,6 +755,7 @@
     {
         try
         {
+            _providerStatusByKey = BuildProviderStatusLookup(await ApiClient.GetProviderStatusAsync());
             var slots = await ApiClient.GetProviderSlotsAsync();
             if (slots is not null && slots.Count > 0)
             {
@@ -794,17 +796,83 @@
         ResetToDefaults();
     }
 
-    private static ProviderAssignment CreateAssignmentFromSlot(string providerSlotName)
+    private ProviderAssignment CreateAssignmentFromSlot(string providerSlotName)
     {
         // Slot names are stored as "apple_api", "google_books" etc. — convert to display name.
         var displayName = ResolveDisplayName(providerSlotName);
         var info = AllProviderCatalogue.FirstOrDefault(p =>
             p.Name.Replace(" ", "_").Equals(providerSlotName, StringComparison.OrdinalIgnoreCase));
+        _providerStatusByKey.TryGetValue(providerSlotName, out var status);
+        status ??= _providerStatusByKey.GetValueOrDefault(displayName);
+        var resolvedName = status?.DisplayName ?? info?.Name ?? displayName;
 
         return new ProviderAssignment
         {
-            Name             = info?.Name ?? displayName,
-            LanguageStrategy = "source",
+            Name             = resolvedName,
+            Enabled          = status?.Enabled ?? true,
+            TimeoutMs        = (status?.TimeoutSeconds ?? 3) * 1000,
+            LanguageStrategy = NormalizeLanguageStrategy(status?.LanguageStrategy)
+                               ?? GetDefaultLanguageStrategy(resolvedName),
+        };
+    }
+
+    private static Dictionary<string, ProviderStatusDto> BuildProviderStatusLookup(
+        IReadOnlyList<ProviderStatusDto> statuses)
+    {
+        var lookup = new Dictionary<string, ProviderStatusDto>(StringComparer.OrdinalIgnoreCase);
+        foreach (var status in statuses)
+        {
+            AddProviderStatusLookup(lookup, status.Name, status);
+            AddProviderStatusLookup(lookup, status.DisplayName, status);
+            AddProviderStatusLookup(lookup, status.Name.Replace("_", " "), status);
+            AddProviderStatusLookup(lookup, status.DisplayName.Replace(" ", "_"), status);
+        }
+
+        return lookup;
+    }
+
+    private static void AddProviderStatusLookup(
+        IDictionary<string, ProviderStatusDto> lookup,
+        string? key,
+        ProviderStatusDto status)
+    {
+        if (!string.IsNullOrWhiteSpace(key))
+            lookup[key] = status;
+    }
+
+    private static string? NormalizeLanguageStrategy(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var candidate = value.Trim().ToLowerInvariant();
+        return candidate is "source" or "localized" or "both" ? candidate : null;
+    }
+
+    private string GetDefaultLanguageStrategy(string providerName)
+    {
+        if (_providerStatusByKey.TryGetValue(providerName, out var status))
+            return NormalizeLanguageStrategy(status.LanguageStrategy) ?? "source";
+
+        return DefaultAssignments
+            .SelectMany(kv => kv.Value)
+            .FirstOrDefault(a => string.Equals(a.Name, providerName, StringComparison.OrdinalIgnoreCase))
+            ?.LanguageStrategy
+            ?? "source";
+    }
+
+    private ProviderAssignment CreateAssignmentFromProviderName(string providerName)
+    {
+        _providerStatusByKey.TryGetValue(providerName, out var status);
+        status ??= _providerStatusByKey.GetValueOrDefault(providerName.Replace(" ", "_"));
+
+        return new ProviderAssignment
+        {
+            Name             = status?.DisplayName ?? providerName,
+            Enabled          = status?.Enabled ?? true,
+            TimeoutMs        = (status?.TimeoutSeconds ?? 3) * 1000,
+            LanguageStrategy = NormalizeLanguageStrategy(status?.LanguageStrategy)
+                               ?? GetDefaultLanguageStrategy(providerName),
         };
     }
 
@@ -941,6 +1009,7 @@
                 Enabled         = _drawerAssignment.Enabled,
                 TimeoutSeconds  = _drawerAssignment.TimeoutMs / 1000,
                 ApiKey          = apiKeyValue,
+                LanguageStrategy = _drawerAssignment.LanguageStrategy,
             };
 
             var success = await ApiClient.SaveProviderConfigAsync(providerName, config);
@@ -1000,7 +1069,7 @@
 
     private void AddProviderToChain(string name)
     {
-        GetChain(_addDialogMediaType).Add(new ProviderAssignment { Name = name });
+        GetChain(_addDialogMediaType).Add(CreateAssignmentFromProviderName(name));
         _addDialogOpen = false;
     }
 
@@ -1060,6 +1129,7 @@
                         Enabled        = assignment.Enabled,
                         TimeoutSeconds = assignment.TimeoutMs / 1000,
                         ApiKey         = apiKeyValue,
+                        LanguageStrategy = assignment.LanguageStrategy,
                     };
                     await ApiClient.SaveProviderConfigAsync(providerName, config);
                 }

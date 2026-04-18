@@ -42,10 +42,38 @@
 
             <MudGrid Spacing="3">
                 <MudItem xs="12" sm="6">
-                    <MudSelect T="string" @bind-Value="_language"
-                               Label="@L["ServerGeneral_LanguageLabel"]"
+                    <MudSelect T="string" @bind-Value="_displayLanguage"
+                               Label="@L["Profile_DisplayLanguage"]"
                                Variant="Variant.Outlined"
-                               HelperText="@L["ServerGeneral_LanguageHelper"]"
+                               HelperText="@L["Profile_DisplayLanguageHelper"]"
+                               Disabled="@_saving">
+                        @foreach (var lang in Languages)
+                        {
+                            <MudSelectItem Value="@lang.Code">@lang.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="_metadataLanguage"
+                               Label="@L["Profile_MetadataLanguage"]"
+                               Variant="Variant.Outlined"
+                               HelperText="@L["Profile_MetadataLanguageHelper"]"
+                               Disabled="@_saving">
+                        @foreach (var lang in Languages)
+                        {
+                            <MudSelectItem Value="@lang.Code">@lang.Label</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <MudItem xs="12">
+                    <MudSelect T="string"
+                               @bind-SelectedValues="_additionalLanguages"
+                               Label="@L["Profile_AdditionalContentLanguages"]"
+                               Variant="Variant.Outlined"
+                               HelperText="@L["Profile_AdditionalContentLanguagesHelper"]"
+                               MultiSelection="true"
                                Disabled="@_saving">
                         @foreach (var lang in Languages)
                         {
@@ -91,6 +119,15 @@
                 </MudItem>
             </MudGrid>
 
+            <MudSwitch T="bool"
+                       @bind-Value="_acceptAnyLanguage"
+                       Label="@L["Profile_AcceptAnyLanguage"]"
+                       Color="Color.Primary"
+                       Disabled="@_saving" />
+            <MudText Typo="Typo.caption" Style="color: var(--app-text-muted);">
+                @L["Profile_AcceptAnyLanguageHint"]
+            </MudText>
+
             @if (_languageChanged)
             {
                 <MudAlert Severity="Severity.Info" Dense="true">
@@ -126,18 +163,28 @@
     private bool _saving  = false;
 
     private string _serverName  = string.Empty;
-    private string _language    = "en";
+    private string _displayLanguage = "en";
+    private string _metadataLanguage = "en";
+    private IReadOnlyCollection<string> _additionalLanguages = Array.Empty<string>();
+    private bool _acceptAnyLanguage = true;
     private string _country     = "US";
     private string _dateFormat  = "system";
     private string _timeFormat  = "system";
 
-    private string _originalLanguage = "en";
+    private string _originalDisplayLanguage = "en";
+    private string _originalMetadataLanguage = "en";
+    private IReadOnlyCollection<string> _originalAdditionalLanguages = Array.Empty<string>();
+    private bool _originalAcceptAnyLanguage = true;
 
-    private bool _languageChanged => _language != _originalLanguage;
+    private bool _languageChanged =>
+        !string.Equals(_displayLanguage, _originalDisplayLanguage, StringComparison.OrdinalIgnoreCase);
 
     private bool _isDirty =>
         _serverName != _originalServerName ||
-        _language   != _originalLanguage   ||
+        !string.Equals(_displayLanguage, _originalDisplayLanguage, StringComparison.OrdinalIgnoreCase) ||
+        !string.Equals(_metadataLanguage, _originalMetadataLanguage, StringComparison.OrdinalIgnoreCase) ||
+        _acceptAnyLanguage != _originalAcceptAnyLanguage ||
+        !SameLanguages(_additionalLanguages, _originalAdditionalLanguages) ||
         _country    != _originalCountry    ||
         _dateFormat != _originalDateFormat ||
         _timeFormat != _originalTimeFormat;
@@ -161,7 +208,13 @@
         if (dto is not null)
         {
             _serverName  = _originalServerName  = dto.ServerName;
-            _language    = _originalLanguage    = dto.Language;
+            _displayLanguage = _originalDisplayLanguage =
+                string.IsNullOrWhiteSpace(dto.DisplayLanguage) ? dto.Language : dto.DisplayLanguage;
+            _metadataLanguage = _originalMetadataLanguage =
+                string.IsNullOrWhiteSpace(dto.MetadataLanguage) ? dto.Language : dto.MetadataLanguage;
+            _additionalLanguages = (dto.AdditionalLanguages ?? []).ToArray();
+            _originalAdditionalLanguages = _additionalLanguages.ToArray();
+            _acceptAnyLanguage = _originalAcceptAnyLanguage = dto.AcceptAnyLanguage;
             _country     = _originalCountry     = dto.Country;
             _dateFormat  = _originalDateFormat  = dto.DateFormat;
             _timeFormat  = _originalTimeFormat  = dto.TimeFormat;
@@ -182,7 +235,11 @@
         _saving = true;
         var dto = new ServerGeneralSettingsDto(
             ServerName: _serverName.Trim(),
-            Language:   _language,
+            Language:   _metadataLanguage,
+            DisplayLanguage: _displayLanguage,
+            MetadataLanguage: _metadataLanguage,
+            AdditionalLanguages: _additionalLanguages.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList(),
+            AcceptAnyLanguage: _acceptAnyLanguage,
             Country:    _country,
             DateFormat: _dateFormat,
             TimeFormat: _timeFormat);
@@ -193,7 +250,10 @@
         {
             Snackbar.Add(L["ServerGeneral_SavedSuccess"], Severity.Success);
             _originalServerName  = _serverName;
-            _originalLanguage    = _language;
+            _originalDisplayLanguage = _displayLanguage;
+            _originalMetadataLanguage = _metadataLanguage;
+            _originalAdditionalLanguages = _additionalLanguages.ToArray();
+            _originalAcceptAnyLanguage = _acceptAnyLanguage;
             _originalCountry     = _country;
             _originalDateFormat  = _dateFormat;
             _originalTimeFormat  = _timeFormat;
@@ -203,7 +263,7 @@
                 // Navigate to the culture-setter endpoint which writes the culture cookie,
                 // then redirects back here — triggering a full reload with the new locale.
                 var redirectBack = Uri.EscapeDataString(Nav.Uri);
-                Nav.NavigateTo($"/culture/set?culture={Uri.EscapeDataString(_language)}&redirectUri={redirectBack}", forceLoad: true);
+                Nav.NavigateTo($"/culture/set?culture={Uri.EscapeDataString(_displayLanguage)}&redirectUri={redirectBack}", forceLoad: true);
             }
         }
         else
@@ -230,6 +290,14 @@
     private string SystemTimeExample  => _now.ToString("t");
     private string TwelveHourExample  => _now.ToString("h:mm tt");
     private string TwentyFourHourExample => _now.ToString("HH:mm");
+
+    private static bool SameLanguages(
+        IEnumerable<string> left,
+        IEnumerable<string> right)
+    {
+        return new HashSet<string>(left, StringComparer.OrdinalIgnoreCase)
+            .SetEquals(right);
+    }
 
     // ── Static data — curated language and country lists ─────────────────────
 

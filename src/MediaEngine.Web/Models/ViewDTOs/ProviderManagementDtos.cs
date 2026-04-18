@@ -53,6 +53,9 @@ public sealed class ProviderConfigUpdateDto
     [JsonPropertyName("max_concurrency")]
     public int MaxConcurrency { get; set; } = 1;
 
+    [JsonPropertyName("language_strategy")]
+    public string? LanguageStrategy { get; set; }
+
     [JsonPropertyName("field_mappings")]
     public List<FieldMappingDto>? FieldMappings { get; set; }
 

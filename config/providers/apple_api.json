@@ -48,6 +48,7 @@
       "MediaAsset"
     ]
   },
+  "language_strategy": "localized",
   "search_strategies": [
     {
       "name": "isbn_lookup",

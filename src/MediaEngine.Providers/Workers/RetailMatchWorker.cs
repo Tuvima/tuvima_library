@@ -266,8 +266,8 @@ public sealed class RetailMatchWorker
             ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Composer);
         var album  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Album);
         var title  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Title);
-        var country = "us";
-        var lang    = "en";
+        var (lang, musicCountry, _) = GetConfiguredLocale();
+        var country = musicCountry;
 
         // ── Step 1: Track-first — search by track name to discover the collectionId.
         // A track search returns the exact track + its collectionId, so even when the
@@ -1022,8 +1022,7 @@ public sealed class RetailMatchWorker
                 break;
             }
         }
-        var lang        = "en";
-        var country     = "US";
+        var (lang, _, country) = GetConfiguredLocale();
 
         // Step 1: Search TMDB for the show to get tv_id.
         _logger.LogInformation(
@@ -1653,6 +1652,21 @@ public sealed class RetailMatchWorker
         {
             _tmdbThrottle.Release();
         }
+    }
+
+    private (string Language, string MusicCountry, string RegionCountry) GetConfiguredLocale()
+    {
+        var core = _configLoader.LoadCore();
+        var rawLanguage = string.IsNullOrWhiteSpace(core.Language.Metadata)
+            ? "en"
+            : core.Language.Metadata.Trim();
+        var language = rawLanguage
+            .Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)[0]
+            .ToLowerInvariant();
+        var regionCountry = string.IsNullOrWhiteSpace(core.Country)
+            ? "US"
+            : core.Country.Trim().ToUpperInvariant();
+        return (language, regionCountry.ToLowerInvariant(), regionCountry);
     }
 
     // ── Word overlap similarity (mirror of ConfigDrivenAdapter) ───────────────
