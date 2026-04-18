@@ -1229,9 +1229,13 @@ public static class CollectionEndpoints
 
                 // Cover from the first work that has a media asset.
                 string? cover = null;
+                string? backdrop = null;
+                string? banner = null;
                 foreach (var w in h.Works)
                 {
                     cover = BuildCoverStreamUrl(w);
+                    backdrop = BuildBackdropStreamUrl(w);
+                    banner = BuildBannerStreamUrl(w);
                     if (cover is not null) break;
                 }
 
@@ -1249,6 +1253,8 @@ public static class CollectionEndpoints
                     PrimaryMediaType = primaryMediaType,
                     WorkCount        = h.Works.Count,
                     CoverUrl         = cover,
+                    BackdropUrl      = backdrop,
+                    BannerUrl        = banner,
                     Creator          = creator,
                     UniverseStatus   = h.UniverseStatus,
                     CreatedAt        = h.CreatedAt,
@@ -1364,6 +1370,8 @@ public static class CollectionEndpoints
                         g.group_name,
                         g.work_count,
                         '/stream/' || g.first_asset_id || '/cover' AS cover_url,
+                        '/stream/' || g.first_asset_id || '/backdrop' AS backdrop_url,
+                        '/stream/' || g.first_asset_id || '/banner' AS banner_url,
                         COALESCE(
                             (
                                 SELECT cv_creator.value
@@ -1422,7 +1430,7 @@ public static class CollectionEndpoints
                 cmd.Parameters.Add(gp);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? Creator, string? Network, string? Year, int? SeasonCount, int AlbumCount)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackdropUrl, string? BannerUrl, string? Creator, string? Network, string? Year, int? SeasonCount, int AlbumCount)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1436,8 +1444,10 @@ public static class CollectionEndpoints
                             reader.IsDBNull(3) ? null : reader.GetString(3),
                             reader.IsDBNull(4) ? null : reader.GetString(4),
                             reader.IsDBNull(5) ? null : reader.GetString(5),
-                            reader.IsDBNull(6) ? null : (int?)reader.GetInt32(6),
-                            reader.IsDBNull(7) ? 0 : reader.GetInt32(7)
+                            reader.IsDBNull(6) ? null : reader.GetString(6),
+                            reader.IsDBNull(7) ? null : reader.GetString(7),
+                            reader.IsDBNull(8) ? null : (int?)reader.GetInt32(8),
+                            reader.IsDBNull(9) ? 0 : reader.GetInt32(9)
                         ));
                     }
                 }
@@ -1475,6 +1485,8 @@ public static class CollectionEndpoints
                         PrimaryMediaType = primaryMediaType,
                         WorkCount        = row.WorkCount,
                         CoverUrl         = row.CoverUrl,
+                        BackdropUrl      = row.BackdropUrl,
+                        BannerUrl        = row.BannerUrl,
                         Creator          = row.Creator,
                         UniverseStatus   = "Complete",
                         CreatedAt        = collection.CreatedAt,
@@ -2230,6 +2242,24 @@ public static class CollectionEndpoints
             .Select(c => c.EntityId)
             .FirstOrDefault(id => id != Guid.Empty);
         return assetId != Guid.Empty ? $"/stream/{assetId}/cover" : null;
+    }
+
+    private static string? BuildBackdropStreamUrl(Work? w)
+    {
+        if (w is null) return null;
+        var assetId = w.CanonicalValues
+            .Select(c => c.EntityId)
+            .FirstOrDefault(id => id != Guid.Empty);
+        return assetId != Guid.Empty ? $"/stream/{assetId}/backdrop" : null;
+    }
+
+    private static string? BuildBannerStreamUrl(Work? w)
+    {
+        if (w is null) return null;
+        var assetId = w.CanonicalValues
+            .Select(c => c.EntityId)
+            .FirstOrDefault(id => id != Guid.Empty);
+        return assetId != Guid.Empty ? $"/stream/{assetId}/banner" : null;
     }
 
     /// <summary>

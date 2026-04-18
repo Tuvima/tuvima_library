@@ -1,28 +1,47 @@
 @page "/watch"
 @page "/watch/{Tab}"
-@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Models.ViewDTOs
 
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Watch - Tuvima</PageTitle>
 
-<LibraryPage Tab="@Tab"
-             Preset="@Preset" />
+<MediaBrowseShell Tab="@Tab"
+                  Preset="@Preset" />
 
 @code {
     [Parameter] public string? Tab { get; set; }
 
-    private static readonly LibrarySurfacePreset Preset = new()
+    private static readonly LibraryBrowsePreset Preset = new()
     {
         RouteBase = "/watch",
         Title = "Watch",
-        VisibleMediaTabs = ["movies", "tv"],
-        DefaultMediaTab = "movies",
-        DefaultViewModes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["tv"] = "shows",
-        },
-        HidePrimaryTabs = true,
+        HeroVariant = BrowseHeroVariant.Watch,
+        Tabs =
+        [
+            new BrowseTabPreset
+            {
+                Id = "movies",
+                Label = "Movies",
+                MediaType = "Movies",
+                GroupingOptions =
+                [
+                    new("all", "All Movies", Icons.Material.Outlined.LocalMovies),
+                    new("series", "Series", Icons.Material.Outlined.Collections),
+                ],
+                DefaultGrouping = "all",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+            new BrowseTabPreset
+            {
+                Id = "tv",
+                Label = "TV",
+                MediaType = "TV",
+                GroupingOptions = [new("shows", "Shows", Icons.Material.Outlined.LiveTv)],
+                DefaultGrouping = "shows",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+        ],
     };
 }

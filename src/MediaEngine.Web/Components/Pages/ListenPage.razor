@@ -1,28 +1,48 @@
 @page "/listen"
 @page "/listen/{Tab}"
-@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Models.ViewDTOs
 
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Listen - Tuvima</PageTitle>
 
-<LibraryPage Tab="@Tab"
-             Preset="@Preset" />
+<MediaBrowseShell Tab="@Tab"
+                  Preset="@Preset" />
 
 @code {
     [Parameter] public string? Tab { get; set; }
 
-    private static readonly LibrarySurfacePreset Preset = new()
+    private static readonly LibraryBrowsePreset Preset = new()
     {
         RouteBase = "/listen",
         Title = "Listen",
-        VisibleMediaTabs = ["music", "audiobooks"],
-        DefaultMediaTab = "music",
-        DefaultViewModes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["music"] = "albums",
-        },
-        HidePrimaryTabs = true,
+        HeroVariant = BrowseHeroVariant.Listen,
+        Tabs =
+        [
+            new BrowseTabPreset
+            {
+                Id = "music",
+                Label = "Music",
+                MediaType = "Music",
+                GroupingOptions =
+                [
+                    new("albums", "Albums", Icons.Material.Outlined.Album),
+                    new("artists", "Artists", Icons.Material.Outlined.PersonOutline),
+                    new("tracks", "Tracks", Icons.Material.Outlined.QueueMusic),
+                ],
+                DefaultGrouping = "albums",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+            new BrowseTabPreset
+            {
+                Id = "audiobooks",
+                Label = "Audiobooks",
+                MediaType = "Audiobooks",
+                GroupingOptions = [new("all", "All Audiobooks", Icons.Material.Outlined.Headphones)],
+                DefaultGrouping = "all",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+        ],
     };
 }

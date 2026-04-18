@@ -94,6 +94,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.year,
                 fd.media_type,
                 fd.cover_url,
+                fd.backdrop_url,
+                fd.banner_url,
                 fd.match_source,
                 fd.confidence,
                 fd.status,
@@ -155,47 +157,49 @@ public sealed class RegistryRepository : IRegistryRepository
                 Year = reader.IsDBNull(2) ? null : reader.GetString(2),
                 MediaType = reader.IsDBNull(3) ? "" : reader.GetString(3),
                 CoverUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
-                MatchSource = reader.IsDBNull(5) ? null : reader.GetString(5),
-                Confidence = reader.IsDBNull(6) ? 0.0 : reader.GetDouble(6),
-                Status = reader.IsDBNull(7) ? "Confirmed" : reader.GetString(7),
-                HasDuplicate = !reader.IsDBNull(8) && reader.GetInt32(8) == 1,
-                ReviewItemId = reader.IsDBNull(9) ? null : Guid.Parse(reader.GetString(9)),
-                ReviewTrigger = reader.IsDBNull(10) ? null : reader.GetString(10),
-                HasUserLocks = !reader.IsDBNull(11) && reader.GetInt32(11) == 1,
-                FileName = reader.IsDBNull(12) ? null : reader.GetString(12),
-                Author = reader.IsDBNull(13) ? null : reader.GetString(13),
-                FilePath = reader.IsDBNull(14) ? null : reader.GetString(14),
-                WikidataStatus = reader.IsDBNull(15) ? null : reader.GetString(15),
-                WikidataMatch = reader.IsDBNull(16) ? "none" : reader.GetString(16),
-                RetailMatch = reader.IsDBNull(17) ? "none" : reader.GetString(17),
-                WikidataQid = reader.IsDBNull(18) ? null : reader.GetString(18),
-                HeroUrl = reader.IsDBNull(19) ? null : reader.GetString(19),
-                CreatedAt = reader.IsDBNull(20) ? DateTimeOffset.MinValue : ParseDateTimeOffset(reader.GetString(20)) ?? DateTimeOffset.MinValue,
-                Director = reader.IsDBNull(21) ? null : reader.GetString(21),
-                Artist = reader.IsDBNull(22) ? null : reader.GetString(22),
-                RetailMatchDetail = reader.IsDBNull(23) ? null : reader.GetString(23),
-                Series = reader.IsDBNull(24) ? null : reader.GetString(24),
-                SeriesPosition = reader.IsDBNull(25) ? null : reader.GetString(25),
-                Narrator = reader.IsDBNull(26) ? null : reader.GetString(26),
-                Genre = reader.IsDBNull(27) ? null : reader.GetString(27),
-                Runtime = reader.IsDBNull(28) ? null : reader.GetString(28),
-                Rating = reader.IsDBNull(29) ? null : reader.GetString(29),
-                Album = reader.IsDBNull(30) ? null : reader.GetString(30),
-                TrackNumber = reader.IsDBNull(31) ? null : reader.GetString(31),
-                SeasonNumber = reader.IsDBNull(32) ? null : reader.GetString(32),
-                EpisodeNumber = reader.IsDBNull(33) ? null : reader.GetString(33),
-                ShowName = reader.IsDBNull(34) ? null : reader.GetString(34),
-                Duration = reader.IsDBNull(35) ? null : reader.GetString(35),
-                EpisodeTitle = reader.IsDBNull(36) ? null : reader.GetString(36),
-                Network = reader.IsDBNull(37) ? null : reader.GetString(37),
-                TopCast = reader.IsDBNull(38) ? null : reader.GetString(38),
-                QidResolutionMethod = reader.IsDBNull(39) ? null : reader.GetString(39),
-                PipelineStep = reader.IsDBNull(40) ? "Retail" : reader.GetString(40),
-                LibraryVisibility = reader.IsDBNull(41) ? "hidden" : reader.GetString(41),
-                IsReadyForLibrary = !reader.IsDBNull(42) && reader.GetInt32(42) == 1,
-                ArtworkState = reader.IsDBNull(43) ? "pending" : reader.GetString(43),
-                ArtworkSource = reader.IsDBNull(44) ? null : reader.GetString(44),
-                ArtworkSettledAt = reader.IsDBNull(45) ? null : ParseDateTimeOffset(reader.GetString(45)),
+                BackdropUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
+                BannerUrl = reader.IsDBNull(6) ? null : reader.GetString(6),
+                MatchSource = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Confidence = reader.IsDBNull(8) ? 0.0 : reader.GetDouble(8),
+                Status = reader.IsDBNull(9) ? "Confirmed" : reader.GetString(9),
+                HasDuplicate = !reader.IsDBNull(10) && reader.GetInt32(10) == 1,
+                ReviewItemId = reader.IsDBNull(11) ? null : Guid.Parse(reader.GetString(11)),
+                ReviewTrigger = reader.IsDBNull(12) ? null : reader.GetString(12),
+                HasUserLocks = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
+                FileName = reader.IsDBNull(14) ? null : reader.GetString(14),
+                Author = reader.IsDBNull(15) ? null : reader.GetString(15),
+                FilePath = reader.IsDBNull(16) ? null : reader.GetString(16),
+                WikidataStatus = reader.IsDBNull(17) ? null : reader.GetString(17),
+                WikidataMatch = reader.IsDBNull(18) ? "none" : reader.GetString(18),
+                RetailMatch = reader.IsDBNull(19) ? "none" : reader.GetString(19),
+                WikidataQid = reader.IsDBNull(20) ? null : reader.GetString(20),
+                HeroUrl = reader.IsDBNull(21) ? null : reader.GetString(21),
+                CreatedAt = reader.IsDBNull(22) ? DateTimeOffset.MinValue : ParseDateTimeOffset(reader.GetString(22)) ?? DateTimeOffset.MinValue,
+                Director = reader.IsDBNull(23) ? null : reader.GetString(23),
+                Artist = reader.IsDBNull(24) ? null : reader.GetString(24),
+                RetailMatchDetail = reader.IsDBNull(25) ? null : reader.GetString(25),
+                Series = reader.IsDBNull(26) ? null : reader.GetString(26),
+                SeriesPosition = reader.IsDBNull(27) ? null : reader.GetString(27),
+                Narrator = reader.IsDBNull(28) ? null : reader.GetString(28),
+                Genre = reader.IsDBNull(29) ? null : reader.GetString(29),
+                Runtime = reader.IsDBNull(30) ? null : reader.GetString(30),
+                Rating = reader.IsDBNull(31) ? null : reader.GetString(31),
+                Album = reader.IsDBNull(32) ? null : reader.GetString(32),
+                TrackNumber = reader.IsDBNull(33) ? null : reader.GetString(33),
+                SeasonNumber = reader.IsDBNull(34) ? null : reader.GetString(34),
+                EpisodeNumber = reader.IsDBNull(35) ? null : reader.GetString(35),
+                ShowName = reader.IsDBNull(36) ? null : reader.GetString(36),
+                Duration = reader.IsDBNull(37) ? null : reader.GetString(37),
+                EpisodeTitle = reader.IsDBNull(38) ? null : reader.GetString(38),
+                Network = reader.IsDBNull(39) ? null : reader.GetString(39),
+                TopCast = reader.IsDBNull(40) ? null : reader.GetString(40),
+                QidResolutionMethod = reader.IsDBNull(41) ? null : reader.GetString(41),
+                PipelineStep = reader.IsDBNull(42) ? "Retail" : reader.GetString(42),
+                LibraryVisibility = reader.IsDBNull(43) ? "hidden" : reader.GetString(43),
+                IsReadyForLibrary = !reader.IsDBNull(44) && reader.GetInt32(44) == 1,
+                ArtworkState = reader.IsDBNull(45) ? "pending" : reader.GetString(45),
+                ArtworkSource = reader.IsDBNull(46) ? null : reader.GetString(46),
+                ArtworkSettledAt = reader.IsDBNull(47) ? null : ParseDateTimeOffset(reader.GetString(47)),
             });
         }
 
@@ -214,6 +218,8 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.year                  AS Year,
                 fd.media_type            AS MediaType,
                 fd.cover_url             AS CoverUrl,
+                fd.backdrop_url          AS BackdropUrl,
+                fd.banner_url            AS BannerUrl,
                 fd.hero_url              AS HeroUrl,
                 fd.confidence            AS Confidence,
                 fd.status                AS Status,
@@ -478,6 +484,8 @@ public sealed class RegistryRepository : IRegistryRepository
             Year = projection?.Year ?? Canonical("release_year"),
             MediaType = projection?.MediaType ?? lineageRow.MediaType ?? "",
             CoverUrl = projection?.CoverUrl,
+            BackdropUrl = projection?.BackdropUrl,
+            BannerUrl = projection?.BannerUrl,
             HeroUrl = projection?.HeroUrl,
             Confidence = projection?.Confidence ?? (rqRow == default ? 0.0 : rqRow.ConfidenceScore ?? 0.0),
             Status = projection?.Status ?? "Confirmed",
@@ -763,6 +771,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN acv.key = 'cover_url' THEN acv.value END) AS self_cover_url,
                     MAX(CASE WHEN acv.key = 'cover_url' THEN acv.last_scored_at END) AS self_cover_last_scored_at,
                     MAX(CASE WHEN acv.key = 'hero' THEN acv.value END) AS self_hero_url,
+                    MAX(CASE WHEN acv.key = 'backdrop' THEN acv.value END) AS self_backdrop_url,
+                    MAX(CASE WHEN acv.key = 'banner' THEN acv.value END) AS self_banner_url,
                     MAX(CASE WHEN wcv.key IN ('release_year', 'date', 'year') THEN wcv.value END) AS year,
                     COALESCE(
                         (
@@ -818,6 +828,8 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN wcv.key = 'cover_url' THEN wcv.value END) AS parent_cover_url,
                     MAX(CASE WHEN wcv.key = 'cover_url' THEN wcv.last_scored_at END) AS parent_cover_last_scored_at,
                     MAX(CASE WHEN wcv.key = 'hero' THEN wcv.value END) AS parent_hero_url,
+                    MAX(CASE WHEN wcv.key = 'backdrop' THEN wcv.value END) AS parent_backdrop_url,
+                    MAX(CASE WHEN wcv.key = 'banner' THEN wcv.value END) AS parent_banner_url,
                     (
                         SELECT GROUP_CONCAT(sub.value, ', ')
                         FROM (
@@ -1030,6 +1042,8 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN COALESCE(NULLIF(wd.self_hero_url, ''), NULLIF(wd.parent_hero_url, '')) IS NOT NULL THEN 'present'
                         ELSE 'pending'
                     END) AS hero_state,
+                    COALESCE(NULLIF(wd.self_backdrop_url, ''), NULLIF(wd.parent_backdrop_url, '')) AS backdrop_url_value,
+                    COALESCE(NULLIF(wd.self_banner_url, ''), NULLIF(wd.parent_banner_url, '')) AS banner_url_value,
                     CASE
                         WHEN COALESCE(NULLIF(wd.wikidata_qid, ''), NULLIF(ij.resolved_qid, '')) IS NOT NULL
                              AND COALESCE(NULLIF(wd.wikidata_qid, ''), NULLIF(ij.resolved_qid, '')) NOT LIKE 'NF%'
@@ -1062,6 +1076,14 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN rd.hero_state = 'present' AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/hero'
                         ELSE NULL
                     END AS hero_url,
+                    CASE
+                        WHEN rd.backdrop_url_value IS NOT NULL AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/backdrop'
+                        ELSE NULL
+                    END AS backdrop_url,
+                    CASE
+                        WHEN rd.banner_url_value IS NOT NULL AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/banner'
+                        ELSE NULL
+                    END AS banner_url,
                     rd.author,
                     rd.director,
                     rd.artist,
@@ -1263,6 +1285,8 @@ public sealed class RegistryRepository : IRegistryRepository
         public string? Year { get; set; }
         public string MediaType { get; set; } = "";
         public string? CoverUrl { get; set; }
+        public string? BackdropUrl { get; set; }
+        public string? BannerUrl { get; set; }
         public string? HeroUrl { get; set; }
         public double Confidence { get; set; }
         public string Status { get; set; } = "Confirmed";

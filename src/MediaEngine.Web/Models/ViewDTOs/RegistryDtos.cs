@@ -20,6 +20,12 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 
+    [JsonPropertyName("backdrop_url")]
+    public string? BackdropUrl { get; set; }
+
+    [JsonPropertyName("banner_url")]
+    public string? BannerUrl { get; set; }
+
     [JsonPropertyName("match_source")]
     public string? MatchSource { get; set; }
 
@@ -263,6 +269,12 @@ public sealed class RegistryItemDetailViewModel
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
+
+    [JsonPropertyName("backdrop_url")]
+    public string? BackdropUrl { get; set; }
+
+    [JsonPropertyName("banner_url")]
+    public string? BannerUrl { get; set; }
 
     [JsonPropertyName("hero_url")]
     public string? HeroUrl { get; set; }

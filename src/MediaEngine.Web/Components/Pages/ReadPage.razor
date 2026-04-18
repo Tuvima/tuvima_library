@@ -1,28 +1,47 @@
 @page "/read"
 @page "/read/{Tab}"
-@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Models.ViewDTOs
 
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Read - Tuvima</PageTitle>
 
-<LibraryPage Tab="@Tab"
-             Preset="@Preset" />
+<MediaBrowseShell Tab="@Tab"
+                  Preset="@Preset" />
 
 @code {
     [Parameter] public string? Tab { get; set; }
 
-    private static readonly LibrarySurfacePreset Preset = new()
+    private static readonly LibraryBrowsePreset Preset = new()
     {
         RouteBase = "/read",
         Title = "Read",
-        VisibleMediaTabs = ["books", "comics"],
-        DefaultMediaTab = "books",
-        DefaultViewModes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["comics"] = "series",
-        },
-        HidePrimaryTabs = true,
+        HeroVariant = BrowseHeroVariant.Read,
+        Tabs =
+        [
+            new BrowseTabPreset
+            {
+                Id = "books",
+                Label = "Books",
+                MediaType = "Books",
+                GroupingOptions = [new("all", "All Books", Icons.Material.Outlined.AutoStories)],
+                DefaultGrouping = "all",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+            new BrowseTabPreset
+            {
+                Id = "comics",
+                Label = "Comics",
+                MediaType = "Comics",
+                GroupingOptions =
+                [
+                    new("series", "Series", Icons.Material.Outlined.CollectionsBookmark),
+                    new("all", "Issues", Icons.Material.Outlined.ViewAgenda),
+                ],
+                DefaultGrouping = "series",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+        ],
     };
 }

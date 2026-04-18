@@ -1,0 +1,1281 @@
+@namespace MediaEngine.Web.Components.Browse
+@using System.Security.Cryptography
+@using System.Text
+@using MediaEngine.Web.Components.Discovery
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+
+@implements IDisposable
+
+@inject IEngineApiClient ApiClient
+@inject NavigationManager Nav
+
+<div class="browse-shell">
+    @if (!_isGroupDrilldown && _hero is not null)
+    {
+        <MediaBrowseHero Hero="_hero" />
+    }
+
+    <div class="browse-shell__toolbar-anchor">
+        <div class="browse-shell__toolbar-panel">
+            <div class="browse-shell__tab-row">
+                <div class="browse-shell__title-block">
+                    <div class="browse-shell__title-eyebrow">@Preset.Title</div>
+                    <div class="browse-shell__title-text">@CurrentTab.Label</div>
+                </div>
+
+                <div class="browse-shell__tabs">
+                    @foreach (var tab in Preset.Tabs)
+                    {
+                        <button type="button"
+                                class="browse-shell__tab @(tab.Id == _activeTabId ? "is-active" : "")"
+                                @onclick="() => SwitchTabAsync(tab.Id)">
+                            @tab.Label
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="browse-shell__toolbar">
+                @if (_isGroupDrilldown)
+                {
+                    <button type="button" class="browse-shell__back" @onclick="NavigateBackFromGroup">
+                        <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
+                        <span>Back to @CurrentTab.Label</span>
+                    </button>
+                }
+                else
+                {
+                    @if (CurrentTab.GroupingOptions.Count > 1)
+                    {
+                        <div class="browse-shell__groupings">
+                            @foreach (var option in CurrentTab.GroupingOptions)
+                            {
+                                <button type="button"
+                                        class="browse-shell__chip @(option.Value == _grouping ? "is-active" : "")"
+                                        @onclick="() => SwitchGroupingAsync(option.Value)">
+                                    <MudIcon Icon="@option.Icon" Style="font-size: 16px;" />
+                                    <span>@option.Label</span>
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    <div class="browse-shell__search">
+                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px;" />
+                        <input type="text"
+                               value="@_searchText"
+                               placeholder="Search your library"
+                               @oninput="OnSearchInput" />
+                    </div>
+
+                    <div class="browse-shell__controls">
+                        <label class="browse-shell__select-wrap">
+                            <span>Sort</span>
+                            <select value="@_sortBy" @onchange="OnSortChanged">
+                                @foreach (var option in GetSortOptions())
+                                {
+                                    <option value="@option.Value">@option.Label</option>
+                                }
+                            </select>
+                        </label>
+
+                        @if (SupportsLayoutToggle)
+                        {
+                            <div class="browse-shell__layout-toggle">
+                                <button type="button"
+                                        class="browse-shell__layout-button @(_layout == LibraryLayoutMode.Card ? "is-active" : "")"
+                                        @onclick="() => SwitchLayoutAsync(LibraryLayoutMode.Card)">
+                                    <MudIcon Icon="@Icons.Material.Outlined.GridView" Style="font-size: 18px;" />
+                                    <span>Cards</span>
+                                </button>
+                                <button type="button"
+                                        class="browse-shell__layout-button @(_layout == LibraryLayoutMode.List ? "is-active" : "")"
+                                        @onclick="() => SwitchLayoutAsync(LibraryLayoutMode.List)">
+                                    <MudIcon Icon="@Icons.Material.Outlined.ViewList" Style="font-size: 18px;" />
+                                    <span>List</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    @if (_loading && !_hasLoadedOnce)
+    {
+        <div class="browse-shell__loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.25);" />
+        </div>
+    }
+    else if (_isGroupDrilldown && _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType))
+    {
+        <MediaGroupPage GroupType="@(_activeGroupType!)"
+                        GroupId="@_activeGroupId.Value"
+                        ArtistAlbumCollectionIds="@_artistAlbumCollectionIds"
+                        ArtistName="@_activeArtistName"
+                        GroupName="@_activeGroupName"
+                        GroupField="@_activeGroupField"
+                        MediaType="@_activeGroupMediaType"
+                        OnBack="NavigateBackFromGroup"
+                        OnItemClicked="OpenItem"
+                        OnItemEditClicked="OpenItem"
+                        OnAlbumTileClicked="OpenAlbumGroup"
+                        OnAlbumNameClicked="OpenAlbumGroupByName"
+                        OnPersonClicked="OpenPerson" />
+    }
+    else if (UseListLayout)
+    {
+        <LibraryConfigurableTable Columns="@ActiveColumns"
+                                  VisibleColumnKeys="@VisibleColumnKeys"
+                                  Items="@ActiveTableItems"
+                                  Loading="@_loading"
+                                  PosterSize="56"
+                                  SelectedItems="@_selectedItems"
+                                  SelectedItemsChanged="OnSelectionChanged"
+                                  OnRowClicked="HandleTableRowClicked" />
+    }
+    else if (_cards.Count == 0)
+    {
+        <div class="browse-shell__empty">
+            <MudIcon Icon="@Icons.Material.Outlined.Inbox" Style="font-size: 52px; opacity: 0.16;" />
+            <h3>No items match this view</h3>
+            <p>Try a different tab, search, or browse mode.</p>
+        </div>
+    }
+    else
+    {
+        <div class="browse-shell__grid">
+            @foreach (var card in _cards)
+            {
+                <DiscoveryCard Item="@card" />
+            }
+        </div>
+    }
+
+    @if (_hasMore && !_isGroupDrilldown && !IsContainerGrouping)
+    {
+        <div class="browse-shell__load-more">
+            <button type="button" class="browse-shell__load-more-button" @onclick="LoadMoreAsync">
+                Load more
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Tab { get; set; }
+    [Parameter, EditorRequired] public LibraryBrowsePreset Preset { get; set; } = default!;
+
+    private const int PageSize = 72;
+
+    private readonly HashSet<Guid> _selectedItems = [];
+    private readonly List<DiscoveryCardViewModel> _cards = [];
+
+    private string _activeTabId = string.Empty;
+    private string _grouping = "all";
+    private string _searchText = string.Empty;
+    private string _sortBy = "newest";
+    private LibraryLayoutMode _layout = LibraryLayoutMode.Card;
+    private bool _loading;
+    private bool _hasLoadedOnce;
+    private bool _hasMore;
+    private bool _navigatingInternally;
+
+    private List<LibraryItemViewModel> _items = [];
+    private List<ContentGroupViewModel> _groups = [];
+    private BrowseHeroViewModel? _hero;
+
+    private Guid? _activeGroupId;
+    private string? _activeGroupType;
+    private string? _activeGroupName;
+    private string? _activeGroupField;
+    private string? _activeGroupMediaType;
+    private string? _activeArtistName;
+    private List<Guid>? _artistAlbumCollectionIds;
+
+    private System.Timers.Timer? _searchDebounceTimer;
+
+    private BrowseTabPreset CurrentTab =>
+        Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
+        ?? Preset.Tabs[0];
+
+    private bool _isGroupDrilldown => _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType);
+    private bool IsContainerGrouping => _grouping is "series" or "shows" or "albums" or "artists";
+    private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
+    private bool SupportsLayoutToggle => _grouping != "tracks";
+
+    private List<LibraryColumnDef> ActiveColumns =>
+        IsContainerGrouping
+            ? LibraryColumnDefinitions.GetColumnsByTab(_activeTabId, _grouping)
+            : LibraryColumnDefinitions.GetColumnsByTab(_activeTabId);
+
+    private List<string> VisibleColumnKeys =>
+        ActiveColumns
+            .Where(column => column.DefaultVisible && !string.Equals(column.Key, "checkbox", StringComparison.OrdinalIgnoreCase))
+            .Select(column => column.Key)
+            .ToList();
+
+    private List<LibraryItemViewModel> ActiveTableItems =>
+        IsContainerGrouping ? BuildContainerDisplayItems() : _items;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ReadUrlState();
+        await LoadBrowseContentAsync();
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        if (_navigatingInternally)
+        {
+            _navigatingInternally = false;
+            return;
+        }
+
+        ReadUrlState();
+        await InvokeAsync(async () =>
+        {
+            await LoadBrowseContentAsync();
+            StateHasChanged();
+        });
+    }
+
+    private void ReadUrlState()
+    {
+        var requestedTab = string.IsNullOrWhiteSpace(Tab) ? null : Tab.Trim().ToLowerInvariant();
+        var fallbackTab = Preset.Tabs[0];
+        var resolvedTab = Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, requestedTab, StringComparison.OrdinalIgnoreCase))
+                          ?? fallbackTab;
+
+        _activeTabId = resolvedTab.Id;
+
+        var query = System.Web.HttpUtility.ParseQueryString(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        _grouping = ResolveGrouping(query["grouping"], resolvedTab);
+        _layout = ResolveLayout(query["layout"], resolvedTab, _grouping);
+        _searchText = query["search"] ?? string.Empty;
+        _sortBy = ResolveSort(query["sort"]);
+
+        if (Guid.TryParse(query["group"], out var groupId) && !string.IsNullOrWhiteSpace(query["groupType"]))
+        {
+            _activeGroupId = groupId;
+            _activeGroupType = Uri.UnescapeDataString(query["groupType"]!);
+            _activeGroupName = query["groupName"] is { Length: > 0 } groupName ? Uri.UnescapeDataString(groupName) : null;
+            _activeGroupField = query["groupField"] is { Length: > 0 } groupField ? Uri.UnescapeDataString(groupField) : null;
+            _activeGroupMediaType = query["groupMediaType"] is { Length: > 0 } mediaType ? Uri.UnescapeDataString(mediaType) : null;
+            _activeArtistName = query["artistName"] is { Length: > 0 } artistName ? Uri.UnescapeDataString(artistName) : null;
+        }
+        else
+        {
+            ClearActiveGroupState();
+        }
+    }
+
+    private string ResolveGrouping(string? requestedGrouping, BrowseTabPreset tab)
+    {
+        if (string.IsNullOrWhiteSpace(requestedGrouping))
+        {
+            return tab.DefaultGrouping;
+        }
+
+        return tab.GroupingOptions.Any(option => string.Equals(option.Value, requestedGrouping, StringComparison.OrdinalIgnoreCase))
+            ? requestedGrouping
+            : tab.DefaultGrouping;
+    }
+
+    private LibraryLayoutMode ResolveLayout(string? requestedLayout, BrowseTabPreset tab, string grouping)
+    {
+        if (grouping == "tracks")
+        {
+            return LibraryLayoutMode.List;
+        }
+
+        return Enum.TryParse<LibraryLayoutMode>(requestedLayout, ignoreCase: true, out var parsed)
+            ? parsed
+            : tab.DefaultLayout;
+    }
+
+    private string ResolveSort(string? requestedSort)
+    {
+        var allowed = GetSortOptions().Select(option => option.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(requestedSort) && allowed.Contains(requestedSort))
+        {
+            return requestedSort;
+        }
+
+        return IsContainerGrouping ? "featured" : "newest";
+    }
+
+    private async Task LoadBrowseContentAsync(bool append = false)
+    {
+        if (_isGroupDrilldown)
+        {
+            _loading = false;
+            _hasLoadedOnce = true;
+            return;
+        }
+
+        _loading = true;
+        StateHasChanged();
+
+        var journeyTask = ApiClient.GetJourneyAsync(limit: 24);
+
+        if (IsContainerGrouping)
+        {
+            var groupsTask = LoadGroupsAsync();
+            await Task.WhenAll(journeyTask, groupsTask);
+            _cards.Clear();
+            _cards.AddRange(_groups.Select(ToGroupCard));
+        }
+        else
+        {
+            var itemsTask = LoadItemsAsync(append);
+            await Task.WhenAll(journeyTask, itemsTask);
+            _cards.Clear();
+            _cards.AddRange(_items.Select(ToItemCard));
+        }
+
+        _hero = BuildHero(journeyTask.Result);
+        _loading = false;
+        _hasLoadedOnce = true;
+    }
+
+    private async Task LoadItemsAsync(bool append)
+    {
+        var requestedOffset = append ? _items.Count : 0;
+        var response = await ApiClient.GetRegistryItemsAsync(
+            offset: requestedOffset,
+            limit: PageSize,
+            search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
+            type: CurrentTab.MediaType,
+            sort: ResolveRegistrySort());
+
+        var incoming = response?.Items?.Select(LibraryItemViewModel.From).ToList() ?? [];
+        incoming = SortItems(incoming);
+
+        if (append)
+        {
+            _items.AddRange(incoming);
+            _items = SortItems(_items);
+        }
+        else
+        {
+            _items = incoming;
+        }
+
+        _hasMore = response?.HasMore ?? false;
+    }
+
+    private async Task LoadGroupsAsync()
+    {
+        var systemGroupField = GetSystemViewGroupField();
+        var mediaType = CurrentTab.MediaType;
+
+        var groups = systemGroupField is not null
+            ? await ApiClient.GetSystemViewGroupsAsync(mediaType, systemGroupField)
+            : await ApiClient.GetContentGroupsAsync();
+
+        if (systemGroupField is null)
+        {
+            groups = groups
+                .Where(group => string.Equals(group.PrimaryMediaType, mediaType, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            groups = groups.Where(group =>
+                    group.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrWhiteSpace(group.Creator) && group.Creator.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(group.Network) && group.Network.Contains(_searchText, StringComparison.OrdinalIgnoreCase)))
+                .ToList();
+        }
+
+        _groups = SortGroups(groups);
+        _hasMore = false;
+    }
+
+    private string? ResolveRegistrySort() => _sortBy switch
+    {
+        "title" => "title",
+        "oldest" => "oldest",
+        _ => "newest",
+    };
+
+    private List<LibraryItemViewModel> SortItems(IEnumerable<LibraryItemViewModel> source)
+    {
+        return _sortBy switch
+        {
+            "title" => source.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase).ToList(),
+            "oldest" => source.OrderBy(item => item.CreatedAt).ToList(),
+            "creator" => source.OrderBy(item => item.Creator ?? item.ContextLabel ?? item.Title, StringComparer.OrdinalIgnoreCase).ToList(),
+            "year" => source.OrderByDescending(item => ParseYear(item.Year)).ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase).ToList(),
+            _ => source.OrderByDescending(item => item.CreatedAt).ToList(),
+        };
+    }
+
+    private List<ContentGroupViewModel> SortGroups(IEnumerable<ContentGroupViewModel> source)
+    {
+        return _sortBy switch
+        {
+            "title" => source.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+            "newest" => source.OrderByDescending(group => group.CreatedAt).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+            _ => source.OrderByDescending(group => group.WorkCount).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+        };
+    }
+
+    private BrowseHeroViewModel? BuildHero(IReadOnlyList<JourneyItemViewModel> journey)
+    {
+        var matchingJourney = journey
+            .Where(item => string.Equals(item.MediaType, CurrentTab.MediaType, StringComparison.OrdinalIgnoreCase))
+            .Where(item => item.ProgressPct is > 0 and < 99.5)
+            .OrderByDescending(item => item.LastAccessed)
+            .FirstOrDefault();
+
+        if (matchingJourney is not null)
+        {
+            return BuildJourneyHero(matchingJourney);
+        }
+
+        if (IsContainerGrouping && _groups.Count > 0)
+        {
+            var preferred = PreferWideArt(_groups, group => ResolveArtwork(group.BackdropUrl, group.BannerUrl, null, group.CoverUrl));
+            var pick = PickStable(preferred, _groups.Select(group => group.DisplayName));
+            return BuildGroupHero(pick);
+        }
+
+        if (_items.Count > 0)
+        {
+            var preferred = PreferWideArt(_items, item => ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl));
+            var pick = PickStable(preferred, _items.Select(item => item.EntityId.ToString("N")));
+            return BuildItemHero(pick);
+        }
+
+        return null;
+    }
+
+    private BrowseHeroViewModel BuildJourneyHero(JourneyItemViewModel item)
+    {
+        var primaryUrl = BuildJourneyPrimaryUrl(item);
+        var secondaryUrl = item.CollectionId.HasValue ? $"/collection/{item.CollectionId.Value}" : $"/book/{item.WorkId}";
+        var backgroundUrl = ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl);
+        var listenTitle = Preset.HeroVariant == BrowseHeroVariant.Listen && !string.IsNullOrWhiteSpace(item.CollectionDisplayName)
+            ? item.CollectionDisplayName!
+            : item.Title;
+        var supporting = Preset.HeroVariant == BrowseHeroVariant.Listen
+            ? !string.IsNullOrWhiteSpace(item.CollectionDisplayName) && !string.Equals(item.CollectionDisplayName, item.Title, StringComparison.OrdinalIgnoreCase)
+                ? $"Continue with {item.Title}"
+                : item.ActionLabel
+            : item.ActionLabel;
+
+        return new BrowseHeroViewModel
+        {
+            Variant = Preset.HeroVariant,
+            Eyebrow = item.ActionVerb,
+            Title = listenTitle,
+            Subtitle = item.CollectionDisplayName ?? item.Author ?? item.Series,
+            Description = item.Description,
+            MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.Series, item.ProgressDisplay),
+            SupportingLine = supporting,
+            CoverUrl = item.CoverUrl,
+            BackgroundUrl = backgroundUrl,
+            ProgressPct = item.ProgressPct,
+            PrimaryActionLabel = item.ActionVerb,
+            SecondaryActionLabel = "Details",
+            PrimaryNavigationUrl = primaryUrl,
+            SecondaryNavigationUrl = secondaryUrl,
+        };
+    }
+
+    private BrowseHeroViewModel BuildItemHero(LibraryItemViewModel item)
+    {
+        return new BrowseHeroViewModel
+        {
+            Variant = Preset.HeroVariant,
+            Eyebrow = "From your library",
+            Title = item.Title,
+            Subtitle = item.Creator ?? item.ContextLabel,
+            Description = BuildItemDescription(item),
+            MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.ContextLabel, item.Year),
+            SupportingLine = item.Runtime ?? item.Duration ?? item.Specs,
+            CoverUrl = item.CoverUrl,
+            BackgroundUrl = ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
+            PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open album" : "Open",
+            SecondaryActionLabel = "Details",
+            PrimaryNavigationUrl = $"/book/{item.EntityId}",
+            SecondaryNavigationUrl = $"/book/{item.EntityId}",
+        };
+    }
+
+    private BrowseHeroViewModel BuildGroupHero(ContentGroupViewModel group)
+    {
+        var navigationUrl = BuildGroupNavigationUrl(group);
+        return new BrowseHeroViewModel
+        {
+            Variant = Preset.HeroVariant,
+            Eyebrow = "Pick something",
+            Title = group.DisplayName,
+            Subtitle = group.Creator ?? group.Network ?? FormatMediaLabel(group.PrimaryMediaType),
+            Description = BuildGroupDescription(group),
+            MetaLine = JoinParts(FormatMediaLabel(group.PrimaryMediaType), group.Year, $"{group.WorkCount} items"),
+            SupportingLine = group.SeasonCount is > 0
+                ? $"{group.SeasonCount.Value} seasons"
+                : group.AlbumCount is > 0
+                    ? $"{group.AlbumCount.Value} albums"
+                    : null,
+            CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
+            BackgroundUrl = ResolveArtwork(group.BackdropUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
+            PrimaryActionLabel = "Explore",
+            SecondaryActionLabel = "Open",
+            PrimaryNavigationUrl = navigationUrl,
+            SecondaryNavigationUrl = navigationUrl,
+        };
+    }
+
+    private DiscoveryCardViewModel ToItemCard(LibraryItemViewModel item)
+    {
+        var presentation = item.MediaType switch
+        {
+            "Music" => DiscoveryCardPresentation.Album,
+            _ => DiscoveryCardPresentation.Default,
+        };
+        var shape = item.MediaType == "Music" ? DiscoveryCardShape.Square : DiscoveryCardShape.Portrait;
+
+        return new DiscoveryCardViewModel
+        {
+            Id = item.EntityId,
+            WorkId = item.EntityId,
+            Title = item.Title,
+            Subtitle = item.Creator ?? item.ContextLabel,
+            Description = BuildItemDescription(item),
+            CoverUrl = item.CoverUrl,
+            BackdropUrl = ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
+            MetaText = JoinParts(item.ContextLabel, item.Year, item.Runtime ?? item.Duration),
+            MediaKind = FormatMediaLabel(item.MediaType),
+            AccentColor = AccentForMedia(item.MediaType),
+            Shape = shape,
+            Presentation = presentation,
+            NavigationUrl = $"/book/{item.EntityId}",
+            DetailsNavigationUrl = $"/book/{item.EntityId}",
+            PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open" : "Details",
+            Creator = item.Creator,
+            CollectionKey = item.ContextLabel,
+            SortYear = ParseYear(item.Year),
+            SortTimestamp = item.CreatedAt,
+        };
+    }
+
+    private DiscoveryCardViewModel ToGroupCard(ContentGroupViewModel group)
+    {
+        var presentation = (_activeTabId, _grouping) switch
+        {
+            ("tv", "shows") => DiscoveryCardPresentation.TvSeries,
+            ("movies", "series") => DiscoveryCardPresentation.MovieSeries,
+            ("books", "series") => DiscoveryCardPresentation.BookSeries,
+            ("comics", "series") => DiscoveryCardPresentation.ComicSeries,
+            ("audiobooks", "series") => DiscoveryCardPresentation.AudiobookSeries,
+            ("music", "albums") => DiscoveryCardPresentation.Album,
+            ("music", "artists") => DiscoveryCardPresentation.Artist,
+            _ => DiscoveryCardPresentation.Default,
+        };
+
+        var shape = presentation switch
+        {
+            DiscoveryCardPresentation.TvSeries => DiscoveryCardShape.Landscape,
+            DiscoveryCardPresentation.Album or DiscoveryCardPresentation.Artist => DiscoveryCardShape.Square,
+            _ => DiscoveryCardShape.Portrait,
+        };
+
+        var navigationUrl = BuildGroupNavigationUrl(group);
+
+        return new DiscoveryCardViewModel
+        {
+            Id = GetGroupNavigationId(group),
+            CollectionId = group.CollectionId,
+            Title = group.DisplayName,
+            Subtitle = group.Creator ?? group.Network,
+            Description = BuildGroupDescription(group),
+            CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
+            BackdropUrl = ResolveArtwork(group.BackdropUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
+            PreviewImages = group.CoverUrl is { Length: > 0 } cover ? [cover] : [],
+            MetaText = JoinParts(group.Year, $"{group.WorkCount} items"),
+            MediaKind = FormatMediaLabel(group.PrimaryMediaType),
+            AccentColor = AccentForMedia(group.PrimaryMediaType),
+            Shape = shape,
+            Presentation = presentation,
+            NavigationUrl = navigationUrl,
+            DetailsNavigationUrl = navigationUrl,
+            PrimaryActionLabel = "Explore",
+            Creator = group.Creator,
+            CollectionKey = group.DisplayName,
+            SortYear = ParseYear(group.Year),
+            SortTimestamp = group.CreatedAt,
+            IsCollection = true,
+        };
+    }
+
+    private List<LibraryItemViewModel> BuildContainerDisplayItems()
+    {
+        var isSystemGroup = GetSystemViewGroupField() is not null;
+        return _groups.Select(group => new LibraryItemViewModel
+        {
+            EntityId = isSystemGroup ? GenerateDeterministicGuid(group.DisplayName) : group.CollectionId,
+            Title = group.DisplayName,
+            MediaType = group.PrimaryMediaType,
+            CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
+            BackdropUrl = group.BackdropUrl,
+            BannerUrl = group.BannerUrl,
+            Author = group.Creator,
+            Artist = group.Creator,
+            Network = group.Network,
+            Year = group.Year,
+            SeasonCount = group.SeasonCount?.ToString(),
+            AlbumCount = group.AlbumCount?.ToString(),
+            TrackCount = group.WorkCount.ToString(),
+            ArtistPhotoUrl = group.ArtistPhotoUrl,
+        }).ToList();
+    }
+
+    private async Task SwitchTabAsync(string tabId)
+    {
+        if (string.Equals(_activeTabId, tabId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _activeTabId = tabId;
+        var tab = CurrentTab;
+        _grouping = tab.DefaultGrouping;
+        _layout = ResolveLayout(null, tab, _grouping);
+        _sortBy = ResolveSort(null);
+        _searchText = string.Empty;
+        ClearActiveGroupState();
+        await NavigateAndReloadAsync();
+    }
+
+    private async Task SwitchGroupingAsync(string grouping)
+    {
+        if (string.Equals(_grouping, grouping, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _grouping = grouping;
+        _layout = ResolveLayout(null, CurrentTab, _grouping);
+        _sortBy = ResolveSort(null);
+        ClearActiveGroupState();
+        await NavigateAndReloadAsync();
+    }
+
+    private async Task SwitchLayoutAsync(LibraryLayoutMode layout)
+    {
+        if (_layout == layout || !SupportsLayoutToggle)
+        {
+            return;
+        }
+
+        _layout = layout;
+        await NavigateAndReloadAsync(reloadData: false);
+    }
+
+    private void OnSearchInput(ChangeEventArgs args)
+    {
+        _searchDebounceTimer?.Stop();
+        _searchDebounceTimer?.Dispose();
+
+        var value = args.Value?.ToString() ?? string.Empty;
+        _searchDebounceTimer = new System.Timers.Timer(250);
+        _searchDebounceTimer.AutoReset = false;
+        _searchDebounceTimer.Elapsed += async (_, _) =>
+        {
+            _searchDebounceTimer?.Stop();
+            await InvokeAsync(async () =>
+            {
+                _searchText = value;
+                ClearActiveGroupState();
+                await NavigateAndReloadAsync(reloadData: true, replace: true);
+            });
+        };
+        _searchDebounceTimer.Start();
+    }
+
+    private async Task OnSortChanged(ChangeEventArgs args)
+    {
+        _sortBy = args.Value?.ToString() ?? ResolveSort(null);
+        await NavigateAndReloadAsync();
+    }
+
+    private async Task LoadMoreAsync()
+    {
+        await LoadBrowseContentAsync(append: true);
+    }
+
+    private Task OnSelectionChanged(HashSet<Guid> selected)
+    {
+        _selectedItems.Clear();
+        foreach (var item in selected)
+        {
+            _selectedItems.Add(item);
+        }
+        return Task.CompletedTask;
+    }
+
+    private void HandleTableRowClicked(Guid entityId)
+    {
+        if (IsContainerGrouping)
+        {
+            var displayItem = ActiveTableItems.FirstOrDefault(item => item.EntityId == entityId);
+            if (displayItem is null)
+            {
+                return;
+            }
+
+            var matchingGroup = _groups.FirstOrDefault(group =>
+                string.Equals(group.DisplayName, displayItem.Title, StringComparison.OrdinalIgnoreCase));
+
+            if (matchingGroup is not null)
+            {
+                _navigatingInternally = true;
+                Nav.NavigateTo(BuildGroupNavigationUrl(matchingGroup));
+            }
+
+            return;
+        }
+
+        Nav.NavigateTo($"/book/{entityId}");
+    }
+
+    private Task OpenItem(Guid entityId)
+    {
+        Nav.NavigateTo($"/book/{entityId}");
+        return Task.CompletedTask;
+    }
+
+    private Task OpenPerson(Guid personId)
+    {
+        Nav.NavigateTo($"/person/{personId}");
+        return Task.CompletedTask;
+    }
+
+    private Task OpenAlbumGroup(Guid collectionId)
+    {
+        _activeGroupName = null;
+        _activeGroupField = null;
+        _activeGroupMediaType = "Music";
+        _activeGroupType = "album";
+        _activeGroupId = collectionId;
+        _activeArtistName = null;
+        _artistAlbumCollectionIds = null;
+        return NavigateAndReloadAsync(reloadData: false);
+    }
+
+    private Task OpenAlbumGroupByName(string albumName)
+    {
+        _activeGroupName = albumName;
+        _activeGroupField = "album";
+        _activeGroupMediaType = "Music";
+        _activeGroupType = "album";
+        _activeGroupId = GenerateDeterministicGuid(albumName);
+        _activeArtistName = null;
+        _artistAlbumCollectionIds = null;
+        return NavigateAndReloadAsync(reloadData: false);
+    }
+
+    private Task NavigateBackFromGroup()
+    {
+        ClearActiveGroupState();
+        return NavigateAndReloadAsync(reloadData: false);
+    }
+
+    private Task NavigateAndReloadAsync(bool reloadData = true, bool replace = false)
+    {
+        _navigatingInternally = true;
+        Nav.NavigateTo(BuildCurrentUrl(), replace: replace);
+        return reloadData ? LoadBrowseContentAsync() : Task.CompletedTask;
+    }
+
+    private string BuildCurrentUrl()
+    {
+        var defaultTab = Preset.Tabs[0].Id;
+        var path = string.Equals(_activeTabId, defaultTab, StringComparison.OrdinalIgnoreCase)
+            ? Preset.RouteBase
+            : $"{Preset.RouteBase}/{_activeTabId}";
+
+        var queryParts = new List<string>();
+
+        if (!string.Equals(_grouping, CurrentTab.DefaultGrouping, StringComparison.OrdinalIgnoreCase))
+        {
+            queryParts.Add($"grouping={Uri.EscapeDataString(_grouping)}");
+        }
+
+        if (_layout != ResolveLayout(null, CurrentTab, _grouping))
+        {
+            queryParts.Add($"layout={_layout.ToString().ToLowerInvariant()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            queryParts.Add($"search={Uri.EscapeDataString(_searchText)}");
+        }
+
+        if (!string.Equals(_sortBy, ResolveSort(null), StringComparison.OrdinalIgnoreCase))
+        {
+            queryParts.Add($"sort={Uri.EscapeDataString(_sortBy)}");
+        }
+
+        if (_isGroupDrilldown && _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType))
+        {
+            queryParts.Add($"group={_activeGroupId.Value}");
+            queryParts.Add($"groupType={Uri.EscapeDataString(_activeGroupType!)}");
+            if (!string.IsNullOrWhiteSpace(_activeGroupName))
+            {
+                queryParts.Add($"groupName={Uri.EscapeDataString(_activeGroupName)}");
+            }
+            if (!string.IsNullOrWhiteSpace(_activeGroupField))
+            {
+                queryParts.Add($"groupField={Uri.EscapeDataString(_activeGroupField)}");
+            }
+            if (!string.IsNullOrWhiteSpace(_activeGroupMediaType))
+            {
+                queryParts.Add($"groupMediaType={Uri.EscapeDataString(_activeGroupMediaType)}");
+            }
+            if (!string.IsNullOrWhiteSpace(_activeArtistName))
+            {
+                queryParts.Add($"artistName={Uri.EscapeDataString(_activeArtistName)}");
+            }
+        }
+
+        return queryParts.Count == 0 ? path : $"{path}?{string.Join("&", queryParts)}";
+    }
+
+    private string BuildGroupNavigationUrl(ContentGroupViewModel group)
+    {
+        var groupId = GetGroupNavigationId(group);
+        var groupType = GetGroupType();
+        if (groupType is null)
+        {
+            return BuildCurrentUrl();
+        }
+
+        var defaultTab = Preset.Tabs[0].Id;
+        var path = string.Equals(_activeTabId, defaultTab, StringComparison.OrdinalIgnoreCase)
+            ? Preset.RouteBase
+            : $"{Preset.RouteBase}/{_activeTabId}";
+
+        var queryParts = new List<string>();
+
+        if (!string.Equals(_grouping, CurrentTab.DefaultGrouping, StringComparison.OrdinalIgnoreCase))
+        {
+            queryParts.Add($"grouping={Uri.EscapeDataString(_grouping)}");
+        }
+
+        if (_layout != ResolveLayout(null, CurrentTab, _grouping))
+        {
+            queryParts.Add($"layout={_layout.ToString().ToLowerInvariant()}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            queryParts.Add($"search={Uri.EscapeDataString(_searchText)}");
+        }
+
+        if (!string.Equals(_sortBy, ResolveSort(null), StringComparison.OrdinalIgnoreCase))
+        {
+            queryParts.Add($"sort={Uri.EscapeDataString(_sortBy)}");
+        }
+
+        queryParts.Add($"group={groupId}");
+        queryParts.Add($"groupType={Uri.EscapeDataString(groupType)}");
+
+        var systemGroupField = GetSystemViewGroupField();
+        if (systemGroupField is not null)
+        {
+            queryParts.Add($"groupName={Uri.EscapeDataString(group.DisplayName)}");
+            queryParts.Add($"groupField={Uri.EscapeDataString(systemGroupField)}");
+            queryParts.Add($"groupMediaType={Uri.EscapeDataString(CurrentTab.MediaType)}");
+            if (_grouping == "artists")
+            {
+                queryParts.Add($"artistName={Uri.EscapeDataString(group.DisplayName)}");
+            }
+        }
+
+        return $"{path}?{string.Join("&", queryParts)}";
+    }
+
+    private Guid GetGroupNavigationId(ContentGroupViewModel group) =>
+        GetSystemViewGroupField() is not null
+            ? GenerateDeterministicGuid(group.DisplayName)
+            : group.CollectionId;
+
+    private string? GetSystemViewGroupField() => (_activeTabId, _grouping) switch
+    {
+        ("tv", "shows") => "show_name",
+        ("music", "artists") => "artist",
+        ("music", "albums") => "album",
+        ("books", "series") => "series",
+        ("audiobooks", "series") => "series",
+        ("comics", "series") => "series",
+        _ => null,
+    };
+
+    private string? GetGroupType() => (_activeTabId, _grouping) switch
+    {
+        ("movies", "series") => "movie-series",
+        ("tv", "shows") => "tv-show",
+        ("music", "artists") => "artist",
+        ("music", "albums") => "album",
+        ("books", "series") => "book-series",
+        ("audiobooks", "series") => "book-series",
+        ("comics", "series") => "comic-series",
+        _ => null,
+    };
+
+    private void ClearActiveGroupState()
+    {
+        _activeGroupId = null;
+        _activeGroupType = null;
+        _activeGroupName = null;
+        _activeGroupField = null;
+        _activeGroupMediaType = null;
+        _activeArtistName = null;
+        _artistAlbumCollectionIds = null;
+    }
+
+    private string BuildJourneyPrimaryUrl(JourneyItemViewModel item)
+    {
+        var mediaType = item.MediaType.ToLowerInvariant();
+        if (mediaType.Contains("book"))
+        {
+            var url = $"/read/{item.AssetId}";
+            if (item.CollectionId.HasValue)
+            {
+                url += $"?returnCollectionId={item.CollectionId.Value}";
+            }
+            return url;
+        }
+
+        if (item.CollectionId.HasValue)
+        {
+            return $"/collection/{item.CollectionId.Value}";
+        }
+
+        return $"/book/{item.WorkId}";
+    }
+
+    private IEnumerable<(string Value, string Label)> GetSortOptions() => IsContainerGrouping
+        ? [("featured", "Featured"), ("title", "A-Z"), ("newest", "Newest")]
+        : [("newest", "Newest"), ("title", "A-Z"), ("oldest", "Oldest"), ("creator", "Creator"), ("year", "Year")];
+
+    private static T PickStable<T>(IReadOnlyList<T> candidates, IEnumerable<string> candidateKeys)
+    {
+        var joined = string.Join("|", candidateKeys);
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(joined));
+        var index = BitConverter.ToUInt32(hash, 0) % (uint)candidates.Count;
+        return candidates[(int)index];
+    }
+
+    private List<T> PreferWideArt<T>(IReadOnlyList<T> source, Func<T, string?> artSelector)
+    {
+        var withArtwork = source.Where(item => !string.IsNullOrWhiteSpace(artSelector(item))).ToList();
+        return withArtwork.Count > 0 ? withArtwork : source.ToList();
+    }
+
+    private static Guid GenerateDeterministicGuid(string value)
+    {
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value));
+        return new Guid(bytes);
+    }
+
+    private static string? ResolveArtwork(string? backdropUrl, string? bannerUrl, string? heroUrl, string? coverUrl) =>
+        backdropUrl ?? bannerUrl ?? heroUrl ?? coverUrl;
+
+    private static string BuildItemDescription(LibraryItemViewModel item)
+    {
+        var parts = new[]
+        {
+            item.ContextLabel,
+            item.Creator,
+            item.Runtime ?? item.Duration,
+            item.Specs,
+        }.Where(part => !string.IsNullOrWhiteSpace(part));
+
+        return string.Join(" · ", parts);
+    }
+
+    private static string BuildGroupDescription(ContentGroupViewModel group)
+    {
+        var parts = new[]
+        {
+            group.Creator,
+            group.Network,
+            group.SeasonCount is > 0 ? $"{group.SeasonCount.Value} seasons" : null,
+            group.AlbumCount is > 0 ? $"{group.AlbumCount.Value} albums" : null,
+            group.WorkCount > 0 ? $"{group.WorkCount} items" : null,
+        }.Where(part => !string.IsNullOrWhiteSpace(part));
+
+        return string.Join(" · ", parts);
+    }
+
+    private static string JoinParts(params string?[] parts) =>
+        string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    private static string AccentForMedia(string? mediaType) => mediaType switch
+    {
+        "Music" => "#ff375f",
+        "Audiobooks" => "#f59e0b",
+        "TV" => "#38bdf8",
+        "Movies" => "#f97316",
+        "Comics" => "#f43f5e",
+        _ => "#5DCAA5",
+    };
+
+    private static string FormatMediaLabel(string? mediaType) => mediaType switch
+    {
+        "TV" => "TV Series",
+        "Movies" => "Movies",
+        "Books" => "Books",
+        "Comics" => "Comics",
+        "Music" => "Music",
+        "Audiobooks" => "Audiobooks",
+        _ => mediaType ?? "Library",
+    };
+
+    private static int ParseYear(string? year)
+    {
+        if (string.IsNullOrWhiteSpace(year))
+        {
+            return 0;
+        }
+
+        return int.TryParse(year.AsSpan(0, Math.Min(4, year.Length)), out var parsed) ? parsed : 0;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+        _searchDebounceTimer?.Stop();
+        _searchDebounceTimer?.Dispose();
+    }
+}
+
+<style>
+    .browse-shell {
+        color: rgba(255, 255, 255, 0.9);
+        padding-bottom: 48px;
+    }
+
+    .browse-shell__toolbar-anchor {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        margin-bottom: 22px;
+    }
+
+    .browse-shell__toolbar-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding: 18px 20px;
+        border-radius: 24px;
+        background: rgba(7, 10, 18, 0.84);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
+        backdrop-filter: blur(16px);
+    }
+
+    .browse-shell__tab-row,
+    .browse-shell__toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .browse-shell__title-block {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .browse-shell__title-eyebrow {
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.42);
+    }
+
+    .browse-shell__title-text {
+        font-size: 1.4rem;
+        font-weight: 900;
+        letter-spacing: -0.03em;
+        color: #fff;
+    }
+
+    .browse-shell__tabs,
+    .browse-shell__groupings,
+    .browse-shell__layout-toggle {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .browse-shell__tab,
+    .browse-shell__chip,
+    .browse-shell__layout-button,
+    .browse-shell__back,
+    .browse-shell__load-more-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.68);
+        font-size: 0.85rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.16s ease;
+    }
+
+    .browse-shell__tab:hover,
+    .browse-shell__chip:hover,
+    .browse-shell__layout-button:hover,
+    .browse-shell__back:hover,
+    .browse-shell__load-more-button:hover {
+        color: #fff;
+        border-color: rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .browse-shell__tab.is-active,
+    .browse-shell__chip.is-active,
+    .browse-shell__layout-button.is-active {
+        color: #0c1018;
+        background: #f59e0b;
+        border-color: rgba(245, 158, 11, 0.74);
+    }
+
+    .browse-shell__search {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: min(100%, 320px);
+        padding: 0 14px;
+        min-height: 46px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.42);
+    }
+
+    .browse-shell__search input {
+        flex: 1;
+        background: transparent;
+        border: 0;
+        color: rgba(255, 255, 255, 0.9);
+        outline: none;
+        font-size: 0.9rem;
+    }
+
+    .browse-shell__search input::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+    }
+
+    .browse-shell__controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-left: auto;
+    }
+
+    .browse-shell__select-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 46px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.62);
+        font-size: 0.78rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+    }
+
+    .browse-shell__select-wrap select {
+        background: transparent;
+        border: 0;
+        color: rgba(255, 255, 255, 0.92);
+        outline: none;
+        font-size: 0.86rem;
+        text-transform: none;
+        letter-spacing: normal;
+        font-weight: 700;
+    }
+
+    .browse-shell__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
+        gap: 26px 20px;
+    }
+
+    .browse-shell__loading,
+    .browse-shell__empty,
+    .browse-shell__load-more {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .browse-shell__loading,
+    .browse-shell__empty {
+        min-height: 360px;
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+    }
+
+    .browse-shell__empty h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.84);
+    }
+
+    .browse-shell__empty p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.46);
+    }
+
+    .browse-shell__load-more {
+        padding-top: 24px;
+    }
+
+    @@media (max-width: 900px) {
+        .browse-shell__toolbar-panel {
+            padding: 16px;
+            border-radius: 20px;
+        }
+
+        .browse-shell__controls {
+            margin-left: 0;
+        }
+
+        .browse-shell__search {
+            min-width: 100%;
+        }
+    }
+</style>

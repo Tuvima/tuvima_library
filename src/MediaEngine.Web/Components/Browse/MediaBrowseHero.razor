@@ -1,0 +1,392 @@
+@namespace MediaEngine.Web.Components.Browse
+@using MediaEngine.Web.Models.ViewDTOs
+
+@inject NavigationManager Nav
+
+@if (Hero is not null)
+{
+    <section class="browse-hero browse-hero--@Hero.Variant.ToString().ToLowerInvariant()">
+        @if (!string.IsNullOrWhiteSpace(Hero.BackgroundUrl))
+        {
+            <div class="browse-hero__background">
+                <img src="@Hero.BackgroundUrl" alt="" />
+            </div>
+        }
+        <div class="browse-hero__overlay"></div>
+        <div class="browse-hero__sheen"></div>
+
+        <div class="browse-hero__inner">
+            @if (Hero.Variant == BrowseHeroVariant.Listen)
+            {
+                <div class="browse-hero__art browse-hero__art--square">
+                    @RenderCover()
+                </div>
+                <div class="browse-hero__copy browse-hero__copy--listen">
+                    @RenderCopy()
+                </div>
+            }
+            else if (Hero.Variant == BrowseHeroVariant.Read)
+            {
+                <div class="browse-hero__art browse-hero__art--portrait">
+                    @RenderCover()
+                </div>
+                <div class="browse-hero__copy browse-hero__copy--read">
+                    @RenderCopy()
+                </div>
+            }
+            else
+            {
+                <div class="browse-hero__copy browse-hero__copy--watch">
+                    @RenderCopy()
+                </div>
+                <div class="browse-hero__art browse-hero__art--watch">
+                    @RenderCover()
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] public BrowseHeroViewModel? Hero { get; set; }
+
+    private RenderFragment RenderCopy() => @<div>
+        <div class="browse-hero__eyebrow">@Hero!.Eyebrow</div>
+        <h1 class="browse-hero__title">@Hero.Title</h1>
+
+        @if (!string.IsNullOrWhiteSpace(Hero.Subtitle))
+        {
+            <div class="browse-hero__subtitle">@Hero.Subtitle</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Hero.MetaLine))
+        {
+            <div class="browse-hero__meta">@Hero.MetaLine</div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Hero.Description))
+        {
+            <p class="browse-hero__description">@Hero.Description</p>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(Hero.SupportingLine))
+        {
+            <div class="browse-hero__supporting">@Hero.SupportingLine</div>
+        }
+
+        @if (Hero.ProgressPct is > 0)
+        {
+            <div class="browse-hero__progress-wrap">
+                <div class="browse-hero__progress-track">
+                    <div class="browse-hero__progress-fill" style="width: @($"{Math.Clamp(Hero.ProgressPct.Value, 0, 100):F0}%");"></div>
+                </div>
+                <div class="browse-hero__progress-label">@($"{Math.Clamp(Hero.ProgressPct.Value, 0, 100):F0}% complete")</div>
+            </div>
+        }
+
+        <div class="browse-hero__actions">
+            <button type="button" class="browse-hero__button browse-hero__button--primary" @onclick="OpenPrimary">
+                <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
+                <span>@Hero.PrimaryActionLabel</span>
+            </button>
+            @if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
+            {
+                <button type="button" class="browse-hero__button browse-hero__button--secondary" @onclick="OpenSecondary">
+                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Style="font-size: 18px;" />
+                    <span>@(Hero.SecondaryActionLabel ?? "Details")</span>
+                </button>
+            }
+        </div>
+    </div>;
+
+    private RenderFragment RenderCover() => @<div class="browse-hero__cover-frame">
+        @if (!string.IsNullOrWhiteSpace(Hero?.CoverUrl))
+        {
+            <img src="@Hero.CoverUrl" alt="@Hero.Title" class="browse-hero__cover" />
+        }
+        else
+        {
+            <div class="browse-hero__cover-placeholder">
+                <MudIcon Icon="@GetFallbackIcon()" Style="font-size: 46px; opacity: 0.22;" />
+            </div>
+        }
+    </div>;
+
+    private void OpenPrimary()
+    {
+        if (!string.IsNullOrWhiteSpace(Hero?.PrimaryNavigationUrl))
+        {
+            Nav.NavigateTo(Hero.PrimaryNavigationUrl);
+        }
+    }
+
+    private void OpenSecondary()
+    {
+        if (!string.IsNullOrWhiteSpace(Hero?.SecondaryNavigationUrl))
+        {
+            Nav.NavigateTo(Hero.SecondaryNavigationUrl!);
+        }
+    }
+
+    private string GetFallbackIcon() => Hero?.Variant switch
+    {
+        BrowseHeroVariant.Listen => Icons.Material.Outlined.Album,
+        BrowseHeroVariant.Watch => Icons.Material.Outlined.Movie,
+        _ => Icons.Material.Outlined.MenuBook,
+    };
+}
+
+<style>
+    .browse-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 30px;
+        min-height: 380px;
+        margin: 0 0 24px;
+        background:
+            radial-gradient(circle at top right, rgba(255, 255, 255, 0.08), transparent 34%),
+            linear-gradient(135deg, rgba(11, 15, 26, 0.96) 0%, rgba(6, 10, 18, 0.98) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        box-shadow: 0 28px 60px rgba(0, 0, 0, 0.32);
+    }
+
+    .browse-hero__background,
+    .browse-hero__background img,
+    .browse-hero__overlay,
+    .browse-hero__sheen {
+        position: absolute;
+        inset: 0;
+    }
+
+    .browse-hero__background img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.04);
+        filter: saturate(0.95);
+    }
+
+    .browse-hero__overlay {
+        background:
+            linear-gradient(90deg, rgba(6, 10, 18, 0.92) 0%, rgba(6, 10, 18, 0.72) 36%, rgba(6, 10, 18, 0.36) 70%, rgba(6, 10, 18, 0.85) 100%);
+    }
+
+    .browse-hero__sheen {
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 34%);
+        pointer-events: none;
+    }
+
+    .browse-hero--listen .browse-hero__overlay {
+        background:
+            linear-gradient(135deg, rgba(18, 18, 18, 0.94) 0%, rgba(18, 18, 18, 0.82) 32%, rgba(18, 18, 18, 0.66) 100%),
+            radial-gradient(circle at 18% 20%, rgba(255, 69, 96, 0.20), transparent 32%),
+            radial-gradient(circle at 88% 26%, rgba(255, 170, 0, 0.18), transparent 28%);
+    }
+
+    .browse-hero--read .browse-hero__overlay {
+        background:
+            linear-gradient(90deg, rgba(11, 14, 20, 0.90) 0%, rgba(11, 14, 20, 0.78) 44%, rgba(11, 14, 20, 0.64) 100%),
+            radial-gradient(circle at 12% 22%, rgba(93, 202, 165, 0.18), transparent 28%);
+    }
+
+    .browse-hero__inner {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: center;
+        min-height: 380px;
+        padding: 34px 38px;
+    }
+
+    .browse-hero--listen .browse-hero__inner,
+    .browse-hero--read .browse-hero__inner {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .browse-hero__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-width: 760px;
+    }
+
+    .browse-hero__eyebrow {
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.62);
+    }
+
+    .browse-hero__title {
+        margin: 0;
+        font-size: clamp(2.4rem, 5vw, 4.7rem);
+        line-height: 0.94;
+        letter-spacing: -0.04em;
+        color: #fff;
+        font-weight: 900;
+    }
+
+    .browse-hero--listen .browse-hero__title {
+        font-size: clamp(2.2rem, 4.2vw, 4rem);
+        line-height: 0.98;
+    }
+
+    .browse-hero--read .browse-hero__title {
+        font-size: clamp(2.1rem, 3.8vw, 3.4rem);
+    }
+
+    .browse-hero__subtitle {
+        font-size: 1rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.74);
+    }
+
+    .browse-hero__meta,
+    .browse-hero__supporting,
+    .browse-hero__progress-label {
+        font-size: 0.86rem;
+        color: rgba(255, 255, 255, 0.56);
+    }
+
+    .browse-hero__description {
+        margin: 4px 0 0;
+        max-width: 60ch;
+        font-size: 0.95rem;
+        line-height: 1.65;
+        color: rgba(255, 255, 255, 0.82);
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 4;
+        overflow: hidden;
+    }
+
+    .browse-hero__progress-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 4px;
+        max-width: 320px;
+    }
+
+    .browse-hero__progress-track {
+        height: 6px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.16);
+    }
+
+    .browse-hero__progress-fill {
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #f59e0b 0%, #facc15 100%);
+    }
+
+    .browse-hero__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 8px;
+    }
+
+    .browse-hero__button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 0;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
+    }
+
+    .browse-hero__button:hover {
+        transform: translateY(-1px);
+    }
+
+    .browse-hero__button--primary {
+        background: #f59e0b;
+        color: #18120a;
+    }
+
+    .browse-hero__button--secondary {
+        background: rgba(255, 255, 255, 0.10);
+        color: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .browse-hero__art {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .browse-hero__cover-frame {
+        overflow: hidden;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 22px 46px rgba(0, 0, 0, 0.34);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .browse-hero__art--watch .browse-hero__cover-frame,
+    .browse-hero__art--portrait .browse-hero__cover-frame {
+        width: clamp(188px, 20vw, 270px);
+        aspect-ratio: 2 / 3;
+    }
+
+    .browse-hero__art--square .browse-hero__cover-frame {
+        width: clamp(196px, 24vw, 280px);
+        aspect-ratio: 1;
+    }
+
+    .browse-hero__cover,
+    .browse-hero__cover-placeholder {
+        width: 100%;
+        height: 100%;
+    }
+
+    .browse-hero__cover {
+        display: block;
+        object-fit: cover;
+    }
+
+    .browse-hero__cover-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+        color: rgba(255, 255, 255, 0.54);
+    }
+
+    @@media (max-width: 900px) {
+        .browse-hero__inner,
+        .browse-hero--listen .browse-hero__inner,
+        .browse-hero--read .browse-hero__inner {
+            grid-template-columns: 1fr;
+            justify-items: start;
+            padding: 28px 24px;
+        }
+
+        .browse-hero {
+            min-height: unset;
+        }
+
+        .browse-hero__copy {
+            order: 2;
+        }
+
+        .browse-hero__art {
+            order: 1;
+        }
+
+        .browse-hero__description {
+            -webkit-line-clamp: 5;
+        }
+    }
+</style>

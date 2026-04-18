@@ -1552,6 +1552,8 @@ public sealed class EngineApiClient : IEngineApiClient
                 Title          = j.Title ?? string.Empty,
                 Author         = j.Author,
                 CoverUrl       = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
+                BackdropUrl    = j.BackdropUrl is not null ? AbsoluteUrl(j.BackdropUrl) : null,
+                BannerUrl      = j.BannerUrl is not null ? AbsoluteUrl(j.BannerUrl) : null,
                 HeroUrl        = j.HeroUrl  is not null ? AbsoluteUrl(j.HeroUrl)  : null,
                 Narrator       = j.Narrator,
                 Series         = j.Series,
@@ -2375,6 +2377,10 @@ public sealed class EngineApiClient : IEngineApiClient
                 {
                     if (item.CoverUrl is not null)
                         item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+                    if (item.BackdropUrl is not null)
+                        item.BackdropUrl = AbsoluteUrl(item.BackdropUrl);
+                    if (item.BannerUrl is not null)
+                        item.BannerUrl = AbsoluteUrl(item.BannerUrl);
                     if (item.HeroUrl is not null)
                         item.HeroUrl = AbsoluteUrl(item.HeroUrl);
                 }
@@ -2462,6 +2468,10 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/library/items/{entityId}/detail", ct);
             if (detail?.CoverUrl is not null)
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
+            if (detail?.BackdropUrl is not null)
+                detail.BackdropUrl = AbsoluteUrl(detail.BackdropUrl);
+            if (detail?.BannerUrl is not null)
+                detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
             if (detail?.HeroUrl is not null)
                 detail.HeroUrl = AbsoluteUrl(detail.HeroUrl);
             return detail;
@@ -3210,6 +3220,8 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("title")]              string?                       Title,
         [property: JsonPropertyName("author")]             string?                       Author,
         [property: JsonPropertyName("coverUrl")]           string?                       CoverUrl,
+        [property: JsonPropertyName("backdropUrl")]        string?                       BackdropUrl,
+        [property: JsonPropertyName("bannerUrl")]          string?                       BannerUrl,
         [property: JsonPropertyName("narrator")]           string?                       Narrator,
         [property: JsonPropertyName("series")]             string?                       Series,
         [property: JsonPropertyName("seriesPosition")]     string?                       SeriesPosition,
@@ -3452,6 +3464,10 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 if (group.CoverUrl is not null)
                     group.CoverUrl = AbsoluteUrl(group.CoverUrl);
+                if (group.BackdropUrl is not null)
+                    group.BackdropUrl = AbsoluteUrl(group.BackdropUrl);
+                if (group.BannerUrl is not null)
+                    group.BannerUrl = AbsoluteUrl(group.BannerUrl);
 
                 if (group.ArtistPhotoUrl is not null)
                     group.ArtistPhotoUrl = AbsoluteUrl(group.ArtistPhotoUrl);
@@ -3481,6 +3497,12 @@ public sealed class EngineApiClient : IEngineApiClient
             var groups = await _http.GetFromJsonAsync<List<ContentGroupViewModel>>(url, ct) ?? [];
             foreach (var g in groups)
             {
+                if (g.CoverUrl is not null)
+                    g.CoverUrl = AbsoluteUrl(g.CoverUrl);
+                if (g.BackdropUrl is not null)
+                    g.BackdropUrl = AbsoluteUrl(g.BackdropUrl);
+                if (g.BannerUrl is not null)
+                    g.BannerUrl = AbsoluteUrl(g.BannerUrl);
                 if (g.ArtistPhotoUrl is not null)
                     g.ArtistPhotoUrl = AbsoluteUrl(g.ArtistPhotoUrl);
             }

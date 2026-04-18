@@ -99,6 +99,8 @@ public static class ProgressEndpoints
                     cv_title_a.value      AS title,
                     cv_author_w.value     AS author,
                     cv_cover_w.value      AS cover_url,
+                    cv_backdrop_w.value   AS backdrop_url,
+                    cv_banner_w.value     AS banner_url,
                     cv_narrator_w.value   AS narrator,
                     cv_series_w.value     AS series,
                     cv_series_pos_a.value AS series_position,
@@ -128,6 +130,12 @@ public static class ProgressEndpoints
                 LEFT JOIN canonical_values cv_narrator_w
                     ON cv_narrator_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_narrator_w.key = 'narrator'
+                LEFT JOIN canonical_values cv_backdrop_w
+                    ON cv_backdrop_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_backdrop_w.key = 'backdrop'
+                LEFT JOIN canonical_values cv_banner_w
+                    ON cv_banner_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_banner_w.key = 'banner'
                 LEFT JOIN canonical_values cv_series_w
                     ON cv_series_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_series_w.key = 'series'
@@ -173,11 +181,13 @@ public static class ProgressEndpoints
                                            : reader.GetString(8),
                     Author:            reader.IsDBNull(9)  ? null : reader.GetString(9),
                     CoverUrl:          reader.IsDBNull(10) ? null : reader.GetString(10),
-                    Narrator:          reader.IsDBNull(11) ? null : reader.GetString(11),
-                    Series:            reader.IsDBNull(12) ? null : reader.GetString(12),
-                    SeriesPosition:    reader.IsDBNull(13) ? null : reader.GetString(13),
-                    Description:       reader.IsDBNull(14) ? null : reader.GetString(14),
-                    HeroUrl:           reader.IsDBNull(15) ? null : reader.GetString(15)));
+                    BackdropUrl:       reader.IsDBNull(11) ? null : reader.GetString(11),
+                    BannerUrl:         reader.IsDBNull(12) ? null : reader.GetString(12),
+                    Narrator:          reader.IsDBNull(13) ? null : reader.GetString(13),
+                    Series:            reader.IsDBNull(14) ? null : reader.GetString(14),
+                    SeriesPosition:    reader.IsDBNull(15) ? null : reader.GetString(15),
+                    Description:       reader.IsDBNull(16) ? null : reader.GetString(16),
+                    HeroUrl:           reader.IsDBNull(17) ? null : reader.GetString(17)));
             }
 
             return Results.Ok(results);
@@ -222,6 +232,8 @@ public sealed record JourneyItemResponse(
     string                       Title,
     string?                      Author,
     string?                      CoverUrl,
+    string?                      BackdropUrl,
+    string?                      BannerUrl,
     string?                      Narrator,
     string?                      Series,
     string?                      SeriesPosition,

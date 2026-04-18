@@ -20,6 +20,12 @@ public sealed class CollectionGroupDetailDto
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
+    [JsonPropertyName("backdrop_url")]
+    public string? BackdropUrl { get; init; }
+
+    [JsonPropertyName("banner_url")]
+    public string? BannerUrl { get; init; }
+
     [JsonPropertyName("creator")]
     public string? Creator { get; init; }
 
@@ -202,6 +208,12 @@ public sealed class ContentGroupDto
 
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
+
+    [JsonPropertyName("backdrop_url")]
+    public string? BackdropUrl { get; init; }
+
+    [JsonPropertyName("banner_url")]
+    public string? BannerUrl { get; init; }
 
     [JsonPropertyName("creator")]
     public string? Creator { get; init; }
