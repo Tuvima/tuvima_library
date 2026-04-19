@@ -1478,6 +1478,61 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public Task<bool> UploadArtworkVariantAsync(
+        Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default)
+        => UploadEntityArtworkAsync(entityId, assetType, fileStream, fileName, ct);
+
+    public async Task<bool> SetPreferredArtworkAsync(Guid variantId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, $"/metadata/artwork/{variantId}/preferred")
+            {
+                Content = JsonContent.Create(new { }),
+            };
+
+            var response = await _http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /metadata/artwork/{VariantId}/preferred returned {Status}: {Detail}",
+                    variantId, (int)response.StatusCode, detail);
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+            }
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /metadata/artwork/{VariantId}/preferred failed", variantId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteArtworkAsync(Guid variantId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.DeleteAsync($"/metadata/artwork/{variantId}", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("DELETE /metadata/artwork/{VariantId} returned {Status}: {Detail}",
+                    variantId, (int)response.StatusCode, detail);
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+            }
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /metadata/artwork/{VariantId} failed", variantId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Provider Icons ─────────────────────────────────────────────────────
 
     public async Task<bool> UploadProviderIconAsync(
@@ -3928,6 +3983,42 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<ArtworkEditorDto?> GetArtworkAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<ArtworkEditorRaw>($"/metadata/{entityId}/artwork", ct);
+            if (raw is null)
+                return null;
+
+            return new ArtworkEditorDto
+            {
+                EntityId = raw.EntityId,
+                Slots = raw.Slots.Select(slot => new ArtworkSlotDto
+                {
+                    AssetType = slot.AssetType ?? string.Empty,
+                    Variants = slot.Variants.Select(variant => new ArtworkVariantDto
+                    {
+                        Id = variant.Id,
+                        AssetType = variant.AssetType ?? slot.AssetType ?? string.Empty,
+                        ImageUrl = variant.ImageUrl is not null ? AbsoluteUrl(variant.ImageUrl) : null,
+                        IsPreferred = variant.IsPreferred,
+                        Origin = string.IsNullOrWhiteSpace(variant.Origin) ? "Stored" : variant.Origin,
+                        ProviderName = variant.ProviderName,
+                        CanDelete = variant.CanDelete,
+                        CreatedAt = variant.CreatedAt,
+                    }).ToList(),
+                }).ToList(),
+            };
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/{EntityId}/artwork failed", entityId);
+            return null;
+        }
+    }
+
     public async Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default)
     {
         try
@@ -4060,6 +4151,30 @@ public sealed class EngineApiClient : IEngineApiClient
         [JsonPropertyName("image_url")]       public string? ImageUrl       { get; set; }
         [JsonPropertyName("is_preferred")]    public bool    IsPreferred    { get; set; }
         [JsonPropertyName("source_provider")] public string? SourceProvider { get; set; }
+    }
+
+    private sealed class ArtworkEditorRaw
+    {
+        [JsonPropertyName("entity_id")] public Guid EntityId { get; set; }
+        [JsonPropertyName("slots")] public List<ArtworkSlotRaw> Slots { get; set; } = [];
+    }
+
+    private sealed class ArtworkSlotRaw
+    {
+        [JsonPropertyName("asset_type")] public string? AssetType { get; set; }
+        [JsonPropertyName("variants")] public List<ArtworkVariantRaw> Variants { get; set; } = [];
+    }
+
+    private sealed class ArtworkVariantRaw
+    {
+        [JsonPropertyName("id")] public Guid Id { get; set; }
+        [JsonPropertyName("asset_type")] public string? AssetType { get; set; }
+        [JsonPropertyName("image_url")] public string? ImageUrl { get; set; }
+        [JsonPropertyName("is_preferred")] public bool IsPreferred { get; set; }
+        [JsonPropertyName("origin")] public string? Origin { get; set; }
+        [JsonPropertyName("provider_name")] public string? ProviderName { get; set; }
+        [JsonPropertyName("can_delete")] public bool CanDelete { get; set; }
+        [JsonPropertyName("created_at")] public DateTimeOffset? CreatedAt { get; set; }
     }
 
     // ── Vault Preferences ─────────────────────────────────────────────────────

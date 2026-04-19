@@ -83,6 +83,51 @@ public static class StreamEndpoints
         .RequireAnyRole()
         .RequireRateLimiting("streaming");
 
+        group.MapGet("/artwork/{variantId:guid}", async (
+            Guid variantId,
+            IEntityAssetRepository entityAssetRepo,
+            IHttpClientFactory httpFactory,
+            CancellationToken ct) =>
+        {
+            var variant = await entityAssetRepo.FindByIdAsync(variantId, ct);
+            if (variant is null)
+                return Results.NotFound($"Artwork variant '{variantId}' not found.");
+
+            if (!string.IsNullOrWhiteSpace(variant.LocalImagePath) && File.Exists(variant.LocalImagePath))
+            {
+                var bytes = await File.ReadAllBytesAsync(variant.LocalImagePath, ct);
+                return Results.File(bytes, GetImageMimeType(variant.LocalImagePath), Path.GetFileName(variant.LocalImagePath));
+            }
+
+            if (!string.IsNullOrWhiteSpace(variant.ImageUrl)
+                && Uri.TryCreate(variant.ImageUrl, UriKind.Absolute, out var imageUri)
+                && (imageUri.Scheme == Uri.UriSchemeHttp || imageUri.Scheme == Uri.UriSchemeHttps))
+            {
+                using var client = httpFactory.CreateClient("cover_download");
+                using var response = await client.GetAsync(imageUri, ct);
+                if (!response.IsSuccessStatusCode)
+                    return Results.NotFound("Artwork source could not be retrieved.");
+
+                var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+                return Results.File(bytes, contentType);
+            }
+
+            if (!string.IsNullOrWhiteSpace(variant.ImageUrl)
+                && variant.ImageUrl.StartsWith("/", StringComparison.Ordinal))
+            {
+                return Results.Redirect(variant.ImageUrl);
+            }
+
+            return Results.NotFound("Artwork file not found.");
+        })
+        .WithName("GetArtworkVariant")
+        .WithSummary("Serve artwork by variant id.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status302Found)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
         group.MapGet("/{assetId:guid}/cover", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,

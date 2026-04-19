@@ -17,6 +17,7 @@ namespace MediaEngine.Providers.Workers;
 public sealed class CoverArtWorker
 {
     private readonly IMediaAssetRepository _assetRepo;
+    private readonly IEntityAssetRepository? _entityAssetRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IWorkRepository _workRepo;
     private readonly IImageCacheRepository _imageCache;
@@ -35,9 +36,11 @@ public sealed class CoverArtWorker
         IHttpClientFactory httpFactory,
         ILogger<CoverArtWorker> logger,
         ImagePathService? imagePathService = null,
-        ICoverArtHashService? coverArtHash = null)
+        ICoverArtHashService? coverArtHash = null,
+        IEntityAssetRepository? entityAssetRepo = null)
     {
         _assetRepo = assetRepo;
+        _entityAssetRepo = entityAssetRepo;
         _canonicalRepo = canonicalRepo;
         _workRepo = workRepo;
         _imageCache = imageCache;
@@ -150,14 +153,18 @@ public sealed class CoverArtWorker
         // Skip if cover already exists
         if (File.Exists(coverPath))
         {
+            var existingVariant = await EnsureCoverVariantAsync(
+                entityId,
+                coverUrl,
+                coverPath,
+                InferCoverSource(canonicals, coverUrl),
+                ct);
             await _canonicalRepo.UpsertBatchAsync(
-                ArtworkCanonicalHelper.CreateFlags(
+                BuildCoverCanonicals(
                     entityId,
-                    coverState: "present",
-                    coverSource: InferCoverSource(canonicals, coverUrl),
-                    heroState: "pending",
-                    lastScoredAt: DateTimeOffset.UtcNow,
-                    settled: true),
+                    existingVariant?.Id,
+                    InferCoverSource(canonicals, coverUrl),
+                    heroState: "pending"),
                 ct);
             await GenerateHeroBannerAsync(entityId, coverPath, imageDir, ct);
 
@@ -251,14 +258,13 @@ public sealed class CoverArtWorker
             GenerateThumbnail(coverPath, thumbPath);
         }
 
+        var coverVariant = await EnsureCoverVariantAsync(entityId, coverUrl, coverPath, "provider", ct);
         await _canonicalRepo.UpsertBatchAsync(
-            ArtworkCanonicalHelper.CreateFlags(
+            BuildCoverCanonicals(
                 entityId,
-                coverState: "present",
-                coverSource: "provider",
-                heroState: "pending",
-                lastScoredAt: DateTimeOffset.UtcNow,
-                settled: true),
+                coverVariant?.Id,
+                "provider",
+                heroState: "pending"),
             ct);
 
         {
@@ -385,5 +391,71 @@ public sealed class CoverArtWorker
             // Non-critical: thumbnail generation failure doesn't affect the main cover art.
             _ = ex;
         }
+    }
+
+    private async Task<EntityAsset?> EnsureCoverVariantAsync(
+        Guid entityId,
+        string? providerUrl,
+        string coverPath,
+        string sourceProvider,
+        CancellationToken ct)
+    {
+        if (_entityAssetRepo is null)
+            return null;
+
+        var existing = (await _entityAssetRepo.GetByEntityAsync(entityId.ToString(), "CoverArt", ct))
+            .FirstOrDefault(asset =>
+                (!string.IsNullOrWhiteSpace(providerUrl)
+                 && string.Equals(asset.ImageUrl, providerUrl, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(asset.LocalImagePath, coverPath, StringComparison.OrdinalIgnoreCase));
+
+        var variant = existing ?? new EntityAsset
+        {
+            Id             = Guid.NewGuid(),
+            EntityId       = entityId.ToString(),
+            EntityType     = "Work",
+            AssetTypeValue = "CoverArt",
+            CreatedAt      = DateTimeOffset.UtcNow,
+        };
+
+        variant.ImageUrl = providerUrl;
+        variant.LocalImagePath = coverPath;
+        variant.SourceProvider = sourceProvider;
+        variant.IsPreferred = true;
+        variant.IsUserOverride = false;
+
+        await _entityAssetRepo.UpsertAsync(variant, ct);
+        await _entityAssetRepo.SetPreferredAsync(variant.Id, ct);
+        return variant;
+    }
+
+    private static IReadOnlyList<CanonicalValue> BuildCoverCanonicals(
+        Guid entityId,
+        Guid? preferredVariantId,
+        string? coverSource,
+        string heroState)
+    {
+        var values = new List<CanonicalValue>();
+
+        if (preferredVariantId.HasValue)
+        {
+            values.Add(new CanonicalValue
+            {
+                EntityId = entityId,
+                Key = MetadataFieldConstants.CoverUrl,
+                Value = $"/stream/artwork/{preferredVariantId.Value}",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        values.AddRange(ArtworkCanonicalHelper.CreateFlags(
+            entityId,
+            coverState: "present",
+            coverSource: coverSource,
+            heroState: heroState,
+            lastScoredAt: DateTimeOffset.UtcNow,
+            settled: true));
+
+        return values;
     }
 }

@@ -12,6 +12,9 @@ public interface IEntityAssetRepository
     Task<IReadOnlyList<EntityAsset>> GetByEntityAsync(
         string entityId, string? assetType = null, CancellationToken ct = default);
 
+    /// <summary>Find a single entity asset by its variant id.</summary>
+    Task<EntityAsset?> FindByIdAsync(Guid assetId, CancellationToken ct = default);
+
     /// <summary>Insert or update an asset. Upsert keyed on (entity_id, entity_type, asset_type, source_provider).</summary>
     Task UpsertAsync(EntityAsset asset, CancellationToken ct = default);
 
@@ -23,6 +26,9 @@ public interface IEntityAssetRepository
 
     /// <summary>Delete all assets for an entity (used during entity cleanup).</summary>
     Task DeleteByEntityAsync(string entityId, CancellationToken ct = default);
+
+    /// <summary>Delete a single variant row.</summary>
+    Task DeleteAsync(Guid assetId, CancellationToken ct = default);
 
     /// <summary>Get the preferred asset of a given type for an entity.</summary>
     Task<EntityAsset?> GetPreferredAsync(

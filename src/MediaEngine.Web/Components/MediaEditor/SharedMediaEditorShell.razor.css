@@ -394,37 +394,46 @@
     line-height: 1.45;
 }
 
-.sme-artwork-grid {
+.sme-artwork-overview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     gap: 12px;
-    align-items: start;
 }
 
-.sme-art-slot {
+.sme-art-board {
+    appearance: none;
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 16px;
-    padding: 12px;
+    border-radius: 18px;
     background: rgba(255,255,255,0.02);
+    color: inherit;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
+    text-align: left;
+    cursor: pointer;
     min-width: 0;
 }
 
-.sme-art-slot--drag {
+.sme-art-board--selected {
+    border-color: rgba(197,58,56,0.42);
+    background: rgba(197,58,56,0.08);
+    box-shadow: inset 0 0 0 1px rgba(197,58,56,0.16);
+}
+
+.sme-art-board--drag {
     border-color: rgba(197,58,56,0.42);
     background: rgba(197,58,56,0.08);
 }
 
-.sme-art-slot-header {
+.sme-art-board-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 8px;
 }
 
-.sme-art-slot-heading {
+.sme-art-board-heading {
     min-width: 0;
     flex: 1;
 }
@@ -451,7 +460,7 @@
     font-weight: 700;
 }
 
-.sme-art-slot-header-meta {
+.sme-art-board-meta {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -465,14 +474,6 @@
     color: rgba(255,255,255,0.58);
     font-size: 0.76rem;
     line-height: 1.35;
-}
-
-.sme-art-slot-status {
-    min-width: 0;
-}
-
-.sme-art-slot-status-row {
-    min-height: 42px;
 }
 
 .sme-art-slot-badge {
@@ -525,7 +526,9 @@
     white-space: nowrap;
 }
 
-.sme-art-slot-frame {
+.sme-art-board-stage,
+.sme-artwork-detail-stage,
+.sme-art-variant-stage {
     position: relative;
     display: flex;
     align-items: center;
@@ -534,50 +537,49 @@
     border: 1px solid rgba(255,255,255,0.08);
     background:
         radial-gradient(circle at top, rgba(197,58,56,0.12), transparent 48%),
+        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
         rgba(255,255,255,0.03);
     overflow: hidden;
-    height: 134px;
-    min-height: 134px;
-    padding: 10px;
 }
 
-.sme-art-slot-preview {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.sme-art-board-stage {
     width: 100%;
-    height: 100%;
-    border-radius: 12px;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.02)),
-        rgba(12,12,16,0.38);
-    overflow: hidden;
 }
 
-.sme-art-slot-preview--portrait {
-    width: clamp(74px, 56%, 92px);
+.sme-art-board-stage--portrait,
+.sme-artwork-detail-stage--portrait,
+.sme-art-variant-stage--portrait {
     aspect-ratio: 2 / 3;
 }
 
-.sme-art-slot-preview--square {
-    width: clamp(82px, 62%, 104px);
+.sme-art-board-stage--square,
+.sme-artwork-detail-stage--square,
+.sme-art-variant-stage--square {
     aspect-ratio: 1;
 }
 
-.sme-art-slot-preview--background {
-    width: 100%;
+.sme-art-board-stage--background,
+.sme-artwork-detail-stage--background,
+.sme-art-variant-stage--background {
     aspect-ratio: 16 / 9;
 }
 
-.sme-art-slot-preview--banner {
-    width: 100%;
-    aspect-ratio: 21 / 9;
+.sme-art-board-stage--banner,
+.sme-artwork-detail-stage--banner,
+.sme-art-variant-stage--banner {
+    aspect-ratio: 27 / 5;
 }
 
-.sme-art-slot-preview--logo {
-    width: 100%;
-    aspect-ratio: 16 / 5;
-    max-height: 78px;
+.sme-art-board-stage--logo,
+.sme-artwork-detail-stage--logo,
+.sme-art-variant-stage--logo {
+    aspect-ratio: 4 / 1;
+    background:
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%),
+        rgba(12,12,16,0.42);
+    background-position: 0 0, 10px 10px, 0 0;
+    background-size: 20px 20px, 20px 20px, auto;
 }
 
 .sme-art-slot-image,
@@ -595,11 +597,121 @@
     padding: 12px;
 }
 
-.sme-art-slot-actions {
+.sme-art-board-footer {
+    color: rgba(255,255,255,0.62);
+    font-size: 0.77rem;
+    line-height: 1.4;
+    min-height: 2.2rem;
+}
+
+.sme-artwork-detail {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 18px;
+    padding: 14px;
+    background: rgba(255,255,255,0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sme-artwork-detail-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.sme-artwork-detail-copy {
+    min-width: 0;
+}
+
+.sme-artwork-detail-title {
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.sme-artwork-detail-text {
+    margin-top: 4px;
+    color: rgba(255,255,255,0.58);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.sme-artwork-detail-actions,
+.sme-art-variant-actions {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 8px;
+}
+
+.sme-artwork-detail-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.9fr);
+    gap: 14px;
+}
+
+.sme-artwork-detail-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sme-artwork-detail-stage {
+    width: 100%;
+}
+
+.sme-artwork-detail-caption {
+    color: rgba(255,255,255,0.58);
+    font-size: 0.78rem;
+    line-height: 1.4;
+}
+
+.sme-artwork-variant-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    align-content: start;
+}
+
+.sme-art-variant {
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+    padding: 8px;
+    background: rgba(255,255,255,0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sme-art-variant-preview {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+.sme-art-variant-preview--selected {
+    outline: 2px solid rgba(197,58,56,0.48);
+    outline-offset: 3px;
+    border-radius: 14px;
+}
+
+.sme-art-variant-stage {
+    width: 100%;
+}
+
+.sme-art-variant-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sme-art-variant-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .sme-art-slot-action {
@@ -801,10 +913,6 @@
         grid-template-columns: 1fr;
     }
 
-    .sme-artwork-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    }
-
     .sme-search-row,
     .sme-field-row,
     .sme-readonly-row {
@@ -815,13 +923,17 @@
         padding-top: 0;
     }
 
+    .sme-artwork-detail-header,
+    .sme-artwork-detail-main,
     .sme-artwork-generated {
         grid-template-columns: 1fr;
+        display: grid;
     }
 }
 
 @media (max-width: 720px) {
-    .sme-artwork-grid {
+    .sme-artwork-overview,
+    .sme-artwork-variant-strip {
         grid-template-columns: 1fr;
     }
 }

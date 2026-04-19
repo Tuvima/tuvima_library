@@ -62,7 +62,7 @@ public partial class SharedMediaEditorShell
     private List<CanonicalFieldViewModel> _canonicalValues = [];
     private List<ClaimHistoryDto> _claims = [];
     private List<RegistryItemHistoryDto> _history = [];
-    private IReadOnlyList<EntityAssetDto> _entityAssets = [];
+    private ArtworkEditorDto? _artwork;
     private MediaEditorSchema _schema = MediaEditorSchemaCatalog.Resolve(null);
     private readonly Dictionary<string, string> _editedValues = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
@@ -73,6 +73,8 @@ public partial class SharedMediaEditorShell
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
     private string? _selectedCandidateId;
+    private string? _selectedArtworkAssetType;
+    private string? _focusedArtworkVariantKey;
     private string _selectedMediaType = "Books";
     private bool _loading = true;
     private bool _saving;
@@ -90,6 +92,9 @@ public partial class SharedMediaEditorShell
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
     protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetArtworkPreviewUrl("Hero"));
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
+    protected ArtworkSlotDefinition? SelectedArtworkSlot =>
+        ArtworkSlots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
+        ?? ArtworkSlots.FirstOrDefault();
 
     protected string HeaderKicker =>
         Request.Mode switch
@@ -132,20 +137,21 @@ public partial class SharedMediaEditorShell
             var canonicalTask = Orchestrator.GetCanonicalValuesAsync(CurrentEntityId);
             var claimsTask = Orchestrator.GetClaimHistoryAsync(CurrentEntityId);
             var historyTask = ApiClient.GetItemHistoryAsync(CurrentEntityId);
-            var assetsTask = ApiClient.GetEntityAssetsAsync(CurrentEntityId.ToString());
+            var artworkTask = ApiClient.GetArtworkAsync(CurrentEntityId);
 
-            await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask, assetsTask);
+            await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask, artworkTask);
 
             _detail = detailTask.Result;
             _canonicalValues = canonicalTask.Result;
             _claims = claimsTask.Result;
             _history = historyTask.Result;
-            _entityAssets = assetsTask.Result;
+            _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = CurrentEntityId };
             _schema = MediaEditorSchemaCatalog.Resolve(_detail?.MediaType ?? Request.MediaType);
             _selectedMediaType = _detail?.MediaType ?? Request.MediaType ?? "Books";
             _pendingArtworkFiles.Clear();
             _pendingArtworkPreviewUrls.Clear();
             _dragTargetArtworkType = null;
+            NormalizeArtworkSelection();
 
             if (Request.Mode == SharedMediaEditorMode.Review)
             {
@@ -312,9 +318,11 @@ public partial class SharedMediaEditorShell
             foreach (var pendingArtwork in _pendingArtworkFiles.ToList())
             {
                 await using var stream = pendingArtwork.Value.OpenReadStream(10 * 1024 * 1024);
-                var uploaded = string.Equals(pendingArtwork.Key, "CoverArt", StringComparison.OrdinalIgnoreCase)
-                    ? await ApiClient.UploadCoverAsync(CurrentEntityId, stream, pendingArtwork.Value.Name)
-                    : await ApiClient.UploadEntityArtworkAsync(CurrentEntityId, pendingArtwork.Key, stream, pendingArtwork.Value.Name);
+                var uploaded = await ApiClient.UploadArtworkVariantAsync(
+                    CurrentEntityId,
+                    pendingArtwork.Key,
+                    stream,
+                    pendingArtwork.Value.Name);
 
                 if (!uploaded)
                 {
@@ -403,6 +411,8 @@ public partial class SharedMediaEditorShell
         var contentType = string.IsNullOrWhiteSpace(file.ContentType) ? "image/png" : file.ContentType;
         _pendingArtworkPreviewUrls[assetType] = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
         _dragTargetArtworkType = null;
+        _selectedArtworkAssetType = assetType;
+        NormalizeArtworkSelection();
     }
 
     protected void ClearArtworkSelection(string assetType)
@@ -411,6 +421,7 @@ public partial class SharedMediaEditorShell
         _pendingArtworkPreviewUrls.Remove(assetType);
         if (string.Equals(_dragTargetArtworkType, assetType, StringComparison.OrdinalIgnoreCase))
             _dragTargetArtworkType = null;
+        NormalizeArtworkSelection();
     }
 
     protected bool HasPendingArtwork(string assetType) =>
@@ -419,52 +430,41 @@ public partial class SharedMediaEditorShell
     protected string? GetPendingArtworkFileName(string assetType) =>
         _pendingArtworkFiles.TryGetValue(assetType, out var file) ? file.Name : null;
 
-    protected string? GetArtworkPreviewUrl(string assetType) =>
-        _pendingArtworkPreviewUrls.TryGetValue(assetType, out var pendingPreview)
-            ? pendingPreview
-            : GetStoredArtworkPreviewUrl(assetType);
-
-    protected int GetArtworkAssetCount(string assetType)
+    protected string? GetArtworkPreviewUrl(string assetType)
     {
         if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return string.IsNullOrWhiteSpace(_detail?.HeroUrl) ? 0 : 1;
+            return _detail?.HeroUrl;
 
-        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
-        {
-            var coverAssetCount = _entityAssets.Count(asset =>
-                string.Equals(asset.AssetType, assetType, StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(_detail?.CoverUrl) && coverAssetCount == 0)
-                return 1;
+        if (_pendingArtworkPreviewUrls.TryGetValue(assetType, out var pendingPreview))
+            return pendingPreview;
 
-            return coverAssetCount;
-        }
-
-        var assetCount = _entityAssets.Count(asset =>
-            string.Equals(asset.AssetType, assetType, StringComparison.OrdinalIgnoreCase));
-        if (assetCount == 0 && !string.IsNullOrWhiteSpace(GetCanonicalArtworkUrl(assetType)))
-            return 1;
-
-        return assetCount;
+        return GetPreferredArtworkVariant(assetType)?.ImageUrl;
     }
+
+    protected int GetArtworkAssetCount(string assetType) =>
+        string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase)
+            ? (string.IsNullOrWhiteSpace(_detail?.HeroUrl) ? 0 : 1)
+            : GetArtworkVariants(assetType).Count;
 
     protected string GetArtworkSourceLabel(string assetType)
     {
         if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
             return string.IsNullOrWhiteSpace(_detail?.HeroUrl) ? "No generated hero banner yet." : "Generated from preferred artwork.";
 
-        var asset = GetPreferredArtworkAsset(assetType);
-        if (asset is null)
-        {
-            return string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(_detail?.CoverUrl)
-                ? "Current library artwork."
-                : !string.IsNullOrWhiteSpace(GetCanonicalArtworkUrl(assetType))
-                    ? "Stored typed artwork."
-                    : GetArtworkEmptyStateLabel(assetType);
-        }
+        if (HasPendingArtwork(assetType))
+            return $"Pending upload: {GetPendingArtworkFileName(assetType)}";
 
-        return string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
-            ? "Uploaded artwork from the library."
-            : $"Provider artwork from {FormatProviderName(asset.SourceProvider)}.";
+        var variant = GetPreferredArtworkVariant(assetType);
+        if (variant is null)
+            return GetArtworkEmptyStateLabel(assetType);
+
+        return variant.Origin switch
+        {
+            "Uploaded" => "Preferred uploaded artwork.",
+            "Provider" when !string.IsNullOrWhiteSpace(variant.ProviderName) => $"Preferred provider artwork from {variant.ProviderName}.",
+            "Provider" => "Preferred provider artwork.",
+            _ => "Preferred stored artwork.",
+        };
     }
 
     protected ArtworkStateBadge GetArtworkStateBadge(string assetType)
@@ -472,25 +472,19 @@ public partial class SharedMediaEditorShell
         if (HasPendingArtwork(assetType))
             return new("Pending", "pending");
 
-        var asset = GetPreferredArtworkAsset(assetType);
-        if (asset is not null)
+        var variant = GetPreferredArtworkVariant(assetType);
+        if (variant is null)
+            return new("Missing", "missing");
+
+        return variant.Origin switch
         {
-            if (string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase))
-                return new("Uploaded", "uploaded");
-
-            if (!string.IsNullOrWhiteSpace(asset.SourceProvider))
-                return new(FormatProviderName(asset.SourceProvider), "provider");
-
-            return new("Stored", "stored");
-        }
-
-        return HasStoredArtwork(assetType)
-            ? new("Stored", "stored")
-            : new("Missing", "missing");
+            "Uploaded" => new("Uploaded", "uploaded"),
+            "Provider" => new(string.IsNullOrWhiteSpace(variant.ProviderName) ? "Provider" : variant.ProviderName, "provider"),
+            _ => new("Stored", "stored"),
+        };
     }
 
-    protected string GetArtworkActionLabel(string assetType) =>
-        HasPendingArtwork(assetType) || HasStoredArtwork(assetType) ? "Replace" : "Upload";
+    protected string GetArtworkActionLabel(string assetType) => "Add Variant";
 
     protected string GetArtworkAcceptedTypes(string assetType) =>
         string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase)
@@ -507,6 +501,106 @@ public partial class SharedMediaEditorShell
 
     protected bool IsArtworkDragTarget(string assetType) =>
         string.Equals(_dragTargetArtworkType, assetType, StringComparison.OrdinalIgnoreCase);
+
+    protected IReadOnlyList<ArtworkVariantDto> GetArtworkVariants(string assetType) =>
+        _artwork?.Slots.FirstOrDefault(slot =>
+            string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Variants
+        ?? [];
+
+    protected ArtworkVariantDto? GetPreferredArtworkVariant(string assetType) =>
+        GetArtworkVariants(assetType)
+            .OrderByDescending(variant => variant.IsPreferred)
+            .ThenByDescending(variant => variant.CreatedAt)
+            .FirstOrDefault();
+
+    protected IReadOnlyList<ArtworkVariantDisplayItem> GetArtworkGalleryItems(string assetType)
+    {
+        var items = new List<ArtworkVariantDisplayItem>();
+
+        if (_pendingArtworkPreviewUrls.TryGetValue(assetType, out var pendingPreview))
+        {
+            items.Add(new ArtworkVariantDisplayItem(
+                BuildPendingArtworkKey(assetType),
+                Guid.Empty,
+                assetType,
+                pendingPreview,
+                IsPreferred: false,
+                IsPending: true,
+                CanDelete: false,
+                Origin: "Pending",
+                ProviderName: null,
+                CreatedAt: null));
+        }
+
+        items.AddRange(GetArtworkVariants(assetType).Select(variant => new ArtworkVariantDisplayItem(
+            BuildVariantKey(variant.Id),
+            variant.Id,
+            assetType,
+            variant.ImageUrl,
+            variant.IsPreferred,
+            IsPending: false,
+            CanDelete: variant.CanDelete,
+            Origin: variant.Origin,
+            ProviderName: variant.ProviderName,
+            CreatedAt: variant.CreatedAt)));
+
+        return items;
+    }
+
+    protected ArtworkVariantDisplayItem? GetLeadArtworkVariant(string assetType)
+    {
+        var items = GetArtworkGalleryItems(assetType);
+        if (items.Count == 0)
+            return null;
+
+        return items.FirstOrDefault(item => string.Equals(item.Key, _focusedArtworkVariantKey, StringComparison.Ordinal))
+               ?? items.FirstOrDefault(item => item.IsPending)
+               ?? items.FirstOrDefault(item => item.IsPreferred)
+               ?? items.FirstOrDefault();
+    }
+
+    protected void SelectArtworkSlot(string assetType)
+    {
+        _selectedArtworkAssetType = assetType;
+        _focusedArtworkVariantKey = GetArtworkGalleryItems(assetType).FirstOrDefault(item => item.IsPending)?.Key
+                                    ?? GetArtworkGalleryItems(assetType).FirstOrDefault(item => item.IsPreferred)?.Key
+                                    ?? GetArtworkGalleryItems(assetType).FirstOrDefault()?.Key;
+    }
+
+    protected void FocusArtworkVariant(string variantKey) => _focusedArtworkVariantKey = variantKey;
+
+    protected bool IsFocusedArtworkVariant(string variantKey) =>
+        string.Equals(_focusedArtworkVariantKey, variantKey, StringComparison.Ordinal);
+
+    protected async Task SetPreferredArtworkVariantAsync(Guid variantId)
+    {
+        if (variantId == Guid.Empty)
+            return;
+
+        var ok = await ApiClient.SetPreferredArtworkAsync(variantId);
+        if (!ok)
+        {
+            Snackbar.Add("Could not change the preferred artwork.", Severity.Error);
+            return;
+        }
+
+        await RefreshArtworkStateAsync();
+    }
+
+    protected async Task DeleteArtworkVariantAsync(Guid variantId)
+    {
+        if (variantId == Guid.Empty)
+            return;
+
+        var ok = await ApiClient.DeleteArtworkAsync(variantId);
+        if (!ok)
+        {
+            Snackbar.Add("Could not delete the artwork variant.", Severity.Error);
+            return;
+        }
+
+        await RefreshArtworkStateAsync();
+    }
 
     protected void HandleCanonicalQueryInput(ChangeEventArgs args) =>
         _canonicalSearchQuery = args.Value?.ToString() ?? string.Empty;
@@ -595,59 +689,6 @@ public partial class SharedMediaEditorShell
             parts.Add(candidate.ProviderName);
 
         return parts.Count > 0 ? string.Join(" | ", parts) : "Provider candidate";
-    }
-
-    protected EntityAssetDto? GetPreferredArtworkAsset(string assetType) =>
-        _entityAssets
-            .Where(asset => string.Equals(asset.AssetType, assetType, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(asset => asset.IsPreferred)
-            .ThenByDescending(asset => string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase))
-            .FirstOrDefault();
-
-    private bool HasStoredArtwork(string assetType) =>
-        !string.IsNullOrWhiteSpace(GetStoredArtworkPreviewUrl(assetType));
-
-    private string? GetStoredArtworkPreviewUrl(string assetType)
-    {
-        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
-            return _detail?.CoverUrl;
-
-        if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return _detail?.HeroUrl;
-
-        if (string.Equals(assetType, "SquareArt", StringComparison.OrdinalIgnoreCase))
-            return GetPreferredArtworkAsset(assetType)?.ImageUrl
-                   ?? GetCanonicalArtworkUrl(assetType);
-
-        if (string.Equals(assetType, "Background", StringComparison.OrdinalIgnoreCase))
-            return _detail?.BackgroundUrl
-                   ?? GetPreferredArtworkAsset(assetType)?.ImageUrl
-                   ?? GetCanonicalArtworkUrl(assetType);
-
-        if (string.Equals(assetType, "Banner", StringComparison.OrdinalIgnoreCase))
-            return _detail?.BannerUrl
-                   ?? GetPreferredArtworkAsset(assetType)?.ImageUrl
-                   ?? GetCanonicalArtworkUrl(assetType);
-
-        return GetPreferredArtworkAsset(assetType)?.ImageUrl ?? GetCanonicalArtworkUrl(assetType);
-    }
-
-    private string? GetCanonicalArtworkUrl(string assetType)
-    {
-        var canonicalKey = assetType switch
-        {
-            "SquareArt" => "square",
-            "Background" => "background",
-            "Banner" => "banner",
-            "Logo" => "logo",
-            _ => null,
-        };
-
-        if (canonicalKey is null)
-            return null;
-
-        return _canonicalValues.FirstOrDefault(field =>
-            string.Equals(field.Key, canonicalKey, StringComparison.OrdinalIgnoreCase))?.Value;
     }
 
     protected void KeepCurrentCanonical()
@@ -968,6 +1009,62 @@ public partial class SharedMediaEditorShell
             ],
         };
 
+    private async Task RefreshArtworkStateAsync()
+    {
+        if (!IsSingleItem)
+            return;
+
+        var detailTask = ApiClient.GetRegistryItemDetailAsync(CurrentEntityId);
+        var canonicalTask = Orchestrator.GetCanonicalValuesAsync(CurrentEntityId);
+        var artworkTask = ApiClient.GetArtworkAsync(CurrentEntityId);
+
+        await Task.WhenAll(detailTask, canonicalTask, artworkTask);
+
+        _detail = detailTask.Result;
+        _canonicalValues = canonicalTask.Result;
+        _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = CurrentEntityId };
+        NormalizeArtworkSelection();
+        StateHasChanged();
+    }
+
+    private void NormalizeArtworkSelection()
+    {
+        var availableSlots = ArtworkSlots;
+        if (availableSlots.Count == 0)
+        {
+            _selectedArtworkAssetType = null;
+            _focusedArtworkVariantKey = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedArtworkAssetType)
+            || !availableSlots.Any(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase)))
+        {
+            _selectedArtworkAssetType = availableSlots[0].AssetType;
+        }
+
+        var selectedAssetType = _selectedArtworkAssetType!;
+        var validKeys = GetArtworkGalleryItems(selectedAssetType).Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+        if (validKeys.Count == 0)
+        {
+            _focusedArtworkVariantKey = null;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_focusedArtworkVariantKey) || !validKeys.Contains(_focusedArtworkVariantKey))
+        {
+            _focusedArtworkVariantKey = GetArtworkGalleryItems(selectedAssetType).FirstOrDefault(item => item.IsPending)?.Key
+                                        ?? GetArtworkGalleryItems(selectedAssetType).FirstOrDefault(item => item.IsPreferred)?.Key
+                                        ?? GetArtworkGalleryItems(selectedAssetType).First().Key;
+        }
+    }
+
+    private static string BuildPendingArtworkKey(string assetType) =>
+        $"pending:{assetType.ToLowerInvariant()}";
+
+    private static string BuildVariantKey(Guid variantId) =>
+        variantId == Guid.Empty ? "synthetic" : variantId.ToString("D");
+
     protected sealed record ArtworkSlotDefinition(
         string AssetType,
         string Label,
@@ -980,6 +1077,17 @@ public partial class SharedMediaEditorShell
         string MetaLabel);
 
     protected sealed record ArtworkStateBadge(string Label, string Tone);
+    protected sealed record ArtworkVariantDisplayItem(
+        string Key,
+        Guid VariantId,
+        string AssetType,
+        string? ImageUrl,
+        bool IsPreferred,
+        bool IsPending,
+        bool CanDelete,
+        string Origin,
+        string? ProviderName,
+        DateTimeOffset? CreatedAt);
 
     protected string? GetUniverseExploreUrl() =>
         !string.IsNullOrWhiteSpace(_detail?.UniverseSummary?.UniverseQid)

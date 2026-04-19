@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using System.Text.Json.Serialization;
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
@@ -583,12 +584,69 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
+        // ── GET /metadata/{entityId}/artwork ────────────────────────────────
+        group.MapGet("/{entityId:guid}/artwork", async (
+            Guid entityId,
+            IEntityAssetRepository entityAssetRepo,
+            ICanonicalValueRepository canonicalRepo,
+            CancellationToken ct) =>
+        {
+            var assets = await entityAssetRepo.GetByEntityAsync(entityId.ToString(), null, ct);
+            var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
+            var slots = new[]
+            {
+                "CoverArt",
+                "SquareArt",
+                "Background",
+                "Banner",
+                "Logo",
+            };
+
+            var payload = slots.Select(assetType =>
+            {
+                var variants = assets
+                    .Where(asset => string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(asset => asset.IsPreferred)
+                    .ThenByDescending(asset => asset.CreatedAt)
+                    .Select(MapArtworkVariant)
+                    .ToList();
+
+                if (variants.Count == 0)
+                {
+                    var canonicalUrl = GetArtworkCanonicalValue(canonicals, assetType);
+                    if (!string.IsNullOrWhiteSpace(canonicalUrl))
+                    {
+                        variants.Add(new ArtworkVariantEnvelope(
+                            Guid.Empty,
+                            assetType,
+                            canonicalUrl,
+                            true,
+                            InferSyntheticArtworkOrigin(canonicals, assetType),
+                            ProviderName: null,
+                            CanDelete: false,
+                            CreatedAt: null));
+                    }
+                }
+
+                return new ArtworkSlotEnvelope(assetType, variants);
+            }).ToList();
+
+            return Results.Ok(new ArtworkEditorEnvelope(entityId, payload));
+        })
+        .WithName("GetArtworkEditor")
+        .WithSummary("Return grouped artwork variants for the editor.")
+        .Produces(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
         // ── POST /metadata/{entityId}/cover ─────────────────────────────────
         group.MapPost("/{entityId:guid}/cover", async (
             Guid entityId,
             IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
             ISystemActivityRepository activityRepo,
+            ImagePathService imagePathService,
             HttpRequest httpRequest,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -603,58 +661,60 @@ public static class MetadataEndpoints
             if (file is null || file.Length == 0)
                 return Results.BadRequest("No file provided.");
 
-            // Validate content type.
-            var allowed = new[] { "image/jpeg", "image/png", "image/jpg" };
-            if (!allowed.Any(a => string.Equals(file.ContentType, a, StringComparison.OrdinalIgnoreCase)))
+            var normalizedAssetType = "CoverArt";
+            if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
                 return Results.BadRequest("Only JPEG and PNG images are accepted.");
 
-            // Load the asset to find its file path.
             var asset = await assetRepo.FindByIdAsync(entityId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset {entityId} not found.");
 
-            // Derive edition folder from the asset's file path.
-            var editionFolder = Path.GetDirectoryName(asset.FilePathRoot);
-            if (string.IsNullOrEmpty(editionFolder) || !Directory.Exists(editionFolder))
-                return Results.BadRequest("Cannot determine edition folder for this asset.");
+            var wikidataQid = await ResolveAssetWikidataQidAsync(entityId, workRepo, canonicalRepo, ct);
+            var variantId = Guid.NewGuid();
+            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, entityId, variantId, file.ContentType, imagePathService);
 
-            // Save as cover.jpg in the edition folder.
-            var coverPath = Path.Combine(editionFolder, "cover.jpg");
-            await using var stream = file.OpenReadStream();
-            await using var fs = new FileStream(coverPath, FileMode.Create, FileAccess.Write);
-            await stream.CopyToAsync(fs, ct);
+            ImagePathService.EnsureDirectory(localPath);
+            await using (var stream = file.OpenReadStream())
+            await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
+            {
+                await stream.CopyToAsync(fs, ct);
+            }
 
-            coverLogger.LogInformation("Cover uploaded for {EntityId} → {Path}", entityId, coverPath);
+            var storedAsset = new EntityAsset
+            {
+                Id = variantId,
+                EntityId = entityId.ToString(),
+                EntityType = "Work",
+                AssetTypeValue = normalizedAssetType,
+                ImageUrl = BuildArtworkVariantStreamUrl(variantId),
+                LocalImagePath = localPath,
+                SourceProvider = "user_upload",
+                IsPreferred = true,
+                IsUserOverride = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
 
-            await canonicalRepo.UpsertBatchAsync(
-                [
-                    new Domain.Entities.CanonicalValue
-                    {
-                        EntityId = entityId,
-                        Key = MetadataFieldConstants.CoverUrl,
-                        Value = $"/stream/{entityId}/cover",
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                    },
-                    ..ArtworkCanonicalHelper.CreateFlags(
-                        entityId,
-                        coverState: "present",
-                        coverSource: "manual",
-                        heroState: "pending",
-                        lastScoredAt: DateTimeOffset.UtcNow,
-                        settled: true)
-                ],
-                ct);
+            await entityAssetRepo.UpsertAsync(storedAsset, ct);
+            await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
+            await SyncArtworkCanonicalAsync(entityId, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
 
-            // Log activity.
+            coverLogger.LogInformation("Cover uploaded for {EntityId} → {Path}", entityId, localPath);
+
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.CoverArtSaved,
                 EntityId   = entityId,
                 EntityType = "MediaAsset",
-                Detail     = $"Cover art uploaded manually",
+                Detail     = "Cover art uploaded manually",
             }, ct);
 
-            return Results.Ok(new { entity_id = entityId, cover_path = "cover.jpg" });
+            return Results.Ok(new
+            {
+                entity_id = entityId,
+                asset_type = normalizedAssetType,
+                variant_id = storedAsset.Id,
+                image_url = storedAsset.ImageUrl,
+            });
         })
         .WithName("UploadCover")
         .WithSummary("Upload cover art for a media asset.")
@@ -678,7 +738,7 @@ public static class MetadataEndpoints
         {
             var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
-                return Results.BadRequest("Artwork type must be SquareArt, Background, Banner, or Logo.");
+                return Results.BadRequest("Artwork type must be CoverArt, SquareArt, Background, Banner, or Logo.");
 
             if (!httpRequest.HasFormContentType)
                 return Results.BadRequest("Expected multipart form data.");
@@ -698,21 +758,8 @@ public static class MetadataEndpoints
                 return Results.NotFound($"Asset {entityId} not found.");
 
             var wikidataQid = await ResolveAssetWikidataQidAsync(entityId, workRepo, canonicalRepo, ct);
-            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, entityId, file.ContentType, imagePathService);
-
-            foreach (var candidatePath in EnumerateArtworkCandidatePaths(normalizedAssetType, wikidataQid, entityId, imagePathService)
-                         .Where(path => !string.Equals(path, localPath, StringComparison.OrdinalIgnoreCase)))
-            {
-                try
-                {
-                    if (File.Exists(candidatePath))
-                        File.Delete(candidatePath);
-                }
-                catch
-                {
-                    // Best-effort cleanup — a stale alternate format should not block the new upload.
-                }
-            }
+            var variantId = Guid.NewGuid();
+            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, entityId, variantId, file.ContentType, imagePathService);
 
             ImagePathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
@@ -723,11 +770,11 @@ public static class MetadataEndpoints
 
             var storedAsset = new EntityAsset
             {
-                Id = Guid.NewGuid(),
+                Id = variantId,
                 EntityId = entityId.ToString(),
                 EntityType = "Work",
                 AssetTypeValue = normalizedAssetType,
-                ImageUrl = BuildArtworkStreamUrl(entityId, normalizedAssetType),
+                ImageUrl = BuildArtworkVariantStreamUrl(variantId),
                 LocalImagePath = localPath,
                 SourceProvider = "user_upload",
                 IsPreferred = true,
@@ -737,32 +784,125 @@ public static class MetadataEndpoints
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-            await canonicalRepo.UpsertBatchAsync(
-                [
-                    new CanonicalValue
-                    {
-                        EntityId = entityId,
-                        Key = GetArtworkCanonicalKey(normalizedAssetType),
-                        Value = storedAsset.ImageUrl ?? BuildArtworkStreamUrl(entityId, normalizedAssetType),
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                    }
-                ],
-                ct);
+            await SyncArtworkCanonicalAsync(entityId, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
 
             return Results.Ok(new
             {
                 entity_id = entityId,
                 asset_type = normalizedAssetType,
+                variant_id = storedAsset.Id,
                 image_url = storedAsset.ImageUrl,
             });
         })
         .WithName("UploadEntityArtwork")
-        .WithSummary("Upload square, background, banner, or logo artwork for a media asset.")
+        .WithSummary("Upload a new artwork variant for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator()
         .DisableAntiforgery();
+
+        // ── PUT /metadata/artwork/{variantId}/preferred ─────────────────────
+        group.MapPut("/artwork/{variantId:guid}/preferred", async (
+            Guid variantId,
+            IEntityAssetRepository entityAssetRepo,
+            ICanonicalValueRepository canonicalRepo,
+            CancellationToken ct) =>
+        {
+            var target = await entityAssetRepo.FindByIdAsync(variantId, ct);
+            if (target is null)
+                return Results.NotFound($"Artwork variant {variantId} not found.");
+
+            await entityAssetRepo.SetPreferredAsync(variantId, ct);
+            target = await entityAssetRepo.FindByIdAsync(variantId, ct);
+            if (target is null)
+                return Results.NotFound($"Artwork variant {variantId} not found.");
+
+            await SyncArtworkCanonicalAsync(
+                Guid.Parse(target.EntityId),
+                target.AssetTypeValue,
+                target,
+                canonicalRepo,
+                entityAssetRepo,
+                ct);
+
+            return Results.Ok(new
+            {
+                variant_id = variantId,
+                asset_type = target.AssetTypeValue,
+                image_url = target.ImageUrl,
+            });
+        })
+        .WithName("SetPreferredArtwork")
+        .WithSummary("Mark an artwork variant as preferred for its slot.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        // ── DELETE /metadata/artwork/{variantId} ────────────────────────────
+        group.MapDelete("/artwork/{variantId:guid}", async (
+            Guid variantId,
+            IEntityAssetRepository entityAssetRepo,
+            ICanonicalValueRepository canonicalRepo,
+            CancellationToken ct) =>
+        {
+            var target = await entityAssetRepo.FindByIdAsync(variantId, ct);
+            if (target is null)
+                return Results.NotFound($"Artwork variant {variantId} not found.");
+
+            if (!string.Equals(target.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
+                && !target.IsUserOverride)
+            {
+                return Results.BadRequest("Only uploaded artwork variants can be deleted.");
+            }
+
+            var entityId = Guid.Parse(target.EntityId);
+            var siblings = await entityAssetRepo.GetByEntityAsync(target.EntityId, target.AssetTypeValue, ct);
+            var wasPreferred = target.IsPreferred;
+
+            if (!string.IsNullOrWhiteSpace(target.LocalImagePath))
+            {
+                try
+                {
+                    if (File.Exists(target.LocalImagePath))
+                        File.Delete(target.LocalImagePath);
+                }
+                catch
+                {
+                    // Best-effort cleanup. The row delete should still proceed.
+                }
+            }
+
+            await entityAssetRepo.DeleteAsync(variantId, ct);
+
+            var remaining = siblings
+                .Where(asset => asset.Id != variantId)
+                .OrderByDescending(asset => asset.IsPreferred)
+                .ThenByDescending(asset => asset.CreatedAt)
+                .ToList();
+
+            var nextPreferred = remaining.FirstOrDefault();
+            if (nextPreferred is not null && (wasPreferred || !remaining.Any(asset => asset.IsPreferred)))
+            {
+                await entityAssetRepo.SetPreferredAsync(nextPreferred.Id, ct);
+                nextPreferred = await entityAssetRepo.FindByIdAsync(nextPreferred.Id, ct);
+            }
+
+            await SyncArtworkCanonicalAsync(entityId, target.AssetTypeValue, nextPreferred, canonicalRepo, entityAssetRepo, ct);
+
+            return Results.Ok(new
+            {
+                variant_id = variantId,
+                asset_type = target.AssetTypeValue,
+                preferred_variant_id = nextPreferred?.Id,
+            });
+        })
+        .WithName("DeleteArtworkVariant")
+        .WithSummary("Delete an uploaded artwork variant.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
 
         // ── GET /metadata/wikidata-test ────────────────────────────────────────
         //
@@ -1095,8 +1235,11 @@ public static class MetadataEndpoints
             Guid entityId,
             CoverFromUrlRequest request,
             IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
             IHeroBannerGenerator heroGenerator,
+            ImagePathService imagePathService,
             IHttpClientFactory httpFactory,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -1110,49 +1253,53 @@ public static class MetadataEndpoints
             if (asset is null)
                 return Results.NotFound($"Media asset {entityId} not found.");
 
-            var fileDir = Path.GetDirectoryName(asset.FilePathRoot);
-            if (string.IsNullOrEmpty(fileDir) || !Directory.Exists(fileDir))
-                return Results.BadRequest("Asset directory not found.");
-
-            var coverPath = Path.Combine(fileDir, "cover.jpg");
-
             try
             {
-                // Download the image.
                 using var client = httpFactory.CreateClient("cover_download");
-                var imageBytes = await client.GetByteArrayAsync(request.ImageUrl, ct);
+                using var response = await client.GetAsync(request.ImageUrl, ct);
+                response.EnsureSuccessStatusCode();
+
+                var imageBytes = await response.Content.ReadAsByteArrayAsync(ct);
 
                 if (imageBytes.Length == 0)
                     return Results.BadRequest("Downloaded image is empty.");
 
-                // Save as cover.jpg (overwrite existing).
+                var contentType = response.Content.Headers.ContentType?.MediaType;
+                if (!IsArtworkUploadAllowed(contentType, "CoverArt"))
+                    return Results.BadRequest("Only JPEG and PNG images are accepted.");
+
+                var wikidataQid = await ResolveAssetWikidataQidAsync(entityId, workRepo, canonicalRepo, ct);
+                var variantId = Guid.NewGuid();
+                var coverPath = BuildArtworkUploadPath("CoverArt", wikidataQid, entityId, variantId, contentType, imagePathService);
+                var imageDir = Path.GetDirectoryName(coverPath) ?? imagePathService.GetWorkImageDir(wikidataQid, entityId);
+                ImagePathService.EnsureDirectory(coverPath);
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
                 logger.LogInformation(
                     "Cover downloaded from URL for entity {Id}: {Size} bytes â†’ {Path}",
                     entityId, imageBytes.Length, coverPath);
 
-                // Regenerate hero banner.
-                var heroResult = await heroGenerator.GenerateAsync(coverPath, fileDir, ct);
+                var heroResult = await heroGenerator.GenerateAsync(coverPath, imageDir, ct);
 
-                // Update canonical values.
-                var canonicals = new List<Domain.Entities.CanonicalValue>
+                var storedAsset = new EntityAsset
                 {
-                    new()
-                    {
-                        EntityId     = entityId,
-                        Key          = MetadataFieldConstants.CoverUrl,
-                        Value        = $"/stream/{entityId}/cover",
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                    },
+                    Id = variantId,
+                    EntityId = entityId.ToString(),
+                    EntityType = "Work",
+                    AssetTypeValue = "CoverArt",
+                    ImageUrl = BuildArtworkVariantStreamUrl(variantId),
+                    LocalImagePath = coverPath,
+                    SourceProvider = "user_upload",
+                    IsPreferred = true,
+                    IsUserOverride = true,
+                    CreatedAt = DateTimeOffset.UtcNow,
                 };
-                canonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
-                    entityId,
-                    coverState: "present",
-                    coverSource: "manual",
-                    heroState: "present",
-                    lastScoredAt: DateTimeOffset.UtcNow,
-                    settled: true));
+
+                await entityAssetRepo.UpsertAsync(storedAsset, ct);
+                await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
+                await SyncArtworkCanonicalAsync(entityId, "CoverArt", storedAsset, canonicalRepo, entityAssetRepo, ct);
+
+                var canonicals = new List<Domain.Entities.CanonicalValue>();
 
                 if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
                 {
@@ -1178,6 +1325,7 @@ public static class MetadataEndpoints
                 return Results.Ok(new
                 {
                     entity_id      = entityId,
+                    variant_id     = storedAsset.Id,
                     cover_path     = coverPath,
                     dominant_color = heroResult.DominantHexColor,
                     hero_generated = heroResult.WasRegenerated,
@@ -1305,6 +1453,7 @@ public static class MetadataEndpoints
     private static string? NormalizeUploadedArtworkType(string assetType) =>
         assetType.Trim() switch
         {
+            "cover" or "Cover" or "Poster" or "poster" or "CoverArt" => "CoverArt",
             "banner" or "Banner" => "Banner",
             "square" or "Square" or "SquareArt" => "SquareArt",
             "background" or "Background" => "Background",
@@ -1343,66 +1492,165 @@ public static class MetadataEndpoints
         string normalizedAssetType,
         string? wikidataQid,
         Guid entityId,
+        Guid variantId,
         string? contentType,
         ImagePathService imagePathService)
     {
-        var extension = string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
+        var extension = string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
             ? ".png"
-            : ".jpg";
+            : string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
+                ? ".png"
+                : ".jpg";
 
-        return normalizedAssetType switch
-        {
-            "Banner" => Path.ChangeExtension(imagePathService.GetWorkBannerPath(wikidataQid, entityId), extension),
-            "SquareArt" => Path.ChangeExtension(imagePathService.GetWorkSquareArtPath(wikidataQid, entityId), extension),
-            "Background" => Path.ChangeExtension(imagePathService.GetWorkBackgroundPath(wikidataQid, entityId), extension),
-            "Logo" => Path.ChangeExtension(imagePathService.GetWorkLogoPath(wikidataQid, entityId), ".png"),
-            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
-        };
+        return imagePathService.GetWorkArtworkVariantPath(
+            wikidataQid,
+            entityId,
+            normalizedAssetType,
+            variantId,
+            extension);
     }
 
-    private static IEnumerable<string> EnumerateArtworkCandidatePaths(
-        string normalizedAssetType,
-        string? wikidataQid,
-        Guid entityId,
-        ImagePathService imagePathService)
-    {
-        string basePath = normalizedAssetType switch
-        {
-            "Banner" => imagePathService.GetWorkBannerPath(wikidataQid, entityId),
-            "SquareArt" => imagePathService.GetWorkSquareArtPath(wikidataQid, entityId),
-            "Background" => imagePathService.GetWorkBackgroundPath(wikidataQid, entityId),
-            "Logo" => imagePathService.GetWorkLogoPath(wikidataQid, entityId),
-            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
-        };
-
-        var candidates = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            Path.ChangeExtension(basePath, ".jpg"),
-            Path.ChangeExtension(basePath, ".png"),
-        };
-
-        return candidates;
-    }
-
-    private static string BuildArtworkStreamUrl(Guid entityId, string normalizedAssetType) =>
-        normalizedAssetType switch
-        {
-            "SquareArt" => $"/stream/{entityId}/square",
-            "Background" => $"/stream/{entityId}/background",
-            "Banner" => $"/stream/{entityId}/banner",
-            "Logo" => $"/stream/{entityId}/logo",
-            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
-        };
+    private static string BuildArtworkVariantStreamUrl(Guid variantId) =>
+        $"/stream/artwork/{variantId}";
 
     private static string GetArtworkCanonicalKey(string normalizedAssetType) =>
         normalizedAssetType switch
         {
+            "CoverArt" => MetadataFieldConstants.CoverUrl,
             "SquareArt" => "square",
             "Background" => "background",
             "Banner" => "banner",
             "Logo" => "logo",
             _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
         };
+
+    private static async Task SyncArtworkCanonicalAsync(
+        Guid entityId,
+        string assetType,
+        EntityAsset? preferredAsset,
+        ICanonicalValueRepository canonicalRepo,
+        IEntityAssetRepository entityAssetRepo,
+        CancellationToken ct)
+    {
+        var canonicalKey = GetArtworkCanonicalKey(assetType);
+
+        if (preferredAsset is null)
+        {
+            await canonicalRepo.DeleteByKeyAsync(entityId, canonicalKey, ct);
+
+            if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
+            {
+                await canonicalRepo.UpsertBatchAsync(
+                    ArtworkCanonicalHelper.CreateFlags(
+                        entityId,
+                        coverState: "missing",
+                        coverSource: null,
+                        heroState: "pending",
+                        lastScoredAt: DateTimeOffset.UtcNow,
+                        settled: true),
+                    ct);
+            }
+
+            return;
+        }
+
+        var canonicals = new List<CanonicalValue>
+        {
+            new()
+            {
+                EntityId = entityId,
+                Key = canonicalKey,
+                Value = BuildArtworkVariantStreamUrl(preferredAsset.Id),
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+        };
+
+        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
+        {
+            var coverSource = string.Equals(preferredAsset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
+                ? "manual"
+                : !string.IsNullOrWhiteSpace(preferredAsset.SourceProvider)
+                    ? "provider"
+                    : "stored";
+
+            canonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
+                entityId,
+                coverState: "present",
+                coverSource: coverSource,
+                heroState: "pending",
+                lastScoredAt: DateTimeOffset.UtcNow,
+                settled: true));
+        }
+
+        await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+    }
+
+    private static string? GetArtworkCanonicalValue(IReadOnlyList<CanonicalValue> canonicals, string assetType)
+    {
+        var canonicalKey = GetArtworkCanonicalKey(assetType);
+        return canonicals.FirstOrDefault(c =>
+            string.Equals(c.Key, canonicalKey, StringComparison.OrdinalIgnoreCase))?.Value;
+    }
+
+    private static string InferSyntheticArtworkOrigin(IReadOnlyList<CanonicalValue> canonicals, string assetType)
+    {
+        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
+        {
+            var coverSource = canonicals.FirstOrDefault(c =>
+                string.Equals(c.Key, MetadataFieldConstants.CoverSource, StringComparison.OrdinalIgnoreCase))?.Value;
+
+            return coverSource switch
+            {
+                "manual" => "Uploaded",
+                "provider" => "Provider",
+                "embedded" => "Stored",
+                _ => "Stored",
+            };
+        }
+
+        return "Stored";
+    }
+
+    private static ArtworkVariantEnvelope MapArtworkVariant(EntityAsset asset) =>
+        new(
+            asset.Id,
+            asset.AssetTypeValue,
+            BuildArtworkVariantStreamUrl(asset.Id),
+            asset.IsPreferred,
+            string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
+                ? "Uploaded"
+                : !string.IsNullOrWhiteSpace(asset.SourceProvider)
+                    ? "Provider"
+                    : "Stored",
+            FormatArtworkProviderName(asset.SourceProvider),
+            CanDelete: string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase) || asset.IsUserOverride,
+            CreatedAt: asset.CreatedAt);
+
+    private static string? FormatArtworkProviderName(string? sourceProvider) =>
+        string.IsNullOrWhiteSpace(sourceProvider)
+            ? null
+            : sourceProvider switch
+            {
+                "fanart_tv" => "Fanart.tv",
+                "user_upload" => "Library Upload",
+                _ => sourceProvider.Replace('_', ' '),
+            };
+
+    private sealed record ArtworkEditorEnvelope(
+        [property: JsonPropertyName("entity_id")] Guid EntityId,
+        [property: JsonPropertyName("slots")] IReadOnlyList<ArtworkSlotEnvelope> Slots);
+    private sealed record ArtworkSlotEnvelope(
+        [property: JsonPropertyName("asset_type")] string AssetType,
+        [property: JsonPropertyName("variants")] IReadOnlyList<ArtworkVariantEnvelope> Variants);
+    private sealed record ArtworkVariantEnvelope(
+        [property: JsonPropertyName("id")] Guid Id,
+        [property: JsonPropertyName("asset_type")] string AssetType,
+        [property: JsonPropertyName("image_url")] string? ImageUrl,
+        [property: JsonPropertyName("is_preferred")] bool IsPreferred,
+        [property: JsonPropertyName("origin")] string Origin,
+        [property: JsonPropertyName("provider_name")] string? ProviderName,
+        [property: JsonPropertyName("can_delete")] bool CanDelete,
+        [property: JsonPropertyName("created_at")] DateTimeOffset? CreatedAt);
 
     /// <summary>
     /// Builds a flat dictionary of all extracted fields from a search result item.

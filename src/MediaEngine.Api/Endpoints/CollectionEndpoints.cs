@@ -2260,36 +2260,30 @@ public static class CollectionEndpoints
     }
 
     /// <summary>
-    /// Builds a <c>/stream/{assetId}/cover</c> URL from a Work's first media asset ID.
-    /// Canonical values loaded via collection/work repository queries are keyed on <c>media_assets.id</c>,
-    /// so any canonical value's <see cref="CanonicalValue.EntityId"/> is the asset GUID.
-    /// Returns null when the work has no canonical values (and thus no known asset).
+    /// Builds the preferred cover URL from a Work's canonical values.
     /// </summary>
     private static string? BuildCoverStreamUrl(Work? w)
     {
         if (w is null) return null;
-        var assetId = w.CanonicalValues
-            .Select(c => c.EntityId)
-            .FirstOrDefault(id => id != Guid.Empty);
-        return assetId != Guid.Empty ? $"/stream/{assetId}/cover" : null;
+        return w.CanonicalValues
+            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase))
+            ?.Value;
     }
 
     private static string? BuildBackgroundStreamUrl(Work? w)
     {
         if (w is null) return null;
-        var assetId = w.CanonicalValues
-            .Select(c => c.EntityId)
-            .FirstOrDefault(id => id != Guid.Empty);
-        return assetId != Guid.Empty ? $"/stream/{assetId}/background" : null;
+        return w.CanonicalValues
+            .FirstOrDefault(c => string.Equals(c.Key, "background", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
     }
 
     private static string? BuildBannerStreamUrl(Work? w)
     {
         if (w is null) return null;
-        var assetId = w.CanonicalValues
-            .Select(c => c.EntityId)
-            .FirstOrDefault(id => id != Guid.Empty);
-        return assetId != Guid.Empty ? $"/stream/{assetId}/banner" : null;
+        return w.CanonicalValues
+            .FirstOrDefault(c => string.Equals(c.Key, "banner", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
     }
 
     private static string? BuildHeroStreamUrl(Work? w)

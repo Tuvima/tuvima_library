@@ -346,19 +346,24 @@
                                 <div class="sme-artwork-intro-text">@ArtworkTabExplanation</div>
                             </section>
 
-                            <div class="sme-artwork-grid">
+                            <div class="sme-artwork-overview">
                                 @foreach (var slot in ArtworkSlots)
                                 {
                                     var previewUrl = GetArtworkPreviewUrl(slot.AssetType);
                                     var slotCount = GetArtworkAssetCount(slot.AssetType);
-                                    var isPending = HasPendingArtwork(slot.AssetType);
-                                    var canUpload = slot.UploadEnabled;
-                                    var isDragTarget = IsArtworkDragTarget(slot.AssetType);
                                     var stateBadge = GetArtworkStateBadge(slot.AssetType);
+                                    var isSelected = string.Equals(SelectedArtworkSlot?.AssetType, slot.AssetType, StringComparison.OrdinalIgnoreCase);
+                                    var isDragTarget = IsArtworkDragTarget(slot.AssetType);
 
-                                    <section class="sme-art-slot @(isDragTarget ? "sme-art-slot--drag" : "") @(canUpload ? string.Empty : "sme-art-slot--readonly")">
-                                        <div class="sme-art-slot-header">
-                                            <div class="sme-art-slot-heading">
+                                    <button type="button"
+                                            class="sme-art-board @(isSelected ? "sme-art-board--selected" : "") @(isDragTarget ? "sme-art-board--drag" : "")"
+                                            @onclick="@(() => SelectArtworkSlot(slot.AssetType))"
+                                            @ondragenter="@(() => SetArtworkDragTarget(slot.AssetType))"
+                                            @ondragleave="@(() => ClearArtworkDragTarget(slot.AssetType))"
+                                            @ondragover:preventDefault="true"
+                                            @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
+                                        <div class="sme-art-board-header">
+                                            <div class="sme-art-board-heading">
                                                 <div class="sme-art-slot-title-row">
                                                     <div class="sme-art-slot-title">@slot.Label</div>
                                                     <MudTooltip Text="@slot.Description">
@@ -369,69 +374,162 @@
                                                 </div>
                                                 <div class="sme-art-slot-meta">@GetArtworkSlotMeta(slot)</div>
                                             </div>
-                                            <div class="sme-art-slot-header-meta">
+                                            <div class="sme-art-board-meta">
                                                 <span class="sme-art-slot-badge sme-art-slot-badge--@stateBadge.Tone">@stateBadge.Label</span>
-                                                @if (slotCount > 1)
-                                                {
-                                                    <span class="sme-art-slot-count">@slotCount options</span>
-                                                }
+                                                <span class="sme-art-slot-count">@slotCount variant@(slotCount == 1 ? string.Empty : "s")</span>
                                             </div>
                                         </div>
 
-                                        <div class="sme-art-slot-frame"
-                                             @ondragenter="@(() => SetArtworkDragTarget(slot.AssetType))"
-                                             @ondragleave="@(() => ClearArtworkDragTarget(slot.AssetType))"
-                                             @ondragover:preventDefault="true"
-                                             @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
-                                            <div class="sme-art-slot-preview sme-art-slot-preview--@slot.PreviewClass">
-                                                @if (!string.IsNullOrWhiteSpace(previewUrl))
+                                        <div class="sme-art-board-stage sme-art-board-stage--@slot.PreviewClass">
+                                            @if (!string.IsNullOrWhiteSpace(previewUrl))
+                                            {
+                                                <img src="@previewUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                            }
+                                            else
+                                            {
+                                                <div class="sme-cover-fallback sme-art-slot-placeholder">
+                                                    <MudIcon Icon="@slot.Icon" Style="font-size: 32px; opacity: 0.18;" />
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <div class="sme-art-board-footer">
+                                            @GetArtworkSourceLabel(slot.AssetType)
+                                        </div>
+                                    </button>
+                                }
+                            </div>
+
+                            @if (SelectedArtworkSlot is not null)
+                            {
+                                var selectedSlot = SelectedArtworkSlot;
+                                var leadVariant = GetLeadArtworkVariant(selectedSlot.AssetType);
+                                var galleryItems = GetArtworkGalleryItems(selectedSlot.AssetType);
+
+                                <section class="sme-artwork-detail">
+                                    <div class="sme-artwork-detail-header">
+                                        <div class="sme-artwork-detail-copy">
+                                            <div class="sme-artwork-detail-title">@selectedSlot.Label</div>
+                                            <div class="sme-artwork-detail-text">@selectedSlot.Description</div>
+                                        </div>
+                                        <div class="sme-artwork-detail-actions">
+                                            <label class="sme-art-slot-action sme-art-slot-action--primary" title="@selectedSlot.UploadHelp">
+                                                <span>@GetArtworkActionLabel(selectedSlot.AssetType)</span>
+                                                <span class="sme-art-slot-input-shell">
+                                                    <InputFile class="sme-art-slot-file-input"
+                                                               OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(selectedSlot.AssetType, args))"
+                                                               accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)" />
+                                                </span>
+                                            </label>
+                                            @if (HasPendingArtwork(selectedSlot.AssetType))
+                                            {
+                                                <button type="button" class="sme-art-slot-action sme-art-slot-action--ghost" @onclick="@(() => ClearArtworkSelection(selectedSlot.AssetType))">
+                                                    Clear Pending
+                                                </button>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div class="sme-artwork-detail-main">
+                                        <div class="sme-artwork-detail-preview">
+                                            <div class="sme-artwork-detail-stage sme-artwork-detail-stage--@selectedSlot.PreviewClass">
+                                                @if (!string.IsNullOrWhiteSpace(leadVariant?.ImageUrl))
                                                 {
-                                                    <img src="@previewUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                                    <img src="@leadVariant.ImageUrl" alt="@selectedSlot.Label" class="sme-art-slot-image sme-art-slot-image--@selectedSlot.ImageClass" />
                                                 }
                                                 else
                                                 {
                                                     <div class="sme-cover-fallback sme-art-slot-placeholder">
-                                                        <MudIcon Icon="@slot.Icon" Style="font-size: 32px; opacity: 0.18;" />
+                                                        <MudIcon Icon="@selectedSlot.Icon" Style="font-size: 42px; opacity: 0.18;" />
                                                     </div>
                                                 }
                                             </div>
-                                        </div>
-
-                                        <div class="sme-art-slot-status-row">
-                                            <div class="sme-art-slot-status">
-                                                @if (isPending)
+                                            <div class="sme-artwork-detail-caption">
+                                                @if (leadVariant is null)
                                                 {
-                                                    <span>Ready to upload: @GetPendingArtworkFileName(slot.AssetType)</span>
+                                                    <span>@GetArtworkEmptyStateLabel(selectedSlot.AssetType)</span>
+                                                }
+                                                else if (leadVariant.IsPending)
+                                                {
+                                                    <span>Pending variant ready to upload.</span>
+                                                }
+                                                else if (leadVariant.IsPreferred)
+                                                {
+                                                    <span>Preferred @selectedSlot.Label variant.</span>
                                                 }
                                                 else
                                                 {
-                                                    <span>@GetArtworkSourceLabel(slot.AssetType)</span>
+                                                    <span>Available @selectedSlot.Label variant.</span>
                                                 }
                                             </div>
                                         </div>
 
-                                        <div class="sme-art-slot-actions">
-                                            @if (canUpload)
+                                        <div class="sme-artwork-variant-strip">
+                                            @if (galleryItems.Count == 0)
                                             {
-                                                <label class="sme-art-slot-action sme-art-slot-action--primary" title="@slot.UploadHelp">
-                                                    <span>@GetArtworkActionLabel(slot.AssetType)</span>
-                                                    <span class="sme-art-slot-input-shell">
-                                                        <InputFile class="sme-art-slot-file-input"
-                                                                   OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
-                                                                   accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
-                                                    </span>
-                                                </label>
+                                                <div class="sme-empty-panel">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 24px; opacity: 0.18;" />
+                                                    <span>@GetArtworkEmptyStateLabel(selectedSlot.AssetType)</span>
+                                                </div>
                                             }
-                                            @if (canUpload && isPending)
+                                            else
                                             {
-                                                <button class="sme-art-slot-action sme-art-slot-action--ghost" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">
-                                                    Clear
-                                                </button>
+                                                @foreach (var item in galleryItems)
+                                                {
+                                                    <div class="sme-art-variant">
+                                                        <button type="button"
+                                                                class="sme-art-variant-preview @(IsFocusedArtworkVariant(item.Key) ? "sme-art-variant-preview--selected" : "")"
+                                                                @onclick="@(() => FocusArtworkVariant(item.Key))">
+                                                            <div class="sme-art-variant-stage sme-art-variant-stage--@selectedSlot.PreviewClass">
+                                                                @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                                                                {
+                                                                    <img src="@item.ImageUrl" alt="@selectedSlot.Label" class="sme-art-slot-image sme-art-slot-image--@selectedSlot.ImageClass" />
+                                                                }
+                                                                else
+                                                                {
+                                                                    <div class="sme-cover-fallback sme-art-slot-placeholder">
+                                                                        <MudIcon Icon="@selectedSlot.Icon" Style="font-size: 26px; opacity: 0.18;" />
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        </button>
+                                                        <div class="sme-art-variant-info">
+                                                            <div class="sme-art-variant-badges">
+                                                                @if (item.IsPreferred)
+                                                                {
+                                                                    <span class="sme-art-slot-badge sme-art-slot-badge--uploaded">Preferred</span>
+                                                                }
+                                                                else if (item.IsPending)
+                                                                {
+                                                                    <span class="sme-art-slot-badge sme-art-slot-badge--pending">Pending</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="sme-art-slot-badge sme-art-slot-badge--stored">@item.Origin</span>
+                                                                }
+                                                            </div>
+                                                            <div class="sme-art-variant-actions">
+                                                                @if (!item.IsPending && item.VariantId != Guid.Empty && !item.IsPreferred)
+                                                                {
+                                                                    <button type="button" class="sme-art-slot-action sme-art-slot-action--ghost" @onclick="@(() => SetPreferredArtworkVariantAsync(item.VariantId))">
+                                                                        Set Preferred
+                                                                    </button>
+                                                                }
+                                                                @if (!item.IsPending && item.CanDelete && item.VariantId != Guid.Empty)
+                                                                {
+                                                                    <button type="button" class="sme-art-slot-action sme-art-slot-action--ghost" @onclick="@(() => DeleteArtworkVariantAsync(item.VariantId))">
+                                                                        Delete
+                                                                    </button>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }
                                             }
                                         </div>
-                                    </section>
-                                }
-                            </div>
+                                    </div>
+                                </section>
+                            }
 
                             <section class="sme-artwork-generated">
                                 <div class="sme-artwork-generated-copy">

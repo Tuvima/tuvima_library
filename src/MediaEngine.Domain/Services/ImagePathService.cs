@@ -103,6 +103,43 @@ public sealed class ImagePathService
     public string GetWorkBannerPath(string? wikidataQid, Guid assetId) =>
         Path.Combine(GetWorkImageDir(wikidataQid, assetId), "banner.jpg");
 
+    /// <summary>Gets the per-role directory for variant artwork attached to a work.</summary>
+    public string GetWorkArtworkVariantDir(string? wikidataQid, Guid assetId, string assetType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(assetType);
+        var normalizedRole = assetType.Trim().ToLowerInvariant() switch
+        {
+            "coverart" => "cover",
+            "background" => "background",
+            "banner" => "banner",
+            "squareart" => "square",
+            "logo" => "logo",
+            _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
+        };
+
+        return Path.Combine(GetWorkImageDir(wikidataQid, assetId), normalizedRole);
+    }
+
+    /// <summary>Gets the full path for a variant artwork file belonging to a work.</summary>
+    public string GetWorkArtworkVariantPath(
+        string? wikidataQid,
+        Guid assetId,
+        string assetType,
+        Guid variantId,
+        string extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new ArgumentException("File extension is required.", nameof(extension));
+
+        var normalizedExtension = extension.StartsWith(".", StringComparison.Ordinal)
+            ? extension
+            : "." + extension;
+
+        return Path.Combine(
+            GetWorkArtworkVariantDir(wikidataQid, assetId, assetType),
+            $"{variantId:N}{normalizedExtension}");
+    }
+
     /// <summary>Gets the directory for a person's images.</summary>
     public string GetPersonImageDir(string wikidataQid) =>
         Path.Combine(_imagesRoot, "people", wikidataQid);

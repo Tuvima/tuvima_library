@@ -158,12 +158,13 @@
 
     .discovery-shelf-scroll {
         --discovery-hover-clearance: clamp(112px, 13vw, 148px);
+        --discovery-hover-lift: clamp(26px, 3vw, 34px);
         display: flex;
         align-items: flex-start;
         gap: clamp(16px, 1.6vw, 24px);
         overflow-x: auto;
         scroll-snap-type: x proximity;
-        padding: 6px 2px 20px;
+        padding: calc(var(--discovery-hover-lift) + 6px) 2px calc(var(--discovery-hover-clearance) + 18px);
         scrollbar-width: none;
         -ms-overflow-style: none;
     }

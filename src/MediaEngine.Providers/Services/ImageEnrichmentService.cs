@@ -312,9 +312,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     }
 
     /// <summary>
-    /// Processes a Fanart.tv image array (e.g. "moviebackground"), downloads
-    /// the best image, stores it on disk, and creates an EntityAsset record.
-    /// Returns the local file path if successful, null otherwise.
+    /// Processes a Fanart.tv image array (e.g. "moviebackground"), stores all
+    /// distinct variants for the role, and marks the highest-ranked image as
+    /// preferred. Returns the preferred local file path if successful.
     /// </summary>
     private async Task<string?> ProcessImageArrayAsync(
         JsonNode json, string jsonField, AssetType assetType,
@@ -328,62 +328,82 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             return null;
         }
 
-        // Pick best image: prefer English, then highest likes
-        var best = imageArray
+        var rankedImages = imageArray
             .Where(n => n is not null)
             .OrderByDescending(n =>
                 string.Equals(n!["lang"]?.GetValue<string>(), "en", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
             .ThenByDescending(GetLikes)
-            .FirstOrDefault();
+            .ToList();
 
-        var imageUrl = best?["url"]?.GetValue<string>();
-        if (string.IsNullOrEmpty(imageUrl)) return null;
+        if (rankedImages.Count == 0)
+            return null;
 
-        // Resolve local path based on asset type
-        var localPath = assetType switch
+        var existingVariants = (await _assetRepo.GetByEntityAsync(assetId.ToString(), assetType.ToString(), ct)).ToList();
+        EntityAsset? preferredVariant = null;
+
+        foreach (var imageNode in rankedImages)
         {
-            AssetType.Background => _imagePaths.GetWorkBackgroundPath(workQid, assetId),
-            AssetType.SquareArt  => _imagePaths.GetWorkSquareArtPath(workQid, assetId),
-            AssetType.Logo       => _imagePaths.GetWorkLogoPath(workQid, assetId),
-            AssetType.Banner     => _imagePaths.GetWorkBannerPath(workQid, assetId),
-            _                  => null,
-        };
+            var imageUrl = imageNode?["url"]?.GetValue<string>();
+            if (string.IsNullOrWhiteSpace(imageUrl))
+                continue;
 
-        if (localPath is null) return null;
+            var existing = existingVariants.FirstOrDefault(asset =>
+                string.Equals(asset.ImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase));
 
-        // Skip if already downloaded
-        if (File.Exists(localPath))
-        {
-            _logger.LogDebug("[IMAGE-ENRICH] {AssetType} already exists at {Path}", assetType, localPath);
-            return localPath;
+            if (existing is not null)
+            {
+                preferredVariant ??= existing;
+                continue;
+            }
+
+            var bytes = await DownloadImageBytesAsync(imageUrl, ct);
+            if (bytes is null || bytes.Length == 0)
+                continue;
+
+            var variant = new EntityAsset
+            {
+                Id             = Guid.NewGuid(),
+                EntityId       = assetId.ToString(),
+                EntityType     = "Work",
+                AssetTypeValue = assetType.ToString(),
+                ImageUrl       = imageUrl,
+                LocalImagePath = string.Empty,
+                SourceProvider = "fanart_tv",
+                IsPreferred    = false,
+                IsUserOverride = false,
+                CreatedAt      = DateTimeOffset.UtcNow,
+            };
+
+            variant.LocalImagePath = _imagePaths.GetWorkArtworkVariantPath(
+                workQid,
+                assetId,
+                assetType.ToString(),
+                variant.Id,
+                InferVariantExtension(assetType, imageUrl));
+
+            await PersistImageAsync(bytes, variant.LocalImagePath, imageUrl, ct);
+            await _assetRepo.UpsertAsync(variant, ct);
+            existingVariants.Add(variant);
+            preferredVariant ??= variant;
+
+            _logger.LogInformation(
+                "[IMAGE-ENRICH] Downloaded {AssetType} variant for {WorkQid} ({Bytes} bytes)",
+                assetType, workQid, bytes.Length);
         }
 
-        // Download with hash-dedup
-        var bytes = await DownloadImageBytesAsync(imageUrl, ct);
-        if (bytes is null || bytes.Length == 0) return null;
+        if (preferredVariant is null)
+            preferredVariant = existingVariants
+                .OrderByDescending(asset => asset.IsPreferred)
+                .ThenByDescending(asset => asset.CreatedAt)
+                .FirstOrDefault();
 
-        await PersistImageAsync(bytes, localPath, imageUrl, ct);
+        if (preferredVariant is null)
+            return null;
 
-        // Create EntityAsset record
-        await _assetRepo.UpsertAsync(new EntityAsset
-        {
-            Id             = Guid.NewGuid(),
-            EntityId       = assetId.ToString(),
-            EntityType     = "Work",
-            AssetTypeValue = assetType.ToString(),
-            ImageUrl       = imageUrl,
-            LocalImagePath = localPath,
-            SourceProvider = "fanart_tv",
-            IsPreferred    = true,
-            IsUserOverride = false,
-            CreatedAt      = DateTimeOffset.UtcNow,
-        }, ct);
+        await _assetRepo.SetPreferredAsync(preferredVariant.Id, ct);
+        await UpsertPreferredArtworkCanonicalAsync(assetId, assetType, preferredVariant.Id, ct);
 
-        _logger.LogInformation(
-            "[IMAGE-ENRICH] Downloaded {AssetType} for {WorkQid} ({Bytes} bytes)",
-            assetType, workQid, bytes.Length);
-
-        return localPath;
+        return preferredVariant.LocalImagePath;
     }
 
     /// <summary>
@@ -445,6 +465,51 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 ct);
             _logger.LogWarning(ex, "[IMAGE-ENRICH] Hero regeneration from background art failed for {WorkQid}", workQid);
         }
+    }
+
+    private async Task UpsertPreferredArtworkCanonicalAsync(
+        Guid assetId,
+        AssetType assetType,
+        Guid preferredVariantId,
+        CancellationToken ct)
+    {
+        var canonicalKey = assetType switch
+        {
+            AssetType.Background => "background",
+            AssetType.Banner => "banner",
+            AssetType.Logo => "logo",
+            AssetType.SquareArt => "square",
+            _ => null,
+        };
+
+        if (canonicalKey is null)
+            return;
+
+        await _canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue
+            {
+                EntityId = assetId,
+                Key = canonicalKey,
+                Value = $"/stream/artwork/{preferredVariantId}",
+                LastScoredAt = DateTimeOffset.UtcNow,
+            },
+        ], ct);
+    }
+
+    private static string InferVariantExtension(AssetType assetType, string imageUrl)
+    {
+        if (assetType == AssetType.Logo)
+            return ".png";
+
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
+        {
+            var extension = Path.GetExtension(imageUri.AbsolutePath);
+            if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+                return ".png";
+        }
+
+        return ".jpg";
     }
 
     private async Task<string?> ResolveFanartApiKeyAsync(

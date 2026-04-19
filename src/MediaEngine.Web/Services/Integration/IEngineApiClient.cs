@@ -317,6 +317,15 @@ public interface IEngineApiClient
     /// <summary>POST /metadata/{entityId}/artwork/{assetType} — upload typed artwork for a media asset.</summary>
     Task<bool> UploadEntityArtworkAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
 
+    /// <summary>POST /metadata/{entityId}/artwork/{assetType} — append a new artwork variant for a media asset.</summary>
+    Task<bool> UploadArtworkVariantAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
+
+    /// <summary>PUT /metadata/artwork/{variantId}/preferred — set the preferred artwork variant.</summary>
+    Task<bool> SetPreferredArtworkAsync(Guid variantId, CancellationToken ct = default);
+
+    /// <summary>DELETE /metadata/artwork/{variantId} — delete an uploaded artwork variant.</summary>
+    Task<bool> DeleteArtworkAsync(Guid variantId, CancellationToken ct = default);
+
     // ── Provider Icons ───────────────────────────────────────────────────────
 
     /// <summary>POST /settings/providers/{name}/icon — upload a provider icon.</summary>
@@ -407,6 +416,9 @@ public interface IEngineApiClient
 
     /// <summary>GET /vault/assets/{entityId} — entity assets grouped by type.</summary>
     Task<IReadOnlyList<EntityAssetDto>> GetEntityAssetsAsync(string entityId, CancellationToken ct = default);
+
+    /// <summary>GET /metadata/{entityId}/artwork — grouped artwork variants for the editor.</summary>
+    Task<ArtworkEditorDto?> GetArtworkAsync(Guid entityId, CancellationToken ct = default);
 
     // ── Timeline (/timeline) ────────────────────────────────────────────────
 

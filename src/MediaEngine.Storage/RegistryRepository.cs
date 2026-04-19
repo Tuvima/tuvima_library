@@ -1067,6 +1067,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN COALESCE(NULLIF(wd.self_hero_url, ''), NULLIF(wd.parent_hero_url, '')) IS NOT NULL THEN 'present'
                         ELSE 'pending'
                     END) AS hero_state,
+                    COALESCE(NULLIF(wd.self_cover_url, ''), NULLIF(wd.parent_cover_url, '')) AS cover_url_value,
                     COALESCE(NULLIF(wd.self_background_url, ''), NULLIF(wd.parent_background_url, '')) AS background_url_value,
                     COALESCE(NULLIF(wd.self_banner_url, ''), NULLIF(wd.parent_banner_url, '')) AS banner_url_value,
                     CASE
@@ -1094,7 +1095,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     rd.year,
                     rd.media_type,
                     CASE
-                        WHEN rd.artwork_state = 'present' AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/cover'
+                        WHEN rd.artwork_state = 'present' THEN rd.cover_url_value
                         ELSE NULL
                     END AS cover_url,
                     CASE
@@ -1102,11 +1103,11 @@ public sealed class RegistryRepository : IRegistryRepository
                         ELSE NULL
                     END AS hero_url,
                     CASE
-                        WHEN rd.background_url_value IS NOT NULL AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/background'
+                        WHEN rd.background_url_value IS NOT NULL THEN rd.background_url_value
                         ELSE NULL
                     END AS background_url,
                     CASE
-                        WHEN rd.banner_url_value IS NOT NULL AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/banner'
+                        WHEN rd.banner_url_value IS NOT NULL THEN rd.banner_url_value
                         ELSE NULL
                     END AS banner_url,
                     rd.author,

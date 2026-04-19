@@ -72,6 +72,22 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
     }
 
     /// <inheritdoc/>
+    public Task<EntityAsset?> FindByIdAsync(Guid assetId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var result = conn.QuerySingleOrDefault<EntityAsset>($"""
+            SELECT {SelectColumns}
+            FROM   entity_assets
+            WHERE  id = @assetId
+            LIMIT  1;
+            """, new { assetId = assetId.ToString() });
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public Task UpsertAsync(EntityAsset asset, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
@@ -163,6 +179,20 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             DELETE FROM entity_assets
             WHERE  entity_id = @entityId;
             """, new { entityId });
+
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task DeleteAsync(Guid assetId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            DELETE FROM entity_assets
+            WHERE  id = @assetId;
+            """, new { assetId = assetId.ToString() });
 
         return Task.CompletedTask;
     }
