@@ -22,6 +22,7 @@ namespace MediaEngine.Providers.Services;
 public sealed class ImageEnrichmentService : IImageEnrichmentService
 {
     private readonly IEntityAssetRepository _assetRepo;
+    private readonly IMediaAssetRepository _mediaAssetRepo;
     private readonly ICharacterPortraitRepository _portraitRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IWorkRepository _workRepo;
@@ -75,6 +76,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     public ImageEnrichmentService(
         IEntityAssetRepository assetRepo,
+        IMediaAssetRepository mediaAssetRepo,
         ICharacterPortraitRepository portraitRepo,
         ICanonicalValueRepository canonicalRepo,
         IWorkRepository workRepo,
@@ -90,6 +92,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ILogger<ImageEnrichmentService> logger)
     {
         ArgumentNullException.ThrowIfNull(assetRepo);
+        ArgumentNullException.ThrowIfNull(mediaAssetRepo);
         ArgumentNullException.ThrowIfNull(portraitRepo);
         ArgumentNullException.ThrowIfNull(canonicalRepo);
         ArgumentNullException.ThrowIfNull(workRepo);
@@ -105,6 +108,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ArgumentNullException.ThrowIfNull(logger);
 
         _assetRepo           = assetRepo;
+        _mediaAssetRepo      = mediaAssetRepo;
         _portraitRepo        = portraitRepo;
         _canonicalRepo       = canonicalRepo;
         _workRepo            = workRepo;
@@ -127,6 +131,14 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ArgumentException.ThrowIfNullOrWhiteSpace(workQid);
 
         var context = await ResolveImageWorkContextAsync(assetId, ct);
+        if (string.IsNullOrWhiteSpace(context.MediaFilePath))
+        {
+            _logger.LogWarning(
+                "[IMAGE-ENRICH] Asset {AssetId} has no media file path — skipping sidecar artwork enrichment",
+                assetId);
+            return;
+        }
+
         _logger.LogInformation(
             "[IMAGE-ENRICH] Starting image enrichment for asset {AssetId} using canonical entity {CanonicalEntityId} ({WorkQid})",
             assetId,
@@ -182,7 +194,16 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             foreach (var (jsonField, assetType) in mappings)
             {
                 var localPath = await ProcessImageArrayAsync(
-                    json, jsonField, assetType, assetId, workQid, resolvedMediaType, ct);
+                    json,
+                    jsonField,
+                    assetType,
+                    context.CanonicalEntityId,
+                    assetId,
+                    workQid,
+                    resolvedMediaType,
+                    context.MediaFilePath,
+                    context.ArtworkFolderPath,
+                    ct);
 
                 if (assetType == AssetType.Background && localPath is not null)
                     backgroundPath = localPath;
@@ -192,7 +213,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         // ── Step 5: Regenerate hero from the higher-resolution background art ──
         if (backgroundPath is not null && File.Exists(backgroundPath))
         {
-            await RegenerateHeroFromBackgroundAsync(assetId, workQid, backgroundPath, ct);
+            await RegenerateHeroFromBackgroundAsync(context.CanonicalEntityId, workQid, backgroundPath, ct);
         }
 
         // ── Steps 6–7: Character art matching ──
@@ -318,7 +339,12 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     /// </summary>
     private async Task<string?> ProcessImageArrayAsync(
         JsonNode json, string jsonField, AssetType assetType,
-        Guid assetId, string workQid, string mediaType,
+        Guid ownerEntityId,
+        Guid assetId,
+        string workQid,
+        string mediaType,
+        string mediaFilePath,
+        string? artworkFolderPath,
         CancellationToken ct)
     {
         var imageArray = ResolveImageArray(json, jsonField);
@@ -330,15 +356,15 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
         var rankedImages = imageArray
             .Where(n => n is not null)
-            .OrderByDescending(n =>
-                string.Equals(n!["lang"]?.GetValue<string>(), "en", StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .Where(n => IsAllowedArtworkLanguage(n, assetType))
+            .OrderByDescending(GetArtworkLanguageRank)
             .ThenByDescending(GetLikes)
             .ToList();
 
         if (rankedImages.Count == 0)
             return null;
 
-        var existingVariants = (await _assetRepo.GetByEntityAsync(assetId.ToString(), assetType.ToString(), ct)).ToList();
+        var existingVariants = (await _assetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType.ToString(), ct)).ToList();
         EntityAsset? preferredVariant = null;
 
         foreach (var imageNode in rankedImages)
@@ -363,7 +389,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             var variant = new EntityAsset
             {
                 Id             = Guid.NewGuid(),
-                EntityId       = assetId.ToString(),
+                EntityId       = ownerEntityId.ToString(),
                 EntityType     = "Work",
                 AssetTypeValue = assetType.ToString(),
                 ImageUrl       = imageUrl,
@@ -374,12 +400,17 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 CreatedAt      = DateTimeOffset.UtcNow,
             };
 
-            variant.LocalImagePath = _imagePaths.GetWorkArtworkVariantPath(
-                workQid,
-                assetId,
-                assetType.ToString(),
-                variant.Id,
-                InferVariantExtension(assetType, imageUrl));
+            variant.LocalImagePath = !string.IsNullOrWhiteSpace(artworkFolderPath)
+                ? ImagePathService.GetFolderArtworkVariantPath(
+                    artworkFolderPath,
+                    assetType.ToString(),
+                    variant.Id,
+                    InferVariantExtension(assetType, imageUrl))
+                : ImagePathService.GetMediaFileArtworkVariantPath(
+                    mediaFilePath,
+                    assetType.ToString(),
+                    variant.Id,
+                    InferVariantExtension(assetType, imageUrl));
 
             await PersistImageAsync(bytes, variant.LocalImagePath, imageUrl, ct);
             await _assetRepo.UpsertAsync(variant, ct);
@@ -401,7 +432,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             return null;
 
         await _assetRepo.SetPreferredAsync(preferredVariant.Id, ct);
-        await UpsertPreferredArtworkCanonicalAsync(assetId, assetType, preferredVariant.Id, ct);
+        await UpsertPreferredArtworkCanonicalAsync(ownerEntityId, assetType, preferredVariant.Id, ct);
 
         return preferredVariant.LocalImagePath;
     }
@@ -415,7 +446,15 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         try
         {
-            var imageDir = _imagePaths.GetWorkImageDir(workQid, assetId);
+            var imageDir = Path.GetDirectoryName(backgroundPath);
+            if (string.IsNullOrWhiteSpace(imageDir))
+            {
+                _logger.LogWarning(
+                    "[IMAGE-ENRICH] Could not resolve a sidecar directory for background art {BackgroundPath}",
+                    backgroundPath);
+                return;
+            }
+
             var heroResult = await _heroGenerator.GenerateAsync(backgroundPath, imageDir, ct);
 
             var heroCanonicals = new List<CanonicalValue>
@@ -530,11 +569,47 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     private async Task<ImageWorkContext> ResolveImageWorkContextAsync(Guid entityId, CancellationToken ct)
     {
+        var asset = await _mediaAssetRepo.FindByIdAsync(entityId, ct);
         var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
+        var mediaFilePath = asset?.FilePathRoot;
+
         return lineage is null
-            ? new ImageWorkContext(entityId, entityId)
-            : new ImageWorkContext(entityId, lineage.TargetForParentScope);
+            ? new ImageWorkContext(entityId, entityId, mediaFilePath, GetContainerFolder(mediaFilePath))
+            : new ImageWorkContext(
+                entityId,
+                lineage.TargetForParentScope,
+                mediaFilePath,
+                ResolveArtworkFolderPath(lineage.MediaType, mediaFilePath));
     }
+
+    private static string? ResolveArtworkFolderPath(MediaEngine.Domain.Enums.MediaType mediaType, string? mediaFilePath) =>
+        mediaType switch
+        {
+            MediaEngine.Domain.Enums.MediaType.TV => GetSeriesFolder(mediaFilePath),
+            MediaEngine.Domain.Enums.MediaType.Music => GetArtistFolder(mediaFilePath) ?? GetContainerFolder(mediaFilePath),
+            _ => GetContainerFolder(mediaFilePath),
+        };
+
+    private static string? GetSeriesFolder(string? mediaFilePath)
+    {
+        var seasonFolder = GetContainerFolder(mediaFilePath);
+        return string.IsNullOrWhiteSpace(seasonFolder)
+            ? null
+            : Path.GetDirectoryName(seasonFolder);
+    }
+
+    private static string? GetArtistFolder(string? mediaFilePath)
+    {
+        var albumFolder = GetContainerFolder(mediaFilePath);
+        return string.IsNullOrWhiteSpace(albumFolder)
+            ? null
+            : Path.GetDirectoryName(albumFolder);
+    }
+
+    private static string? GetContainerFolder(string? mediaFilePath) =>
+        string.IsNullOrWhiteSpace(mediaFilePath)
+            ? null
+            : Path.GetDirectoryName(mediaFilePath);
 
     /// <summary>
     /// Matches Fanart.tv character art images against fictional entities
@@ -781,5 +856,27 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private static bool IsMusicType(string? mediaType) =>
         string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase);
 
-    private sealed record ImageWorkContext(Guid AssetId, Guid CanonicalEntityId);
+    private static bool IsAllowedArtworkLanguage(JsonNode? imageNode, AssetType assetType)
+    {
+        if (assetType is not (AssetType.Logo or AssetType.Banner or AssetType.SquareArt))
+            return true;
+
+        return IsPreferredArtworkLanguage(imageNode?["lang"]?.GetValue<string>());
+    }
+
+    private static bool IsPreferredArtworkLanguage(string? language) =>
+        string.IsNullOrWhiteSpace(language)
+        || string.Equals(language, "en", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(language, "00", StringComparison.OrdinalIgnoreCase);
+
+    private static int GetArtworkLanguageRank(JsonNode? imageNode)
+    {
+        var language = imageNode?["lang"]?.GetValue<string>();
+        if (string.Equals(language, "en", StringComparison.OrdinalIgnoreCase))
+            return 2;
+
+        return IsPreferredArtworkLanguage(language) ? 1 : 0;
+    }
+
+    private sealed record ImageWorkContext(Guid AssetId, Guid CanonicalEntityId, string? MediaFilePath, string? ArtworkFolderPath);
 }

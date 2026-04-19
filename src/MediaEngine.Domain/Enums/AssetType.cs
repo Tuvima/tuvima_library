@@ -26,6 +26,15 @@ public enum AssetType
     /// <summary>Cinematic background image (movie or show background art).</summary>
     Background,
 
+    /// <summary>Season-level poster art for television or episodic media.</summary>
+    SeasonPoster,
+
+    /// <summary>Season-level thumbnail or wide season still.</summary>
+    SeasonThumb,
+
+    /// <summary>Episode-specific still image.</summary>
+    EpisodeStill,
+
     /// <summary>Actor-in-costume or animated character portrait for a specific performer-character pair.</summary>
     CharacterPortrait,
 }

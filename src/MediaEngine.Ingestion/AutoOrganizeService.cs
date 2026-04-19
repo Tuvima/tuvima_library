@@ -488,21 +488,17 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         Directory.CreateDirectory(newFolder);
 
-        MoveCompanionCandidates(
-            EnumeratePosterCandidates(oldMediaPath),
-            ImagePathService.GetMediaFilePosterPath(newMediaPath));
-
-        MoveCompanionCandidates(
-            EnumeratePosterThumbCandidates(oldMediaPath),
-            ImagePathService.GetMediaFileThumbPath(newMediaPath));
+        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "poster", ".jpg", ".png");
+        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "poster-thumb", ".jpg");
+        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "hero", ".jpg");
+        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "fanart", ".jpg", ".png");
+        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "banner", ".jpg", ".png");
+        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "logo", ".png", ".jpg");
+        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "square", ".jpg", ".png");
 
         MoveCompanionCandidates(
             [Path.Combine(oldFolder, "cover.jpg")],
             Path.Combine(newFolder, "cover.jpg"));
-
-        MoveCompanionCandidates(
-            [Path.Combine(oldFolder, "hero.jpg")],
-            Path.Combine(newFolder, "hero.jpg"));
     }
 
     private static void MoveCompanionCandidates(IEnumerable<string> sourceCandidates, string destinationPath)
@@ -558,6 +554,84 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             Path.Combine(folder, "poster-thumb.jpg"),
             Path.Combine(folder, $"{basename}-poster-thumb.jpg"),
         };
+    }
+
+    private static void MoveScopedCompanionFiles(
+        string oldMediaPath,
+        string newMediaPath,
+        string artKind,
+        params string[] extensions)
+    {
+        if (string.IsNullOrWhiteSpace(oldMediaPath) || string.IsNullOrWhiteSpace(newMediaPath))
+            return;
+
+        var oldFolder = Path.GetDirectoryName(oldMediaPath) ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(oldFolder) || !Directory.Exists(oldFolder))
+            return;
+
+        var oldBaseName = Path.GetFileNameWithoutExtension(oldMediaPath);
+        foreach (var extension in extensions
+                     .Where(ext => !string.IsNullOrWhiteSpace(ext))
+                     .Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var normalizedExtension = extension.StartsWith(".", StringComparison.Ordinal)
+                ? extension
+                : "." + extension;
+
+            var sources = new List<string>
+            {
+                BuildScopedCompanionPath(oldMediaPath, artKind, normalizedExtension),
+            };
+
+            sources.AddRange(Directory.EnumerateFiles(oldFolder, $"{artKind}-*{normalizedExtension}"));
+
+            if (!string.IsNullOrWhiteSpace(oldBaseName))
+                sources.AddRange(Directory.EnumerateFiles(oldFolder, $"{oldBaseName}-{artKind}-*{normalizedExtension}"));
+
+            foreach (var sourcePath in sources
+                         .Where(path => !string.IsNullOrWhiteSpace(path))
+                         .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var destinationPath = BuildScopedCompanionDestination(newMediaPath, oldBaseName, sourcePath);
+                MoveCompanionCandidates([sourcePath], destinationPath);
+            }
+        }
+    }
+
+    private static string BuildScopedCompanionPath(string mediaPath, string artKind, string extension) =>
+        artKind switch
+        {
+            "poster" => Path.ChangeExtension(ImagePathService.GetMediaFilePosterPath(mediaPath), extension),
+            "poster-thumb" => Path.ChangeExtension(ImagePathService.GetMediaFileThumbPath(mediaPath), extension),
+            "hero" => Path.ChangeExtension(ImagePathService.GetMediaFileHeroPath(mediaPath), extension),
+            "fanart" => Path.ChangeExtension(ImagePathService.GetMediaFileFanartPath(mediaPath), extension),
+            "banner" => Path.ChangeExtension(ImagePathService.GetMediaFileBannerPath(mediaPath), extension),
+            "logo" => Path.ChangeExtension(ImagePathService.GetMediaFileLogoPath(mediaPath), extension),
+            "square" => Path.ChangeExtension(ImagePathService.GetMediaFileSquareArtPath(mediaPath), extension),
+            _ => throw new ArgumentOutOfRangeException(nameof(artKind), artKind, "Unsupported companion art kind."),
+        };
+
+    private static string BuildScopedCompanionDestination(
+        string newMediaPath,
+        string oldBaseName,
+        string sourcePath)
+    {
+        var newFolder = Path.GetDirectoryName(newMediaPath) ?? string.Empty;
+        var newBaseName = Path.GetFileNameWithoutExtension(newMediaPath);
+        var sourceFileName = Path.GetFileName(sourcePath);
+        var oldPrefix = string.IsNullOrWhiteSpace(oldBaseName)
+            ? string.Empty
+            : oldBaseName + "-";
+
+        var scopedFileName = !string.IsNullOrWhiteSpace(oldPrefix)
+            && sourceFileName.StartsWith(oldPrefix, StringComparison.OrdinalIgnoreCase)
+            ? sourceFileName[oldPrefix.Length..]
+            : sourceFileName;
+
+        if (ImagePathService.GetMediaFileArtScope(newMediaPath) == MediaFileArtScope.Dedicated)
+            return Path.Combine(newFolder, scopedFileName);
+
+        return Path.Combine(newFolder, $"{newBaseName}-{scopedFileName}");
     }
 
     private static void CleanStagingBakFiles(string folder)

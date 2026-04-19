@@ -884,7 +884,8 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             ? request.ShowName
             : request.Title;
         var searchTitle = CleanTitleForSearch(rawTitle) ?? rawTitle;
-        var yearFromTitle = ExtractYearFromTitle(request.Title)
+        var yearFromTitle = request.Year
+            ?? ExtractYearFromTitle(request.Title)
             ?? request.Hints?.GetValueOrDefault("year");
 
         // Build {query} placeholder from query_template if specified.
@@ -936,12 +937,30 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
         url = ReplacePlaceholder(url, "{country}", request.Country.ToLowerInvariant(),  encode: true);
         url = ReplacePlaceholder(url, "{year}",    yearFromTitle ?? string.Empty, encode: true);
+        url = ReplacePlaceholder(url, "{tvdb_id}", ResolveRequestField(request, BridgeIdKeys.TvdbId), encode: true);
+        url = ReplacePlaceholder(url, "{musicbrainz_id}", ResolveRequestField(request, BridgeIdKeys.MusicBrainzId), encode: true);
+        url = ReplacePlaceholder(
+            url,
+            "{musicbrainz_release_group_id}",
+            ResolveRequestField(request, BridgeIdKeys.MusicBrainzReleaseGroupId),
+            encode: true);
+        url = ReplacePlaceholder(url, "{comic_vine_id}", ResolveRequestField(request, BridgeIdKeys.ComicVineId), encode: true);
 
         // {limit} — replaced with the caller-supplied override (fetch path uses fetch_limit,
         // search path uses the manual search limit). Falls back to max_results or 25.
         var resolvedLimit = limitOverride
             ?? (strategy.MaxResults > 0 ? strategy.MaxResults : 25);
         url = ReplacePlaceholder(url, "{limit}", resolvedLimit.ToString(), encode: false);
+
+        if (request.PriorProviderBridgeIds is { Count: > 0 })
+        {
+            foreach (var (key, value) in request.PriorProviderBridgeIds)
+            {
+                var placeholder = $"{{{key}}}";
+                if (url.Contains(placeholder, StringComparison.Ordinal) && !string.IsNullOrEmpty(value))
+                    url = ReplacePlaceholder(url, placeholder, value, encode: true);
+            }
+        }
 
         // Generic hint-based placeholder resolution — any remaining {key} placeholders
         // are resolved from the Hints dictionary, enabling zero-code config additions.
@@ -1653,6 +1672,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             MediaType      = source.MediaType,
             Title          = source.Title,
             Author         = source.Author,
+            Year           = source.Year,
             Narrator       = source.Narrator,
             Asin           = source.Asin,
             Isbn           = source.Isbn,

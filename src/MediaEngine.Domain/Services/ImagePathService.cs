@@ -346,10 +346,94 @@ public sealed class ImagePathService
         => BuildSiblingPath(mediaFilePath, "logo", ".png");
 
     /// <summary>
+    /// Returns the canonical square-art path next to the media file.
+    /// </summary>
+    public static string GetMediaFileSquareArtPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "square", ".jpg");
+
+    /// <summary>
     /// Returns the canonical banner path next to the media file.
     /// </summary>
     public static string GetMediaFileBannerPath(string mediaFilePath)
         => BuildSiblingPath(mediaFilePath, "banner", ".jpg");
+
+    /// <summary>
+    /// Returns the canonical hero banner path next to the media file.
+    /// </summary>
+    public static string GetMediaFileHeroPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "hero", ".jpg");
+
+    /// <summary>
+    /// Returns the per-variant artwork path next to the media file. Variants
+    /// are stored alongside the file using the media manager naming scope
+    /// (dedicated-folder vs shared-folder), but with a stable variant suffix.
+    /// </summary>
+    public static string GetMediaFileArtworkVariantPath(
+        string mediaFilePath,
+        string assetType,
+        Guid variantId,
+        string extension)
+    {
+        if (string.IsNullOrWhiteSpace(mediaFilePath))
+            throw new ArgumentException("Media file path is required.", nameof(mediaFilePath));
+        if (variantId == Guid.Empty)
+            throw new ArgumentException("Variant id is required.", nameof(variantId));
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new ArgumentException("File extension is required.", nameof(extension));
+
+        var artKind = assetType.Trim() switch
+        {
+            "CoverArt" => "poster",
+            "Background" => "fanart",
+            "Banner" => "banner",
+            "SquareArt" => "square",
+            "Logo" => "logo",
+            "EpisodeStill" => "thumb",
+            _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
+        };
+
+        var normalizedExtension = extension.StartsWith(".", StringComparison.Ordinal)
+            ? extension
+            : "." + extension;
+
+        return BuildSiblingPath(mediaFilePath, $"{artKind}-{variantId:N}", normalizedExtension);
+    }
+
+    /// <summary>
+    /// Returns the per-variant artwork path for a container folder such as a
+    /// series root, season folder, album folder, or artist root.
+    /// </summary>
+    public static string GetFolderArtworkVariantPath(
+        string folderPath,
+        string assetType,
+        Guid variantId,
+        string extension)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath))
+            throw new ArgumentException("Folder path is required.", nameof(folderPath));
+        if (variantId == Guid.Empty)
+            throw new ArgumentException("Variant id is required.", nameof(variantId));
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new ArgumentException("File extension is required.", nameof(extension));
+
+        var artKind = assetType.Trim() switch
+        {
+            "CoverArt" => "poster",
+            "Background" => "fanart",
+            "Banner" => "banner",
+            "SquareArt" => "square",
+            "Logo" => "logo",
+            "SeasonPoster" => "poster",
+            "SeasonThumb" => "thumb",
+            _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported folder artwork type."),
+        };
+
+        var normalizedExtension = extension.StartsWith(".", StringComparison.Ordinal)
+            ? extension
+            : "." + extension;
+
+        return Path.Combine(folderPath, $"{artKind}-{variantId:N}{normalizedExtension}");
+    }
 
     /// <summary>
     /// Returns the canonical 200px-wide thumbnail path next to the media

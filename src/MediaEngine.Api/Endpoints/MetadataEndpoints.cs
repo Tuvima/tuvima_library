@@ -585,6 +585,75 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
+        // ── GET /metadata/{entityId}/editor-context ─────────────────────────
+        group.MapGet("/{entityId:guid}/editor-context", async (
+            Guid entityId,
+            ICanonicalValueRepository canonicalRepo,
+            IRegistryRepository registryRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            if (context is null)
+                return Results.NotFound($"Editor context for {entityId} not found.");
+
+            return Results.Ok(new MediaEditorContextEnvelope(
+                context.LaunchEntityId,
+                context.LaunchEntityKind,
+                context.MediaType,
+                context.InitialScope,
+                context.Scopes.Select(scope => new MediaEditorScopeEnvelope(
+                    scope.ScopeId,
+                    scope.Label,
+                    scope.Order,
+                    scope.FieldEntityId,
+                    scope.FieldEntityKind,
+                    scope.ArtworkOwnerEntityId,
+                    scope.ArtworkOwnerEntityKind,
+                    scope.DisplayTitle,
+                    scope.DisplaySubtitle,
+                    scope.BreadcrumbLabel,
+                    scope.CanonicalTargetGroup,
+                    scope.ScopeSummary,
+                    scope.ReadOnlyHint,
+                    scope.CanEditFields,
+                    scope.CanEditArtwork))
+                    .ToList()));
+        })
+        .WithName("GetMediaEditorContext")
+        .WithSummary("Resolve scope-aware edit panel context for a launch entity.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        // ── GET /metadata/{entityId}/artwork/{scopeId} ─────────────────────
+        group.MapGet("/{entityId:guid}/artwork/{scopeId}", async (
+            Guid entityId,
+            string scopeId,
+            ICanonicalValueRepository canonicalRepo,
+            IRegistryRepository registryRepo,
+            IEntityAssetRepository entityAssetRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            if (context is null)
+                return Results.NotFound($"Editor context for {entityId} not found.");
+
+            var scope = context.Scopes.FirstOrDefault(candidate =>
+                string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
+            if (scope is null)
+                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+
+            var artwork = await BuildScopedArtworkEnvelopeAsync(scope, entityAssetRepo, canonicalRepo, registryRepo, ct);
+            return Results.Ok(artwork);
+        })
+        .WithName("GetScopedArtworkEditor")
+        .WithSummary("Return grouped artwork variants for one editor scope.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
         // ── GET /metadata/{entityId}/artwork ────────────────────────────────
         group.MapGet("/{entityId:guid}/artwork", async (
             Guid entityId,
@@ -701,10 +770,12 @@ public static class MetadataEndpoints
             var targetEntityId = context.PreferredArtworkEntityId;
             if (targetEntityId is null)
                 return Results.NotFound($"Asset {entityId} not found.");
+            var targetAsset = await assetRepo.FindByIdAsync(targetEntityId.Value, ct);
+            if (targetAsset is null || string.IsNullOrWhiteSpace(targetAsset.FilePathRoot))
+                return Results.NotFound($"Primary media file for {entityId} not found.");
 
-            var wikidataQid = await ResolveAssetWikidataQidAsync(targetEntityId.Value, workRepo, canonicalRepo, ct);
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, targetEntityId.Value, variantId, file.ContentType, imagePathService);
+            var localPath = BuildArtworkUploadPath(normalizedAssetType, targetAsset.FilePathRoot, variantId, file.ContentType);
 
             ImagePathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
@@ -757,6 +828,99 @@ public static class MetadataEndpoints
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
+        // ── POST /metadata/{entityId}/artwork/{scopeId}/{assetType} ────────
+        group.MapPost("/{entityId:guid}/artwork/{scopeId}/{assetType}", async (
+            Guid entityId,
+            string scopeId,
+            string assetType,
+            ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
+            IRegistryRepository registryRepo,
+            IDatabaseConnection db,
+            HttpRequest httpRequest,
+            CancellationToken ct) =>
+        {
+            var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
+            if (normalizedAssetType is null)
+                return Results.BadRequest("Artwork type is not supported for scoped upload.");
+
+            if (!httpRequest.HasFormContentType)
+                return Results.BadRequest("Expected multipart form data.");
+
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            if (context is null)
+                return Results.NotFound($"Editor context for {entityId} not found.");
+
+            var scope = context.Scopes.FirstOrDefault(candidate =>
+                string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
+            if (scope is null)
+                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+
+            if (!scope.CanEditArtwork || scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
+                return Results.BadRequest($"Scope '{scope.Label}' does not accept artwork uploads.");
+
+            var allowedSlots = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
+            if (!allowedSlots.Contains(normalizedAssetType, StringComparer.OrdinalIgnoreCase))
+                return Results.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
+
+            var form = await httpRequest.ReadFormAsync(ct);
+            var file = form.Files.FirstOrDefault();
+            if (file is null || file.Length == 0)
+                return Results.BadRequest("No file provided.");
+
+            if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+                return Results.BadRequest(normalizedAssetType == "Logo"
+                    ? "Logo uploads must be PNG images."
+                    : "Only JPEG and PNG images are accepted.");
+
+            var variantId = Guid.NewGuid();
+            var localPath = BuildScopedArtworkUploadPath(scope, normalizedAssetType, variantId, file.ContentType);
+            if (string.IsNullOrWhiteSpace(localPath))
+                return Results.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
+
+            ImagePathService.EnsureDirectory(localPath);
+            await using (var stream = file.OpenReadStream())
+            await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
+            {
+                await stream.CopyToAsync(fs, ct);
+            }
+
+            var storedAsset = new EntityAsset
+            {
+                Id = variantId,
+                EntityId = scope.ArtworkOwnerEntityId.Value.ToString(),
+                EntityType = scope.ArtworkOwnerEntityKind!,
+                AssetTypeValue = normalizedAssetType,
+                ImageUrl = BuildArtworkVariantStreamUrl(variantId),
+                LocalImagePath = localPath,
+                SourceProvider = "user_upload",
+                IsPreferred = true,
+                IsUserOverride = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+
+            await entityAssetRepo.UpsertAsync(storedAsset, ct);
+            await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
+            await SyncArtworkCanonicalAsync(scope.ArtworkOwnerEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+
+            return Results.Ok(new
+            {
+                entity_id = entityId,
+                scope_id = scope.ScopeId,
+                owner_entity_id = scope.ArtworkOwnerEntityId,
+                asset_type = normalizedAssetType,
+                variant_id = storedAsset.Id,
+                image_url = storedAsset.ImageUrl,
+            });
+        })
+        .WithName("UploadScopedArtwork")
+        .WithSummary("Upload a new artwork variant for a specific editor scope owner.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator()
+        .DisableAntiforgery();
+
         // ── POST /metadata/{entityId}/artwork/{assetType} ───────────────────
         group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
             Guid entityId,
@@ -791,10 +955,12 @@ public static class MetadataEndpoints
             var targetEntityId = context.PreferredArtworkEntityId;
             if (targetEntityId is null)
                 return Results.NotFound($"Asset {entityId} not found.");
+            var targetAsset = await assetRepo.FindByIdAsync(targetEntityId.Value, ct);
+            if (targetAsset is null || string.IsNullOrWhiteSpace(targetAsset.FilePathRoot))
+                return Results.NotFound($"Primary media file for {entityId} not found.");
 
-            var wikidataQid = await ResolveAssetWikidataQidAsync(targetEntityId.Value, workRepo, canonicalRepo, ct);
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, targetEntityId.Value, variantId, file.ContentType, imagePathService);
+            var localPath = BuildArtworkUploadPath(normalizedAssetType, targetAsset.FilePathRoot, variantId, file.ContentType);
 
             ImagePathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
@@ -1303,10 +1469,11 @@ public static class MetadataEndpoints
                 if (!IsArtworkUploadAllowed(contentType, "CoverArt"))
                     return Results.BadRequest("Only JPEG and PNG images are accepted.");
 
-                var wikidataQid = await ResolveAssetWikidataQidAsync(entityId, workRepo, canonicalRepo, ct);
                 var variantId = Guid.NewGuid();
-                var coverPath = BuildArtworkUploadPath("CoverArt", wikidataQid, entityId, variantId, contentType, imagePathService);
-                var imageDir = Path.GetDirectoryName(coverPath) ?? imagePathService.GetWorkImageDir(wikidataQid, entityId);
+                var coverPath = BuildArtworkUploadPath("CoverArt", asset.FilePathRoot, variantId, contentType);
+                var imageDir = Path.GetDirectoryName(coverPath);
+                if (string.IsNullOrWhiteSpace(imageDir))
+                    return Results.Problem("Could not resolve an artwork directory for the media file.", statusCode: StatusCodes.Status500InternalServerError);
                 ImagePathService.EnsureDirectory(coverPath);
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
@@ -1485,6 +1652,693 @@ public static class MetadataEndpoints
         return app;
     }
 
+    private static async Task<EditorScopeContext?> ResolveEditorScopeContextAsync(
+        Guid entityId,
+        ICanonicalValueRepository canonicalRepo,
+        IRegistryRepository registryRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        var launch = await ResolveEditorLaunchContextAsync(entityId, db, ct);
+        if (launch is null)
+            return null;
+
+        var launchDetail = await registryRepo.GetDetailAsync(launch.WorkId, ct);
+        var launchCanonicals = await canonicalRepo.GetByEntityAsync(launch.WorkId, ct);
+        var canonicalMap = launchCanonicals
+            .Where(field => !string.IsNullOrWhiteSpace(field.Key))
+            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(item => item.LastScoredAt).First().Value,
+                StringComparer.OrdinalIgnoreCase);
+
+        var rootDetail = launch.RootWorkId != Guid.Empty && launch.RootWorkId != launch.WorkId
+            ? await registryRepo.GetDetailAsync(launch.RootWorkId, ct)
+            : launchDetail;
+
+        var rootCanonicals = launch.RootWorkId != Guid.Empty && launch.RootWorkId != launch.WorkId
+            ? await canonicalRepo.GetByEntityAsync(launch.RootWorkId, ct)
+            : launchCanonicals;
+
+        var rootCanonicalMap = rootCanonicals
+            .Where(field => !string.IsNullOrWhiteSpace(field.Key))
+            .GroupBy(field => field.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderByDescending(item => item.LastScoredAt).First().Value,
+                StringComparer.OrdinalIgnoreCase);
+
+        var artistOwnerId = string.Equals(launch.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            ? ResolveArtistArtworkOwnerId(
+                db,
+                launch.RepresentativeAssetId,
+                FirstNonBlank(GetCanonicalValue(rootCanonicalMap, "artist"), GetCanonicalValue(canonicalMap, "artist")))
+            : null;
+
+        var scopes = BuildEditorScopes(launch, launchDetail, canonicalMap, rootDetail, rootCanonicalMap, artistOwnerId);
+        if (scopes.Count == 0)
+            return null;
+
+        var initialScope = GetDefaultEditorScope(launch.MediaType, scopes);
+
+        return new EditorScopeContext(
+            launch.LaunchEntityId,
+            launch.LaunchEntityKind,
+            launch.MediaType,
+            initialScope,
+            scopes);
+    }
+
+    private static async Task<EditorLaunchContext?> ResolveEditorLaunchContextAsync(
+        Guid entityId,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = db.CreateConnection();
+
+        var workRow = conn.QueryFirstOrDefault<EditorLaunchWorkRow>("""
+            SELECT w.id                 AS WorkId,
+                   w.media_type         AS MediaType,
+                   w.parent_work_id     AS ParentWorkId,
+                   COALESCE(gp.id, p.id, w.id) AS RootWorkId
+            FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE w.id = @entityId
+            LIMIT 1;
+            """, new { entityId = entityId.ToString() });
+
+        if (workRow is not null && Guid.TryParse(workRow.WorkId, out var workId))
+        {
+            var representativeAsset = GetRepresentativeAssetForWorkTree(conn, workId);
+            return new EditorLaunchContext(
+                entityId,
+                "Work",
+                workId,
+                TryParseGuid(workRow.ParentWorkId),
+                TryParseGuid(workRow.RootWorkId) ?? workId,
+                string.IsNullOrWhiteSpace(workRow.MediaType) ? "Books" : workRow.MediaType,
+                representativeAsset?.AssetId,
+                representativeAsset?.FilePath);
+        }
+
+        var assetRow = conn.QueryFirstOrDefault<EditorLaunchAssetRow>("""
+            SELECT a.id             AS AssetId,
+                   a.file_path_root AS FilePath,
+                   w.id             AS WorkId,
+                   w.media_type     AS MediaType,
+                   w.parent_work_id AS ParentWorkId,
+                   COALESCE(gp.id, p.id, w.id) AS RootWorkId
+            FROM media_assets a
+            INNER JOIN editions e ON e.id = a.edition_id
+            INNER JOIN works w ON w.id = e.work_id
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE a.id = @entityId
+            LIMIT 1;
+            """, new { entityId = entityId.ToString() });
+
+        if (assetRow is null || !Guid.TryParse(assetRow.WorkId, out var assetWorkId))
+            return null;
+
+        return new EditorLaunchContext(
+            entityId,
+            "MediaAsset",
+            assetWorkId,
+            TryParseGuid(assetRow.ParentWorkId),
+            TryParseGuid(assetRow.RootWorkId) ?? assetWorkId,
+            string.IsNullOrWhiteSpace(assetRow.MediaType) ? "Books" : assetRow.MediaType,
+            TryParseGuid(assetRow.AssetId),
+            assetRow.FilePath);
+    }
+
+    private static EditorAssetSample? GetRepresentativeAssetForWorkTree(
+        System.Data.IDbConnection conn,
+        Guid workId) =>
+        conn.QueryFirstOrDefault<EditorAssetSample>("""
+            WITH RECURSIVE work_tree(id, depth) AS (
+                SELECT @workId, 0
+                UNION ALL
+                SELECT child.id, work_tree.depth + 1
+                FROM works child
+                INNER JOIN work_tree ON child.parent_work_id = work_tree.id
+            )
+            SELECT ma.id AS AssetIdValue,
+                   ma.file_path_root AS FilePath
+            FROM work_tree
+            INNER JOIN editions e ON e.work_id = work_tree.id
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            ORDER BY work_tree.depth,
+                     ma.id
+            LIMIT 1;
+            """, new { workId = workId.ToString() });
+
+    private static Guid? ResolveArtistArtworkOwnerId(
+        IDatabaseConnection db,
+        Guid? representativeAssetId,
+        string? artistName)
+    {
+        using var conn = db.CreateConnection();
+
+        if (representativeAssetId.HasValue)
+        {
+            var linkedId = conn.QueryFirstOrDefault<string>("""
+                SELECT p.id
+                FROM person_media_links pml
+                INNER JOIN persons p ON p.id = pml.person_id
+                WHERE pml.media_asset_id = @assetId
+                  AND (
+                        pml.role IN ('Artist', 'Performer')
+                        OR EXISTS (
+                            SELECT 1
+                            FROM person_roles pr
+                            WHERE pr.person_id = p.id
+                              AND pr.role IN ('Artist', 'Performer')
+                        )
+                  )
+                ORDER BY CASE
+                    WHEN pml.role = 'Artist' THEN 0
+                    WHEN pml.role = 'Performer' THEN 1
+                    ELSE 2
+                END,
+                p.name
+                LIMIT 1;
+                """, new { assetId = representativeAssetId.Value.ToString() });
+
+            if (Guid.TryParse(linkedId, out var linkedGuid))
+                return linkedGuid;
+        }
+
+        if (string.IsNullOrWhiteSpace(artistName))
+            return null;
+
+        var matchedId = conn.QueryFirstOrDefault<string>("""
+            SELECT p.id
+            FROM persons p
+            WHERE p.name = @artistName COLLATE NOCASE
+            ORDER BY p.name
+            LIMIT 1;
+            """, new { artistName = artistName.Trim() });
+
+        return Guid.TryParse(matchedId, out var parsedMatchedId) ? parsedMatchedId : null;
+    }
+
+    private static List<EditorScopeResolution> BuildEditorScopes(
+        EditorLaunchContext launch,
+        RegistryItemDetail? detail,
+        IReadOnlyDictionary<string, string> canonicalMap,
+        RegistryItemDetail? rootDetail,
+        IReadOnlyDictionary<string, string> rootCanonicalMap,
+        Guid? artistOwnerId)
+    {
+        var scopes = new List<EditorScopeResolution>();
+        var mediaType = NormalizeEditorMediaType(launch.MediaType);
+        var itemTitle = FirstNonBlank(detail?.Title, GetCanonicalValue(canonicalMap, "title"), "Item");
+        var rootTitle = FirstNonBlank(rootDetail?.Title, GetCanonicalValue(rootCanonicalMap, "title"), itemTitle);
+        var itemYear = FirstNonBlank(detail?.Year, GetCanonicalValue(canonicalMap, "year"));
+        var rootYear = FirstNonBlank(rootDetail?.Year, GetCanonicalValue(rootCanonicalMap, "year"), itemYear);
+        var showName = FirstNonBlank(GetCanonicalValue(rootCanonicalMap, "title"), GetCanonicalValue(canonicalMap, "show_name"), detail?.ShowName, rootTitle, itemTitle);
+        var seasonNumber = FirstNonBlank(GetCanonicalValue(canonicalMap, "season_number"), detail?.SeasonNumber);
+        var episodeNumber = FirstNonBlank(GetCanonicalValue(canonicalMap, "episode_number"), detail?.EpisodeNumber);
+        var episodeTitle = FirstNonBlank(GetCanonicalValue(canonicalMap, "episode_title"), itemTitle, "Episode");
+        var artistName = FirstNonBlank(
+            GetCanonicalValue(rootCanonicalMap, "artist"),
+            GetCanonicalValue(canonicalMap, "artist"),
+            rootDetail?.Author,
+            detail?.Author,
+            itemTitle);
+        var albumName = FirstNonBlank(
+            GetCanonicalValue(canonicalMap, "album"),
+            GetCanonicalValue(rootCanonicalMap, "album"),
+            rootTitle,
+            itemTitle,
+            "Album");
+        var seriesName = FirstNonBlank(GetCanonicalValue(canonicalMap, "series"), rootTitle, detail?.Series);
+        var seasonLabel = string.IsNullOrWhiteSpace(seasonNumber) ? "Season" : $"Season {seasonNumber}";
+        var episodeLabel = !string.IsNullOrWhiteSpace(episodeNumber)
+            ? $"Episode {episodeNumber}"
+            : "Episode";
+        var rootWorkId = launch.RootWorkId == Guid.Empty ? launch.WorkId : launch.RootWorkId;
+        var hasParentScope = launch.ParentWorkId.HasValue && launch.ParentWorkId.Value != Guid.Empty;
+        var hasDistinctRoot = rootWorkId != Guid.Empty && rootWorkId != launch.WorkId;
+        var containerFolder = GetContainerFolderPath(launch.RepresentativeMediaFilePath);
+        var seriesFolder = GetSeriesFolderPath(launch.RepresentativeMediaFilePath);
+        var seasonFolder = GetSeasonFolderPath(launch.RepresentativeMediaFilePath);
+        var artistFolder = GetArtistFolderPath(launch.RepresentativeMediaFilePath);
+
+        switch (mediaType)
+        {
+            case "TV":
+                var isEpisodeLaunch = !string.IsNullOrWhiteSpace(episodeNumber)
+                    || (hasParentScope && launch.ParentWorkId!.Value != rootWorkId);
+                var seasonOwnerId = isEpisodeLaunch
+                    ? launch.ParentWorkId
+                    : hasParentScope
+                        ? launch.WorkId
+                        : null;
+
+                scopes.Add(new EditorScopeResolution(
+                    "series",
+                    "Series",
+                    0,
+                    hasDistinctRoot ? rootWorkId : launch.WorkId,
+                    "Work",
+                    hasDistinctRoot ? rootWorkId : launch.WorkId,
+                    "Work",
+                    showName,
+                    rootYear,
+                    showName,
+                    "show",
+                    "Series metadata and show artwork live here.",
+                    null,
+                    CanEditFields: true,
+                    CanEditArtwork: true,
+                    MediaType: mediaType,
+                    ArtworkFolderPath: seriesFolder ?? containerFolder,
+                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+
+                if (seasonOwnerId.HasValue)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "season",
+                        "Season",
+                        1,
+                        seasonOwnerId.Value,
+                        "Work",
+                        seasonOwnerId.Value,
+                        "Work",
+                        seasonLabel,
+                        showName,
+                        seasonLabel,
+                        "show",
+                        "Season labels and season artwork live here.",
+                        null,
+                        CanEditFields: true,
+                        CanEditArtwork: true,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: seasonFolder ?? containerFolder,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
+
+                if (isEpisodeLaunch)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "episode",
+                        "Episode",
+                        2,
+                        launch.WorkId,
+                        "Work",
+                        launch.WorkId,
+                        "Work",
+                        episodeTitle,
+                        !string.IsNullOrWhiteSpace(episodeNumber) ? episodeLabel : seasonLabel,
+                        episodeTitle,
+                        "show_episode",
+                        "Episode metadata lives here. Show and season artwork are managed in their own scopes.",
+                        "Series artwork is managed on the Series and Season scopes.",
+                        CanEditFields: true,
+                        CanEditArtwork: true,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: null,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
+                break;
+
+            case "Music":
+                scopes.Add(new EditorScopeResolution(
+                    "artist",
+                    "Artist",
+                    0,
+                    rootWorkId,
+                    "Work",
+                    artistOwnerId ?? rootWorkId,
+                    artistOwnerId.HasValue ? "Person" : "Work",
+                    artistName,
+                    albumName,
+                    artistName,
+                    "artist",
+                    artistOwnerId.HasValue
+                        ? "Artist artwork is shared across albums when a linked artist owner is available."
+                        : "Artist metadata lives here. Artist artwork falls back to the album owner until a linked artist owner exists.",
+                    null,
+                    CanEditFields: true,
+                    CanEditArtwork: true,
+                    MediaType: mediaType,
+                    ArtworkFolderPath: artistFolder ?? containerFolder,
+                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+
+                scopes.Add(new EditorScopeResolution(
+                    "album",
+                    "Album",
+                    1,
+                    rootWorkId,
+                    "Work",
+                    rootWorkId,
+                    "Work",
+                    albumName,
+                    artistName,
+                    albumName,
+                    "album",
+                    "Album metadata, cover art, and square art live here.",
+                    null,
+                    CanEditFields: true,
+                    CanEditArtwork: true,
+                    MediaType: mediaType,
+                    ArtworkFolderPath: containerFolder,
+                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+
+                if (launch.WorkId != rootWorkId || hasParentScope)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "track",
+                        "Track",
+                        2,
+                        launch.WorkId,
+                        "Work",
+                        null,
+                        null,
+                        itemTitle,
+                        albumName,
+                        itemTitle,
+                        "track",
+                        "Track metadata lives here. Artwork is inherited from the Artist and Album scopes.",
+                        "Track artwork is inherited from the Artist and Album scopes.",
+                        CanEditFields: true,
+                        CanEditArtwork: false,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: null,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
+                break;
+
+            case "Movies":
+                scopes.Add(new EditorScopeResolution(
+                    "movie",
+                    "Movie",
+                    0,
+                    launch.WorkId,
+                    "Work",
+                    launch.WorkId,
+                    "Work",
+                    itemTitle,
+                    FirstNonBlank(detail?.Director, itemYear),
+                    itemTitle,
+                    "movie_identity",
+                    "Movie metadata and artwork live here.",
+                    null,
+                    CanEditFields: true,
+                    CanEditArtwork: true,
+                    MediaType: mediaType,
+                    ArtworkFolderPath: containerFolder,
+                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                break;
+
+            case "Comics":
+            case "Audiobooks":
+            case "Books":
+            default:
+                if (hasDistinctRoot)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "series",
+                        "Series",
+                        0,
+                        rootWorkId,
+                        "Work",
+                        null,
+                        null,
+                        FirstNonBlank(seriesName, itemTitle, "Series"),
+                        itemYear,
+                        FirstNonBlank(seriesName, itemTitle, "Series"),
+                        "series",
+                        "Series metadata is separated from the individual volume or issue.",
+                        "Series artwork remains on the work scope in this pass.",
+                        CanEditFields: true,
+                        CanEditArtwork: false,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: null,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
+
+                scopes.Add(new EditorScopeResolution(
+                    hasDistinctRoot ? "volume_issue" : "work",
+                    hasDistinctRoot ? "Volume / Issue" : "Work",
+                    hasDistinctRoot ? 1 : 0,
+                    launch.WorkId,
+                    "Work",
+                    launch.WorkId,
+                    "Work",
+                    itemTitle,
+                    FirstNonBlank(seriesName, itemYear),
+                    itemTitle,
+                    mediaType switch
+                    {
+                        "Comics" => "issue",
+                        "Audiobooks" => "audiobook_identity",
+                        _ => "book_identity",
+                    },
+                    "Work metadata and artwork live here.",
+                    null,
+                    CanEditFields: true,
+                    CanEditArtwork: true,
+                    MediaType: mediaType,
+                    ArtworkFolderPath: containerFolder,
+                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                break;
+        }
+
+        scopes.Add(new EditorScopeResolution(
+            "file",
+            "File",
+            scopes.Count,
+            launch.WorkId,
+            "Work",
+            null,
+            null,
+            Path.GetFileName(launch.RepresentativeMediaFilePath) ?? "File",
+            launch.RepresentativeMediaFilePath,
+            "File",
+            mediaType switch
+            {
+                "TV" => "show_episode",
+                "Music" => "track",
+                "Movies" => "movie_identity",
+                "Comics" => "issue",
+                "Audiobooks" => "audiobook_identity",
+                _ => "book_identity",
+            },
+            "File inspection and technical details for the concrete media file.",
+            "File scope is read-only in the edit panel.",
+            CanEditFields: false,
+            CanEditArtwork: false,
+            MediaType: mediaType,
+            ArtworkFolderPath: null,
+            RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+
+        return scopes;
+    }
+
+    private static async Task<ArtworkEditorEnvelope> BuildScopedArtworkEnvelopeAsync(
+        EditorScopeResolution scope,
+        IEntityAssetRepository entityAssetRepo,
+        ICanonicalValueRepository canonicalRepo,
+        IRegistryRepository registryRepo,
+        CancellationToken ct)
+    {
+        var slotTypes = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
+        if (scope.ArtworkOwnerEntityId is null || slotTypes.Count == 0)
+            return new ArtworkEditorEnvelope(scope.FieldEntityId, []);
+
+        var assets = await entityAssetRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value.ToString(), null, ct);
+        var canonicals = await canonicalRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value, ct);
+        var detail = string.Equals(scope.ArtworkOwnerEntityKind, "Work", StringComparison.OrdinalIgnoreCase)
+            ? await registryRepo.GetDetailAsync(scope.ArtworkOwnerEntityId.Value, ct)
+            : null;
+
+        var payload = slotTypes.Select(assetType =>
+        {
+            var variants = assets
+                .Where(asset => string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase))
+                .GroupBy(BuildArtworkVariantIdentity, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group
+                    .OrderByDescending(asset => asset.IsPreferred)
+                    .ThenByDescending(asset => asset.CreatedAt)
+                    .First())
+                .OrderByDescending(asset => asset.IsPreferred)
+                .ThenByDescending(asset => asset.CreatedAt)
+                .Select(MapArtworkVariant)
+                .ToList();
+
+            var preferredUrl = GetArtworkCanonicalValue(canonicals, assetType)
+                               ?? GetArtworkDetailUrl(detail, assetType);
+
+            if (!string.IsNullOrWhiteSpace(preferredUrl)
+                && !variants.Any(variant => string.Equals(variant.ImageUrl, preferredUrl, StringComparison.OrdinalIgnoreCase)))
+            {
+                variants.Insert(0, new ArtworkVariantEnvelope(
+                    Guid.Empty,
+                    assetType,
+                    preferredUrl,
+                    true,
+                    InferSyntheticArtworkOrigin(canonicals, assetType, detail?.ArtworkSource),
+                    ProviderName: null,
+                    CanDelete: false,
+                    CreatedAt: null));
+            }
+
+            return new ArtworkSlotEnvelope(assetType, variants);
+        }).ToList();
+
+        return new ArtworkEditorEnvelope(scope.ArtworkOwnerEntityId.Value, payload);
+    }
+
+    private static IReadOnlyList<string> GetScopedArtworkSlots(string mediaType, string scopeId) =>
+        (NormalizeEditorMediaType(mediaType), scopeId) switch
+        {
+            ("TV", "series") or ("Movies", "movie") =>
+            [
+                "CoverArt",
+                "SquareArt",
+                "Background",
+                "Banner",
+                "Logo",
+            ],
+            ("TV", "season") =>
+            [
+                "SeasonPoster",
+                "SeasonThumb",
+            ],
+            ("TV", "episode") =>
+            [
+                "EpisodeStill",
+            ],
+            ("Music", "artist") =>
+            [
+                "Background",
+                "Banner",
+                "Logo",
+            ],
+            ("Music", "album") =>
+            [
+                "CoverArt",
+                "SquareArt",
+            ],
+            ("Books", "work") or ("Audiobooks", "work") or ("Comics", "work") or ("Books", "volume_issue") or ("Audiobooks", "volume_issue") or ("Comics", "volume_issue") =>
+            [
+                "CoverArt",
+                "SquareArt",
+                "Background",
+            ],
+            _ => [],
+        };
+
+    private static string GetDefaultEditorScope(string mediaType, IReadOnlyList<EditorScopeResolution> scopes)
+    {
+        var preferredScopeId = NormalizeEditorMediaType(mediaType) switch
+        {
+            "TV" => "series",
+            "Music" => "album",
+            "Movies" => "movie",
+            "Comics" or "Books" or "Audiobooks" => scopes.Any(scope => string.Equals(scope.ScopeId, "series", StringComparison.OrdinalIgnoreCase))
+                ? "series"
+                : "work",
+            _ => scopes[0].ScopeId,
+        };
+
+        return scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, preferredScopeId, StringComparison.OrdinalIgnoreCase))?.ScopeId
+            ?? scopes[0].ScopeId;
+    }
+
+    private static string? BuildScopedArtworkUploadPath(
+        EditorScopeResolution scope,
+        string normalizedAssetType,
+        Guid variantId,
+        string? contentType)
+    {
+        var extension = string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
+            ? ".png"
+            : string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
+                ? ".png"
+                : ".jpg";
+
+        if (string.Equals(scope.ScopeId, "episode", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(normalizedAssetType, "EpisodeStill", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(scope.RepresentativeMediaFilePath))
+        {
+            return ImagePathService.GetMediaFileArtworkVariantPath(
+                scope.RepresentativeMediaFilePath!,
+                normalizedAssetType,
+                variantId,
+                extension);
+        }
+
+        if (!string.IsNullOrWhiteSpace(scope.ArtworkFolderPath))
+        {
+            return ImagePathService.GetFolderArtworkVariantPath(
+                scope.ArtworkFolderPath!,
+                normalizedAssetType,
+                variantId,
+                extension);
+        }
+
+        if (!string.IsNullOrWhiteSpace(scope.RepresentativeMediaFilePath))
+        {
+            return ImagePathService.GetMediaFileArtworkVariantPath(
+                scope.RepresentativeMediaFilePath!,
+                normalizedAssetType,
+                variantId,
+                extension);
+        }
+
+        return null;
+    }
+
+    private static string? GetContainerFolderPath(string? mediaFilePath) =>
+        string.IsNullOrWhiteSpace(mediaFilePath)
+            ? null
+            : Path.GetDirectoryName(mediaFilePath);
+
+    private static string? GetSeriesFolderPath(string? mediaFilePath)
+    {
+        var seasonFolder = GetSeasonFolderPath(mediaFilePath);
+        return string.IsNullOrWhiteSpace(seasonFolder)
+            ? null
+            : Path.GetDirectoryName(seasonFolder);
+    }
+
+    private static string? GetSeasonFolderPath(string? mediaFilePath) =>
+        string.IsNullOrWhiteSpace(mediaFilePath)
+            ? null
+            : Path.GetDirectoryName(mediaFilePath);
+
+    private static string? GetArtistFolderPath(string? mediaFilePath)
+    {
+        var albumFolder = GetContainerFolderPath(mediaFilePath);
+        return string.IsNullOrWhiteSpace(albumFolder)
+            ? null
+            : Path.GetDirectoryName(albumFolder);
+    }
+
+    private static string? GetCanonicalValue(IReadOnlyDictionary<string, string> values, string key) =>
+        values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : null;
+
+    private static string FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
+
+    private static string NormalizeEditorMediaType(string? mediaType) =>
+        (mediaType ?? string.Empty).Trim() switch
+        {
+            "Book" => "Books",
+            "Comic" => "Comics",
+            "" => "Books",
+            var value => value,
+        };
+
     private static string? NormalizeUploadedArtworkType(string assetType) =>
         assetType.Trim() switch
         {
@@ -1493,6 +2347,9 @@ public static class MetadataEndpoints
             "square" or "Square" or "SquareArt" => "SquareArt",
             "background" or "Background" => "Background",
             "logo" or "Logo" => "Logo",
+            "seasonposter" or "SeasonPoster" => "SeasonPoster",
+            "seasonthumb" or "SeasonThumb" => "SeasonThumb",
+            "episodestill" or "EpisodeStill" or "still" or "Still" => "EpisodeStill",
             _ => null,
         };
 
@@ -1721,11 +2578,9 @@ public static class MetadataEndpoints
 
     private static string BuildArtworkUploadPath(
         string normalizedAssetType,
-        string? wikidataQid,
-        Guid entityId,
+        string mediaFilePath,
         Guid variantId,
-        string? contentType,
-        ImagePathService imagePathService)
+        string? contentType)
     {
         var extension = string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
             ? ".png"
@@ -1733,9 +2588,8 @@ public static class MetadataEndpoints
                 ? ".png"
                 : ".jpg";
 
-        return imagePathService.GetWorkArtworkVariantPath(
-            wikidataQid,
-            entityId,
+        return ImagePathService.GetMediaFileArtworkVariantPath(
+            mediaFilePath,
             normalizedAssetType,
             variantId,
             extension);
@@ -1752,6 +2606,9 @@ public static class MetadataEndpoints
             "Background" => "background",
             "Banner" => "banner",
             "Logo" => "logo",
+            "SeasonPoster" => "season_poster",
+            "SeasonThumb" => "season_thumb",
+            "EpisodeStill" => "episode_still",
             _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
         };
 
@@ -1874,6 +2731,28 @@ public static class MetadataEndpoints
     private sealed record ArtworkEditorEnvelope(
         [property: JsonPropertyName("entity_id")] Guid EntityId,
         [property: JsonPropertyName("slots")] IReadOnlyList<ArtworkSlotEnvelope> Slots);
+    private sealed record MediaEditorContextEnvelope(
+        [property: JsonPropertyName("launch_entity_id")] Guid LaunchEntityId,
+        [property: JsonPropertyName("launch_entity_kind")] string LaunchEntityKind,
+        [property: JsonPropertyName("media_type")] string MediaType,
+        [property: JsonPropertyName("initial_scope")] string InitialScope,
+        [property: JsonPropertyName("scopes")] IReadOnlyList<MediaEditorScopeEnvelope> Scopes);
+    private sealed record MediaEditorScopeEnvelope(
+        [property: JsonPropertyName("scope_id")] string ScopeId,
+        [property: JsonPropertyName("label")] string Label,
+        [property: JsonPropertyName("order")] int Order,
+        [property: JsonPropertyName("field_entity_id")] Guid FieldEntityId,
+        [property: JsonPropertyName("field_entity_kind")] string FieldEntityKind,
+        [property: JsonPropertyName("artwork_owner_entity_id")] Guid? ArtworkOwnerEntityId,
+        [property: JsonPropertyName("artwork_owner_entity_kind")] string? ArtworkOwnerEntityKind,
+        [property: JsonPropertyName("display_title")] string DisplayTitle,
+        [property: JsonPropertyName("display_subtitle")] string? DisplaySubtitle,
+        [property: JsonPropertyName("breadcrumb_label")] string BreadcrumbLabel,
+        [property: JsonPropertyName("canonical_target_group")] string CanonicalTargetGroup,
+        [property: JsonPropertyName("scope_summary")] string? ScopeSummary,
+        [property: JsonPropertyName("read_only_hint")] string? ReadOnlyHint,
+        [property: JsonPropertyName("can_edit_fields")] bool CanEditFields,
+        [property: JsonPropertyName("can_edit_artwork")] bool CanEditArtwork);
     private sealed record ArtworkSlotEnvelope(
         [property: JsonPropertyName("asset_type")] string AssetType,
         [property: JsonPropertyName("variants")] IReadOnlyList<ArtworkVariantEnvelope> Variants);
@@ -1904,6 +2783,46 @@ public static class MetadataEndpoints
         string WorkId,
         string RootWorkId,
         string? RootPrimaryAssetId);
+    private sealed record EditorAssetSample(string AssetIdValue, string? FilePath)
+    {
+        public Guid? AssetId => TryParseGuid(AssetIdValue);
+    }
+    private sealed record EditorLaunchWorkRow(string WorkId, string MediaType, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchAssetRow(string AssetId, string? FilePath, string WorkId, string MediaType, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchContext(
+        Guid LaunchEntityId,
+        string LaunchEntityKind,
+        Guid WorkId,
+        Guid? ParentWorkId,
+        Guid RootWorkId,
+        string MediaType,
+        Guid? RepresentativeAssetId,
+        string? RepresentativeMediaFilePath);
+    private sealed record EditorScopeContext(
+        Guid LaunchEntityId,
+        string LaunchEntityKind,
+        string MediaType,
+        string InitialScope,
+        IReadOnlyList<EditorScopeResolution> Scopes);
+    private sealed record EditorScopeResolution(
+        string ScopeId,
+        string Label,
+        int Order,
+        Guid FieldEntityId,
+        string FieldEntityKind,
+        Guid? ArtworkOwnerEntityId,
+        string? ArtworkOwnerEntityKind,
+        string DisplayTitle,
+        string? DisplaySubtitle,
+        string BreadcrumbLabel,
+        string CanonicalTargetGroup,
+        string? ScopeSummary,
+        string? ReadOnlyHint,
+        bool CanEditFields,
+        bool CanEditArtwork,
+        string MediaType,
+        string? ArtworkFolderPath,
+        string? RepresentativeMediaFilePath);
 
     /// <summary>
     /// Builds a flat dictionary of all extracted fields from a search result item.

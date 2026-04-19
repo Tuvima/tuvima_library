@@ -12,7 +12,10 @@ public enum SharedMediaEditorMode
 public sealed class MediaEditorLaunchRequest
 {
     public List<Guid> EntityIds { get; init; } = [];
+    public Guid? LaunchEntityId { get; init; }
+    public string? LaunchEntityKind { get; init; }
     public SharedMediaEditorMode Mode { get; init; } = SharedMediaEditorMode.Normal;
+    public string? InitialScope { get; init; }
     public string? InitialTab { get; init; }
     public string? InitialCanonicalTargetGroup { get; init; }
     public string? ReviewTrigger { get; init; }

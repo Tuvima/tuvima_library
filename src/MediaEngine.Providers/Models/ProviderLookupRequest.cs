@@ -31,6 +31,9 @@ public sealed class ProviderLookupRequest
     /// <summary>Author name, e.g. <c>"Frank Herbert"</c>.</summary>
     public string? Author { get; init; }
 
+    /// <summary>Release or publication year, e.g. <c>"2024"</c>.</summary>
+    public string? Year { get; init; }
+
     /// <summary>Narrator name (audiobooks), e.g. <c>"Scott Brick"</c>.</summary>
     public string? Narrator { get; init; }
 

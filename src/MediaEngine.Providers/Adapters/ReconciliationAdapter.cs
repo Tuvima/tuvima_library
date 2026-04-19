@@ -178,7 +178,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             {
                 var filtered = await FilterByMediaTypeAsync(
                     candidates, request.MediaType, ct,
-                    request.Title, request.Author, request.Isbn).ConfigureAwait(false);
+                    request.Title, request.Author, request.Isbn, request.Year).ConfigureAwait(false);
 
                 // For audiobooks: if audiobook-specific filtering eliminates everything,
                 // fall back to Books classes (an audiobook is a format of a literary work).
@@ -188,7 +188,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         Name);
                     filtered = await FilterByMediaTypeAsync(
                         candidates, MediaType.Books, ct,
-                        request.Title, request.Author, request.Isbn).ConfigureAwait(false);
+                        request.Title, request.Author, request.Isbn, request.Year).ConfigureAwait(false);
                 }
 
                 // Strict filtering: only return candidates that positively match the
@@ -586,7 +586,8 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         CancellationToken ct = default,
         string? titleHint = null,
         string? authorHint = null,
-        string? isbnHint = null)
+        string? isbnHint = null,
+        string? yearHint = null)
     {
         if (candidates.Count == 0)
             return candidates;
@@ -618,7 +619,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         // P629 (edition_or_translation_of) in one batched call. These power the
         // three-step scoring: type filter → property validation → weighted scoring.
         // P629 is used to demote translations/editions in favour of original works.
-        var fetchProps = new List<string> { "P31", "P50", "P175", "P86", "P676", "P212", "P957", "P629" };
+        var fetchProps = new List<string> { "P31", "P50", "P175", "P86", "P676", "P212", "P957", "P629", "P577" };
         var propsByQid = await ExtendAsync(qids, fetchProps, ct).ConfigureAwait(false);
 
         // ── Resolve entity labels for person-property references ────────────
@@ -846,6 +847,43 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     Name, candidate.Id, candidate.Name);
             }
 
+            if (!string.IsNullOrWhiteSpace(yearHint))
+            {
+                var hintYear = ParseComparableYear(yearHint);
+                var candidateYear = GetCandidateYear(cProps);
+                if (hintYear.HasValue && candidateYear.HasValue)
+                {
+                    var diff = Math.Abs(candidateYear.Value - hintYear.Value);
+                    if (diff == 0)
+                    {
+                        score += mediaType is MediaType.Movies or MediaType.TV ? 24.0 : 14.0;
+                    }
+                    else if (diff == 1)
+                    {
+                        score += 6.0;
+                    }
+                    else if (diff >= 5)
+                    {
+                        score -= mediaType is MediaType.Movies or MediaType.TV ? 50.0 : 24.0;
+                    }
+                    else if (diff >= 2)
+                    {
+                        score -= mediaType is MediaType.Movies or MediaType.TV ? 30.0 : 14.0;
+                    }
+
+                    _logger.LogDebug(
+                        "{Provider}: candidate {QID} '{Label}' — year hint {HintYear} vs candidate {CandidateYear} (diff={Diff})",
+                        Name, candidate.Id, candidate.Name, hintYear, candidateYear, diff);
+                }
+                else if (hintYear.HasValue && mediaType is MediaType.Movies or MediaType.TV)
+                {
+                    score -= 10.0;
+                    _logger.LogDebug(
+                        "{Provider}: candidate {QID} '{Label}' — no year data penalty (-10)",
+                        Name, candidate.Id, candidate.Name);
+                }
+            }
+
             // Translation/edition penalty (-40 if P629 is present).
             // P629 (edition_or_translation_of) indicates this candidate is a derivative
             // of another work — prefer the original. This breaks ties when the original
@@ -910,6 +948,40 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         return result;
+    }
+
+    private static int? GetCandidateYear(
+        IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>? props)
+    {
+        if (props is null || !props.TryGetValue("P577", out var publicationClaims))
+            return null;
+
+        return publicationClaims
+            .Select(claim => ParseComparableYear(claim.Value?.RawValue))
+            .FirstOrDefault(year => year.HasValue);
+    }
+
+    private static bool IsResolvedYearCompatible(
+        string? yearHint,
+        IReadOnlyList<ProviderClaim> claims,
+        MediaType mediaType)
+    {
+        var hintYear = ParseComparableYear(yearHint);
+        var resolvedYear = ParseComparableYear(GetResolvedClaimsYear(claims));
+        if (!hintYear.HasValue || !resolvedYear.HasValue)
+            return true;
+
+        var maxDifference = mediaType is MediaType.Movies or MediaType.TV ? 1 : 2;
+        return Math.Abs(hintYear.Value - resolvedYear.Value) <= maxDifference;
+    }
+
+    private static string? GetResolvedClaimsYear(IReadOnlyList<ProviderClaim> claims) =>
+        claims.FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Year, StringComparison.OrdinalIgnoreCase))?.Value;
+
+    private static int? ParseComparableYear(string? value)
+    {
+        var extracted = ExtractYear(value ?? string.Empty);
+        return int.TryParse(extracted, out var parsed) ? parsed : null;
     }
 
     /// <summary>
@@ -1796,6 +1868,19 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                         Name, correlationKey, finalWorkQid, input.MediaType);
                     continue; // leave as NotFound — text fallback will retry
                 }
+
+                if (!IsResolvedYearCompatible(input.Year, claims, input.MediaType))
+                {
+                    _logger.LogInformation(
+                        "{Provider}: Stage2 — rejected {Key} → {QID}: year mismatch for {MediaType} (hint={HintYear}, resolved={ResolvedYear})",
+                        Name,
+                        correlationKey,
+                        finalWorkQid,
+                        input.MediaType,
+                        input.Year,
+                        GetResolvedClaimsYear(claims));
+                    continue;
+                }
             }
 
             if (inputByCorrelationKey is not null
@@ -1937,6 +2022,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                 MediaType.Comics,
                 ct,
                 request.SeriesTitle,
+                null,
                 null,
                 null).ConfigureAwait(false);
 
@@ -2163,7 +2249,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // Always apply P31 type filtering (Unknown media type already returned above).
             var filtered = await FilterByMediaTypeAsync(
                     candidates, request.MediaType, ct,
-                    request.Title, request.Author, request.Isbn)
+                    request.Title, request.Author, request.Isbn, request.Year)
                     .ConfigureAwait(false);
             if (filtered.Count == 0)
             {
@@ -2194,7 +2280,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     {
                         filtered = await FilterByMediaTypeAsync(
                             retryCandidates, request.MediaType, ct,
-                            request.Title, request.Author, request.Isbn)
+                            request.Title, request.Author, request.Isbn, request.Year)
                             .ConfigureAwait(false);
                     }
                 }

@@ -830,7 +830,16 @@ else
         var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
         {
             EntityIds = [_work.Id],
+            LaunchEntityId = _work.Id,
+            LaunchEntityKind = "Work",
             Mode = SharedMediaEditorMode.Normal,
+            InitialScope = _work.MediaType switch
+            {
+                "TV" => "series",
+                "Music" => "album",
+                "Movies" => "movie",
+                _ => "work",
+            },
             MediaType = _work.MediaType,
             HeaderTitle = _work.Title,
             HeaderSubtitle = ActiveWork?.Narrator

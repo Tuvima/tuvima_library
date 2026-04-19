@@ -71,6 +71,12 @@
     margin-bottom: 8px;
 }
 
+.sme-breadcrumb {
+    color: rgba(255,255,255,0.46);
+    font-size: 0.78rem;
+    margin-bottom: 6px;
+}
+
 .sme-title {
     margin: 0;
     font-size: 1.9rem;
@@ -150,6 +156,53 @@
     border-radius: 10px;
     padding: 10px 14px;
     font-size: 0.9rem;
+}
+
+.sme-scope-switcher {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 24px 0;
+}
+
+.sme-scope-list {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sme-scope-chip {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.72);
+    border-radius: 999px;
+    padding: 8px 12px;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.sme-scope-chip:hover {
+    border-color: rgba(255,255,255,0.18);
+    color: rgba(255,255,255,0.9);
+}
+
+.sme-scope-chip--active {
+    border-color: rgba(197,58,56,0.42);
+    background: rgba(197,58,56,0.15);
+    color: rgba(255,255,255,0.96);
+}
+
+.sme-scope-summary {
+    color: rgba(255,255,255,0.58);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.sme-scope-summary-note {
+    display: inline-block;
+    margin-left: 8px;
+    color: rgba(255,255,255,0.44);
 }
 
 .sme-tabs {
@@ -402,9 +455,9 @@
 
 .sme-art-row {
     display: grid;
-    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+    grid-template-columns: minmax(184px, 220px) minmax(0, 1fr);
     gap: 14px;
-    align-items: center;
+    align-items: start;
     border: 1px solid rgba(255,255,255,0.06);
     border-radius: 18px;
     padding: 12px 14px;
@@ -421,13 +474,13 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
 }
 
 .sme-art-row-heading {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
 .sme-art-row-badges {
@@ -516,25 +569,46 @@
     white-space: nowrap;
 }
 
-.sme-art-row-copy {
-    color: rgba(255,255,255,0.62);
-    font-size: 0.77rem;
+.sme-art-row-source {
+    color: rgba(255,255,255,0.68);
+    font-size: 0.78rem;
     line-height: 1.45;
 }
 
-.sme-art-row-source {
-    color: rgba(255,255,255,0.68);
-    font-size: 0.76rem;
-    line-height: 1.45;
+.sme-art-row-pending-name {
+    color: rgba(255,255,255,0.52);
+    font-size: 0.72rem;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sme-art-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.sme-art-row-add {
+    position: relative;
+    min-width: 96px;
+    justify-content: center;
+    gap: 6px;
+}
+
+.sme-art-row-gallery-shell {
+    min-width: 0;
 }
 
 .sme-art-row-gallery {
     min-width: 0;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
     overflow-x: auto;
-    padding-bottom: 2px;
+    padding-bottom: 6px;
 }
 
 .sme-art-row-gallery::-webkit-scrollbar {
@@ -547,26 +621,22 @@
 }
 
 .sme-art-row-card,
-.sme-art-row-empty,
-.sme-art-add-tile {
+.sme-art-row-empty {
     flex: 0 0 auto;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 14px;
-    background: rgba(255,255,255,0.03);
-    padding: 8px;
+    position: relative;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
 }
 
-.sme-art-row-card--preferred {
-    border-color: rgba(197,58,56,0.34);
-    box-shadow: inset 0 0 0 1px rgba(197,58,56,0.14);
-}
-
-.sme-art-row-card--pending {
-    border-color: rgba(197,58,56,0.32);
-    background: rgba(197,58,56,0.08);
+.sme-art-row-card-trigger {
+    appearance: none;
+    border: none;
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    display: block;
 }
 
 .sme-art-row-stage,
@@ -585,33 +655,28 @@
     overflow: hidden;
 }
 
-.sme-art-row-stage--portrait,
-.sme-art-add-tile--portrait {
-    height: 148px;
+.sme-art-row-stage--portrait {
+    height: 140px;
     aspect-ratio: 2 / 3;
 }
 
-.sme-art-row-stage--square,
-.sme-art-add-tile--square {
-    height: 122px;
+.sme-art-row-stage--square {
+    height: 110px;
     aspect-ratio: 1;
 }
 
-.sme-art-row-stage--background,
-.sme-art-add-tile--background {
-    height: 116px;
+.sme-art-row-stage--background {
+    height: 98px;
     aspect-ratio: 16 / 9;
 }
 
-.sme-art-row-stage--banner,
-.sme-art-add-tile--banner {
-    height: 72px;
+.sme-art-row-stage--banner {
+    height: 58px;
     aspect-ratio: 27 / 5;
 }
 
-.sme-art-row-stage--logo,
-.sme-art-add-tile--logo {
-    height: 72px;
+.sme-art-row-stage--logo {
+    height: 58px;
     aspect-ratio: 4 / 1;
     background:
         linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%),
@@ -631,28 +696,71 @@
     object-fit: cover;
 }
 
-.sme-art-slot-image--contain {
+.sme-art-slot-image--fit {
     object-fit: contain;
-    padding: 12px;
 }
 
-.sme-art-row-card-meta {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+.sme-art-slot-image--logo {
+    object-fit: contain;
+    padding: 10px;
 }
 
-.sme-art-variant-badges,
-.sme-art-row-card-actions {
+.sme-art-row-card--preferred .sme-art-row-stage {
+    border-color: rgba(197,58,56,0.48);
+    box-shadow: inset 0 0 0 1px rgba(197,58,56,0.18);
+}
+
+.sme-art-row-card--pending .sme-art-row-stage {
+    border-color: rgba(197,58,56,0.34);
+    background:
+        radial-gradient(circle at top, rgba(197,58,56,0.14), transparent 48%),
+        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
+        rgba(197,58,56,0.06);
+}
+
+.sme-art-corner-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(197,58,56,0.92);
+    color: rgba(255,255,255,0.96);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+}
+
+.sme-art-corner-badge--pending {
+    background: rgba(197,58,56,0.82);
+}
+
+.sme-art-stage-tools {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
     display: flex;
     gap: 6px;
-    flex-wrap: wrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+}
+
+.sme-art-row-card:hover .sme-art-stage-tools,
+.sme-art-row-card:focus-within .sme-art-stage-tools {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .sme-art-row-empty {
     justify-content: center;
     align-items: center;
-    min-width: 138px;
+    min-width: 124px;
 }
 
 .sme-art-row-empty-copy {
@@ -684,13 +792,6 @@
     overflow: hidden;
 }
 
-.sme-art-row-card .sme-art-slot-action {
-    min-width: 0;
-    min-height: 30px;
-    padding: 6px 10px;
-    font-size: 0.72rem;
-}
-
 .sme-art-slot-action--primary {
     background: rgba(197,58,56,0.16);
     border-color: rgba(197,58,56,0.36);
@@ -716,26 +817,139 @@
     cursor: pointer;
 }
 
-.sme-art-add-tile {
-    position: relative;
-    align-items: center;
-    justify-content: center;
-    color: rgba(255,255,255,0.78);
-    text-align: center;
-    min-width: 88px;
-    cursor: pointer;
-}
-
 .sme-art-add-symbol {
-    font-size: 1.5rem;
+    font-size: 1rem;
     line-height: 1;
     font-weight: 700;
 }
 
-.sme-art-add-text {
-    font-size: 0.74rem;
+.sme-art-stage-tool {
+    appearance: none;
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(17,17,22,0.84);
+    color: rgba(248,248,248,0.94);
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sme-art-stage-tool--danger {
+    border-color: rgba(197,58,56,0.32);
+}
+
+.sme-art-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(10,10,14,0.82);
+    backdrop-filter: blur(8px);
+}
+
+.sme-art-lightbox-panel {
+    position: relative;
+    width: min(1100px, 92vw);
+    max-height: 88vh;
+    overflow: auto;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(26,26,31,0.98), rgba(18,18,22,0.98));
+    box-shadow: 0 24px 70px rgba(0,0,0,0.45);
+    padding: 22px;
+}
+
+.sme-art-lightbox-close {
+    appearance: none;
+    border: none;
+    background: rgba(255,255,255,0.06);
+    color: rgba(248,248,248,0.94);
+    cursor: pointer;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    position: absolute;
+    top: 16px;
+    right: 16px;
+}
+
+.sme-art-lightbox-copy {
+    padding-right: 44px;
+}
+
+.sme-art-lightbox-title {
+    font-size: 1rem;
     font-weight: 700;
-    letter-spacing: 0.02em;
+}
+
+.sme-art-lightbox-text {
+    margin-top: 6px;
+    color: rgba(255,255,255,0.62);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.sme-art-lightbox-frame {
+    margin-top: 18px;
+    width: min(100%, 980px);
+    max-width: 100%;
+    max-height: 68vh;
+    height: auto;
+    border-radius: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background:
+        radial-gradient(circle at top, rgba(197,58,56,0.12), transparent 48%),
+        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.01)),
+        rgba(255,255,255,0.03);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sme-art-lightbox-frame--portrait {
+    aspect-ratio: 2 / 3;
+    width: min(420px, 100%);
+    max-height: 68vh;
+}
+
+.sme-art-lightbox-frame--square {
+    aspect-ratio: 1;
+    width: min(520px, 100%);
+}
+
+.sme-art-lightbox-frame--background {
+    aspect-ratio: 16 / 9;
+}
+
+.sme-art-lightbox-frame--banner {
+    aspect-ratio: 27 / 5;
+}
+
+.sme-art-lightbox-frame--logo {
+    aspect-ratio: 4 / 1;
+    background:
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%),
+        linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.03) 75%),
+        rgba(12,12,16,0.42);
+    background-position: 0 0, 10px 10px, 0 0;
+    background-size: 20px 20px, 20px 20px, auto;
+}
+
+.sme-art-lightbox-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.sme-art-lightbox-image--logo {
+    padding: 18px;
 }
 
 .sme-artwork-generated {

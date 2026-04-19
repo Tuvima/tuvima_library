@@ -1449,6 +1449,20 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<MediaEditorContextDto?> GetMediaEditorContextAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<MediaEditorContextDto>($"/metadata/{entityId}/editor-context", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/{EntityId}/editor-context failed", entityId);
+            return null;
+        }
+    }
+
     public async Task<bool> UploadEntityArtworkAsync(
         Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default)
     {
@@ -1473,6 +1487,41 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /metadata/{EntityId}/artwork/{AssetType} failed", entityId, assetType);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> UploadScopeArtworkVariantAsync(
+        Guid entityId,
+        string scopeId,
+        string assetType,
+        Stream fileStream,
+        string fileName,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var streamContent = new StreamContent(fileStream);
+            content.Add(streamContent, "file", fileName);
+
+            var encodedScope = Uri.EscapeDataString(scopeId);
+            var encodedType = Uri.EscapeDataString(assetType);
+            var resp = await _http.PostAsync($"/metadata/{entityId}/artwork/{encodedScope}/{encodedType}", content, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("POST /metadata/{EntityId}/artwork/{ScopeId}/{AssetType} returned {Status}: {Detail}",
+                    entityId, scopeId, assetType, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/{EntityId}/artwork/{ScopeId}/{AssetType} failed", entityId, scopeId, assetType);
             LastError = ex.Message;
             return false;
         }
@@ -4015,6 +4064,43 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /metadata/{EntityId}/artwork failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default)
+    {
+        try
+        {
+            var encodedScope = Uri.EscapeDataString(scopeId);
+            var raw = await _http.GetFromJsonAsync<ArtworkEditorRaw>($"/metadata/{entityId}/artwork/{encodedScope}", ct);
+            if (raw is null)
+                return null;
+
+            return new ArtworkEditorDto
+            {
+                EntityId = raw.EntityId,
+                Slots = raw.Slots.Select(slot => new ArtworkSlotDto
+                {
+                    AssetType = slot.AssetType ?? string.Empty,
+                    Variants = slot.Variants.Select(variant => new ArtworkVariantDto
+                    {
+                        Id = variant.Id,
+                        AssetType = variant.AssetType ?? slot.AssetType ?? string.Empty,
+                        ImageUrl = variant.ImageUrl is not null ? AbsoluteUrl(variant.ImageUrl) : null,
+                        IsPreferred = variant.IsPreferred,
+                        Origin = string.IsNullOrWhiteSpace(variant.Origin) ? "Stored" : variant.Origin,
+                        ProviderName = variant.ProviderName,
+                        CanDelete = variant.CanDelete,
+                        CreatedAt = variant.CreatedAt,
+                    }).ToList(),
+                }).ToList(),
+            };
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/{EntityId}/artwork/{ScopeId} failed", entityId, scopeId);
             return null;
         }
     }

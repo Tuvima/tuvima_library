@@ -151,7 +151,7 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
                    fe.enriched_at             AS EnrichedAt
             FROM   fictional_entities fe
             INNER JOIN fictional_entity_work_links fewl
-                ON fe.id = fewl.fictional_entity_id
+                ON fe.id = fewl.entity_id
             WHERE  fewl.work_qid = @workQid COLLATE NOCASE;
             """, new { workQid }).AsList();
 

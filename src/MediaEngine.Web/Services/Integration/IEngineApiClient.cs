@@ -314,11 +314,20 @@ public interface IEngineApiClient
     /// <summary>POST /metadata/{entityId}/cover — upload cover art for a media asset.</summary>
     Task<bool> UploadCoverAsync(Guid entityId, Stream fileStream, string fileName, CancellationToken ct = default);
 
+    /// <summary>GET /metadata/{entityId}/editor-context — resolve scope-aware editor context.</summary>
+    Task<MediaEditorContextDto?> GetMediaEditorContextAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>GET /metadata/{entityId}/artwork/{scopeId} — load exact artwork for one editor scope.</summary>
+    Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);
+
     /// <summary>POST /metadata/{entityId}/artwork/{assetType} — upload typed artwork for a media asset.</summary>
     Task<bool> UploadEntityArtworkAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
 
     /// <summary>POST /metadata/{entityId}/artwork/{assetType} — append a new artwork variant for a media asset.</summary>
     Task<bool> UploadArtworkVariantAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
+
+    /// <summary>POST /metadata/{entityId}/artwork/{scopeId}/{assetType} — append a new artwork variant for a scope owner.</summary>
+    Task<bool> UploadScopeArtworkVariantAsync(Guid entityId, string scopeId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
 
     /// <summary>PUT /metadata/artwork/{variantId}/preferred — set the preferred artwork variant.</summary>
     Task<bool> SetPreferredArtworkAsync(Guid variantId, CancellationToken ct = default);

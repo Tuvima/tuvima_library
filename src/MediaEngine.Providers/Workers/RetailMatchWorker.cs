@@ -2371,6 +2371,7 @@ public sealed class RetailMatchWorker
                     MediaType = mediaType,
                     Title = hints.GetValueOrDefault(MetadataFieldConstants.Title),
                     Author = hints.GetValueOrDefault(MetadataFieldConstants.Author),
+                    Year = hints.GetValueOrDefault(MetadataFieldConstants.Year),
                     Narrator = hints.GetValueOrDefault(MetadataFieldConstants.Narrator),
                     ShowName = hints.GetValueOrDefault(MetadataFieldConstants.ShowName)
                         ?? hints.GetValueOrDefault(MetadataFieldConstants.Series),

@@ -7,7 +7,8 @@
   "requires_api_key": true,
 
   "can_handle": {
-    "media_types": ["Movies", "TV", "Music"]
+    "media_types": ["Movies", "TV", "Music"],
+    "entity_types": ["Work", "MediaAsset"]
   },
 
   "throttle_ms": 1000,
@@ -29,22 +30,22 @@
   "search_strategies": [
     {
       "name": "movie_lookup",
+      "required_fields": ["tmdb_id"],
       "url_template": "{base_url}/movies/{tmdb_id}?api_key={api_key}",
-      "requires_field": "tmdb_id",
       "method": "GET",
       "response_format": "json"
     },
     {
       "name": "tv_lookup",
+      "required_fields": ["tvdb_id"],
       "url_template": "{base_url}/tv/{tvdb_id}?api_key={api_key}",
-      "requires_field": "tvdb_id",
       "method": "GET",
       "response_format": "json"
     },
     {
       "name": "music_lookup",
+      "required_fields": ["musicbrainz_id"],
       "url_template": "{base_url}/music/{musicbrainz_id}?api_key={api_key}",
-      "requires_field": "musicbrainz_id",
       "method": "GET",
       "response_format": "json"
     }

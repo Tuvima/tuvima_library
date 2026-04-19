@@ -247,7 +247,7 @@ public sealed class WikidataBridgeWorker
                     }
                 }
 
-                var (titleHint, authorHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
+                var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
 
                 BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
@@ -259,6 +259,7 @@ public sealed class WikidataBridgeWorker
                     WikidataProps: wikidataProps,
                     TitleHint: titleHint,
                     AuthorHint: authorHint,
+                    YearHint: yearHint,
                     AlbumHint: albumHint,
                     ArtistHint: artistHint,
                     SeriesHint: seriesHint));
@@ -290,6 +291,7 @@ public sealed class WikidataBridgeWorker
                     Artist             = ctx.ArtistHint,
                     Title              = ctx.TitleHint,
                     Author             = ctx.AuthorHint,
+                    Year               = ctx.YearHint,
                     SeriesTitle        = ctx.SeriesHint,
                 })
                 .ToList();
@@ -413,6 +415,7 @@ public sealed class WikidataBridgeWorker
                         EntityType     = EntityType.MediaAsset,
                         MediaType      = representative.MediaType,
                         Title          = representative.TitleHint,
+                        Year           = representative.YearHint,
                         PreResolvedQid = representative.ResolvedQid,
                     }, ct);
             }
@@ -596,6 +599,7 @@ public sealed class WikidataBridgeWorker
                                     EntityType     = EntityType.MediaAsset,
                                     MediaType      = ctx.MediaType,
                                     Title          = ctx.TitleHint,
+                                    Year           = ctx.YearHint,
                                     PreResolvedQid = ctx.ResolvedQid,
                                 }, ct);
                         }
@@ -654,6 +658,7 @@ public sealed class WikidataBridgeWorker
                             EntityType     = EntityType.MediaAsset,
                             MediaType      = ctx.MediaType,
                             Title          = ctx.TitleHint,
+                            Year           = ctx.YearHint,
                             PreResolvedQid = ctx.ResolvedQid,
                         }, ct);
                 }
@@ -704,6 +709,7 @@ public sealed class WikidataBridgeWorker
                             MediaType  = ctx.MediaType,
                             Title      = ctx.TitleHint,
                             Author     = ctx.AuthorHint,
+                            Year       = ctx.YearHint,
                         }, ct);
 
                     if (fallbackClaims.Count > 0)
@@ -830,7 +836,7 @@ public sealed class WikidataBridgeWorker
             }
         }
 
-        var (titleHint, authorHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
+        var (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint) = BuildLookupHints(mediaType, canonicals);
 
         BridgeIdHelper.InjectSentinels(bridgeDict, titleHint, authorHint);
 
@@ -842,6 +848,7 @@ public sealed class WikidataBridgeWorker
             WikidataProps: wikidataProps,
             TitleHint:     titleHint,
             AuthorHint:    authorHint,
+            YearHint:      yearHint,
             AlbumHint:     albumHint,
             ArtistHint:    artistHint,
             SeriesHint:    seriesHint);
@@ -862,6 +869,7 @@ public sealed class WikidataBridgeWorker
                     Artist             = artistHint,
                     Title              = titleHint,
                     Author             = authorHint,
+                    Year               = yearHint,
                     SeriesTitle        = seriesHint,
                 }, ct);
 
@@ -917,7 +925,7 @@ public sealed class WikidataBridgeWorker
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
     }
 
-    internal static (string? TitleHint, string? AuthorHint, string? AlbumHint, string? ArtistHint, string? SeriesHint) BuildLookupHints(
+    internal static (string? TitleHint, string? AuthorHint, string? YearHint, string? AlbumHint, string? ArtistHint, string? SeriesHint) BuildLookupHints(
         MediaType mediaType,
         IReadOnlyList<CanonicalValue> canonicals)
     {
@@ -928,6 +936,7 @@ public sealed class WikidataBridgeWorker
 
         var titleHint = GetCanonical(canonicals, MetadataFieldConstants.Title);
         var authorHint = GetCanonical(canonicals, MetadataFieldConstants.Author);
+        var yearHint = GetCanonical(canonicals, MetadataFieldConstants.Year);
         string? albumHint = null;
         string? artistHint = null;
         string? seriesHint = null;
@@ -956,7 +965,7 @@ public sealed class WikidataBridgeWorker
             authorHint ??= artistHint;
         }
 
-        return (titleHint, authorHint, albumHint, artistHint, seriesHint);
+        return (titleHint, authorHint, yearHint, albumHint, artistHint, seriesHint);
     }
 
     private static string? BuildComicTitleHint(string seriesHint, string? titleHint)
@@ -1273,6 +1282,7 @@ public sealed class WikidataBridgeWorker
         public Dictionary<string, string> WikidataProps { get; }
         public string? TitleHint { get; }
         public string? AuthorHint { get; }
+        public string? YearHint { get; }
         public string? AlbumHint { get; }
         public string? ArtistHint { get; }
         public string? SeriesHint { get; }
@@ -1296,6 +1306,7 @@ public sealed class WikidataBridgeWorker
             Dictionary<string, string> WikidataProps,
             string? TitleHint,
             string? AuthorHint,
+            string? YearHint,
             string? AlbumHint,
             string? ArtistHint,
             string? SeriesHint)
@@ -1307,6 +1318,7 @@ public sealed class WikidataBridgeWorker
             this.WikidataProps = WikidataProps;
             this.TitleHint     = TitleHint;
             this.AuthorHint    = AuthorHint;
+            this.YearHint      = YearHint;
             this.AlbumHint     = AlbumHint;
             this.ArtistHint    = ArtistHint;
             this.SeriesHint    = SeriesHint;

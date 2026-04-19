@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
@@ -58,6 +59,7 @@ public sealed class CoverArtWorker
     public async Task DownloadAndPersistAsync(Guid entityId, string? wikidataQid, CancellationToken ct)
     {
         var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+        var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
 
         // Find cover URL from the asset's own canonicals.
         var coverUrl = FindCoverUrl(canonicals);
@@ -72,7 +74,6 @@ public sealed class CoverArtWorker
         {
             try
             {
-                var lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct);
                 if (lineage is not null && lineage.RootParentWorkId != entityId)
                 {
                     var parentCanonicals = await _canonicalRepo.GetByEntityAsync(
@@ -125,20 +126,22 @@ public sealed class CoverArtWorker
         var assetForPath = await _assetRepo.FindByIdAsync(entityId, ct);
         var assetFilePath = assetForPath?.FilePathRoot;
         bool hasFilePath = !string.IsNullOrWhiteSpace(assetFilePath) && File.Exists(assetFilePath);
+        var ownerEntityId = lineage?.TargetForParentScope ?? entityId;
+        var ownerFolderPath = ResolveCoverFolderPath(lineage?.MediaType, assetFilePath);
 
-        if (hasFilePath)
+        if (hasFilePath && !string.IsNullOrWhiteSpace(ownerFolderPath))
         {
-            coverPath = ImagePathService.GetMediaFilePosterPath(assetFilePath!);
+            coverPath = Path.Combine(ownerFolderPath!, "poster.jpg");
             imageDir  = Path.GetDirectoryName(coverPath) ?? ".";
             ImagePathService.EnsureDirectory(coverPath);
         }
         else if (_imagePathService is not null)
         {
             if (!string.IsNullOrEmpty(wikidataQid))
-                _imagePathService.PromoteToQid(entityId, wikidataQid);
+                _imagePathService.PromoteToQid(ownerEntityId, wikidataQid);
 
-            coverPath = _imagePathService.GetWorkCoverPath(wikidataQid, entityId);
-            imageDir  = _imagePathService.GetWorkImageDir(wikidataQid, entityId);
+            coverPath = _imagePathService.GetWorkCoverPath(wikidataQid, ownerEntityId);
+            imageDir  = _imagePathService.GetWorkImageDir(wikidataQid, ownerEntityId);
             ImagePathService.EnsureDirectory(coverPath);
         }
         else
@@ -154,19 +157,19 @@ public sealed class CoverArtWorker
         if (File.Exists(coverPath))
         {
             var existingVariant = await EnsureCoverVariantAsync(
-                entityId,
+                ownerEntityId,
                 coverUrl,
                 coverPath,
                 InferCoverSource(canonicals, coverUrl),
                 ct);
             await _canonicalRepo.UpsertBatchAsync(
                 BuildCoverCanonicals(
-                    entityId,
+                    ownerEntityId,
                     existingVariant?.Id,
                     InferCoverSource(canonicals, coverUrl),
                     heroState: "pending"),
                 ct);
-            await GenerateHeroBannerAsync(entityId, coverPath, imageDir, ct);
+            await GenerateHeroBannerAsync(ownerEntityId, coverPath, imageDir, ct);
 
             var titleForSkip = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
@@ -242,26 +245,26 @@ public sealed class CoverArtWorker
         }
 
         // Generate hero banner
-        await GenerateHeroBannerAsync(entityId, coverPath, imageDir, ct);
+        await GenerateHeroBannerAsync(ownerEntityId, coverPath, imageDir, ct);
 
         // Generate thumbnail. When we wrote the cover next to the media file,
         // the thumbnail belongs next to it as well so the Dashboard's thumb
         // route can find it without a separate cache lookup.
-        if (hasFilePath)
+        if (hasFilePath && !string.IsNullOrWhiteSpace(ownerFolderPath))
         {
-            var thumbPath = ImagePathService.GetMediaFileThumbPath(assetFilePath!);
+            var thumbPath = Path.Combine(ownerFolderPath!, "poster-thumb.jpg");
             GenerateThumbnail(coverPath, thumbPath);
         }
         else if (_imagePathService is not null)
         {
-            var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid, entityId);
+            var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid, ownerEntityId);
             GenerateThumbnail(coverPath, thumbPath);
         }
 
-        var coverVariant = await EnsureCoverVariantAsync(entityId, coverUrl, coverPath, "provider", ct);
+        var coverVariant = await EnsureCoverVariantAsync(ownerEntityId, coverUrl, coverPath, "provider", ct);
         await _canonicalRepo.UpsertBatchAsync(
             BuildCoverCanonicals(
-                entityId,
+                ownerEntityId,
                 coverVariant?.Id,
                 "provider",
                 heroState: "pending"),
@@ -314,6 +317,27 @@ public sealed class CoverArtWorker
 
         return "existing";
     }
+
+    private static string? ResolveCoverFolderPath(MediaType? mediaType, string? mediaFilePath) =>
+        mediaType switch
+        {
+            MediaType.TV => GetSeriesFolder(mediaFilePath),
+            MediaType.Music => GetContainerFolder(mediaFilePath),
+            _ => GetContainerFolder(mediaFilePath),
+        };
+
+    private static string? GetSeriesFolder(string? mediaFilePath)
+    {
+        var seasonFolder = GetContainerFolder(mediaFilePath);
+        return string.IsNullOrWhiteSpace(seasonFolder)
+            ? null
+            : Path.GetDirectoryName(seasonFolder);
+    }
+
+    private static string? GetContainerFolder(string? mediaFilePath) =>
+        string.IsNullOrWhiteSpace(mediaFilePath)
+            ? null
+            : Path.GetDirectoryName(mediaFilePath);
 
     private async Task GenerateHeroBannerAsync(
         Guid entityId, string coverPath, string outputDir, CancellationToken ct)

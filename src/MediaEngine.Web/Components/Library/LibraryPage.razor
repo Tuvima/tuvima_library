@@ -1795,7 +1795,10 @@
         return await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
         {
             EntityIds = [entityId],
+            LaunchEntityId = entityId,
+            LaunchEntityKind = "Work",
             Mode = mode,
+            InitialScope = ResolveInitialEditorScope(effectiveItem.MediaType),
             ReviewTrigger = reviewTrigger ?? effectiveItem.ReviewTrigger,
             MediaType = effectiveItem.MediaType,
             HeaderTitle = effectiveItem.Title,
@@ -1837,6 +1840,16 @@
             "TV" => item.Series ?? item.Season,
             "Audiobooks" => item.Narrator ?? item.Author,
             _ => item.Author ?? item.Series ?? item.Year,
+        };
+
+    private static string ResolveInitialEditorScope(string? mediaType) =>
+        mediaType switch
+        {
+            "TV" => "series",
+            "Music" => "album",
+            "Movies" => "movie",
+            "Comics" or "Books" or "Audiobooks" => "work",
+            _ => "work",
         };
 
     private void CloseEditorPanel()

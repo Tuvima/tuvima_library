@@ -1114,6 +1114,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             MediaType    = request.MediaType,
             Title        = h.GetValueOrDefault("title"),
             Author       = h.GetValueOrDefault("author"),
+            Year         = h.GetValueOrDefault("year"),
             Narrator     = h.GetValueOrDefault("narrator"),
             Asin         = h.GetValueOrDefault(BridgeIdKeys.Asin),
             Isbn         = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),

@@ -31,25 +31,34 @@ public partial class SharedMediaEditorShell
     ];
 
     private static readonly ArtworkSlotDefinition PosterCoverArtworkSlot =
-        new("CoverArt", "Poster / Cover", "Primary art used on cards and detail pages.", Icons.Material.Outlined.Photo, "portrait", "cover", true, "Best for posters and front-cover artwork.", "Primary");
+        new("CoverArt", "Poster / Cover", "Primary art used on cards and detail pages.", Icons.Material.Outlined.Photo, "portrait", "fit", true, "Best for posters and front-cover artwork.", "Primary");
 
     private static readonly ArtworkSlotDefinition BookCoverArtworkSlot =
-        new("CoverArt", "Cover", "Primary front-cover art used on cards and detail pages.", Icons.Material.Outlined.MenuBook, "portrait", "cover", true, "Best for book, comic, and audiobook covers.", "Primary");
+        new("CoverArt", "Cover", "Primary front-cover art used on cards and detail pages.", Icons.Material.Outlined.MenuBook, "portrait", "fit", true, "Best for book, comic, and audiobook covers.", "Primary");
 
     private static readonly ArtworkSlotDefinition AlbumArtArtworkSlot =
-        new("CoverArt", "Album Art", "Primary album art used across music views.", Icons.Material.Outlined.Album, "square", "cover", true, "Best for album covers and primary music art.", "Primary");
+        new("CoverArt", "Album Art", "Primary album art used across music views.", Icons.Material.Outlined.Album, "square", "fit", true, "Best for album covers and primary music art.", "Primary");
 
     private static readonly ArtworkSlotDefinition SquareArtArtworkSlot =
-        new("SquareArt", "Square Art", "A dedicated square crop for tiles, shelves, and compact layouts.", Icons.Material.Outlined.CropSquare, "square", "cover", true, "Best for square variants that should not be auto-cropped from the primary cover.", "Square");
+        new("SquareArt", "Square Art", "A dedicated square crop for tiles, shelves, and compact layouts.", Icons.Material.Outlined.CropSquare, "square", "fit", true, "Best for square variants that should not be auto-cropped from the primary cover.", "Square");
 
     private static readonly ArtworkSlotDefinition BackgroundArtworkSlot =
-        new("Background", "Background", "A cinematic wide image for backgrounds and immersive layouts.", Icons.Material.Outlined.Panorama, "background", "cover", true, "Best for scenic or full-bleed background art.", "Wide");
+        new("Background", "Background", "A cinematic wide image for backgrounds and immersive layouts.", Icons.Material.Outlined.Panorama, "background", "fit", true, "Best for scenic or full-bleed background art.", "Wide");
 
     private static readonly ArtworkSlotDefinition BannerArtworkSlot =
-        new("Banner", "Banner", "A wide promotional strip for shelves and collection headers.", Icons.Material.Outlined.PanoramaWideAngle, "banner", "cover", true, "Best for landscape banners and shelf headers.", "Strip");
+        new("Banner", "Banner", "A wide promotional strip for shelves and collection headers.", Icons.Material.Outlined.PanoramaWideAngle, "banner", "fit", true, "Best for landscape banners and shelf headers.", "Strip");
 
     private static readonly ArtworkSlotDefinition LogoArtworkSlot =
-        new("Logo", "Logo", "Title treatment or transparent branding art.", Icons.Material.Outlined.BrandingWatermark, "logo", "contain", true, "Best for transparent logos or wordmarks.", "Logo");
+        new("Logo", "Logo", "Title treatment or transparent branding art.", Icons.Material.Outlined.BrandingWatermark, "logo", "logo", true, "Best for transparent logos or wordmarks.", "Logo");
+
+    private static readonly ArtworkSlotDefinition SeasonPosterArtworkSlot =
+        new("SeasonPoster", "Season Poster", "Poster art stored for the season container.", Icons.Material.Outlined.ViewAgenda, "portrait", "fit", true, "Best for season-specific poster art.", "Season");
+
+    private static readonly ArtworkSlotDefinition SeasonThumbArtworkSlot =
+        new("SeasonThumb", "Season Thumb", "A wide season still or season thumbnail.", Icons.Material.Outlined.PhotoSizeSelectLarge, "background", "fit", true, "Best for season-specific thumbnail art.", "Season");
+
+    private static readonly ArtworkSlotDefinition EpisodeStillArtworkSlot =
+        new("EpisodeStill", "Episode Still", "An episode-specific still image.", Icons.Material.Outlined.LiveTv, "background", "fit", true, "Best for episode stills or screenshots.", "Still");
 
     [Inject] protected IEngineApiClient ApiClient { get; set; } = null!;
     [Inject] protected UIOrchestratorService Orchestrator { get; set; } = null!;
@@ -63,18 +72,23 @@ public partial class SharedMediaEditorShell
     private List<ClaimHistoryDto> _claims = [];
     private List<RegistryItemHistoryDto> _history = [];
     private ArtworkEditorDto? _artwork;
+    private MediaEditorContextDto? _editorContext;
     private MediaEditorSchema _schema = MediaEditorSchemaCatalog.Resolve(null);
     private readonly Dictionary<string, string> _editedValues = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IBrowserFile> _pendingArtworkFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _pendingArtworkPreviewUrls = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ScopeEditorState> _scopeStates = new(StringComparer.OrdinalIgnoreCase);
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
     private string _activeTab = "details";
+    private string _activeScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
     private string? _selectedCandidateId;
     private string? _selectedArtworkAssetType;
     private string? _focusedArtworkVariantKey;
+    private ArtworkSlotDefinition? _zoomArtworkSlot;
+    private ArtworkVariantDisplayItem? _zoomArtworkVariant;
     private string _selectedMediaType = "Books";
     private bool _loading = true;
     private bool _saving;
@@ -83,41 +97,67 @@ public partial class SharedMediaEditorShell
     private bool _confirmDiscard;
     private string? _dragTargetArtworkType;
     private string _reviewSummary = "Review the item identity.";
+    private string _lastNonFileTab = "details";
 
-    protected IReadOnlyList<(string Id, string Label)> Tabs => TabDefinitions;
-    protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(_detail?.MediaType ?? Request.MediaType ?? _selectedMediaType);
+    protected IReadOnlyList<(string Id, string Label)> Tabs => ResolveVisibleTabs();
+    protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
+    protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ActiveScope);
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
-    protected Guid CurrentEntityId => Request.EntityIds[0];
+    protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
+    protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? LaunchEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
     protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetArtworkPreviewUrl("Hero"));
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
     protected ArtworkSlotDefinition? SelectedArtworkSlot =>
         ArtworkSlots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
         ?? ArtworkSlots.FirstOrDefault();
+    protected ArtworkSlotDefinition? ZoomArtworkSlot => _zoomArtworkSlot;
+    protected ArtworkVariantDisplayItem? ZoomArtworkVariant => _zoomArtworkVariant;
+    protected bool IsArtworkZoomOpen => _zoomArtworkSlot is not null && _zoomArtworkVariant is not null;
+
+    protected MediaEditorScopeDto? ActiveScope =>
+        _editorContext?.Scopes
+            .OrderBy(scope => scope.Order)
+            .FirstOrDefault(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase))
+        ?? _editorContext?.Scopes.OrderBy(scope => scope.Order).FirstOrDefault();
+    protected bool IsFileScope => string.Equals(ActiveScope?.ScopeId, "file", StringComparison.OrdinalIgnoreCase);
+    protected string BreadcrumbText => BuildBreadcrumbText();
 
     protected string HeaderKicker =>
         Request.Mode switch
         {
             SharedMediaEditorMode.Review => "Review",
             SharedMediaEditorMode.Batch => $"{Request.EntityIds.Count} items",
-            _ => _schema.MediaType,
+            _ => ActiveScope?.Label ?? _schema.MediaType,
         };
 
     protected string HeaderTitle =>
-        Request.HeaderTitle
+        ActiveScope?.DisplayTitle
+        ?? Request.HeaderTitle
         ?? _detail?.Title
         ?? (IsBatchMode ? $"Edit {Request.EntityIds.Count} Items" : "Edit Item");
 
     protected string? HeaderSubtitle =>
-        Request.HeaderSubtitle
+        ActiveScope?.DisplaySubtitle
+        ?? Request.HeaderSubtitle
         ?? (IsSingleItem ? BuildHeaderSubtitle() : string.Join(" | ", Request.PreviewItems.Take(3).Select(x => x.Title)));
 
-    protected string? CurrentCoverUrl => GetArtworkPreviewUrl("CoverArt") ?? Request.CoverUrl;
+    protected string? CurrentCoverUrl => GetHeaderArtworkPreviewUrl();
+
+    private sealed class ScopeEditorState
+    {
+        public RegistryItemDetailViewModel? Detail { get; init; }
+        public List<CanonicalFieldViewModel> CanonicalValues { get; init; } = [];
+        public List<ClaimHistoryDto> Claims { get; init; } = [];
+        public List<RegistryItemHistoryDto> History { get; init; } = [];
+        public ArtworkEditorDto Artwork { get; init; } = new();
+    }
 
     protected override async Task OnInitializedAsync()
     {
         _activeTab = string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab;
+        _lastNonFileTab = _activeTab == "file" ? "details" : _activeTab;
         _schema = MediaEditorSchemaCatalog.Resolve(Request.MediaType);
 
         if (IsSingleItem)
@@ -133,21 +173,40 @@ public partial class SharedMediaEditorShell
 
         try
         {
-            var detailTask = ApiClient.GetRegistryItemDetailAsync(CurrentEntityId);
-            var canonicalTask = Orchestrator.GetCanonicalValuesAsync(CurrentEntityId);
-            var claimsTask = Orchestrator.GetClaimHistoryAsync(CurrentEntityId);
-            var historyTask = ApiClient.GetItemHistoryAsync(CurrentEntityId);
-            var artworkTask = ApiClient.GetArtworkAsync(CurrentEntityId);
+            _editorContext = await ApiClient.GetMediaEditorContextAsync(LaunchEntityId);
 
-            await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask, artworkTask);
+            if (_editorContext is null)
+            {
+                var detailTask = ApiClient.GetRegistryItemDetailAsync(LaunchEntityId);
+                var canonicalTask = Orchestrator.GetCanonicalValuesAsync(LaunchEntityId);
+                var claimsTask = Orchestrator.GetClaimHistoryAsync(LaunchEntityId);
+                var historyTask = ApiClient.GetItemHistoryAsync(LaunchEntityId);
+                var artworkTask = ApiClient.GetArtworkAsync(LaunchEntityId);
 
-            _detail = detailTask.Result;
-            _canonicalValues = canonicalTask.Result;
-            _claims = claimsTask.Result;
-            _history = historyTask.Result;
-            _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = CurrentEntityId };
-            _schema = MediaEditorSchemaCatalog.Resolve(_detail?.MediaType ?? Request.MediaType);
-            _selectedMediaType = _detail?.MediaType ?? Request.MediaType ?? "Books";
+                await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask, artworkTask);
+
+                _detail = detailTask.Result;
+                _canonicalValues = canonicalTask.Result;
+                _claims = claimsTask.Result;
+                _history = historyTask.Result;
+                _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = LaunchEntityId };
+                _schema = MediaEditorSchemaCatalog.Resolve(_detail?.MediaType ?? Request.MediaType);
+                _selectedMediaType = _detail?.MediaType ?? Request.MediaType ?? "Books";
+            }
+            else
+            {
+                _selectedMediaType = _editorContext.MediaType;
+                _schema = MediaEditorSchemaCatalog.Resolve(_editorContext.MediaType);
+                _activeScopeId = !string.IsNullOrWhiteSpace(Request.InitialScope)
+                    ? Request.InitialScope!
+                    : _editorContext.InitialScope;
+
+                if (!_editorContext.Scopes.Any(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase)))
+                    _activeScopeId = _editorContext.Scopes.OrderBy(scope => scope.Order).FirstOrDefault()?.ScopeId ?? string.Empty;
+
+                await LoadScopeStateAsync(forceReload: true);
+            }
+
             _pendingArtworkFiles.Clear();
             _pendingArtworkPreviewUrls.Clear();
             _dragTargetArtworkType = null;
@@ -157,15 +216,107 @@ public partial class SharedMediaEditorShell
             {
                 var target = ReviewTargetResolver.Resolve(_detail?.MediaType ?? Request.MediaType, Request.ReviewTrigger ?? _detail?.ReviewTrigger);
                 _activeTab = string.IsNullOrWhiteSpace(Request.InitialTab) ? target.InitialTab : Request.InitialTab!;
-                _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup) ? target.CanonicalTargetGroup : Request.InitialCanonicalTargetGroup!;
+                _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup)
+                    ? (ActiveScope?.CanonicalTargetGroup ?? target.CanonicalTargetGroup)
+                    : Request.InitialCanonicalTargetGroup!;
                 _reviewSummary = target.Summary;
             }
             else
             {
-                _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup) ? _schema.DefaultTargetGroup : Request.InitialCanonicalTargetGroup!;
+                _canonicalTargetGroup = string.IsNullOrWhiteSpace(Request.InitialCanonicalTargetGroup)
+                    ? (ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup)
+                    : Request.InitialCanonicalTargetGroup!;
             }
 
+            if (IsFileScope)
+                _activeTab = "file";
+
             _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadScopeStateAsync(bool forceReload = false)
+    {
+        if (!IsSingleItem || _editorContext is null || ActiveScope is null)
+            return;
+
+        if (!forceReload && _scopeStates.TryGetValue(ActiveScope.ScopeId, out var cachedState))
+        {
+            ApplyScopeState(cachedState);
+            return;
+        }
+
+        var detailTask = ApiClient.GetRegistryItemDetailAsync(ActiveScope.FieldEntityId);
+        var canonicalTask = Orchestrator.GetCanonicalValuesAsync(ActiveScope.FieldEntityId);
+        var claimsTask = Orchestrator.GetClaimHistoryAsync(ActiveScope.FieldEntityId);
+        var historyTask = ApiClient.GetItemHistoryAsync(ActiveScope.FieldEntityId);
+        var artworkTask = ActiveScope.CanEditArtwork || ArtworkSlots.Count > 0
+            ? ApiClient.GetScopeArtworkAsync(LaunchEntityId, ActiveScope.ScopeId)
+            : Task.FromResult<ArtworkEditorDto?>(new ArtworkEditorDto { EntityId = ActiveScope.ArtworkOwnerEntityId ?? ActiveScope.FieldEntityId });
+
+        await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask, artworkTask);
+
+        var state = new ScopeEditorState
+        {
+            Detail = detailTask.Result,
+            CanonicalValues = canonicalTask.Result,
+            Claims = claimsTask.Result,
+            History = historyTask.Result,
+            Artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = ActiveScope.ArtworkOwnerEntityId ?? ActiveScope.FieldEntityId },
+        };
+
+        _scopeStates[ActiveScope.ScopeId] = state;
+        ApplyScopeState(state);
+    }
+
+    private void ApplyScopeState(ScopeEditorState state)
+    {
+        _detail = state.Detail;
+        _canonicalValues = state.CanonicalValues;
+        _claims = state.Claims;
+        _history = state.History;
+        _artwork = state.Artwork;
+        _selectedMediaType = _detail?.MediaType ?? _editorContext?.MediaType ?? Request.MediaType ?? "Books";
+        _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
+        _canonicalTargetGroup = ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup;
+        _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+        _selectedSuggestedFieldKeys.Clear();
+        CloseArtworkZoom();
+        NormalizeArtworkSelection();
+    }
+
+    protected async Task SelectScopeAsync(string scopeId)
+    {
+        if (string.Equals(_activeScopeId, scopeId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!string.IsNullOrWhiteSpace(_activeTab) && !string.Equals(_activeTab, "file", StringComparison.OrdinalIgnoreCase))
+            _lastNonFileTab = _activeTab;
+
+        _activeScopeId = scopeId;
+
+        if (string.Equals(scopeId, "file", StringComparison.OrdinalIgnoreCase))
+        {
+            _activeTab = "file";
+        }
+        else if (string.Equals(_activeTab, "file", StringComparison.OrdinalIgnoreCase))
+        {
+            _activeTab = _lastNonFileTab;
+        }
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            await LoadScopeStateAsync();
         }
         finally
         {
@@ -186,12 +337,29 @@ public partial class SharedMediaEditorShell
     protected bool IsTabDisabled(string tabId) => IsBatchMode && tabId is "universe" or "artwork" or "file";
 
     protected bool CanReclassifyMediaType =>
-        IsSingleItem && (Request.Mode == SharedMediaEditorMode.Review || !string.IsNullOrWhiteSpace(_detail?.MediaType));
+        IsSingleItem
+        && !IsFileScope
+        && (Request.Mode == SharedMediaEditorMode.Review || !string.IsNullOrWhiteSpace(_detail?.MediaType));
 
     protected IEnumerable<MediaEditorFieldGroup> GetGroupsForTab(string tabId)
     {
         if (!IsBatchMode)
-            return _schema.Groups.Where(group => group.TabId == tabId);
+        {
+            var visibleKeys = GetVisibleFieldKeysForScope();
+            return _schema.Groups
+                .Where(group => group.TabId == tabId)
+                .Select(group => new MediaEditorFieldGroup
+                {
+                    Id = group.Id,
+                    Label = group.Label,
+                    TabId = group.TabId,
+                    Fields = group.Fields
+                        .Where(field => visibleKeys.Contains(field.Key, StringComparer.OrdinalIgnoreCase))
+                        .ToList(),
+                })
+                .Where(group => group.Fields.Count > 0)
+                .ToList();
+        }
 
         var batchFields = MediaEditorSchemaCatalog.ResolveBatchFields(Request.PreviewItems.Select(x => x.MediaType ?? Request.MediaType ?? "Books"));
 
@@ -239,7 +407,7 @@ public partial class SharedMediaEditorShell
 
     protected string GetEditableValue(string key)
     {
-        if (_editedValues.TryGetValue(key, out var edited))
+        if (_editedValues.TryGetValue(BuildScopedFieldKey(key), out var edited))
             return edited;
 
         if (IsBatchMode)
@@ -253,18 +421,19 @@ public partial class SharedMediaEditorShell
     {
         var normalized = (value ?? string.Empty).Trim();
         var baseline = IsBatchMode ? string.Empty : GetBaselineValue(key);
+        var scopedKey = BuildScopedFieldKey(key);
 
         if (string.Equals(normalized, baseline, StringComparison.Ordinal))
         {
-            _editedValues.Remove(key);
+            _editedValues.Remove(scopedKey);
         }
         else if (string.IsNullOrWhiteSpace(normalized))
         {
-            _editedValues.Remove(key);
+            _editedValues.Remove(scopedKey);
         }
         else
         {
-            _editedValues[key] = normalized;
+            _editedValues[scopedKey] = normalized;
         }
     }
 
@@ -303,13 +472,27 @@ public partial class SharedMediaEditorShell
 
             var savedAnything = false;
 
-            if (_editedValues.Count > 0)
+            var fieldChangesByScope = _editedValues
+                .Select(entry => (Key: ParseScopedKey(entry.Key), Value: entry.Value))
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.Key.ScopeId) && ActiveScopeExists(entry.Key.ScopeId))
+                .GroupBy(entry => entry.Key.ScopeId, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (fieldChangesByScope.Count > 0)
             {
-                var saved = await ApiClient.SaveItemPreferencesAsync(CurrentEntityId, new Dictionary<string, string>(_editedValues, StringComparer.OrdinalIgnoreCase));
-                if (!saved)
+                foreach (var scopeGroup in fieldChangesByScope)
                 {
-                    Snackbar.Add("Preference save failed.", Severity.Error);
-                    return;
+                    var scope = GetScopeById(scopeGroup.Key);
+                    if (scope is null || !scope.CanEditFields)
+                        continue;
+
+                    var fields = scopeGroup.ToDictionary(entry => entry.Key.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+                    var saved = await ApiClient.SaveItemPreferencesAsync(scope.FieldEntityId, fields);
+                    if (!saved)
+                    {
+                        Snackbar.Add($"Preference save failed for {scope.Label}.", Severity.Error);
+                        return;
+                    }
                 }
 
                 savedAnything = true;
@@ -317,18 +500,24 @@ public partial class SharedMediaEditorShell
 
             foreach (var pendingArtwork in _pendingArtworkFiles.ToList())
             {
+                var parsedKey = ParseScopedKey(pendingArtwork.Key);
+                var scope = GetScopeById(parsedKey.ScopeId);
+                if (scope is null)
+                    continue;
+
                 await using var stream = pendingArtwork.Value.OpenReadStream(10 * 1024 * 1024);
-                var uploaded = await ApiClient.UploadArtworkVariantAsync(
-                    CurrentEntityId,
-                    pendingArtwork.Key,
+                var uploaded = await ApiClient.UploadScopeArtworkVariantAsync(
+                    LaunchEntityId,
+                    scope.ScopeId,
+                    parsedKey.Key,
                     stream,
                     pendingArtwork.Value.Name);
 
                 if (!uploaded)
                 {
-                    var label = ArtworkSlots.FirstOrDefault(slot =>
-                        string.Equals(slot.AssetType, pendingArtwork.Key, StringComparison.OrdinalIgnoreCase))?.Label
-                        ?? pendingArtwork.Key;
+                    var label = ResolveArtworkSlots(scope).FirstOrDefault(slot =>
+                        string.Equals(slot.AssetType, parsedKey.Key, StringComparison.OrdinalIgnoreCase))?.Label
+                        ?? parsedKey.Key;
                     Snackbar.Add($"{label} upload failed.", Severity.Error);
                     return;
                 }
@@ -385,6 +574,7 @@ public partial class SharedMediaEditorShell
             _editedValues.Clear();
             _selectedSuggestedFieldKeys.Clear();
             _selectedCandidateId = null;
+            _scopeStates.Clear();
             await LoadSingleItemAsync();
             Snackbar.Add($"Media type updated to {_selectedMediaType}.", Severity.Success);
         }
@@ -404,12 +594,14 @@ public partial class SharedMediaEditorShell
             return;
         }
 
-        _pendingArtworkFiles[assetType] = file;
+        var scopedKey = BuildScopedArtworkKey(assetType);
+
+        _pendingArtworkFiles[scopedKey] = file;
         await using var stream = file.OpenReadStream(10 * 1024 * 1024);
         await using var ms = new MemoryStream();
         await stream.CopyToAsync(ms);
         var contentType = string.IsNullOrWhiteSpace(file.ContentType) ? "image/png" : file.ContentType;
-        _pendingArtworkPreviewUrls[assetType] = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
+        _pendingArtworkPreviewUrls[scopedKey] = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
         _dragTargetArtworkType = null;
         _selectedArtworkAssetType = assetType;
         NormalizeArtworkSelection();
@@ -417,25 +609,28 @@ public partial class SharedMediaEditorShell
 
     protected void ClearArtworkSelection(string assetType)
     {
-        _pendingArtworkFiles.Remove(assetType);
-        _pendingArtworkPreviewUrls.Remove(assetType);
+        var scopedKey = BuildScopedArtworkKey(assetType);
+        _pendingArtworkFiles.Remove(scopedKey);
+        _pendingArtworkPreviewUrls.Remove(scopedKey);
         if (string.Equals(_dragTargetArtworkType, assetType, StringComparison.OrdinalIgnoreCase))
             _dragTargetArtworkType = null;
+        if (_zoomArtworkVariant is { IsPending: true } && string.Equals(_zoomArtworkVariant.AssetType, assetType, StringComparison.OrdinalIgnoreCase))
+            CloseArtworkZoom();
         NormalizeArtworkSelection();
     }
 
     protected bool HasPendingArtwork(string assetType) =>
-        _pendingArtworkFiles.ContainsKey(assetType);
+        _pendingArtworkFiles.ContainsKey(BuildScopedArtworkKey(assetType));
 
     protected string? GetPendingArtworkFileName(string assetType) =>
-        _pendingArtworkFiles.TryGetValue(assetType, out var file) ? file.Name : null;
+        _pendingArtworkFiles.TryGetValue(BuildScopedArtworkKey(assetType), out var file) ? file.Name : null;
 
     protected string? GetArtworkPreviewUrl(string assetType)
     {
         if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
             return _detail?.HeroUrl;
 
-        if (_pendingArtworkPreviewUrls.TryGetValue(assetType, out var pendingPreview))
+        if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(assetType), out var pendingPreview))
             return pendingPreview;
 
         return GetPreferredArtworkVariant(assetType)?.ImageUrl;
@@ -484,7 +679,7 @@ public partial class SharedMediaEditorShell
         };
     }
 
-    protected string GetArtworkActionLabel(string assetType) => "Add Variant";
+    protected string GetArtworkActionLabel(string assetType) => "Add";
 
     protected string GetArtworkAcceptedTypes(string assetType) =>
         string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase)
@@ -517,7 +712,7 @@ public partial class SharedMediaEditorShell
     {
         var items = new List<ArtworkVariantDisplayItem>();
 
-        if (_pendingArtworkPreviewUrls.TryGetValue(assetType, out var pendingPreview))
+        if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(assetType), out var pendingPreview))
         {
             items.Add(new ArtworkVariantDisplayItem(
                 BuildPendingArtworkKey(assetType),
@@ -594,6 +789,19 @@ public partial class SharedMediaEditorShell
         await RefreshArtworkStateAsync();
     }
 
+    protected async Task HandleArtworkVariantClickAsync(
+        ArtworkSlotDefinition slot,
+        ArtworkVariantDisplayItem item)
+    {
+        if (item.IsPending || item.VariantId == Guid.Empty || item.IsPreferred)
+        {
+            OpenArtworkZoom(slot, item);
+            return;
+        }
+
+        await SetPreferredArtworkVariantAsync(item.VariantId);
+    }
+
     protected async Task DeleteArtworkVariantAsync(Guid variantId)
     {
         if (variantId == Guid.Empty)
@@ -607,6 +815,50 @@ public partial class SharedMediaEditorShell
         }
 
         await RefreshArtworkStateAsync();
+    }
+
+    protected void OpenArtworkZoom(ArtworkSlotDefinition slot, ArtworkVariantDisplayItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.ImageUrl))
+            return;
+
+        _zoomArtworkSlot = slot;
+        _zoomArtworkVariant = item;
+    }
+
+    protected void CloseArtworkZoom()
+    {
+        _zoomArtworkSlot = null;
+        _zoomArtworkVariant = null;
+    }
+
+    protected string BuildArtworkVariantHoverLabel(ArtworkSlotDefinition slot, ArtworkVariantDisplayItem item)
+    {
+        var interaction = item.IsPending || item.IsPreferred
+            ? "Click to preview."
+            : "Click to make this the primary image.";
+
+        return $"{BuildArtworkVariantSummary(slot, item)} {interaction}";
+    }
+
+    protected string BuildArtworkVariantSummary(ArtworkSlotDefinition slot, ArtworkVariantDisplayItem item)
+    {
+        var parts = new List<string> { slot.Label };
+
+        if (item.IsPreferred)
+            parts.Add("Primary");
+        else if (item.IsPending)
+            parts.Add("Pending");
+        else if (!string.IsNullOrWhiteSpace(item.Origin))
+            parts.Add(item.Origin);
+
+        if (!string.IsNullOrWhiteSpace(item.ProviderName))
+            parts.Add(item.ProviderName!);
+
+        if (item.CreatedAt is DateTimeOffset createdAt)
+            parts.Add(createdAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture));
+
+        return string.Join(" | ", parts);
     }
 
     protected void HandleCanonicalQueryInput(ChangeEventArgs args) =>
@@ -623,7 +875,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task SearchCanonicalAsync()
     {
-        if (!IsSingleItem)
+        if (!IsSingleItem || IsFileScope)
             return;
 
         _searchingCanonical = true;
@@ -677,7 +929,7 @@ public partial class SharedMediaEditorShell
     }
 
     protected string GetCanonicalTargetLabel(string targetGroup) =>
-        _schema.QuickSearchTargets.FirstOrDefault(target => string.Equals(target.Key, targetGroup, StringComparison.OrdinalIgnoreCase)).Label
+        QuickSearchTargets.FirstOrDefault(target => string.Equals(target.Key, targetGroup, StringComparison.OrdinalIgnoreCase)).Label
         ?? CultureInfo.CurrentCulture.TextInfo.ToTitleCase(targetGroup.Replace('_', ' '));
 
     protected string BuildRetailCandidateSubtitle(RetailCandidateDto candidate)
@@ -903,8 +1155,11 @@ public partial class SharedMediaEditorShell
         var merged = MediaEditorSchemaCatalog.BuildValueMap(_detail, _canonicalValues)
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
-        foreach (var edit in _editedValues)
-            merged[edit.Key] = edit.Value;
+        foreach (var edit in _editedValues
+                     .Where(entry => string.Equals(ParseScopedKey(entry.Key).ScopeId, ActiveScope?.ScopeId, StringComparison.OrdinalIgnoreCase)))
+        {
+            merged[ParseScopedKey(edit.Key).Key] = edit.Value;
+        }
 
         return merged
             .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
@@ -954,20 +1209,92 @@ public partial class SharedMediaEditorShell
         };
     }
 
+    private IReadOnlyList<(string Id, string Label)> ResolveVisibleTabs()
+    {
+        if (IsBatchMode)
+            return TabDefinitions;
+
+        if (IsFileScope)
+            return [("file", "File")];
+
+        return TabDefinitions.Where(tab => tab.Id != "file").ToList();
+    }
+
+    private IReadOnlyList<(string Key, string Label)> ResolveQuickSearchTargets()
+    {
+        if (IsBatchMode)
+            return _schema.QuickSearchTargets;
+
+        return (_selectedMediaType, ActiveScope?.ScopeId) switch
+        {
+            ("TV", "series") => [("show", "Show")],
+            ("TV", "season") => [("show", "Show")],
+            ("TV", "episode") => [("show_episode", "Show / Episode"), ("show", "Show")],
+            ("Music", "artist") => [("artist", "Artist")],
+            ("Music", "album") => [("album", "Album"), ("artist", "Artist")],
+            ("Music", "track") => [("track", "Track"), ("album", "Album"), ("artist", "Artist")],
+            ("Movies", _) => [("movie_identity", "Movie")],
+            ("Comics", "series") => [("series", "Series")],
+            ("Comics", _) => [("issue", "Issue"), ("series", "Series")],
+            ("Audiobooks", "series") => [("series", "Series"), ("narrator", "Narrator")],
+            ("Audiobooks", _) => [("audiobook_identity", "Audiobook"), ("series", "Series"), ("narrator", "Narrator")],
+            ("Books", "series") => [("series", "Series")],
+            ("Books", _) => [("book_identity", "Book"), ("series", "Series")],
+            _ => _schema.QuickSearchTargets,
+        };
+    }
+
+    private IEnumerable<string> GetVisibleFieldKeysForScope()
+    {
+        if (IsFileScope || ActiveScope is null)
+            return [];
+
+        return (_selectedMediaType, ActiveScope.ScopeId) switch
+        {
+            ("TV", "series") => ["show_name", "year", "network", "runtime", "genre", "language", "description", "rating", "comment", "sort_series"],
+            ("TV", "season") => ["season_number", "description", "comment", "sort_series"],
+            ("TV", "episode") => ["show_name", "season_number", "episode_number", "episode_title", "runtime", "release_date", "description", "language", "rating", "comment", "sort_title"],
+            ("Music", "artist") => ["artist", "genre", "description", "language", "rating", "comment", "sort_artist"],
+            ("Music", "album") => ["album", "album_artist", "artist", "genre", "year", "language", "description", "rating", "comment", "sort_album"],
+            ("Music", "track") => ["title", "artist", "album", "composer", "track_number", "disc_number", "duration", "rating", "comment", "sort_title"],
+            ("Movies", "movie") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
+            ("Books", "series") or ("Audiobooks", "series") or ("Comics", "series") => ["series", "series_position", "description", "genre", "comment", "sort_series"],
+            ("Books", "work") => ["title", "subtitle", "author", "series", "series_position", "publisher", "year", "language", "description", "genre", "rating", "comment", "sort_title", "sort_series"],
+            ("Audiobooks", "work") => ["title", "author", "narrator", "series", "series_position", "publisher", "year", "duration", "description", "genre", "language", "rating", "comment", "sort_title", "sort_series"],
+            ("Comics", "volume_issue") => ["series", "volume", "series_position", "title", "author", "illustrator", "publisher", "year", "description", "genre", "comment", "sort_title", "sort_series"],
+            ("Books", "volume_issue") => ["title", "subtitle", "author", "series", "series_position", "publisher", "year", "language", "description", "genre", "rating", "comment", "sort_title", "sort_series"],
+            ("Audiobooks", "volume_issue") => ["title", "author", "narrator", "series", "series_position", "publisher", "year", "duration", "description", "genre", "language", "rating", "comment", "sort_title", "sort_series"],
+            _ => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
+        };
+    }
+
     private string GetArtworkTabExplanation()
     {
-        var mediaType = _detail?.MediaType ?? Request.MediaType ?? _selectedMediaType;
+        if (ActiveScope is null)
+            return "Artwork is managed by scope. Choose a scope above to edit the right owner.";
 
-        return mediaType switch
+        return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
-            "Movies" or "TV" =>
-                "Showing Poster / Cover, Square Art, Background, Banner, and Logo. Square Art stays empty until a real square asset exists. Background, Banner, and Logo come from uploaded typed artwork or provider enrichment when available.",
-            "Music" =>
-                "Showing Album Art, Square Art, Background, and Logo. Banner is not shown for music. Square Art stays empty until a real square asset exists. Background and Logo come from uploaded typed artwork or provider enrichment when available.",
-            "Books" or "Audiobooks" or "Comics" =>
-                "Showing Cover, Square Art, and Background. Banner and Logo are not shown for this media type. Square Art stays empty until a real square asset exists. Background uses uploaded typed artwork or provider enrichment when available.",
+            ("TV", "series") =>
+                "Series scope manages poster, square art, background, banner, and logo for the show. Those images are shared across episodes.",
+            ("TV", "season") =>
+                "Season scope manages season poster and season thumb artwork for the selected season.",
+            ("TV", "episode") =>
+                "Episode scope only manages episode stills. Show and season artwork stay on their parent scopes.",
+            ("Music", "artist") =>
+                "Artist scope manages background, banner, and logo art for the artist owner.",
+            ("Music", "album") =>
+                "Album scope manages cover and square art for the album.",
+            ("Music", "track") =>
+                "Track scope normally inherits artwork from the artist and album. Track artwork is read-only here.",
+            ("Movies", "movie") =>
+                "Movie scope manages poster, square art, background, banner, and logo for the movie.",
+            ("Books", "work") or ("Audiobooks", "work") or ("Comics", "work") or ("Books", "volume_issue") or ("Audiobooks", "volume_issue") or ("Comics", "volume_issue") =>
+                "Work scope manages cover, square art, and background art for this title.",
+            ("Books", "series") or ("Audiobooks", "series") or ("Comics", "series") =>
+                "Series scope separates parent metadata from the individual volume or issue. Artwork stays on the work scope in this pass.",
             _ =>
-                "Showing the artwork slots available for this media type. Square Art stays empty until a real square asset exists. Wide art comes from uploaded typed artwork or provider enrichment when available.",
+                ActiveScope.ScopeSummary ?? "Showing the artwork slots available for the selected scope.",
         };
     }
 
@@ -979,13 +1306,16 @@ public partial class SharedMediaEditorShell
             "Banner" => "No banner art stored yet.",
             "Logo" => "No logo art stored yet.",
             "CoverArt" => "No cover art stored yet.",
+            "SeasonPoster" => "No season poster stored yet.",
+            "SeasonThumb" => "No season thumb stored yet.",
+            "EpisodeStill" => "No episode still stored yet.",
             _ => "No artwork stored yet.",
         };
 
-    private static IReadOnlyList<ArtworkSlotDefinition> ResolveArtworkSlots(string? mediaType) =>
-        mediaType switch
+    private IReadOnlyList<ArtworkSlotDefinition> ResolveArtworkSlots(MediaEditorScopeDto? scope) =>
+        (_selectedMediaType, scope?.ScopeId, scope?.CanEditArtwork) switch
         {
-            "Movies" or "TV" =>
+            ("TV", "series", true) or ("Movies", "movie", true) =>
             [
                 PosterCoverArtworkSlot,
                 SquareArtArtworkSlot,
@@ -993,27 +1323,33 @@ public partial class SharedMediaEditorShell
                 BannerArtworkSlot,
                 LogoArtworkSlot,
             ],
-            "Music" =>
+            ("Music", "artist", true) =>
+            [
+                BackgroundArtworkSlot,
+                BannerArtworkSlot,
+                LogoArtworkSlot,
+            ],
+            ("Music", "album", true) =>
             [
                 AlbumArtArtworkSlot,
                 SquareArtArtworkSlot,
-                BackgroundArtworkSlot,
-                LogoArtworkSlot,
             ],
-            "Books" or "Audiobooks" or "Comics" =>
+            ("TV", "season", true) =>
+            [
+                SeasonPosterArtworkSlot,
+                SeasonThumbArtworkSlot,
+            ],
+            ("TV", "episode", true) =>
+            [
+                EpisodeStillArtworkSlot,
+            ],
+            ("Books", "work", true) or ("Books", "volume_issue", true) or ("Audiobooks", "work", true) or ("Audiobooks", "volume_issue", true) or ("Comics", "work", true) or ("Comics", "volume_issue", true) =>
             [
                 BookCoverArtworkSlot,
                 SquareArtArtworkSlot,
                 BackgroundArtworkSlot,
             ],
-            _ =>
-            [
-                PosterCoverArtworkSlot,
-                SquareArtArtworkSlot,
-                BackgroundArtworkSlot,
-                BannerArtworkSlot,
-                LogoArtworkSlot,
-            ],
+            _ => [],
         };
 
     private async Task RefreshArtworkStateAsync()
@@ -1021,15 +1357,9 @@ public partial class SharedMediaEditorShell
         if (!IsSingleItem)
             return;
 
-        var detailTask = ApiClient.GetRegistryItemDetailAsync(CurrentEntityId);
-        var canonicalTask = Orchestrator.GetCanonicalValuesAsync(CurrentEntityId);
-        var artworkTask = ApiClient.GetArtworkAsync(CurrentEntityId);
-
-        await Task.WhenAll(detailTask, canonicalTask, artworkTask);
-
-        _detail = detailTask.Result;
-        _canonicalValues = canonicalTask.Result;
-        _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = CurrentEntityId };
+        _scopeStates.Remove(ActiveScope?.ScopeId ?? string.Empty);
+        await LoadScopeStateAsync(forceReload: true);
+        CloseArtworkZoom();
         NormalizeArtworkSelection();
         StateHasChanged();
     }
@@ -1071,6 +1401,63 @@ public partial class SharedMediaEditorShell
 
     private static string BuildVariantKey(Guid variantId) =>
         variantId == Guid.Empty ? "synthetic" : variantId.ToString("D");
+
+    private string BuildScopedFieldKey(string key) =>
+        IsBatchMode || ActiveScope is null
+            ? key
+            : $"{ActiveScope.ScopeId}|{key}";
+
+    private string BuildScopedArtworkKey(string assetType) =>
+        IsBatchMode || ActiveScope is null
+            ? assetType
+            : $"{ActiveScope.ScopeId}|{assetType}";
+
+    private static (string ScopeId, string Key) ParseScopedKey(string compositeKey)
+    {
+        var splitIndex = compositeKey.IndexOf('|');
+        return splitIndex > 0
+            ? (compositeKey[..splitIndex], compositeKey[(splitIndex + 1)..])
+            : (string.Empty, compositeKey);
+    }
+
+    private MediaEditorScopeDto? GetScopeById(string? scopeId) =>
+        string.IsNullOrWhiteSpace(scopeId)
+            ? null
+            : _editorContext?.Scopes.FirstOrDefault(scope =>
+                string.Equals(scope.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
+
+    private bool ActiveScopeExists(string scopeId) => GetScopeById(scopeId) is not null;
+
+    private string BuildBreadcrumbText()
+    {
+        if (_editorContext is null || ActiveScope is null)
+            return string.Empty;
+
+        var breadcrumbParts = _editorContext.Scopes
+            .Where(scope => !string.Equals(scope.ScopeId, "file", StringComparison.OrdinalIgnoreCase)
+                            && scope.Order <= ActiveScope.Order
+                            && !string.IsNullOrWhiteSpace(scope.BreadcrumbLabel))
+            .OrderBy(scope => scope.Order)
+            .Select(scope => scope.BreadcrumbLabel)
+            .ToList();
+
+        if (IsFileScope)
+            breadcrumbParts.Add("File");
+
+        return string.Join(" > ", breadcrumbParts);
+    }
+
+    private string? GetHeaderArtworkPreviewUrl()
+    {
+        foreach (var slot in ArtworkSlots)
+        {
+            var previewUrl = GetArtworkPreviewUrl(slot.AssetType);
+            if (!string.IsNullOrWhiteSpace(previewUrl))
+                return previewUrl;
+        }
+
+        return Request.CoverUrl;
+    }
 
     protected sealed record ArtworkSlotDefinition(
         string AssetType,
