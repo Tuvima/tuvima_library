@@ -25,8 +25,13 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         image_url        AS ImageUrl,
         local_image_path AS LocalImagePath,
         source_provider  AS SourceProvider,
+        asset_class      AS AssetClassValue,
+        storage_location AS StorageLocationValue,
+        owner_scope      AS OwnerScope,
         is_preferred     AS IsPreferred,
         is_user_override AS IsUserOverride,
+        is_locally_exported   AS IsLocallyExported,
+        is_preferred_exported AS IsPreferredExported,
         created_at       AS CreatedAt,
         updated_at       AS UpdatedAt
         """;
@@ -97,15 +102,22 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         conn.Execute("""
             INSERT INTO entity_assets
                 (id, entity_id, entity_type, asset_type, image_url,
-                 local_image_path, source_provider, is_preferred, is_user_override, created_at)
+                 local_image_path, source_provider, asset_class, storage_location, owner_scope,
+                 is_preferred, is_user_override, is_locally_exported, is_preferred_exported, created_at)
             VALUES
                 (@Id, @EntityId, @EntityType, @AssetTypeValue, @ImageUrl,
-                 @LocalImagePath, @SourceProvider, @IsPreferred, @IsUserOverride, @CreatedAt)
+                 @LocalImagePath, @SourceProvider, @AssetClassValue, @StorageLocationValue, @OwnerScope,
+                 @IsPreferred, @IsUserOverride, @IsLocallyExported, @IsPreferredExported, @CreatedAt)
             ON CONFLICT(id) DO UPDATE SET
                 image_url        = excluded.image_url,
                 local_image_path = excluded.local_image_path,
+                asset_class      = excluded.asset_class,
+                storage_location = excluded.storage_location,
+                owner_scope      = excluded.owner_scope,
                 is_preferred     = excluded.is_preferred,
                 is_user_override = excluded.is_user_override,
+                is_locally_exported   = excluded.is_locally_exported,
+                is_preferred_exported = excluded.is_preferred_exported,
                 updated_at       = datetime('now');
             """,
             new
@@ -117,8 +129,13 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 asset.ImageUrl,
                 asset.LocalImagePath,
                 asset.SourceProvider,
+                asset.AssetClassValue,
+                asset.StorageLocationValue,
+                asset.OwnerScope,
                 IsPreferred = asset.IsPreferred ? 1 : 0,
                 IsUserOverride = asset.IsUserOverride ? 1 : 0,
+                IsLocallyExported = asset.IsLocallyExported ? 1 : 0,
+                IsPreferredExported = asset.IsPreferredExported ? 1 : 0,
                 CreatedAt = asset.CreatedAt.ToString("O"),
             });
 

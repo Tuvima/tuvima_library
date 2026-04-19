@@ -5,6 +5,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Tests.Helpers;
@@ -352,6 +353,7 @@ public sealed class DurablePipelineTests : IDisposable
                 new ImageCacheRepository(_dbFactory.Connection),
                 _heroGenerator,
                 new NoOpHttpClientFactory(),
+                new AssetPathService(Path.Combine(Path.GetTempPath(), "tuvima-ingestion-tests")),
                 NullLogger<CoverArtWorker>.Instance),
             NullLogger<WikidataBridgeWorker>.Instance);
 

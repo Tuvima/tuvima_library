@@ -42,6 +42,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly ICollectionRepository              _collectionRepo;
     private readonly IEventPublisher              _publisher;
     private readonly IConfigurationLoader         _configLoader;
+    private readonly AssetPathService             _assetPaths;
     private readonly ImagePathService             _imagePaths;
     private readonly IDatabaseConnection          _db;
     private readonly ILogger<LibraryReconciliationService> _logger;
@@ -71,6 +72,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         ICollectionRepository              collectionRepo,
         IEventPublisher             publisher,
         IConfigurationLoader        configLoader,
+        AssetPathService            assetPaths,
         ImagePathService            imagePaths,
         IDatabaseConnection         db,
         ILogger<LibraryReconciliationService> logger)
@@ -84,6 +86,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _collectionRepo       = collectionRepo;
         _publisher     = publisher;
         _configLoader  = configLoader;
+        _assetPaths    = assetPaths;
         _imagePaths    = imagePaths;
         _db            = db;
         _logger        = logger;
@@ -427,20 +430,24 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     {
         int cleaned = 0;
 
-        // Scan both the new .data/images/people/ path and the legacy .people/ path.
-        // New path: folder name = QID (e.g. "Q12345").
+        // Scan the canonical .data/assets/people/ path and the legacy directories.
+        // Canonical path: folder name = person id.
+        // Legacy centralized path: folder name = QID.
         // Legacy path: folder name = "Name (QID)" format.
-        var peopleDirsToScan = new List<(string root, bool isNewFormat)>();
+        var peopleDirsToScan = new List<(string root, string format)>();
 
-        var newPeopleRoot = Path.Combine(_imagePaths.ImagesRoot, "people");
-        if (Directory.Exists(newPeopleRoot))
-            peopleDirsToScan.Add((newPeopleRoot, isNewFormat: true));
+        if (Directory.Exists(_assetPaths.PeopleRoot))
+            peopleDirsToScan.Add((_assetPaths.PeopleRoot, "canonical"));
+
+        var legacyCentralRoot = Path.Combine(_imagePaths.ImagesRoot, "people");
+        if (Directory.Exists(legacyCentralRoot))
+            peopleDirsToScan.Add((legacyCentralRoot, "legacy-central"));
 
         var legacyPeopleRoot = Path.Combine(libraryRoot, ".people");
         if (Directory.Exists(legacyPeopleRoot))
-            peopleDirsToScan.Add((legacyPeopleRoot, isNewFormat: false));
+            peopleDirsToScan.Add((legacyPeopleRoot, "legacy-folder"));
 
-        foreach (var (peopleRoot, isNewFormat) in peopleDirsToScan)
+        foreach (var (peopleRoot, format) in peopleDirsToScan)
         {
             foreach (var subDir in Directory.GetDirectories(peopleRoot))
             {
@@ -449,9 +456,13 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 var folderName = Path.GetFileName(subDir);
                 Person? person = null;
 
-                if (isNewFormat)
+                if (string.Equals(format, "canonical", StringComparison.OrdinalIgnoreCase))
                 {
-                    // New format: folder name IS the QID.
+                    if (Guid.TryParse(folderName, out var personId))
+                        person = await _personRepo.FindByIdAsync(personId, ct);
+                }
+                else if (string.Equals(format, "legacy-central", StringComparison.OrdinalIgnoreCase))
+                {
                     if (folderName.Length >= 2
                         && (folderName[0] == 'Q' || folderName[0] == 'q')
                         && folderName[1..].All(char.IsDigit))

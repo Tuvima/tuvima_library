@@ -131,6 +131,7 @@ public static class PersonEndpoints
             IPersonRepository personRepo,
             IConfigurationLoader configLoader,
             IHttpClientFactory httpFactory,
+            AssetPathService assetPaths,
             ImagePathService? imagePaths,
             CancellationToken ct) =>
         {
@@ -145,7 +146,14 @@ public static class PersonEndpoints
                 return Results.File(person.LocalHeadshotPath, "image/jpeg");
             }
 
-            // Check the centralized .data/images/people/{QID}/ path first.
+            var canonicalPath = assetPaths.GetPersonHeadshotPath(id);
+            if (File.Exists(canonicalPath))
+            {
+                await personRepo.UpdateLocalHeadshotPathAsync(id, canonicalPath, ct);
+                return Results.File(canonicalPath, "image/jpeg");
+            }
+
+            // Check the legacy centralized .data/images/people/{QID}/ path first.
             if (imagePaths is not null && !string.IsNullOrWhiteSpace(person.WikidataQid))
             {
                 var newStylePath = Path.Combine(imagePaths.GetPersonImageDir(person.WikidataQid), "headshot.jpg");
@@ -192,24 +200,8 @@ public static class PersonEndpoints
                     var bytes = await client.GetByteArrayAsync(person.HeadshotUrl, ct);
                     if (bytes.Length > 0)
                     {
-                        string personFolder;
-                        if (imagePaths is not null && !string.IsNullOrWhiteSpace(person.WikidataQid))
-                        {
-                            personFolder = imagePaths.GetPersonImageDir(person.WikidataQid);
-                        }
-                        else if (!string.IsNullOrWhiteSpace(core?.LibraryRoot))
-                        {
-                            var folderName = !string.IsNullOrWhiteSpace(person.WikidataQid) && !string.IsNullOrWhiteSpace(person.Name)
-                                ? $"{string.Join("_", person.Name.Split(Path.GetInvalidFileNameChars()))} ({person.WikidataQid})"
-                                : id.ToString();
-                            personFolder = Path.Combine(core.LibraryRoot, ".people", folderName);
-                        }
-                        else
-                        {
-                            return Results.NotFound("Headshot not available (no library root configured).");
-                        }
-                        Directory.CreateDirectory(personFolder);
-                        var localPath = Path.Combine(personFolder, "headshot.jpg");
+                        var localPath = assetPaths.GetPersonHeadshotPath(id);
+                        AssetPathService.EnsureDirectory(localPath);
                         await File.WriteAllBytesAsync(localPath, bytes, ct);
                         await personRepo.UpdateLocalHeadshotPathAsync(id, localPath, ct);
                         return Results.File(localPath, "image/jpeg");

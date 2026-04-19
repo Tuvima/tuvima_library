@@ -45,11 +45,26 @@ public sealed class EntityAsset
     /// </summary>
     public string? SourceProvider { get; set; }
 
+    /// <summary>Broad classification for the asset record.</summary>
+    public string AssetClassValue { get; set; } = "Artwork";
+
+    /// <summary>Current storage location for the managed file.</summary>
+    public string StorageLocationValue { get; set; } = "Central";
+
+    /// <summary>Human-readable ownership scope such as Series, Season, Album, or Work.</summary>
+    public string OwnerScope { get; set; } = "Unknown";
+
     /// <summary>Whether this is the preferred asset for its entity + type combination.</summary>
     public bool IsPreferred { get; set; }
 
     /// <summary>Whether the user explicitly chose this asset (overrides auto-selection).</summary>
     public bool IsUserOverride { get; set; }
+
+    /// <summary>Whether the preferred asset has been mirrored to a local export path.</summary>
+    public bool IsLocallyExported { get; set; }
+
+    /// <summary>Whether this variant is the currently exported preferred mirror.</summary>
+    public bool IsPreferredExported { get; set; }
 
     /// <summary>When this asset record was created.</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

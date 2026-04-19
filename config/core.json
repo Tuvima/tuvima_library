@@ -30,5 +30,18 @@
       "small_batch_threshold": 5,
       "timeout_seconds": 300
     }
+  },
+  "storage_policy": {
+    "mode": "Hybrid",
+    "artwork_export": false,
+    "subtitle_export": true,
+    "metadata_sidecar_export": false,
+    "cleanup_managed_local_artwork": true,
+    "export_profile": {
+      "name": "plex-jellyfin-common",
+      "artwork": false,
+      "preferred_subtitles": true,
+      "metadata_sidecars": false
+    }
   }
 }

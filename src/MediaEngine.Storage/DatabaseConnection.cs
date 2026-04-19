@@ -1440,6 +1440,9 @@ public sealed class DatabaseConnection : IDatabaseConnection
         MigrateCollectionUniversalColumns(conn);
         MigrateCollectionSupportTables(conn);
 
+        // Migration M-087: storage-policy metadata on entity_assets.
+        MigrateEntityAssetStorageColumns(conn);
+
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
         // rows MUST exist before any claim is written.  INSERT OR IGNORE makes this
@@ -1921,8 +1924,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 image_url        TEXT,
                 local_image_path TEXT,
                 source_provider  TEXT,
+                asset_class      TEXT NOT NULL DEFAULT 'Artwork',
+                storage_location TEXT NOT NULL DEFAULT 'Central',
+                owner_scope      TEXT NOT NULL DEFAULT 'Unknown',
                 is_preferred     INTEGER NOT NULL DEFAULT 0,
                 is_user_override INTEGER NOT NULL DEFAULT 0,
+                is_locally_exported   INTEGER NOT NULL DEFAULT 0,
+                is_preferred_exported INTEGER NOT NULL DEFAULT 0,
                 created_at       TEXT NOT NULL DEFAULT (datetime('now')),
                 updated_at       TEXT
             );
@@ -2972,8 +2980,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     image_url        TEXT,
                     local_image_path TEXT,
                     source_provider  TEXT,
+                    asset_class      TEXT NOT NULL DEFAULT 'Artwork',
+                    storage_location TEXT NOT NULL DEFAULT 'Central',
+                    owner_scope      TEXT NOT NULL DEFAULT 'Unknown',
                     is_preferred     INTEGER NOT NULL DEFAULT 0,
                     is_user_override INTEGER NOT NULL DEFAULT 0,
+                    is_locally_exported   INTEGER NOT NULL DEFAULT 0,
+                    is_preferred_exported INTEGER NOT NULL DEFAULT 0,
                     created_at       TEXT NOT NULL DEFAULT (datetime('now')),
                     updated_at       TEXT
                 );
@@ -2986,8 +2999,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     image_url,
                     local_image_path,
                     source_provider,
+                    asset_class,
+                    storage_location,
+                    owner_scope,
                     is_preferred,
                     is_user_override,
+                    is_locally_exported,
+                    is_preferred_exported,
                     created_at,
                     updated_at
                 )
@@ -3008,8 +3026,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
                         ELSE local_image_path
                     END AS local_image_path,
                     source_provider,
+                    'Artwork' AS asset_class,
+                    'Central' AS storage_location,
+                    'Unknown' AS owner_scope,
                     is_preferred,
                     is_user_override,
+                    0 AS is_locally_exported,
+                    0 AS is_preferred_exported,
                     created_at,
                     updated_at
                 FROM entity_assets;
@@ -3130,6 +3153,42 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 ON collection_relationships(collection_id);
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-087: adds storage-policy metadata to <c>entity_assets</c>.
+    /// </summary>
+    private static void MigrateEntityAssetStorageColumns(SqliteConnection conn)
+    {
+        MigrateAddColumnIfMissing(conn, "entity_assets", "asset_class",
+            "ALTER TABLE entity_assets ADD COLUMN asset_class TEXT NOT NULL DEFAULT 'Artwork';");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "storage_location",
+            "ALTER TABLE entity_assets ADD COLUMN storage_location TEXT NOT NULL DEFAULT 'Central';");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "owner_scope",
+            "ALTER TABLE entity_assets ADD COLUMN owner_scope TEXT NOT NULL DEFAULT 'Unknown';");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "is_locally_exported",
+            "ALTER TABLE entity_assets ADD COLUMN is_locally_exported INTEGER NOT NULL DEFAULT 0;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "is_preferred_exported",
+            "ALTER TABLE entity_assets ADD COLUMN is_preferred_exported INTEGER NOT NULL DEFAULT 0;");
+
+        using var backfill = conn.CreateCommand();
+        backfill.CommandText = """
+            UPDATE entity_assets
+            SET asset_class = COALESCE(NULLIF(asset_class, ''), 'Artwork'),
+                storage_location = CASE
+                    WHEN local_image_path IS NOT NULL AND instr(REPLACE(local_image_path, '\', '/'), '/.data/assets/') > 0 THEN 'Central'
+                    WHEN local_image_path IS NOT NULL THEN 'Local'
+                    ELSE COALESCE(NULLIF(storage_location, ''), 'Central')
+                END,
+                owner_scope = COALESCE(NULLIF(owner_scope, ''), 'Unknown')
+            WHERE asset_class IS NULL
+               OR asset_class = ''
+               OR storage_location IS NULL
+               OR storage_location = ''
+               OR owner_scope IS NULL
+               OR owner_scope = '';
+            """;
+        backfill.ExecuteNonQuery();
     }
 
     /// <summary>

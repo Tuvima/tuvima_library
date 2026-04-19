@@ -741,13 +741,12 @@ public static class MetadataEndpoints
         // ── POST /metadata/{entityId}/cover ─────────────────────────────────
         group.MapPost("/{entityId:guid}/cover", async (
             Guid entityId,
-            IMediaAssetRepository assetRepo,
-            IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
+            IAssetExportService assetExportService,
             ISystemActivityRepository activityRepo,
             IDatabaseConnection db,
-            ImagePathService imagePathService,
+            AssetPathService assetPathService,
             HttpRequest httpRequest,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -767,17 +766,20 @@ public static class MetadataEndpoints
                 return Results.BadRequest("Only JPEG and PNG images are accepted.");
 
             var context = await ResolveArtworkContextAsync(entityId, db, ct);
-            var targetEntityId = context.PreferredArtworkEntityId;
-            if (targetEntityId is null)
+            var targetEntityId = context.RootWorkId ?? context.WorkId;
+            if (targetEntityId is null || targetEntityId == Guid.Empty)
                 return Results.NotFound($"Asset {entityId} not found.");
-            var targetAsset = await assetRepo.FindByIdAsync(targetEntityId.Value, ct);
-            if (targetAsset is null || string.IsNullOrWhiteSpace(targetAsset.FilePathRoot))
-                return Results.NotFound($"Primary media file for {entityId} not found.");
 
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(normalizedAssetType, targetAsset.FilePathRoot, variantId, file.ContentType);
+            var localPath = BuildArtworkUploadPath(
+                assetPathService,
+                "Work",
+                targetEntityId.Value,
+                normalizedAssetType,
+                variantId,
+                file.ContentType);
 
-            ImagePathService.EnsureDirectory(localPath);
+            AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
             await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
             {
@@ -793,14 +795,20 @@ public static class MetadataEndpoints
                 ImageUrl = BuildArtworkVariantStreamUrl(variantId),
                 LocalImagePath = localPath,
                 SourceProvider = "user_upload",
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = "Work",
                 IsPreferred = true,
                 IsUserOverride = true,
+                IsLocallyExported = false,
+                IsPreferredExported = false,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
             await SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
             coverLogger.LogInformation("Cover uploaded for {EntityId} → {Path}", entityId, localPath);
 
@@ -835,8 +843,10 @@ public static class MetadataEndpoints
             string assetType,
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
+            IAssetExportService assetExportService,
             IRegistryRepository registryRepo,
             IDatabaseConnection db,
+            AssetPathService assetPathService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
         {
@@ -874,11 +884,11 @@ public static class MetadataEndpoints
                     : "Only JPEG and PNG images are accepted.");
 
             var variantId = Guid.NewGuid();
-            var localPath = BuildScopedArtworkUploadPath(scope, normalizedAssetType, variantId, file.ContentType);
+            var localPath = BuildScopedArtworkUploadPath(assetPathService, scope, normalizedAssetType, variantId, file.ContentType);
             if (string.IsNullOrWhiteSpace(localPath))
                 return Results.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
 
-            ImagePathService.EnsureDirectory(localPath);
+            AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
             await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
             {
@@ -894,14 +904,20 @@ public static class MetadataEndpoints
                 ImageUrl = BuildArtworkVariantStreamUrl(variantId),
                 LocalImagePath = localPath,
                 SourceProvider = "user_upload",
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = scope.Label,
                 IsPreferred = true,
                 IsUserOverride = true,
+                IsLocallyExported = false,
+                IsPreferredExported = false,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
             await SyncArtworkCanonicalAsync(scope.ArtworkOwnerEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
             return Results.Ok(new
             {
@@ -925,12 +941,11 @@ public static class MetadataEndpoints
         group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
             Guid entityId,
             string assetType,
-            IMediaAssetRepository assetRepo,
-            IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
+            IAssetExportService assetExportService,
             IDatabaseConnection db,
-            ImagePathService imagePathService,
+            AssetPathService assetPathService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
         {
@@ -952,17 +967,20 @@ public static class MetadataEndpoints
                     : "Only JPEG and PNG images are accepted.");
 
             var context = await ResolveArtworkContextAsync(entityId, db, ct);
-            var targetEntityId = context.PreferredArtworkEntityId;
-            if (targetEntityId is null)
+            var targetEntityId = context.RootWorkId ?? context.WorkId;
+            if (targetEntityId is null || targetEntityId == Guid.Empty)
                 return Results.NotFound($"Asset {entityId} not found.");
-            var targetAsset = await assetRepo.FindByIdAsync(targetEntityId.Value, ct);
-            if (targetAsset is null || string.IsNullOrWhiteSpace(targetAsset.FilePathRoot))
-                return Results.NotFound($"Primary media file for {entityId} not found.");
 
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(normalizedAssetType, targetAsset.FilePathRoot, variantId, file.ContentType);
+            var localPath = BuildArtworkUploadPath(
+                assetPathService,
+                "Work",
+                targetEntityId.Value,
+                normalizedAssetType,
+                variantId,
+                file.ContentType);
 
-            ImagePathService.EnsureDirectory(localPath);
+            AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
             await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
             {
@@ -978,14 +996,20 @@ public static class MetadataEndpoints
                 ImageUrl = BuildArtworkVariantStreamUrl(variantId),
                 LocalImagePath = localPath,
                 SourceProvider = "user_upload",
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = "Work",
                 IsPreferred = true,
                 IsUserOverride = true,
+                IsLocallyExported = false,
+                IsPreferredExported = false,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
             await SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
             return Results.Ok(new
             {
@@ -1007,6 +1031,7 @@ public static class MetadataEndpoints
         group.MapPut("/artwork/{variantId:guid}/preferred", async (
             Guid variantId,
             IEntityAssetRepository entityAssetRepo,
+            IAssetExportService assetExportService,
             ICanonicalValueRepository canonicalRepo,
             CancellationToken ct) =>
         {
@@ -1026,6 +1051,7 @@ public static class MetadataEndpoints
                 canonicalRepo,
                 entityAssetRepo,
                 ct);
+            await assetExportService.ReconcileArtworkAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
 
             return Results.Ok(new
             {
@@ -1044,6 +1070,7 @@ public static class MetadataEndpoints
         group.MapDelete("/artwork/{variantId:guid}", async (
             Guid variantId,
             IEntityAssetRepository entityAssetRepo,
+            IAssetExportService assetExportService,
             ICanonicalValueRepository canonicalRepo,
             CancellationToken ct) =>
         {
@@ -1090,6 +1117,10 @@ public static class MetadataEndpoints
             }
 
             await SyncArtworkCanonicalAsync(entityId, target.AssetTypeValue, nextPreferred, canonicalRepo, entityAssetRepo, ct);
+            if (nextPreferred is not null)
+                await assetExportService.ReconcileArtworkAsync(nextPreferred.EntityId, nextPreferred.EntityType, nextPreferred.AssetTypeValue, ct);
+            else
+                await assetExportService.ClearArtworkExportAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
 
             return Results.Ok(new
             {
@@ -1439,8 +1470,9 @@ public static class MetadataEndpoints
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
+            IAssetExportService assetExportService,
             IHeroBannerGenerator heroGenerator,
-            ImagePathService imagePathService,
+            AssetPathService assetPathService,
             IHttpClientFactory httpFactory,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -1453,6 +1485,9 @@ public static class MetadataEndpoints
             var asset = await assetRepo.FindByIdAsync(entityId, ct);
             if (asset is null)
                 return Results.NotFound($"Media asset {entityId} not found.");
+
+            var lineage = await workRepo.GetLineageByAssetAsync(entityId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? entityId;
 
             try
             {
@@ -1470,11 +1505,12 @@ public static class MetadataEndpoints
                     return Results.BadRequest("Only JPEG and PNG images are accepted.");
 
                 var variantId = Guid.NewGuid();
-                var coverPath = BuildArtworkUploadPath("CoverArt", asset.FilePathRoot, variantId, contentType);
-                var imageDir = Path.GetDirectoryName(coverPath);
+                var coverPath = BuildArtworkUploadPath(assetPathService, "Work", ownerEntityId, "CoverArt", variantId, contentType);
+                var imageDir = Path.GetDirectoryName(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
                 if (string.IsNullOrWhiteSpace(imageDir))
-                    return Results.Problem("Could not resolve an artwork directory for the media file.", statusCode: StatusCodes.Status500InternalServerError);
-                ImagePathService.EnsureDirectory(coverPath);
+                    return Results.Problem("Could not resolve an artwork directory for the entity.", statusCode: StatusCodes.Status500InternalServerError);
+                AssetPathService.EnsureDirectory(coverPath);
+                Directory.CreateDirectory(imageDir);
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
                 logger.LogInformation(
@@ -1486,20 +1522,26 @@ public static class MetadataEndpoints
                 var storedAsset = new EntityAsset
                 {
                     Id = variantId,
-                    EntityId = entityId.ToString(),
+                    EntityId = ownerEntityId.ToString(),
                     EntityType = "Work",
                     AssetTypeValue = "CoverArt",
                     ImageUrl = BuildArtworkVariantStreamUrl(variantId),
                     LocalImagePath = coverPath,
                     SourceProvider = "user_upload",
+                    AssetClassValue = "Artwork",
+                    StorageLocationValue = "Central",
+                    OwnerScope = "Work",
                     IsPreferred = true,
                     IsUserOverride = true,
+                    IsLocallyExported = false,
+                    IsPreferredExported = false,
                     CreatedAt = DateTimeOffset.UtcNow,
                 };
 
                 await entityAssetRepo.UpsertAsync(storedAsset, ct);
                 await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-                await SyncArtworkCanonicalAsync(entityId, "CoverArt", storedAsset, canonicalRepo, entityAssetRepo, ct);
+                await SyncArtworkCanonicalAsync(ownerEntityId, "CoverArt", storedAsset, canonicalRepo, entityAssetRepo, ct);
+                await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
                 var canonicals = new List<Domain.Entities.CanonicalValue>();
 
@@ -1507,7 +1549,7 @@ public static class MetadataEndpoints
                 {
                     canonicals.Add(new Domain.Entities.CanonicalValue
                     {
-                        EntityId     = entityId,
+                        EntityId     = ownerEntityId,
                         Key          = "dominant_color",
                         Value        = heroResult.DominantHexColor,
                         LastScoredAt = DateTimeOffset.UtcNow,
@@ -1516,9 +1558,9 @@ public static class MetadataEndpoints
 
                 canonicals.Add(new Domain.Entities.CanonicalValue
                 {
-                    EntityId     = entityId,
+                    EntityId     = ownerEntityId,
                     Key          = "hero",
-                    Value        = $"/stream/{entityId}/hero",
+                    Value        = $"/stream/{ownerEntityId}/hero",
                     LastScoredAt = DateTimeOffset.UtcNow,
                 });
 
@@ -2253,47 +2295,21 @@ public static class MetadataEndpoints
     }
 
     private static string? BuildScopedArtworkUploadPath(
+        AssetPathService assetPathService,
         EditorScopeResolution scope,
         string normalizedAssetType,
         Guid variantId,
         string? contentType)
     {
-        var extension = string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
-            ? ".png"
-            : string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
-                ? ".png"
-                : ".jpg";
+        if (scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
+            return null;
 
-        if (string.Equals(scope.ScopeId, "episode", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(normalizedAssetType, "EpisodeStill", StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrWhiteSpace(scope.RepresentativeMediaFilePath))
-        {
-            return ImagePathService.GetMediaFileArtworkVariantPath(
-                scope.RepresentativeMediaFilePath!,
-                normalizedAssetType,
-                variantId,
-                extension);
-        }
-
-        if (!string.IsNullOrWhiteSpace(scope.ArtworkFolderPath))
-        {
-            return ImagePathService.GetFolderArtworkVariantPath(
-                scope.ArtworkFolderPath!,
-                normalizedAssetType,
-                variantId,
-                extension);
-        }
-
-        if (!string.IsNullOrWhiteSpace(scope.RepresentativeMediaFilePath))
-        {
-            return ImagePathService.GetMediaFileArtworkVariantPath(
-                scope.RepresentativeMediaFilePath!,
-                normalizedAssetType,
-                variantId,
-                extension);
-        }
-
-        return null;
+        return assetPathService.GetCentralAssetPath(
+            scope.ArtworkOwnerEntityKind!,
+            scope.ArtworkOwnerEntityId.Value,
+            normalizedAssetType,
+            variantId,
+            BuildArtworkExtension(normalizedAssetType, contentType));
     }
 
     private static string? GetContainerFolderPath(string? mediaFilePath) =>
@@ -2577,23 +2593,25 @@ public static class MetadataEndpoints
     }
 
     private static string BuildArtworkUploadPath(
+        AssetPathService assetPathService,
+        string ownerEntityKind,
+        Guid ownerEntityId,
         string normalizedAssetType,
-        string mediaFilePath,
         Guid variantId,
-        string? contentType)
-    {
-        var extension = string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
+        string? contentType) =>
+        assetPathService.GetCentralAssetPath(
+            ownerEntityKind,
+            ownerEntityId,
+            normalizedAssetType,
+            variantId,
+            BuildArtworkExtension(normalizedAssetType, contentType));
+
+    private static string BuildArtworkExtension(string normalizedAssetType, string? contentType) =>
+        string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
             ? ".png"
             : string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
                 ? ".png"
                 : ".jpg";
-
-        return ImagePathService.GetMediaFileArtworkVariantPath(
-            mediaFilePath,
-            normalizedAssetType,
-            variantId,
-            extension);
-    }
 
     private static string BuildArtworkVariantStreamUrl(Guid variantId) =>
         $"/stream/artwork/{variantId}";

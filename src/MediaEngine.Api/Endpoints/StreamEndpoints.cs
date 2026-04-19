@@ -133,6 +133,8 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
+            AssetPathService assetPathService,
             ImagePathService imagePathService,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -141,13 +143,24 @@ public static class StreamEndpoints
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
 
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct);
+            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            {
+                var variantBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
+                return Results.File(
+                    variantBytes,
+                    GetImageMimeType(preferredVariant.LocalImagePath),
+                    Path.GetFileName(preferredVariant.LocalImagePath));
+            }
+
             // Resolve image path — try .images/ first, fall back to legacy location
             // alongside the media file for backward compatibility with existing libraries.
             //
             // QID lookup: wikidata_qid canonicals are stored on the WORK entity
             // (via the Priority Cascade), not the asset entity. Walk the lineage
             // asset → edition → work to find the correct entity for the QID lookup.
-            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
             var qidEntityId = lineage?.WorkId ?? assetId;
             var canonicals = await canonicalRepo.GetByEntityAsync(qidEntityId, ct);
             var wikidataQid = canonicals
@@ -222,6 +235,8 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
+            AssetPathService assetPathService,
             ImagePathService imagePathService,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -230,9 +245,27 @@ public static class StreamEndpoints
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
 
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct);
+            var centralThumbPath = assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg");
+            if (File.Exists(centralThumbPath))
+            {
+                var thumbBytes = await File.ReadAllBytesAsync(centralThumbPath, ct);
+                return Results.File(thumbBytes, GetImageMimeType(centralThumbPath), Path.GetFileName(centralThumbPath));
+            }
+
+            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            {
+                var variantBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
+                return Results.File(
+                    variantBytes,
+                    GetImageMimeType(preferredVariant.LocalImagePath),
+                    Path.GetFileName(preferredVariant.LocalImagePath));
+            }
+
             // Resolve Wikidata QID from canonicals — same lineage walk as /cover.
             // wikidata_qid canonicals live on the Work entity, not the asset.
-            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
             var qidEntityId = lineage?.WorkId ?? assetId;
             var canonicals = await canonicalRepo.GetByEntityAsync(qidEntityId, ct);
             var wikidataQid = canonicals
@@ -333,7 +366,9 @@ public static class StreamEndpoints
         group.MapGet("/{assetId:guid}/hero", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            AssetPathService assetPathService,
             ImagePathService imagePathService,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -341,6 +376,15 @@ public static class StreamEndpoints
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var centralHeroPath = assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg");
+            if (File.Exists(centralHeroPath))
+            {
+                var heroBytes = await File.ReadAllBytesAsync(centralHeroPath, ct);
+                return Results.File(heroBytes, GetImageMimeType(centralHeroPath), Path.GetFileName(centralHeroPath));
+            }
 
             // Resolve image path — try .images/ first, fall back to legacy location.
             var canonicals = await canonicalRepo.GetByEntityAsync(assetId, ct);
@@ -397,12 +441,22 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
             ImagePathService imagePathService,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Banner", ct);
+            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            {
+                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+            }
 
             var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
             var bannerPath = ResolveTypedArtworkPath("Banner", wikidataQid, assetId, imagePathService);
@@ -423,12 +477,22 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
             ImagePathService imagePathService,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "SquareArt", ct);
+            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            {
+                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+            }
 
             var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
             var squarePath = ResolveTypedArtworkPath("SquareArt", wikidataQid, assetId, imagePathService);
@@ -449,12 +513,22 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
             ImagePathService imagePathService,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Background", ct);
+            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            {
+                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+            }
 
             var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
             var backgroundPath = ResolveTypedArtworkPath("Background", wikidataQid, assetId, imagePathService);
@@ -475,12 +549,22 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
             ImagePathService imagePathService,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Logo", ct);
+            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            {
+                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+            }
 
             var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
             var logoPath = ResolveTypedArtworkPath("Logo", wikidataQid, assetId, imagePathService);

@@ -457,13 +457,20 @@ catch
 }
 
 // Auto-create the .data/ subdirectories under LibraryRoot at startup.
-// These consolidate staging, images, and database under a single hidden folder.
+// Central managed assets now live under .data/assets; .data/images remains only
+// as a legacy migration/fallback location.
 try
 {
     var coreForDataDir = configLoader.LoadCore();
     if (!string.IsNullOrWhiteSpace(coreForDataDir.LibraryRoot))
     {
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "staging"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "artwork"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "derived"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "metadata"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "transcripts"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "subtitle-cache"));
+        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "people"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "images"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "database"));
     }
@@ -473,10 +480,23 @@ catch
     // LibraryRoot not yet configured or directory creation failed — non-fatal.
 }
 
-// ── Image Path Service ────────────────────────────────────────────────────────
-// Centralizes image path resolution. All artwork lives under {libraryRoot}/.data/images/
-// organized by entity type and QID. Registered as a singleton so all services that
-// read or write cover art and hero banners use the same root path.
+// ── Asset Path Service ────────────────────────────────────────────────────────
+// Policy-driven storage authority for managed assets. The default Hybrid policy
+// keeps manager-owned artwork under {libraryRoot}/.data/assets and leaves
+// playback-facing sidecars local only when explicitly exported.
+builder.Services.AddSingleton(sp =>
+{
+    var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
+    var libraryRoot = core.LibraryRoot;
+    if (string.IsNullOrWhiteSpace(libraryRoot))
+        libraryRoot = Path.Combine(Path.GetTempPath(), "tuvima_assets_unset");
+
+    return new MediaEngine.Domain.Services.AssetPathService(libraryRoot, core.StoragePolicy);
+});
+
+// ── Legacy Image Path Service ────────────────────────────────────────────────
+// Retained for startup migration and legacy fallback reads while old libraries
+// are reconciled into the central asset tree.
 builder.Services.AddSingleton(sp =>
 {
     var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
@@ -489,6 +509,9 @@ builder.Services.AddSingleton(sp =>
     }
     return new MediaEngine.Domain.Services.ImagePathService(libraryRoot);
 });
+
+builder.Services.AddSingleton<IAssetExportService, AssetExportService>();
+builder.Services.AddHostedService<AssetStorageStartupService>();
 
 builder.Services.AddSingleton<IAssetHasher, AssetHasher>();
 builder.Services.AddSingleton<IFileWatcher, FileWatcher>();

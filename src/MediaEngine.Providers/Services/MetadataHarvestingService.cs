@@ -73,6 +73,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IQidLabelRepository _qidLabelRepo;
     private readonly IEntityTimelineRepository? _timelineRepo;
+    private readonly AssetPathService? _assetPathService;
     private readonly ImagePathService? _imagePathService;
     private readonly ILogger<MetadataHarvestingService> _logger;
 
@@ -93,6 +94,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         ISystemActivityRepository activityRepo,
         IQidLabelRepository qidLabelRepo,
         ILogger<MetadataHarvestingService> logger,
+        AssetPathService? assetPathService = null,
         ImagePathService? imagePathService = null,
         IEntityTimelineRepository? timelineRepo = null)
     {
@@ -124,6 +126,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         _imageCache           = imageCache;
         _activityRepo         = activityRepo;
         _qidLabelRepo         = qidLabelRepo;
+        _assetPathService     = assetPathService;
         _imagePathService     = imagePathService;
         _timelineRepo         = timelineRepo;
         _logger               = logger;
@@ -887,33 +890,37 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
         }
 
         // Both Name and QID are required to resolve a stable image path.
-        if (person is null ||
-            string.IsNullOrWhiteSpace(person.WikidataQid) ||
-            string.IsNullOrWhiteSpace(person.Name))
+        if (person is null)
             return;
 
         _logger.LogDebug("Person {Name}: headshot URL found at {Url}", person.Name, headshotUrl);
 
         try
         {
-            string personFolder;
-            if (_imagePathService is not null)
+            string headshotPath;
+            if (_assetPathService is not null)
+            {
+                headshotPath = _assetPathService.GetPersonHeadshotPath(personId);
+            }
+            else if (_imagePathService is not null
+                     && !string.IsNullOrWhiteSpace(person.WikidataQid))
             {
                 // Use centralized .data/images/people/{QID}/ path.
-                personFolder = _imagePathService.GetPersonImageDir(person.WikidataQid);
+                headshotPath = Path.Combine(_imagePathService.GetPersonImageDir(person.WikidataQid), "headshot.jpg");
             }
             else
             {
                 // Legacy fallback: .people/{Name} ({QID})/ under LibraryRoot.
                 var core = _configLoader.LoadCore();
-                if (string.IsNullOrWhiteSpace(core.LibraryRoot))
+                if (string.IsNullOrWhiteSpace(core.LibraryRoot)
+                    || string.IsNullOrWhiteSpace(person.WikidataQid)
+                    || string.IsNullOrWhiteSpace(person.Name))
                     return;
                 var folderName = $"{SanitizeForFilesystem(person.Name)} ({person.WikidataQid})";
-                personFolder = Path.Combine(core.LibraryRoot, ".people", folderName);
+                headshotPath = Path.Combine(core.LibraryRoot, ".people", folderName, "headshot.jpg");
             }
 
             // Download headshot if URL is available and file doesn't exist.
-            var headshotPath = Path.Combine(personFolder, "headshot.jpg");
             if (File.Exists(headshotPath))
             {
                 _logger.LogDebug("Person {Name}: headshot already exists at {Path} — skipping download", person.Name, headshotPath);
@@ -934,7 +941,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                         .ConfigureAwait(false);
 
                     // Create the directory only when we have bytes to write.
-                    Directory.CreateDirectory(personFolder);
+                    AssetPathService.EnsureDirectory(headshotPath);
 
                     if (cached is not null && File.Exists(cached))
                     {
@@ -1019,15 +1026,13 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
     {
         try
         {
-            // When ImagePathService is active and QID is known, delete the canonical image dir.
-            if (_imagePathService is not null
-                && !string.IsNullOrWhiteSpace(person.WikidataQid))
+            if (_assetPathService is not null)
             {
-                var qidDir = _imagePathService.GetPersonImageDir(person.WikidataQid);
-                if (Directory.Exists(qidDir))
+                var personDir = _assetPathService.GetPersonRoot(person.Id);
+                if (Directory.Exists(personDir))
                 {
-                    Directory.Delete(qidDir, recursive: true);
-                    _logger.LogInformation("Deleted duplicate person image dir: {Dir}", qidDir);
+                    Directory.Delete(personDir, recursive: true);
+                    _logger.LogInformation("Deleted duplicate person asset dir: {Dir}", personDir);
                 }
                 return;
             }

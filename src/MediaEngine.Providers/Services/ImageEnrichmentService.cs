@@ -33,6 +33,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IImageCacheRepository _imageCache;
     private readonly ImagePathService _imagePaths;
+    private readonly AssetPathService _assetPaths;
+    private readonly IAssetExportService? _assetExportService;
     private readonly IHttpClientFactory _httpFactory;
     private readonly IFuzzyMatchingService _fuzzy;
     private readonly ILogger<ImageEnrichmentService> _logger;
@@ -87,6 +89,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         IHeroBannerGenerator heroGenerator,
         IImageCacheRepository imageCache,
         ImagePathService imagePaths,
+        AssetPathService assetPaths,
+        IAssetExportService? assetExportService,
         IHttpClientFactory httpFactory,
         IFuzzyMatchingService fuzzy,
         ILogger<ImageEnrichmentService> logger)
@@ -119,6 +123,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         _heroGenerator       = heroGenerator;
         _imageCache          = imageCache;
         _imagePaths          = imagePaths;
+        _assetPaths          = assetPaths;
+        _assetExportService  = assetExportService;
         _httpFactory          = httpFactory;
         _fuzzy               = fuzzy;
         _logger              = logger;
@@ -395,22 +401,20 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 ImageUrl       = imageUrl,
                 LocalImagePath = string.Empty,
                 SourceProvider = "fanart_tv",
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = InferOwnerScope(assetType),
                 IsPreferred    = false,
                 IsUserOverride = false,
                 CreatedAt      = DateTimeOffset.UtcNow,
             };
 
-            variant.LocalImagePath = !string.IsNullOrWhiteSpace(artworkFolderPath)
-                ? ImagePathService.GetFolderArtworkVariantPath(
-                    artworkFolderPath,
-                    assetType.ToString(),
-                    variant.Id,
-                    InferVariantExtension(assetType, imageUrl))
-                : ImagePathService.GetMediaFileArtworkVariantPath(
-                    mediaFilePath,
-                    assetType.ToString(),
-                    variant.Id,
-                    InferVariantExtension(assetType, imageUrl));
+            variant.LocalImagePath = _assetPaths.GetCentralAssetPath(
+                "Work",
+                ownerEntityId,
+                assetType.ToString(),
+                variant.Id,
+                InferVariantExtension(assetType, imageUrl));
 
             await PersistImageAsync(bytes, variant.LocalImagePath, imageUrl, ct);
             await _assetRepo.UpsertAsync(variant, ct);
@@ -433,6 +437,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
         await _assetRepo.SetPreferredAsync(preferredVariant.Id, ct);
         await UpsertPreferredArtworkCanonicalAsync(ownerEntityId, assetType, preferredVariant.Id, ct);
+        if (_assetExportService is not null)
+            await _assetExportService.ReconcileArtworkAsync(preferredVariant.EntityId, preferredVariant.EntityType, preferredVariant.AssetTypeValue, ct);
 
         return preferredVariant.LocalImagePath;
     }
@@ -446,15 +452,12 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         try
         {
-            var imageDir = Path.GetDirectoryName(backgroundPath);
+            var heroPath = _assetPaths.GetCentralDerivedPath("Work", assetId, "hero", "hero.jpg");
+            var imageDir = Path.GetDirectoryName(heroPath);
             if (string.IsNullOrWhiteSpace(imageDir))
-            {
-                _logger.LogWarning(
-                    "[IMAGE-ENRICH] Could not resolve a sidecar directory for background art {BackgroundPath}",
-                    backgroundPath);
                 return;
-            }
 
+            Directory.CreateDirectory(imageDir);
             var heroResult = await _heroGenerator.GenerateAsync(backgroundPath, imageDir, ct);
 
             var heroCanonicals = new List<CanonicalValue>
@@ -550,6 +553,26 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
         return ".jpg";
     }
+
+    private static string InferPortraitExtension(string imageUrl)
+    {
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
+        {
+            var extension = Path.GetExtension(imageUri.AbsolutePath);
+            if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+                return ".png";
+        }
+
+        return ".jpg";
+    }
+
+    private static string InferOwnerScope(AssetType assetType) =>
+        assetType switch
+        {
+            AssetType.SeasonPoster or AssetType.SeasonThumb => "Season",
+            AssetType.EpisodeStill => "Episode",
+            _ => "Work",
+        };
 
     private async Task<string?> ResolveFanartApiKeyAsync(
         MediaEngine.Storage.Models.ProviderConfiguration? fanartConfig,
@@ -669,8 +692,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             // Need a performer link to create a CharacterPortrait
             if (!linkLookup.TryGetValue(entity.Id, out var personId)) continue;
 
-            // Create CharacterPortrait record
-            await _portraitRepo.UpsertAsync(new CharacterPortrait
+            var portrait = new CharacterPortrait
             {
                 Id                = Guid.NewGuid(),
                 PersonId          = personId,
@@ -679,31 +701,21 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 SourceProvider    = "fanart_tv",
                 IsDefault         = true,
                 CreatedAt         = DateTimeOffset.UtcNow,
-            }, ct);
+            };
 
             // Download portrait image
             var bytes = await DownloadImageBytesAsync(bestMatch.Art.Url, ct);
             if (bytes is not null && bytes.Length > 0)
             {
-                var portraitDir = Path.Combine(
-                    _imagePaths.GetPersonImageDir(entity.WikidataQid),
-                    "characters");
-                var portraitPath = Path.Combine(portraitDir, "portrait.jpg");
+                var portraitPath = _assetPaths.GetCharacterPortraitPath(
+                    personId,
+                    entity.Id,
+                    InferPortraitExtension(bestMatch.Art.Url));
                 await PersistImageAsync(bytes, portraitPath, bestMatch.Art.Url, ct);
-
-                // Update local path on the portrait record
-                await _portraitRepo.UpsertAsync(new CharacterPortrait
-                {
-                    Id                = Guid.NewGuid(),
-                    PersonId          = personId,
-                    FictionalEntityId = entity.Id,
-                    ImageUrl          = bestMatch.Art.Url,
-                    LocalImagePath    = portraitPath,
-                    SourceProvider    = "fanart_tv",
-                    IsDefault         = true,
-                    CreatedAt         = DateTimeOffset.UtcNow,
-                }, ct);
+                portrait.LocalImagePath = portraitPath;
             }
+
+            await _portraitRepo.UpsertAsync(portrait, ct);
 
             matched++;
             _logger.LogDebug(

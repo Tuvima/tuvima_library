@@ -24,7 +24,8 @@ public sealed class CoverArtWorker
     private readonly IImageCacheRepository _imageCache;
     private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IHttpClientFactory _httpFactory;
-    private readonly ImagePathService? _imagePathService;
+    private readonly AssetPathService _assetPaths;
+    private readonly IAssetExportService? _assetExportService;
     private readonly ICoverArtHashService? _coverArtHash;
     private readonly ILogger<CoverArtWorker> _logger;
 
@@ -35,8 +36,9 @@ public sealed class CoverArtWorker
         IImageCacheRepository imageCache,
         IHeroBannerGenerator heroGenerator,
         IHttpClientFactory httpFactory,
+        AssetPathService assetPaths,
         ILogger<CoverArtWorker> logger,
-        ImagePathService? imagePathService = null,
+        IAssetExportService? assetExportService = null,
         ICoverArtHashService? coverArtHash = null,
         IEntityAssetRepository? entityAssetRepo = null)
     {
@@ -47,8 +49,9 @@ public sealed class CoverArtWorker
         _imageCache = imageCache;
         _heroGenerator = heroGenerator;
         _httpFactory = httpFactory;
+        _assetPaths = assetPaths;
+        _assetExportService = assetExportService;
         _logger = logger;
-        _imagePathService = imagePathService;
         _coverArtHash = coverArtHash;
     }
 
@@ -123,41 +126,20 @@ public sealed class CoverArtWorker
 
         // Look up the asset's current file path. The lookup is cheap (single
         // row by id) and is the gate that decides "per-file" vs "legacy".
-        var assetForPath = await _assetRepo.FindByIdAsync(entityId, ct);
-        var assetFilePath = assetForPath?.FilePathRoot;
-        bool hasFilePath = !string.IsNullOrWhiteSpace(assetFilePath) && File.Exists(assetFilePath);
         var ownerEntityId = lineage?.TargetForParentScope ?? entityId;
-        var ownerFolderPath = ResolveCoverFolderPath(lineage?.MediaType, assetFilePath);
-
-        if (hasFilePath && !string.IsNullOrWhiteSpace(ownerFolderPath))
-        {
-            coverPath = Path.Combine(ownerFolderPath!, "poster.jpg");
-            imageDir  = Path.GetDirectoryName(coverPath) ?? ".";
-            ImagePathService.EnsureDirectory(coverPath);
-        }
-        else if (_imagePathService is not null)
-        {
-            if (!string.IsNullOrEmpty(wikidataQid))
-                _imagePathService.PromoteToQid(ownerEntityId, wikidataQid);
-
-            coverPath = _imagePathService.GetWorkCoverPath(wikidataQid, ownerEntityId);
-            imageDir  = _imagePathService.GetWorkImageDir(wikidataQid, ownerEntityId);
-            ImagePathService.EnsureDirectory(coverPath);
-        }
-        else
-        {
-            // Last-ditch fallback: write next to whatever path the asset
-            // exposes, even if the file no longer exists on disk.
-            var fileDir = Path.GetDirectoryName(assetFilePath) ?? ".";
-            coverPath = Path.Combine(fileDir, "cover.jpg");
-            imageDir  = fileDir;
-        }
+        var existingCoverVariant = await FindExistingCoverVariantAsync(ownerEntityId, coverUrl, ct);
+        var coverVariantId = existingCoverVariant?.Id ?? Guid.NewGuid();
+        var coverExtension = InferImageExtension(coverUrl, "CoverArt");
+        coverPath = _assetPaths.GetCentralAssetPath("Work", ownerEntityId, "CoverArt", coverVariantId, coverExtension);
+        imageDir = Path.GetDirectoryName(coverPath) ?? ".";
+        AssetPathService.EnsureDirectory(coverPath);
 
         // Skip if cover already exists
         if (File.Exists(coverPath))
         {
             var existingVariant = await EnsureCoverVariantAsync(
                 ownerEntityId,
+                coverVariantId,
                 coverUrl,
                 coverPath,
                 InferCoverSource(canonicals, coverUrl),
@@ -169,6 +151,8 @@ public sealed class CoverArtWorker
                     InferCoverSource(canonicals, coverUrl),
                     heroState: "pending"),
                 ct);
+            if (existingVariant is not null && _assetExportService is not null)
+                await _assetExportService.ReconcileArtworkAsync(existingVariant.EntityId, existingVariant.EntityType, existingVariant.AssetTypeValue, ct);
             await GenerateHeroBannerAsync(ownerEntityId, coverPath, imageDir, ct);
 
             var titleForSkip = canonicals
@@ -247,21 +231,10 @@ public sealed class CoverArtWorker
         // Generate hero banner
         await GenerateHeroBannerAsync(ownerEntityId, coverPath, imageDir, ct);
 
-        // Generate thumbnail. When we wrote the cover next to the media file,
-        // the thumbnail belongs next to it as well so the Dashboard's thumb
-        // route can find it without a separate cache lookup.
-        if (hasFilePath && !string.IsNullOrWhiteSpace(ownerFolderPath))
-        {
-            var thumbPath = Path.Combine(ownerFolderPath!, "poster-thumb.jpg");
-            GenerateThumbnail(coverPath, thumbPath);
-        }
-        else if (_imagePathService is not null)
-        {
-            var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid, ownerEntityId);
-            GenerateThumbnail(coverPath, thumbPath);
-        }
+        var thumbPath = _assetPaths.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg");
+        GenerateThumbnail(coverPath, thumbPath);
 
-        var coverVariant = await EnsureCoverVariantAsync(ownerEntityId, coverUrl, coverPath, "provider", ct);
+        var coverVariant = await EnsureCoverVariantAsync(ownerEntityId, coverVariantId, coverUrl, coverPath, "provider", ct);
         await _canonicalRepo.UpsertBatchAsync(
             BuildCoverCanonicals(
                 ownerEntityId,
@@ -269,6 +242,8 @@ public sealed class CoverArtWorker
                 "provider",
                 heroState: "pending"),
             ct);
+        if (coverVariant is not null && _assetExportService is not null)
+            await _assetExportService.ReconcileArtworkAsync(coverVariant.EntityId, coverVariant.EntityType, coverVariant.AssetTypeValue, ct);
 
         {
             var titleForDone = canonicals
@@ -318,33 +293,15 @@ public sealed class CoverArtWorker
         return "existing";
     }
 
-    private static string? ResolveCoverFolderPath(MediaType? mediaType, string? mediaFilePath) =>
-        mediaType switch
-        {
-            MediaType.TV => GetSeriesFolder(mediaFilePath),
-            MediaType.Music => GetContainerFolder(mediaFilePath),
-            _ => GetContainerFolder(mediaFilePath),
-        };
-
-    private static string? GetSeriesFolder(string? mediaFilePath)
-    {
-        var seasonFolder = GetContainerFolder(mediaFilePath);
-        return string.IsNullOrWhiteSpace(seasonFolder)
-            ? null
-            : Path.GetDirectoryName(seasonFolder);
-    }
-
-    private static string? GetContainerFolder(string? mediaFilePath) =>
-        string.IsNullOrWhiteSpace(mediaFilePath)
-            ? null
-            : Path.GetDirectoryName(mediaFilePath);
-
     private async Task GenerateHeroBannerAsync(
         Guid entityId, string coverPath, string outputDir, CancellationToken ct)
     {
         try
         {
-            var heroResult = await _heroGenerator.GenerateAsync(coverPath, outputDir, ct);
+            var heroPath = _assetPaths.GetCentralDerivedPath("Work", entityId, "hero", "hero.jpg");
+            var heroOutputDir = Path.GetDirectoryName(heroPath) ?? outputDir;
+            Directory.CreateDirectory(heroOutputDir);
+            var heroResult = await _heroGenerator.GenerateAsync(coverPath, heroOutputDir, ct);
 
             var heroCanonicals = new List<CanonicalValue>();
             if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
@@ -419,6 +376,7 @@ public sealed class CoverArtWorker
 
     private async Task<EntityAsset?> EnsureCoverVariantAsync(
         Guid entityId,
+        Guid variantId,
         string? providerUrl,
         string coverPath,
         string sourceProvider,
@@ -435,11 +393,14 @@ public sealed class CoverArtWorker
 
         var variant = existing ?? new EntityAsset
         {
-            Id             = Guid.NewGuid(),
+            Id             = variantId,
             EntityId       = entityId.ToString(),
             EntityType     = "Work",
             AssetTypeValue = "CoverArt",
             CreatedAt      = DateTimeOffset.UtcNow,
+            AssetClassValue = "Artwork",
+            StorageLocationValue = "Central",
+            OwnerScope = "Work",
         };
 
         variant.ImageUrl = providerUrl;
@@ -447,10 +408,37 @@ public sealed class CoverArtWorker
         variant.SourceProvider = sourceProvider;
         variant.IsPreferred = true;
         variant.IsUserOverride = false;
+        variant.IsLocallyExported = false;
+        variant.IsPreferredExported = false;
 
         await _entityAssetRepo.UpsertAsync(variant, ct);
         await _entityAssetRepo.SetPreferredAsync(variant.Id, ct);
         return variant;
+    }
+
+    private async Task<EntityAsset?> FindExistingCoverVariantAsync(Guid entityId, string? providerUrl, CancellationToken ct)
+    {
+        if (_entityAssetRepo is null || string.IsNullOrWhiteSpace(providerUrl))
+            return null;
+
+        return (await _entityAssetRepo.GetByEntityAsync(entityId.ToString(), "CoverArt", ct))
+            .FirstOrDefault(asset =>
+                string.Equals(asset.ImageUrl, providerUrl, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string InferImageExtension(string? sourceUrl, string assetType)
+    {
+        if (string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase))
+            return ".png";
+
+        if (Uri.TryCreate(sourceUrl, UriKind.Absolute, out var imageUri))
+        {
+            var extension = Path.GetExtension(imageUri.AbsolutePath);
+            if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+                return ".png";
+        }
+
+        return ".jpg";
     }
 
     private static IReadOnlyList<CanonicalValue> BuildCoverCanonicals(

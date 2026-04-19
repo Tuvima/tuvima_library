@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Storage.Models;
 
@@ -124,6 +126,12 @@ public sealed class CoreConfiguration
     /// </summary>
     [JsonPropertyName("pipeline")]
     public PipelineSettings Pipeline { get; set; } = new();
+
+    /// <summary>
+    /// Storage policy for manager-owned assets such as provider artwork and derived artifacts.
+    /// </summary>
+    [JsonPropertyName("storage_policy")]
+    public LibraryStoragePolicy StoragePolicy { get; set; } = new();
 
     private static string GetDefaultCountry()
     {

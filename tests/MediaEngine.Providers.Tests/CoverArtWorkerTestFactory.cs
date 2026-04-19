@@ -2,6 +2,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Workers;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -19,6 +20,7 @@ internal static class CoverArtWorkerTestFactory
             new NoOpImageCacheRepository(),
             new NoOpHeroBannerGenerator(),
             new NoOpHttpClientFactory(),
+            new AssetPathService(Path.Combine(Path.GetTempPath(), "tuvima-provider-tests")),
             NullLogger<CoverArtWorker>.Instance);
 
     private sealed class NoOpMediaAssetRepository : IMediaAssetRepository
