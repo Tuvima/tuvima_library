@@ -10,6 +10,8 @@ namespace MediaEngine.Web.Services.Integration;
 /// </summary>
 public interface IEngineApiClient
 {
+    string ToAbsoluteEngineUrl(string value);
+
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);
 

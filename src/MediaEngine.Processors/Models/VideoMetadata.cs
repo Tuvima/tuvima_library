@@ -35,9 +35,21 @@ public sealed class VideoMetadata
     /// </summary>
     public string? VideoCodec { get; init; }
 
+    /// <summary>Primary audio language when known.</summary>
+    public string? AudioLanguage { get; init; }
+
+    /// <summary>Primary audio codec when known.</summary>
+    public string? AudioCodec { get; init; }
+
+    /// <summary>Primary audio channel count when known.</summary>
+    public int? AudioChannels { get; init; }
+
     /// <summary>
     /// Frames per second as a decimal value (e.g. <c>23.976</c>).
     /// Null when unknown.
     /// </summary>
     public double? FrameRate { get; init; }
+
+    /// <summary>Subtitle languages discovered in the container.</summary>
+    public IReadOnlyList<string> SubtitleLanguages { get; init; } = [];
 }

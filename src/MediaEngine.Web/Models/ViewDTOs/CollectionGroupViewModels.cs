@@ -14,6 +14,9 @@ public sealed class CollectionGroupDetailViewModel
     [JsonPropertyName("display_name")]
     public string DisplayName { get; set; } = "";
 
+    [JsonPropertyName("root_work_id")]
+    public Guid? RootWorkId { get; set; }
+
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }
 
@@ -23,8 +26,29 @@ public sealed class CollectionGroupDetailViewModel
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 
+    [JsonPropertyName("backdrop_url")]
+    public string? BackdropUrl { get; set; }
+
+    [JsonPropertyName("banner_url")]
+    public string? BannerUrl { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("tagline")]
+    public string? Tagline { get; set; }
+
     [JsonPropertyName("creator")]
     public string? Creator { get; set; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; set; }
+
+    [JsonPropertyName("writer")]
+    public string? Writer { get; set; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; set; }
 
     [JsonPropertyName("year_range")]
     public string? YearRange { get; set; }
@@ -76,11 +100,29 @@ public sealed class CollectionGroupPersonViewModel
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
+    [JsonPropertyName("actor_person_id")]
+    public Guid? ActorPersonId { get; set; }
+
+    [JsonPropertyName("actor_name")]
+    public string? ActorName { get; set; }
+
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }
 
     [JsonPropertyName("headshot_url")]
     public string? HeadshotUrl { get; set; }
+
+    [JsonPropertyName("actor_headshot_url")]
+    public string? ActorHeadshotUrl { get; set; }
+
+    [JsonPropertyName("character_name")]
+    public string? CharacterName { get; set; }
+
+    [JsonPropertyName("character_qid")]
+    public string? CharacterQid { get; set; }
+
+    [JsonPropertyName("character_image_url")]
+    public string? CharacterImageUrl { get; set; }
 }
 
 /// <summary>A single TV season (or album within an artist view) within a group detail view.</summary>
@@ -130,6 +172,15 @@ public sealed class CollectionGroupWorkViewModel
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 
+    [JsonPropertyName("backdrop_url")]
+    public string? BackdropUrl { get; set; }
+
+    [JsonPropertyName("banner_url")]
+    public string? BannerUrl { get; set; }
+
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; set; }
+
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; set; }
 
@@ -144,6 +195,21 @@ public sealed class CollectionGroupWorkViewModel
 
     [JsonPropertyName("status")]
     public string? Status { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; set; }
+
+    [JsonPropertyName("writer")]
+    public string? Writer { get; set; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; set; }
+
+    [JsonPropertyName("playback_summary")]
+    public PlaybackTechnicalSummaryViewModel? PlaybackSummary { get; set; }
 
     /// <summary>Whether this work corresponds to an actual file in the library (true) or an unowned track from Wikidata (false).</summary>
     [JsonPropertyName("is_owned")]

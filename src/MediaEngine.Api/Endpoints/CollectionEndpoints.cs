@@ -1,5 +1,6 @@
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -423,23 +424,36 @@ public static class CollectionEndpoints
             string? ParentCv(string key) =>
                 parentCvs.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
+            var rootWorkQid = collection.WikidataQid ?? ParentCv(BridgeIdKeys.WikidataQid);
+
             // Build per-work DTOs.
             var workDtos = collection.Works
                 .OrderBy(w => w.Ordinal ?? int.MaxValue)
                 .ThenBy(w => w.Id)
                 .Select(w =>
                 {
-                    string? title       = (isTv ? GetCanonical(WorkDto.FromDomain(w), "episode_title") : null)
-                                         ?? GetCanonical(WorkDto.FromDomain(w), "title")
+                    var workDto = WorkDto.FromDomain(w);
+                    string? title       = (isTv ? GetCanonical(workDto, "episode_title") : null)
+                                         ?? GetCanonical(workDto, "title")
                                          ?? $"Work {w.Id.ToString("N")[..8]}";
-                    string? year        = GetCanonical(WorkDto.FromDomain(w), "release_year")
-                                         ?? GetCanonical(WorkDto.FromDomain(w), "year");
-                    string? duration    = GetCanonical(WorkDto.FromDomain(w), "duration")
-                                         ?? GetCanonical(WorkDto.FromDomain(w), "runtime");
+                    string? year        = GetCanonical(workDto, "release_year")
+                                         ?? GetCanonical(workDto, "year");
+                    string? duration    = GetCanonical(workDto, "duration")
+                                         ?? GetCanonical(workDto, "runtime");
                     string? coverUrl    = BuildCoverStreamUrl(w);
-                    string? season      = GetCanonical(WorkDto.FromDomain(w), "season_number");
-                    string? episode     = GetCanonical(WorkDto.FromDomain(w), "episode_number");
-                    string? trackNumber = GetCanonical(WorkDto.FromDomain(w), "track_number");
+                    string? backdropUrl = BuildBackdropStreamUrl(w);
+                    string? bannerUrl   = BuildBannerStreamUrl(w);
+                    string? heroUrl     = BuildHeroStreamUrl(w);
+                    string? season      = GetCanonical(workDto, "season_number");
+                    string? episode     = GetCanonical(workDto, "episode_number");
+                    string? trackNumber = GetCanonical(workDto, "track_number");
+                    string? description = GetCanonical(workDto, "description");
+                    string? director    = GetCanonical(workDto, "director");
+                    string? writer      = GetCanonical(workDto, "writer");
+                    string? releaseDate = NormalizeReleaseDate(
+                        GetCanonical(workDto, "release_date")
+                        ?? GetCanonical(workDto, "date")
+                        ?? GetCanonical(workDto, "year"));
 
                     // Derive a display status from wikidata_status / match_level.
                     string status = w.WikidataStatus switch
@@ -474,11 +488,19 @@ public static class CollectionEndpoints
                         Year          = year,
                         Duration      = duration,
                         CoverUrl      = coverUrl,
+                        BackdropUrl   = backdropUrl,
+                        BannerUrl     = bannerUrl,
+                        HeroUrl       = heroUrl,
                         WikidataQid   = w.WikidataQid,
                         Season        = season,
                         Episode       = episode,
                         TrackNumber   = trackNumber,
                         Status        = status,
+                        Description   = description,
+                        Director      = director,
+                        Writer        = writer,
+                        ReleaseDate   = releaseDate,
+                        PlaybackSummary = BuildPlaybackSummaryFromWork(workDto),
                         Stage1        = stage1,
                         Stage2        = stage2,
                         Stage3        = stage3,
@@ -490,13 +512,23 @@ public static class CollectionEndpoints
             // Phase 4 — parent-scoped fields (author, director, artist, genre, cover,
             // network) live on the root parent Work, not on individual child works.
             string? collectionCreator  = ParentCv("author") ?? ParentCv("director") ?? ParentCv("artist");
+            string? collectionDirector = ParentCv("director");
+            string? collectionWriter   = ParentCv("writer");
             string? collectionGenre    = ParentCv("genre");
             string? collectionNetwork  = isTv ? ParentCv("network") : null;
+            string? collectionDescription = ParentCv("description");
+            string? collectionTagline = ParentCv("tagline");
+            string? collectionReleaseDate = NormalizeReleaseDate(
+                ParentCv("release_date")
+                ?? ParentCv("date")
+                ?? ParentCv("year"));
 
             // Resolve cover URL as a /stream/ endpoint. Cover art is downloaded
             // to disk by CoverArtWorker and served via StreamEndpoints. We need
             // the root parent work's asset_id to build the URL.
             string? collectionCover = null;
+            string? collectionBackdrop = null;
+            string? collectionBanner = null;
             if (rootParentWorkId.HasValue)
             {
                 using var coverConn = db.CreateConnection();
@@ -513,7 +545,11 @@ public static class CollectionEndpoints
                 coverCmd.Parameters.Add(widParam);
                 var rootAssetObj = await coverCmd.ExecuteScalarAsync(ct);
                 if (rootAssetObj is string rootAssetStr)
+                {
                     collectionCover = $"/stream/{rootAssetStr}/cover";
+                    collectionBackdrop = $"/stream/{rootAssetStr}/backdrop";
+                    collectionBanner = $"/stream/{rootAssetStr}/banner";
+                }
             }
 
             // Year range from all works.
@@ -570,37 +606,31 @@ public static class CollectionEndpoints
                            && rootParentWorkId.HasValue;
             if (hasCast)
             {
-                var castEntries = await canonicalArrayRepo.GetValuesAsync(
-                    rootParentWorkId!.Value, "cast_member", ct);
-                foreach (var entry in castEntries.OrderBy(e => e.Ordinal).Take(10))
-                {
-                    if (string.IsNullOrWhiteSpace(entry.Value)) continue;
-
-                    Person? person = null;
-                    if (!string.IsNullOrWhiteSpace(entry.ValueQid))
-                        person = await personRepo.FindByQidAsync(entry.ValueQid, ct);
-                    person ??= await personRepo.FindByNameAsync(entry.Value, ct);
-
-                    topCast.Add(new CollectionGroupPersonDto
-                    {
-                        PersonId     = person?.Id,
-                        Name         = person?.Name ?? entry.Value,
-                        WikidataQid  = entry.ValueQid ?? person?.WikidataQid,
-                        HeadshotUrl  = !string.IsNullOrEmpty(person?.LocalHeadshotPath)
-                                       ? $"/stream/person/{person.Id}/headshot-thumb"
-                                       : person?.HeadshotUrl,
-                    });
-                }
+                topCast = await BuildCharacterAwareCastAsync(
+                    rootWorkQid,
+                    rootParentWorkId!.Value,
+                    canonicalArrayRepo,
+                    personRepo,
+                    db,
+                    ct);
             }
 
             var response = new CollectionGroupDetailDto
             {
                 CollectionId            = collection.Id,
                 DisplayName      = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
+                RootWorkId       = rootParentWorkId,
                 WikidataQid      = collection.WikidataQid,
                 PrimaryMediaType = primaryMediaType,
                 CoverUrl         = collectionCover,
+                BackdropUrl      = collectionBackdrop,
+                BannerUrl        = collectionBanner,
+                Description      = collectionDescription,
+                Tagline          = collectionTagline,
                 Creator          = collectionCreator,
+                Director         = collectionDirector,
+                Writer           = collectionWriter,
+                ReleaseDate      = collectionReleaseDate,
                 YearRange        = yearRange,
                 Genre            = collectionGenre,
                 Network          = collectionNetwork,
@@ -2262,6 +2292,253 @@ public static class CollectionEndpoints
         return assetId != Guid.Empty ? $"/stream/{assetId}/banner" : null;
     }
 
+    private static string? BuildHeroStreamUrl(Work? w)
+    {
+        if (w is null) return null;
+        var assetId = w.CanonicalValues
+            .Select(c => c.EntityId)
+            .FirstOrDefault(id => id != Guid.Empty);
+        return assetId != Guid.Empty ? $"/stream/{assetId}/hero" : null;
+    }
+
+    private static PlaybackTechnicalSummary? BuildPlaybackSummaryFromWork(WorkDto work)
+    {
+        string? Canonical(string key) => GetCanonical(work, key);
+
+        var subtitleLanguages = SplitValues(Canonical("subtitle_languages"));
+        var summary = new PlaybackTechnicalSummary
+        {
+            VideoResolutionLabel = FormatResolution(
+                ParseNullableInt(Canonical("video_width")),
+                ParseNullableInt(Canonical("video_height"))),
+            VideoCodec = NormalizeCodec(Canonical("video_codec")),
+            AudioLanguage = SplitValues(Canonical("audio_language")).FirstOrDefault(),
+            AudioCodec = NormalizeCodec(Canonical("audio_codec")),
+            AudioChannels = FormatAudioChannels(Canonical("audio_channels")),
+            SubtitleSummary = FormatSubtitleSummary(subtitleLanguages),
+            AudioLanguages = SplitValues(Canonical("audio_language")),
+            SubtitleLanguages = subtitleLanguages,
+        };
+
+        if (string.IsNullOrWhiteSpace(summary.VideoResolutionLabel)
+            && string.IsNullOrWhiteSpace(summary.VideoCodec)
+            && string.IsNullOrWhiteSpace(summary.AudioLanguage)
+            && string.IsNullOrWhiteSpace(summary.AudioCodec)
+            && string.IsNullOrWhiteSpace(summary.AudioChannels)
+            && string.IsNullOrWhiteSpace(summary.SubtitleSummary))
+        {
+            return null;
+        }
+
+        return summary;
+    }
+
+    private static async Task<List<CollectionGroupPersonDto>> BuildCharacterAwareCastAsync(
+        string? rootWorkQid,
+        Guid rootParentWorkId,
+        ICanonicalValueArrayRepository canonicalArrayRepo,
+        IPersonRepository personRepo,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(rootWorkQid))
+        {
+            using var conn = db.CreateConnection();
+            var rows = (await conn.QueryAsync<CharacterCastRow>(
+                """
+                SELECT fe.id                AS CharacterId,
+                       fe.label             AS CharacterName,
+                       fe.wikidata_qid      AS CharacterQid,
+                       fe.image_url         AS CharacterImageUrl,
+                       p.id                 AS ActorPersonId,
+                       p.name               AS ActorName,
+                       p.wikidata_qid       AS ActorQid,
+                       p.headshot_url       AS ActorHeadshotUrl,
+                       p.local_headshot_path AS ActorLocalHeadshotPath,
+                       cp.image_url         AS PortraitImageUrl,
+                       cp.local_image_path  AS PortraitLocalImagePath,
+                       cp.is_default        AS PortraitIsDefault
+                FROM fictional_entities fe
+                INNER JOIN fictional_entity_work_links fewl
+                    ON fewl.entity_id = fe.id
+                LEFT JOIN character_performer_links cpl
+                    ON cpl.fictional_entity_id = fe.id
+                   AND (cpl.work_qid = @workQid OR cpl.work_qid IS NULL)
+                LEFT JOIN persons p
+                    ON p.id = cpl.person_id
+                LEFT JOIN character_portraits cp
+                    ON cp.fictional_entity_id = fe.id
+                   AND cp.person_id = p.id
+                WHERE fewl.work_qid = @workQid
+                  AND fe.entity_subtype = 'Character'
+                ORDER BY fe.label, p.name, cp.is_default DESC
+                """,
+                new { workQid = rootWorkQid })).ToList();
+
+            var cast = rows
+                .Where(row => row.ActorPersonId.HasValue && !string.IsNullOrWhiteSpace(row.ActorName))
+                .GroupBy(row => new
+                {
+                    row.ActorPersonId,
+                    row.ActorName,
+                    row.ActorQid,
+                    row.CharacterId,
+                    row.CharacterName,
+                    row.CharacterQid,
+                })
+                .Select(group =>
+                {
+                    var preferred = group
+                        .OrderByDescending(row => row.PortraitIsDefault)
+                        .ThenByDescending(row => !string.IsNullOrWhiteSpace(row.PortraitImageUrl))
+                        .First();
+
+                    var headshotUrl = !string.IsNullOrWhiteSpace(preferred.ActorLocalHeadshotPath) && preferred.ActorPersonId.HasValue
+                        ? $"/stream/person/{preferred.ActorPersonId.Value}/headshot-thumb"
+                        : preferred.ActorHeadshotUrl;
+                    var characterImageUrl = preferred.PortraitImageUrl
+                        ?? preferred.CharacterImageUrl;
+
+                    return new CollectionGroupPersonDto
+                    {
+                        PersonId = preferred.ActorPersonId,
+                        Name = preferred.ActorName ?? group.Key.ActorName ?? "Unknown",
+                        ActorPersonId = preferred.ActorPersonId,
+                        ActorName = preferred.ActorName,
+                        WikidataQid = preferred.ActorQid,
+                        HeadshotUrl = headshotUrl,
+                        ActorHeadshotUrl = headshotUrl,
+                        CharacterName = group.Key.CharacterName,
+                        CharacterQid = group.Key.CharacterQid,
+                        CharacterImageUrl = characterImageUrl,
+                    };
+                })
+                .OrderBy(entry => entry.ActorName ?? entry.Name, StringComparer.OrdinalIgnoreCase)
+                .Take(10)
+                .ToList();
+
+            if (cast.Count > 0)
+                return cast;
+        }
+
+        var fallback = new List<CollectionGroupPersonDto>();
+        var castEntries = await canonicalArrayRepo.GetValuesAsync(rootParentWorkId, "cast_member", ct);
+        foreach (var entry in castEntries.OrderBy(e => e.Ordinal).Take(10))
+        {
+            if (string.IsNullOrWhiteSpace(entry.Value))
+                continue;
+
+            Person? person = null;
+            if (!string.IsNullOrWhiteSpace(entry.ValueQid))
+                person = await personRepo.FindByQidAsync(entry.ValueQid, ct);
+            person ??= await personRepo.FindByNameAsync(entry.Value, ct);
+
+            var headshotUrl = !string.IsNullOrEmpty(person?.LocalHeadshotPath)
+                ? $"/stream/person/{person.Id}/headshot-thumb"
+                : person?.HeadshotUrl;
+
+            fallback.Add(new CollectionGroupPersonDto
+            {
+                PersonId = person?.Id,
+                Name = person?.Name ?? entry.Value,
+                ActorPersonId = person?.Id,
+                ActorName = person?.Name ?? entry.Value,
+                WikidataQid = entry.ValueQid ?? person?.WikidataQid,
+                HeadshotUrl = headshotUrl,
+                ActorHeadshotUrl = headshotUrl,
+            });
+        }
+
+        return fallback;
+    }
+
+    private static string? NormalizeReleaseDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (DateTimeOffset.TryParse(value, out var parsed))
+            return parsed.ToString("MMMM d, yyyy");
+
+        return value.Length > 10 && DateTime.TryParse(value, out var parsedDate)
+            ? parsedDate.ToString("MMMM d, yyyy")
+            : value;
+    }
+
+    private static int? ParseNullableInt(string? value) =>
+        int.TryParse(value, out var parsed) ? parsed : null;
+
+    private static List<string> SplitValues(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : value
+                .Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+    private static string? FormatResolution(int? width, int? height)
+    {
+        if (width is null || height is null || width <= 0 || height <= 0)
+            return null;
+
+        var h = height.Value;
+        return h switch
+        {
+            >= 2160 => "2160p",
+            >= 1440 => "1440p",
+            >= 1080 => "1080p",
+            >= 720 => "720p",
+            >= 480 => "480p",
+            _ => $"{h}p",
+        };
+    }
+
+    private static string? FormatAudioChannels(string? value)
+    {
+        if (!int.TryParse(value, out var parsed) || parsed <= 0)
+            return null;
+
+        return parsed switch
+        {
+            1 => "Mono",
+            2 => "2.0",
+            _ => $"{parsed - 1}.1",
+        };
+    }
+
+    private static string? FormatSubtitleSummary(IReadOnlyList<string> languages)
+    {
+        if (languages.Count == 0)
+            return null;
+
+        if (languages.Count == 1)
+            return languages[0];
+
+        return $"{languages[0]} + {languages.Count - 1} more";
+    }
+
+    private static string? NormalizeCodec(string? codec)
+    {
+        if (string.IsNullOrWhiteSpace(codec))
+            return null;
+
+        return codec.ToLowerInvariant() switch
+        {
+            "h264" => "H.264",
+            "hevc" => "HEVC",
+            "aac" => "AAC",
+            "ac3" => "AC3",
+            "eac3" => "EAC3",
+            "dts" => "DTS",
+            "truehd" => "TrueHD",
+            "opus" => "Opus",
+            "flac" => "FLAC",
+            "subrip" => "SRT",
+            _ => codec.ToUpperInvariant(),
+        };
+    }
+
     /// <summary>
     /// Merges Wikidata-discovered tracks (from <c>child_entities_json</c>) into the owned-track list,
     /// flagging those without a matching local file as <c>IsOwned = false</c>. Owned tracks are matched
@@ -2507,6 +2784,22 @@ public static class CollectionEndpoints
                 IsOwned     = false,
             });
         }
+    }
+
+    private sealed class CharacterCastRow
+    {
+        public Guid CharacterId { get; init; }
+        public string? CharacterName { get; init; }
+        public string? CharacterQid { get; init; }
+        public string? CharacterImageUrl { get; init; }
+        public Guid? ActorPersonId { get; init; }
+        public string? ActorName { get; init; }
+        public string? ActorQid { get; init; }
+        public string? ActorHeadshotUrl { get; init; }
+        public string? ActorLocalHeadshotPath { get; init; }
+        public string? PortraitImageUrl { get; init; }
+        public string? PortraitLocalImagePath { get; init; }
+        public bool PortraitIsDefault { get; init; }
     }
 
     private static List<CollectionResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)

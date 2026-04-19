@@ -1,3 +1,4 @@
+using MediaEngine.Domain.Models;
 using System.Text.Json.Serialization;
 
 namespace MediaEngine.Api.Models;
@@ -10,6 +11,9 @@ public sealed class CollectionGroupDetailDto
 
     [JsonPropertyName("display_name")]
     public required string DisplayName { get; init; }
+
+    [JsonPropertyName("root_work_id")]
+    public Guid? RootWorkId { get; init; }
 
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
@@ -26,8 +30,23 @@ public sealed class CollectionGroupDetailDto
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; init; }
 
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("tagline")]
+    public string? Tagline { get; init; }
+
     [JsonPropertyName("creator")]
     public string? Creator { get; init; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; init; }
+
+    [JsonPropertyName("writer")]
+    public string? Writer { get; init; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; init; }
 
     [JsonPropertyName("year_range")]
     public string? YearRange { get; init; }
@@ -122,6 +141,15 @@ public sealed class CollectionGroupWorkDto
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
+    [JsonPropertyName("backdrop_url")]
+    public string? BackdropUrl { get; init; }
+
+    [JsonPropertyName("banner_url")]
+    public string? BannerUrl { get; init; }
+
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; init; }
+
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
 
@@ -136,6 +164,21 @@ public sealed class CollectionGroupWorkDto
 
     [JsonPropertyName("status")]
     public string? Status { get; init; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; init; }
+
+    [JsonPropertyName("writer")]
+    public string? Writer { get; init; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; init; }
+
+    [JsonPropertyName("playback_summary")]
+    public PlaybackTechnicalSummary? PlaybackSummary { get; init; }
 
     /// <summary>Whether this work corresponds to an actual file in the library (true) or an unowned track surfaced from Wikidata child entity data (false).</summary>
     [JsonPropertyName("is_owned")]
@@ -168,11 +211,29 @@ public sealed class CollectionGroupPersonDto
     [JsonPropertyName("name")]
     public required string Name { get; init; }
 
+    [JsonPropertyName("actor_person_id")]
+    public Guid? ActorPersonId { get; init; }
+
+    [JsonPropertyName("actor_name")]
+    public string? ActorName { get; init; }
+
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
 
     [JsonPropertyName("headshot_url")]
     public string? HeadshotUrl { get; init; }
+
+    [JsonPropertyName("actor_headshot_url")]
+    public string? ActorHeadshotUrl { get; init; }
+
+    [JsonPropertyName("character_name")]
+    public string? CharacterName { get; init; }
+
+    [JsonPropertyName("character_qid")]
+    public string? CharacterQid { get; init; }
+
+    [JsonPropertyName("character_image_url")]
+    public string? CharacterImageUrl { get; init; }
 }
 
 /// <summary>Pipeline stage indicator (state + label) for a single hydration stage.</summary>
@@ -215,8 +276,23 @@ public sealed class ContentGroupDto
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; init; }
 
+    [JsonPropertyName("description")]
+    public string? Description { get; init; }
+
+    [JsonPropertyName("tagline")]
+    public string? Tagline { get; init; }
+
     [JsonPropertyName("creator")]
     public string? Creator { get; init; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; init; }
+
+    [JsonPropertyName("writer")]
+    public string? Writer { get; init; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; init; }
 
     [JsonPropertyName("universe_status")]
     public string UniverseStatus { get; init; } = "Unknown";

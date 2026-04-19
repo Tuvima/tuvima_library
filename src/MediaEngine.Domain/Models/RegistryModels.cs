@@ -133,16 +133,23 @@ public sealed record RegistryItemDetail
     // Metadata
     [JsonPropertyName("author")]          public string? Author { get; init; }
     [JsonPropertyName("director")]        public string? Director { get; init; }
+    [JsonPropertyName("writer")]          public string? Writer { get; init; }
     [JsonPropertyName("cast")]            public string? Cast { get; init; }
     [JsonPropertyName("language")]        public string? Language { get; init; }
     [JsonPropertyName("genre")]           public string? Genre { get; init; }
     [JsonPropertyName("runtime")]         public string? Runtime { get; init; }
     [JsonPropertyName("description")]     public string? Description { get; init; }
+    [JsonPropertyName("tagline")]         public string? Tagline { get; init; }
     [JsonPropertyName("series")]          public string? Series { get; init; }
     [JsonPropertyName("series_position")] public string? SeriesPosition { get; init; }
+    [JsonPropertyName("show_name")]       public string? ShowName { get; init; }
+    [JsonPropertyName("season_number")]   public string? SeasonNumber { get; init; }
+    [JsonPropertyName("episode_number")]  public string? EpisodeNumber { get; init; }
+    [JsonPropertyName("release_date")]    public string? ReleaseDate { get; init; }
     [JsonPropertyName("narrator")]        public string? Narrator { get; init; }
     [JsonPropertyName("rating")]          public string? Rating { get; init; }
     [JsonPropertyName("wikidata_qid")]    public string? WikidataQid { get; init; }
+    [JsonPropertyName("playback_summary")] public PlaybackTechnicalSummary? PlaybackSummary { get; init; }
 
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; init; }

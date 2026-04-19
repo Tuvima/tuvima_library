@@ -298,7 +298,8 @@ public sealed class PipelineBugRegressionTests
 
         // The projection must classify pending review items directly as review_only
         // without requiring any non-staging asset alias in the filter.
-        Assert.Contains("OR (rd.review_id IS NOT NULL AND rd.review_trigger != 'WritebackFailed')", repoSource);
+        Assert.Contains("rd.review_id IS NOT NULL", repoSource);
+        Assert.Contains("rd.review_trigger != 'WritebackFailed'", repoSource);
         Assert.Contains("THEN 'review_only'", repoSource);
 
         // The old buggy pattern must NOT be present.

@@ -14,11 +14,19 @@ namespace MediaEngine.Storage;
 public sealed class RegistryRepository : IRegistryRepository
 {
     private readonly IDatabaseConnection _db;
+    private readonly IFFmpegService _ffmpeg;
 
     public RegistryRepository(IDatabaseConnection db)
+        : this(db, NoOpFfmpegService.Instance)
+    {
+    }
+
+    public RegistryRepository(IDatabaseConnection db, IFFmpegService ffmpeg)
     {
         ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(ffmpeg);
         _db = db;
+        _ffmpeg = ffmpeg;
     }
 
     public Task<RegistryPageResult> GetPageAsync(RegistryQuery query, CancellationToken ct = default)
@@ -206,7 +214,7 @@ public sealed class RegistryRepository : IRegistryRepository
         return Task.FromResult(new RegistryPageResult(items, totalCount, query.Offset + items.Count < totalCount));
     }
 
-    public Task<RegistryItemDetail?> GetDetailAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<RegistryItemDetail?> GetDetailAsync(Guid entityId, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
 
@@ -267,7 +275,7 @@ public sealed class RegistryRepository : IRegistryRepository
             """, new { entityId = entityId.ToString() });
 
         if (lineageRow == default || lineageRow.AssetId is null)
-            return Task.FromResult<RegistryItemDetail?>(null);
+            return null;
 
         var assetIdStr = lineageRow.AssetId;
         var rootParentStr = lineageRow.RootParentWorkId;
@@ -405,7 +413,17 @@ public sealed class RegistryRepository : IRegistryRepository
             """, new { entityId = assetIdStr });
 
         if (projection is null && canonicalValues.Count == 0)
-            return Task.FromResult<RegistryItemDetail?>(null);
+            return null;
+
+        async Task<MediaProbeResult?> ProbeAsync()
+        {
+            if (!_ffmpeg.IsAvailable || string.IsNullOrWhiteSpace(maRow.FilePath) || !File.Exists(maRow.FilePath))
+                return null;
+
+            return await _ffmpeg.ProbeAsync(maRow.FilePath, ct);
+        }
+
+        var playbackSummary = await BuildPlaybackSummaryAsync(Canonical, ProbeAsync, ct);
 
         Guid? reviewItemId = rqRow == default ? null : Guid.Parse(rqRow.Id);
         var universeQid = Canonical("fictional_universe_qid")
@@ -493,16 +511,23 @@ public sealed class RegistryRepository : IRegistryRepository
             MatchMethod = projection?.PipelineStep,
             Author = projection?.Author ?? Canonical("author"),
             Director = projection?.Director ?? Canonical("director"),
+            Writer = Canonical("writer"),
             Cast = Canonical("cast"),
             Language = Canonical("language"),
             Genre = projection?.Genre ?? Canonical("genre"),
             Runtime = projection?.Runtime ?? Canonical("runtime"),
             Description = projection?.Description ?? Canonical("description"),
+            Tagline = Canonical("tagline"),
             Series = projection?.Series ?? Canonical("series"),
             SeriesPosition = projection?.SeriesPosition ?? Canonical("series_position"),
+            ShowName = Canonical("show_name"),
+            SeasonNumber = Canonical("season_number"),
+            EpisodeNumber = Canonical("episode_number"),
+            ReleaseDate = NormalizeReleaseDate(Canonical("release_date") ?? Canonical("date") ?? Canonical("year")),
             Narrator = projection?.Narrator ?? Canonical("narrator"),
             Rating = projection?.Rating ?? Canonical("rating"),
             WikidataQid = projection?.WikidataQid ?? Canonical(BridgeIdKeys.WikidataQid),
+            PlaybackSummary = playbackSummary,
             WikidataStatus = projection?.WikidataStatus,
             FileName = projection?.FileName ?? (maRow == default ? null : Path.GetFileName(maRow.FilePath)),
             FilePath = projection?.FilePath ?? maRow.FilePath,
@@ -525,7 +550,7 @@ public sealed class RegistryRepository : IRegistryRepository
             UniverseSummary = universeSummary,
         };
 
-        return Task.FromResult<RegistryItemDetail?>(detail);
+        return detail;
     }
 
     public Task<RegistryStatusCounts> GetStatusCountsAsync(CancellationToken ct = default)
@@ -1134,6 +1159,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     CASE
                         WHEN rd.curator_state IN ('rejected', 'provisional')
                              OR rd.job_state = 'QidNeedsReview'
+                             OR rd.job_state = 'RetailMatchedNeedsReview'
                              OR (
                                  rd.review_id IS NOT NULL
                                  AND rd.review_trigger != 'WritebackFailed'
@@ -1164,6 +1190,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN rd.curator_state = 'rejected' THEN 'Rejected'
                         WHEN rd.curator_state = 'provisional' THEN 'Provisional'
                         WHEN rd.job_state = 'QidNeedsReview' THEN 'InReview'
+                        WHEN rd.job_state = 'RetailMatchedNeedsReview' THEN 'InReview'
                         WHEN rd.review_id IS NOT NULL
                              AND rd.review_trigger != 'WritebackFailed'
                              AND (
@@ -1278,6 +1305,152 @@ public sealed class RegistryRepository : IRegistryRepository
     private static DateTimeOffset? ParseDateTimeOffset(string? value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
 
+    private async Task<PlaybackTechnicalSummary?> BuildPlaybackSummaryAsync(
+        Func<string, string?> canonical,
+        Func<Task<MediaProbeResult?>> probeFactory,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        string? videoCodec = canonical("video_codec");
+        string? audioLanguage = canonical("audio_language");
+        string? audioCodec = canonical("audio_codec");
+        string? audioChannels = canonical("audio_channels");
+        var subtitleLanguages = SplitValues(canonical("subtitle_languages"));
+
+        int? width = ParseNullableInt(canonical("video_width"));
+        int? height = ParseNullableInt(canonical("video_height"));
+
+        MediaProbeResult? probe = null;
+        if (width is null || height is null || string.IsNullOrWhiteSpace(videoCodec)
+            || string.IsNullOrWhiteSpace(audioCodec) || string.IsNullOrWhiteSpace(audioChannels)
+            || subtitleLanguages.Count == 0)
+        {
+            probe = await probeFactory();
+        }
+
+        width ??= probe?.Width;
+        height ??= probe?.Height;
+        videoCodec ??= probe?.VideoCodec;
+        audioLanguage ??= probe?.AudioLanguage;
+        audioCodec ??= probe?.AudioCodec;
+        audioChannels ??= probe?.Channels?.ToString();
+        if (subtitleLanguages.Count == 0 && probe?.SubtitleLanguages.Count > 0)
+            subtitleLanguages = probe.SubtitleLanguages.ToList();
+
+        var audioLanguages = SplitValues(audioLanguage);
+        var summary = new PlaybackTechnicalSummary
+        {
+            VideoResolutionLabel = FormatResolution(width, height),
+            VideoCodec = NormalizeCodec(videoCodec),
+            AudioLanguage = audioLanguages.FirstOrDefault(),
+            AudioCodec = NormalizeCodec(audioCodec),
+            AudioChannels = FormatAudioChannels(audioChannels),
+            SubtitleSummary = FormatSubtitleSummary(subtitleLanguages),
+            AudioLanguages = audioLanguages,
+            SubtitleLanguages = subtitleLanguages,
+        };
+
+        if (string.IsNullOrWhiteSpace(summary.VideoResolutionLabel)
+            && string.IsNullOrWhiteSpace(summary.VideoCodec)
+            && string.IsNullOrWhiteSpace(summary.AudioLanguage)
+            && string.IsNullOrWhiteSpace(summary.AudioCodec)
+            && string.IsNullOrWhiteSpace(summary.AudioChannels)
+            && string.IsNullOrWhiteSpace(summary.SubtitleSummary))
+        {
+            return null;
+        }
+
+        return summary;
+    }
+
+    private static string? NormalizeReleaseDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (DateTimeOffset.TryParse(value, out var parsed))
+            return parsed.ToString("MMMM d, yyyy");
+
+        return value.Length > 10 && DateTime.TryParse(value, out var parsedDate)
+            ? parsedDate.ToString("MMMM d, yyyy")
+            : value;
+    }
+
+    private static int? ParseNullableInt(string? value) =>
+        int.TryParse(value, out var parsed) ? parsed : null;
+
+    private static List<string> SplitValues(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : value
+                .Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+    private static string? FormatResolution(int? width, int? height)
+    {
+        if (width is null || height is null || width <= 0 || height <= 0)
+            return null;
+
+        var h = height.Value;
+        return h switch
+        {
+            >= 2160 => "2160p",
+            >= 1440 => "1440p",
+            >= 1080 => "1080p",
+            >= 720 => "720p",
+            >= 480 => "480p",
+            _ => $"{h}p",
+        };
+    }
+
+    private static string? FormatAudioChannels(string? value)
+    {
+        if (!int.TryParse(value, out var parsed) || parsed <= 0)
+            return null;
+
+        return parsed switch
+        {
+            1 => "Mono",
+            2 => "2.0",
+            _ => $"{parsed - 1}.1",
+        };
+    }
+
+    private static string? FormatSubtitleSummary(IReadOnlyList<string> languages)
+    {
+        if (languages.Count == 0)
+            return null;
+
+        if (languages.Count == 1)
+            return languages[0];
+
+        return $"{languages[0]} + {languages.Count - 1} more";
+    }
+
+    private static string? NormalizeCodec(string? codec)
+    {
+        if (string.IsNullOrWhiteSpace(codec))
+            return null;
+
+        return codec.ToLowerInvariant() switch
+        {
+            "h264" => "H.264",
+            "hevc" => "HEVC",
+            "aac" => "AAC",
+            "ac3" => "AC3",
+            "eac3" => "EAC3",
+            "dts" => "DTS",
+            "truehd" => "TrueHD",
+            "opus" => "Opus",
+            "flac" => "FLAC",
+            "subrip" => "SRT",
+            _ => codec.ToUpperInvariant(),
+        };
+    }
+
     private sealed class ProjectionRow
     {
         public string EntityId { get; set; } = "";
@@ -1346,5 +1519,22 @@ public sealed class RegistryRepository : IRegistryRepository
         public int RetailNeedsReview { get; set; }
         public int QidNoMatch { get; set; }
         public int CompletedWithArt { get; set; }
+    }
+
+    private sealed class NoOpFfmpegService : IFFmpegService
+    {
+        public static NoOpFfmpegService Instance { get; } = new();
+
+        public string? FfmpegPath => null;
+        public string? FfprobePath => null;
+        public bool IsAvailable => false;
+        public HardwareCapabilities HardwareCapabilities { get; } = new();
+
+        public Task<MediaProbeResult?> ProbeAsync(string filePath, CancellationToken ct = default) =>
+            Task.FromResult<MediaProbeResult?>(null);
+
+        public Task<(int ExitCode, string Output, string Error)> RunAsync(
+            string arguments, CancellationToken ct = default) =>
+            throw new InvalidOperationException("FFmpeg is not available in this repository context.");
     }
 }

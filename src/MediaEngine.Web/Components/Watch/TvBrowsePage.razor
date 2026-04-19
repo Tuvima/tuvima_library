@@ -1,0 +1,913 @@
+@namespace MediaEngine.Web.Components.Watch
+@using System.Security.Cryptography
+@using System.Text
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Playback
+
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject WatchlistService WatchlistService
+@inject NavigationManager Nav
+
+<div class="tv-browse-page">
+    @if (_heroDetail is not null)
+    {
+        <section class="tv-browse-page__hero">
+            @if (!string.IsNullOrWhiteSpace(HeroBackgroundUrl))
+            {
+                <div class="tv-browse-page__hero-bg">
+                    <img src="@HeroBackgroundUrl" alt="" />
+                </div>
+            }
+
+            <div class="tv-browse-page__hero-overlay"></div>
+
+            <div class="tv-browse-page__hero-content">
+                <div class="tv-browse-page__hero-copy">
+                    <div class="tv-browse-page__hero-eyebrow">@HeroEyebrow</div>
+                    <h1>@_heroDetail.DisplayName</h1>
+
+                    @if (!string.IsNullOrWhiteSpace(HeroSubtitle))
+                    {
+                        <div class="tv-browse-page__hero-subtitle">@HeroSubtitle</div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_heroDetail.Description))
+                    {
+                        <p class="tv-browse-page__hero-description">@_heroDetail.Description</p>
+                    }
+
+                    <div class="tv-browse-page__hero-meta">
+                        @foreach (var chip in HeroMetaChips)
+                        {
+                            <span>@chip</span>
+                        }
+                    </div>
+
+                    @if (_heroJourney is not null)
+                    {
+                        <div class="tv-browse-page__progress">
+                            <div class="tv-browse-page__progress-track">
+                                <div class="tv-browse-page__progress-fill" style="width: @($"{Math.Clamp(_heroJourney.ProgressPct, 0, 100):F0}%")"></div>
+                            </div>
+                            <div class="tv-browse-page__progress-label">
+                                @($"{Math.Clamp(_heroJourney.ProgressPct, 0, 100):F0}% complete")
+                            </div>
+                        </div>
+                    }
+
+                    <div class="tv-browse-page__hero-actions">
+                        <button type="button" class="tv-browse-page__hero-button tv-browse-page__hero-button--primary" @onclick="PlayHeroAsync">
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
+                            <span>@HeroPrimaryActionLabel</span>
+                        </button>
+                        <button type="button" class="tv-browse-page__hero-button tv-browse-page__hero-button--secondary" @onclick="OpenHeroShow">
+                            <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 18px;" />
+                            <span>Open show</span>
+                        </button>
+                        <button type="button"
+                                class="tv-browse-page__hero-button tv-browse-page__hero-button--secondary"
+                                @onclick="ToggleHeroWatchlistAsync"
+                                disabled="@(!_heroDetail.RootWorkId.HasValue || !_activeProfileId.HasValue || _watchlistBusy)">
+                            <MudIcon Icon="@HeroWatchlistIcon" Style="font-size: 18px;" />
+                            <span>@HeroWatchlistLabel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tv-browse-page__hero-art">
+                    @if (!string.IsNullOrWhiteSpace(_heroDetail.CoverUrl))
+                    {
+                        <img src="@_heroDetail.CoverUrl" alt="@_heroDetail.DisplayName" />
+                    }
+                    else
+                    {
+                        <div class="tv-browse-page__hero-art-placeholder">
+                            <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 64px;" />
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+    }
+
+    <div class="tv-browse-page__toolbar-anchor">
+        <div class="tv-browse-page__toolbar">
+            <div class="tv-browse-page__tabs">
+                <button type="button" class="tv-browse-page__tab" @onclick='() => Nav.NavigateTo("/watch/movies")'>Movies</button>
+                <button type="button" class="tv-browse-page__tab is-active" @onclick='() => Nav.NavigateTo("/watch/tv")'>TV</button>
+            </div>
+
+            <div class="tv-browse-page__filters">
+                <label class="tv-browse-page__search">
+                    <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px;" />
+                    <input type="text"
+                           value="@_searchText"
+                           placeholder="Search shows, networks, genres"
+                           @oninput="OnSearchChanged" />
+                </label>
+
+                <label class="tv-browse-page__select">
+                    <span>Sort</span>
+                    <select value="@_sortBy" @onchange="OnSortChanged">
+                        <option value="featured">Featured</option>
+                        <option value="title">A-Z</option>
+                        <option value="newest">Newest</option>
+                    </select>
+                </label>
+
+                <div class="tv-browse-page__layout">
+                    <button type="button"
+                            class="@GetLayoutClass(LibraryLayoutMode.Card)"
+                            @onclick="@(() => SetLayout(LibraryLayoutMode.Card))">
+                        <MudIcon Icon="@Icons.Material.Outlined.GridView" Style="font-size: 18px;" />
+                        <span>Cards</span>
+                    </button>
+                    <button type="button"
+                            class="@GetLayoutClass(LibraryLayoutMode.List)"
+                            @onclick="@(() => SetLayout(LibraryLayoutMode.List))">
+                        <MudIcon Icon="@Icons.Material.Outlined.ViewList" Style="font-size: 18px;" />
+                        <span>List</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="tv-browse-page__state">
+            <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.3);" />
+        </div>
+    }
+    else if (_visibleShows.Count == 0)
+    {
+        <div class="tv-browse-page__state">
+            <MudIcon Icon="@Icons.Material.Outlined.TvOff" Style="font-size: 54px; opacity: 0.22;" />
+            <h3>No TV shows match this view</h3>
+            <p>Try a different search or switch back to movies.</p>
+        </div>
+    }
+    else if (_layout == LibraryLayoutMode.Card)
+    {
+        <div class="tv-browse-page__grid">
+            @foreach (var show in _visibleShows)
+            {
+                <button type="button" class="tv-show-card" @onclick="() => OpenShow(show.CollectionId)">
+                    <div class="tv-show-card__poster">
+                        @if (!string.IsNullOrWhiteSpace(show.CoverUrl))
+                        {
+                            <img src="@show.CoverUrl" alt="@show.DisplayName" />
+                        }
+                        else
+                        {
+                            <div class="tv-show-card__placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 52px;" />
+                            </div>
+                        }
+                    </div>
+                    <div class="tv-show-card__title">@show.DisplayName</div>
+                    <div class="tv-show-card__subtitle">@BuildShowSubtitle(show)</div>
+                    @if (show.SeasonCount is > 0)
+                    {
+                        <div class="tv-show-card__meta">@($"{show.SeasonCount.Value} seasons")</div>
+                    }
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="tv-browse-page__list">
+            @foreach (var show in _visibleShows)
+            {
+                <button type="button" class="tv-list-row" @onclick="() => OpenShow(show.CollectionId)">
+                    <div class="tv-list-row__art">
+                        @if (!string.IsNullOrWhiteSpace(show.CoverUrl))
+                        {
+                            <img src="@show.CoverUrl" alt="@show.DisplayName" />
+                        }
+                        else
+                        {
+                            <div class="tv-list-row__art-placeholder">
+                                <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 26px;" />
+                            </div>
+                        }
+                    </div>
+                    <div class="tv-list-row__titleblock">
+                        <div class="tv-list-row__title">@show.DisplayName</div>
+                        <div class="tv-list-row__subtitle">@BuildShowSubtitle(show)</div>
+                    </div>
+                    <div class="tv-list-row__value">@(show.Year ?? "Library")</div>
+                    <div class="tv-list-row__value">@(show.SeasonCount is > 0 ? $"{show.SeasonCount.Value} seasons" : "Series")</div>
+                    <div class="tv-list-row__chevron">
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 24px;" />
+                    </div>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<ContentGroupViewModel> _allShows = [];
+    private List<ContentGroupViewModel> _visibleShows = [];
+    private CollectionGroupDetailViewModel? _heroDetail;
+    private JourneyItemViewModel? _heroJourney;
+    private WatchlistMembership? _heroWatchlist;
+    private Guid? _activeProfileId;
+    private string _searchText = string.Empty;
+    private string _sortBy = "featured";
+    private LibraryLayoutMode _layout = LibraryLayoutMode.Card;
+    private bool _loading = true;
+    private bool _watchlistBusy;
+
+    private string? HeroBackgroundUrl =>
+        _heroDetail?.BackdropUrl
+        ?? _heroDetail?.BannerUrl
+        ?? _heroDetail?.Works.Select(work => work.HeroUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
+        ?? _heroDetail?.CoverUrl;
+
+    private string HeroEyebrow => _heroJourney is not null ? "Continue watching" : "From your library";
+
+    private string? HeroSubtitle => _heroJourney is not null
+        ? BuildJourneySubtitle(_heroJourney)
+        : BuildHeroSubtitle(_heroDetail);
+
+    private string HeroPrimaryActionLabel => _heroJourney is not null ? "Resume" : "Play first episode";
+
+    private string HeroWatchlistIcon => _heroWatchlist?.IsInWatchlist == true
+        ? Icons.Material.Outlined.BookmarkAdded
+        : Icons.Material.Outlined.BookmarkAdd;
+
+    private string HeroWatchlistLabel => _heroWatchlist?.IsInWatchlist == true
+        ? "In watchlist"
+        : "Watchlist";
+
+    private IReadOnlyList<string> HeroMetaChips =>
+        _heroDetail is null
+            ? []
+            : new[]
+            {
+                _heroDetail.Network,
+                _heroDetail.YearRange,
+                _heroDetail.Genre,
+                _heroDetail.SeasonCount is > 0 ? $"{_heroDetail.SeasonCount.Value} seasons" : null,
+            }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Cast<string>()
+            .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var activeProfileTask = Orchestrator.GetActiveProfileAsync();
+        var groupsTask = ApiClient.GetContentGroupsAsync();
+        var journeyTask = ApiClient.GetJourneyAsync(limit: 30);
+
+        await Task.WhenAll(activeProfileTask, groupsTask, journeyTask);
+
+        _activeProfileId = activeProfileTask.Result?.Id;
+        _allShows = groupsTask.Result
+            .Where(group => string.Equals(group.PrimaryMediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        _heroJourney = journeyTask.Result
+            .Where(item => string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            .Where(item => item.ProgressPct is > 0 and < 99.5)
+            .OrderByDescending(item => item.LastAccessed)
+            .FirstOrDefault();
+
+        ApplyFilters();
+        await LoadHeroAsync();
+
+        _loading = false;
+    }
+
+    private void ApplyFilters()
+    {
+        var filtered = _allShows.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            filtered = filtered.Where(show =>
+                show.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(show.Network) && show.Network.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+                || (!string.IsNullOrWhiteSpace(show.Creator) && show.Creator.Contains(_searchText, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        _visibleShows = _sortBy switch
+        {
+            "title" => filtered.OrderBy(show => show.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+            "newest" => filtered.OrderByDescending(show => ParseYear(show.Year)).ThenBy(show => show.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+            _ => filtered
+                .OrderByDescending(show => !string.IsNullOrWhiteSpace(show.BackdropUrl) || !string.IsNullOrWhiteSpace(show.BannerUrl))
+                .ThenByDescending(show => show.SeasonCount ?? 0)
+                .ThenBy(show => show.DisplayName, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+        };
+    }
+
+    private async Task LoadHeroAsync()
+    {
+        _heroDetail = null;
+        _heroWatchlist = null;
+
+        Guid? heroCollectionId = _heroJourney?.CollectionId;
+        if (!heroCollectionId.HasValue)
+        {
+            var source = _visibleShows.Count > 0 ? _visibleShows : _allShows;
+            if (source.Count == 0)
+                return;
+
+            var preferred = source
+                .Where(show => !string.IsNullOrWhiteSpace(show.BackdropUrl) || !string.IsNullOrWhiteSpace(show.BannerUrl))
+                .ToList();
+            var candidates = preferred.Count > 0 ? preferred : source;
+            heroCollectionId = PickStable(candidates).CollectionId;
+        }
+
+        _heroDetail = await ApiClient.GetCollectionGroupDetailAsync(heroCollectionId.Value);
+        if (_heroDetail?.RootWorkId is Guid rootWorkId && _activeProfileId.HasValue)
+        {
+            _heroWatchlist = await WatchlistService.GetMembershipAsync(rootWorkId, _activeProfileId.Value);
+        }
+    }
+
+    private async Task PlayHeroAsync()
+    {
+        if (_heroJourney is not null)
+        {
+            NavigateToPlayer(
+                _heroJourney.AssetId,
+                _heroJourney.WorkId,
+                _heroJourney.CollectionId ?? _heroDetail?.CollectionId);
+            return;
+        }
+
+        if (_heroDetail is null)
+            return;
+
+        var episode = _heroDetail.Seasons
+            .OrderBy(season => season.SeasonNumber)
+            .SelectMany(season => season.Episodes.OrderBy(ep => ParseOrdinal(ep.Episode)))
+            .FirstOrDefault(ep => ep.IsOwned);
+
+        if (episode is null)
+        {
+            OpenHeroShow();
+            return;
+        }
+
+        var assetId = await Orchestrator.ResolveWorkToAssetAsync(episode.WorkId);
+        if (assetId.HasValue)
+        {
+            NavigateToPlayer(assetId.Value, episode.WorkId, _heroDetail.CollectionId);
+            return;
+        }
+
+        OpenHeroShow();
+    }
+
+    private void OpenHeroShow()
+    {
+        if (_heroDetail is null)
+            return;
+
+        OpenShow(_heroDetail.CollectionId);
+    }
+
+    private async Task ToggleHeroWatchlistAsync()
+    {
+        if (_heroDetail?.RootWorkId is not Guid rootWorkId || !_activeProfileId.HasValue || _watchlistBusy)
+            return;
+
+        _watchlistBusy = true;
+        try
+        {
+            _heroWatchlist = await WatchlistService.ToggleAsync(rootWorkId, _activeProfileId.Value);
+        }
+        finally
+        {
+            _watchlistBusy = false;
+        }
+    }
+
+    private void OpenShow(Guid collectionId)
+    {
+        Nav.NavigateTo($"/watch/tv/show/{collectionId}?returnUrl={Uri.EscapeDataString(CurrentRelativeUrl())}");
+    }
+
+    private void NavigateToPlayer(Guid assetId, Guid workId, Guid? collectionId)
+    {
+        var query = new List<string>
+        {
+            $"workId={workId}",
+            $"returnUrl={Uri.EscapeDataString(CurrentRelativeUrl())}",
+        };
+
+        if (collectionId.HasValue)
+            query.Add($"collectionId={collectionId.Value}");
+
+        Nav.NavigateTo($"/watch/player/{assetId}?{string.Join("&", query)}");
+    }
+
+    private async Task OnSearchChanged(ChangeEventArgs args)
+    {
+        _searchText = args.Value?.ToString() ?? string.Empty;
+        ApplyFilters();
+        await LoadHeroAsync();
+    }
+
+    private async Task OnSortChanged(ChangeEventArgs args)
+    {
+        _sortBy = args.Value?.ToString() ?? "featured";
+        ApplyFilters();
+        await LoadHeroAsync();
+    }
+
+    private void SetLayout(LibraryLayoutMode layout)
+    {
+        _layout = layout;
+    }
+
+    private string GetLayoutClass(LibraryLayoutMode layout) =>
+        $"tv-browse-page__layout-button{(_layout == layout ? " is-active" : string.Empty)}";
+
+    private string BuildShowSubtitle(ContentGroupViewModel show)
+    {
+        var parts = new[]
+        {
+            show.Network,
+            show.Year,
+            show.WorkCount > 0 ? $"{show.WorkCount} episodes" : null,
+        };
+
+        return string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    private static string? BuildHeroSubtitle(CollectionGroupDetailViewModel? detail)
+    {
+        if (detail is null)
+            return null;
+
+        var parts = new[]
+        {
+            detail.Tagline,
+            detail.Network,
+            detail.SeasonCount is > 0 ? $"{detail.SeasonCount.Value} seasons" : null,
+        };
+
+        return string.Join(" · ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
+    }
+
+    private static string BuildJourneySubtitle(JourneyItemViewModel journey)
+    {
+        var season = journey.ExtendedProperties.TryGetValue("season_number", out var seasonNumber)
+            ? $"Season {seasonNumber}"
+            : null;
+        var episode = journey.ExtendedProperties.TryGetValue("episode_number", out var episodeNumber)
+            ? $"Episode {episodeNumber}"
+            : null;
+        var episodeTitle = journey.Title;
+
+        return string.Join(" · ", new[] { season, episode, episodeTitle }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static int ParseYear(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return 0;
+
+        return int.TryParse(value[..Math.Min(value.Length, 4)], out var parsed) ? parsed : 0;
+    }
+
+    private static int ParseOrdinal(string? value) =>
+        int.TryParse(value, out var parsed) ? parsed : int.MaxValue;
+
+    private static ContentGroupViewModel PickStable(IReadOnlyList<ContentGroupViewModel> source)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", source.Select(item => item.CollectionId.ToString("N")))));
+        var index = BitConverter.ToUInt32(hash, 0) % (uint)source.Count;
+        return source[(int)index];
+    }
+
+    private string CurrentRelativeUrl()
+    {
+        var relative = Nav.ToBaseRelativePath(Nav.Uri);
+        return string.IsNullOrWhiteSpace(relative) ? "/watch/tv" : $"/{relative}";
+    }
+}
+
+<style>
+    .tv-browse-page {
+        color: rgba(255, 255, 255, 0.92);
+        padding-bottom: 48px;
+    }
+
+    .tv-browse-page__hero {
+        position: relative;
+        overflow: hidden;
+        min-height: 420px;
+        margin-bottom: 24px;
+        border-radius: 28px;
+        background: linear-gradient(140deg, rgba(12, 16, 24, 0.96), rgba(8, 10, 16, 0.96));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .tv-browse-page__hero-bg,
+    .tv-browse-page__hero-bg img,
+    .tv-browse-page__hero-overlay {
+        position: absolute;
+        inset: 0;
+    }
+
+    .tv-browse-page__hero-bg img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.04);
+    }
+
+    .tv-browse-page__hero-overlay {
+        background:
+            linear-gradient(90deg, rgba(9, 12, 18, 0.94) 0%, rgba(9, 12, 18, 0.82) 32%, rgba(9, 12, 18, 0.46) 68%, rgba(9, 12, 18, 0.88) 100%);
+    }
+
+    .tv-browse-page__hero-content {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: center;
+        min-height: 420px;
+        padding: 34px 38px;
+    }
+
+    .tv-browse-page__hero-copy h1 {
+        margin: 0;
+        font-size: clamp(2.5rem, 5vw, 4.6rem);
+        line-height: 0.92;
+        letter-spacing: -0.05em;
+        color: #fff;
+    }
+
+    .tv-browse-page__hero-eyebrow {
+        margin-bottom: 12px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.62);
+    }
+
+    .tv-browse-page__hero-subtitle,
+    .tv-browse-page__progress-label {
+        font-size: 0.92rem;
+        color: rgba(255, 255, 255, 0.68);
+    }
+
+    .tv-browse-page__hero-description {
+        max-width: 60ch;
+        margin: 18px 0 0;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.82);
+    }
+
+    .tv-browse-page__hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+    }
+
+    .tv-browse-page__hero-meta span {
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.72);
+    }
+
+    .tv-browse-page__progress {
+        max-width: 280px;
+        margin-top: 18px;
+    }
+
+    .tv-browse-page__progress-track {
+        height: 6px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+    }
+
+    .tv-browse-page__progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #f59e0b, #facc15);
+    }
+
+    .tv-browse-page__progress-label {
+        margin-top: 8px;
+    }
+
+    .tv-browse-page__hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+    }
+
+    .tv-browse-page__hero-button,
+    .tv-browse-page__tab,
+    .tv-browse-page__layout-button,
+    .tv-list-row {
+        transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+    }
+
+    .tv-browse-page__hero-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 46px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 0.92rem;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .tv-browse-page__hero-button--primary {
+        background: #f4b000;
+        color: #1a1407;
+        border-color: rgba(244, 176, 0, 0.82);
+    }
+
+    .tv-browse-page__hero-button--secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.94);
+    }
+
+    .tv-browse-page__hero-button:hover,
+    .tv-browse-page__tab:hover,
+    .tv-browse-page__layout-button:hover,
+    .tv-list-row:hover,
+    .tv-show-card:hover {
+        transform: translateY(-1px);
+    }
+
+    .tv-browse-page__hero-art {
+        width: clamp(180px, 18vw, 250px);
+        aspect-ratio: 2 / 3;
+        overflow: hidden;
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 24px 44px rgba(0, 0, 0, 0.34);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tv-browse-page__hero-art img,
+    .tv-show-card__poster img,
+    .tv-list-row__art img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .tv-browse-page__hero-art-placeholder,
+    .tv-show-card__placeholder,
+    .tv-list-row__art-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+        color: rgba(255, 255, 255, 0.38);
+    }
+
+    .tv-browse-page__toolbar-anchor {
+        position: sticky;
+        top: 0;
+        z-index: 12;
+        margin-bottom: 24px;
+    }
+
+    .tv-browse-page__toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 18px 20px;
+        border-radius: 24px;
+        background: rgba(8, 11, 18, 0.82);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        box-shadow: 0 18px 34px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(16px);
+    }
+
+    .tv-browse-page__tabs,
+    .tv-browse-page__filters,
+    .tv-browse-page__layout {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .tv-browse-page__tab,
+    .tv-browse-page__layout-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.68);
+        font-size: 0.86rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+
+    .tv-browse-page__tab.is-active,
+    .tv-browse-page__layout-button.is-active {
+        background: #f4b000;
+        color: #17120a;
+        border-color: rgba(244, 176, 0, 0.76);
+    }
+
+    .tv-browse-page__search,
+    .tv-browse-page__select {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 44px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .tv-browse-page__search {
+        min-width: min(100%, 320px);
+    }
+
+    .tv-browse-page__search input,
+    .tv-browse-page__select select {
+        border: 0;
+        outline: none;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 0.9rem;
+    }
+
+    .tv-browse-page__search input {
+        flex: 1;
+    }
+
+    .tv-browse-page__select span {
+        font-size: 0.76rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        color: rgba(255, 255, 255, 0.54);
+    }
+
+    .tv-browse-page__grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(196px, 1fr));
+        gap: 24px 20px;
+    }
+
+    .tv-show-card {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .tv-show-card__poster {
+        overflow: hidden;
+        border-radius: 20px;
+        aspect-ratio: 2 / 3;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 18px 28px rgba(0, 0, 0, 0.18);
+    }
+
+    .tv-show-card__title {
+        font-size: 1.02rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .tv-show-card__subtitle,
+    .tv-show-card__meta,
+    .tv-list-row__subtitle,
+    .tv-list-row__value,
+    .tv-browse-page__state p {
+        color: rgba(255, 255, 255, 0.58);
+    }
+
+    .tv-show-card__subtitle,
+    .tv-show-card__meta,
+    .tv-list-row__subtitle,
+    .tv-list-row__value {
+        font-size: 0.84rem;
+    }
+
+    .tv-browse-page__list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .tv-list-row {
+        display: grid;
+        grid-template-columns: 76px minmax(0, 1.6fr) 110px 120px 28px;
+        gap: 16px;
+        align-items: center;
+        width: 100%;
+        padding: 14px 16px;
+        border-radius: 22px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.03);
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .tv-list-row__art {
+        overflow: hidden;
+        width: 76px;
+        aspect-ratio: 2 / 3;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tv-list-row__title {
+        font-size: 1rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .tv-list-row__chevron {
+        display: flex;
+        justify-content: flex-end;
+        color: rgba(255, 255, 255, 0.42);
+    }
+
+    .tv-browse-page__state {
+        display: flex;
+        min-height: 320px;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+    }
+
+    .tv-browse-page__state h3 {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.84);
+    }
+
+    @@media (max-width: 980px) {
+        .tv-browse-page__hero-content {
+            grid-template-columns: 1fr;
+            padding: 28px 24px;
+        }
+
+        .tv-browse-page__hero-art {
+            width: clamp(180px, 42vw, 240px);
+        }
+
+        .tv-list-row {
+            grid-template-columns: 64px minmax(0, 1fr) auto;
+        }
+
+        .tv-list-row__value:nth-of-type(1),
+        .tv-list-row__value:nth-of-type(2) {
+            display: none;
+        }
+    }
+</style>

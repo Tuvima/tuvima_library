@@ -1,0 +1,860 @@
+@page "/watch/tv/show/{CollectionId:guid}"
+@using Microsoft.AspNetCore.Components
+@using MediaEngine.Web.Components.Watch
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Playback
+
+@namespace MediaEngine.Web.Components.Pages
+
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject WatchlistService WatchlistService
+@inject NavigationManager Nav
+
+<PageTitle>@((_detail?.DisplayName ?? "TV Show")) - Tuvima</PageTitle>
+
+@if (_loading)
+{
+    <div class="watch-tv-state">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.28);" />
+    </div>
+}
+else if (_detail is null)
+{
+    <div class="watch-tv-state">
+        <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 56px; opacity: 0.22;" />
+        <h3>TV show not found</h3>
+        <p>This show could not be loaded from your library.</p>
+        <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="GoBack">Back to Watch</button>
+    </div>
+}
+else
+{
+    <div class="watch-tv-page">
+        <section class="watch-tv-hero">
+            @if (!string.IsNullOrWhiteSpace(HeroBackgroundUrl))
+            {
+                <div class="watch-tv-hero__bg">
+                    <img src="@HeroBackgroundUrl" alt="" />
+                </div>
+            }
+
+            <div class="watch-tv-hero__overlay"></div>
+
+            <div class="watch-tv-hero__topbar">
+                <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="GoBack">
+                    <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
+                    <span>Back</span>
+                </button>
+
+                <div class="watch-tv-hero__quick-actions">
+                    <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="OpenTrailer">
+                        <MudIcon Icon="@Icons.Material.Outlined.OndemandVideo" Style="font-size: 18px;" />
+                        <span>Trailer</span>
+                    </button>
+                    <button type="button"
+                            class="watch-tv-button watch-tv-button--secondary"
+                            @onclick="ToggleWatchlistAsync"
+                            disabled="@(!_detail.RootWorkId.HasValue || !_activeProfileId.HasValue || _watchlistBusy)">
+                        <MudIcon Icon="@WatchlistIcon" Style="font-size: 18px;" />
+                        <span>@WatchlistLabel</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="watch-tv-hero__content">
+                <div class="watch-tv-hero__copy">
+                    @if (!string.IsNullOrWhiteSpace(_detail.Tagline))
+                    {
+                        <div class="watch-tv-hero__eyebrow">@_detail.Tagline</div>
+                    }
+                    else
+                    {
+                        <div class="watch-tv-hero__eyebrow">TV Series</div>
+                    }
+
+                    <h1>@_detail.DisplayName</h1>
+
+                    @if (!string.IsNullOrWhiteSpace(_detail.Description))
+                    {
+                        <p class="watch-tv-hero__description">@_detail.Description</p>
+                    }
+
+                    <div class="watch-tv-hero__stats">
+                        @foreach (var stat in HeroStats)
+                        {
+                            <div class="watch-tv-hero__stat">
+                                <div class="watch-tv-hero__stat-label">@stat.Label</div>
+                                <div class="watch-tv-hero__stat-value">@stat.Value</div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="watch-tv-hero__actions">
+                        <button type="button" class="watch-tv-button watch-tv-button--primary" @onclick="PlayShowAsync">
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
+                            <span>@PrimaryActionLabel</span>
+                        </button>
+                        @if (HeroEpisode is not null)
+                        {
+                            <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="@(() => OpenEpisode(HeroEpisode))">
+                                <MudIcon Icon="@Icons.Material.Outlined.PlayCircleOutline" Style="font-size: 18px;" />
+                                <span>Episode details</span>
+                            </button>
+                        }
+                    </div>
+
+                    @if (_resumeJourney is not null)
+                    {
+                        <div class="watch-tv-hero__supporting">
+                            @BuildJourneyLine(_resumeJourney)
+                        </div>
+                    }
+
+                    <WatchPlaybackSpecs Summary="HeroEpisode?.PlaybackSummary" />
+                </div>
+
+                <div class="watch-tv-hero__poster">
+                    @if (!string.IsNullOrWhiteSpace(_detail.CoverUrl))
+                    {
+                        <img src="@_detail.CoverUrl" alt="@_detail.DisplayName" />
+                    }
+                    else
+                    {
+                        <div class="watch-tv-hero__poster-placeholder">
+                            <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 64px;" />
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @if (_detail.Seasons.Count > 0)
+        {
+            <section class="watch-tv-section">
+                <div class="watch-tv-section__header">
+                    <h2>Episodes</h2>
+                    <div class="watch-tv-section__pills">
+                        @foreach (var season in _detail.Seasons.OrderBy(season => season.SeasonNumber))
+                        {
+                            <button type="button"
+                                    class="watch-tv-pill @(season.SeasonNumber == _activeSeasonNumber ? "is-active" : "")"
+                                    @onclick="@(() => SelectSeason(season.SeasonNumber))">
+                                @SeasonLabel(season)
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                @if (ActiveSeason is not null)
+                {
+                    <div class="watch-tv-episodes">
+                        @foreach (var episode in ActiveSeason.Episodes.OrderBy(episode => ParseOrdinal(episode.Episode)))
+                        {
+                            <button type="button"
+                                    class="watch-tv-episode-card @(HeroEpisode?.WorkId == episode.WorkId ? "is-highlighted" : "")"
+                                    @onclick="@(() => OpenEpisode(episode))">
+                                <div class="watch-tv-episode-card__art">
+                                    @if (!string.IsNullOrWhiteSpace(GetEpisodeImage(episode)))
+                                    {
+                                        <img src="@GetEpisodeImage(episode)" alt="@episode.Title" />
+                                    }
+                                    else
+                                    {
+                                        <div class="watch-tv-episode-card__art-placeholder">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Movie" Style="font-size: 36px;" />
+                                        </div>
+                                    }
+                                </div>
+                                <div class="watch-tv-episode-card__body">
+                                    <div class="watch-tv-episode-card__eyebrow">
+                                        @($"Episode {episode.Episode ?? episode.Ordinal?.ToString() ?? "?"}")
+                                    </div>
+                                    <div class="watch-tv-episode-card__title">@episode.Title</div>
+                                    @if (!string.IsNullOrWhiteSpace(episode.Description))
+                                    {
+                                        <div class="watch-tv-episode-card__description">@episode.Description</div>
+                                    }
+                                </div>
+                            </button>
+                        }
+                    </div>
+                }
+            </section>
+        }
+
+        @if (_detail.TopCast.Count > 0)
+        {
+            <section class="watch-tv-section">
+                <div class="watch-tv-section__header">
+                    <h2>Cast</h2>
+                </div>
+
+                <div class="watch-tv-rail watch-tv-rail--cast">
+                    @foreach (var cast in _detail.TopCast)
+                    {
+                        <button type="button"
+                                class="watch-tv-cast-card"
+                                @onclick="@(() => OpenPerson(cast.ActorPersonId ?? cast.PersonId))"
+                                disabled="@(!(cast.ActorPersonId ?? cast.PersonId).HasValue)">
+                            <div class="watch-tv-cast-card__image">
+                                @if (!string.IsNullOrWhiteSpace(GetCastImage(cast)))
+                                {
+                                    <img src="@GetCastImage(cast)" alt="@GetCastName(cast)" />
+                                }
+                                else
+                                {
+                                    <div class="watch-tv-cast-card__placeholder">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 34px;" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="watch-tv-cast-card__name">@GetCastName(cast)</div>
+                            <div class="watch-tv-cast-card__role">@GetCastRole(cast)</div>
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (RelatedWatchItems.Count > 0)
+        {
+            <section class="watch-tv-section">
+                <div class="watch-tv-section__header">
+                    <h2>Related shows</h2>
+                </div>
+
+                <div class="watch-tv-rail">
+                    @foreach (var collection in RelatedWatchItems)
+                    {
+                        <button type="button" class="watch-tv-related-card" @onclick="@(() => OpenRelated(collection))">
+                            <div class="watch-tv-related-card__poster">
+                                @if (!string.IsNullOrWhiteSpace(collection.CoverUrl))
+                                {
+                                    <img src="@collection.CoverUrl" alt="@collection.DisplayName" />
+                                }
+                                else
+                                {
+                                    <div class="watch-tv-related-card__placeholder">
+                                        <MudIcon Icon="@Icons.Material.Outlined.LiveTv" Style="font-size: 36px;" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="watch-tv-related-card__title">@collection.DisplayName</div>
+                            <div class="watch-tv-related-card__meta">@collection.Year</div>
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid CollectionId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "season")] public int? Season { get; set; }
+
+    private CollectionGroupDetailViewModel? _detail;
+    private RelatedCollectionsViewModel? _related;
+    private JourneyItemViewModel? _resumeJourney;
+    private Guid? _activeProfileId;
+    private WatchlistMembership? _watchlist;
+    private int _activeSeasonNumber;
+    private bool _loading = true;
+    private bool _watchlistBusy;
+
+    private string? HeroBackgroundUrl =>
+        HeroEpisode?.BackdropUrl
+        ?? HeroEpisode?.BannerUrl
+        ?? HeroEpisode?.HeroUrl
+        ?? _detail?.BackdropUrl
+        ?? _detail?.BannerUrl
+        ?? _detail?.CoverUrl;
+
+    private CollectionGroupSeasonViewModel? ActiveSeason =>
+        _detail?.Seasons.FirstOrDefault(season => season.SeasonNumber == _activeSeasonNumber)
+        ?? _detail?.Seasons.OrderByDescending(season => season.SeasonNumber).FirstOrDefault();
+
+    private CollectionGroupWorkViewModel? HeroEpisode =>
+        _resumeJourney is not null ? FindEpisode(_resumeJourney.WorkId) : null
+        ?? ActiveSeason?.Episodes.OrderBy(episode => ParseOrdinal(episode.Episode)).FirstOrDefault(episode => episode.IsOwned)
+        ?? _detail?.Seasons.SelectMany(season => season.Episodes).OrderBy(episode => ParseOrdinal(episode.Episode)).FirstOrDefault(episode => episode.IsOwned);
+
+    private string PrimaryActionLabel => _resumeJourney is not null ? "Resume" : "Play";
+
+    private string WatchlistIcon => _watchlist?.IsInWatchlist == true
+        ? Icons.Material.Outlined.BookmarkAdded
+        : Icons.Material.Outlined.BookmarkAdd;
+
+    private string WatchlistLabel => _watchlist?.IsInWatchlist == true
+        ? "In watchlist"
+        : "Watchlist";
+
+    private IReadOnlyList<(string Label, string Value)> HeroStats =>
+        _detail is null
+            ? []
+            : new[]
+            {
+                ("Genre", _detail.Genre),
+                ("Directed by", _detail.Director),
+                ("Written by", _detail.Writer),
+                ("Release date", _detail.ReleaseDate ?? _detail.YearRange),
+            }
+            .Where(item => !string.IsNullOrWhiteSpace(item.Item2))
+            .Select(item => (item.Item1, item.Item2!))
+            .ToList();
+
+    private IReadOnlyList<CollectionViewModel> RelatedWatchItems =>
+        _related?.Collections
+            .Where(collection =>
+                string.Equals(collection.PrimaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(collection.PrimaryMediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(collection.PrimaryMediaType))
+            .ToList()
+        ?? [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var detailTask = ApiClient.GetCollectionGroupDetailAsync(CollectionId);
+        var relatedTask = ApiClient.GetRelatedCollectionsAsync(CollectionId, limit: 18);
+        var journeyTask = ApiClient.GetJourneyAsync(limit: 50, collectionId: CollectionId);
+        var profileTask = Orchestrator.GetActiveProfileAsync();
+
+        await Task.WhenAll(detailTask, relatedTask, journeyTask, profileTask);
+
+        _detail = detailTask.Result;
+        _related = relatedTask.Result;
+        _resumeJourney = journeyTask.Result
+            .Where(item => string.Equals(item.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            .Where(item => item.ProgressPct is > 0 and < 99.5)
+            .OrderByDescending(item => item.LastAccessed)
+            .FirstOrDefault();
+
+        _activeProfileId = profileTask.Result?.Id;
+
+        _activeSeasonNumber = ResolveInitialSeason();
+
+        if (_detail?.RootWorkId is Guid rootWorkId && _activeProfileId.HasValue)
+        {
+            _watchlist = await WatchlistService.GetMembershipAsync(rootWorkId, _activeProfileId.Value);
+        }
+
+        _loading = false;
+    }
+
+    private int ResolveInitialSeason()
+    {
+        if (_detail?.Seasons.Count > 0)
+        {
+            if (Season.HasValue && _detail.Seasons.Any(season => season.SeasonNumber == Season.Value))
+                return Season.Value;
+
+            var resumeSeason = _resumeJourney is not null ? FindEpisode(_resumeJourney.WorkId)?.Season : null;
+            if (int.TryParse(resumeSeason, out var parsedSeason))
+                return parsedSeason;
+
+            return _detail.Seasons.Max(season => season.SeasonNumber);
+        }
+
+        return 1;
+    }
+
+    private void SelectSeason(int seasonNumber)
+    {
+        _activeSeasonNumber = seasonNumber;
+    }
+
+    private async Task PlayShowAsync()
+    {
+        var target = await ResolveNextEpisodeAsync();
+        if (target is null)
+            return;
+
+        NavigateToPlayer(target.Value.AssetId, target.Value.Episode.WorkId);
+    }
+
+    private async Task<(Guid AssetId, CollectionGroupWorkViewModel Episode)?> ResolveNextEpisodeAsync()
+    {
+        if (_resumeJourney is not null)
+        {
+            var resumedEpisode = FindEpisode(_resumeJourney.WorkId);
+            if (resumedEpisode is not null)
+                return (_resumeJourney.AssetId, resumedEpisode);
+        }
+
+        if (_detail is null)
+            return null;
+
+        (Guid AssetId, CollectionGroupWorkViewModel Episode)? firstOwned = null;
+
+        foreach (var episode in _detail.Seasons
+                     .OrderBy(season => season.SeasonNumber)
+                     .SelectMany(season => season.Episodes.OrderBy(work => ParseOrdinal(work.Episode)))
+                     .Where(episode => episode.IsOwned))
+        {
+            var assetId = await Orchestrator.ResolveWorkToAssetAsync(episode.WorkId);
+            if (!assetId.HasValue)
+                continue;
+
+            firstOwned ??= (assetId.Value, episode);
+
+            var progress = await Orchestrator.GetProgressAsync(assetId.Value);
+            if (progress is null || progress.ProgressPct <= 0.1)
+                return (assetId.Value, episode);
+
+            if (progress.ProgressPct is > 0 and < 99.5)
+                return (assetId.Value, episode);
+        }
+
+        return firstOwned;
+    }
+
+    private async Task ToggleWatchlistAsync()
+    {
+        if (_detail?.RootWorkId is not Guid rootWorkId || !_activeProfileId.HasValue || _watchlistBusy)
+            return;
+
+        _watchlistBusy = true;
+        try
+        {
+            _watchlist = await WatchlistService.ToggleAsync(rootWorkId, _activeProfileId.Value);
+        }
+        finally
+        {
+            _watchlistBusy = false;
+        }
+    }
+
+    private void OpenEpisode(CollectionGroupWorkViewModel episode)
+    {
+        Nav.NavigateTo(BuildEpisodeUrl(episode.WorkId));
+    }
+
+    private string BuildEpisodeUrl(Guid workId) =>
+        $"/watch/tv/show/{CollectionId}/episode/{workId}?returnUrl={Uri.EscapeDataString(CurrentShowUrl())}";
+
+    private void NavigateToPlayer(Guid assetId, Guid workId)
+    {
+        Nav.NavigateTo($"/watch/player/{assetId}?workId={workId}&collectionId={CollectionId}&returnUrl={Uri.EscapeDataString(CurrentShowUrl())}");
+    }
+
+    private void OpenTrailer()
+    {
+        if (_detail is null)
+            return;
+
+        var query = Uri.EscapeDataString($"{_detail.DisplayName} official trailer");
+        Nav.NavigateTo($"https://www.youtube.com/results?search_query={query}", forceLoad: true);
+    }
+
+    private void OpenPerson(Guid? personId)
+    {
+        if (personId.HasValue)
+            Nav.NavigateTo($"/person/{personId.Value}");
+    }
+
+    private void OpenRelated(CollectionViewModel collection)
+    {
+        if (string.Equals(collection.PrimaryMediaType, "TV", StringComparison.OrdinalIgnoreCase))
+        {
+            Nav.NavigateTo($"/watch/tv/show/{collection.Id}?returnUrl={Uri.EscapeDataString(CurrentShowUrl())}");
+            return;
+        }
+
+        Nav.NavigateTo($"/collection/{collection.Id}");
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/watch/tv" : ReturnUrl!);
+    }
+
+    private string CurrentShowUrl()
+    {
+        var path = $"/watch/tv/show/{CollectionId}";
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(ReturnUrl))
+            query.Add($"returnUrl={Uri.EscapeDataString(ReturnUrl!)}");
+        if (_activeSeasonNumber > 0)
+            query.Add($"season={_activeSeasonNumber}");
+        return query.Count == 0 ? path : $"{path}?{string.Join("&", query)}";
+    }
+
+    private CollectionGroupWorkViewModel? FindEpisode(Guid workId) =>
+        _detail?.Seasons.SelectMany(season => season.Episodes).FirstOrDefault(episode => episode.WorkId == workId);
+
+    private static string SeasonLabel(CollectionGroupSeasonViewModel season) =>
+        !string.IsNullOrWhiteSpace(season.SeasonLabel)
+            ? season.SeasonLabel!
+            : $"Season {season.SeasonNumber}";
+
+    private static int ParseOrdinal(string? value) =>
+        int.TryParse(value, out var parsed) ? parsed : int.MaxValue;
+
+    private static string? GetEpisodeImage(CollectionGroupWorkViewModel episode) =>
+        episode.BackdropUrl ?? episode.BannerUrl ?? episode.HeroUrl ?? episode.CoverUrl;
+
+    private static string? GetCastImage(CollectionGroupPersonViewModel cast) =>
+        cast.CharacterImageUrl ?? cast.ActorHeadshotUrl ?? cast.HeadshotUrl;
+
+    private static string GetCastName(CollectionGroupPersonViewModel cast) =>
+        cast.ActorName ?? cast.Name;
+
+    private static string GetCastRole(CollectionGroupPersonViewModel cast) =>
+        cast.CharacterName ?? "Cast";
+
+    private static string BuildJourneyLine(JourneyItemViewModel journey)
+    {
+        var parts = new List<string> { "Continue watching" };
+
+        if (journey.ExtendedProperties.TryGetValue("season_number", out var seasonNumber))
+            parts.Add($"Season {seasonNumber}");
+        if (journey.ExtendedProperties.TryGetValue("episode_number", out var episodeNumber))
+            parts.Add($"Episode {episodeNumber}");
+        parts.Add($"{Math.Clamp(journey.ProgressPct, 0, 100):F0}% complete");
+
+        return string.Join(" · ", parts);
+    }
+}
+
+<style>
+    .watch-tv-page {
+        color: rgba(255, 255, 255, 0.92);
+        padding-bottom: 48px;
+    }
+
+    .watch-tv-state {
+        min-height: 360px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.84);
+    }
+
+    .watch-tv-state p {
+        color: rgba(255, 255, 255, 0.56);
+        margin: 0;
+    }
+
+    .watch-tv-hero {
+        position: relative;
+        overflow: hidden;
+        min-height: 560px;
+        margin-bottom: 26px;
+        border-radius: 30px;
+        background: linear-gradient(140deg, rgba(9, 12, 18, 0.96), rgba(8, 10, 16, 0.96));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 28px 56px rgba(0, 0, 0, 0.28);
+    }
+
+    .watch-tv-hero__bg,
+    .watch-tv-hero__bg img,
+    .watch-tv-hero__overlay {
+        position: absolute;
+        inset: 0;
+    }
+
+    .watch-tv-hero__bg img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.04);
+    }
+
+    .watch-tv-hero__overlay {
+        background:
+            linear-gradient(90deg, rgba(8, 11, 16, 0.96) 0%, rgba(8, 11, 16, 0.86) 34%, rgba(8, 11, 16, 0.36) 70%, rgba(8, 11, 16, 0.88) 100%);
+    }
+
+    .watch-tv-hero__topbar,
+    .watch-tv-hero__content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .watch-tv-hero__topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 28px 30px 0;
+    }
+
+    .watch-tv-hero__quick-actions,
+    .watch-tv-hero__actions,
+    .watch-tv-section__pills,
+    .watch-tv-hero__stats,
+    .watch-tv-rail {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .watch-tv-hero__content {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        min-height: 500px;
+        padding: 30px;
+    }
+
+    .watch-tv-hero__eyebrow {
+        margin-bottom: 10px;
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.72);
+    }
+
+    .watch-tv-hero h1 {
+        margin: 0;
+        font-size: clamp(2.8rem, 5vw, 5rem);
+        line-height: 0.92;
+        letter-spacing: -0.05em;
+        color: #fff;
+    }
+
+    .watch-tv-hero__description {
+        max-width: 56ch;
+        margin: 18px 0 0;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.84);
+    }
+
+    .watch-tv-hero__stats {
+        margin-top: 24px;
+    }
+
+    .watch-tv-hero__stat {
+        min-width: 128px;
+        padding-right: 18px;
+    }
+
+    .watch-tv-hero__stat-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.56);
+    }
+
+    .watch-tv-hero__stat-value,
+    .watch-tv-hero__supporting {
+        margin-top: 4px;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .watch-tv-hero__supporting {
+        font-size: 0.92rem;
+        color: rgba(255, 255, 255, 0.68);
+    }
+
+    .watch-tv-hero__poster {
+        width: clamp(200px, 18vw, 270px);
+        aspect-ratio: 2 / 3;
+        overflow: hidden;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 24px 44px rgba(0, 0, 0, 0.34);
+    }
+
+    .watch-tv-hero__poster img,
+    .watch-tv-episode-card__art img,
+    .watch-tv-cast-card__image img,
+    .watch-tv-related-card__poster img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .watch-tv-hero__poster-placeholder,
+    .watch-tv-episode-card__art-placeholder,
+    .watch-tv-cast-card__placeholder,
+    .watch-tv-related-card__placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.36);
+    }
+
+    .watch-tv-button,
+    .watch-tv-pill,
+    .watch-tv-episode-card,
+    .watch-tv-cast-card,
+    .watch-tv-related-card {
+        transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+    }
+
+    .watch-tv-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        cursor: pointer;
+        font-weight: 800;
+    }
+
+    .watch-tv-button--primary {
+        background: #f4b000;
+        color: #181208;
+        border-color: rgba(244, 176, 0, 0.8);
+    }
+
+    .watch-tv-button--secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.94);
+    }
+
+    .watch-tv-section {
+        margin-top: 32px;
+    }
+
+    .watch-tv-section__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    .watch-tv-section__header h2 {
+        margin: 0;
+        font-size: 1.85rem;
+        color: #fff;
+    }
+
+    .watch-tv-pill {
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        font-weight: 700;
+    }
+
+    .watch-tv-pill.is-active {
+        background: #f4b000;
+        color: #17120a;
+        border-color: rgba(244, 176, 0, 0.76);
+    }
+
+    .watch-tv-episodes,
+    .watch-tv-rail {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(240px, 1fr);
+        gap: 18px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+    }
+
+    .watch-tv-rail--cast {
+        grid-auto-columns: minmax(152px, 1fr);
+    }
+
+    .watch-tv-episode-card,
+    .watch-tv-cast-card,
+    .watch-tv-related-card {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .watch-tv-episode-card__art,
+    .watch-tv-related-card__poster {
+        overflow: hidden;
+        border-radius: 20px;
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .watch-tv-episode-card.is-highlighted .watch-tv-episode-card__art {
+        outline: 2px solid rgba(244, 176, 0, 0.82);
+    }
+
+    .watch-tv-episode-card__body {
+        margin-top: 12px;
+    }
+
+    .watch-tv-episode-card__eyebrow,
+    .watch-tv-cast-card__role,
+    .watch-tv-related-card__meta {
+        font-size: 0.82rem;
+        color: rgba(255, 255, 255, 0.56);
+    }
+
+    .watch-tv-episode-card__title,
+    .watch-tv-cast-card__name,
+    .watch-tv-related-card__title {
+        margin-top: 6px;
+        font-size: 1rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .watch-tv-episode-card__description {
+        margin-top: 8px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.64);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .watch-tv-cast-card__image {
+        overflow: hidden;
+        aspect-ratio: 4 / 5;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .watch-tv-related-card__poster {
+        aspect-ratio: 2 / 3;
+    }
+
+    .watch-tv-button:hover,
+    .watch-tv-pill:hover,
+    .watch-tv-episode-card:hover,
+    .watch-tv-cast-card:hover,
+    .watch-tv-related-card:hover {
+        transform: translateY(-1px);
+    }
+
+    @@media (max-width: 980px) {
+        .watch-tv-hero__content {
+            grid-template-columns: 1fr;
+            align-items: start;
+        }
+
+        .watch-tv-hero__poster {
+            width: clamp(180px, 42vw, 240px);
+        }
+    }
+</style>

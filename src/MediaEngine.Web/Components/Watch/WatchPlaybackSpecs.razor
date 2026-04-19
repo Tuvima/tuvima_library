@@ -1,0 +1,90 @@
+@namespace MediaEngine.Web.Components.Watch
+@using MediaEngine.Web.Models.ViewDTOs
+
+@if (VisibleSpecs.Count > 0)
+{
+    <div class="watch-specs">
+        @foreach (var spec in VisibleSpecs)
+        {
+            <div class="watch-specs__chip">
+                <div class="watch-specs__label">@spec.Label</div>
+                <div class="watch-specs__value">@spec.Value</div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public PlaybackTechnicalSummaryViewModel? Summary { get; set; }
+
+    private List<(string Label, string Value)> VisibleSpecs
+    {
+        get
+        {
+            var specs = new List<(string Label, string Value)>();
+            var video = PlaybackTechnicalSummaryDisplay.VideoChip(Summary);
+            var audio = PlaybackTechnicalSummaryDisplay.AudioChip(Summary);
+            var subtitles = PlaybackTechnicalSummaryDisplay.SubtitleChip(Summary);
+
+            if (!string.IsNullOrWhiteSpace(video))
+                specs.Add(("Video", video));
+            if (!string.IsNullOrWhiteSpace(audio))
+                specs.Add(("Audio", audio));
+            if (!string.IsNullOrWhiteSpace(subtitles))
+                specs.Add(("Subtitles", subtitles));
+
+            return specs;
+        }
+    }
+}
+
+<style>
+    .watch-specs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0;
+        border-radius: 14px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(18, 22, 32, 0.72);
+        backdrop-filter: blur(10px);
+    }
+
+    .watch-specs__chip {
+        min-width: 132px;
+        padding: 10px 16px 11px;
+        border-right: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .watch-specs__chip:last-child {
+        border-right: 0;
+    }
+
+    .watch-specs__label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .watch-specs__value {
+        margin-top: 2px;
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.62);
+    }
+
+    @@media (max-width: 720px) {
+        .watch-specs {
+            width: 100%;
+        }
+
+        .watch-specs__chip {
+            flex: 1 1 120px;
+            min-width: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .watch-specs__chip:last-child {
+            border-bottom: 0;
+        }
+    }
+</style>

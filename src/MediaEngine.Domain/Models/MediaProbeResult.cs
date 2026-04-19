@@ -27,6 +27,7 @@ public sealed record MediaProbeResult
     // ── Audio stream ─────────────────────────────────────────────────────────
 
     public string? AudioCodec   { get; init; }
+    public string? AudioLanguage { get; init; }
     public int?    AudioBitrate { get; init; }   // kbps
     public int?    SampleRate   { get; init; }   // Hz
     public int?    Channels     { get; init; }

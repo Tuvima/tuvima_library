@@ -217,6 +217,7 @@ public sealed class FFmpegService : IFFmpegService
 
             // ── Streams ───────────────────────────────────────────────────────
             string? audioCodec = null;
+            string? audioLanguage = null;
             int?    bitrate    = null;
             int?    sampleRate = null;
             int?    channels   = null;
@@ -225,6 +226,7 @@ public sealed class FFmpegService : IFFmpegService
             int?    height     = null;
             double? frameRate  = null;
             bool    hasCover   = false;
+            var subtitleLanguages = new List<string>();
 
             if (root.TryGetProperty("streams", out var streams))
             {
@@ -236,6 +238,10 @@ public sealed class FFmpegService : IFFmpegService
                     if (codecType == "audio" && audioCodec is null)
                     {
                         audioCodec = codecName;
+                        if (stream.TryGetProperty("tags", out var audioTags))
+                        {
+                            audioLanguage = TryReadLanguage(audioTags);
+                        }
                         if (stream.TryGetProperty("bit_rate", out var br) &&
                             int.TryParse(br.GetString(), out var brv))
                             bitrate = brv / 1000;
@@ -271,6 +277,20 @@ public sealed class FFmpegService : IFFmpegService
                             }
                         }
                     }
+                    else if (codecType == "subtitle")
+                    {
+                        string? subtitleLanguage = null;
+                        if (stream.TryGetProperty("tags", out var subtitleTags))
+                        {
+                            subtitleLanguage = TryReadLanguage(subtitleTags);
+                        }
+
+                        subtitleLanguage ??= codecName;
+                        if (!string.IsNullOrWhiteSpace(subtitleLanguage))
+                        {
+                            subtitleLanguages.Add(subtitleLanguage);
+                        }
+                    }
                 }
             }
 
@@ -293,6 +313,7 @@ public sealed class FFmpegService : IFFmpegService
                 Narrator       = Tag("narrator") ?? Tag("composer"),
                 Publisher      = Tag("publisher"),
                 Description    = Tag("description") ?? Tag("comment"),
+                AudioLanguage  = audioLanguage,
                 AudioCodec     = audioCodec,
                 AudioBitrate   = bitrate,
                 SampleRate     = sampleRate,
@@ -303,11 +324,29 @@ public sealed class FFmpegService : IFFmpegService
                 FrameRate      = frameRate,
                 HasEmbeddedCover = hasCover,
                 ChapterCount   = chapterCount,
+                SubtitleLanguages = subtitleLanguages
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList(),
             };
         }
         catch
         {
             return null;
         }
+    }
+
+    private static string? TryReadLanguage(JsonElement tags)
+    {
+        foreach (var key in new[] { "language", "LANGUAGE", "Language" })
+        {
+            if (tags.TryGetProperty(key, out var value))
+            {
+                var raw = value.GetString();
+                if (!string.IsNullOrWhiteSpace(raw))
+                    return raw;
+            }
+        }
+
+        return null;
     }
 }

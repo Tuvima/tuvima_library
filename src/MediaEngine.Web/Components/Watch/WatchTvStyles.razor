@@ -1,0 +1,333 @@
+@namespace MediaEngine.Web.Components.Watch
+
+<style>
+    .watch-tv-page {
+        color: rgba(255, 255, 255, 0.92);
+        padding-bottom: 48px;
+    }
+
+    .watch-tv-state {
+        min-height: 360px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: rgba(255, 255, 255, 0.84);
+    }
+
+    .watch-tv-state p {
+        color: rgba(255, 255, 255, 0.56);
+        margin: 0;
+    }
+
+    .watch-tv-hero {
+        position: relative;
+        overflow: hidden;
+        min-height: 560px;
+        margin-bottom: 26px;
+        border-radius: 30px;
+        background: linear-gradient(140deg, rgba(9, 12, 18, 0.96), rgba(8, 10, 16, 0.96));
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 28px 56px rgba(0, 0, 0, 0.28);
+    }
+
+    .watch-tv-hero__bg,
+    .watch-tv-hero__bg img,
+    .watch-tv-hero__overlay {
+        position: absolute;
+        inset: 0;
+    }
+
+    .watch-tv-hero__bg img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.04);
+    }
+
+    .watch-tv-hero__overlay {
+        background:
+            linear-gradient(90deg, rgba(8, 11, 16, 0.96) 0%, rgba(8, 11, 16, 0.86) 34%, rgba(8, 11, 16, 0.36) 70%, rgba(8, 11, 16, 0.88) 100%);
+    }
+
+    .watch-tv-hero__topbar,
+    .watch-tv-hero__content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .watch-tv-hero__topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 28px 30px 0;
+    }
+
+    .watch-tv-hero__quick-actions,
+    .watch-tv-hero__actions,
+    .watch-tv-section__pills,
+    .watch-tv-hero__stats,
+    .watch-tv-rail {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+
+    .watch-tv-hero__content {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: end;
+        min-height: 500px;
+        padding: 30px;
+    }
+
+    .watch-tv-hero__eyebrow {
+        margin-bottom: 10px;
+        font-size: 0.82rem;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.72);
+    }
+
+    .watch-tv-hero h1 {
+        margin: 0;
+        font-size: clamp(2.8rem, 5vw, 5rem);
+        line-height: 0.92;
+        letter-spacing: -0.05em;
+        color: #fff;
+    }
+
+    .watch-tv-hero__description {
+        max-width: 56ch;
+        margin: 18px 0 0;
+        font-size: 1rem;
+        line-height: 1.6;
+        color: rgba(255, 255, 255, 0.84);
+    }
+
+    .watch-tv-hero__stats {
+        margin-top: 24px;
+    }
+
+    .watch-tv-hero__stat {
+        min-width: 128px;
+        padding-right: 18px;
+    }
+
+    .watch-tv-hero__stat-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.56);
+    }
+
+    .watch-tv-hero__stat-value,
+    .watch-tv-hero__supporting {
+        margin-top: 4px;
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .watch-tv-hero__supporting {
+        font-size: 0.92rem;
+        color: rgba(255, 255, 255, 0.68);
+    }
+
+    .watch-tv-hero__poster {
+        width: clamp(200px, 18vw, 270px);
+        aspect-ratio: 2 / 3;
+        overflow: hidden;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 24px 44px rgba(0, 0, 0, 0.34);
+    }
+
+    .watch-tv-hero__poster img,
+    .watch-tv-episode-card__art img,
+    .watch-tv-cast-card__image img,
+    .watch-tv-related-card__poster img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .watch-tv-hero__poster-placeholder,
+    .watch-tv-episode-card__art-placeholder,
+    .watch-tv-cast-card__placeholder,
+    .watch-tv-related-card__placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.36);
+    }
+
+    .watch-tv-button,
+    .watch-tv-pill,
+    .watch-tv-episode-card,
+    .watch-tv-cast-card,
+    .watch-tv-related-card {
+        transition: transform 0.16s ease, background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+    }
+
+    .watch-tv-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        cursor: pointer;
+        font-weight: 800;
+    }
+
+    .watch-tv-button--primary {
+        background: #f4b000;
+        color: #181208;
+        border-color: rgba(244, 176, 0, 0.8);
+    }
+
+    .watch-tv-button--secondary {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.94);
+    }
+
+    .watch-tv-section {
+        margin-top: 32px;
+    }
+
+    .watch-tv-section__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+    }
+
+    .watch-tv-section__header h2 {
+        margin: 0;
+        font-size: 1.85rem;
+        color: #fff;
+    }
+
+    .watch-tv-pill {
+        min-height: 38px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.7);
+        cursor: pointer;
+        font-weight: 700;
+    }
+
+    .watch-tv-pill.is-active {
+        background: #f4b000;
+        color: #17120a;
+        border-color: rgba(244, 176, 0, 0.76);
+    }
+
+    .watch-tv-episodes,
+    .watch-tv-rail {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(240px, 1fr);
+        gap: 18px;
+        overflow-x: auto;
+        padding-bottom: 8px;
+    }
+
+    .watch-tv-rail--cast {
+        grid-auto-columns: minmax(152px, 1fr);
+    }
+
+    .watch-tv-episode-card,
+    .watch-tv-cast-card,
+    .watch-tv-related-card {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .watch-tv-episode-card__art,
+    .watch-tv-related-card__poster {
+        overflow: hidden;
+        border-radius: 20px;
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .watch-tv-episode-card.is-highlighted .watch-tv-episode-card__art {
+        outline: 2px solid rgba(244, 176, 0, 0.82);
+    }
+
+    .watch-tv-episode-card__body {
+        margin-top: 12px;
+    }
+
+    .watch-tv-episode-card__eyebrow,
+    .watch-tv-cast-card__role,
+    .watch-tv-related-card__meta {
+        font-size: 0.82rem;
+        color: rgba(255, 255, 255, 0.56);
+    }
+
+    .watch-tv-episode-card__title,
+    .watch-tv-cast-card__name,
+    .watch-tv-related-card__title {
+        margin-top: 6px;
+        font-size: 1rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .watch-tv-episode-card__description {
+        margin-top: 8px;
+        font-size: 0.88rem;
+        line-height: 1.5;
+        color: rgba(255, 255, 255, 0.64);
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .watch-tv-cast-card__image {
+        overflow: hidden;
+        aspect-ratio: 4 / 5;
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .watch-tv-related-card__poster {
+        aspect-ratio: 2 / 3;
+    }
+
+    .watch-tv-button:hover,
+    .watch-tv-pill:hover,
+    .watch-tv-episode-card:hover,
+    .watch-tv-cast-card:hover,
+    .watch-tv-related-card:hover {
+        transform: translateY(-1px);
+    }
+
+    @@media (max-width: 980px) {
+        .watch-tv-hero__content {
+            grid-template-columns: 1fr;
+            align-items: start;
+        }
+
+        .watch-tv-hero__poster {
+            width: clamp(180px, 42vw, 240px);
+        }
+    }
+</style>

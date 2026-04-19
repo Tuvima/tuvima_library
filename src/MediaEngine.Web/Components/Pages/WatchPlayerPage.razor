@@ -1,0 +1,259 @@
+@page "/watch/player/{AssetId:guid}"
+@using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+@using MediaEngine.Web.Components.Watch
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+
+@implements IAsyncDisposable
+
+@namespace MediaEngine.Web.Components.Pages
+
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject IJSRuntime JS
+@inject NavigationManager Nav
+
+<PageTitle>@((_detail?.Title ?? "Player")) - Tuvima</PageTitle>
+
+@if (_loading)
+{
+    <div class="watch-player-state">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.28);" />
+    </div>
+}
+else
+{
+    <div class="watch-player-page">
+        <div class="watch-player-page__topbar">
+            <button type="button" class="watch-player-button watch-player-button--secondary" @onclick="GoBack">
+                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
+                <span>Back</span>
+            </button>
+
+            <div class="watch-player-page__meta">
+                <div class="watch-player-page__eyebrow">@(_detail?.ShowName ?? _detail?.Series ?? "Now playing")</div>
+                <h1>@(_detail?.Title ?? "Playback")</h1>
+                <WatchPlaybackSpecs Summary="_detail?.PlaybackSummary" />
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_streamUrl))
+        {
+            <div class="watch-player-page__surface">
+                <video @ref="_videoRef"
+                       class="watch-player-page__video"
+                       controls
+                       autoplay
+                       playsinline
+                       poster="@PosterUrl"
+                       src="@_streamUrl">
+                </video>
+            </div>
+        }
+        else
+        {
+            <div class="watch-player-state">
+                <MudIcon Icon="@Icons.Material.Outlined.Movie" Style="font-size: 54px; opacity: 0.22;" />
+                <h3>Playable video not found</h3>
+                <p>This asset could not be streamed from the Engine.</p>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid AssetId { get; set; }
+    [SupplyParameterFromQuery(Name = "workId")] public Guid? WorkId { get; set; }
+    [SupplyParameterFromQuery(Name = "collectionId")] public Guid? CollectionId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+
+    private RegistryItemDetailViewModel? _detail;
+    private string? _streamUrl;
+    private ProgressStateDto? _progress;
+    private Guid? _activeProfileId;
+    private bool _loading = true;
+
+    private ElementReference _videoRef;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<WatchPlayerPage>? _dotNetRef;
+    private double _lastSavedPct = -1;
+    private DateTimeOffset _lastSaveAt = DateTimeOffset.MinValue;
+
+    private string? PosterUrl => _detail?.BackdropUrl ?? _detail?.BannerUrl ?? _detail?.HeroUrl ?? _detail?.CoverUrl;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var detailTask = WorkId.HasValue
+            ? ApiClient.GetRegistryItemDetailAsync(WorkId.Value)
+            : Task.FromResult<RegistryItemDetailViewModel?>(null);
+        var progressTask = Orchestrator.GetProgressAsync(AssetId);
+        var profileTask = Orchestrator.GetActiveProfileAsync();
+
+        await Task.WhenAll(detailTask, progressTask, profileTask);
+
+        _detail = detailTask.Result;
+        _progress = progressTask.Result;
+        _activeProfileId = profileTask.Result?.Id;
+        _streamUrl = ApiClient.ToAbsoluteEngineUrl($"/stream/{AssetId}");
+        _loading = false;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_loading || string.IsNullOrWhiteSpace(_streamUrl))
+            return;
+
+        if (_module is null)
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/watch-player.js");
+
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        await _module.InvokeVoidAsync("attachPlayer", _videoRef, _dotNetRef);
+
+        if (_progress?.ProgressPct is > 0 and < 99.5)
+            await _module.InvokeVoidAsync("restoreProgress", _videoRef, _progress.ProgressPct);
+    }
+
+    [JSInvokable]
+    public async Task OnPlayerProgress(double currentTime, double duration, bool ended)
+    {
+        if (duration <= 0)
+            return;
+
+        var progressPct = ended ? 100d : Math.Clamp((currentTime / duration) * 100d, 0d, 100d);
+        var now = DateTimeOffset.UtcNow;
+        var shouldSave = ended
+            || _lastSavedPct < 0
+            || Math.Abs(progressPct - _lastSavedPct) >= 2.5
+            || now - _lastSaveAt >= TimeSpan.FromSeconds(20);
+
+        if (!shouldSave)
+            return;
+
+        _lastSavedPct = progressPct;
+        _lastSaveAt = now;
+        await Orchestrator.SaveProgressAsync(AssetId, _activeProfileId, progressPct);
+    }
+
+    private void GoBack()
+    {
+        if (!string.IsNullOrWhiteSpace(ReturnUrl))
+        {
+            Nav.NavigateTo(ReturnUrl!);
+            return;
+        }
+
+        if (CollectionId.HasValue)
+        {
+            Nav.NavigateTo($"/watch/tv/show/{CollectionId.Value}");
+            return;
+        }
+
+        Nav.NavigateTo("/watch/tv");
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_module is not null)
+                await _module.InvokeVoidAsync("detachPlayer", _videoRef);
+        }
+        catch
+        {
+        }
+
+        if (_module is not null)
+            await _module.DisposeAsync();
+
+        _dotNetRef?.Dispose();
+    }
+}
+
+<style>
+    .watch-player-page {
+        color: rgba(255, 255, 255, 0.92);
+        padding-bottom: 36px;
+    }
+
+    .watch-player-page__topbar {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+        margin-bottom: 22px;
+    }
+
+    .watch-player-page__eyebrow {
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .watch-player-page h1 {
+        margin: 6px 0 0;
+        font-size: clamp(1.8rem, 4vw, 2.8rem);
+        line-height: 0.96;
+        letter-spacing: -0.04em;
+        color: #fff;
+    }
+
+    .watch-player-page__surface {
+        overflow: hidden;
+        border-radius: 26px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: #020307;
+        box-shadow: 0 26px 54px rgba(0, 0, 0, 0.32);
+    }
+
+    .watch-player-page__video {
+        display: block;
+        width: 100%;
+        max-height: calc(100vh - 220px);
+        background: #000;
+    }
+
+    .watch-player-state {
+        min-height: 360px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        text-align: center;
+    }
+
+    .watch-player-state h3 {
+        margin: 0;
+    }
+
+    .watch-player-state p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.58);
+    }
+
+    .watch-player-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 42px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.92);
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    @@media (max-width: 900px) {
+        .watch-player-page__topbar {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

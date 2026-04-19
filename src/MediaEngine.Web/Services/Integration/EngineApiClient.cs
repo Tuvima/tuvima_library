@@ -24,6 +24,8 @@ public sealed class EngineApiClient : IEngineApiClient
         _logger = logger;
     }
 
+    public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
+
     // ── GET /system/status ────────────────────────────────────────────────────
 
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
@@ -2884,6 +2886,59 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── Private mapping ───────────────────────────────────────────────────────
 
+    private void NormalizeCollectionGroupDetail(CollectionGroupDetailViewModel? detail)
+    {
+        if (detail is null)
+            return;
+
+        if (detail.CoverUrl is not null)
+            detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
+        if (detail.BackdropUrl is not null)
+            detail.BackdropUrl = AbsoluteUrl(detail.BackdropUrl);
+        if (detail.BannerUrl is not null)
+            detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
+        if (detail.ArtistPhotoUrl is not null)
+            detail.ArtistPhotoUrl = AbsoluteUrl(detail.ArtistPhotoUrl);
+
+        foreach (var cast in detail.TopCast)
+        {
+            if (cast.HeadshotUrl is not null)
+                cast.HeadshotUrl = AbsoluteUrl(cast.HeadshotUrl);
+            if (cast.ActorHeadshotUrl is not null)
+                cast.ActorHeadshotUrl = AbsoluteUrl(cast.ActorHeadshotUrl);
+            if (cast.CharacterImageUrl is not null)
+                cast.CharacterImageUrl = AbsoluteUrl(cast.CharacterImageUrl);
+        }
+
+        foreach (var season in detail.Seasons)
+        {
+            if (season.CoverUrl is not null)
+                season.CoverUrl = AbsoluteUrl(season.CoverUrl);
+
+            foreach (var episode in season.Episodes)
+            {
+                NormalizeCollectionGroupWork(episode);
+            }
+        }
+
+        foreach (var work in detail.Works)
+        {
+            NormalizeCollectionGroupWork(work);
+        }
+    }
+
+    private void NormalizeCollectionGroupWork(CollectionGroupWorkViewModel work)
+    {
+        if (work.CoverUrl is not null)
+            work.CoverUrl = AbsoluteUrl(work.CoverUrl);
+        if (work.BackdropUrl is not null)
+            work.BackdropUrl = AbsoluteUrl(work.BackdropUrl);
+        if (work.BannerUrl is not null)
+            work.BannerUrl = AbsoluteUrl(work.BannerUrl);
+        if (work.HeroUrl is not null)
+            work.HeroUrl = AbsoluteUrl(work.HeroUrl);
+    }
+
     /// <summary>
     /// Converts relative /stream/… paths stored in canonical values to absolute
     /// Engine URLs so Dashboard components can use them directly as &lt;img src&gt;.
@@ -3343,8 +3398,10 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
+            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
                 $"/collections/{collectionId}/group-detail", ct);
+            NormalizeCollectionGroupDetail(result);
+            return result;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -3362,8 +3419,7 @@ public sealed class EngineApiClient : IEngineApiClient
             var idsParam = string.Join(",", collectionIds);
             var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
                 $"/collections/artist-group-detail?collection_ids={idsParam}", ct);
-            if (result?.ArtistPhotoUrl is not null)
-                result.ArtistPhotoUrl = AbsoluteUrl(result.ArtistPhotoUrl);
+            NormalizeCollectionGroupDetail(result);
             return result;
         }
         catch (OperationCanceledException) { return null; }
@@ -3381,8 +3437,7 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
                 $"/collections/artist-detail-by-name?artistName={Uri.EscapeDataString(artistName)}", ct);
-            if (result?.ArtistPhotoUrl is not null)
-                result.ArtistPhotoUrl = AbsoluteUrl(result.ArtistPhotoUrl);
+            NormalizeCollectionGroupDetail(result);
             return result;
         }
         catch (OperationCanceledException) { return null; }
@@ -3401,7 +3456,9 @@ public sealed class EngineApiClient : IEngineApiClient
             var url = $"/collections/system-view-detail?groupField={Uri.EscapeDataString(groupField)}&groupValue={Uri.EscapeDataString(groupValue)}";
             if (!string.IsNullOrWhiteSpace(mediaType))
                 url += $"&mediaType={Uri.EscapeDataString(mediaType)}";
-            return await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(url, ct);
+            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(url, ct);
+            NormalizeCollectionGroupDetail(result);
+            return result;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)

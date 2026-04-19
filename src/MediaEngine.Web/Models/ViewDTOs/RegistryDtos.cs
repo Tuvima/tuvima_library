@@ -74,6 +74,9 @@ public sealed class RegistryItemViewModel
     [JsonPropertyName("director")]
     public string? Director { get; set; }
 
+    [JsonPropertyName("writer")]
+    public string? Writer { get; set; }
+
     [JsonPropertyName("artist")]
     public string? Artist { get; set; }
 
@@ -91,6 +94,9 @@ public sealed class RegistryItemViewModel
 
     [JsonPropertyName("runtime")]
     public string? Runtime { get; set; }
+
+    [JsonPropertyName("tagline")]
+    public string? Tagline { get; set; }
 
     [JsonPropertyName("rating")]
     public string? Rating { get; set; }
@@ -118,6 +124,9 @@ public sealed class RegistryItemViewModel
 
     [JsonPropertyName("episode_title")]
     public string? EpisodeTitle { get; set; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; set; }
 
     [JsonPropertyName("network")]
     public string? Network { get; set; }
@@ -297,6 +306,9 @@ public sealed class RegistryItemDetailViewModel
     [JsonPropertyName("director")]
     public string? Director { get; set; }
 
+    [JsonPropertyName("writer")]
+    public string? Writer { get; set; }
+
     [JsonPropertyName("cast")]
     public string? Cast { get; set; }
 
@@ -312,11 +324,26 @@ public sealed class RegistryItemDetailViewModel
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
+    [JsonPropertyName("tagline")]
+    public string? Tagline { get; set; }
+
     [JsonPropertyName("series")]
     public string? Series { get; set; }
 
     [JsonPropertyName("series_position")]
     public string? SeriesPosition { get; set; }
+
+    [JsonPropertyName("show_name")]
+    public string? ShowName { get; set; }
+
+    [JsonPropertyName("season_number")]
+    public string? SeasonNumber { get; set; }
+
+    [JsonPropertyName("episode_number")]
+    public string? EpisodeNumber { get; set; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; set; }
 
     [JsonPropertyName("narrator")]
     public string? Narrator { get; set; }
@@ -392,6 +419,9 @@ public sealed class RegistryItemDetailViewModel
 
     [JsonPropertyName("universe_summary")]
     public UniverseSummaryViewModel? UniverseSummary { get; set; }
+
+    [JsonPropertyName("playback_summary")]
+    public PlaybackTechnicalSummaryViewModel? PlaybackSummary { get; set; }
 }
 
 /// <summary>Canonical value with conflict info.</summary>

@@ -321,9 +321,24 @@ public sealed class VideoProcessor : IMediaProcessor
             if (!string.IsNullOrWhiteSpace(meta.VideoCodec))
                 claims.Add(Claim("video_codec", meta.VideoCodec, 0.8));
 
+            if (!string.IsNullOrWhiteSpace(meta.AudioLanguage))
+                claims.Add(Claim("audio_language", meta.AudioLanguage, 0.8));
+
+            if (!string.IsNullOrWhiteSpace(meta.AudioCodec))
+                claims.Add(Claim("audio_codec", meta.AudioCodec, 0.8));
+
+            if (meta.AudioChannels.HasValue)
+                claims.Add(Claim("audio_channels", meta.AudioChannels.Value.ToString(), 0.8));
+
             if (meta.FrameRate.HasValue)
                 claims.Add(Claim("frame_rate",
                     meta.FrameRate.Value.ToString("F3"), 0.8));
+
+            if (meta.SubtitleLanguages.Count > 0)
+            {
+                claims.Add(Claim("subtitle_languages",
+                    string.Join("|", meta.SubtitleLanguages), 0.8));
+            }
         }
 
         return claims;
