@@ -153,14 +153,17 @@
 
     .discovery-shelf-track {
         position: relative;
+        overflow: visible;
     }
 
     .discovery-shelf-scroll {
+        --discovery-hover-clearance: clamp(112px, 13vw, 148px);
         display: flex;
+        align-items: flex-start;
         gap: clamp(16px, 1.6vw, 24px);
         overflow-x: auto;
-        scroll-snap-type: x mandatory;
-        padding: 6px 2px 10px;
+        scroll-snap-type: x proximity;
+        padding: 6px 2px 20px;
         scrollbar-width: none;
         -ms-overflow-style: none;
     }

@@ -341,6 +341,11 @@
                     <div class="sme-artwork">
                         @if (IsSingleItem)
                         {
+                            <section class="sme-artwork-intro">
+                                <div class="sme-artwork-intro-title">Artwork Slots</div>
+                                <div class="sme-artwork-intro-text">@ArtworkTabExplanation</div>
+                            </section>
+
                             <div class="sme-artwork-grid">
                                 @foreach (var slot in ArtworkSlots)
                                 {
@@ -349,6 +354,7 @@
                                     var isPending = HasPendingArtwork(slot.AssetType);
                                     var canUpload = slot.UploadEnabled;
                                     var isDragTarget = IsArtworkDragTarget(slot.AssetType);
+                                    var stateBadge = GetArtworkStateBadge(slot.AssetType);
 
                                     <section class="sme-art-slot @(isDragTarget ? "sme-art-slot--drag" : "") @(canUpload ? string.Empty : "sme-art-slot--readonly")">
                                         <div class="sme-art-slot-header">
@@ -363,10 +369,13 @@
                                                 </div>
                                                 <div class="sme-art-slot-meta">@GetArtworkSlotMeta(slot)</div>
                                             </div>
-                                            @if (slotCount > 1)
-                                            {
-                                                <span class="sme-art-slot-count">@slotCount options</span>
-                                            }
+                                            <div class="sme-art-slot-header-meta">
+                                                <span class="sme-art-slot-badge sme-art-slot-badge--@stateBadge.Tone">@stateBadge.Label</span>
+                                                @if (slotCount > 1)
+                                                {
+                                                    <span class="sme-art-slot-count">@slotCount options</span>
+                                                }
+                                            </div>
                                         </div>
 
                                         <div class="sme-art-slot-frame"
@@ -388,16 +397,7 @@
                                             </div>
                                         </div>
 
-                                        <div class="sme-art-slot-footer">
-                                            @if (canUpload)
-                                            {
-                                                <label class="sme-art-slot-picker">
-                                                    <span class="sme-art-slot-picker-title">Upload</span>
-                                                    <span class="sme-art-slot-picker-copy">Drop or browse</span>
-                                                    <InputFile OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
-                                                               accept="image/*" />
-                                                </label>
-                                            }
+                                        <div class="sme-art-slot-status-row">
                                             <div class="sme-art-slot-status">
                                                 @if (isPending)
                                                 {
@@ -408,9 +408,23 @@
                                                     <span>@GetArtworkSourceLabel(slot.AssetType)</span>
                                                 }
                                             </div>
+                                        </div>
+
+                                        <div class="sme-art-slot-actions">
+                                            @if (canUpload)
+                                            {
+                                                <label class="sme-art-slot-action sme-art-slot-action--primary" title="@slot.UploadHelp">
+                                                    <span>@GetArtworkActionLabel(slot.AssetType)</span>
+                                                    <span class="sme-art-slot-input-shell">
+                                                        <InputFile class="sme-art-slot-file-input"
+                                                                   OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
+                                                                   accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
+                                                    </span>
+                                                </label>
+                                            }
                                             @if (canUpload && isPending)
                                             {
-                                                <button class="sme-inline-btn" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">
+                                                <button class="sme-art-slot-action sme-art-slot-action--ghost" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">
                                                     Clear
                                                 </button>
                                             }

@@ -89,6 +89,7 @@ public partial class SharedMediaEditorShell
     protected Guid CurrentEntityId => Request.EntityIds[0];
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
     protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetArtworkPreviewUrl("Hero"));
+    protected string ArtworkTabExplanation => GetArtworkTabExplanation();
 
     protected string HeaderKicker =>
         Request.Mode switch
@@ -418,34 +419,10 @@ public partial class SharedMediaEditorShell
     protected string? GetPendingArtworkFileName(string assetType) =>
         _pendingArtworkFiles.TryGetValue(assetType, out var file) ? file.Name : null;
 
-    protected string? GetArtworkPreviewUrl(string assetType)
-    {
-        if (_pendingArtworkPreviewUrls.TryGetValue(assetType, out var pendingPreview))
-            return pendingPreview;
-
-        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
-            return _detail?.CoverUrl;
-
-        if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return _detail?.HeroUrl;
-
-        if (string.Equals(assetType, "SquareArt", StringComparison.OrdinalIgnoreCase))
-            return GetPreferredArtworkAsset(assetType)?.ImageUrl
-                   ?? GetCanonicalArtworkUrl(assetType)
-                   ?? _detail?.CoverUrl;
-
-        if (string.Equals(assetType, "Background", StringComparison.OrdinalIgnoreCase))
-            return _detail?.BackgroundUrl
-                   ?? GetPreferredArtworkAsset(assetType)?.ImageUrl
-                   ?? GetCanonicalArtworkUrl(assetType);
-
-        if (string.Equals(assetType, "Banner", StringComparison.OrdinalIgnoreCase))
-            return _detail?.BannerUrl
-                   ?? GetPreferredArtworkAsset(assetType)?.ImageUrl
-                   ?? GetCanonicalArtworkUrl(assetType);
-
-        return GetPreferredArtworkAsset(assetType)?.ImageUrl ?? GetCanonicalArtworkUrl(assetType);
-    }
+    protected string? GetArtworkPreviewUrl(string assetType) =>
+        _pendingArtworkPreviewUrls.TryGetValue(assetType, out var pendingPreview)
+            ? pendingPreview
+            : GetStoredArtworkPreviewUrl(assetType);
 
     protected int GetArtworkAssetCount(string assetType)
     {
@@ -478,20 +455,47 @@ public partial class SharedMediaEditorShell
         var asset = GetPreferredArtworkAsset(assetType);
         if (asset is null)
         {
-            if (string.Equals(assetType, "SquareArt", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(_detail?.CoverUrl))
-                return "Derived from primary artwork until a square image is uploaded.";
-
             return string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(_detail?.CoverUrl)
                 ? "Current library artwork."
                 : !string.IsNullOrWhiteSpace(GetCanonicalArtworkUrl(assetType))
-                    ? "Stored artwork"
-                    : "No artwork stored yet.";
+                    ? "Stored typed artwork."
+                    : GetArtworkEmptyStateLabel(assetType);
         }
 
         return string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
-            ? "Custom artwork"
-            : $"Source: {FormatProviderName(asset.SourceProvider)}";
+            ? "Uploaded artwork from the library."
+            : $"Provider artwork from {FormatProviderName(asset.SourceProvider)}.";
     }
+
+    protected ArtworkStateBadge GetArtworkStateBadge(string assetType)
+    {
+        if (HasPendingArtwork(assetType))
+            return new("Pending", "pending");
+
+        var asset = GetPreferredArtworkAsset(assetType);
+        if (asset is not null)
+        {
+            if (string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase))
+                return new("Uploaded", "uploaded");
+
+            if (!string.IsNullOrWhiteSpace(asset.SourceProvider))
+                return new(FormatProviderName(asset.SourceProvider), "provider");
+
+            return new("Stored", "stored");
+        }
+
+        return HasStoredArtwork(assetType)
+            ? new("Stored", "stored")
+            : new("Missing", "missing");
+    }
+
+    protected string GetArtworkActionLabel(string assetType) =>
+        HasPendingArtwork(assetType) || HasStoredArtwork(assetType) ? "Replace" : "Upload";
+
+    protected string GetArtworkAcceptedTypes(string assetType) =>
+        string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase)
+            ? "image/png"
+            : "image/png,image/jpeg";
 
     protected void SetArtworkDragTarget(string assetType) => _dragTargetArtworkType = assetType;
 
@@ -599,6 +603,34 @@ public partial class SharedMediaEditorShell
             .OrderByDescending(asset => asset.IsPreferred)
             .ThenByDescending(asset => string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase))
             .FirstOrDefault();
+
+    private bool HasStoredArtwork(string assetType) =>
+        !string.IsNullOrWhiteSpace(GetStoredArtworkPreviewUrl(assetType));
+
+    private string? GetStoredArtworkPreviewUrl(string assetType)
+    {
+        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
+            return _detail?.CoverUrl;
+
+        if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
+            return _detail?.HeroUrl;
+
+        if (string.Equals(assetType, "SquareArt", StringComparison.OrdinalIgnoreCase))
+            return GetPreferredArtworkAsset(assetType)?.ImageUrl
+                   ?? GetCanonicalArtworkUrl(assetType);
+
+        if (string.Equals(assetType, "Background", StringComparison.OrdinalIgnoreCase))
+            return _detail?.BackgroundUrl
+                   ?? GetPreferredArtworkAsset(assetType)?.ImageUrl
+                   ?? GetCanonicalArtworkUrl(assetType);
+
+        if (string.Equals(assetType, "Banner", StringComparison.OrdinalIgnoreCase))
+            return _detail?.BannerUrl
+                   ?? GetPreferredArtworkAsset(assetType)?.ImageUrl
+                   ?? GetCanonicalArtworkUrl(assetType);
+
+        return GetPreferredArtworkAsset(assetType)?.ImageUrl ?? GetCanonicalArtworkUrl(assetType);
+    }
 
     private string? GetCanonicalArtworkUrl(string assetType)
     {
@@ -874,6 +906,34 @@ public partial class SharedMediaEditorShell
         };
     }
 
+    private string GetArtworkTabExplanation()
+    {
+        var mediaType = _detail?.MediaType ?? Request.MediaType ?? _selectedMediaType;
+
+        return mediaType switch
+        {
+            "Movies" or "TV" =>
+                "Showing Poster / Cover, Square Art, Background, Banner, and Logo. Square Art stays empty until a real square asset exists. Background, Banner, and Logo come from uploaded typed artwork or provider enrichment when available.",
+            "Music" =>
+                "Showing Album Art, Square Art, Background, and Logo. Banner is not shown for music. Square Art stays empty until a real square asset exists. Background and Logo come from uploaded typed artwork or provider enrichment when available.",
+            "Books" or "Audiobooks" or "Comics" =>
+                "Showing Cover, Square Art, and Background. Banner and Logo are not shown for this media type. Square Art stays empty until a real square asset exists. Background uses uploaded typed artwork or provider enrichment when available.",
+            _ =>
+                "Showing the artwork slots available for this media type. Square Art stays empty until a real square asset exists. Wide art comes from uploaded typed artwork or provider enrichment when available.",
+        };
+    }
+
+    private static string GetArtworkEmptyStateLabel(string assetType) =>
+        assetType switch
+        {
+            "SquareArt" => "No square art stored yet.",
+            "Background" => "No background art stored yet.",
+            "Banner" => "No banner art stored yet.",
+            "Logo" => "No logo art stored yet.",
+            "CoverArt" => "No cover art stored yet.",
+            _ => "No artwork stored yet.",
+        };
+
     private static IReadOnlyList<ArtworkSlotDefinition> ResolveArtworkSlots(string? mediaType) =>
         mediaType switch
         {
@@ -918,6 +978,8 @@ public partial class SharedMediaEditorShell
         bool UploadEnabled,
         string UploadHelp,
         string MetaLabel);
+
+    protected sealed record ArtworkStateBadge(string Label, string Tone);
 
     protected string? GetUniverseExploreUrl() =>
         !string.IsNullOrWhiteSpace(_detail?.UniverseSummary?.UniverseQid)

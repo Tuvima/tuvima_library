@@ -1228,9 +1228,12 @@
     }
 
     .browse-shell__grid {
+        --discovery-hover-clearance: clamp(104px, 11vw, 136px);
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
-        gap: 26px 20px;
+        gap: 38px 24px;
+        align-items: start;
+        justify-items: start;
     }
 
     .browse-shell__loading,
