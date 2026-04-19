@@ -1531,6 +1531,50 @@ public sealed class EngineApiClient : IEngineApiClient
         Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default)
         => UploadEntityArtworkAsync(entityId, assetType, fileStream, fileName, ct);
 
+    public async Task<bool> UploadScopeArtworkFromUrlAsync(
+        Guid entityId,
+        string scopeId,
+        string assetType,
+        string imageUrl,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var encodedScope = Uri.EscapeDataString(scopeId);
+            var encodedType = Uri.EscapeDataString(assetType);
+            var response = await _http.PostAsJsonAsync(
+                $"/metadata/{entityId}/artwork/{encodedScope}/{encodedType}/from-url",
+                new { image_url = imageUrl },
+                ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var detail = await response.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning(
+                    "POST /metadata/{EntityId}/artwork/{ScopeId}/{AssetType}/from-url returned {Status}: {Detail}",
+                    entityId,
+                    scopeId,
+                    assetType,
+                    (int)response.StatusCode,
+                    detail);
+                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
+            }
+
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "POST /metadata/{EntityId}/artwork/{ScopeId}/{AssetType}/from-url failed",
+                entityId,
+                scopeId,
+                assetType);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     public async Task<bool> SetPreferredArtworkAsync(Guid variantId, CancellationToken ct = default)
     {
         try

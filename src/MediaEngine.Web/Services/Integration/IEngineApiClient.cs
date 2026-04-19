@@ -329,6 +329,9 @@ public interface IEngineApiClient
     /// <summary>POST /metadata/{entityId}/artwork/{scopeId}/{assetType} — append a new artwork variant for a scope owner.</summary>
     Task<bool> UploadScopeArtworkVariantAsync(Guid entityId, string scopeId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
 
+    /// <summary>POST /metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url — append a new artwork variant for a scope owner from a remote image URL.</summary>
+    Task<bool> UploadScopeArtworkFromUrlAsync(Guid entityId, string scopeId, string assetType, string imageUrl, CancellationToken ct = default);
+
     /// <summary>PUT /metadata/artwork/{variantId}/preferred — set the preferred artwork variant.</summary>
     Task<bool> SetPreferredArtworkAsync(Guid variantId, CancellationToken ct = default);
 

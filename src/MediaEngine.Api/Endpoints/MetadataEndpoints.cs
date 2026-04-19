@@ -937,6 +937,108 @@ public static class MetadataEndpoints
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
+        // ── POST /metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url ─
+        group.MapPost("/{entityId:guid}/artwork/{scopeId}/{assetType}/from-url", async (
+            Guid entityId,
+            string scopeId,
+            string assetType,
+            CoverFromUrlRequest request,
+            ICanonicalValueRepository canonicalRepo,
+            IEntityAssetRepository entityAssetRepo,
+            IAssetExportService assetExportService,
+            IRegistryRepository registryRepo,
+            IDatabaseConnection db,
+            AssetPathService assetPathService,
+            IHttpClientFactory httpFactory,
+            CancellationToken ct) =>
+        {
+            var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
+            if (normalizedAssetType is null)
+                return Results.BadRequest("Artwork type is not supported for scoped download.");
+
+            if (string.IsNullOrWhiteSpace(request.ImageUrl))
+                return Results.BadRequest("image_url is required.");
+
+            var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, registryRepo, db, ct);
+            if (context is null)
+                return Results.NotFound($"Editor context for {entityId} not found.");
+
+            var scope = context.Scopes.FirstOrDefault(candidate =>
+                string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
+            if (scope is null)
+                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+
+            if (!scope.CanEditArtwork || scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
+                return Results.BadRequest($"Scope '{scope.Label}' does not accept artwork downloads.");
+
+            var allowedSlots = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
+            if (!allowedSlots.Contains(normalizedAssetType, StringComparer.OrdinalIgnoreCase))
+                return Results.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
+
+            using var client = httpFactory.CreateClient("cover_download");
+            using var response = await client.GetAsync(request.ImageUrl, ct);
+            if (!response.IsSuccessStatusCode)
+                return Results.BadRequest($"Failed to download image: {(int)response.StatusCode} {response.ReasonPhrase}");
+
+            var imageBytes = await response.Content.ReadAsByteArrayAsync(ct);
+            if (imageBytes.Length == 0)
+                return Results.BadRequest("Downloaded image is empty.");
+
+            var contentType = response.Content.Headers.ContentType?.MediaType;
+            if (!IsArtworkUploadAllowed(contentType, normalizedAssetType))
+                return Results.BadRequest(normalizedAssetType == "Logo"
+                    ? "Logo uploads must be PNG images."
+                    : "Only JPEG and PNG images are accepted.");
+
+            var variantId = Guid.NewGuid();
+            var localPath = BuildScopedArtworkUploadPath(assetPathService, scope, normalizedAssetType, variantId, contentType);
+            if (string.IsNullOrWhiteSpace(localPath))
+                return Results.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
+
+            AssetPathService.EnsureDirectory(localPath);
+            await File.WriteAllBytesAsync(localPath, imageBytes, ct);
+
+            var storedAsset = new EntityAsset
+            {
+                Id = variantId,
+                EntityId = scope.ArtworkOwnerEntityId.Value.ToString(),
+                EntityType = scope.ArtworkOwnerEntityKind!,
+                AssetTypeValue = normalizedAssetType,
+                ImageUrl = BuildArtworkVariantStreamUrl(variantId),
+                LocalImagePath = localPath,
+                SourceProvider = "user_upload",
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = scope.Label,
+                IsPreferred = true,
+                IsUserOverride = true,
+                IsLocallyExported = false,
+                IsPreferredExported = false,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+
+            await entityAssetRepo.UpsertAsync(storedAsset, ct);
+            await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
+            await SyncArtworkCanonicalAsync(scope.ArtworkOwnerEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
+
+            return Results.Ok(new
+            {
+                entity_id = entityId,
+                scope_id = scope.ScopeId,
+                owner_entity_id = scope.ArtworkOwnerEntityId,
+                asset_type = normalizedAssetType,
+                variant_id = storedAsset.Id,
+                image_url = storedAsset.ImageUrl,
+            });
+        })
+        .WithName("UploadScopedArtworkFromUrl")
+        .WithSummary("Download a new artwork variant from a URL for a specific editor scope owner.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
         // ── POST /metadata/{entityId}/artwork/{assetType} ───────────────────
         group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
             Guid entityId,

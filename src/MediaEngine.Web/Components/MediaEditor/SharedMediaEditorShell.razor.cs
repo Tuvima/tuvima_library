@@ -78,12 +78,17 @@ public partial class SharedMediaEditorShell
     private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IBrowserFile> _pendingArtworkFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _pendingArtworkPreviewUrls = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _artworkUploadErrors = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ArtworkEditorDto> _artworkStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ScopeEditorState> _scopeStates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _artworkApplyingKeys = new(StringComparer.OrdinalIgnoreCase);
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
     private string _activeTab = "details";
     private string _activeScopeId = string.Empty;
+    private string _artworkScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
+    private string _artworkUrlInput = string.Empty;
     private string? _selectedCandidateId;
     private string? _selectedArtworkAssetType;
     private string? _focusedArtworkVariantKey;
@@ -94,24 +99,31 @@ public partial class SharedMediaEditorShell
     private bool _saving;
     private bool _reclassifying;
     private bool _searchingCanonical;
+    private bool _artworkLoading;
+    private bool _artworkUrlSubmitting;
     private bool _confirmDiscard;
     private string? _dragTargetArtworkType;
     private string _reviewSummary = "Review the item identity.";
     private string _lastNonFileTab = "details";
+    private bool _showArtworkUrlInput;
 
     protected IReadOnlyList<(string Id, string Label)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
-    protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ActiveScope);
+    protected IReadOnlyList<MediaEditorScopeDto> ArtworkOwnerScopes => ResolveArtworkOwnerScopes();
+    protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ArtworkScope);
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
     protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? LaunchEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
-    protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetArtworkPreviewUrl("Hero"));
+    protected bool IsArtworkBusy => _artworkLoading || _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
+    protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetGeneratedHeroUrl());
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
     protected ArtworkSlotDefinition? SelectedArtworkSlot =>
         ArtworkSlots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
         ?? ArtworkSlots.FirstOrDefault();
+    protected ArtworkVariantDisplayItem? LeadArtworkVariant =>
+        SelectedArtworkSlot is null ? null : GetLeadArtworkVariant(SelectedArtworkSlot.AssetType);
     protected ArtworkSlotDefinition? ZoomArtworkSlot => _zoomArtworkSlot;
     protected ArtworkVariantDisplayItem? ZoomArtworkVariant => _zoomArtworkVariant;
     protected bool IsArtworkZoomOpen => _zoomArtworkSlot is not null && _zoomArtworkVariant is not null;
@@ -121,6 +133,11 @@ public partial class SharedMediaEditorShell
             .OrderBy(scope => scope.Order)
             .FirstOrDefault(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase))
         ?? _editorContext?.Scopes.OrderBy(scope => scope.Order).FirstOrDefault();
+    protected MediaEditorScopeDto? ArtworkScope =>
+        _editorContext?.Scopes
+            .OrderBy(scope => scope.Order)
+            .FirstOrDefault(scope => string.Equals(scope.ScopeId, _artworkScopeId, StringComparison.OrdinalIgnoreCase))
+        ?? ResolveDefaultArtworkScope();
     protected bool IsFileScope => string.Equals(ActiveScope?.ScopeId, "file", StringComparison.OrdinalIgnoreCase);
     protected string BreadcrumbText => BuildBreadcrumbText();
 
@@ -173,10 +190,13 @@ public partial class SharedMediaEditorShell
 
         try
         {
+            _artworkStates.Clear();
             _editorContext = await ApiClient.GetMediaEditorContextAsync(LaunchEntityId);
 
             if (_editorContext is null)
             {
+                _artworkStates.Clear();
+                _artworkScopeId = string.Empty;
                 var detailTask = ApiClient.GetRegistryItemDetailAsync(LaunchEntityId);
                 var canonicalTask = Orchestrator.GetCanonicalValuesAsync(LaunchEntityId);
                 var claimsTask = Orchestrator.GetClaimHistoryAsync(LaunchEntityId);
@@ -205,10 +225,13 @@ public partial class SharedMediaEditorShell
                     _activeScopeId = _editorContext.Scopes.OrderBy(scope => scope.Order).FirstOrDefault()?.ScopeId ?? string.Empty;
 
                 await LoadScopeStateAsync(forceReload: true);
+                ResetArtworkScopeSelection(_activeScopeId);
+                await LoadArtworkStateAsync(_artworkScopeId, forceReload: true);
             }
 
             _pendingArtworkFiles.Clear();
             _pendingArtworkPreviewUrls.Clear();
+            _artworkUploadErrors.Clear();
             _dragTargetArtworkType = null;
             NormalizeArtworkSelection();
 
@@ -255,7 +278,8 @@ public partial class SharedMediaEditorShell
         var canonicalTask = Orchestrator.GetCanonicalValuesAsync(ActiveScope.FieldEntityId);
         var claimsTask = Orchestrator.GetClaimHistoryAsync(ActiveScope.FieldEntityId);
         var historyTask = ApiClient.GetItemHistoryAsync(ActiveScope.FieldEntityId);
-        var artworkTask = ActiveScope.CanEditArtwork || ArtworkSlots.Count > 0
+        var activeScopeSlots = ResolveArtworkSlots(ActiveScope);
+        var artworkTask = ActiveScope.CanEditArtwork || activeScopeSlots.Count > 0
             ? ApiClient.GetScopeArtworkAsync(LaunchEntityId, ActiveScope.ScopeId)
             : Task.FromResult<ArtworkEditorDto?>(new ArtworkEditorDto { EntityId = ActiveScope.ArtworkOwnerEntityId ?? ActiveScope.FieldEntityId });
 
@@ -271,6 +295,7 @@ public partial class SharedMediaEditorShell
         };
 
         _scopeStates[ActiveScope.ScopeId] = state;
+        _artworkStates[ActiveScope.ScopeId] = state.Artwork;
         ApplyScopeState(state);
     }
 
@@ -281,6 +306,8 @@ public partial class SharedMediaEditorShell
         _claims = state.Claims;
         _history = state.History;
         _artwork = state.Artwork;
+        if (ActiveScope is not null)
+            _artworkStates[ActiveScope.ScopeId] = state.Artwork;
         _selectedMediaType = _detail?.MediaType ?? _editorContext?.MediaType ?? Request.MediaType ?? "Books";
         _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
         _canonicalTargetGroup = ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup;
@@ -289,6 +316,8 @@ public partial class SharedMediaEditorShell
         _selectedCandidateId = null;
         _selectedSuggestedFieldKeys.Clear();
         CloseArtworkZoom();
+        if (!string.Equals(_activeTab, "artwork", StringComparison.OrdinalIgnoreCase))
+            ResetArtworkScopeSelection(ActiveScope?.ScopeId);
         NormalizeArtworkSelection();
     }
 
@@ -323,6 +352,106 @@ public partial class SharedMediaEditorShell
             _loading = false;
             StateHasChanged();
         }
+    }
+
+    protected async Task SelectArtworkScopeAsync(string scopeId)
+    {
+        if (string.IsNullOrWhiteSpace(scopeId) || string.Equals(_artworkScopeId, scopeId, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _artworkScopeId = scopeId;
+        _artworkUrlInput = string.Empty;
+        _showArtworkUrlInput = false;
+        _dragTargetArtworkType = null;
+        _artworkLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            await LoadArtworkStateAsync(scopeId);
+            NormalizeArtworkSelection();
+        }
+        finally
+        {
+            _artworkLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private IReadOnlyList<MediaEditorScopeDto> ResolveArtworkOwnerScopes() =>
+        _editorContext?.Scopes
+            .Where(scope => !string.Equals(scope.ScopeId, "file", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(scope => scope.Order)
+            .ToList()
+        ?? [];
+
+    private MediaEditorScopeDto? ResolveDefaultArtworkScope()
+    {
+        var scopes = ResolveArtworkOwnerScopes();
+        if (scopes.Count == 0)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(_artworkScopeId))
+        {
+            var explicitScope = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, _artworkScopeId, StringComparison.OrdinalIgnoreCase));
+            if (explicitScope is not null)
+                return explicitScope;
+        }
+
+        var preferredScopeId = !string.IsNullOrWhiteSpace(_activeScopeId) && !string.Equals(_activeScopeId, "file", StringComparison.OrdinalIgnoreCase)
+            ? _activeScopeId
+            : null;
+
+        if (!string.IsNullOrWhiteSpace(preferredScopeId))
+        {
+            var preferredScope = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, preferredScopeId, StringComparison.OrdinalIgnoreCase) && scope.CanEditArtwork);
+            if (preferredScope is not null)
+                return preferredScope;
+        }
+
+        return scopes.FirstOrDefault(scope => scope.CanEditArtwork) ?? scopes[0];
+    }
+
+    private void ResetArtworkScopeSelection(string? preferredScopeId = null)
+    {
+        var scopes = ResolveArtworkOwnerScopes();
+        if (scopes.Count == 0)
+        {
+            _artworkScopeId = string.Empty;
+            return;
+        }
+
+        var preferred = !string.IsNullOrWhiteSpace(preferredScopeId)
+            ? scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, preferredScopeId, StringComparison.OrdinalIgnoreCase) && scope.CanEditArtwork)
+            : null;
+
+        _artworkScopeId = preferred?.ScopeId
+            ?? scopes.FirstOrDefault(scope => scope.CanEditArtwork)?.ScopeId
+            ?? scopes[0].ScopeId;
+    }
+
+    private async Task LoadArtworkStateAsync(string? scopeId, bool forceReload = false)
+    {
+        if (!IsSingleItem || string.IsNullOrWhiteSpace(scopeId))
+            return;
+
+        if (!forceReload && _artworkStates.ContainsKey(scopeId))
+            return;
+
+        var scope = GetScopeById(scopeId);
+        if (scope is null)
+            return;
+
+        var slots = ResolveArtworkSlots(scope);
+        if (!scope.CanEditArtwork && slots.Count == 0)
+        {
+            _artworkStates[scope.ScopeId] = new ArtworkEditorDto { EntityId = scope.ArtworkOwnerEntityId ?? scope.FieldEntityId };
+            return;
+        }
+
+        var artwork = await ApiClient.GetScopeArtworkAsync(LaunchEntityId, scope.ScopeId)
+                      ?? new ArtworkEditorDto { EntityId = scope.ArtworkOwnerEntityId ?? scope.FieldEntityId };
+        _artworkStates[scope.ScopeId] = artwork;
     }
 
     private Task LoadBatchAsync()
@@ -594,9 +723,14 @@ public partial class SharedMediaEditorShell
             return;
         }
 
-        var scopedKey = BuildScopedArtworkKey(assetType);
+        var scope = ArtworkScope;
+        if (scope is null)
+            return;
+
+        var scopedKey = BuildScopedArtworkKey(scope.ScopeId, assetType);
 
         _pendingArtworkFiles[scopedKey] = file;
+        _artworkUploadErrors.Remove(scopedKey);
         await using var stream = file.OpenReadStream(10 * 1024 * 1024);
         await using var ms = new MemoryStream();
         await stream.CopyToAsync(ms);
@@ -604,14 +738,17 @@ public partial class SharedMediaEditorShell
         _pendingArtworkPreviewUrls[scopedKey] = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
         _dragTargetArtworkType = null;
         _selectedArtworkAssetType = assetType;
+        _showArtworkUrlInput = false;
         NormalizeArtworkSelection();
+        await UploadPendingArtworkAsync(scope, assetType, file, scopedKey);
     }
 
     protected void ClearArtworkSelection(string assetType)
     {
-        var scopedKey = BuildScopedArtworkKey(assetType);
+        var scopedKey = BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType);
         _pendingArtworkFiles.Remove(scopedKey);
         _pendingArtworkPreviewUrls.Remove(scopedKey);
+        _artworkUploadErrors.Remove(scopedKey);
         if (string.Equals(_dragTargetArtworkType, assetType, StringComparison.OrdinalIgnoreCase))
             _dragTargetArtworkType = null;
         if (_zoomArtworkVariant is { IsPending: true } && string.Equals(_zoomArtworkVariant.AssetType, assetType, StringComparison.OrdinalIgnoreCase))
@@ -620,17 +757,23 @@ public partial class SharedMediaEditorShell
     }
 
     protected bool HasPendingArtwork(string assetType) =>
-        _pendingArtworkFiles.ContainsKey(BuildScopedArtworkKey(assetType));
+        _pendingArtworkFiles.ContainsKey(BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType));
 
     protected string? GetPendingArtworkFileName(string assetType) =>
-        _pendingArtworkFiles.TryGetValue(BuildScopedArtworkKey(assetType), out var file) ? file.Name : null;
+        _pendingArtworkFiles.TryGetValue(BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType), out var file) ? file.Name : null;
+
+    protected string? GetArtworkUploadError(string assetType) =>
+        _artworkUploadErrors.TryGetValue(BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType), out var error) ? error : null;
+
+    protected bool HasArtworkUploadError(string assetType) =>
+        !string.IsNullOrWhiteSpace(GetArtworkUploadError(assetType));
 
     protected string? GetArtworkPreviewUrl(string assetType)
     {
         if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return _detail?.HeroUrl;
+            return GetGeneratedHeroUrl();
 
-        if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(assetType), out var pendingPreview))
+        if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType), out var pendingPreview))
             return pendingPreview;
 
         return GetPreferredArtworkVariant(assetType)?.ImageUrl;
@@ -638,13 +781,13 @@ public partial class SharedMediaEditorShell
 
     protected int GetArtworkAssetCount(string assetType) =>
         string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase)
-            ? (string.IsNullOrWhiteSpace(_detail?.HeroUrl) ? 0 : 1)
+            ? (string.IsNullOrWhiteSpace(GetGeneratedHeroUrl()) ? 0 : 1)
             : GetArtworkVariants(assetType).Count;
 
     protected string GetArtworkSourceLabel(string assetType)
     {
         if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return string.IsNullOrWhiteSpace(_detail?.HeroUrl) ? "No generated hero banner yet." : "Generated from preferred artwork.";
+            return string.IsNullOrWhiteSpace(GetGeneratedHeroUrl()) ? "No generated hero banner yet." : "Generated from preferred artwork.";
 
         if (HasPendingArtwork(assetType))
             return $"Pending upload: {GetPendingArtworkFileName(assetType)}";
@@ -697,8 +840,31 @@ public partial class SharedMediaEditorShell
     protected bool IsArtworkDragTarget(string assetType) =>
         string.Equals(_dragTargetArtworkType, assetType, StringComparison.OrdinalIgnoreCase);
 
+    private ArtworkEditorDto? GetCurrentArtworkEditor()
+    {
+        if (ArtworkScope is null)
+            return _artwork;
+
+        return _artworkStates.TryGetValue(ArtworkScope.ScopeId, out var artwork)
+            ? artwork
+            : _artwork;
+    }
+
+    private string? GetGeneratedHeroUrl()
+    {
+        if (ArtworkScope is null)
+            return _detail?.HeroUrl;
+
+        if (ActiveScope is not null && string.Equals(ArtworkScope.ScopeId, ActiveScope.ScopeId, StringComparison.OrdinalIgnoreCase))
+            return _detail?.HeroUrl;
+
+        return _scopeStates.TryGetValue(ArtworkScope.ScopeId, out var state)
+            ? state.Detail?.HeroUrl
+            : null;
+    }
+
     protected IReadOnlyList<ArtworkVariantDto> GetArtworkVariants(string assetType) =>
-        _artwork?.Slots.FirstOrDefault(slot =>
+        GetCurrentArtworkEditor()?.Slots.FirstOrDefault(slot =>
             string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Variants
         ?? [];
 
@@ -712,7 +878,7 @@ public partial class SharedMediaEditorShell
     {
         var items = new List<ArtworkVariantDisplayItem>();
 
-        if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(assetType), out var pendingPreview))
+        if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType), out var pendingPreview))
         {
             items.Add(new ArtworkVariantDisplayItem(
                 BuildPendingArtworkKey(assetType),
@@ -764,6 +930,8 @@ public partial class SharedMediaEditorShell
     protected void SelectArtworkSlot(string assetType)
     {
         _selectedArtworkAssetType = assetType;
+        _artworkUrlInput = string.Empty;
+        _showArtworkUrlInput = false;
         _focusedArtworkVariantKey = GetArtworkGalleryItems(assetType).FirstOrDefault(item => item.IsPending)?.Key
                                     ?? GetArtworkGalleryItems(assetType).FirstOrDefault(item => item.IsPreferred)?.Key
                                     ?? GetArtworkGalleryItems(assetType).FirstOrDefault()?.Key;
@@ -789,10 +957,111 @@ public partial class SharedMediaEditorShell
         await RefreshArtworkStateAsync();
     }
 
+    protected async Task RetryArtworkUploadAsync(string assetType)
+    {
+        var scope = ArtworkScope;
+        if (scope is null)
+            return;
+
+        var scopedKey = BuildScopedArtworkKey(scope.ScopeId, assetType);
+        if (!_pendingArtworkFiles.TryGetValue(scopedKey, out var file))
+            return;
+
+        await UploadPendingArtworkAsync(scope, assetType, file, scopedKey);
+    }
+
+    protected async Task ApplyArtworkUrlAsync()
+    {
+        var scope = ArtworkScope;
+        var slot = SelectedArtworkSlot;
+        if (scope is null || slot is null || string.IsNullOrWhiteSpace(_artworkUrlInput))
+            return;
+
+        _artworkUrlSubmitting = true;
+        _artworkUploadErrors.Remove(BuildScopedArtworkKey(scope.ScopeId, slot.AssetType));
+        StateHasChanged();
+
+        try
+        {
+            var ok = await ApiClient.UploadScopeArtworkFromUrlAsync(
+                LaunchEntityId,
+                scope.ScopeId,
+                slot.AssetType,
+                _artworkUrlInput.Trim());
+
+            if (!ok)
+            {
+                var error = ApiClient.LastError ?? "Remote artwork download failed.";
+                _artworkUploadErrors[BuildScopedArtworkKey(scope.ScopeId, slot.AssetType)] = error;
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            _artworkUrlInput = string.Empty;
+            _showArtworkUrlInput = false;
+            await RefreshArtworkStateAsync(scope.ScopeId);
+            Snackbar.Add($"{slot.Label} updated.", Severity.Success);
+        }
+        finally
+        {
+            _artworkUrlSubmitting = false;
+            StateHasChanged();
+        }
+    }
+
+    protected void HandleArtworkUrlInput(ChangeEventArgs args) =>
+        _artworkUrlInput = args.Value?.ToString() ?? string.Empty;
+
+    protected void ToggleArtworkUrlInput()
+    {
+        _showArtworkUrlInput = !_showArtworkUrlInput;
+        if (!_showArtworkUrlInput)
+            _artworkUrlInput = string.Empty;
+    }
+
+    private async Task UploadPendingArtworkAsync(MediaEditorScopeDto scope, string assetType, IBrowserFile file, string scopedKey)
+    {
+        _artworkApplyingKeys.Add(scopedKey);
+        _artworkUploadErrors.Remove(scopedKey);
+        StateHasChanged();
+
+        try
+        {
+            await using var stream = file.OpenReadStream(10 * 1024 * 1024);
+            var uploaded = await ApiClient.UploadScopeArtworkVariantAsync(
+                LaunchEntityId,
+                scope.ScopeId,
+                assetType,
+                stream,
+                file.Name);
+
+            if (!uploaded)
+            {
+                var error = ApiClient.LastError ?? $"{assetType} upload failed.";
+                _artworkUploadErrors[scopedKey] = error;
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            _pendingArtworkFiles.Remove(scopedKey);
+            _pendingArtworkPreviewUrls.Remove(scopedKey);
+            _artworkUploadErrors.Remove(scopedKey);
+            await RefreshArtworkStateAsync(scope.ScopeId);
+            Snackbar.Add($"{ResolveArtworkSlots(scope).FirstOrDefault(slot => string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Label ?? assetType} updated.", Severity.Success);
+        }
+        finally
+        {
+            _artworkApplyingKeys.Remove(scopedKey);
+            StateHasChanged();
+        }
+    }
+
     protected async Task HandleArtworkVariantClickAsync(
         ArtworkSlotDefinition slot,
         ArtworkVariantDisplayItem item)
     {
+        FocusArtworkVariant(item.Key);
+
         if (item.IsPending || item.VariantId == Guid.Empty || item.IsPreferred)
         {
             OpenArtworkZoom(slot, item);
@@ -1270,10 +1539,10 @@ public partial class SharedMediaEditorShell
 
     private string GetArtworkTabExplanation()
     {
-        if (ActiveScope is null)
-            return "Artwork is managed by scope. Choose a scope above to edit the right owner.";
+        if (ArtworkScope is null)
+            return "Artwork is managed by owner. Choose the owner that should receive the image.";
 
-        return (_selectedMediaType, ActiveScope.ScopeId) switch
+        return (_selectedMediaType, ArtworkScope.ScopeId) switch
         {
             ("TV", "series") =>
                 "Series scope manages poster, square art, background, banner, and logo for the show. Those images are shared across episodes.",
@@ -1294,7 +1563,42 @@ public partial class SharedMediaEditorShell
             ("Books", "series") or ("Audiobooks", "series") or ("Comics", "series") =>
                 "Series scope separates parent metadata from the individual volume or issue. Artwork stays on the work scope in this pass.",
             _ =>
-                ActiveScope.ScopeSummary ?? "Showing the artwork slots available for the selected scope.",
+                ArtworkScope.ScopeSummary ?? "Showing the artwork slots available for the selected owner.",
+        };
+    }
+
+    protected string GetArtworkReadOnlyTitle() =>
+        (_selectedMediaType, ArtworkScope?.ScopeId) switch
+        {
+            ("Music", "track") => "Track artwork is inherited",
+            ("Books", "series") or ("Audiobooks", "series") or ("Comics", "series") => "Series artwork is managed on the title scope",
+            _ => "This owner does not manage artwork",
+        };
+
+    protected string GetArtworkReadOnlyText() =>
+        (_selectedMediaType, ArtworkScope?.ScopeId) switch
+        {
+            ("Music", "track") => "Tracks inherit their visuals from the Artist and Album owners. Switch owners to update the artwork people actually see.",
+            ("Books", "series") or ("Audiobooks", "series") or ("Comics", "series") => "Series metadata is separated from the individual work or volume. Artwork still lives on the work-level owner in this pass.",
+            _ => ArtworkScope?.ReadOnlyHint ?? "This owner does not expose editable artwork.",
+        };
+
+    protected IReadOnlyList<MediaEditorScopeDto> GetArtworkReadOnlySwitchTargets()
+    {
+        if (_editorContext is null || ArtworkScope is null)
+            return [];
+
+        return (_selectedMediaType, ArtworkScope.ScopeId) switch
+        {
+            ("Music", "track") => _editorContext.Scopes
+                .Where(scope => scope.ScopeId is "artist" or "album")
+                .OrderBy(scope => scope.Order)
+                .ToList(),
+            ("Books", "series") or ("Audiobooks", "series") or ("Comics", "series") => _editorContext.Scopes
+                .Where(scope => scope.ScopeId is "work" or "volume_issue")
+                .OrderBy(scope => scope.Order)
+                .ToList(),
+            _ => [],
         };
     }
 
@@ -1352,13 +1656,23 @@ public partial class SharedMediaEditorShell
             _ => [],
         };
 
-    private async Task RefreshArtworkStateAsync()
+    private async Task RefreshArtworkStateAsync(string? scopeId = null)
     {
         if (!IsSingleItem)
             return;
 
-        _scopeStates.Remove(ActiveScope?.ScopeId ?? string.Empty);
-        await LoadScopeStateAsync(forceReload: true);
+        var targetScopeId = scopeId ?? ArtworkScope?.ScopeId;
+        if (string.IsNullOrWhiteSpace(targetScopeId))
+            return;
+
+        _artworkStates.Remove(targetScopeId);
+        _scopeStates.Remove(targetScopeId);
+
+        if (string.Equals(ActiveScope?.ScopeId, targetScopeId, StringComparison.OrdinalIgnoreCase))
+            await LoadScopeStateAsync(forceReload: true);
+        else
+            await LoadArtworkStateAsync(targetScopeId, forceReload: true);
+
         CloseArtworkZoom();
         NormalizeArtworkSelection();
         StateHasChanged();
@@ -1407,10 +1721,10 @@ public partial class SharedMediaEditorShell
             ? key
             : $"{ActiveScope.ScopeId}|{key}";
 
-    private string BuildScopedArtworkKey(string assetType) =>
-        IsBatchMode || ActiveScope is null
+    private string BuildScopedArtworkKey(string? scopeId, string assetType) =>
+        IsBatchMode || string.IsNullOrWhiteSpace(scopeId)
             ? assetType
-            : $"{ActiveScope.ScopeId}|{assetType}";
+            : $"{scopeId}|{assetType}";
 
     private static (string ScopeId, string Key) ParseScopedKey(string compositeKey)
     {
@@ -1449,14 +1763,26 @@ public partial class SharedMediaEditorShell
 
     private string? GetHeaderArtworkPreviewUrl()
     {
-        foreach (var slot in ArtworkSlots)
+        foreach (var slot in ResolveArtworkSlots(ActiveScope))
         {
-            var previewUrl = GetArtworkPreviewUrl(slot.AssetType);
+            var previewUrl = GetHeaderArtworkPreviewUrl(slot.AssetType);
             if (!string.IsNullOrWhiteSpace(previewUrl))
                 return previewUrl;
         }
 
         return Request.CoverUrl;
+    }
+
+    private string? GetHeaderArtworkPreviewUrl(string assetType)
+    {
+        if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
+            return _detail?.HeroUrl;
+
+        return _artwork?.Slots.FirstOrDefault(slot =>
+            string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Variants
+            .OrderByDescending(variant => variant.IsPreferred)
+            .ThenByDescending(variant => variant.CreatedAt)
+            .FirstOrDefault()?.ImageUrl;
     }
 
     protected sealed record ArtworkSlotDefinition(
