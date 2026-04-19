@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using System.Globalization;
 using System.Text.Json.Serialization;
 using Dapper;
 using MediaEngine.Api.Models;
@@ -587,12 +588,37 @@ public static class MetadataEndpoints
         // ── GET /metadata/{entityId}/artwork ────────────────────────────────
         group.MapGet("/{entityId:guid}/artwork", async (
             Guid entityId,
+            IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
             IEntityAssetRepository entityAssetRepo,
             ICanonicalValueRepository canonicalRepo,
+            IRegistryRepository registryRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            var assets = await entityAssetRepo.GetByEntityAsync(entityId.ToString(), null, ct);
-            var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct);
+            var context = await ResolveArtworkContextAsync(entityId, db, ct);
+            var detail = context.WorkId is Guid workId
+                ? await registryRepo.GetDetailAsync(workId, ct)
+                : null;
+
+            var assets = new List<EntityAsset>();
+            foreach (var artworkEntityId in context.ArtworkEntityIds)
+            {
+                assets.AddRange(await entityAssetRepo.GetByEntityAsync(artworkEntityId.ToString(), null, ct));
+            }
+
+            var canonicalSources = new List<Guid>();
+            AddCanonicalSource(canonicalSources, context.WorkId);
+            AddCanonicalSource(canonicalSources, context.RootWorkId);
+            AddCanonicalSource(canonicalSources, context.PrimaryAssetId);
+            AddCanonicalSource(canonicalSources, context.RootPrimaryAssetId);
+
+            var canonicals = new List<CanonicalValue>();
+            foreach (var sourceId in canonicalSources)
+            {
+                canonicals.AddRange(await canonicalRepo.GetByEntityAsync(sourceId, ct));
+            }
+
             var slots = new[]
             {
                 "CoverArt",
@@ -606,26 +632,31 @@ public static class MetadataEndpoints
             {
                 var variants = assets
                     .Where(asset => string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(BuildArtworkVariantIdentity, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group
+                        .OrderByDescending(asset => asset.IsPreferred)
+                        .ThenByDescending(asset => asset.CreatedAt)
+                        .First())
                     .OrderByDescending(asset => asset.IsPreferred)
                     .ThenByDescending(asset => asset.CreatedAt)
                     .Select(MapArtworkVariant)
                     .ToList();
 
-                if (variants.Count == 0)
+                var preferredUrl = GetArtworkCanonicalValue(canonicals, assetType)
+                                   ?? GetArtworkDetailUrl(detail, assetType);
+
+                if (!string.IsNullOrWhiteSpace(preferredUrl)
+                    && !variants.Any(variant => string.Equals(variant.ImageUrl, preferredUrl, StringComparison.OrdinalIgnoreCase)))
                 {
-                    var canonicalUrl = GetArtworkCanonicalValue(canonicals, assetType);
-                    if (!string.IsNullOrWhiteSpace(canonicalUrl))
-                    {
-                        variants.Add(new ArtworkVariantEnvelope(
-                            Guid.Empty,
-                            assetType,
-                            canonicalUrl,
-                            true,
-                            InferSyntheticArtworkOrigin(canonicals, assetType),
-                            ProviderName: null,
-                            CanDelete: false,
-                            CreatedAt: null));
-                    }
+                    variants.Insert(0, new ArtworkVariantEnvelope(
+                        Guid.Empty,
+                        assetType,
+                        preferredUrl,
+                        true,
+                        InferSyntheticArtworkOrigin(canonicals, assetType, detail?.ArtworkSource),
+                        ProviderName: null,
+                        CanDelete: false,
+                        CreatedAt: null));
                 }
 
                 return new ArtworkSlotEnvelope(assetType, variants);
@@ -646,6 +677,7 @@ public static class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             ISystemActivityRepository activityRepo,
+            IDatabaseConnection db,
             ImagePathService imagePathService,
             HttpRequest httpRequest,
             ILoggerFactory loggerFactory,
@@ -665,13 +697,14 @@ public static class MetadataEndpoints
             if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
                 return Results.BadRequest("Only JPEG and PNG images are accepted.");
 
-            var asset = await assetRepo.FindByIdAsync(entityId, ct);
-            if (asset is null)
+            var context = await ResolveArtworkContextAsync(entityId, db, ct);
+            var targetEntityId = context.PreferredArtworkEntityId;
+            if (targetEntityId is null)
                 return Results.NotFound($"Asset {entityId} not found.");
 
-            var wikidataQid = await ResolveAssetWikidataQidAsync(entityId, workRepo, canonicalRepo, ct);
+            var wikidataQid = await ResolveAssetWikidataQidAsync(targetEntityId.Value, workRepo, canonicalRepo, ct);
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, entityId, variantId, file.ContentType, imagePathService);
+            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, targetEntityId.Value, variantId, file.ContentType, imagePathService);
 
             ImagePathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
@@ -683,7 +716,7 @@ public static class MetadataEndpoints
             var storedAsset = new EntityAsset
             {
                 Id = variantId,
-                EntityId = entityId.ToString(),
+                EntityId = targetEntityId.Value.ToString(),
                 EntityType = "Work",
                 AssetTypeValue = normalizedAssetType,
                 ImageUrl = BuildArtworkVariantStreamUrl(variantId),
@@ -696,7 +729,7 @@ public static class MetadataEndpoints
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-            await SyncArtworkCanonicalAsync(entityId, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
 
             coverLogger.LogInformation("Cover uploaded for {EntityId} → {Path}", entityId, localPath);
 
@@ -732,6 +765,7 @@ public static class MetadataEndpoints
             IWorkRepository workRepo,
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
+            IDatabaseConnection db,
             ImagePathService imagePathService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
@@ -753,13 +787,14 @@ public static class MetadataEndpoints
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
 
-            var asset = await assetRepo.FindByIdAsync(entityId, ct);
-            if (asset is null)
+            var context = await ResolveArtworkContextAsync(entityId, db, ct);
+            var targetEntityId = context.PreferredArtworkEntityId;
+            if (targetEntityId is null)
                 return Results.NotFound($"Asset {entityId} not found.");
 
-            var wikidataQid = await ResolveAssetWikidataQidAsync(entityId, workRepo, canonicalRepo, ct);
+            var wikidataQid = await ResolveAssetWikidataQidAsync(targetEntityId.Value, workRepo, canonicalRepo, ct);
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, entityId, variantId, file.ContentType, imagePathService);
+            var localPath = BuildArtworkUploadPath(normalizedAssetType, wikidataQid, targetEntityId.Value, variantId, file.ContentType, imagePathService);
 
             ImagePathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
@@ -771,7 +806,7 @@ public static class MetadataEndpoints
             var storedAsset = new EntityAsset
             {
                 Id = variantId,
-                EntityId = entityId.ToString(),
+                EntityId = targetEntityId.Value.ToString(),
                 EntityType = "Work",
                 AssetTypeValue = normalizedAssetType,
                 ImageUrl = BuildArtworkVariantStreamUrl(variantId),
@@ -784,7 +819,7 @@ public static class MetadataEndpoints
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-            await SyncArtworkCanonicalAsync(entityId, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
 
             return Results.Ok(new
             {
@@ -1471,6 +1506,202 @@ public static class MetadataEndpoints
             || string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase));
     }
 
+    private static async Task<ArtworkResolutionContext> ResolveArtworkContextAsync(
+        Guid entityId,
+        IDatabaseConnection db,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = db.CreateConnection();
+
+        var workRow = conn.QueryFirstOrDefault<ArtworkWorkResolutionRow>("""
+            SELECT w.id                              AS WorkId,
+                   COALESCE(gp.id, p.id, w.id)      AS RootWorkId,
+                   (
+                       SELECT ma_current.id
+                       FROM editions e_current
+                       INNER JOIN media_assets ma_current ON ma_current.edition_id = e_current.id
+                       WHERE e_current.work_id = w.id
+                       ORDER BY ma_current.id
+                       LIMIT 1
+                   )                                 AS PrimaryAssetId,
+                   (
+                       SELECT ma_root.id
+                       FROM editions e_root
+                       INNER JOIN media_assets ma_root ON ma_root.edition_id = e_root.id
+                       WHERE e_root.work_id = COALESCE(gp.id, p.id, w.id)
+                       ORDER BY ma_root.id
+                       LIMIT 1
+                   )                                 AS RootPrimaryAssetId
+            FROM works w
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE w.id = @entityId
+            LIMIT 1;
+            """, new { entityId = entityId.ToString() });
+
+        if (workRow is not null)
+        {
+            return BuildArtworkResolutionContext(
+                entityId,
+                workRow.WorkId,
+                workRow.RootWorkId,
+                workRow.PrimaryAssetId,
+                workRow.RootPrimaryAssetId,
+                GetArtworkEntityIds(conn, workRow.WorkId, workRow.RootWorkId));
+        }
+
+        var assetRow = conn.QueryFirstOrDefault<ArtworkAssetResolutionRow>("""
+            SELECT a.id                         AS AssetId,
+                   w.id                         AS WorkId,
+                   COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                   (
+                       SELECT ma_root.id
+                       FROM editions e_root
+                       INNER JOIN media_assets ma_root ON ma_root.edition_id = e_root.id
+                       WHERE e_root.work_id = COALESCE(gp.id, p.id, w.id)
+                       ORDER BY ma_root.id
+                       LIMIT 1
+                   )                            AS RootPrimaryAssetId
+            FROM media_assets a
+            INNER JOIN editions e ON e.id = a.edition_id
+            INNER JOIN works w ON w.id = e.work_id
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            LEFT JOIN works gp ON gp.id = p.parent_work_id
+            WHERE a.id = @entityId
+            LIMIT 1;
+            """, new { entityId = entityId.ToString() });
+
+        if (assetRow is not null)
+        {
+            var artworkEntityIds = GetArtworkEntityIds(conn, assetRow.WorkId, assetRow.RootWorkId);
+            if (!artworkEntityIds.Contains(entityId))
+                artworkEntityIds.Insert(0, entityId);
+
+            return BuildArtworkResolutionContext(
+                entityId,
+                assetRow.WorkId,
+                assetRow.RootWorkId,
+                assetRow.AssetId,
+                assetRow.RootPrimaryAssetId,
+                artworkEntityIds);
+        }
+
+        return new ArtworkResolutionContext(
+            RequestedEntityId: entityId,
+            WorkId: null,
+            RootWorkId: null,
+            PrimaryAssetId: null,
+            RootPrimaryAssetId: null,
+            ArtworkEntityIds: [entityId],
+            PreferredArtworkEntityId: null);
+    }
+
+    private static ArtworkResolutionContext BuildArtworkResolutionContext(
+        Guid requestedEntityId,
+        string? workId,
+        string? rootWorkId,
+        string? primaryAssetId,
+        string? rootPrimaryAssetId,
+        List<Guid> artworkEntityIds)
+    {
+        var parsedWorkId = TryParseGuid(workId);
+        var parsedRootWorkId = TryParseGuid(rootWorkId) ?? parsedWorkId;
+        var parsedPrimaryAssetId = TryParseGuid(primaryAssetId);
+        var parsedRootPrimaryAssetId = TryParseGuid(rootPrimaryAssetId);
+
+        var dedupedArtworkIds = artworkEntityIds
+            .Where(static id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+
+        if (parsedWorkId is Guid resolvedWorkId && !dedupedArtworkIds.Contains(resolvedWorkId))
+            dedupedArtworkIds.Insert(0, resolvedWorkId);
+
+        if (parsedRootWorkId is Guid resolvedRootWorkId && !dedupedArtworkIds.Contains(resolvedRootWorkId))
+            dedupedArtworkIds.Add(resolvedRootWorkId);
+
+        return new ArtworkResolutionContext(
+            RequestedEntityId: requestedEntityId,
+            WorkId: parsedWorkId,
+            RootWorkId: parsedRootWorkId,
+            PrimaryAssetId: parsedPrimaryAssetId,
+            RootPrimaryAssetId: parsedRootPrimaryAssetId,
+            ArtworkEntityIds: dedupedArtworkIds,
+            PreferredArtworkEntityId: parsedPrimaryAssetId ?? parsedRootPrimaryAssetId);
+    }
+
+    private static List<Guid> GetArtworkEntityIds(
+        System.Data.IDbConnection conn,
+        string? workId,
+        string? rootWorkId)
+    {
+        var ids = new List<Guid>();
+
+        AddParsedGuid(ids, workId);
+        AddParsedGuid(ids, rootWorkId);
+
+        if (string.IsNullOrWhiteSpace(workId) && string.IsNullOrWhiteSpace(rootWorkId))
+            return ids;
+
+        var assetRows = conn.Query<string>("""
+            SELECT DISTINCT ma.id
+            FROM editions e
+            INNER JOIN media_assets ma ON ma.edition_id = e.id
+            WHERE e.work_id IN @workIds;
+            """, new
+        {
+            workIds = new[]
+            {
+                workId,
+                rootWorkId,
+            }.Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray(),
+        });
+
+        foreach (var assetId in assetRows)
+            AddParsedGuid(ids, assetId);
+
+        return ids;
+    }
+
+    private static void AddCanonicalSource(List<Guid> sources, Guid? sourceId)
+    {
+        if (!sourceId.HasValue || sourceId == Guid.Empty || sources.Contains(sourceId.Value))
+            return;
+
+        sources.Add(sourceId.Value);
+    }
+
+    private static string? GetArtworkDetailUrl(RegistryItemDetail? detail, string assetType) =>
+        assetType switch
+        {
+            "CoverArt" => detail?.CoverUrl,
+            "Background" => detail?.BackgroundUrl,
+            "Banner" => detail?.BannerUrl,
+            _ => null,
+        };
+
+    private static string BuildArtworkVariantIdentity(EntityAsset asset)
+    {
+        var stableSource = !string.IsNullOrWhiteSpace(asset.ImageUrl)
+            ? asset.ImageUrl
+            : !string.IsNullOrWhiteSpace(asset.LocalImagePath)
+                ? asset.LocalImagePath
+                : asset.Id.ToString("D");
+
+        return $"{asset.AssetTypeValue}|{stableSource}";
+    }
+
+    private static Guid? TryParseGuid(string? value) =>
+        Guid.TryParse(value, out var parsed) ? parsed : null;
+
+    private static void AddParsedGuid(List<Guid> ids, string? value)
+    {
+        if (Guid.TryParse(value, out var parsed) && !ids.Contains(parsed))
+            ids.Add(parsed);
+    }
+
     private static async Task<string?> ResolveAssetWikidataQidAsync(
         Guid entityId,
         IWorkRepository workRepo,
@@ -1592,12 +1823,16 @@ public static class MetadataEndpoints
             string.Equals(c.Key, canonicalKey, StringComparison.OrdinalIgnoreCase))?.Value;
     }
 
-    private static string InferSyntheticArtworkOrigin(IReadOnlyList<CanonicalValue> canonicals, string assetType)
+    private static string InferSyntheticArtworkOrigin(
+        IReadOnlyList<CanonicalValue> canonicals,
+        string assetType,
+        string? detailArtworkSource)
     {
         if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
         {
             var coverSource = canonicals.FirstOrDefault(c =>
-                string.Equals(c.Key, MetadataFieldConstants.CoverSource, StringComparison.OrdinalIgnoreCase))?.Value;
+                string.Equals(c.Key, MetadataFieldConstants.CoverSource, StringComparison.OrdinalIgnoreCase))?.Value
+                ?? detailArtworkSource;
 
             return coverSource switch
             {
@@ -1633,7 +1868,7 @@ public static class MetadataEndpoints
             {
                 "fanart_tv" => "Fanart.tv",
                 "user_upload" => "Library Upload",
-                _ => sourceProvider.Replace('_', ' '),
+                _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(sourceProvider.Replace('_', ' ')),
             };
 
     private sealed record ArtworkEditorEnvelope(
@@ -1651,6 +1886,24 @@ public static class MetadataEndpoints
         [property: JsonPropertyName("provider_name")] string? ProviderName,
         [property: JsonPropertyName("can_delete")] bool CanDelete,
         [property: JsonPropertyName("created_at")] DateTimeOffset? CreatedAt);
+    private sealed record ArtworkResolutionContext(
+        Guid RequestedEntityId,
+        Guid? WorkId,
+        Guid? RootWorkId,
+        Guid? PrimaryAssetId,
+        Guid? RootPrimaryAssetId,
+        IReadOnlyList<Guid> ArtworkEntityIds,
+        Guid? PreferredArtworkEntityId);
+    private sealed record ArtworkWorkResolutionRow(
+        string WorkId,
+        string RootWorkId,
+        string? PrimaryAssetId,
+        string? RootPrimaryAssetId);
+    private sealed record ArtworkAssetResolutionRow(
+        string AssetId,
+        string WorkId,
+        string RootWorkId,
+        string? RootPrimaryAssetId);
 
     /// <summary>
     /// Builds a flat dictionary of all extracted fields from a search result item.

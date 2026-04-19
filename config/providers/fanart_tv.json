@@ -5,8 +5,6 @@
   "enabled": true,
   "hydration_stages": [3],
   "requires_api_key": true,
-  "api_key_delivery": "query",
-  "api_key_param_name": "api_key",
 
   "can_handle": {
     "media_types": ["Movies", "TV", "Music"]
@@ -16,7 +14,17 @@
   "cache_ttl_hours": 336,
   "max_concurrency": 1,
 
-  "base_url": "https://webservice.fanart.tv/v3",
+  "endpoints": {
+    "api": "https://webservice.fanart.tv/v3"
+  },
+
+  "http_client": {
+    "timeout_seconds": 15,
+    "user_agent": "Tuvima Library/1.0",
+    "api_key": "",
+    "api_key_delivery": "query",
+    "api_key_param_name": "api_key"
+  },
 
   "search_strategies": [
     {
@@ -46,20 +54,20 @@
     "_note": "Reference only — consumed by ImageEnrichmentService (hardcoded), not ConfigDrivenAdapter.",
     "Movies": {
       "movieposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
-      "moviebackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },
+      "moviebackground": { "claim_key": "background", "asset_type": "Background", "take_first": true },
       "hdmovielogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
       "moviebanner": { "claim_key": "banner", "asset_type": "Banner", "take_first": true }
     },
     "TV": {
       "tvposter": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
-      "showbackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },
+      "showbackground": { "claim_key": "background", "asset_type": "Background", "take_first": true },
       "hdtvlogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
       "clearlogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true },
       "tvbanner": { "claim_key": "banner", "asset_type": "Banner", "take_first": true }
     },
     "Music": {
       "albumcover": { "claim_key": "cover_art", "asset_type": "CoverArt", "take_first": true },
-      "artistbackground": { "claim_key": "backdrop", "asset_type": "Backdrop", "take_first": true },
+      "artistbackground": { "claim_key": "background", "asset_type": "Background", "take_first": true },
       "musiclogo": { "claim_key": "logo", "asset_type": "Logo", "take_first": true }
     }
   },

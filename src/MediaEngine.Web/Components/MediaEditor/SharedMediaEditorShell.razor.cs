@@ -547,6 +547,13 @@ public partial class SharedMediaEditorShell
         return items;
     }
 
+    protected IReadOnlyList<ArtworkVariantDisplayItem> GetArtworkRowItems(string assetType) =>
+        GetArtworkGalleryItems(assetType)
+            .OrderByDescending(item => item.IsPreferred)
+            .ThenByDescending(item => item.IsPending)
+            .ThenByDescending(item => item.CreatedAt ?? DateTimeOffset.MinValue)
+            .ToList();
+
     protected ArtworkVariantDisplayItem? GetLeadArtworkVariant(string assetType)
     {
         var items = GetArtworkGalleryItems(assetType);
