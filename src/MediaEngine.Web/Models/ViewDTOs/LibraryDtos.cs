@@ -45,7 +45,7 @@ public sealed class LibraryItemViewModel
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }
     public string? CoverThumbUrl { get; init; }
-    public string? BackdropUrl { get; init; }
+    public string? BackgroundUrl { get; init; }
     public string? BannerUrl { get; init; }
     public double Confidence { get; init; }
     public string Status { get; init; } = "";
@@ -155,7 +155,7 @@ public sealed class LibraryItemViewModel
         CoverThumbUrl = !string.IsNullOrEmpty(r.CoverUrl)
             ? r.CoverUrl.Replace("/cover", "/cover-thumb")
             : null,
-        BackdropUrl = r.BackdropUrl,
+        BackgroundUrl = r.BackgroundUrl,
         BannerUrl = r.BannerUrl,
         Confidence = r.Confidence,
         Status = r.Status,

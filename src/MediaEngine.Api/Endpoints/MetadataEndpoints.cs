@@ -678,7 +678,7 @@ public static class MetadataEndpoints
         {
             var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
-                return Results.BadRequest("Artwork type must be Banner, Backdrop, or Logo.");
+                return Results.BadRequest("Artwork type must be SquareArt, Background, Banner, or Logo.");
 
             if (!httpRequest.HasFormContentType)
                 return Results.BadRequest("Expected multipart form data.");
@@ -757,7 +757,7 @@ public static class MetadataEndpoints
             });
         })
         .WithName("UploadEntityArtwork")
-        .WithSummary("Upload banner, backdrop, or logo artwork for a media asset.")
+        .WithSummary("Upload square, background, banner, or logo artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -1306,7 +1306,8 @@ public static class MetadataEndpoints
         assetType.Trim() switch
         {
             "banner" or "Banner" => "Banner",
-            "backdrop" or "Backdrop" => "Backdrop",
+            "square" or "Square" or "SquareArt" => "SquareArt",
+            "background" or "Background" => "Background",
             "logo" or "Logo" => "Logo",
             _ => null,
         };
@@ -1352,7 +1353,8 @@ public static class MetadataEndpoints
         return normalizedAssetType switch
         {
             "Banner" => Path.ChangeExtension(imagePathService.GetWorkBannerPath(wikidataQid, entityId), extension),
-            "Backdrop" => Path.ChangeExtension(imagePathService.GetWorkBackdropPath(wikidataQid, entityId), extension),
+            "SquareArt" => Path.ChangeExtension(imagePathService.GetWorkSquareArtPath(wikidataQid, entityId), extension),
+            "Background" => Path.ChangeExtension(imagePathService.GetWorkBackgroundPath(wikidataQid, entityId), extension),
             "Logo" => Path.ChangeExtension(imagePathService.GetWorkLogoPath(wikidataQid, entityId), ".png"),
             _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
         };
@@ -1367,7 +1369,8 @@ public static class MetadataEndpoints
         string basePath = normalizedAssetType switch
         {
             "Banner" => imagePathService.GetWorkBannerPath(wikidataQid, entityId),
-            "Backdrop" => imagePathService.GetWorkBackdropPath(wikidataQid, entityId),
+            "SquareArt" => imagePathService.GetWorkSquareArtPath(wikidataQid, entityId),
+            "Background" => imagePathService.GetWorkBackgroundPath(wikidataQid, entityId),
             "Logo" => imagePathService.GetWorkLogoPath(wikidataQid, entityId),
             _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
         };
@@ -1384,8 +1387,9 @@ public static class MetadataEndpoints
     private static string BuildArtworkStreamUrl(Guid entityId, string normalizedAssetType) =>
         normalizedAssetType switch
         {
+            "SquareArt" => $"/stream/{entityId}/square",
+            "Background" => $"/stream/{entityId}/background",
             "Banner" => $"/stream/{entityId}/banner",
-            "Backdrop" => $"/stream/{entityId}/backdrop",
             "Logo" => $"/stream/{entityId}/logo",
             _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
         };
@@ -1393,8 +1397,9 @@ public static class MetadataEndpoints
     private static string GetArtworkCanonicalKey(string normalizedAssetType) =>
         normalizedAssetType switch
         {
+            "SquareArt" => "square",
+            "Background" => "background",
             "Banner" => "banner",
-            "Backdrop" => "backdrop",
             "Logo" => "logo",
             _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
         };

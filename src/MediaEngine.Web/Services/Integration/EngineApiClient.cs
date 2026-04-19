@@ -1554,7 +1554,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 Title          = j.Title ?? string.Empty,
                 Author         = j.Author,
                 CoverUrl       = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
-                BackdropUrl    = j.BackdropUrl is not null ? AbsoluteUrl(j.BackdropUrl) : null,
+                BackgroundUrl  = j.BackgroundUrl is not null ? AbsoluteUrl(j.BackgroundUrl) : null,
                 BannerUrl      = j.BannerUrl is not null ? AbsoluteUrl(j.BannerUrl) : null,
                 HeroUrl        = j.HeroUrl  is not null ? AbsoluteUrl(j.HeroUrl)  : null,
                 Narrator       = j.Narrator,
@@ -2379,8 +2379,8 @@ public sealed class EngineApiClient : IEngineApiClient
                 {
                     if (item.CoverUrl is not null)
                         item.CoverUrl = AbsoluteUrl(item.CoverUrl);
-                    if (item.BackdropUrl is not null)
-                        item.BackdropUrl = AbsoluteUrl(item.BackdropUrl);
+                    if (item.BackgroundUrl is not null)
+                        item.BackgroundUrl = AbsoluteUrl(item.BackgroundUrl);
                     if (item.BannerUrl is not null)
                         item.BannerUrl = AbsoluteUrl(item.BannerUrl);
                     if (item.HeroUrl is not null)
@@ -2470,8 +2470,8 @@ public sealed class EngineApiClient : IEngineApiClient
                 $"/library/items/{entityId}/detail", ct);
             if (detail?.CoverUrl is not null)
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
-            if (detail?.BackdropUrl is not null)
-                detail.BackdropUrl = AbsoluteUrl(detail.BackdropUrl);
+            if (detail?.BackgroundUrl is not null)
+                detail.BackgroundUrl = AbsoluteUrl(detail.BackgroundUrl);
             if (detail?.BannerUrl is not null)
                 detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
             if (detail?.HeroUrl is not null)
@@ -2893,8 +2893,8 @@ public sealed class EngineApiClient : IEngineApiClient
 
         if (detail.CoverUrl is not null)
             detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
-        if (detail.BackdropUrl is not null)
-            detail.BackdropUrl = AbsoluteUrl(detail.BackdropUrl);
+        if (detail.BackgroundUrl is not null)
+            detail.BackgroundUrl = AbsoluteUrl(detail.BackgroundUrl);
         if (detail.BannerUrl is not null)
             detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
         if (detail.ArtistPhotoUrl is not null)
@@ -2931,8 +2931,8 @@ public sealed class EngineApiClient : IEngineApiClient
     {
         if (work.CoverUrl is not null)
             work.CoverUrl = AbsoluteUrl(work.CoverUrl);
-        if (work.BackdropUrl is not null)
-            work.BackdropUrl = AbsoluteUrl(work.BackdropUrl);
+        if (work.BackgroundUrl is not null)
+            work.BackgroundUrl = AbsoluteUrl(work.BackgroundUrl);
         if (work.BannerUrl is not null)
             work.BannerUrl = AbsoluteUrl(work.BannerUrl);
         if (work.HeroUrl is not null)
@@ -3275,7 +3275,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("title")]              string?                       Title,
         [property: JsonPropertyName("author")]             string?                       Author,
         [property: JsonPropertyName("coverUrl")]           string?                       CoverUrl,
-        [property: JsonPropertyName("backdropUrl")]        string?                       BackdropUrl,
+        [property: JsonPropertyName("backgroundUrl")]      string?                       BackgroundUrl,
         [property: JsonPropertyName("bannerUrl")]          string?                       BannerUrl,
         [property: JsonPropertyName("narrator")]           string?                       Narrator,
         [property: JsonPropertyName("series")]             string?                       Series,
@@ -3521,8 +3521,8 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 if (group.CoverUrl is not null)
                     group.CoverUrl = AbsoluteUrl(group.CoverUrl);
-                if (group.BackdropUrl is not null)
-                    group.BackdropUrl = AbsoluteUrl(group.BackdropUrl);
+                if (group.BackgroundUrl is not null)
+                    group.BackgroundUrl = AbsoluteUrl(group.BackgroundUrl);
                 if (group.BannerUrl is not null)
                     group.BannerUrl = AbsoluteUrl(group.BannerUrl);
 
@@ -3556,8 +3556,8 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 if (g.CoverUrl is not null)
                     g.CoverUrl = AbsoluteUrl(g.CoverUrl);
-                if (g.BackdropUrl is not null)
-                    g.BackdropUrl = AbsoluteUrl(g.BackdropUrl);
+                if (g.BackgroundUrl is not null)
+                    g.BackgroundUrl = AbsoluteUrl(g.BackgroundUrl);
                 if (g.BannerUrl is not null)
                     g.BannerUrl = AbsoluteUrl(g.BannerUrl);
                 if (g.ArtistPhotoUrl is not null)

@@ -28,8 +28,8 @@ public sealed record RegistryItem
     [JsonPropertyName("year")]         public string? Year { get; init; }
     [JsonPropertyName("media_type")]   public string MediaType { get; init; } = "";
     [JsonPropertyName("cover_url")]    public string? CoverUrl { get; init; }
-    [JsonPropertyName("backdrop_url")] public string? BackdropUrl { get; init; }
-    [JsonPropertyName("banner_url")]   public string? BannerUrl { get; init; }
+    [JsonPropertyName("background_url")] public string? BackgroundUrl { get; init; }
+    [JsonPropertyName("banner_url")]     public string? BannerUrl { get; init; }
     [JsonPropertyName("match_source")] public string? MatchSource { get; init; }
     [JsonPropertyName("match_method")] public string? MatchMethod { get; init; }
     [JsonPropertyName("confidence")]   public double Confidence { get; init; }
@@ -122,7 +122,7 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("year")]           public string? Year { get; init; }
     [JsonPropertyName("media_type")]     public string MediaType { get; init; } = "";
     [JsonPropertyName("cover_url")]      public string? CoverUrl { get; init; }
-    [JsonPropertyName("backdrop_url")]   public string? BackdropUrl { get; init; }
+    [JsonPropertyName("background_url")] public string? BackgroundUrl { get; init; }
     [JsonPropertyName("banner_url")]     public string? BannerUrl { get; init; }
     [JsonPropertyName("hero_url")]       public string? HeroUrl { get; init; }
     [JsonPropertyName("confidence")]     public double Confidence { get; init; }

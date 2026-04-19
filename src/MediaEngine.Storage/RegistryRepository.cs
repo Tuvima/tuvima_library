@@ -102,7 +102,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.year,
                 fd.media_type,
                 fd.cover_url,
-                fd.backdrop_url,
+                fd.background_url,
                 fd.banner_url,
                 fd.match_source,
                 fd.confidence,
@@ -165,7 +165,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 Year = reader.IsDBNull(2) ? null : reader.GetString(2),
                 MediaType = reader.IsDBNull(3) ? "" : reader.GetString(3),
                 CoverUrl = reader.IsDBNull(4) ? null : reader.GetString(4),
-                BackdropUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
+                BackgroundUrl = reader.IsDBNull(5) ? null : reader.GetString(5),
                 BannerUrl = reader.IsDBNull(6) ? null : reader.GetString(6),
                 MatchSource = reader.IsDBNull(7) ? null : reader.GetString(7),
                 Confidence = reader.IsDBNull(8) ? 0.0 : reader.GetDouble(8),
@@ -226,7 +226,7 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.year                  AS Year,
                 fd.media_type            AS MediaType,
                 fd.cover_url             AS CoverUrl,
-                fd.backdrop_url          AS BackdropUrl,
+                fd.background_url        AS BackgroundUrl,
                 fd.banner_url            AS BannerUrl,
                 fd.hero_url              AS HeroUrl,
                 fd.confidence            AS Confidence,
@@ -502,7 +502,7 @@ public sealed class RegistryRepository : IRegistryRepository
             Year = projection?.Year ?? Canonical("release_year"),
             MediaType = projection?.MediaType ?? lineageRow.MediaType ?? "",
             CoverUrl = projection?.CoverUrl,
-            BackdropUrl = projection?.BackdropUrl,
+            BackgroundUrl = projection?.BackgroundUrl,
             BannerUrl = projection?.BannerUrl,
             HeroUrl = projection?.HeroUrl,
             Confidence = projection?.Confidence ?? (rqRow == default ? 0.0 : rqRow.ConfidenceScore ?? 0.0),
@@ -796,7 +796,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN acv.key = 'cover_url' THEN acv.value END) AS self_cover_url,
                     MAX(CASE WHEN acv.key = 'cover_url' THEN acv.last_scored_at END) AS self_cover_last_scored_at,
                     MAX(CASE WHEN acv.key = 'hero' THEN acv.value END) AS self_hero_url,
-                    MAX(CASE WHEN acv.key = 'backdrop' THEN acv.value END) AS self_backdrop_url,
+                    MAX(CASE WHEN acv.key = 'background' THEN acv.value END) AS self_background_url,
                     MAX(CASE WHEN acv.key = 'banner' THEN acv.value END) AS self_banner_url,
                     MAX(CASE WHEN wcv.key IN ('release_year', 'date', 'year') THEN wcv.value END) AS year,
                     COALESCE(
@@ -853,7 +853,7 @@ public sealed class RegistryRepository : IRegistryRepository
                     MAX(CASE WHEN wcv.key = 'cover_url' THEN wcv.value END) AS parent_cover_url,
                     MAX(CASE WHEN wcv.key = 'cover_url' THEN wcv.last_scored_at END) AS parent_cover_last_scored_at,
                     MAX(CASE WHEN wcv.key = 'hero' THEN wcv.value END) AS parent_hero_url,
-                    MAX(CASE WHEN wcv.key = 'backdrop' THEN wcv.value END) AS parent_backdrop_url,
+                    MAX(CASE WHEN wcv.key = 'background' THEN wcv.value END) AS parent_background_url,
                     MAX(CASE WHEN wcv.key = 'banner' THEN wcv.value END) AS parent_banner_url,
                     (
                         SELECT GROUP_CONCAT(sub.value, ', ')
@@ -1067,7 +1067,7 @@ public sealed class RegistryRepository : IRegistryRepository
                         WHEN COALESCE(NULLIF(wd.self_hero_url, ''), NULLIF(wd.parent_hero_url, '')) IS NOT NULL THEN 'present'
                         ELSE 'pending'
                     END) AS hero_state,
-                    COALESCE(NULLIF(wd.self_backdrop_url, ''), NULLIF(wd.parent_backdrop_url, '')) AS backdrop_url_value,
+                    COALESCE(NULLIF(wd.self_background_url, ''), NULLIF(wd.parent_background_url, '')) AS background_url_value,
                     COALESCE(NULLIF(wd.self_banner_url, ''), NULLIF(wd.parent_banner_url, '')) AS banner_url_value,
                     CASE
                         WHEN COALESCE(NULLIF(wd.wikidata_qid, ''), NULLIF(ij.resolved_qid, '')) IS NOT NULL
@@ -1102,9 +1102,9 @@ public sealed class RegistryRepository : IRegistryRepository
                         ELSE NULL
                     END AS hero_url,
                     CASE
-                        WHEN rd.backdrop_url_value IS NOT NULL AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/backdrop'
+                        WHEN rd.background_url_value IS NOT NULL AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/background'
                         ELSE NULL
-                    END AS backdrop_url,
+                    END AS background_url,
                     CASE
                         WHEN rd.banner_url_value IS NOT NULL AND rd.asset_id IS NOT NULL THEN '/stream/' || rd.asset_id || '/banner'
                         ELSE NULL
@@ -1458,7 +1458,7 @@ public sealed class RegistryRepository : IRegistryRepository
         public string? Year { get; set; }
         public string MediaType { get; set; } = "";
         public string? CoverUrl { get; set; }
-        public string? BackdropUrl { get; set; }
+        public string? BackgroundUrl { get; set; }
         public string? BannerUrl { get; set; }
         public string? HeroUrl { get; set; }
         public double Confidence { get; set; }

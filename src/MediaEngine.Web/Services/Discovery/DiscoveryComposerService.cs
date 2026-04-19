@@ -802,7 +802,7 @@ public sealed class DiscoveryComposerService
             Subtitle = item.Author,
             Description = TrimTo(item.Description, 150),
             CoverUrl = item.CoverUrl,
-            BackdropUrl = item.HeroUrl,
+            BackgroundUrl = item.HeroUrl,
             MetaText = JoinPartsSafe(
                 NormalizeDisplayKind(item.MediaType),
                 item.Series,
@@ -835,7 +835,7 @@ public sealed class DiscoveryComposerService
             Subtitle = work.Author,
             Description = TrimTo(work.Description, 150),
             CoverUrl = work.CoverUrl,
-            BackdropUrl = work.HeroUrl,
+            BackgroundUrl = work.HeroUrl,
             MetaText = JoinPartsSafe(
                 NormalizeDisplayKind(work.MediaType),
                 work.Year,
@@ -877,7 +877,7 @@ public sealed class DiscoveryComposerService
         var coverUrl = prefersArtistImage
             ? group.ArtistPhotoUrl ?? group.CoverUrl
             : group.CoverUrl ?? group.ArtistPhotoUrl;
-        var backdropUrl = prefersArtistImage
+        var backgroundUrl = prefersArtistImage
             ? group.ArtistPhotoUrl ?? group.CoverUrl
             : group.CoverUrl ?? group.ArtistPhotoUrl;
 
@@ -889,7 +889,7 @@ public sealed class DiscoveryComposerService
             Subtitle = group.Creator ?? group.Network,
             Description = BuildGroupDescriptionSafe(group),
             CoverUrl = coverUrl,
-            BackdropUrl = backdropUrl,
+            BackgroundUrl = backgroundUrl,
             PreviewImages = previewImages ?? [],
             MetaText = JoinPartsSafe(group.PrimaryMediaType, group.Year, CountLabel(group)),
             MediaKind = NormalizeDisplayKind(group.PrimaryMediaType),
@@ -1125,7 +1125,7 @@ public sealed class DiscoveryComposerService
 
     private static bool HasArtwork(DiscoveryCardViewModel card) =>
         !string.IsNullOrWhiteSpace(card.CoverUrl)
-        || !string.IsNullOrWhiteSpace(card.BackdropUrl)
+        || !string.IsNullOrWhiteSpace(card.BackgroundUrl)
         || card.PreviewImages.Count > 0;
 
     private static string BuildGroupDescriptionSafe(ContentGroupViewModel group)

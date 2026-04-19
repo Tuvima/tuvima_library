@@ -129,7 +129,7 @@ public static class IntegrationTestEndpoints
         public bool HasStoredCover { get; set; }
         public bool HasStoredCoverThumb { get; set; }
         public bool HasStoredHero { get; set; }
-        public bool HasStoredBackdrop { get; set; }
+        public bool HasStoredBackground { get; set; }
         public bool HasStoredLogo { get; set; }
         public bool HasStoredBanner { get; set; }
         public string? Detail { get; set; }
@@ -167,7 +167,7 @@ public static class IntegrationTestEndpoints
         public string MediaType { get; set; } = "";
         public int EligibleCount { get; set; }
         public int WithAnyFanart { get; set; }
-        public int WithBackdrop { get; set; }
+        public int WithBackground { get; set; }
         public int WithLogo { get; set; }
         public int WithBanner { get; set; }
         public bool Pass => EligibleCount == 0 || WithAnyFanart > 0;
@@ -1171,7 +1171,7 @@ public static class IntegrationTestEndpoints
                 check.HasStoredCover = File.Exists(imagePathService.GetWorkCoverPath(item.WikidataQid, assetId));
                 check.HasStoredCoverThumb = File.Exists(imagePathService.GetWorkCoverThumbPath(item.WikidataQid, assetId));
                 check.HasStoredHero = File.Exists(imagePathService.GetWorkHeroPath(item.WikidataQid, assetId));
-                check.HasStoredBackdrop = File.Exists(imagePathService.GetWorkBackdropPath(item.WikidataQid, assetId));
+                check.HasStoredBackground = File.Exists(imagePathService.GetWorkBackgroundPath(item.WikidataQid, assetId));
                 check.HasStoredLogo = File.Exists(imagePathService.GetWorkLogoPath(item.WikidataQid, assetId));
                 check.HasStoredBanner = File.Exists(imagePathService.GetWorkBannerPath(item.WikidataQid, assetId));
             }
@@ -2007,7 +2007,7 @@ public static class IntegrationTestEndpoints
                 string result = check.Pass
                     ? "<span class=\"badge badge-pass\">PASS</span>"
                     : "<span class=\"badge badge-fail\">FAIL</span>";
-                string optionalArt = $"{BoolMark(check.HasStoredBackdrop)}/{BoolMark(check.HasStoredLogo)}/{BoolMark(check.HasStoredBanner)}";
+                string optionalArt = $"{BoolMark(check.HasStoredBackground)}/{BoolMark(check.HasStoredLogo)}/{BoolMark(check.HasStoredBanner)}";
                 string sidecars = check.RequiresSidecarArtwork
                     ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(check.HasHero)}"
                     : "n/a";
@@ -2035,13 +2035,13 @@ public static class IntegrationTestEndpoints
                 : $"<span class=\"badge badge-warn\">{report.Stage3FanartSummaries.Count - fanartPass} ISSUES</span>";
             sb.AppendLine($"<h2>Stage 3 Artwork Validation {fanartBadge}</h2>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Media Type</th><th>Eligible QID Items</th><th>Any Fanart</th><th>Backdrops</th><th>Logos</th><th>Banners</th><th>Status</th></tr>");
+            sb.AppendLine("<tr><th>Media Type</th><th>Eligible QID Items</th><th>Any Fanart</th><th>Backgrounds</th><th>Logos</th><th>Banners</th><th>Status</th></tr>");
             foreach (var summary in report.Stage3FanartSummaries.OrderBy(s => s.MediaType))
             {
                 string badge = summary.Pass
                     ? "<span class=\"badge badge-pass\">PASS</span>"
                     : "<span class=\"badge badge-fail\">FAIL</span>";
-                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackdrop}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{badge}</td></tr>");
+                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{badge}</td></tr>");
             }
             sb.AppendLine("</table>");
         }
@@ -2472,15 +2472,15 @@ public static class IntegrationTestEndpoints
             {
                 MediaType = mediaType,
                 EligibleCount = eligible.Count,
-                WithAnyFanart = eligible.Count(check => check.HasStoredBackdrop || check.HasStoredLogo || check.HasStoredBanner),
-                WithBackdrop = eligible.Count(check => check.HasStoredBackdrop),
+                WithAnyFanart = eligible.Count(check => check.HasStoredBackground || check.HasStoredLogo || check.HasStoredBanner),
+                WithBackground = eligible.Count(check => check.HasStoredBackground),
                 WithLogo = eligible.Count(check => check.HasStoredLogo),
                 WithBanner = eligible.Count(check => check.HasStoredBanner),
             };
 
             report.Stage3FanartSummaries.Add(summary);
             logger.LogInformation(
-                "  Stage 3 fanart: {MediaType} {WithAny}/{Eligible} items have backdrop/logo/banner evidence",
+                "  Stage 3 fanart: {MediaType} {WithAny}/{Eligible} items have background/logo/banner evidence",
                 summary.MediaType,
                 summary.WithAnyFanart,
                 summary.EligibleCount);
@@ -2488,7 +2488,7 @@ public static class IntegrationTestEndpoints
             if (!summary.Pass)
             {
                 report.IssuesFound.Add(
-                    $"Stage 3 fanart: no stored backdrop/logo/banner assets were created for eligible {summary.MediaType} items");
+                    $"Stage 3 fanart: no stored background/logo/banner assets were created for eligible {summary.MediaType} items");
             }
         }
     }

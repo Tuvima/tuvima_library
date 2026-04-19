@@ -9,7 +9,7 @@ namespace MediaEngine.Storage;
 /// SQLite implementation of <see cref="IEntityAssetRepository"/>.
 /// Uses Dapper for type-safe column-to-property mapping.
 ///
-/// Manages typed image assets (Cover Art, Headshot, Banner, Logo, Backdrop)
+/// Manages typed image assets (Cover Art, Headshot, Banner, Square Art, Logo, Background)
 /// for any entity — Work, Person, Universe, or FictionalEntity.
 /// </summary>
 public sealed class EntityAssetRepository : IEntityAssetRepository

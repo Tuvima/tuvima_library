@@ -17,11 +17,14 @@ public enum AssetType
     /// <summary>Wide promotional banner image.</summary>
     Banner,
 
+    /// <summary>Square promotional image used when a dedicated square crop is preferred.</summary>
+    SquareArt,
+
     /// <summary>Transparent title treatment or faction logo.</summary>
     Logo,
 
-    /// <summary>Cinematic background image (movie backdrop, show background).</summary>
-    Backdrop,
+    /// <summary>Cinematic background image (movie or show background art).</summary>
+    Background,
 
     /// <summary>Actor-in-costume or animated character portrait for a specific performer-character pair.</summary>
     CharacterPortrait,

@@ -99,7 +99,7 @@ public static class ProgressEndpoints
                     cv_title_a.value      AS title,
                     cv_author_w.value     AS author,
                     cv_cover_w.value      AS cover_url,
-                    cv_backdrop_w.value   AS backdrop_url,
+                    cv_background_w.value AS background_url,
                     cv_banner_w.value     AS banner_url,
                     cv_narrator_w.value   AS narrator,
                     cv_series_w.value     AS series,
@@ -130,9 +130,9 @@ public static class ProgressEndpoints
                 LEFT JOIN canonical_values cv_narrator_w
                     ON cv_narrator_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_narrator_w.key = 'narrator'
-                LEFT JOIN canonical_values cv_backdrop_w
-                    ON cv_backdrop_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
-                   AND cv_backdrop_w.key = 'backdrop'
+                LEFT JOIN canonical_values cv_background_w
+                    ON cv_background_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_background_w.key = 'background'
                 LEFT JOIN canonical_values cv_banner_w
                     ON cv_banner_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_banner_w.key = 'banner'
@@ -181,7 +181,7 @@ public static class ProgressEndpoints
                                            : reader.GetString(8),
                     Author:            reader.IsDBNull(9)  ? null : reader.GetString(9),
                     CoverUrl:          reader.IsDBNull(10) ? null : reader.GetString(10),
-                    BackdropUrl:       reader.IsDBNull(11) ? null : reader.GetString(11),
+                    BackgroundUrl:     reader.IsDBNull(11) ? null : reader.GetString(11),
                     BannerUrl:         reader.IsDBNull(12) ? null : reader.GetString(12),
                     Narrator:          reader.IsDBNull(13) ? null : reader.GetString(13),
                     Series:            reader.IsDBNull(14) ? null : reader.GetString(14),
@@ -232,7 +232,7 @@ public sealed record JourneyItemResponse(
     string                       Title,
     string?                      Author,
     string?                      CoverUrl,
-    string?                      BackdropUrl,
+    string?                      BackgroundUrl,
     string?                      BannerUrl,
     string?                      Narrator,
     string?                      Series,

@@ -142,13 +142,13 @@
 
     private string ImageUrl => Item.Presentation switch
     {
-        DiscoveryCardPresentation.TvSeries => Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
-        DiscoveryCardPresentation.Album => Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
-        DiscoveryCardPresentation.Artist => Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
+        DiscoveryCardPresentation.TvSeries => Item.CoverUrl ?? Item.BackgroundUrl ?? string.Empty,
+        DiscoveryCardPresentation.Album => Item.CoverUrl ?? Item.BackgroundUrl ?? string.Empty,
+        DiscoveryCardPresentation.Artist => Item.CoverUrl ?? Item.BackgroundUrl ?? string.Empty,
         DiscoveryCardPresentation.MovieSeries when PreviewImages.Count > 0 => string.Empty,
         _ => Item.Shape == DiscoveryCardShape.Landscape
-            ? Item.BackdropUrl ?? Item.CoverUrl ?? string.Empty
-            : Item.CoverUrl ?? Item.BackdropUrl ?? string.Empty,
+            ? Item.BackgroundUrl ?? Item.CoverUrl ?? string.Empty
+            : Item.CoverUrl ?? Item.BackgroundUrl ?? string.Empty,
     };
 
     private IReadOnlyList<string> PreviewImages =>

@@ -80,7 +80,7 @@ else
     private double _lastSavedPct = -1;
     private DateTimeOffset _lastSaveAt = DateTimeOffset.MinValue;
 
-    private string? PosterUrl => _detail?.BackdropUrl ?? _detail?.BannerUrl ?? _detail?.HeroUrl ?? _detail?.CoverUrl;
+    private string? PosterUrl => _detail?.BackgroundUrl ?? _detail?.BannerUrl ?? _detail?.HeroUrl ?? _detail?.CoverUrl;
 
     protected override async Task OnParametersSetAsync()
     {

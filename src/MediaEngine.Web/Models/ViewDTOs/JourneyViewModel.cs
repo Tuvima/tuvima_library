@@ -15,7 +15,7 @@ public sealed class JourneyItemViewModel
     public string  Title           { get; init; } = string.Empty;
     public string? Author          { get; init; }
     public string? CoverUrl        { get; init; }
-    public string? BackdropUrl     { get; init; }
+    public string? BackgroundUrl   { get; init; }
     public string? BannerUrl       { get; init; }
     public string? HeroUrl         { get; init; }
     public string? Narrator        { get; init; }

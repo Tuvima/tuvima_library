@@ -162,7 +162,7 @@ else
         ?? _show?.Seasons.FirstOrDefault(season => season.SeasonNumber.ToString() == _episode?.SeasonNumber);
 
     private string? HeroBackgroundUrl =>
-        _episode?.BackdropUrl ?? _episode?.BannerUrl ?? _episode?.HeroUrl ?? _episode?.CoverUrl ?? _show?.BackdropUrl ?? _show?.BannerUrl ?? _show?.CoverUrl;
+        _episode?.BackgroundUrl ?? _episode?.BannerUrl ?? _episode?.HeroUrl ?? _episode?.CoverUrl ?? _show?.BackgroundUrl ?? _show?.BannerUrl ?? _show?.CoverUrl;
 
     private string PrimaryActionLabel => _progress?.ProgressPct is > 0 and < 99.5 ? "Resume" : "Play";
 
@@ -289,7 +289,7 @@ else
         int.TryParse(value, out var parsed) ? parsed : int.MaxValue;
 
     private static string? GetEpisodeImage(CollectionGroupWorkViewModel episode) =>
-        episode.BackdropUrl ?? episode.BannerUrl ?? episode.HeroUrl ?? episode.CoverUrl;
+        episode.BackgroundUrl ?? episode.BannerUrl ?? episode.HeroUrl ?? episode.CoverUrl;
 }
 
 <style>

@@ -19,7 +19,7 @@ public enum EnrichmentType
     /// <summary>Child entity discovery: TV seasons/episodes, album tracks, comic issues.</summary>
     Children = 2,
 
-    /// <summary>Fanart.tv backdrops, logos, and additional imagery.</summary>
+    /// <summary>Fanart.tv backgrounds, logos, and additional imagery.</summary>
     Images = 3,
 
     /// <summary>Fictional entity enrichment: characters, locations, narrative root.</summary>

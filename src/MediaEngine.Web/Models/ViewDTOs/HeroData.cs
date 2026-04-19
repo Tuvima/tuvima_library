@@ -43,7 +43,7 @@ public sealed record HeroData
 
     /// <summary>
     /// True for Books, Comics, Audiobooks (portrait cover art).
-    /// False for Movies, TV, Music (landscape backdrop).
+    /// False for Movies, TV, Music (landscape background art).
     /// </summary>
     public bool IsPortraitMedia => FormatLabel(MediaTypeLabel) switch
     {

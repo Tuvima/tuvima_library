@@ -5,7 +5,7 @@ namespace MediaEngine.Domain.Entities;
 /// (Work, Person, Universe, or FictionalEntity).
 ///
 /// The <see cref="AssetTypeValue"/> classifies the image (CoverArt, Headshot,
-/// Banner, Logo, Backdrop). Multiple assets of the same type may exist per entity
+/// Banner, SquareArt, Logo, Background). Multiple assets of the same type may exist per entity
 /// (e.g. three different movie posters); one is marked as preferred.
 ///
 /// Maps 1:1 to a row in the <c>entity_assets</c> table.
@@ -29,7 +29,7 @@ public sealed class EntityAsset
 
     /// <summary>
     /// The asset classification. One of: <c>"CoverArt"</c>, <c>"Headshot"</c>,
-    /// <c>"Banner"</c>, <c>"Logo"</c>, <c>"Backdrop"</c>.
+    /// <c>"Banner"</c>, <c>"SquareArt"</c>, <c>"Logo"</c>, <c>"Background"</c>.
     /// </summary>
     public string AssetTypeValue { get; set; } = string.Empty;
 

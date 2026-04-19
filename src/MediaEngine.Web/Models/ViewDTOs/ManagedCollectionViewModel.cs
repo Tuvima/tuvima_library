@@ -27,8 +27,8 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 
-    [JsonPropertyName("backdrop_url")]
-    public string? BackdropUrl { get; set; }
+    [JsonPropertyName("background_url")]
+    public string? BackgroundUrl { get; set; }
 
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; set; }

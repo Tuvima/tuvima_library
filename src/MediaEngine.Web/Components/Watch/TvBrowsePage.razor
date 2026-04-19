@@ -224,7 +224,7 @@
     private bool _watchlistBusy;
 
     private string? HeroBackgroundUrl =>
-        _heroDetail?.BackdropUrl
+        _heroDetail?.BackgroundUrl
         ?? _heroDetail?.BannerUrl
         ?? _heroDetail?.Works.Select(work => work.HeroUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
         ?? _heroDetail?.CoverUrl;
@@ -307,7 +307,7 @@
             "title" => filtered.OrderBy(show => show.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
             "newest" => filtered.OrderByDescending(show => ParseYear(show.Year)).ThenBy(show => show.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
             _ => filtered
-                .OrderByDescending(show => !string.IsNullOrWhiteSpace(show.BackdropUrl) || !string.IsNullOrWhiteSpace(show.BannerUrl))
+                .OrderByDescending(show => !string.IsNullOrWhiteSpace(show.BackgroundUrl) || !string.IsNullOrWhiteSpace(show.BannerUrl))
                 .ThenByDescending(show => show.SeasonCount ?? 0)
                 .ThenBy(show => show.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
@@ -327,7 +327,7 @@
                 return;
 
             var preferred = source
-                .Where(show => !string.IsNullOrWhiteSpace(show.BackdropUrl) || !string.IsNullOrWhiteSpace(show.BannerUrl))
+                .Where(show => !string.IsNullOrWhiteSpace(show.BackgroundUrl) || !string.IsNullOrWhiteSpace(show.BannerUrl))
                 .ToList();
             var candidates = preferred.Count > 0 ? preferred : source;
             heroCollectionId = PickStable(candidates).CollectionId;

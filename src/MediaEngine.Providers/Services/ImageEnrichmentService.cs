@@ -15,7 +15,7 @@ namespace MediaEngine.Providers.Services;
 
 /// <summary>
 /// Orchestrates Stage 3 image enrichment for a work — fetches rich imagery
-/// from Fanart.tv (backdrops, logos, banners, character art) and stores typed
+/// from Fanart.tv (backgrounds, logos, banners, character art) and stores typed
 /// assets. Uses direct HTTP calls (not ConfigDrivenAdapter) for full control
 /// over the multi-image array response and character art name fields.
 /// </summary>
@@ -47,19 +47,19 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private static readonly Dictionary<string, (string JsonField, AssetType Type)[]> FieldMappings = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Movies"] = [
-            ("moviebackground", AssetType.Backdrop),
+            ("moviebackground", AssetType.Background),
             ("hdmovielogo",     AssetType.Logo),
             ("moviebanner",     AssetType.Banner),
         ],
         ["TV"] = [
-            ("showbackground", AssetType.Backdrop),
+            ("showbackground", AssetType.Background),
             ("hdtvlogo",       AssetType.Logo),
             ("tvbanner",       AssetType.Banner),
         ],
         ["Music"] = [
-            ("artistbackground", AssetType.Backdrop),
+            ("artistbackground", AssetType.Background),
             ("musiclogo",        AssetType.Logo),
-            ("albumcover",       AssetType.Backdrop),
+            ("albumcover",       AssetType.SquareArt),
             ("cdart",            AssetType.Logo),
         ],
     };
@@ -176,7 +176,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         if (json is null) return;
 
         // ── Step 4: Parse response and download work-level assets ──
-        string? backdropPath = null;
+        string? backgroundPath = null;
         if (FieldMappings.TryGetValue(resolvedMediaType, out var mappings))
         {
             foreach (var (jsonField, assetType) in mappings)
@@ -184,15 +184,15 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 var localPath = await ProcessImageArrayAsync(
                     json, jsonField, assetType, assetId, workQid, resolvedMediaType, ct);
 
-                if (assetType == AssetType.Backdrop && localPath is not null)
-                    backdropPath = localPath;
+                if (assetType == AssetType.Background && localPath is not null)
+                    backgroundPath = localPath;
             }
         }
 
-        // ── Step 5: Regenerate hero from backdrop (higher quality than cover) ──
-        if (backdropPath is not null && File.Exists(backdropPath))
+        // ── Step 5: Regenerate hero from the higher-resolution background art ──
+        if (backgroundPath is not null && File.Exists(backgroundPath))
         {
-            await RegenerateHeroFromBackdropAsync(assetId, workQid, backdropPath, ct);
+            await RegenerateHeroFromBackgroundAsync(assetId, workQid, backgroundPath, ct);
         }
 
         // ── Steps 6–7: Character art matching ──
@@ -342,9 +342,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         // Resolve local path based on asset type
         var localPath = assetType switch
         {
-            AssetType.Backdrop => _imagePaths.GetWorkBackdropPath(workQid, assetId),
-            AssetType.Logo     => _imagePaths.GetWorkLogoPath(workQid, assetId),
-            AssetType.Banner   => _imagePaths.GetWorkBannerPath(workQid, assetId),
+            AssetType.Background => _imagePaths.GetWorkBackgroundPath(workQid, assetId),
+            AssetType.SquareArt  => _imagePaths.GetWorkSquareArtPath(workQid, assetId),
+            AssetType.Logo       => _imagePaths.GetWorkLogoPath(workQid, assetId),
+            AssetType.Banner     => _imagePaths.GetWorkBannerPath(workQid, assetId),
             _                  => null,
         };
 
@@ -386,16 +387,16 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     }
 
     /// <summary>
-    /// Regenerates the hero banner from a high-res backdrop image,
+    /// Regenerates the hero banner from a high-res background image,
     /// which produces better results than the cover-art-derived hero.
     /// </summary>
-    private async Task RegenerateHeroFromBackdropAsync(
-        Guid assetId, string workQid, string backdropPath, CancellationToken ct)
+    private async Task RegenerateHeroFromBackgroundAsync(
+        Guid assetId, string workQid, string backgroundPath, CancellationToken ct)
     {
         try
         {
             var imageDir = _imagePaths.GetWorkImageDir(workQid, assetId);
-            var heroResult = await _heroGenerator.GenerateAsync(backdropPath, imageDir, ct);
+            var heroResult = await _heroGenerator.GenerateAsync(backgroundPath, imageDir, ct);
 
             var heroCanonicals = new List<CanonicalValue>
             {
@@ -429,7 +430,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct);
 
             _logger.LogInformation(
-                "[IMAGE-ENRICH] Hero banner regenerated from backdrop for {WorkQid}", workQid);
+                "[IMAGE-ENRICH] Hero banner regenerated from background art for {WorkQid}", workQid);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -442,7 +443,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                     lastScoredAt: DateTimeOffset.UtcNow,
                     settled: true),
                 ct);
-            _logger.LogWarning(ex, "[IMAGE-ENRICH] Hero regeneration from backdrop failed for {WorkQid}", workQid);
+            _logger.LogWarning(ex, "[IMAGE-ENRICH] Hero regeneration from background art failed for {WorkQid}", workQid);
         }
     }
 

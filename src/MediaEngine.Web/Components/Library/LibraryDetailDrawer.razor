@@ -1029,7 +1029,7 @@
                         </div>
                     </div>
                     @* Remaining types as upload-only *@
-                    @foreach (var assetType in new[] { "Logo", "Backdrop" })
+                    @foreach (var assetType in new[] { "Logo", "Background" })
                     {
                         <div class="vdd-asset-row">
                             <span class="vdd-asset-label">@assetType</span>
@@ -1254,7 +1254,7 @@
     private bool _confirmPurge;
     private int _selectedStage = 0;
     private int _detailsTab = 0;  // 0=Current Metadata, 1=Original Metadata
-    private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Backdrop"];
+    private static readonly string[] _assetTypes = ["Cover Art", "Headshot", "Banner", "Logo", "Background"];
     private bool _searching;
     private bool _hasSearched;
     private List<RegistryItemViewModel> _searchResults = [];

@@ -45,7 +45,7 @@ public sealed class DiscoveryCardViewModel
     public string? Subtitle { get; init; }
     public string? Description { get; init; }
     public string? CoverUrl { get; init; }
-    public string? BackdropUrl { get; init; }
+    public string? BackgroundUrl { get; init; }
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
     public string? MetaText { get; init; }
     public string MediaKind { get; init; } = string.Empty;

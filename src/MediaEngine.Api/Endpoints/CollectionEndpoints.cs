@@ -441,7 +441,7 @@ public static class CollectionEndpoints
                     string? duration    = GetCanonical(workDto, "duration")
                                          ?? GetCanonical(workDto, "runtime");
                     string? coverUrl    = BuildCoverStreamUrl(w);
-                    string? backdropUrl = BuildBackdropStreamUrl(w);
+                    string? backgroundUrl = BuildBackgroundStreamUrl(w);
                     string? bannerUrl   = BuildBannerStreamUrl(w);
                     string? heroUrl     = BuildHeroStreamUrl(w);
                     string? season      = GetCanonical(workDto, "season_number");
@@ -488,7 +488,7 @@ public static class CollectionEndpoints
                         Year          = year,
                         Duration      = duration,
                         CoverUrl      = coverUrl,
-                        BackdropUrl   = backdropUrl,
+                        BackgroundUrl = backgroundUrl,
                         BannerUrl     = bannerUrl,
                         HeroUrl       = heroUrl,
                         WikidataQid   = w.WikidataQid,
@@ -527,7 +527,7 @@ public static class CollectionEndpoints
             // to disk by CoverArtWorker and served via StreamEndpoints. We need
             // the root parent work's asset_id to build the URL.
             string? collectionCover = null;
-            string? collectionBackdrop = null;
+            string? collectionBackground = null;
             string? collectionBanner = null;
             if (rootParentWorkId.HasValue)
             {
@@ -547,7 +547,7 @@ public static class CollectionEndpoints
                 if (rootAssetObj is string rootAssetStr)
                 {
                     collectionCover = $"/stream/{rootAssetStr}/cover";
-                    collectionBackdrop = $"/stream/{rootAssetStr}/backdrop";
+                    collectionBackground = $"/stream/{rootAssetStr}/background";
                     collectionBanner = $"/stream/{rootAssetStr}/banner";
                 }
             }
@@ -623,7 +623,7 @@ public static class CollectionEndpoints
                 WikidataQid      = collection.WikidataQid,
                 PrimaryMediaType = primaryMediaType,
                 CoverUrl         = collectionCover,
-                BackdropUrl      = collectionBackdrop,
+                BackgroundUrl    = collectionBackground,
                 BannerUrl        = collectionBanner,
                 Description      = collectionDescription,
                 Tagline          = collectionTagline,
@@ -1259,12 +1259,12 @@ public static class CollectionEndpoints
 
                 // Cover from the first work that has a media asset.
                 string? cover = null;
-                string? backdrop = null;
+                string? background = null;
                 string? banner = null;
                 foreach (var w in h.Works)
                 {
                     cover = BuildCoverStreamUrl(w);
-                    backdrop = BuildBackdropStreamUrl(w);
+                    background = BuildBackgroundStreamUrl(w);
                     banner = BuildBannerStreamUrl(w);
                     if (cover is not null) break;
                 }
@@ -1283,7 +1283,7 @@ public static class CollectionEndpoints
                     PrimaryMediaType = primaryMediaType,
                     WorkCount        = h.Works.Count,
                     CoverUrl         = cover,
-                    BackdropUrl      = backdrop,
+                    BackgroundUrl    = background,
                     BannerUrl        = banner,
                     Creator          = creator,
                     UniverseStatus   = h.UniverseStatus,
@@ -1400,7 +1400,7 @@ public static class CollectionEndpoints
                         g.group_name,
                         g.work_count,
                         '/stream/' || g.first_asset_id || '/cover' AS cover_url,
-                        '/stream/' || g.first_asset_id || '/backdrop' AS backdrop_url,
+                        '/stream/' || g.first_asset_id || '/background' AS background_url,
                         '/stream/' || g.first_asset_id || '/banner' AS banner_url,
                         COALESCE(
                             (
@@ -1460,7 +1460,7 @@ public static class CollectionEndpoints
                 cmd.Parameters.Add(gp);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackdropUrl, string? BannerUrl, string? Creator, string? Network, string? Year, int? SeasonCount, int AlbumCount)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? Creator, string? Network, string? Year, int? SeasonCount, int AlbumCount)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1515,7 +1515,7 @@ public static class CollectionEndpoints
                         PrimaryMediaType = primaryMediaType,
                         WorkCount        = row.WorkCount,
                         CoverUrl         = row.CoverUrl,
-                        BackdropUrl      = row.BackdropUrl,
+                        BackgroundUrl    = row.BackgroundUrl,
                         BannerUrl        = row.BannerUrl,
                         Creator          = row.Creator,
                         UniverseStatus   = "Complete",
@@ -2274,13 +2274,13 @@ public static class CollectionEndpoints
         return assetId != Guid.Empty ? $"/stream/{assetId}/cover" : null;
     }
 
-    private static string? BuildBackdropStreamUrl(Work? w)
+    private static string? BuildBackgroundStreamUrl(Work? w)
     {
         if (w is null) return null;
         var assetId = w.CanonicalValues
             .Select(c => c.EntityId)
             .FirstOrDefault(id => id != Guid.Empty);
-        return assetId != Guid.Empty ? $"/stream/{assetId}/backdrop" : null;
+        return assetId != Guid.Empty ? $"/stream/{assetId}/background" : null;
     }
 
     private static string? BuildBannerStreamUrl(Work? w)

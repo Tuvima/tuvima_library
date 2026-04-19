@@ -266,10 +266,10 @@ else
     private bool _watchlistBusy;
 
     private string? HeroBackgroundUrl =>
-        HeroEpisode?.BackdropUrl
+        HeroEpisode?.BackgroundUrl
         ?? HeroEpisode?.BannerUrl
         ?? HeroEpisode?.HeroUrl
-        ?? _detail?.BackdropUrl
+        ?? _detail?.BackgroundUrl
         ?? _detail?.BannerUrl
         ?? _detail?.CoverUrl;
 
@@ -502,7 +502,7 @@ else
         int.TryParse(value, out var parsed) ? parsed : int.MaxValue;
 
     private static string? GetEpisodeImage(CollectionGroupWorkViewModel episode) =>
-        episode.BackdropUrl ?? episode.BannerUrl ?? episode.HeroUrl ?? episode.CoverUrl;
+        episode.BackgroundUrl ?? episode.BannerUrl ?? episode.HeroUrl ?? episode.CoverUrl;
 
     private static string? GetCastImage(CollectionGroupPersonViewModel cast) =>
         cast.CharacterImageUrl ?? cast.ActorHeadshotUrl ?? cast.HeadshotUrl;

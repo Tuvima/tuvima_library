@@ -446,14 +446,14 @@
 
         if (IsContainerGrouping && _groups.Count > 0)
         {
-            var preferred = PreferWideArt(_groups, group => ResolveArtwork(group.BackdropUrl, group.BannerUrl, null, group.CoverUrl));
+            var preferred = PreferWideArt(_groups, group => ResolveArtwork(group.BackgroundUrl, group.BannerUrl, null, group.CoverUrl));
             var pick = PickStable(preferred, _groups.Select(group => group.DisplayName));
             return BuildGroupHero(pick);
         }
 
         if (_items.Count > 0)
         {
-            var preferred = PreferWideArt(_items, item => ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl));
+            var preferred = PreferWideArt(_items, item => ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl));
             var pick = PickStable(preferred, _items.Select(item => item.EntityId.ToString("N")));
             return BuildItemHero(pick);
         }
@@ -465,7 +465,7 @@
     {
         var primaryUrl = BuildJourneyPrimaryUrl(item);
         var secondaryUrl = item.CollectionId.HasValue ? $"/collection/{item.CollectionId.Value}" : $"/book/{item.WorkId}";
-        var backgroundUrl = ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl);
+        var backgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl);
         var listenTitle = Preset.HeroVariant == BrowseHeroVariant.Listen && !string.IsNullOrWhiteSpace(item.CollectionDisplayName)
             ? item.CollectionDisplayName!
             : item.Title;
@@ -506,7 +506,7 @@
             MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.ContextLabel, item.Year),
             SupportingLine = item.Runtime ?? item.Duration ?? item.Specs,
             CoverUrl = item.CoverUrl,
-            BackgroundUrl = ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
+            BackgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
             PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open album" : "Open",
             SecondaryActionLabel = "Details",
             PrimaryNavigationUrl = $"/book/{item.EntityId}",
@@ -531,7 +531,7 @@
                     ? $"{group.AlbumCount.Value} albums"
                     : null,
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            BackgroundUrl = ResolveArtwork(group.BackdropUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
+            BackgroundUrl = ResolveArtwork(group.BackgroundUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
             PrimaryActionLabel = "Explore",
             SecondaryActionLabel = "Open",
             PrimaryNavigationUrl = navigationUrl,
@@ -556,7 +556,7 @@
             Subtitle = item.Creator ?? item.ContextLabel,
             Description = BuildItemDescription(item),
             CoverUrl = item.CoverUrl,
-            BackdropUrl = ResolveArtwork(item.BackdropUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
+            BackgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
             MetaText = JoinParts(item.ContextLabel, item.Year, item.Runtime ?? item.Duration),
             MediaKind = FormatMediaLabel(item.MediaType),
             AccentColor = AccentForMedia(item.MediaType),
@@ -603,7 +603,7 @@
             Subtitle = group.Creator ?? group.Network,
             Description = BuildGroupDescription(group),
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            BackdropUrl = ResolveArtwork(group.BackdropUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
+            BackgroundUrl = ResolveArtwork(group.BackgroundUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
             PreviewImages = group.CoverUrl is { Length: > 0 } cover ? [cover] : [],
             MetaText = JoinParts(group.Year, $"{group.WorkCount} items"),
             MediaKind = FormatMediaLabel(group.PrimaryMediaType),
@@ -630,7 +630,7 @@
             Title = group.DisplayName,
             MediaType = group.PrimaryMediaType,
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            BackdropUrl = group.BackdropUrl,
+            BackgroundUrl = group.BackgroundUrl,
             BannerUrl = group.BannerUrl,
             Author = group.Creator,
             Artist = group.Creator,
@@ -993,8 +993,8 @@
         return new Guid(bytes);
     }
 
-    private static string? ResolveArtwork(string? backdropUrl, string? bannerUrl, string? heroUrl, string? coverUrl) =>
-        backdropUrl ?? bannerUrl ?? heroUrl ?? coverUrl;
+    private static string? ResolveArtwork(string? backgroundUrl, string? bannerUrl, string? heroUrl, string? coverUrl) =>
+        backgroundUrl ?? bannerUrl ?? heroUrl ?? coverUrl;
 
     private static string BuildItemDescription(LibraryItemViewModel item)
     {

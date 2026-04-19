@@ -1361,6 +1361,11 @@ public sealed class DatabaseConnection : IDatabaseConnection
         // Migration M-065: Stage 3 tables (entity_assets, character_portraits, series_members).
         MigrateStage3Tables(conn);
 
+        // Migration M-065A: artwork slot normalization.
+        // Renames Backdrop -> Background, adds SquareArt, updates stored canonical keys,
+        // and rewrites persisted local image paths from backdrop.* to background.*.
+        MigrateArtworkSlotNormalization(conn);
+
         // Migration M-066: Provider health tracking + deferred enrichment failure classification.
         MigrateProviderHealth(conn);
 
@@ -1912,7 +1917,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 id               TEXT PRIMARY KEY,
                 entity_id        TEXT NOT NULL,
                 entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
-                asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','Backdrop','CharacterPortrait')),
+                asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','Background','CharacterPortrait')),
                 image_url        TEXT,
                 local_image_path TEXT,
                 source_provider  TEXT,
@@ -2926,6 +2931,159 @@ public sealed class DatabaseConnection : IDatabaseConnection
             CREATE INDEX IF NOT EXISTS idx_collections_resolution ON collections(resolution);
             """;
         cmd.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-065A: normalize artwork slot naming and supported typed assets.
+    /// Rebuilds <c>entity_assets</c> if its asset type constraint still uses Backdrop,
+    /// rewrites canonical/claim keys to <c>background</c>, and renames local files
+    /// from <c>backdrop.*</c> to <c>background.*</c>.
+    /// </summary>
+    private static void MigrateArtworkSlotNormalization(SqliteConnection conn)
+    {
+        bool needsEntityAssetRebuild = false;
+        using (var probe = conn.CreateCommand())
+        {
+            probe.CommandText = "SELECT sql FROM sqlite_master WHERE type='table' AND name='entity_assets';";
+            var sql = probe.ExecuteScalar() as string;
+            if (sql is not null)
+            {
+                needsEntityAssetRebuild =
+                    !sql.Contains("SquareArt", StringComparison.OrdinalIgnoreCase)
+                    || sql.Contains("Backdrop", StringComparison.OrdinalIgnoreCase)
+                    || !sql.Contains("Background", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        if (needsEntityAssetRebuild)
+        {
+            using var rebuild = conn.CreateCommand();
+            rebuild.CommandText = """
+                PRAGMA foreign_keys=OFF;
+
+                CREATE TABLE entity_assets_new (
+                    id               TEXT PRIMARY KEY,
+                    entity_id        TEXT NOT NULL,
+                    entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
+                    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','Background','CharacterPortrait')),
+                    image_url        TEXT,
+                    local_image_path TEXT,
+                    source_provider  TEXT,
+                    is_preferred     INTEGER NOT NULL DEFAULT 0,
+                    is_user_override INTEGER NOT NULL DEFAULT 0,
+                    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at       TEXT
+                );
+
+                INSERT INTO entity_assets_new (
+                    id,
+                    entity_id,
+                    entity_type,
+                    asset_type,
+                    image_url,
+                    local_image_path,
+                    source_provider,
+                    is_preferred,
+                    is_user_override,
+                    created_at,
+                    updated_at
+                )
+                SELECT
+                    id,
+                    entity_id,
+                    entity_type,
+                    CASE asset_type
+                        WHEN 'Backdrop' THEN 'Background'
+                        ELSE asset_type
+                    END AS asset_type,
+                    image_url,
+                    CASE
+                        WHEN local_image_path IS NOT NULL
+                             AND asset_type = 'Backdrop'
+                             AND instr(local_image_path, 'backdrop.') > 0
+                            THEN REPLACE(local_image_path, 'backdrop.', 'background.')
+                        ELSE local_image_path
+                    END AS local_image_path,
+                    source_provider,
+                    is_preferred,
+                    is_user_override,
+                    created_at,
+                    updated_at
+                FROM entity_assets;
+
+                DROP TABLE entity_assets;
+
+                ALTER TABLE entity_assets_new RENAME TO entity_assets;
+
+                CREATE INDEX IF NOT EXISTS idx_entity_assets_entity
+                    ON entity_assets(entity_id, entity_type);
+                CREATE INDEX IF NOT EXISTS idx_entity_assets_type
+                    ON entity_assets(entity_id, asset_type);
+
+                PRAGMA foreign_keys=ON;
+                """;
+            rebuild.ExecuteNonQuery();
+        }
+
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                UPDATE canonical_values
+                SET key = 'background',
+                    value = CASE
+                        WHEN value LIKE '%/backdrop' THEN REPLACE(value, '/backdrop', '/background')
+                        ELSE value
+                    END
+                WHERE key = 'backdrop';
+
+                UPDATE metadata_claims
+                SET claim_key = 'background',
+                    claim_value = CASE
+                        WHEN claim_value LIKE '%/backdrop' THEN REPLACE(claim_value, '/backdrop', '/background')
+                        ELSE claim_value
+                    END
+                WHERE claim_key = 'backdrop';
+
+                UPDATE entity_assets
+                SET asset_type = 'Background',
+                    local_image_path = CASE
+                        WHEN local_image_path IS NOT NULL AND instr(local_image_path, 'backdrop.') > 0
+                            THEN REPLACE(local_image_path, 'backdrop.', 'background.')
+                        ELSE local_image_path
+                    END
+                WHERE asset_type = 'Backdrop';
+                """;
+            cmd.ExecuteNonQuery();
+        }
+
+        using var pathRows = conn.CreateCommand();
+        pathRows.CommandText = """
+            SELECT DISTINCT local_image_path
+            FROM entity_assets
+            WHERE local_image_path IS NOT NULL
+              AND instr(local_image_path, 'background.') > 0;
+            """;
+        using var reader = pathRows.ExecuteReader();
+        while (reader.Read())
+        {
+            var backgroundPath = reader.IsDBNull(0) ? null : reader.GetString(0);
+            if (string.IsNullOrWhiteSpace(backgroundPath))
+                continue;
+
+            var legacyPath = backgroundPath.Replace("background.", "backdrop.", StringComparison.OrdinalIgnoreCase);
+            if (!File.Exists(legacyPath) || File.Exists(backgroundPath))
+                continue;
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(backgroundPath)!);
+                File.Move(legacyPath, backgroundPath);
+            }
+            catch
+            {
+                // Best-effort migration. Startup should continue even if an individual file could not move.
+            }
+        }
     }
 
     /// <summary>

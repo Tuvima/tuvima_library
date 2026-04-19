@@ -19,14 +19,14 @@ namespace MediaEngine.Domain.Services;
 ///         │   │   │   ├── cover.jpg
 ///         │   │   │   ├── cover_thumb.jpg
 ///         │   │   │   ├── hero.jpg
-///         │   │   │   ├── backdrop.jpg
+///         │   │   │   ├── background.jpg
 ///         │   │   │   ├── logo.png
 ///         │   │   │   └── banner.jpg
 ///         │   │   └── {assetId12}/       ← audiobook edition
 ///         │   │       ├── cover.jpg
 ///         │   │       ├── cover_thumb.jpg
 ///         │   │       ├── hero.jpg
-///         │   │       ├── backdrop.jpg
+///         │   │       ├── background.jpg
 ///         │   │       ├── logo.png
 ///         │   │       └── banner.jpg
 ///         │   └── _pending/
@@ -38,7 +38,7 @@ namespace MediaEngine.Domain.Services;
 ///         │       └── headshot.jpg
 ///         └── universes/
 ///             └── {QID}/
-///                 └── backdrop.jpg
+///                 └── background.jpg
 /// </code>
 /// </summary>
 public sealed class ImagePathService
@@ -87,9 +87,13 @@ public sealed class ImagePathService
     public string GetWorkHeroPath(string? wikidataQid, Guid assetId) =>
         Path.Combine(GetWorkImageDir(wikidataQid, assetId), "hero.jpg");
 
-    /// <summary>Gets backdrop.jpg path for a work.</summary>
-    public string GetWorkBackdropPath(string? wikidataQid, Guid assetId) =>
-        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "backdrop.jpg");
+    /// <summary>Gets background.jpg path for a work.</summary>
+    public string GetWorkBackgroundPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "background.jpg");
+
+    /// <summary>Gets square.jpg path for a work.</summary>
+    public string GetWorkSquareArtPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "square.jpg");
 
     /// <summary>Gets logo.png path for a work (transparent PNG).</summary>
     public string GetWorkLogoPath(string? wikidataQid, Guid assetId) =>
@@ -292,7 +296,7 @@ public sealed class ImagePathService
         => BuildSiblingPath(mediaFilePath, "poster", ".jpg");
 
     /// <summary>
-    /// Returns the canonical backdrop / fanart path next to the media file.
+    /// Returns the canonical background / fanart path next to the media file.
     /// </summary>
     public static string GetMediaFileFanartPath(string mediaFilePath)
         => BuildSiblingPath(mediaFilePath, "fanart", ".jpg");

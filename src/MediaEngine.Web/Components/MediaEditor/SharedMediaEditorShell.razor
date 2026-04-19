@@ -369,22 +369,23 @@
                                             }
                                         </div>
 
-                                        <div class="sme-art-slot-frame sme-art-slot-frame--@slot.FrameClass"
+                                        <div class="sme-art-slot-frame"
                                              @ondragenter="@(() => SetArtworkDragTarget(slot.AssetType))"
                                              @ondragleave="@(() => ClearArtworkDragTarget(slot.AssetType))"
                                              @ondragover:preventDefault="true"
                                              @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
-                                            @if (!string.IsNullOrWhiteSpace(previewUrl))
-                                            {
-                                                <img src="@previewUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
-                                            }
-                                            else
-                                            {
-                                                <div class="sme-cover-fallback sme-art-slot-placeholder">
-                                                    <MudIcon Icon="@slot.Icon" Style="font-size: 32px; opacity: 0.18;" />
-                                                </div>
-                                            }
-
+                                            <div class="sme-art-slot-preview sme-art-slot-preview--@slot.PreviewClass">
+                                                @if (!string.IsNullOrWhiteSpace(previewUrl))
+                                                {
+                                                    <img src="@previewUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                                }
+                                                else
+                                                {
+                                                    <div class="sme-cover-fallback sme-art-slot-placeholder">
+                                                        <MudIcon Icon="@slot.Icon" Style="font-size: 32px; opacity: 0.18;" />
+                                                    </div>
+                                                }
+                                            </div>
                                         </div>
 
                                         <div class="sme-art-slot-footer">
@@ -417,6 +418,25 @@
                                     </section>
                                 }
                             </div>
+
+                            <section class="sme-artwork-generated">
+                                <div class="sme-artwork-generated-copy">
+                                    <div class="sme-artwork-generated-title">Generated Hero</div>
+                                    <div class="sme-artwork-generated-text">@GetArtworkSourceLabel("Hero")</div>
+                                </div>
+                                <div class="sme-artwork-generated-frame">
+                                    @if (HasGeneratedHeroArtwork)
+                                    {
+                                        <img src="@GetArtworkPreviewUrl("Hero")" alt="Generated Hero" class="sme-artwork-generated-image" />
+                                    }
+                                    else
+                                    {
+                                        <div class="sme-cover-fallback sme-art-slot-placeholder">
+                                            <MudIcon Icon="@Icons.Material.Outlined.ViewAgenda" Style="font-size: 28px; opacity: 0.18;" />
+                                        </div>
+                                    }
+                                </div>
+                            </section>
                         }
                         else
                         {

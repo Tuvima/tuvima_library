@@ -373,7 +373,7 @@ public static class StreamEndpoints
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        group.MapGet("/{assetId:guid}/backdrop", async (
+        group.MapGet("/{assetId:guid}/square", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
@@ -386,15 +386,41 @@ public static class StreamEndpoints
                 return Results.NotFound($"Asset '{assetId}' not found.");
 
             var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
-            var backdropPath = ResolveTypedArtworkPath("Backdrop", wikidataQid, assetId, imagePathService);
-            if (backdropPath is null)
-                return Results.NotFound("No backdrop artwork found for this asset.");
+            var squarePath = ResolveTypedArtworkPath("SquareArt", wikidataQid, assetId, imagePathService);
+            if (squarePath is null)
+                return Results.NotFound("No square artwork found for this asset.");
 
-            var bytes = await File.ReadAllBytesAsync(backdropPath, ct);
-            return Results.File(bytes, GetImageMimeType(backdropPath), Path.GetFileName(backdropPath));
+            var bytes = await File.ReadAllBytesAsync(squarePath, ct);
+            return Results.File(bytes, GetImageMimeType(squarePath), Path.GetFileName(squarePath));
         })
-        .WithName("GetAssetBackdrop")
-        .WithSummary("Serve uploaded backdrop artwork for a media asset.")
+        .WithName("GetAssetSquareArt")
+        .WithSummary("Serve uploaded square artwork for a media asset.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/{assetId:guid}/background", async (
+            Guid assetId,
+            IMediaAssetRepository assetRepo,
+            IWorkRepository workRepo,
+            ICanonicalValueRepository canonicalRepo,
+            ImagePathService imagePathService,
+            CancellationToken ct) =>
+        {
+            var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            if (asset is null)
+                return Results.NotFound($"Asset '{assetId}' not found.");
+
+            var wikidataQid = await ResolveAssetWikidataQidAsync(assetId, workRepo, canonicalRepo, ct);
+            var backgroundPath = ResolveTypedArtworkPath("Background", wikidataQid, assetId, imagePathService);
+            if (backgroundPath is null)
+                return Results.NotFound("No background artwork found for this asset.");
+
+            var bytes = await File.ReadAllBytesAsync(backgroundPath, ct);
+            return Results.File(bytes, GetImageMimeType(backgroundPath), Path.GetFileName(backgroundPath));
+        })
+        .WithName("GetAssetBackground")
+        .WithSummary("Serve uploaded background artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
@@ -537,7 +563,8 @@ public static class StreamEndpoints
         string basePath = assetType switch
         {
             "Banner" => imagePathService.GetWorkBannerPath(wikidataQid, assetId),
-            "Backdrop" => imagePathService.GetWorkBackdropPath(wikidataQid, assetId),
+            "SquareArt" => imagePathService.GetWorkSquareArtPath(wikidataQid, assetId),
+            "Background" => imagePathService.GetWorkBackgroundPath(wikidataQid, assetId),
             "Logo" => imagePathService.GetWorkLogoPath(wikidataQid, assetId),
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
         };
