@@ -23,6 +23,30 @@ public sealed class ItemPreferencesResponse
     public string Message { get; init; } = "";
 }
 
+public sealed class ItemDisplayOverridesRequest
+{
+    [JsonPropertyName("fields")]
+    public Dictionary<string, string> Fields { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class ItemDisplayOverridesResponse
+{
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; init; }
+
+    [JsonPropertyName("fields_updated")]
+    public int FieldsUpdated { get; init; }
+
+    [JsonPropertyName("updated_keys")]
+    public IReadOnlyList<string> UpdatedKeys { get; init; } = [];
+
+    [JsonPropertyName("display_overrides")]
+    public Dictionary<string, string> DisplayOverrides { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = "";
+}
+
 public sealed class ItemCanonicalSearchRequest
 {
     [JsonPropertyName("media_type")]

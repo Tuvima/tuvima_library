@@ -7,8 +7,17 @@ public sealed class WorkViewModel
 {
     public Guid                         Id              { get; init; }
     public Guid?                        CollectionId           { get; init; }
+    public Guid?                        RootWorkId             { get; init; }
+    public Guid?                        AssetId                { get; init; }
     public string                       MediaType       { get; init; } = string.Empty;
+    public string?                      WorkKind               { get; init; }
     public int?                         Ordinal         { get; init; }
+    public DateTimeOffset               CreatedAt              { get; init; }
+    public string?                      ResolvedCoverUrl       { get; init; }
+    public string?                      ResolvedBackgroundUrl  { get; init; }
+    public string?                      ResolvedBannerUrl      { get; init; }
+    public string?                      ResolvedHeroUrl        { get; init; }
+    public string?                      ResolvedLogoUrl        { get; init; }
     public List<CanonicalValueViewModel> CanonicalValues { get; init; } = [];
 
     // ── Display helpers ───────────────────────────────────────────────────────
@@ -87,11 +96,21 @@ public sealed class WorkViewModel
     }
 
     public string? Year           => Canonical("release_year") ?? Canonical("year");
-    public string? CoverUrl       => Canonical("cover_url") ?? Canonical("cover");
-    public string? HeroUrl        => Canonical("hero_url") ?? Canonical("hero");
+    public string? CoverUrl       => ResolvedCoverUrl ?? Canonical("cover_url") ?? Canonical("cover");
+    public string? BackgroundUrl  => ResolvedBackgroundUrl ?? Canonical("background_url") ?? Canonical("background");
+    public string? BannerUrl      => ResolvedBannerUrl ?? Canonical("banner_url") ?? Canonical("banner");
+    public string? HeroUrl        => ResolvedHeroUrl ?? Canonical("hero_url") ?? Canonical("hero");
+    public string? LogoUrl        => ResolvedLogoUrl ?? Canonical("logo_url") ?? Canonical("logo");
     public string? Description       => Canonical("description");
     public string? DescriptionSource => Canonical("description_source");
     public string? Genre          => Canonical("genre");
+    public string? Artist         => Canonical("artist");
+    public string? Album          => Canonical("album");
+    public string? Network        => Canonical("network");
+    public string? ShowName       => Canonical("show_name") ?? Canonical("series");
+    public string? SeasonNumber   => Canonical("season_number");
+    public string? EpisodeNumber  => Canonical("episode_number");
+    public string? TrackNumber    => Canonical("track_number");
 
     /// <summary>
     /// Genre as an array of individual values. Splits <c>|||</c>-separated

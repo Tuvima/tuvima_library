@@ -108,18 +108,11 @@ public sealed class CollectionRuleEvaluator
 
         var orderBy = ResolveOrderBy(sortField, sortDirection);
 
+        var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state");
         cmd.CommandText = $"""
             SELECT DISTINCT w.id
             FROM works w
-            WHERE COALESCE(w.curator_state, '') NOT IN ('rejected', 'provisional')
-              AND NOT EXISTS (
-                  SELECT 1 FROM review_queue rq
-                  INNER JOIN media_assets ma_r ON ma_r.id = rq.entity_id
-                  INNER JOIN editions e_r ON e_r.id = ma_r.edition_id
-                  WHERE e_r.work_id = w.id
-                    AND rq.status = 'Pending'
-                    AND rq.trigger != 'WritebackFailed'
-              )
+            WHERE {visibleWorkPredicate}
               AND ({whereClause})
             {orderBy}
             {(limit > 0 ? $"LIMIT {limit}" : "")}

@@ -325,6 +325,7 @@ public interface IEngineApiClient
         Guid entityId,
         string field,
         string? query = null,
+        string? source = null,
         Guid? parentEntityId = null,
         string? parentValue = null,
         CancellationToken ct = default);
@@ -340,6 +341,9 @@ public interface IEngineApiClient
         Guid entityId,
         MediaEditorMembershipPreviewRequestDto request,
         CancellationToken ct = default);
+
+    /// <summary>PUT /library/items/{entityId}/display-overrides — save presentation-only display overrides.</summary>
+    Task<bool> SaveItemDisplayOverridesAsync(Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default);
 
     /// <summary>GET /metadata/{entityId}/artwork/{scopeId} — load exact artwork for one editor scope.</summary>
     Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);

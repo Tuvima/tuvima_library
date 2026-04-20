@@ -5,6 +5,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -118,7 +119,9 @@ public static class LibraryEndpoints
 
             using var conn = db.CreateConnection();
 
-            const string worksSql = """
+            var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
+            var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ad.file_path_root");
+            var worksSql = $"""
                 WITH asset_dates AS (
                     SELECT
                         ma.id AS asset_id,
@@ -130,38 +133,12 @@ public static class LibraryEndpoints
                     LEFT JOIN metadata_claims mc ON mc.entity_id = ma.id
                     GROUP BY ma.id, e.work_id, ma.file_path_root
                 ),
-                pending_review_works AS (
-                    SELECT DISTINCT
-                        e.work_id AS work_id
-                    FROM review_queue rq
-                    INNER JOIN media_assets ma ON ma.id = rq.entity_id
-                    INNER JOIN editions e ON e.id = ma.edition_id
-                    WHERE rq.status = 'Pending'
-                ),
-                latest_job_states AS (
-                    SELECT
-                        work_id AS work_id,
-                        state AS state
-                    FROM (
-                        SELECT
-                            e.work_id AS work_id,
-                            ij.state AS state,
-                            ROW_NUMBER() OVER (
-                                PARTITION BY e.work_id
-                                ORDER BY
-                                    COALESCE(ij.updated_at, ij.created_at) DESC,
-                                    ij.created_at DESC
-                            ) AS row_num
-                        FROM identity_jobs ij
-                        INNER JOIN media_assets ma ON ma.id = ij.entity_id
-                        INNER JOIN editions e ON e.id = ma.edition_id
-                    ) ranked_jobs
-                    WHERE row_num = 1
-                ),
                 ranked_assets AS (
                     SELECT
                         w.id AS work_id,
+                        w.collection_id AS collection_id,
                         w.media_type AS media_type,
+                        w.work_kind AS work_kind,
                         w.ordinal AS ordinal,
                         COALESCE(gp.id, p.id, w.id) AS root_work_id,
                         ad.asset_id AS asset_id,
@@ -177,19 +154,15 @@ public static class LibraryEndpoints
                     INNER JOIN asset_dates ad ON ad.work_id = w.id
                     LEFT JOIN works p ON p.id = w.parent_work_id
                     LEFT JOIN works gp ON gp.id = p.parent_work_id
-                    LEFT JOIN pending_review_works prw ON prw.work_id = w.id
-                    LEFT JOIN latest_job_states ljs ON ljs.work_id = w.id
                     WHERE w.work_kind != 'parent'
-                      AND COALESCE(w.is_catalog_only, 0) = 0
-                      AND COALESCE(w.curator_state, '') NOT IN ('rejected', 'provisional')
-                      AND prw.work_id IS NULL
-                      AND COALESCE(ljs.state, '') != 'QidNeedsReview'
-                      AND ad.file_path_root NOT LIKE '%/.data/staging/%'
-                      AND ad.file_path_root NOT LIKE '%\\.data\\staging\\%'
+                      AND {visibleWorkPredicate}
+                      AND {visibleAssetPredicate}
                 )
                 SELECT
                     work_id AS WorkId,
+                    collection_id AS CollectionId,
                     media_type AS MediaType,
+                    work_kind AS WorkKind,
                     ordinal AS Ordinal,
                     root_work_id AS RootWorkId,
                     asset_id AS AssetId,
@@ -247,14 +220,49 @@ public static class LibraryEndpoints
                         canonicalValues["hero"] = $"/stream/{row.AssetId}/hero";
                     }
 
+                    if (!canonicalValues.ContainsKey("background")
+                        && !canonicalValues.ContainsKey("background_url")
+                        && HasPresentArtwork(assetValues, rootValues, "background_state"))
+                    {
+                        canonicalValues["background"] = $"/stream/{row.AssetId}/background";
+                    }
+
+                    if (!canonicalValues.ContainsKey("banner")
+                        && !canonicalValues.ContainsKey("banner_url")
+                        && HasPresentArtwork(assetValues, rootValues, "banner_state"))
+                    {
+                        canonicalValues["banner"] = $"/stream/{row.AssetId}/banner";
+                    }
+
+                    if (!canonicalValues.ContainsKey("logo")
+                        && !canonicalValues.ContainsKey("logo_url")
+                        && HasPresentArtwork(assetValues, rootValues, "logo_state"))
+                    {
+                        canonicalValues["logo"] = $"/stream/{row.AssetId}/logo";
+                    }
+
+                    var coverUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "cover_state", "cover");
+                    var backgroundUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "background_state", "background");
+                    var bannerUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "banner_state", "banner");
+                    var heroUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "hero_state", "hero");
+                    var logoUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "logo_state", "logo");
+
                     return new LibraryWorkListItemDto
                     {
                         Id = row.WorkId,
+                        CollectionId = row.CollectionId,
+                        RootWorkId = row.RootWorkId,
                         MediaType = row.MediaType,
+                        WorkKind = row.WorkKind,
                         Ordinal = row.Ordinal,
                         WikidataQid = GetCanonicalValue(canonicalValues, "wikidata_qid"),
                         AssetId = row.AssetId,
                         CreatedAt = row.FirstClaimedAt,
+                        CoverUrl = coverUrl,
+                        BackgroundUrl = backgroundUrl,
+                        BannerUrl = bannerUrl,
+                        HeroUrl = heroUrl,
+                        LogoUrl = logoUrl,
                         CanonicalValues = canonicalValues,
                     };
                 })
@@ -720,6 +728,25 @@ public static class LibraryEndpoints
             || string.Equals(GetCanonicalValue(rootValues, key), "present", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static string? ResolveArtworkUrl(
+        IReadOnlyDictionary<string, string> canonicalValues,
+        IReadOnlyDictionary<string, string>? assetValues,
+        IReadOnlyDictionary<string, string>? rootValues,
+        Guid assetId,
+        string stateKey,
+        string routeSegment)
+    {
+        var canonical = GetCanonicalValue(canonicalValues, $"{routeSegment}_url")
+            ?? GetCanonicalValue(canonicalValues, routeSegment);
+
+        if (!string.IsNullOrWhiteSpace(canonical))
+            return canonical;
+
+        return HasPresentArtwork(assetValues, rootValues, stateKey)
+            ? $"/stream/{assetId}/{routeSegment}"
+            : null;
+    }
+
     private static string? GetCanonicalValue(
         IReadOnlyDictionary<string, string>? values,
         string key) =>
@@ -732,7 +759,9 @@ public static class LibraryEndpoints
     private sealed class LibraryWorkFeedRow
     {
         public Guid WorkId { get; init; }
+        public Guid? CollectionId { get; init; }
         public string MediaType { get; init; } = string.Empty;
+        public string? WorkKind { get; init; }
         public int? Ordinal { get; init; }
         public Guid RootWorkId { get; init; }
         public Guid AssetId { get; init; }

@@ -238,11 +238,11 @@ public static class MediaEditorSchemaCatalog
             "movie_identity" => ["title", "year", "director"],
             "show_episode" => ["show_name", "season_number", "episode_number", "episode_title"],
             "show" => ["show_name"],
-            "book_identity" => ["title", "author", "series", "series_position"],
-            "audiobook_identity" => ["title", "author", "narrator", "series", "series_position"],
+            "book_identity" => ["title", "author"],
+            "audiobook_identity" => ["title", "author", "narrator"],
             "narrator" => ["narrator"],
-            "series" => ["series", "series_position"],
-            "issue" => ["series", "series_position", "title"],
+            "series" => ["series"],
+            "issue" => ["title", "series", "series_position"],
             _ => ["title"],
         };
 
@@ -253,7 +253,7 @@ public static class MediaEditorSchemaCatalog
         QuickSearchTargets = [("album", "Album"), ("artist", "Artist"), ("track", "Track")],
         Groups =
         [
-            Group("music_identity", "Identity", "details",
+            Group("music_details", "Details", "details",
                 Field("title", "Title", identity: true),
                 Field("artist", "Artist", identity: true),
                 Field("album", "Album", identity: true),
@@ -283,7 +283,7 @@ public static class MediaEditorSchemaCatalog
         QuickSearchTargets = [("movie_identity", "Movie")],
         Groups =
         [
-            Group("movie_identity", "Identity", "details",
+            Group("movie_details", "Details", "details",
                 Field("title", "Title", identity: true),
                 Field("original_title", "Original Title"),
                 Field("year", "Year", identity: true),
@@ -309,7 +309,7 @@ public static class MediaEditorSchemaCatalog
         QuickSearchTargets = [("show_episode", "Show / Episode"), ("show", "Show")],
         Groups =
         [
-            Group("tv_identity", "Identity", "details",
+            Group("tv_details", "Details", "details",
                 Field("show_name", "Show", identity: true),
                 Field("season_number", "Season", identity: true),
                 Field("episode_number", "Episode", identity: true),
@@ -333,10 +333,10 @@ public static class MediaEditorSchemaCatalog
     {
         MediaType = "Books",
         DefaultTargetGroup = "book_identity",
-        QuickSearchTargets = [("book_identity", "Book"), ("series", "Series")],
+        QuickSearchTargets = [("book_identity", "Book")],
         Groups =
         [
-            Group("book_identity", "Identity", "details",
+            Group("book_details", "Details", "details",
                 Field("title", "Title", identity: true),
                 Field("subtitle", "Subtitle"),
                 Field("author", "Author", identity: true),
@@ -360,10 +360,10 @@ public static class MediaEditorSchemaCatalog
     {
         MediaType = "Audiobooks",
         DefaultTargetGroup = "narrator",
-        QuickSearchTargets = [("narrator", "Narrator"), ("series", "Series"), ("audiobook_identity", "Audiobook")],
+        QuickSearchTargets = [("narrator", "Narrator"), ("audiobook_identity", "Audiobook")],
         Groups =
         [
-            Group("audiobook_identity", "Identity", "details",
+            Group("audiobook_details", "Details", "details",
                 Field("title", "Title", identity: true),
                 Field("author", "Author", identity: true),
                 Field("narrator", "Narrator", identity: true),
@@ -387,11 +387,11 @@ public static class MediaEditorSchemaCatalog
     private static readonly MediaEditorSchema Comics = new()
     {
         MediaType = "Comics",
-        DefaultTargetGroup = "series",
-        QuickSearchTargets = [("series", "Series"), ("issue", "Issue")],
+        DefaultTargetGroup = "issue",
+        QuickSearchTargets = [("issue", "Issue")],
         Groups =
         [
-            Group("comic_identity", "Identity", "details",
+            Group("comic_details", "Details", "details",
                 Field("series", "Series", identity: true),
                 Field("volume", "Volume"),
                 Field("series_position", "Issue Number", identity: true),

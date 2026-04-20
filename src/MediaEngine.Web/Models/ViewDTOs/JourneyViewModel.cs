@@ -18,6 +18,7 @@ public sealed class JourneyItemViewModel
     public string? BackgroundUrl   { get; init; }
     public string? BannerUrl       { get; init; }
     public string? HeroUrl         { get; init; }
+    public string? LogoUrl         { get; init; }
     public string? Narrator        { get; init; }
     public string? Series          { get; init; }
     public string? SeriesPosition  { get; init; }
@@ -52,4 +53,19 @@ public sealed class JourneyItemViewModel
         : ActionVerb;
 
     public string FormatMediaType => MediaTypeClassifier.GetDisplayLabel(MediaType);
+
+    public string? SeasonNumber =>
+        ExtendedProperties.TryGetValue("season_number", out var seasonNumber) && !string.IsNullOrWhiteSpace(seasonNumber)
+            ? seasonNumber
+            : null;
+
+    public string? EpisodeNumber =>
+        ExtendedProperties.TryGetValue("episode_number", out var episodeNumber) && !string.IsNullOrWhiteSpace(episodeNumber)
+            ? episodeNumber
+            : null;
+
+    public string? TrackNumber =>
+        ExtendedProperties.TryGetValue("track_number", out var trackNumber) && !string.IsNullOrWhiteSpace(trackNumber)
+            ? trackNumber
+            : null;
 }

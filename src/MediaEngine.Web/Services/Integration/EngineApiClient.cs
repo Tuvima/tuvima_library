@@ -78,19 +78,7 @@ public sealed class EngineApiClient : IEngineApiClient
             var raw = await response.Content.ReadFromJsonAsync<List<LibraryWorkRaw>>(cancellationToken: ct).ConfigureAwait(false);
             if (raw is null) return [];
 
-            return raw.Select(w => new WorkViewModel
-            {
-                Id              = w.Id,
-                MediaType       = w.MediaType ?? "Unknown",
-                Ordinal         = w.Ordinal,
-                CanonicalValues = (w.CanonicalValues ?? new())
-                    .Select(kv => new CanonicalValueViewModel
-                    {
-                        Key   = kv.Key,
-                        Value = AbsoluteUrl(kv.Value),
-                    })
-                    .ToList(),
-            }).ToList();
+            return raw.Select(MapLibraryWork).ToList();
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -1355,6 +1343,31 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<bool> SaveItemDisplayOverridesAsync(
+        Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { fields };
+            var resp = await _http.PutAsJsonAsync($"/library/items/{entityId}/display-overrides", body, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                var detail = await resp.Content.ReadAsStringAsync(ct);
+                _logger.LogWarning("PUT /library/items/{EntityId}/display-overrides returned {Status}: {Detail}",
+                    entityId, (int)resp.StatusCode, detail);
+                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
+            }
+
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /library/items/{EntityId}/display-overrides failed", entityId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
     // ── Hydration settings (/settings/hydration) ────────────────────────
 
     public async Task<HydrationSettingsDto?> GetHydrationSettingsAsync(
@@ -1481,6 +1494,7 @@ public sealed class EngineApiClient : IEngineApiClient
         Guid entityId,
         string field,
         string? query = null,
+        string? source = null,
         Guid? parentEntityId = null,
         string? parentValue = null,
         CancellationToken ct = default)
@@ -1490,6 +1504,8 @@ public sealed class EngineApiClient : IEngineApiClient
             var queryParts = new List<string> { $"field={Uri.EscapeDataString(field)}" };
             if (!string.IsNullOrWhiteSpace(query))
                 queryParts.Add($"query={Uri.EscapeDataString(query)}");
+            if (!string.IsNullOrWhiteSpace(source))
+                queryParts.Add($"source={Uri.EscapeDataString(source)}");
             if (parentEntityId.HasValue)
                 queryParts.Add($"parentEntityId={Uri.EscapeDataString(parentEntityId.Value.ToString())}");
             if (!string.IsNullOrWhiteSpace(parentValue))
@@ -1786,6 +1802,7 @@ public sealed class EngineApiClient : IEngineApiClient
                 BackgroundUrl  = j.BackgroundUrl is not null ? AbsoluteUrl(j.BackgroundUrl) : null,
                 BannerUrl      = j.BannerUrl is not null ? AbsoluteUrl(j.BannerUrl) : null,
                 HeroUrl        = j.HeroUrl  is not null ? AbsoluteUrl(j.HeroUrl)  : null,
+                LogoUrl        = j.LogoUrl  is not null ? AbsoluteUrl(j.LogoUrl)  : null,
                 Narrator       = j.Narrator,
                 Series         = j.Series,
                 SeriesPosition = j.SeriesPosition,
@@ -3179,23 +3196,81 @@ public sealed class EngineApiClient : IEngineApiClient
         return value;
     }
 
+    private WorkViewModel MapLibraryWork(LibraryWorkRaw work)
+    {
+        var canonicalValues = (work.CanonicalValues ?? new())
+            .Select(kv => new CanonicalValueViewModel
+            {
+                Key = kv.Key,
+                Value = AbsoluteUrl(kv.Value),
+            })
+            .ToList();
+
+        return new WorkViewModel
+        {
+            Id = work.Id,
+            CollectionId = work.CollectionId,
+            RootWorkId = work.RootWorkId,
+            AssetId = work.AssetId,
+            MediaType = work.MediaType ?? "Unknown",
+            WorkKind = work.WorkKind,
+            Ordinal = work.Ordinal,
+            CreatedAt = ParseDateTimeOffset(work.CreatedAt),
+            ResolvedCoverUrl = work.CoverUrl is not null ? AbsoluteUrl(work.CoverUrl) : SelectCanonicalUrl(canonicalValues, "cover_url", "cover"),
+            ResolvedBackgroundUrl = work.BackgroundUrl is not null ? AbsoluteUrl(work.BackgroundUrl) : SelectCanonicalUrl(canonicalValues, "background_url", "background"),
+            ResolvedBannerUrl = work.BannerUrl is not null ? AbsoluteUrl(work.BannerUrl) : SelectCanonicalUrl(canonicalValues, "banner_url", "banner"),
+            ResolvedHeroUrl = work.HeroUrl is not null ? AbsoluteUrl(work.HeroUrl) : SelectCanonicalUrl(canonicalValues, "hero_url", "hero"),
+            ResolvedLogoUrl = work.LogoUrl is not null ? AbsoluteUrl(work.LogoUrl) : SelectCanonicalUrl(canonicalValues, "logo_url", "logo"),
+            CanonicalValues = canonicalValues,
+        };
+    }
+
+    private WorkViewModel MapWork(WorkRaw work)
+    {
+        var canonicalValues = work.CanonicalValues.Select(cv => new CanonicalValueViewModel
+        {
+            Key = cv.Key,
+            Value = AbsoluteUrl(cv.Value),
+            LastScoredAt = cv.LastScoredAt,
+        }).ToList();
+
+        return new WorkViewModel
+        {
+            Id = work.Id,
+            CollectionId = work.CollectionId,
+            MediaType = work.MediaType,
+            Ordinal = work.Ordinal,
+            ResolvedCoverUrl = SelectCanonicalUrl(canonicalValues, "cover_url", "cover"),
+            ResolvedBackgroundUrl = SelectCanonicalUrl(canonicalValues, "background_url", "background"),
+            ResolvedBannerUrl = SelectCanonicalUrl(canonicalValues, "banner_url", "banner"),
+            ResolvedHeroUrl = SelectCanonicalUrl(canonicalValues, "hero_url", "hero"),
+            ResolvedLogoUrl = SelectCanonicalUrl(canonicalValues, "logo_url", "logo"),
+            CanonicalValues = canonicalValues,
+        };
+    }
+
+    private static DateTimeOffset ParseDateTimeOffset(string? value) =>
+        DateTimeOffset.TryParse(value, out var parsed)
+            ? parsed
+            : DateTimeOffset.MinValue;
+
+    private string? SelectCanonicalUrl(IEnumerable<CanonicalValueViewModel> values, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var match = values.FirstOrDefault(value => value.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Value;
+            if (!string.IsNullOrWhiteSpace(match))
+                return AbsoluteUrl(match);
+        }
+
+        return null;
+    }
+
     private CollectionViewModel MapCollection(CollectionRaw h) => CollectionViewModel.FromApiDto(
         h.Id,
         h.UniverseId,
         h.CreatedAt,
-        h.Works.Select(w => new WorkViewModel
-        {
-            Id              = w.Id,
-            CollectionId           = w.CollectionId,
-            MediaType       = w.MediaType,
-            Ordinal         = w.Ordinal,
-            CanonicalValues = w.CanonicalValues.Select(cv => new CanonicalValueViewModel
-            {
-                Key          = cv.Key,
-                Value        = AbsoluteUrl(cv.Value),
-                LastScoredAt = cv.LastScoredAt,
-            }).ToList(),
-        }),
+        h.Works.Select(MapWork),
         displayName:   h.DisplayName,
         parentCollectionId:   h.ParentCollectionId,
         parentCollectionName: h.ParentCollectionName,
@@ -3444,11 +3519,19 @@ public sealed class EngineApiClient : IEngineApiClient
     private sealed class LibraryWorkRaw
     {
         [JsonPropertyName("id")]              public Guid Id { get; set; }
+        [JsonPropertyName("collectionId")]    public Guid? CollectionId { get; set; }
+        [JsonPropertyName("rootWorkId")]      public Guid? RootWorkId { get; set; }
         [JsonPropertyName("mediaType")]       public string? MediaType { get; set; }
+        [JsonPropertyName("workKind")]        public string? WorkKind { get; set; }
         [JsonPropertyName("ordinal")]         public int? Ordinal { get; set; }
         [JsonPropertyName("wikidataQid")]     public string? WikidataQid { get; set; }
         [JsonPropertyName("assetId")]         public Guid? AssetId { get; set; }
         [JsonPropertyName("createdAt")]       public string? CreatedAt { get; set; }
+        [JsonPropertyName("coverUrl")]        public string? CoverUrl { get; set; }
+        [JsonPropertyName("backgroundUrl")]   public string? BackgroundUrl { get; set; }
+        [JsonPropertyName("bannerUrl")]       public string? BannerUrl { get; set; }
+        [JsonPropertyName("heroUrl")]         public string? HeroUrl { get; set; }
+        [JsonPropertyName("logoUrl")]         public string? LogoUrl { get; set; }
         [JsonPropertyName("canonicalValues")] public Dictionary<string, string>? CanonicalValues { get; set; }
     }
 
@@ -3506,6 +3589,7 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("coverUrl")]           string?                       CoverUrl,
         [property: JsonPropertyName("backgroundUrl")]      string?                       BackgroundUrl,
         [property: JsonPropertyName("bannerUrl")]          string?                       BannerUrl,
+        [property: JsonPropertyName("logoUrl")]            string?                       LogoUrl,
         [property: JsonPropertyName("narrator")]           string?                       Narrator,
         [property: JsonPropertyName("series")]             string?                       Series,
         [property: JsonPropertyName("seriesPosition")]     string?                       SeriesPosition,
@@ -3754,6 +3838,8 @@ public sealed class EngineApiClient : IEngineApiClient
                     group.BackgroundUrl = AbsoluteUrl(group.BackgroundUrl);
                 if (group.BannerUrl is not null)
                     group.BannerUrl = AbsoluteUrl(group.BannerUrl);
+                if (group.LogoUrl is not null)
+                    group.LogoUrl = AbsoluteUrl(group.LogoUrl);
 
                 if (group.ArtistPhotoUrl is not null)
                     group.ArtistPhotoUrl = AbsoluteUrl(group.ArtistPhotoUrl);
@@ -3789,6 +3875,8 @@ public sealed class EngineApiClient : IEngineApiClient
                     g.BackgroundUrl = AbsoluteUrl(g.BackgroundUrl);
                 if (g.BannerUrl is not null)
                     g.BannerUrl = AbsoluteUrl(g.BannerUrl);
+                if (g.LogoUrl is not null)
+                    g.LogoUrl = AbsoluteUrl(g.LogoUrl);
                 if (g.ArtistPhotoUrl is not null)
                     g.ArtistPhotoUrl = AbsoluteUrl(g.ArtistPhotoUrl);
             }

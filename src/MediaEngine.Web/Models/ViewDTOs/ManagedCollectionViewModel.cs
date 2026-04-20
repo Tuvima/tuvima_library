@@ -33,6 +33,24 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; set; }
 
+    [JsonPropertyName("logo_url")]
+    public string? LogoUrl { get; set; }
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("tagline")]
+    public string? Tagline { get; set; }
+
+    [JsonPropertyName("director")]
+    public string? Director { get; set; }
+
+    [JsonPropertyName("writer")]
+    public string? Writer { get; set; }
+
+    [JsonPropertyName("release_date")]
+    public string? ReleaseDate { get; set; }
+
     [JsonPropertyName("creator")]
     public string? Creator { get; set; }
 

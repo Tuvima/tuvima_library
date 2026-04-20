@@ -13,11 +13,83 @@ public sealed class MediaEditorContextDto
     [JsonPropertyName("media_type")]
     public string MediaType { get; set; } = string.Empty;
 
+    [JsonPropertyName("editor_mode")]
+    public string EditorMode { get; set; } = "singular";
+
+    [JsonPropertyName("available_tabs")]
+    public List<string> AvailableTabs { get; set; } = [];
+
+    [JsonPropertyName("content_tab_label")]
+    public string? ContentTabLabel { get; set; }
+
+    [JsonPropertyName("supports_file_tab")]
+    public bool SupportsFileTab { get; set; }
+
+    [JsonPropertyName("current_target_summary")]
+    public MediaEditorTargetSummaryDto? CurrentTargetSummary { get; set; }
+
+    [JsonPropertyName("identity_summary")]
+    public MediaEditorIdentitySummaryDto? IdentitySummary { get; set; }
+
+    [JsonPropertyName("field_lock_map")]
+    public Dictionary<string, bool> FieldLockMap { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("display_override_keys")]
+    public List<string> DisplayOverrideKeys { get; set; } = [];
+
+    [JsonPropertyName("display_overrides")]
+    public Dictionary<string, string> DisplayOverrides { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     [JsonPropertyName("initial_scope")]
     public string InitialScope { get; set; } = string.Empty;
 
     [JsonPropertyName("scopes")]
     public List<MediaEditorScopeDto> Scopes { get; set; } = [];
+}
+
+public sealed class MediaEditorTargetSummaryDto
+{
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("subtitle")]
+    public string? Subtitle { get; set; }
+}
+
+public sealed class MediaEditorIdentitySummaryDto
+{
+    [JsonPropertyName("provider_name")]
+    public string? ProviderName { get; set; }
+
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; set; }
+
+    [JsonPropertyName("match_source")]
+    public string? MatchSource { get; set; }
+
+    [JsonPropertyName("match_method")]
+    public string? MatchMethod { get; set; }
+
+    [JsonPropertyName("wikidata_qid")]
+    public string? WikidataQid { get; set; }
+
+    [JsonPropertyName("wikidata_status")]
+    public string? WikidataStatus { get; set; }
+
+    [JsonPropertyName("match_level")]
+    public string? MatchLevel { get; set; }
+
+    [JsonPropertyName("universe_name")]
+    public string? UniverseName { get; set; }
+
+    [JsonPropertyName("universe_qid")]
+    public string? UniverseQid { get; set; }
+
+    [JsonPropertyName("stage3_status")]
+    public string? Stage3Status { get; set; }
 }
 
 public sealed class MediaEditorScopeDto
@@ -148,6 +220,12 @@ public sealed class MediaEditorMembershipSuggestionDto
     [JsonPropertyName("entity_id")]
     public Guid? EntityId { get; set; }
 
+    [JsonPropertyName("source")]
+    public string Source { get; set; } = "local";
+
+    [JsonPropertyName("local_existing")]
+    public bool LocalExisting { get; set; }
+
     [JsonPropertyName("kind")]
     public string Kind { get; set; } = string.Empty;
 
@@ -156,6 +234,18 @@ public sealed class MediaEditorMembershipSuggestionDto
 
     [JsonPropertyName("subtitle")]
     public string? Subtitle { get; set; }
+
+    [JsonPropertyName("provider_name")]
+    public string? ProviderName { get; set; }
+
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; set; }
+
+    [JsonPropertyName("external_id_key")]
+    public string? ExternalIdKey { get; set; }
+
+    [JsonPropertyName("external_id_value")]
+    public string? ExternalIdValue { get; set; }
 }
 
 public sealed class MediaEditorMembershipPreviewRequestDto
@@ -168,6 +258,9 @@ public sealed class MediaEditorMembershipPreviewRequestDto
 
     [JsonPropertyName("selected_target_ids")]
     public Dictionary<string, Guid?> SelectedTargetIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("selected_suggestions")]
+    public Dictionary<string, MediaEditorMembershipSuggestionDto> SelectedSuggestions { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class MediaEditorMembershipPreviewDto

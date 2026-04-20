@@ -1261,12 +1261,14 @@ public static class CollectionEndpoints
                 string? cover = null;
                 string? background = null;
                 string? banner = null;
+                string? logo = null;
                 foreach (var w in h.Works)
                 {
                     cover = BuildCoverStreamUrl(w);
                     background = BuildBackgroundStreamUrl(w);
                     banner = BuildBannerStreamUrl(w);
-                    if (cover is not null) break;
+                    logo = BuildLogoStreamUrl(w);
+                    if (cover is not null || background is not null || banner is not null || logo is not null) break;
                 }
 
                 // Creator from first work.
@@ -1274,6 +1276,10 @@ public static class CollectionEndpoints
                 string? creator = GetCanonical(firstDto, "author")
                                   ?? GetCanonical(firstDto, "director")
                                   ?? GetCanonical(firstDto, "artist");
+                string? releaseDate = NormalizeReleaseDate(
+                    GetCanonical(firstDto, "release_date")
+                    ?? GetCanonical(firstDto, "date")
+                    ?? GetCanonical(firstDto, "year"));
 
                 return new ContentGroupDto
                 {
@@ -1285,9 +1291,24 @@ public static class CollectionEndpoints
                     CoverUrl         = cover,
                     BackgroundUrl    = background,
                     BannerUrl        = banner,
+                    LogoUrl          = logo,
+                    Description      = h.Description ?? GetCanonical(firstDto, "description"),
+                    Tagline          = GetCanonical(firstDto, "tagline"),
                     Creator          = creator,
+                    Director         = GetCanonical(firstDto, "director"),
+                    Writer           = GetCanonical(firstDto, "writer"),
+                    ReleaseDate      = releaseDate,
                     UniverseStatus   = h.UniverseStatus,
                     CreatedAt        = h.CreatedAt,
+                    Network          = GetCanonical(firstDto, "network"),
+                    Year             = GetCanonical(firstDto, "release_year") ?? GetCanonical(firstDto, "year"),
+                    SeasonCount      = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                        ? h.Works
+                            .Select(work => GetCanonical(WorkDto.FromDomain(work), "season_number"))
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .Count()
+                        : null,
                 };
             })
             .OrderBy(d => d.DisplayName)
@@ -1368,6 +1389,7 @@ public static class CollectionEndpoints
                 // the field is Self-scoped (on the asset) or Parent-scoped (on
                 // the topmost Work).
                 using var cmd = conn.CreateCommand();
+                var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
                 cmd.CommandText = $"""
                     WITH work_assets AS (
                         SELECT
@@ -1380,6 +1402,7 @@ public static class CollectionEndpoints
                         LEFT  JOIN works p  ON p.id  = w.parent_work_id
                         LEFT  JOIN works gp ON gp.id = p.parent_work_id
                         WHERE e.work_id IN ({idList})
+                          AND {visibleAssetPredicate}
                     ),
                     grouped AS (
                         SELECT
@@ -1402,6 +1425,7 @@ public static class CollectionEndpoints
                         '/stream/' || g.first_asset_id || '/cover' AS cover_url,
                         '/stream/' || g.first_asset_id || '/background' AS background_url,
                         '/stream/' || g.first_asset_id || '/banner' AS banner_url,
+                        '/stream/' || g.first_asset_id || '/logo' AS logo_url,
                         COALESCE(
                             (
                                 SELECT cv_creator.value
@@ -1441,6 +1465,29 @@ public static class CollectionEndpoints
                                 LIMIT 1
                             )
                         )                                           AS year,
+                        COALESCE(
+                            (
+                                SELECT cv_desc.value
+                                FROM canonical_values cv_desc
+                                WHERE cv_desc.entity_id = g.first_root_work_id
+                                  AND cv_desc.key = 'description'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_desc2.value
+                                FROM canonical_values cv_desc2
+                                WHERE cv_desc2.entity_id = g.first_asset_id
+                                  AND cv_desc2.key = 'description'
+                                LIMIT 1
+                            )
+                        )                                           AS description,
+                        (
+                            SELECT cv_tagline.value
+                            FROM canonical_values cv_tagline
+                            WHERE cv_tagline.entity_id = g.first_root_work_id
+                              AND cv_tagline.key = 'tagline'
+                            LIMIT 1
+                        )                                           AS tagline,
                         (
                             SELECT COUNT(DISTINCT cv_sn.value)
                             FROM work_assets wa_sn
@@ -1460,7 +1507,7 @@ public static class CollectionEndpoints
                 cmd.Parameters.Add(gp);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? Creator, string? Network, string? Year, int? SeasonCount, int AlbumCount)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, int? SeasonCount, int AlbumCount)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1476,8 +1523,11 @@ public static class CollectionEndpoints
                             reader.IsDBNull(5) ? null : reader.GetString(5),
                             reader.IsDBNull(6) ? null : reader.GetString(6),
                             reader.IsDBNull(7) ? null : reader.GetString(7),
-                            reader.IsDBNull(8) ? null : (int?)reader.GetInt32(8),
-                            reader.IsDBNull(9) ? 0 : reader.GetInt32(9)
+                            reader.IsDBNull(8) ? null : reader.GetString(8),
+                            reader.IsDBNull(9) ? null : reader.GetString(9),
+                            reader.IsDBNull(10) ? null : reader.GetString(10),
+                            reader.IsDBNull(11) ? null : (int?)reader.GetInt32(11),
+                            reader.IsDBNull(12) ? 0 : reader.GetInt32(12)
                         ));
                     }
                 }
@@ -1517,6 +1567,9 @@ public static class CollectionEndpoints
                         CoverUrl         = row.CoverUrl,
                         BackgroundUrl    = row.BackgroundUrl,
                         BannerUrl        = row.BannerUrl,
+                        LogoUrl          = row.LogoUrl,
+                        Description      = row.Description,
+                        Tagline          = row.Tagline,
                         Creator          = row.Creator,
                         UniverseStatus   = "Complete",
                         CreatedAt        = collection.CreatedAt,
@@ -1609,11 +1662,26 @@ public static class CollectionEndpoints
             if (items.Count > 0)
             {
                 using var conn = db.CreateConnection();
+                var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
+                var visibleWorkIds = (await conn.QueryAsync<Guid>(
+                    $"""
+                    SELECT w.id
+                    FROM works w
+                    WHERE w.id IN @ids
+                      AND {visibleWorkPredicate}
+                    """,
+                    new { ids = items.Select(item => item.WorkId.ToString()).ToArray() }))
+                    .ToHashSet();
+
                 foreach (var item in items)
                 {
+                    if (!visibleWorkIds.Contains(item.WorkId))
+                        continue;
+
                     string? title = null, creator = null, mediaType = null, cover = null;
                     using var cmd = conn.CreateCommand();
-                    cmd.CommandText = """
+                    var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+                    cmd.CommandText = $"""
                         SELECT cv.key, cv.value
                         FROM canonical_values cv
                         WHERE cv.entity_id = @WorkId
@@ -1626,6 +1694,7 @@ public static class CollectionEndpoints
                         FROM editions e
                         INNER JOIN media_assets ma ON ma.edition_id = e.id
                         WHERE e.work_id = @WorkId
+                          AND {visibleAssetPredicate}
                         """;
                     var p = cmd.CreateParameter();
                     p.ParameterName = "@WorkId";
@@ -2284,6 +2353,22 @@ public static class CollectionEndpoints
         return w.CanonicalValues
             .FirstOrDefault(c => string.Equals(c.Key, "banner", StringComparison.OrdinalIgnoreCase))
             ?.Value;
+    }
+
+    private static string? BuildLogoStreamUrl(Work? w)
+    {
+        if (w is null) return null;
+
+        var canonicalLogo = w.CanonicalValues
+            .FirstOrDefault(c => string.Equals(c.Key, "logo", StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+        if (!string.IsNullOrWhiteSpace(canonicalLogo))
+            return canonicalLogo;
+
+        var assetId = w.CanonicalValues
+            .Select(c => c.EntityId)
+            .FirstOrDefault(id => id != Guid.Empty);
+        return assetId != Guid.Empty ? $"/stream/{assetId}/logo" : null;
     }
 
     private static string? BuildHeroStreamUrl(Work? w)

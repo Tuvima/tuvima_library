@@ -26,8 +26,11 @@ public sealed class DiscoveryHeroViewModel
     public string? Subtitle { get; init; }
     public string? Description { get; init; }
     public string? BackgroundImageUrl { get; init; }
+    public string? BannerImageUrl { get; init; }
     public string? PreviewImageUrl { get; init; }
+    public string? LogoUrl { get; init; }
     public string AccentColor { get; init; } = "#C9922E";
+    public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public double? ProgressPct { get; init; }
     public string PrimaryActionLabel { get; init; } = "Open";
@@ -46,13 +49,18 @@ public sealed class DiscoveryCardViewModel
     public string? Description { get; init; }
     public string? CoverUrl { get; init; }
     public string? BackgroundUrl { get; init; }
+    public string? BannerUrl { get; init; }
+    public string? LogoUrl { get; init; }
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
+    public string? StatusText { get; init; }
     public string? MetaText { get; init; }
+    public IReadOnlyList<string> ContextLines { get; init; } = [];
     public string MediaKind { get; init; } = string.Empty;
     public string AccentColor { get; init; } = "#60A5FA";
     public DiscoveryCardShape Shape { get; init; } = DiscoveryCardShape.Portrait;
     public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
     public string NavigationUrl { get; init; } = "/";
+    public string? PrimaryNavigationUrl { get; init; }
     public string? DetailsNavigationUrl { get; init; }
     public string PrimaryActionLabel { get; init; } = "Open";
     public double? ProgressPct { get; init; }

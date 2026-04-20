@@ -53,7 +53,235 @@ public sealed class DiscoveryComposerServiceTests
         var page = service.ComposeHome([], [], groups);
 
         Assert.Equal("2 seasons / 10 items", page.Hero?.Description);
-        Assert.DoesNotContain("Â", page.Hero?.Description);
+        Assert.DoesNotContain("Ã", page.Hero?.Description);
+    }
+
+    [Fact]
+    public void ComposeHome_GroupsTvAndMusicIntoContainerFirstContinueAndFreshShelves()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var tvCollectionId = Guid.Parse("10101010-1010-1010-1010-101010101010");
+        var albumCollectionId = Guid.Parse("20202020-2020-2020-2020-202020202020");
+        var movieId = Guid.Parse("30303030-3030-3030-3030-303030303030");
+        var latestEpisodeId = Guid.Parse("40404040-4040-4040-4040-404040404040");
+
+        var works = new[]
+        {
+            CreateWork(
+                id: Guid.Parse("aaaaaaaa-0000-0000-0000-000000000001"),
+                mediaType: "TV",
+                title: "Pilot",
+                creator: "Kevin Hart",
+                year: "2026",
+                collectionId: tvCollectionId,
+                createdAt: new DateTimeOffset(2026, 4, 18, 12, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/episode-cover.jpg",
+                backgroundUrl: "/art/episode-background.jpg",
+                bannerUrl: "/art/episode-banner.jpg",
+                canonicalExtras: new Dictionary<string, string>
+                {
+                    ["series"] = "Funny AF",
+                    ["show_name"] = "Funny AF with Kevin Hart",
+                    ["season_number"] = "2",
+                    ["episode_number"] = "3",
+                    ["description"] = "Episode one description",
+                }),
+            CreateWork(
+                id: latestEpisodeId,
+                mediaType: "TV",
+                title: "Auditions: Chicago",
+                creator: "Kevin Hart",
+                year: "2026",
+                collectionId: tvCollectionId,
+                createdAt: new DateTimeOffset(2026, 4, 19, 12, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/episode-cover-2.jpg",
+                backgroundUrl: "/art/episode-background-2.jpg",
+                bannerUrl: "/art/episode-banner-2.jpg",
+                canonicalExtras: new Dictionary<string, string>
+                {
+                    ["series"] = "Funny AF",
+                    ["show_name"] = "Funny AF with Kevin Hart",
+                    ["season_number"] = "2",
+                    ["episode_number"] = "4",
+                    ["description"] = "Episode two description",
+                }),
+            CreateWork(
+                id: Guid.Parse("bbbbbbbb-0000-0000-0000-000000000001"),
+                mediaType: "Music",
+                title: "Track One",
+                creator: "boygenius",
+                year: "2023",
+                collectionId: albumCollectionId,
+                createdAt: new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/album-cover.jpg",
+                backgroundUrl: "/art/album-background.jpg",
+                bannerUrl: "/art/album-banner.jpg",
+                logoUrl: "/art/album-logo.png",
+                canonicalExtras: new Dictionary<string, string>
+                {
+                    ["artist"] = "boygenius",
+                    ["album"] = "The Record",
+                    ["track_number"] = "1",
+                    ["description"] = "Album track one",
+                }),
+            CreateWork(
+                id: Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002"),
+                mediaType: "Music",
+                title: "Track Two",
+                creator: "boygenius",
+                year: "2023",
+                collectionId: albumCollectionId,
+                createdAt: new DateTimeOffset(2026, 4, 17, 13, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/album-cover.jpg",
+                backgroundUrl: "/art/album-background.jpg",
+                bannerUrl: "/art/album-banner.jpg",
+                logoUrl: "/art/album-logo.png",
+                canonicalExtras: new Dictionary<string, string>
+                {
+                    ["artist"] = "boygenius",
+                    ["album"] = "The Record",
+                    ["track_number"] = "2",
+                    ["description"] = "Album track two",
+                }),
+            CreateWork(
+                id: movieId,
+                mediaType: "Movies",
+                title: "Anaconda",
+                creator: "Tom Gormican",
+                year: "2025",
+                createdAt: new DateTimeOffset(2026, 4, 16, 12, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/movie-cover.jpg",
+                backgroundUrl: "/art/movie-background.jpg",
+                canonicalExtras: new Dictionary<string, string>
+                {
+                    ["director"] = "Tom Gormican",
+                    ["description"] = "A movie that should stay individual on Home.",
+                }),
+        };
+
+        var journey = new[]
+        {
+            CreateJourneyItem(
+                workId: latestEpisodeId,
+                assetId: Guid.Parse("50505050-5050-5050-5050-505050505050"),
+                mediaType: "TV",
+                title: "Auditions: Chicago",
+                author: "Kevin Hart",
+                collectionId: tvCollectionId,
+                collectionDisplayName: "Funny AF with Kevin Hart",
+                lastAccessed: new DateTimeOffset(2026, 4, 20, 10, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/episode-cover-2.jpg",
+                backgroundUrl: "/art/episode-background-2.jpg",
+                bannerUrl: "/art/episode-banner-2.jpg",
+                heroUrl: "/art/episode-hero-2.jpg",
+                extendedProperties: new Dictionary<string, string>
+                {
+                    ["season_number"] = "2",
+                    ["episode_number"] = "4",
+                }),
+            CreateJourneyItem(
+                workId: Guid.Parse("bbbbbbbb-0000-0000-0000-000000000002"),
+                assetId: Guid.Parse("60606060-6060-6060-6060-606060606060"),
+                mediaType: "Music",
+                title: "Track Two",
+                author: "boygenius",
+                collectionId: albumCollectionId,
+                collectionDisplayName: "The Record",
+                lastAccessed: new DateTimeOffset(2026, 4, 19, 10, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/album-cover.jpg",
+                backgroundUrl: "/art/album-background.jpg",
+                bannerUrl: "/art/album-banner.jpg",
+                logoUrl: "/art/album-logo.png",
+                extendedProperties: new Dictionary<string, string>
+                {
+                    ["track_number"] = "2",
+                }),
+            CreateJourneyItem(
+                workId: movieId,
+                assetId: Guid.Parse("70707070-7070-7070-7070-707070707070"),
+                mediaType: "Movies",
+                title: "Anaconda",
+                author: "Tom Gormican",
+                lastAccessed: new DateTimeOffset(2026, 4, 18, 9, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/movie-cover.jpg",
+                backgroundUrl: "/art/movie-background.jpg"),
+        };
+
+        var groups = new[]
+        {
+            new ContentGroupViewModel
+            {
+                CollectionId = tvCollectionId,
+                DisplayName = "Funny AF with Kevin Hart",
+                PrimaryMediaType = "TV",
+                WorkCount = 6,
+                SeasonCount = 2,
+                Network = "Netflix",
+                Year = "2026",
+                CoverUrl = "/art/show-cover.jpg",
+                BackgroundUrl = "/art/show-background.jpg",
+                BannerUrl = "/art/show-banner.jpg",
+                LogoUrl = "/art/show-logo.png",
+                Description = "A competition series for comics.",
+                CreatedAt = new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero),
+            }
+        };
+
+        var page = service.ComposeHome(
+            works,
+            journey,
+            groups,
+            groupPreviewImages: new Dictionary<Guid, IReadOnlyList<string>>
+            {
+                [tvCollectionId] = ["/art/preview-1.jpg", "/art/preview-2.jpg"]
+            });
+
+        Assert.Equal("Continue with your library", page.Hero?.Eyebrow);
+        Assert.Equal("Funny AF with Kevin Hart", page.Hero?.Title);
+        Assert.Equal("/art/show-background.jpg", page.Hero?.BackgroundImageUrl);
+        Assert.Equal("/art/show-logo.png", page.Hero?.LogoUrl);
+        Assert.Equal("Continue watching", page.Hero?.PrimaryActionLabel);
+        Assert.Equal($"/watch/tv/show/{tvCollectionId}/episode/{latestEpisodeId}", page.Hero?.PrimaryNavigationUrl);
+        Assert.Equal($"/watch/tv/show/{tvCollectionId}", page.Hero?.SecondaryNavigationUrl);
+
+        Assert.Collection(
+            page.Shelves.Take(2),
+            shelf => Assert.Equal("Continue", shelf.Title),
+            shelf => Assert.Equal("New Episodes & Fresh Arrivals", shelf.Title));
+
+        var continueShelf = page.Shelves[0];
+        var continueTv = Assert.Single(continueShelf.Items, item => item.Title == "Funny AF with Kevin Hart");
+        Assert.Equal(DiscoveryCardPresentation.TvSeries, continueTv.Presentation);
+        Assert.Equal("Continue watching", continueTv.PrimaryActionLabel);
+        Assert.Equal($"/watch/tv/show/{tvCollectionId}", continueTv.NavigationUrl);
+        Assert.Equal($"/watch/tv/show/{tvCollectionId}/episode/{latestEpisodeId}", continueTv.PrimaryNavigationUrl);
+        Assert.Contains("Continue S2:E4", continueTv.StatusText, StringComparison.Ordinal);
+
+        var continueAlbum = Assert.Single(continueShelf.Items, item => item.Title == "The Record");
+        Assert.Equal(DiscoveryCardPresentation.Album, continueAlbum.Presentation);
+        Assert.Equal(DiscoveryCardShape.Square, continueAlbum.Shape);
+        Assert.Equal("Continue album", continueAlbum.PrimaryActionLabel);
+        Assert.Equal($"/collection/{albumCollectionId}", continueAlbum.NavigationUrl);
+
+        var continueMovie = Assert.Single(continueShelf.Items, item => item.Title == "Anaconda");
+        Assert.False(continueMovie.IsCollection);
+
+        var freshShelf = page.Shelves[1];
+        var freshTv = Assert.Single(freshShelf.Items, item => item.Title == "Funny AF with Kevin Hart");
+        Assert.Equal("2 new episodes", freshTv.StatusText);
+        Assert.Equal("/art/show-logo.png", freshTv.LogoUrl);
+        Assert.Equal("/art/show-background.jpg", freshTv.BackgroundUrl);
+
+        var freshAlbum = Assert.Single(freshShelf.Items, item => item.Title == "The Record");
+        Assert.Equal("2 new tracks", freshAlbum.StatusText);
+        Assert.Equal(DiscoveryCardShape.Square, freshAlbum.Shape);
+
+        Assert.Single(freshShelf.Items, item => item.Title == "Anaconda");
+        Assert.DoesNotContain(page.Catalog, item => item.Title == "Pilot");
+        Assert.DoesNotContain(page.Catalog, item => item.Title == "Auditions: Chicago");
+        Assert.DoesNotContain(page.Catalog, item => item.Title == "Track One");
+        Assert.DoesNotContain(page.Catalog, item => item.Title == "Track Two");
+        Assert.Contains(page.Catalog, item => item.Title == "Anaconda");
     }
 
     [Fact]
@@ -161,6 +389,8 @@ public sealed class DiscoveryComposerServiceTests
         var tvCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "TV Series").Items);
         Assert.Equal(DiscoveryCardPresentation.TvSeries, tvCard.Presentation);
         Assert.Equal("/art/tv-cover.jpg", tvCard.CoverUrl);
+        Assert.Equal($"/watch/tv/show/{tvGroupId}", tvCard.NavigationUrl);
+        Assert.Equal($"/watch/tv/show/{tvGroupId}", tvCard.PrimaryNavigationUrl);
 
         var movieCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Movie Series").Items);
         Assert.Equal(DiscoveryCardPresentation.MovieSeries, movieCard.Presentation);
@@ -169,8 +399,10 @@ public sealed class DiscoveryComposerServiceTests
 
         var albumCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Albums").Items);
         Assert.Equal(DiscoveryCardPresentation.Album, albumCard.Presentation);
+        Assert.Equal(DiscoveryCardShape.Square, albumCard.Shape);
         Assert.Contains("/listen/music?", albumCard.NavigationUrl, StringComparison.Ordinal);
         Assert.Contains("groupField=album", albumCard.NavigationUrl, StringComparison.Ordinal);
+        Assert.Equal(albumCard.NavigationUrl, albumCard.PrimaryNavigationUrl);
 
         var artistCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Artists").Items);
         Assert.Equal(DiscoveryCardPresentation.Artist, artistCard.Presentation);
@@ -183,18 +415,87 @@ public sealed class DiscoveryComposerServiceTests
         string mediaType,
         string title,
         string creator,
-        string year) =>
-        new()
+        string year,
+        Guid? collectionId = null,
+        DateTimeOffset? createdAt = null,
+        string? coverUrl = null,
+        string? backgroundUrl = null,
+        string? bannerUrl = null,
+        string? logoUrl = null,
+        IReadOnlyDictionary<string, string>? canonicalExtras = null)
+    {
+        var canonicalValues = new List<CanonicalValueViewModel>
+        {
+            CreateCanonical("title", title),
+            CreateCanonical("author", creator),
+            CreateCanonical("year", year),
+            CreateCanonical("release_year", year),
+        };
+
+        if (!string.IsNullOrWhiteSpace(coverUrl))
+            canonicalValues.Add(CreateCanonical("cover", coverUrl));
+
+        if (!string.IsNullOrWhiteSpace(backgroundUrl))
+            canonicalValues.Add(CreateCanonical("background", backgroundUrl));
+
+        if (!string.IsNullOrWhiteSpace(bannerUrl))
+            canonicalValues.Add(CreateCanonical("banner", bannerUrl));
+
+        if (!string.IsNullOrWhiteSpace(logoUrl))
+            canonicalValues.Add(CreateCanonical("logo", logoUrl));
+
+        if (canonicalExtras is not null)
+        {
+            foreach (var entry in canonicalExtras)
+                canonicalValues.Add(CreateCanonical(entry.Key, entry.Value));
+        }
+
+        return new WorkViewModel
         {
             Id = id,
+            CollectionId = collectionId,
             MediaType = mediaType,
-            CanonicalValues =
-            [
-                CreateCanonical("title", title),
-                CreateCanonical("author", creator),
-                CreateCanonical("year", year),
-                CreateCanonical("release_year", year),
-            ]
+            CreatedAt = createdAt ?? DateTimeOffset.UtcNow,
+            CanonicalValues = canonicalValues,
+            ResolvedCoverUrl = coverUrl,
+            ResolvedBackgroundUrl = backgroundUrl,
+            ResolvedBannerUrl = bannerUrl,
+            ResolvedLogoUrl = logoUrl,
+        };
+    }
+
+    private static JourneyItemViewModel CreateJourneyItem(
+        Guid workId,
+        Guid assetId,
+        string mediaType,
+        string title,
+        string? author,
+        DateTimeOffset lastAccessed,
+        Guid? collectionId = null,
+        string? collectionDisplayName = null,
+        string? coverUrl = null,
+        string? backgroundUrl = null,
+        string? bannerUrl = null,
+        string? heroUrl = null,
+        string? logoUrl = null,
+        IReadOnlyDictionary<string, string>? extendedProperties = null) =>
+        new()
+        {
+            WorkId = workId,
+            AssetId = assetId,
+            MediaType = mediaType,
+            Title = title,
+            Author = author,
+            CollectionId = collectionId,
+            CollectionDisplayName = collectionDisplayName,
+            LastAccessed = lastAccessed,
+            CoverUrl = coverUrl,
+            BackgroundUrl = backgroundUrl,
+            BannerUrl = bannerUrl,
+            HeroUrl = heroUrl,
+            LogoUrl = logoUrl,
+            ProgressPct = 42,
+            ExtendedProperties = extendedProperties?.ToDictionary(pair => pair.Key, pair => pair.Value) ?? [],
         };
 
     private static CanonicalValueViewModel CreateCanonical(string key, string value) =>

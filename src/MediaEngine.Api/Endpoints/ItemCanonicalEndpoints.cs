@@ -1,3 +1,5 @@
+using Dapper;
+using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
@@ -112,6 +114,80 @@ public static class ItemCanonicalEndpoints
         .WithName("SaveItemPreferences")
         .WithSummary("Save user-preferred item fields without changing external IDs.")
         .Produces<ItemPreferencesResponse>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status400BadRequest)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
+
+        group.MapPut("/{entityId:guid}/display-overrides", async (
+            Guid entityId,
+            ItemDisplayOverridesRequest request,
+            ISystemActivityRepository activityRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            if (request.Fields.Count == 0)
+                return Results.BadRequest("At least one display override is required.");
+
+            using var conn = db.CreateConnection();
+            var exists = conn.ExecuteScalar<long>(
+                "SELECT COUNT(1) FROM works WHERE id = @entityId;",
+                new { entityId = entityId.ToString() }) > 0;
+
+            if (!exists)
+                return Results.NotFound($"No work found for {entityId}.");
+
+            var current = LoadDisplayOverrides(conn, entityId);
+            var updatedKeys = new List<string>();
+            foreach (var (key, value) in request.Fields)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                    continue;
+
+                var normalizedKey = key.Trim();
+                var normalizedValue = (value ?? string.Empty).Trim();
+                if (string.IsNullOrWhiteSpace(normalizedValue))
+                {
+                    if (current.Remove(normalizedKey))
+                        updatedKeys.Add(normalizedKey);
+                    continue;
+                }
+
+                current[normalizedKey] = normalizedValue;
+                updatedKeys.Add(normalizedKey);
+            }
+
+            if (updatedKeys.Count == 0)
+                return Results.BadRequest("No valid display override fields were provided.");
+
+            conn.Execute(
+                "UPDATE works SET display_overrides_json = @json WHERE id = @entityId;",
+                new
+                {
+                    json = current.Count == 0 ? null : JsonSerializer.Serialize(current),
+                    entityId = entityId.ToString(),
+                });
+
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                OccurredAt = DateTimeOffset.UtcNow,
+                ActionType = SystemActionType.MetadataManualOverride,
+                EntityId = entityId,
+                EntityType = "Work",
+                Detail = $"Saved display overrides for {updatedKeys.Count} field(s): {string.Join(", ", updatedKeys.Distinct(StringComparer.OrdinalIgnoreCase))}.",
+            }, ct);
+
+            return Results.Ok(new ItemDisplayOverridesResponse
+            {
+                EntityId = entityId,
+                FieldsUpdated = updatedKeys.Count,
+                UpdatedKeys = updatedKeys.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(key => key, StringComparer.OrdinalIgnoreCase).ToList(),
+                DisplayOverrides = current,
+                Message = $"Saved {updatedKeys.Count} display override field(s).",
+            });
+        })
+        .WithName("SaveItemDisplayOverrides")
+        .WithSummary("Save presentation-only display overrides without changing canonical values.")
+        .Produces<ItemDisplayOverridesResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
@@ -866,4 +942,26 @@ public static class ItemCanonicalEndpoints
         "provider_only" => "Linked to provider only",
         _ => "Saved without external link",
     };
+
+    private static Dictionary<string, string> LoadDisplayOverrides(System.Data.IDbConnection conn, Guid entityId)
+    {
+        var json = conn.QueryFirstOrDefault<string?>(
+            "SELECT display_overrides_json FROM works WHERE id = @entityId LIMIT 1;",
+            new { entityId = entityId.ToString() });
+
+        if (string.IsNullOrWhiteSpace(json))
+            return new(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            return parsed is null
+                ? new(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(parsed, StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return new(StringComparer.OrdinalIgnoreCase);
+        }
+    }
 }

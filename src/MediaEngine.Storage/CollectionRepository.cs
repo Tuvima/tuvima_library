@@ -944,7 +944,8 @@ public sealed class CollectionRepository : ICollectionRepository
         // Universe collections that have at least one work assigned.
         using (var cmd = conn.CreateCommand())
         {
-            cmd.CommandText = """
+            var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
+            cmd.CommandText = $"""
                 SELECT h.id, h.universe_id, h.display_name, h.created_at,
                        h.universe_status, h.parent_collection_id, h.wikidata_qid,
                        h.collection_type, h.description, h.icon_name, h.scope,
@@ -955,6 +956,7 @@ public sealed class CollectionRepository : ICollectionRepository
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
                 FROM   collections h
                 INNER JOIN works w ON w.collection_id = h.id
+                               AND {visibleWorkPredicate}
                 WHERE  h.collection_type IN ('ContentGroup', 'Universe')
                 ORDER  BY h.display_name, h.created_at, w.ordinal, w.id;
                 """;
@@ -1016,6 +1018,7 @@ public sealed class CollectionRepository : ICollectionRepository
         {
             var workIds    = works.Keys.ToList();
             var paramNames = workIds.Select((_, i) => $"@p{i}").ToList();
+            var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
 
             using var cmd2 = conn.CreateCommand();
             cmd2.CommandText = $"""
@@ -1023,7 +1026,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 FROM   canonical_values cv
                 JOIN   media_assets ma ON ma.id = cv.entity_id
                 JOIN   editions e      ON e.id  = ma.edition_id
-                WHERE  e.work_id IN ({string.Join(", ", paramNames)});
+                WHERE  e.work_id IN ({string.Join(", ", paramNames)})
+                  AND  {visibleAssetPredicate}
                 """;
 
             for (int i = 0; i < workIds.Count; i++)

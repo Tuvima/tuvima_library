@@ -1,4 +1,5 @@
 ﻿using System.Text.Json.Nodes;
+using System.Text.Json;
 using System.Globalization;
 using System.Text.Json.Serialization;
 using Dapper;
@@ -601,6 +602,15 @@ public static partial class MetadataEndpoints
                 context.LaunchEntityId,
                 context.LaunchEntityKind,
                 context.MediaType,
+                context.EditorMode,
+                context.AvailableTabs,
+                context.ContentTabLabel,
+                context.SupportsFileTab,
+                context.CurrentTargetSummary,
+                context.IdentitySummary,
+                context.FieldLockMap,
+                context.DisplayOverrideKeys,
+                context.DisplayOverrides,
                 context.InitialScope,
                 context.Scopes.Select(scope => new MediaEditorScopeEnvelope(
                     scope.ScopeId,
@@ -1847,11 +1857,25 @@ public static partial class MetadataEndpoints
             return null;
 
         var initialScope = GetDefaultEditorScope(launch, scopes);
+        var initialScopeResolution = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, initialScope, StringComparison.OrdinalIgnoreCase))
+            ?? scopes[0];
+        var editorMode = IsContainerEditorMediaType(launch.MediaType) ? "container" : "singular";
+        var displayOverrides = LoadDisplayOverrides(db, initialScopeResolution.FieldEntityId);
 
         return new EditorScopeContext(
             launch.LaunchEntityId,
             launch.LaunchEntityKind,
             launch.MediaType,
+            editorMode,
+            BuildEditorAvailableTabs(editorMode, launch.MediaType, initialScopeResolution.ScopeId, initialScopeResolution.CanEditArtwork, launch.RepresentativeMediaFilePath),
+            BuildContentTabLabel(editorMode, launch.MediaType),
+            !string.Equals(editorMode, "container", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(launch.RepresentativeMediaFilePath),
+            BuildCurrentTargetSummary(initialScopeResolution),
+            BuildIdentitySummary(launchDetail),
+            BuildFieldLockMap(launch.MediaType, initialScopeResolution.ScopeId),
+            BuildDisplayOverrideKeys(launch.MediaType),
+            displayOverrides,
             initialScope,
             scopes);
     }
@@ -1923,6 +1947,138 @@ public static partial class MetadataEndpoints
             string.IsNullOrWhiteSpace(assetRow.WorkKind) ? "standalone" : assetRow.WorkKind,
             TryParseGuid(assetRow.AssetId),
             assetRow.FilePath);
+    }
+
+    private static bool IsContainerEditorMediaType(string? mediaType) =>
+        NormalizeEditorMediaType(mediaType) is "TV" or "Music";
+
+    private static IReadOnlyList<string> BuildEditorAvailableTabs(
+        string editorMode,
+        string mediaType,
+        string scopeId,
+        bool canEditArtwork,
+        string? representativeMediaFilePath)
+    {
+        var normalized = NormalizeEditorMediaType(mediaType);
+        if (string.Equals(editorMode, "container", StringComparison.OrdinalIgnoreCase))
+        {
+            return normalized switch
+            {
+                "TV" => ["details", "episodes", "artwork", "id", "options"],
+                "Music" => ["details", "tracks", "artwork", "id", "options"],
+                _ => ["details", "id", "options"],
+            };
+        }
+
+        var tabs = new List<string> { "details" };
+        if (canEditArtwork)
+            tabs.Add("artwork");
+
+        tabs.Add("id");
+        tabs.Add("options");
+
+        if (!string.IsNullOrWhiteSpace(representativeMediaFilePath))
+            tabs.Add("file");
+
+        return tabs;
+    }
+
+    private static string? BuildContentTabLabel(string editorMode, string mediaType) =>
+        !string.Equals(editorMode, "container", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : NormalizeEditorMediaType(mediaType) switch
+            {
+                "TV" => "Episodes",
+                "Music" => "Tracks",
+                _ => null,
+            };
+
+    private static MediaEditorTargetSummaryEnvelope BuildCurrentTargetSummary(EditorScopeResolution scope) =>
+        new(
+            scope.Label,
+            scope.DisplayTitle,
+            scope.DisplaySubtitle);
+
+    private static MediaEditorIdentitySummaryEnvelope BuildIdentitySummary(RegistryItemDetail? detail) =>
+        new(
+            detail?.MatchSource,
+            GetProviderBridgeId(detail),
+            detail?.MatchSource,
+            detail?.MatchMethod,
+            detail?.WikidataQid,
+            detail?.WikidataStatus,
+            detail?.MatchLevel,
+            detail?.UniverseSummary?.UniverseName,
+            detail?.UniverseSummary?.UniverseQid,
+            detail?.UniverseSummary?.Stage3Status);
+
+    private static string? GetProviderBridgeId(RegistryItemDetail? detail)
+    {
+        if (detail?.BridgeIds is null || detail.BridgeIds.Count == 0)
+            return null;
+
+        return detail.BridgeIds
+            .OrderBy(entry => entry.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(entry => $"{entry.Key}:{entry.Value}")
+            .FirstOrDefault();
+    }
+
+    private static Dictionary<string, bool> BuildFieldLockMap(string mediaType, string scopeId)
+    {
+        var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in GetLockedFieldKeys(mediaType, scopeId))
+            map[key] = true;
+
+        return map;
+    }
+
+    private static IReadOnlyList<string> GetLockedFieldKeys(string mediaType, string scopeId) =>
+        (NormalizeEditorMediaType(mediaType), scopeId) switch
+        {
+            ("TV", "series") => ["show_name", "year", "network"],
+            ("TV", "episode") => ["show_name", "season_number", "episode_number", "episode_title"],
+            ("Music", "album") => ["artist", "album", "year"],
+            ("Music", "track") => ["title", "artist", "album", "track_number", "disc_number"],
+            ("Movies", _) => ["title", "year", "director"],
+            ("Books", _) => ["title", "author", "series", "series_position"],
+            ("Audiobooks", _) => ["title", "author", "narrator", "series", "series_position"],
+            ("Comics", _) => ["series", "series_position", "title"],
+            _ => [],
+        };
+
+    private static IReadOnlyList<string> BuildDisplayOverrideKeys(string mediaType) =>
+        NormalizeEditorMediaType(mediaType) switch
+        {
+            "Music" => ["display_title", "display_subtitle", "sort_title", "sort_album"],
+            "TV" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
+            "Movies" => ["display_title", "display_subtitle", "sort_title"],
+            "Books" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
+            "Audiobooks" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
+            "Comics" => ["display_title", "display_subtitle", "sort_title", "sort_series"],
+            _ => ["display_title", "display_subtitle", "sort_title"],
+        };
+
+    private static Dictionary<string, string> LoadDisplayOverrides(IDatabaseConnection db, Guid workId)
+    {
+        using var conn = db.CreateConnection();
+        var json = conn.QueryFirstOrDefault<string?>(
+            "SELECT display_overrides_json FROM works WHERE id = @workId LIMIT 1;",
+            new { workId = workId.ToString() });
+
+        if (string.IsNullOrWhiteSpace(json))
+            return new(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+            return parsed is null
+                ? new(StringComparer.OrdinalIgnoreCase)
+                : new Dictionary<string, string>(parsed, StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return new(StringComparer.OrdinalIgnoreCase);
+        }
     }
 
     private static EditorAssetSample? GetRepresentativeAssetForWorkTree(
@@ -2051,11 +2207,6 @@ public static partial class MetadataEndpoints
             case "TV":
                 var isEpisodeLaunch = !string.IsNullOrWhiteSpace(episodeNumber)
                     || (hasParentScope && launch.ParentWorkId!.Value != rootWorkId);
-                var seasonOwnerId = isEpisodeLaunch
-                    ? launch.ParentWorkId
-                    : hasParentScope
-                        ? launch.WorkId
-                        : null;
 
                 scopes.Add(new EditorScopeResolution(
                     "series",
@@ -2077,29 +2228,6 @@ public static partial class MetadataEndpoints
                     ArtworkFolderPath: seriesFolder ?? containerFolder,
                     RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
 
-                if (seasonOwnerId.HasValue)
-                {
-                    scopes.Add(new EditorScopeResolution(
-                        "season",
-                        "Season",
-                        1,
-                        seasonOwnerId.Value,
-                        "Work",
-                        seasonOwnerId.Value,
-                        "Work",
-                        seasonLabel,
-                        showName,
-                        seasonLabel,
-                        "show",
-                        "Season labels and season artwork live here.",
-                        null,
-                        CanEditFields: true,
-                        CanEditArtwork: true,
-                        MediaType: mediaType,
-                        ArtworkFolderPath: seasonFolder ?? containerFolder,
-                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
-                }
-
                 if (isEpisodeLaunch)
                 {
                     scopes.Add(new EditorScopeResolution(
@@ -2114,8 +2242,8 @@ public static partial class MetadataEndpoints
                         !string.IsNullOrWhiteSpace(episodeNumber) ? episodeLabel : seasonLabel,
                         episodeTitle,
                         "show_episode",
-                        "Episode metadata lives here. Show and season artwork are managed in their own scopes.",
-                        "Series artwork is managed on the Series and Season scopes.",
+                        "Episode metadata lives here. Show artwork stays on the series.",
+                        "Show artwork is managed on the Series scope.",
                         CanEditFields: true,
                         CanEditArtwork: true,
                         MediaType: mediaType,
@@ -2126,31 +2254,9 @@ public static partial class MetadataEndpoints
 
             case "Music":
                 scopes.Add(new EditorScopeResolution(
-                    "artist",
-                    "Artist",
-                    0,
-                    rootWorkId,
-                    "Work",
-                    artistOwnerId ?? rootWorkId,
-                    artistOwnerId.HasValue ? "Person" : "Work",
-                    artistName,
-                    albumName,
-                    artistName,
-                    "artist",
-                    artistOwnerId.HasValue
-                        ? "Artist artwork is shared across albums when a linked artist owner is available."
-                        : "Artist metadata lives here. Artist artwork falls back to the album owner until a linked artist owner exists.",
-                    null,
-                    CanEditFields: true,
-                    CanEditArtwork: true,
-                    MediaType: mediaType,
-                    ArtworkFolderPath: artistFolder ?? containerFolder,
-                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
-
-                scopes.Add(new EditorScopeResolution(
                     "album",
                     "Album",
-                    1,
+                    0,
                     rootWorkId,
                     "Work",
                     rootWorkId,
@@ -2172,7 +2278,7 @@ public static partial class MetadataEndpoints
                     scopes.Add(new EditorScopeResolution(
                         "track",
                         "Track",
-                        2,
+                        1,
                         launch.WorkId,
                         "Work",
                         null,
@@ -2181,8 +2287,8 @@ public static partial class MetadataEndpoints
                         albumName,
                         itemTitle,
                         "track",
-                        "Track metadata lives here. Artwork is inherited from the Artist and Album scopes.",
-                        "Track artwork is inherited from the Artist and Album scopes.",
+                        "Track metadata lives here. Artwork is inherited from the album.",
+                        "Track artwork is inherited from the album.",
                         CanEditFields: true,
                         CanEditArtwork: false,
                         MediaType: mediaType,
@@ -2193,7 +2299,7 @@ public static partial class MetadataEndpoints
 
             case "Movies":
                 scopes.Add(new EditorScopeResolution(
-                    "movie",
+                    "item",
                     "Movie",
                     0,
                     launch.WorkId,
@@ -2217,61 +2323,39 @@ public static partial class MetadataEndpoints
             case "Audiobooks":
             case "Books":
             default:
-                if (hasDistinctRoot || isParentLaunch)
-                {
-                    var seriesEntityId = hasDistinctRoot ? rootWorkId : launch.WorkId;
-                    scopes.Add(new EditorScopeResolution(
-                        "series",
-                        "Series",
-                        0,
-                        seriesEntityId,
-                        "Work",
-                        null,
-                        null,
-                        FirstNonBlank(seriesName, itemTitle, "Series"),
-                        itemYear,
-                        FirstNonBlank(seriesName, itemTitle, "Series"),
-                        "series",
-                        "Series metadata is separated from the individual volume or issue.",
-                        "Series artwork remains on the work scope in this pass.",
-                        CanEditFields: true,
-                        CanEditArtwork: false,
-                        MediaType: mediaType,
-                        ArtworkFolderPath: null,
-                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
-                }
-
-                if (!isParentLaunch)
-                {
-                    scopes.Add(new EditorScopeResolution(
-                        hasDistinctRoot ? "volume_issue" : "work",
-                        hasDistinctRoot ? "Volume / Issue" : "Work",
-                        hasDistinctRoot ? 1 : 0,
-                        launch.WorkId,
-                        "Work",
-                        launch.WorkId,
-                        "Work",
-                        itemTitle,
-                        FirstNonBlank(seriesName, itemYear),
-                        itemTitle,
-                        mediaType switch
-                        {
-                            "Comics" => "issue",
-                            "Audiobooks" => "audiobook_identity",
-                            _ => "book_identity",
-                        },
-                        "Work metadata and artwork live here.",
-                        null,
-                        CanEditFields: true,
-                        CanEditArtwork: true,
-                        MediaType: mediaType,
-                        ArtworkFolderPath: containerFolder,
-                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
-                }
+                scopes.Add(new EditorScopeResolution(
+                    "item",
+                    mediaType switch
+                    {
+                        "Comics" => "Comic",
+                        "Audiobooks" => "Audiobook",
+                        _ => "Book",
+                    },
+                    0,
+                    launch.WorkId,
+                    "Work",
+                    launch.WorkId,
+                    "Work",
+                    itemTitle,
+                    FirstNonBlank(seriesName, itemYear),
+                    itemTitle,
+                    mediaType switch
+                    {
+                        "Comics" => "issue",
+                        "Audiobooks" => "audiobook_identity",
+                        _ => "book_identity",
+                    },
+                    "Item metadata and artwork live here.",
+                    null,
+                    CanEditFields: true,
+                    CanEditArtwork: true,
+                    MediaType: mediaType,
+                    ArtworkFolderPath: containerFolder,
+                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
                 break;
         }
 
-        if (!isParentLaunch || mediaType is "Movies")
+        if (!IsContainerEditorMediaType(mediaType))
         {
             scopes.Add(new EditorScopeResolution(
                 "file",
@@ -2286,8 +2370,6 @@ public static partial class MetadataEndpoints
                 "File",
                 mediaType switch
                 {
-                    "TV" => "show_episode",
-                    "Music" => "track",
                     "Movies" => "movie_identity",
                     "Comics" => "issue",
                     "Audiobooks" => "audiobook_identity",
@@ -2362,7 +2444,7 @@ public static partial class MetadataEndpoints
     private static IReadOnlyList<string> GetScopedArtworkSlots(string mediaType, string scopeId) =>
         (NormalizeEditorMediaType(mediaType), scopeId) switch
         {
-            ("TV", "series") or ("Movies", "movie") =>
+            ("TV", "series") or ("Movies", "item") =>
             [
                 "CoverArt",
                 "SquareArt",
@@ -2370,27 +2452,16 @@ public static partial class MetadataEndpoints
                 "Banner",
                 "Logo",
             ],
-            ("TV", "season") =>
-            [
-                "SeasonPoster",
-                "SeasonThumb",
-            ],
             ("TV", "episode") =>
             [
                 "EpisodeStill",
-            ],
-            ("Music", "artist") =>
-            [
-                "Background",
-                "Banner",
-                "Logo",
             ],
             ("Music", "album") =>
             [
                 "CoverArt",
                 "SquareArt",
             ],
-            ("Books", "work") or ("Audiobooks", "work") or ("Comics", "work") or ("Books", "volume_issue") or ("Audiobooks", "volume_issue") or ("Comics", "volume_issue") =>
+            ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
             [
                 "CoverArt",
                 "SquareArt",
@@ -2405,19 +2476,10 @@ public static partial class MetadataEndpoints
         var preferredScopeId = NormalizeEditorMediaType(launch.MediaType) switch
         {
             "TV" when string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase) => "episode",
-            "TV" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase)
-                       && launch.ParentWorkId.HasValue
-                       && launch.ParentWorkId.Value != Guid.Empty => "season",
             "TV" => "series",
             "Music" when string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase) => "track",
             "Music" => "album",
-            "Movies" => "movie",
-            "Comics" or "Books" or "Audiobooks" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "series",
-            "Comics" or "Books" or "Audiobooks" => scopes.Any(scope => string.Equals(scope.ScopeId, "volume_issue", StringComparison.OrdinalIgnoreCase))
-                ? "volume_issue"
-                : scopes.Any(scope => string.Equals(scope.ScopeId, "series", StringComparison.OrdinalIgnoreCase))
-                    ? "series"
-                    : "work",
+            "Movies" or "Comics" or "Books" or "Audiobooks" => "item",
             _ => scopes[0].ScopeId,
         };
 
@@ -2884,8 +2946,32 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("launch_entity_id")] Guid LaunchEntityId,
         [property: JsonPropertyName("launch_entity_kind")] string LaunchEntityKind,
         [property: JsonPropertyName("media_type")] string MediaType,
+        [property: JsonPropertyName("editor_mode")] string EditorMode,
+        [property: JsonPropertyName("available_tabs")] IReadOnlyList<string> AvailableTabs,
+        [property: JsonPropertyName("content_tab_label")] string? ContentTabLabel,
+        [property: JsonPropertyName("supports_file_tab")] bool SupportsFileTab,
+        [property: JsonPropertyName("current_target_summary")] MediaEditorTargetSummaryEnvelope CurrentTargetSummary,
+        [property: JsonPropertyName("identity_summary")] MediaEditorIdentitySummaryEnvelope IdentitySummary,
+        [property: JsonPropertyName("field_lock_map")] IReadOnlyDictionary<string, bool> FieldLockMap,
+        [property: JsonPropertyName("display_override_keys")] IReadOnlyList<string> DisplayOverrideKeys,
+        [property: JsonPropertyName("display_overrides")] IReadOnlyDictionary<string, string> DisplayOverrides,
         [property: JsonPropertyName("initial_scope")] string InitialScope,
         [property: JsonPropertyName("scopes")] IReadOnlyList<MediaEditorScopeEnvelope> Scopes);
+    private sealed record MediaEditorTargetSummaryEnvelope(
+        [property: JsonPropertyName("label")] string Label,
+        [property: JsonPropertyName("title")] string Title,
+        [property: JsonPropertyName("subtitle")] string? Subtitle);
+    private sealed record MediaEditorIdentitySummaryEnvelope(
+        [property: JsonPropertyName("provider_name")] string? ProviderName,
+        [property: JsonPropertyName("provider_item_id")] string? ProviderItemId,
+        [property: JsonPropertyName("match_source")] string? MatchSource,
+        [property: JsonPropertyName("match_method")] string? MatchMethod,
+        [property: JsonPropertyName("wikidata_qid")] string? WikidataQid,
+        [property: JsonPropertyName("wikidata_status")] string? WikidataStatus,
+        [property: JsonPropertyName("match_level")] string? MatchLevel,
+        [property: JsonPropertyName("universe_name")] string? UniverseName,
+        [property: JsonPropertyName("universe_qid")] string? UniverseQid,
+        [property: JsonPropertyName("stage3_status")] string? Stage3Status);
     private sealed record MediaEditorScopeEnvelope(
         [property: JsonPropertyName("scope_id")] string ScopeId,
         [property: JsonPropertyName("label")] string Label,
@@ -2952,6 +3038,15 @@ public static partial class MetadataEndpoints
         Guid LaunchEntityId,
         string LaunchEntityKind,
         string MediaType,
+        string EditorMode,
+        IReadOnlyList<string> AvailableTabs,
+        string? ContentTabLabel,
+        bool SupportsFileTab,
+        MediaEditorTargetSummaryEnvelope CurrentTargetSummary,
+        MediaEditorIdentitySummaryEnvelope IdentitySummary,
+        IReadOnlyDictionary<string, bool> FieldLockMap,
+        IReadOnlyList<string> DisplayOverrideKeys,
+        IReadOnlyDictionary<string, string> DisplayOverrides,
         string InitialScope,
         IReadOnlyList<EditorScopeResolution> Scopes);
     private sealed record EditorScopeResolution(

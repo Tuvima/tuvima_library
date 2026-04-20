@@ -30,6 +30,9 @@ public sealed class CollectionGroupDetailDto
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; init; }
 
+    [JsonPropertyName("logo_url")]
+    public string? LogoUrl { get; init; }
+
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 
@@ -275,6 +278,9 @@ public sealed class ContentGroupDto
 
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; init; }
+
+    [JsonPropertyName("logo_url")]
+    public string? LogoUrl { get; init; }
 
     [JsonPropertyName("description")]
     public string? Description { get; init; }

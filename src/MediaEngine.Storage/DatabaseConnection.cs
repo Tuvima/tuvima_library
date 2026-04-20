@@ -2666,6 +2666,12 @@ public sealed class DatabaseConnection : IDatabaseConnection
             column: "external_identifiers",
             ddl:    "ALTER TABLE works ADD COLUMN external_identifiers TEXT;");
 
+        MigrateAddColumnIfMissing(
+            conn,
+            table:  "works",
+            column: "display_overrides_json",
+            ddl:    "ALTER TABLE works ADD COLUMN display_overrides_json TEXT;");
+
         // ── Step 6: indexes ───────────────────────────────────────────────────
         using (var idxCmd = conn.CreateCommand())
         {

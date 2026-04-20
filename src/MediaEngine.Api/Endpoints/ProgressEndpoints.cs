@@ -101,6 +101,7 @@ public static class ProgressEndpoints
                     cv_cover_w.value      AS cover_url,
                     cv_background_w.value AS background_url,
                     cv_banner_w.value     AS banner_url,
+                    cv_logo_w.value       AS logo_url,
                     cv_narrator_w.value   AS narrator,
                     cv_series_w.value     AS series,
                     cv_series_pos_a.value AS series_position,
@@ -136,6 +137,9 @@ public static class ProgressEndpoints
                 LEFT JOIN canonical_values cv_banner_w
                     ON cv_banner_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_banner_w.key = 'banner'
+                LEFT JOIN canonical_values cv_logo_w
+                    ON cv_logo_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_logo_w.key = 'logo'
                 LEFT JOIN canonical_values cv_series_w
                     ON cv_series_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_series_w.key = 'series'
@@ -183,11 +187,12 @@ public static class ProgressEndpoints
                     CoverUrl:          reader.IsDBNull(10) ? null : reader.GetString(10),
                     BackgroundUrl:     reader.IsDBNull(11) ? null : reader.GetString(11),
                     BannerUrl:         reader.IsDBNull(12) ? null : reader.GetString(12),
-                    Narrator:          reader.IsDBNull(13) ? null : reader.GetString(13),
-                    Series:            reader.IsDBNull(14) ? null : reader.GetString(14),
-                    SeriesPosition:    reader.IsDBNull(15) ? null : reader.GetString(15),
-                    Description:       reader.IsDBNull(16) ? null : reader.GetString(16),
-                    HeroUrl:           reader.IsDBNull(17) ? null : reader.GetString(17)));
+                    LogoUrl:           reader.IsDBNull(13) ? null : reader.GetString(13),
+                    Narrator:          reader.IsDBNull(14) ? null : reader.GetString(14),
+                    Series:            reader.IsDBNull(15) ? null : reader.GetString(15),
+                    SeriesPosition:    reader.IsDBNull(16) ? null : reader.GetString(16),
+                    Description:       reader.IsDBNull(17) ? null : reader.GetString(17),
+                    HeroUrl:           reader.IsDBNull(18) ? null : reader.GetString(18)));
             }
 
             return Results.Ok(results);
@@ -234,6 +239,7 @@ public sealed record JourneyItemResponse(
     string?                      CoverUrl,
     string?                      BackgroundUrl,
     string?                      BannerUrl,
+    string?                      LogoUrl,
     string?                      Narrator,
     string?                      Series,
     string?                      SeriesPosition,

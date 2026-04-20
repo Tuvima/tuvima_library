@@ -13,11 +13,23 @@
                     <div class="discovery-hero-eyebrow">@Hero.Eyebrow</div>
                 }
 
-                <h1 class="discovery-hero-title">@Hero.Title</h1>
+                @if (!string.IsNullOrWhiteSpace(Hero.LogoUrl))
+                {
+                    <img src="@Hero.LogoUrl" alt="@Hero.Title" class="discovery-hero-logo" />
+                }
+                else
+                {
+                    <h1 class="discovery-hero-title">@Hero.Title</h1>
+                }
 
                 @if (!string.IsNullOrWhiteSpace(Hero.Subtitle))
                 {
                     <div class="discovery-hero-subtitle">@Hero.Subtitle</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(Hero.StatusText))
+                {
+                    <div class="discovery-hero-status">@Hero.StatusText</div>
                 }
 
                 @if (!string.IsNullOrWhiteSpace(Hero.MetaText))
@@ -73,27 +85,23 @@
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(Hero.BackgroundImageUrl))
+            var backdrop = Hero.BackgroundImageUrl ?? Hero.BannerImageUrl ?? Hero.PreviewImageUrl;
+            if (string.IsNullOrWhiteSpace(backdrop))
             {
                 return "background: linear-gradient(135deg, rgba(11,17,30,0.95) 0%, rgba(5,8,14,0.98) 100%);";
             }
 
             return
-                $"background-image: linear-gradient(90deg, rgba(5,8,14,0.96) 0%, rgba(5,8,14,0.86) 34%, rgba(5,8,14,0.28) 72%, rgba(5,8,14,0.88) 100%), url('{Hero.BackgroundImageUrl}');";
+                $"background-image: linear-gradient(90deg, rgba(5,8,14,0.96) 0%, rgba(5,8,14,0.88) 32%, rgba(5,8,14,0.42) 72%, rgba(5,8,14,0.92) 100%), url('{backdrop}');";
         }
     }
 
-    private void OpenPrimary()
-    {
-        Nav.NavigateTo(Hero.PrimaryNavigationUrl);
-    }
+    private void OpenPrimary() => Nav.NavigateTo(Hero.PrimaryNavigationUrl);
 
     private void OpenSecondary()
     {
         if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
-        {
             Nav.NavigateTo(Hero.SecondaryNavigationUrl);
-        }
     }
 }
 
@@ -120,8 +128,8 @@
         content: "";
         position: absolute;
         inset: auto 0 0 0;
-        height: 220px;
-        background: linear-gradient(180deg, transparent 0%, rgba(5, 8, 14, 0.96) 100%);
+        height: 240px;
+        background: linear-gradient(180deg, transparent 0%, rgba(5, 8, 14, 0.97) 100%);
     }
 
     .discovery-hero-content {
@@ -159,6 +167,15 @@
         color: rgba(226, 232, 240, 0.94);
     }
 
+    .discovery-hero-logo {
+        width: min(100%, 460px);
+        max-height: 180px;
+        object-fit: contain;
+        object-position: left center;
+        display: block;
+        filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.28));
+    }
+
     .discovery-hero-title {
         margin: 0;
         font-family: Georgia, 'Times New Roman', serif;
@@ -177,13 +194,20 @@
         color: rgba(226, 232, 240, 0.88);
     }
 
+    .discovery-hero-status {
+        font-family: 'Montserrat', sans-serif;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: color-mix(in srgb, var(--hero-accent) 78%, white 10%);
+    }
+
     .discovery-hero-meta {
         font-family: 'Montserrat', sans-serif;
         font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.16em;
         text-transform: uppercase;
-        color: color-mix(in srgb, var(--hero-accent) 72%, white 14%);
+        color: rgba(226, 232, 240, 0.82);
     }
 
     .discovery-hero-description {
@@ -307,6 +331,11 @@
         .discovery-hero-copy {
             gap: 12px;
             padding-top: 20px;
+        }
+
+        .discovery-hero-logo {
+            width: min(100%, 320px);
+            max-height: 120px;
         }
 
         .discovery-hero-preview {

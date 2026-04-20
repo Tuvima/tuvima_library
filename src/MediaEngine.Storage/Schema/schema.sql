@@ -138,6 +138,7 @@ CREATE TABLE IF NOT EXISTS works (
     ordinal              INTEGER,                       -- track #, episode #, issue #, volume #
     is_catalog_only      INTEGER NOT NULL DEFAULT 0,    -- 1 = no file in library yet
     external_identifiers TEXT,                          -- JSON: {"isbn_13":"...","tmdb_id":"..."}
+    display_overrides_json TEXT,                        -- JSON: presentation-only aliases and sort/display overrides
 
     -- M-082: parent_key shadow column for indexed find-or-create lookups.
     -- Populated for parent Works only (work_kind = 'parent') as a normalized

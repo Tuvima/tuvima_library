@@ -1,8 +1,12 @@
 using System.Globalization;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Dapper;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -34,12 +38,14 @@ public static partial class MetadataEndpoints
             Guid entityId,
             string field,
             string? query,
+            string? source,
             Guid? parentEntityId,
             string? parentValue,
             IDatabaseConnection db,
+            ISearchService searchService,
             CancellationToken ct) =>
         {
-            var suggestions = await BuildMembershipSuggestionsAsync(entityId, field, query, parentEntityId, parentValue, db, ct);
+            var suggestions = await BuildMembershipSuggestionsAsync(entityId, field, query, source, parentEntityId, parentValue, db, searchService, ct);
             return Results.Ok(suggestions);
         })
         .WithName("GetMediaEditorMembershipSuggestions")
@@ -68,9 +74,10 @@ public static partial class MetadataEndpoints
             Guid entityId,
             MembershipPreviewRequest request,
             IDatabaseConnection db,
+            IHydrationPipelineService pipeline,
             CancellationToken ct) =>
         {
-            var result = await ApplyMembershipChangeAsync(entityId, request, db, ct);
+            var result = await ApplyMembershipChangeAsync(entityId, request, db, pipeline, ct);
             return result is null
                 ? Results.NotFound($"Membership apply for {entityId} not found.")
                 : Results.Ok(result);
@@ -138,9 +145,11 @@ public static partial class MetadataEndpoints
         Guid entityId,
         string field,
         string? query,
+        string? source,
         Guid? parentEntityId,
         string? parentValue,
         IDatabaseConnection db,
+        ISearchService searchService,
         CancellationToken ct)
     {
         var launch = await ResolveEditorLaunchContextAsync(entityId, db, ct);
@@ -149,9 +158,13 @@ public static partial class MetadataEndpoints
 
         var mediaType = NormalizeEditorMediaType(launch.MediaType);
         var normalizedField = (field ?? string.Empty).Trim().ToLowerInvariant();
+        var normalizedSource = string.IsNullOrWhiteSpace(source) ? "local" : source.Trim().ToLowerInvariant();
         var normalizedQuery = (query ?? string.Empty).Trim();
 
         using var conn = db.CreateConnection();
+        if (normalizedSource == "retail" && mediaType is "TV" or "Music")
+            return await BuildRetailMembershipSuggestionsAsync(mediaType, normalizedField, normalizedQuery, parentValue, searchService, ct);
+
         return normalizedField switch
         {
             "show" when mediaType == "TV" => QueryParentSuggestions(
@@ -182,27 +195,6 @@ public static partial class MetadataEndpoints
                 additionalFilter: row => string.IsNullOrWhiteSpace(parentValue)
                     || (!string.IsNullOrWhiteSpace(row.WorkArtist)
                         && row.WorkArtist.Contains(parentValue, StringComparison.OrdinalIgnoreCase))),
-
-            "series" when mediaType is "Comics" or "Books" or "Audiobooks" => QueryParentSuggestions(
-                conn,
-                mediaType,
-                normalizedQuery,
-                suggestionKind: "series",
-                titleSelector: row => FirstNonBlank(row.WorkSeries, row.WorkTitle, FormatParentKeyFallback(row.ParentKey)),
-                subtitleSelector: row => BuildDelimitedLabel(FirstNonBlank(row.WorkAuthor), FirstNonBlank(row.WorkYear)),
-                additionalFilter: row => mediaType is not ("Books" or "Audiobooks")
-                    || string.IsNullOrWhiteSpace(parentValue)
-                    || (!string.IsNullOrWhiteSpace(row.WorkAuthor)
-                        && row.WorkAuthor.Contains(parentValue, StringComparison.OrdinalIgnoreCase))),
-
-            "author" when mediaType is "Books" or "Audiobooks" => QueryDistinctTextSuggestions(
-                conn,
-                mediaType,
-                normalizedQuery,
-                titleKey: "author",
-                subtitleKeys: ["series", "year"],
-                suggestionKind: "author"),
-
             _ => [],
         };
     }
@@ -244,6 +236,7 @@ public static partial class MetadataEndpoints
         Guid entityId,
         MembershipPreviewRequest request,
         IDatabaseConnection db,
+        IHydrationPipelineService pipeline,
         CancellationToken ct)
     {
         var preview = await BuildMembershipPreviewAsync(entityId, request, db, ct);
@@ -283,6 +276,10 @@ public static partial class MetadataEndpoints
             var plan = ResolveMembershipPlan(entityRow, request);
             var finalized = await FinalizeMembershipPlanAsync(conn, tx, plan, request, applyChanges: true, ct);
             tx.Commit();
+
+            if (finalized.Stage2TargetEntityId.HasValue)
+                await QueueRetailParentStage2Async(pipeline, finalized.Stage2TargetEntityId.Value, plan.MediaType, request, ct);
+
             return finalized with { Applied = true };
         }
         finally
@@ -372,8 +369,6 @@ public static partial class MetadataEndpoints
         mediaType switch
         {
             "TV" or "Music" => true,
-            "Comics" or "Books" or "Audiobooks" => string.Equals(launch.WorkKind, "parent", StringComparison.OrdinalIgnoreCase)
-                                                   || rows.Any(row => row.Depth > 0),
             _ => false,
         };
 
@@ -617,9 +612,15 @@ public static partial class MetadataEndpoints
             .Take(12)
             .Select(row => new MembershipSuggestionEnvelope(
                 row.WorkId,
+                "local",
+                true,
                 suggestionKind,
                 titleSelector(row),
-                subtitleSelector(row)))
+                subtitleSelector(row),
+                null,
+                null,
+                null,
+                null))
             .ToList();
     }
 
@@ -646,7 +647,7 @@ public static partial class MetadataEndpoints
             .Select(row =>
             {
                 var label = $"Season {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}";
-                return new MembershipSuggestionEnvelope(row.WorkId, "season", label, null);
+                return new MembershipSuggestionEnvelope(row.WorkId, "local", true, "season", label, null, null, null, null, null);
             })
             .Where(row => string.IsNullOrWhiteSpace(query) || row.Label.Contains(query, StringComparison.OrdinalIgnoreCase))
             .Take(12)
@@ -677,11 +678,212 @@ public static partial class MetadataEndpoints
                 var subtitle = subtitleKeys
                     .Select(keyName => GetParentSuggestionValue(representative, keyName))
                     .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
-                return new MembershipSuggestionEnvelope(representative.WorkId, suggestionKind, group.Key, subtitle);
+                return new MembershipSuggestionEnvelope(representative.WorkId, "local", true, suggestionKind, group.Key, subtitle, null, null, null, null);
             })
             .OrderBy(row => row.Label, StringComparer.OrdinalIgnoreCase)
             .Take(12)
             .ToList();
+    }
+
+    private static async Task<IReadOnlyList<MembershipSuggestionEnvelope>> BuildRetailMembershipSuggestionsAsync(
+        string mediaType,
+        string field,
+        string query,
+        string? parentValue,
+        ISearchService searchService,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+            return [];
+
+        if (mediaType == "TV" && field != "show")
+            return [];
+
+        if (mediaType == "Music" && field != "album")
+            return [];
+
+        var searchFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (mediaType == "Music" && !string.IsNullOrWhiteSpace(parentValue))
+            searchFields["artist"] = parentValue.Trim();
+
+        var result = await searchService.SearchRetailAsync(
+            new SearchRetailRequest(
+                Query: query,
+                MediaType: mediaType,
+                MaxCandidates: 8,
+                SearchFields: searchFields.Count == 0 ? null : searchFields),
+            ct);
+
+        return result.Candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Title))
+            .Select(candidate =>
+            {
+                var (externalIdKey, externalIdValue) = ResolveRetailExternalId(candidate);
+                var subtitle = mediaType switch
+                {
+                    "TV" => BuildDelimitedLabel(candidate.Year, candidate.Description),
+                    "Music" => BuildDelimitedLabel(candidate.Author, candidate.Year, candidate.ProviderName),
+                    _ => BuildDelimitedLabel(candidate.Author, candidate.Year),
+                };
+
+                return new MembershipSuggestionEnvelope(
+                    EntityId: null,
+                    Source: "retail",
+                    LocalExisting: false,
+                    Kind: mediaType == "TV" ? "show" : "album",
+                    Label: candidate.Title,
+                    Subtitle: subtitle,
+                    ProviderName: candidate.ProviderName,
+                    ProviderItemId: candidate.ProviderItemId,
+                    ExternalIdKey: externalIdKey,
+                    ExternalIdValue: externalIdValue);
+            })
+            .Take(8)
+            .ToList();
+    }
+
+    private static (string? Key, string? Value) ResolveRetailExternalId(RetailCandidate candidate)
+    {
+        if (!string.IsNullOrWhiteSpace(candidate.ProviderItemId))
+        {
+            if (string.Equals(candidate.ProviderName, "tmdb", StringComparison.OrdinalIgnoreCase))
+                return (BridgeIdKeys.TmdbId, candidate.ProviderItemId);
+
+            if (string.Equals(candidate.ProviderName, "musicbrainz", StringComparison.OrdinalIgnoreCase))
+                return (BridgeIdKeys.MusicBrainzReleaseGroupId, candidate.ProviderItemId);
+
+            if (string.Equals(candidate.ProviderName, "apple_music", StringComparison.OrdinalIgnoreCase))
+                return (BridgeIdKeys.AppleMusicCollectionId, candidate.ProviderItemId);
+        }
+
+        return (null, null);
+    }
+
+    private static MembershipSuggestionSelection? GetRequestSuggestion(
+        IReadOnlyDictionary<string, MembershipSuggestionSelection> suggestions,
+        string key) =>
+        suggestions.TryGetValue(key, out var suggestion) ? suggestion : null;
+
+    private static void UpsertRetailIdentity(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        Guid workId,
+        MembershipSuggestionSelection suggestion)
+    {
+        if (!string.IsNullOrWhiteSpace(suggestion.ExternalIdKey) && !string.IsNullOrWhiteSpace(suggestion.ExternalIdValue))
+        {
+            conn.Execute(
+                """
+                INSERT INTO bridge_ids (id, entity_id, id_type, id_value, provider_id, created_at)
+                VALUES (@id, @entityId, @idType, @idValue, @providerId, @createdAt)
+                ON CONFLICT(entity_id, id_type) DO UPDATE SET
+                    id_value = excluded.id_value,
+                    provider_id = excluded.provider_id;
+                """,
+                new
+                {
+                    id = Guid.NewGuid().ToString(),
+                    entityId = workId.ToString(),
+                    idType = suggestion.ExternalIdKey,
+                    idValue = suggestion.ExternalIdValue,
+                    providerId = ResolveProviderId(suggestion.ProviderName)?.ToString(),
+                    createdAt = DateTimeOffset.UtcNow.ToString("o"),
+                },
+                tx);
+
+            UpsertExternalIdentifiersJson(conn, tx, workId, suggestion.ExternalIdKey, suggestion.ExternalIdValue);
+        }
+
+        if (!string.IsNullOrWhiteSpace(suggestion.ProviderItemId) && !string.IsNullOrWhiteSpace(suggestion.ProviderName))
+            UpsertExternalIdentifiersJson(conn, tx, workId, $"{suggestion.ProviderName}_item_id", suggestion.ProviderItemId);
+    }
+
+    private static void UpsertExternalIdentifiersJson(
+        SqliteConnection conn,
+        SqliteTransaction tx,
+        Guid workId,
+        string key,
+        string value)
+    {
+        var currentJson = conn.QueryFirstOrDefault<string?>(
+            "SELECT external_identifiers FROM works WHERE id = @workId LIMIT 1;",
+            new { workId = workId.ToString() },
+            tx);
+
+        Dictionary<string, string> current;
+        try
+        {
+            current = string.IsNullOrWhiteSpace(currentJson)
+                ? new(StringComparer.OrdinalIgnoreCase)
+                : JsonSerializer.Deserialize<Dictionary<string, string>>(currentJson!) ?? new(StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            current = new(StringComparer.OrdinalIgnoreCase);
+        }
+
+        current[key] = value;
+
+        conn.Execute(
+            "UPDATE works SET external_identifiers = @json WHERE id = @workId;",
+            new { json = JsonSerializer.Serialize(current), workId = workId.ToString() },
+            tx);
+    }
+
+    private static Guid? ResolveProviderId(string? providerName)
+    {
+        var normalized = (providerName ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "tmdb" => WellKnownProviders.Tmdb,
+            "musicbrainz" => WellKnownProviders.MusicBrainz,
+            "apple_music" => WellKnownProviders.AppleApi,
+            "apple_books" => WellKnownProviders.AppleApi,
+            "open_library" => WellKnownProviders.OpenLibrary,
+            "google_books" => WellKnownProviders.GoogleBooks,
+            "comic_vine" => WellKnownProviders.ComicVine,
+            "metron" => WellKnownProviders.Metron,
+            _ => null,
+        };
+    }
+
+    private static async Task QueueRetailParentStage2Async(
+        IHydrationPipelineService pipeline,
+        Guid workId,
+        string mediaType,
+        MembershipPreviewRequest request,
+        CancellationToken ct)
+    {
+        var selected = request.SelectedSuggestions?
+            .Values
+            .FirstOrDefault(suggestion =>
+                string.Equals(suggestion.Source, "retail", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(suggestion.ExternalIdKey)
+                && !string.IsNullOrWhiteSpace(suggestion.ExternalIdValue));
+
+        if (selected is null
+            || !Enum.TryParse<MediaType>(mediaType, true, out var parsedMediaType))
+        {
+            return;
+        }
+
+        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["title"] = selected.Label,
+        };
+
+        hints[selected.ExternalIdKey!] = selected.ExternalIdValue!;
+
+        await pipeline.EnqueueAsync(new HarvestRequest
+        {
+            EntityId = workId,
+            EntityType = EntityType.Work,
+            MediaType = parsedMediaType,
+            Hints = hints,
+            SkipRetailStage = true,
+            IsUserResolution = true,
+            SuppressReviewCreation = true,
+        }, ct);
     }
 
     private static IReadOnlyList<NavigatorValueRow> QueryNavigatorParentValues(SqliteConnection conn, string mediaType) =>
@@ -835,53 +1037,6 @@ public static partial class MetadataEndpoints
                 SelectedSecondaryTargetId: null);
         }
 
-        if (mediaType is "Comics" or "Books" or "Audiobooks")
-        {
-            if (string.Equals(workKind, "child", StringComparison.OrdinalIgnoreCase))
-            {
-                var series = FirstNonBlank(GetRequestValue(fields, "series"));
-                var author = FirstNonBlank(GetRequestValue(fields, "author"), GetRequestValue(fields, "creator"));
-                var ordinal = ParseNavigatorOrdinal(
-                    GetRequestValue(fields, mediaType == "Comics" ? "issue_number" : "series_position"),
-                    entityRow.Ordinal);
-                return new MembershipPlan(
-                    Action: "move_child",
-                    MediaType: mediaType,
-                    CurrentEntityId: entityRow.WorkId,
-                    CurrentParentEntityId: entityRow.ParentWorkId,
-                    CurrentRootEntityId: entityRow.RootWorkId,
-                    CurrentOrdinal: entityRow.Ordinal,
-                    RequestedTitle: FirstNonBlank(GetRequestValue(fields, "title")),
-                    RequestedParentLabel: series,
-                    RequestedSecondaryLabel: author,
-                    RequestedParentKey: mediaType == "Comics"
-                        ? BuildHierarchyParentKey(series)
-                        : BuildHierarchyParentKey(author, series),
-                    RequestedOrdinal: ordinal,
-                    SelectedPrimaryTargetId: GetRequestTarget(targets, "series"),
-                    SelectedSecondaryTargetId: null);
-            }
-
-            var renamedSeries = FirstNonBlank(GetRequestValue(fields, "series"));
-            var renamedAuthor = FirstNonBlank(GetRequestValue(fields, "author"), GetRequestValue(fields, "creator"));
-            return new MembershipPlan(
-                Action: "rename_container",
-                MediaType: mediaType,
-                CurrentEntityId: entityRow.WorkId,
-                CurrentParentEntityId: entityRow.ParentWorkId,
-                CurrentRootEntityId: entityRow.RootWorkId,
-                CurrentOrdinal: entityRow.Ordinal,
-                RequestedTitle: renamedSeries,
-                RequestedParentLabel: renamedSeries,
-                RequestedSecondaryLabel: renamedAuthor,
-                RequestedParentKey: mediaType == "Comics"
-                    ? BuildHierarchyParentKey(renamedSeries)
-                    : BuildHierarchyParentKey(renamedAuthor, renamedSeries),
-                RequestedOrdinal: entityRow.Ordinal,
-                SelectedPrimaryTargetId: null,
-                SelectedSecondaryTargetId: null);
-        }
-
         return new MembershipPlan(
             Action: "none",
             MediaType: mediaType,
@@ -960,7 +1115,7 @@ public static partial class MetadataEndpoints
             return new MembershipPreviewEnvelope("move_season", currentPath, $"Season {plan.RequestedOrdinal.Value}", false, true, applyChanges, plan.CurrentEntityId, plan.CurrentRootEntityId, plan.CurrentParentEntityId, "The season will move to the requested position.", null);
         }
 
-        var resolvedTarget = await ResolveMembershipMoveTargetAsync(conn, tx, plan, applyChanges, ct);
+        var resolvedTarget = await ResolveMembershipMoveTargetAsync(conn, tx, plan, request, applyChanges, ct);
         if (!resolvedTarget.CanApply)
             return new MembershipPreviewEnvelope(resolvedTarget.Action, currentPath, resolvedTarget.TargetPath, resolvedTarget.RequiresNewTarget, false, false, plan.CurrentEntityId, plan.CurrentRootEntityId, resolvedTarget.TargetParentEntityId, resolvedTarget.Message, resolvedTarget.ConflictMessage);
 
@@ -973,31 +1128,40 @@ public static partial class MetadataEndpoints
         }
 
         var targetRootEntityId = await ResolveRootWorkIdAsync(conn, resolvedTarget.TargetParentEntityId ?? plan.CurrentEntityId, tx, ct);
-        return new MembershipPreviewEnvelope(resolvedTarget.Action, currentPath, resolvedTarget.TargetPath, resolvedTarget.RequiresNewTarget, true, applyChanges, plan.CurrentEntityId, targetRootEntityId, resolvedTarget.TargetParentEntityId, resolvedTarget.Message, null);
+        return new MembershipPreviewEnvelope(resolvedTarget.Action, currentPath, resolvedTarget.TargetPath, resolvedTarget.RequiresNewTarget, true, applyChanges, plan.CurrentEntityId, targetRootEntityId, resolvedTarget.TargetParentEntityId, resolvedTarget.Message, null, resolvedTarget.Stage2TargetEntityId);
     }
 
     private static async Task<ResolvedMoveTarget> ResolveMembershipMoveTargetAsync(
         SqliteConnection conn,
         SqliteTransaction? tx,
         MembershipPlan plan,
+        MembershipPreviewRequest request,
         bool applyChanges,
         CancellationToken ct)
     {
         Guid? targetParentId = null;
+        Guid? stage2TargetId = null;
         var requiresNewTarget = false;
         string targetPath;
+        var selectedSuggestions = request.SelectedSuggestions ?? new(StringComparer.OrdinalIgnoreCase);
 
         if (plan.MediaType == "TV")
         {
+            var retailShowSuggestion = GetRequestSuggestion(selectedSuggestions, "show");
             var showId = plan.SelectedPrimaryTargetId ?? FindParentByKey(conn, plan.MediaType, plan.RequestedParentKey, tx);
             if (!showId.HasValue)
             {
                 requiresNewTarget = true;
+                if (retailShowSuggestion is null)
+                    return new ResolvedMoveTarget("move_child", null, BuildTelevisionTargetPath(plan), true, false, "Select an identified show before moving the episode.", "Choose an existing local show or use Search Retail.");
+
                 if (!applyChanges)
-                    return new ResolvedMoveTarget("move_child", null, BuildTelevisionTargetPath(plan), true, true, "The episode will move into a new show and season.", null);
+                    return new ResolvedMoveTarget("move_child", null, BuildTelevisionTargetPath(plan), true, true, "The episode will move into a retail-matched show and season.", null);
 
                 showId = InsertParentWork(conn, tx!, plan.MediaType, plan.RequestedParentKey!, null, null);
                 await UpsertCanonicalValuesAsync(conn, tx!, showId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["show_name"] = plan.RequestedParentLabel });
+                UpsertRetailIdentity(conn, tx!, showId.Value, retailShowSuggestion);
+                stage2TargetId = showId.Value;
             }
 
             var seasonNumber = ParseNavigatorOrdinal(plan.RequestedSecondaryLabel, null);
@@ -1024,15 +1188,21 @@ public static partial class MetadataEndpoints
         }
         else if (plan.MediaType == "Music")
         {
+            var retailAlbumSuggestion = GetRequestSuggestion(selectedSuggestions, "album");
             targetParentId = plan.SelectedPrimaryTargetId ?? FindParentByKey(conn, plan.MediaType, plan.RequestedParentKey, tx);
             if (!targetParentId.HasValue)
             {
                 requiresNewTarget = true;
+                if (retailAlbumSuggestion is null)
+                    return new ResolvedMoveTarget("move_child", null, BuildMusicTargetPath(plan), true, false, "Select an identified album before moving the track.", "Choose an existing local album or use Search Retail.");
+
                 if (!applyChanges)
-                    return new ResolvedMoveTarget("move_child", null, BuildMusicTargetPath(plan), true, true, "The track will move into a new album.", null);
+                    return new ResolvedMoveTarget("move_child", null, BuildMusicTargetPath(plan), true, true, "The track will move into a retail-matched album.", null);
 
                 targetParentId = InsertParentWork(conn, tx!, plan.MediaType, plan.RequestedParentKey!, null, null);
                 await UpsertCanonicalValuesAsync(conn, tx!, targetParentId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["album"] = plan.RequestedParentLabel, ["artist"] = plan.RequestedSecondaryLabel });
+                UpsertRetailIdentity(conn, tx!, targetParentId.Value, retailAlbumSuggestion);
+                stage2TargetId = targetParentId.Value;
             }
 
             targetPath = BuildMusicTargetPath(plan);
@@ -1063,7 +1233,7 @@ public static partial class MetadataEndpoints
         if (targetParentId == plan.CurrentParentEntityId && plan.RequestedOrdinal == plan.CurrentOrdinal)
             return new ResolvedMoveTarget("none", targetParentId, targetPath, requiresNewTarget, false, "No structural change is needed.", null);
 
-        return new ResolvedMoveTarget("move_child", targetParentId, targetPath, requiresNewTarget, true, "The item will move to the selected membership target.", null);
+        return new ResolvedMoveTarget("move_child", targetParentId, targetPath, requiresNewTarget, true, "The item will move to the selected membership target.", null, stage2TargetId);
     }
 
     private static async Task<string> BuildMembershipPathAsync(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
@@ -1333,10 +1503,35 @@ public static partial class MetadataEndpoints
     private sealed record NavigatorValueRow(Guid WorkId, Guid? AssetId, string? WorkTitle, string? WorkShowName, string? WorkNetwork, string? WorkAlbum, string? WorkArtist, string? WorkSeries, string? WorkAuthor, string? WorkYear, string? WorkSeasonNumber, string? AssetTitle, string? AssetEpisodeTitle, string? AssetEpisodeNumber, string? AssetSeasonNumber, string? AssetTrackNumber, string? AssetSeriesPosition, string? AssetIssueNumber, string? AssetVolume, string? ParentKey);
     private sealed record MembershipEntityRow(Guid WorkId, string MediaType, string WorkKind, Guid? ParentWorkId, int? Ordinal, string? ParentKey, Guid RootWorkId);
     private sealed record MembershipPlan(string Action, string MediaType, Guid CurrentEntityId, Guid? CurrentParentEntityId, Guid CurrentRootEntityId, int? CurrentOrdinal, string? RequestedTitle, string? RequestedParentLabel, string? RequestedSecondaryLabel, string? RequestedParentKey, int? RequestedOrdinal, Guid? SelectedPrimaryTargetId, Guid? SelectedSecondaryTargetId);
-    private sealed record ResolvedMoveTarget(string Action, Guid? TargetParentEntityId, string TargetPath, bool RequiresNewTarget, bool CanApply, string Message, string? ConflictMessage);
-    private sealed record MembershipPreviewRequest([property: JsonPropertyName("scope_id")] string? ScopeId, [property: JsonPropertyName("field_values")] Dictionary<string, string?>? FieldValues, [property: JsonPropertyName("selected_target_ids")] Dictionary<string, Guid?>? SelectedTargetIds);
+    private sealed record ResolvedMoveTarget(string Action, Guid? TargetParentEntityId, string TargetPath, bool RequiresNewTarget, bool CanApply, string Message, string? ConflictMessage, Guid? Stage2TargetEntityId = null);
+    private sealed record MembershipPreviewRequest(
+        [property: JsonPropertyName("scope_id")] string? ScopeId,
+        [property: JsonPropertyName("field_values")] Dictionary<string, string?>? FieldValues,
+        [property: JsonPropertyName("selected_target_ids")] Dictionary<string, Guid?>? SelectedTargetIds,
+        [property: JsonPropertyName("selected_suggestions")] Dictionary<string, MembershipSuggestionSelection>? SelectedSuggestions);
+    private sealed record MembershipSuggestionSelection(
+        [property: JsonPropertyName("entity_id")] Guid? EntityId,
+        [property: JsonPropertyName("source")] string Source,
+        [property: JsonPropertyName("local_existing")] bool LocalExisting,
+        [property: JsonPropertyName("kind")] string Kind,
+        [property: JsonPropertyName("label")] string Label,
+        [property: JsonPropertyName("subtitle")] string? Subtitle,
+        [property: JsonPropertyName("provider_name")] string? ProviderName,
+        [property: JsonPropertyName("provider_item_id")] string? ProviderItemId,
+        [property: JsonPropertyName("external_id_key")] string? ExternalIdKey,
+        [property: JsonPropertyName("external_id_value")] string? ExternalIdValue);
     private sealed record MediaEditorNavigatorEnvelope([property: JsonPropertyName("enabled")] bool Enabled, [property: JsonPropertyName("media_type")] string MediaType, [property: JsonPropertyName("container_entity_id")] Guid ContainerEntityId, [property: JsonPropertyName("selected_entity_id")] Guid SelectedEntityId, [property: JsonPropertyName("container_label")] string ContainerLabel, [property: JsonPropertyName("container_title")] string ContainerTitle, [property: JsonPropertyName("container_subtitle")] string? ContainerSubtitle, [property: JsonPropertyName("nodes")] IReadOnlyList<MediaEditorNavigatorNodeEnvelope> Nodes);
     private sealed record MediaEditorNavigatorNodeEnvelope([property: JsonPropertyName("node_id")] Guid NodeId, [property: JsonPropertyName("parent_node_id")] Guid? ParentNodeId, [property: JsonPropertyName("entity_id")] Guid EntityId, [property: JsonPropertyName("scope_id")] string ScopeId, [property: JsonPropertyName("node_kind")] string NodeKind, [property: JsonPropertyName("label")] string Label, [property: JsonPropertyName("title")] string Title, [property: JsonPropertyName("subtitle")] string? Subtitle, [property: JsonPropertyName("ordinal_label")] string? OrdinalLabel, [property: JsonPropertyName("depth")] int Depth, [property: JsonPropertyName("is_root")] bool IsRoot, [property: JsonPropertyName("is_leaf")] bool IsLeaf, [property: JsonPropertyName("is_owned")] bool IsOwned, [property: JsonPropertyName("can_quarantine")] bool CanQuarantine, [property: JsonPropertyName("quarantine_count")] int QuarantineCount);
-    private sealed record MembershipSuggestionEnvelope([property: JsonPropertyName("entity_id")] Guid? EntityId, [property: JsonPropertyName("kind")] string Kind, [property: JsonPropertyName("label")] string Label, [property: JsonPropertyName("subtitle")] string? Subtitle);
-    private sealed record MembershipPreviewEnvelope([property: JsonPropertyName("action")] string Action, [property: JsonPropertyName("current_path")] string CurrentPath, [property: JsonPropertyName("target_path")] string TargetPath, [property: JsonPropertyName("requires_new_target")] bool RequiresNewTarget, [property: JsonPropertyName("can_apply")] bool CanApply, [property: JsonPropertyName("applied")] bool Applied, [property: JsonPropertyName("selected_entity_id")] Guid SelectedEntityId, [property: JsonPropertyName("target_root_entity_id")] Guid TargetRootEntityId, [property: JsonPropertyName("target_parent_entity_id")] Guid? TargetParentEntityId, [property: JsonPropertyName("message")] string Message, [property: JsonPropertyName("conflict_message")] string? ConflictMessage);
+    private sealed record MembershipSuggestionEnvelope(
+        [property: JsonPropertyName("entity_id")] Guid? EntityId,
+        [property: JsonPropertyName("source")] string Source,
+        [property: JsonPropertyName("local_existing")] bool LocalExisting,
+        [property: JsonPropertyName("kind")] string Kind,
+        [property: JsonPropertyName("label")] string Label,
+        [property: JsonPropertyName("subtitle")] string? Subtitle,
+        [property: JsonPropertyName("provider_name")] string? ProviderName,
+        [property: JsonPropertyName("provider_item_id")] string? ProviderItemId,
+        [property: JsonPropertyName("external_id_key")] string? ExternalIdKey,
+        [property: JsonPropertyName("external_id_value")] string? ExternalIdValue);
+    private sealed record MembershipPreviewEnvelope([property: JsonPropertyName("action")] string Action, [property: JsonPropertyName("current_path")] string CurrentPath, [property: JsonPropertyName("target_path")] string TargetPath, [property: JsonPropertyName("requires_new_target")] bool RequiresNewTarget, [property: JsonPropertyName("can_apply")] bool CanApply, [property: JsonPropertyName("applied")] bool Applied, [property: JsonPropertyName("selected_entity_id")] Guid SelectedEntityId, [property: JsonPropertyName("target_root_entity_id")] Guid TargetRootEntityId, [property: JsonPropertyName("target_parent_entity_id")] Guid? TargetParentEntityId, [property: JsonPropertyName("message")] string Message, [property: JsonPropertyName("conflict_message")] string? ConflictMessage, [property: JsonPropertyName("stage2_target_entity_id")] Guid? Stage2TargetEntityId = null);
 }
