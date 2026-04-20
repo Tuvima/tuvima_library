@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Radii + spacing</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:22px;font-family:var(--tv-font-sans);}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:14px;}
+  .sw{display:flex;flex-direction:column;gap:6px;align-items:center;}
+  .box{width:100%;aspect-ratio:1;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(248,248,248,.72);}
+  .val{font-family:var(--tv-font-mono);font-size:10px;color:rgba(248,248,248,.40);}
+  .section{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(248,248,248,.35);margin:0 0 10px;}
+  .hr{height:1px;background:rgba(255,255,255,.04);margin:18px 0 14px;}
+  .space-row{display:flex;align-items:flex-end;gap:16px;}
+  .space{display:flex;flex-direction:column;align-items:center;gap:4px;}
+  .bar{background:var(--tv-amber-deep);border-radius:2px;width:24px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="section">Corner radii</div>
+  <div class="grid">
+    <div class="sw"><div class="box" style="border-radius:6px"></div><div class="lbl">xs</div><div class="val">6px</div></div>
+    <div class="sw"><div class="box" style="border-radius:8px"></div><div class="lbl">sm</div><div class="val">8px</div></div>
+    <div class="sw"><div class="box" style="border-radius:10px"></div><div class="lbl">md</div><div class="val">10px</div></div>
+    <div class="sw"><div class="box" style="border-radius:12px"></div><div class="lbl">lg</div><div class="val">12px</div></div>
+    <div class="sw"><div class="box" style="border-radius:16px"></div><div class="lbl">xl</div><div class="val">16px</div></div>
+    <div class="sw"><div class="box" style="border-radius:20px"></div><div class="lbl">2xl</div><div class="val">20px</div></div>
+    <div class="sw"><div class="box" style="border-radius:999px"></div><div class="lbl">pill</div><div class="val">999px</div></div>
+  </div>
+  <div class="hr"></div>
+  <div class="section">Spacing scale</div>
+  <div class="space-row">
+    <div class="space"><div class="bar" style="height:4px"></div><div class="val">4</div></div>
+    <div class="space"><div class="bar" style="height:8px"></div><div class="val">8</div></div>
+    <div class="space"><div class="bar" style="height:12px"></div><div class="val">12</div></div>
+    <div class="space"><div class="bar" style="height:16px"></div><div class="val">16</div></div>
+    <div class="space"><div class="bar" style="height:20px"></div><div class="val">20</div></div>
+    <div class="space"><div class="bar" style="height:24px"></div><div class="val">24</div></div>
+    <div class="space"><div class="bar" style="height:32px"></div><div class="val">32</div></div>
+    <div class="space"><div class="bar" style="height:40px"></div><div class="val">40</div></div>
+    <div class="space"><div class="bar" style="height:48px"></div><div class="val">48</div></div>
+    <div class="space"><div class="bar" style="height:64px"></div><div class="val">64</div></div>
+  </div>
+</div>
+</body>
+</html>

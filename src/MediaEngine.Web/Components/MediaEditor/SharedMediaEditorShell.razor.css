@@ -173,27 +173,61 @@
 
 .sme-scope-switcher {
     display: flex;
+    align-items: flex-start;
+    padding: 14px 42px 14px 24px;
+}
+
+.sme-scope-picker-trigger {
+    min-width: 240px;
+    max-width: min(360px, 100%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: rgba(248,248,248,0.94);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.sme-scope-picker-trigger:hover,
+.sme-scope-picker-trigger:focus-visible {
+    border-color: rgba(234,179,8,0.26);
+    background: rgba(255,255,255,0.05);
+    transform: translateY(-1px);
+    outline: none;
+}
+
+.sme-scope-picker-copy {
+    min-width: 0;
+    display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 18px 42px 0;
+    gap: 2px;
 }
 
-::deep .sme-scope-list {
-    padding-bottom: 2px;
+.sme-scope-picker-kicker {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.48);
 }
 
-::deep .sme-scope-list {
-    gap: 14px;
-    padding-left: 8px;
+.sme-scope-picker-label {
+    font-size: 0.96rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.96);
 }
 
-::deep .sme-scope-list .app-tabs__item {
-    padding: 0 10px 14px;
-}
-
-::deep .sme-scope-list .app-tabs__label {
-    font-size: 0.92rem;
-    letter-spacing: 0.01em;
+.sme-scope-picker-title {
+    font-size: 0.82rem;
+    color: rgba(255,255,255,0.60);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .sme-scope-chip {
@@ -218,22 +252,48 @@
     color: rgba(255,255,255,0.96);
 }
 
-.sme-scope-summary {
-    color: rgba(255,255,255,0.58);
-    font-size: 0.8rem;
-    line-height: 1.45;
-    padding-top: 6px;
-    padding-left: 10px;
+.sme-scope-menu-item {
+    min-width: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 4px 0;
 }
 
-.sme-scope-summary-note {
-    display: inline-block;
-    margin-left: 8px;
-    color: rgba(255,255,255,0.44);
+.sme-scope-menu-copy {
+    min-width: 0;
+}
+
+.sme-scope-menu-label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.56);
+}
+
+.sme-scope-menu-title {
+    margin-top: 4px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: rgba(255,255,255,0.94);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sme-scope-menu-item--active .sme-scope-menu-label {
+    color: rgba(234,179,8,0.78);
+}
+
+.sme-scope-menu-check {
+    color: rgba(234,179,8,0.96);
+    flex-shrink: 0;
 }
 
 ::deep .sme-tabs {
-    padding: 10px 42px 0;
+    padding: 2px 42px 0 84px;
 }
 
 ::deep .sme-tabs .app-tabs__item {
@@ -1912,8 +1972,12 @@
     }
 
     ::deep .sme-tabs {
-        padding-left: 16px;
+        padding-left: 48px;
         padding-right: 16px;
+    }
+
+    .sme-scope-picker-trigger {
+        min-width: 220px;
     }
 
     .sme-details {

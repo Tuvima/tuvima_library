@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Typography — reader serif</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:24px 26px;display:flex;gap:24px;align-items:stretch;}
+  .paper{
+    flex:1;background:#ECE4D4;color:#2A2416;border-radius:10px;padding:22px 26px;
+    font-family:var(--tv-font-serif);font-size:16px;line-height:1.7;
+  }
+  .paper p{margin:0 0 10px;}
+  .paper h3{font-family:var(--tv-font-serif);font-weight:700;font-size:20px;margin:0 0 10px;letter-spacing:-0.01em;}
+  .spec{
+    width:150px;font-family:var(--tv-font-mono);font-size:10px;color:rgba(248,248,248,.6);
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .spec .lbl{font-family:var(--tv-font-sans);font-size:10px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(248,248,248,.35);}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="spec">
+    <div class="lbl">Reader</div>
+    <div>Merriweather 400</div>
+    <div>16 / 1.7</div>
+    <div>Paper #ECE4D4</div>
+    <div>Ink  #2A2416</div>
+    <div style="margin-top:8px;color:rgba(248,248,248,.35);">Scoped only to<br/>the EPUB reader.</div>
+  </div>
+  <div class="paper">
+    <h3>Chapter I — Beginnings</h3>
+    <p>A beginning is the time for taking the most delicate care that the balances are correct. This every sister of the Bene Gesserit knows.</p>
+    <p>To begin your study of the life of Muad'Dib, then, take care that you first place him in his time.</p>
+  </div>
+</div>
+</body>
+</html>

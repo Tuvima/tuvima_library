@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Typography — display</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:24px 26px;font-family:var(--tv-font-sans);color:rgba(248,248,248,.85);display:flex;flex-direction:column;gap:14px;}
+  .row{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid rgba(255,255,255,.04);padding-bottom:12px;}
+  .row:last-child{border:0;padding-bottom:0;}
+  .spec{font-family:var(--tv-font-mono);font-size:10px;color:rgba(248,248,248,.38);white-space:nowrap;min-width:130px;}
+  .sample{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="row"><span class="spec">Hero · 64 / 800</span><span class="sample tv-hero" style="font-size:48px">Dune, finally together</span></div>
+  <div class="row"><span class="spec">H1 · 24 / 800</span><span class="sample tv-h1">Library Vault</span></div>
+  <div class="row"><span class="spec">H2 · 20 / 700</span><span class="sample tv-h2">Continue Your Journey</span></div>
+  <div class="row"><span class="spec">H3 · 16 / 600</span><span class="sample tv-h3">Action Center — 3 items need review</span></div>
+</div>
+</body>
+</html>

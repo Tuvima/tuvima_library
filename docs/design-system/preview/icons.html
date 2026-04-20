@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Iconography</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:20px 22px;font-family:var(--tv-font-sans);}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px 14px;}
+  .ic{
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:10px 4px;border-radius:8px;
+  }
+  .ic img{width:18px;height:18px;filter:invert(1) brightness(.95) opacity(.78);}
+  .ic:hover{background:rgba(255,255,255,.04);}
+  .ic:hover img{filter:invert(1) brightness(1);opacity:1;}
+  .ic span{font-family:var(--tv-font-mono);font-size:9.5px;color:rgba(248,248,248,.45);text-align:center;line-height:1.2;}
+  .section{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(248,248,248,.35);margin:0 0 8px;}
+  .meta{font-size:11px;color:rgba(248,248,248,.5);margin:10px 0 0;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="section">FontAwesome solid · 18px · 78% opacity rest, 100% hover</div>
+  <div class="grid">
+    <div class="ic"><img src="../assets/icons/house.svg" alt=""><span>home</span></div>
+    <div class="ic"><img src="../assets/icons/magnifying-glass.svg" alt=""><span>search</span></div>
+    <div class="ic"><img src="../assets/icons/book-open.svg" alt=""><span>book</span></div>
+    <div class="ic"><img src="../assets/icons/book-open-reader.svg" alt=""><span>read</span></div>
+    <div class="ic"><img src="../assets/icons/film.svg" alt=""><span>watch</span></div>
+    <div class="ic"><img src="../assets/icons/tv.svg" alt=""><span>tv</span></div>
+    <div class="ic"><img src="../assets/icons/headphones.svg" alt=""><span>listen</span></div>
+    <div class="ic"><img src="../assets/icons/music.svg" alt=""><span>music</span></div>
+    <div class="ic"><img src="../assets/icons/boxes-stacked.svg" alt=""><span>collections</span></div>
+    <div class="ic"><img src="../assets/icons/layer-group.svg" alt=""><span>stack</span></div>
+    <div class="ic"><img src="../assets/icons/folder-tree.svg" alt=""><span>vault</span></div>
+    <div class="ic"><img src="../assets/icons/shield-halved.svg" alt=""><span>shield</span></div>
+    <div class="ic"><img src="../assets/icons/wand-magic-sparkles.svg" alt=""><span>intel</span></div>
+    <div class="ic"><img src="../assets/icons/server.svg" alt=""><span>server</span></div>
+    <div class="ic"><img src="../assets/icons/microchip.svg" alt=""><span>engine</span></div>
+    <div class="ic"><img src="../assets/icons/gear.svg" alt=""><span>settings</span></div>
+    <div class="ic"><img src="../assets/icons/sliders.svg" alt=""><span>filters</span></div>
+    <div class="ic"><img src="../assets/icons/list-check.svg" alt=""><span>queue</span></div>
+    <div class="ic"><img src="../assets/icons/clipboard-check.svg" alt=""><span>review</span></div>
+    <div class="ic"><img src="../assets/icons/timeline.svg" alt=""><span>timeline</span></div>
+    <div class="ic"><img src="../assets/icons/clock.svg" alt=""><span>recent</span></div>
+    <div class="ic"><img src="../assets/icons/share-nodes.svg" alt=""><span>share</span></div>
+    <div class="ic"><img src="../assets/icons/user.svg" alt=""><span>user</span></div>
+    <div class="ic"><img src="../assets/icons/triangle-exclamation.svg" alt=""><span>warn</span></div>
+  </div>
+  <div class="meta">Copied from <code style="font-family:var(--tv-font-mono);color:rgba(248,248,248,.75);">wwwroot/icons/fontawesome/solid/</code> · aliased via AppIconRegistry</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Media-type chips + badges</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:22px 24px;font-family:var(--tv-font-sans);display:flex;flex-direction:column;gap:16px;}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(248,248,248,.35);min-width:110px;}
+  .chip{
+    display:inline-flex;align-items:center;gap:7px;
+    font-size:11px;font-weight:600;letter-spacing:.02em;
+    padding:5px 11px 5px 8px;border-radius:999px;
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+    color:rgba(248,248,248,.85);
+  }
+  .chip .ic{width:12px;height:12px;display:inline-flex;align-items:center;justify-content:center;}
+  .chip .ic img{width:12px;height:12px;}
+  .chip.book{background:rgba(167,139,250,.14);border-color:rgba(167,139,250,.35);color:#C4B5FD;}
+  .chip.audiobook{background:rgba(96,165,250,.14);border-color:rgba(96,165,250,.35);color:#93C5FD;}
+  .chip.movie{background:rgba(244,114,182,.14);border-color:rgba(244,114,182,.35);color:#F9A8D4;}
+  .chip.tv{background:rgba(52,211,153,.14);border-color:rgba(52,211,153,.35);color:#6EE7B7;}
+  .chip.music{background:rgba(251,191,36,.14);border-color:rgba(251,191,36,.35);color:#FCD34D;}
+  .chip.comic{background:rgba(251,146,60,.14);border-color:rgba(251,146,60,.35);color:#FDBA74;}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+  .badge{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+    padding:4px 9px;border-radius:4px;
+  }
+  .badge.new{background:#EAB308;color:#1A1208;}
+  .badge.progress{background:rgba(234,179,8,.18);color:#FCD34D;border:1px solid rgba(234,179,8,.4);}
+  .badge.review{background:rgba(234,179,8,.18);color:#FCD34D;border:1px solid rgba(234,179,8,.4);}
+  .badge.quarantine{background:rgba(239,68,68,.16);color:#FCA5A5;border:1px solid rgba(239,68,68,.35);}
+  .badge.enriching{background:rgba(96,165,250,.16);color:#93C5FD;border:1px solid rgba(96,165,250,.35);}
+
+  .count{
+    font-size:10px;font-weight:700;
+    min-width:18px;height:18px;padding:0 6px;
+    border-radius:999px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.88);
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="row">
+    <span class="lbl">Media type</span>
+    <span class="chip book"><span class="ic"><img src="../assets/icons/book-open.svg" alt="" style="filter:invert(79%) sepia(27%) saturate(1500%) hue-rotate(215deg) brightness(101%)"></span>Book</span>
+    <span class="chip audiobook"><span class="ic"><img src="../assets/icons/headphones.svg" alt="" style="filter:invert(73%) sepia(30%) saturate(1500%) hue-rotate(190deg) brightness(101%)"></span>Audiobook</span>
+    <span class="chip movie"><span class="ic"><img src="../assets/icons/film.svg" alt="" style="filter:invert(77%) sepia(20%) saturate(1800%) hue-rotate(290deg) brightness(100%)"></span>Movie</span>
+    <span class="chip tv"><span class="ic"><img src="../assets/icons/tv.svg" alt="" style="filter:invert(84%) sepia(22%) saturate(800%) hue-rotate(105deg) brightness(95%)"></span>TV Show</span>
+    <span class="chip music"><span class="ic"><img src="../assets/icons/music.svg" alt="" style="filter:invert(84%) sepia(30%) saturate(800%) hue-rotate(5deg) brightness(100%)"></span>Music</span>
+    <span class="chip comic"><span class="ic"><img src="../assets/icons/book-open-reader.svg" alt="" style="filter:invert(76%) sepia(30%) saturate(1500%) hue-rotate(345deg) brightness(100%)"></span>Comic</span>
+  </div>
+  <div class="row">
+    <span class="lbl">Status</span>
+    <span class="badge new">New</span>
+    <span class="badge progress">38% · In progress</span>
+    <span class="badge enriching">Enriching</span>
+    <span class="badge review">Needs review</span>
+    <span class="badge quarantine">Quarantined</span>
+  </div>
+  <div class="row">
+    <span class="lbl">Counts</span>
+    <span class="count">3</span>
+    <span class="count">12</span>
+    <span class="count">142</span>
+  </div>
+</div>
+</body>
+</html>

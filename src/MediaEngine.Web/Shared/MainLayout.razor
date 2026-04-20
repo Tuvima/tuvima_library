@@ -5,29 +5,30 @@
 @inject UIOrchestratorService Orchestrator
 @inject UniverseStateContainer State
 @inject NavigationManager Nav
+@inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
+@using MediaEngine.Web.Resources
 @using MediaEngine.Web.Models.ViewDTOs
+@using Microsoft.Extensions.Localization
 
 <MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-@* Global Command Palette *@
 @if (!DeviceContext.IsFeatureDisabled("command_palette"))
 {
     <CommandPalette @ref="_palette" />
 }
 
 <MudLayout Class="app-bg">
-    @* ── Top Navigation Bar ── *@
     <TopBar ReviewCount="@_reviewCount"
             AvatarColor="@_avatarColor"
             AvatarInitial="@_avatarInitial"
-            DisplayName="@_displayName" />
+            DisplayName="@_displayName"
+            EngineStatusSummary="@_engineStatusSummary" />
 
-    @* ── Main content — top padding clears top bar ── *@
     <MudMainContent Class="main-content-with-topbar">
         <MudContainer MaxWidth="MaxWidth.False" Class="py-6 px-0">
             @Body
@@ -38,15 +39,11 @@
 @code {
     private CommandPalette? _palette;
 
-    // Profile state
     private string _avatarColor = "#C9922E";
     private string _avatarInitial = "?";
     private string _displayName = "User";
-
-    // Review queue badge count
     private int _reviewCount;
-
-    // ── Lifecycle ──────────────────────────────────────────────────
+    private string _engineStatusSummary = string.Empty;
 
     protected override void OnInitialized()
     {
@@ -55,27 +52,30 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender)
+        if (!firstRender)
         {
-            var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");
-            await DeviceContext.InitialiseAsync(detectedDevice);
-
-            if (!DeviceContext.IsFeatureDisabled("command_palette"))
-            {
-                await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
-            }
-
-            await JS.InvokeVoidAsync("setThemeClass");
-
-            await LoadActiveProfileAsync();
-            await LoadReviewCountAsync();
-            Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
-            Orchestrator.OnProfileChanged     += OnProfileChanged;
-
-            await SyncCultureAsync();
-
-            StateHasChanged();
+            return;
         }
+
+        var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");
+        await DeviceContext.InitialiseAsync(detectedDevice);
+
+        if (!DeviceContext.IsFeatureDisabled("command_palette"))
+        {
+            await JS.InvokeVoidAsync("registerCtrlK", DotNetObjectReference.Create(this));
+        }
+
+        await JS.InvokeVoidAsync("setThemeClass");
+
+        await SyncCultureAsync();
+        await LoadActiveProfileAsync();
+        await LoadReviewCountAsync();
+        await LoadEngineStatusAsync();
+
+        Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
+        Orchestrator.OnProfileChanged += OnProfileChanged;
+
+        StateHasChanged();
     }
 
     [JSInvokable]
@@ -102,7 +102,9 @@
                 }
             }
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private async Task LoadActiveProfileAsync()
@@ -110,17 +112,20 @@
         try
         {
             var profile = await Orchestrator.GetActiveProfileAsync();
-            if (profile is not null)
+            if (profile is null)
             {
-                _avatarColor = profile.AvatarColor;
-                _avatarInitial = profile.DisplayName.Length > 0
-                    ? profile.DisplayName[0].ToString().ToUpper()
-                    : "?";
-                _displayName = profile.DisplayName;
-                StateHasChanged();
+                return;
             }
+
+            _avatarColor = profile.AvatarColor;
+            _displayName = string.IsNullOrWhiteSpace(profile.DisplayName)
+                ? "User"
+                : profile.DisplayName.Trim();
+            _avatarInitial = GetAvatarInitial(_displayName);
         }
-        catch { }
+        catch
+        {
+        }
     }
 
     private async Task LoadReviewCountAsync()
@@ -129,7 +134,22 @@
         {
             _reviewCount = await Orchestrator.RefreshReviewCountAsync();
         }
-        catch { }
+        catch
+        {
+        }
+    }
+
+    private async Task LoadEngineStatusAsync()
+    {
+        try
+        {
+            var status = await Orchestrator.GetSystemStatusAsync();
+            _engineStatusSummary = BuildEngineStatusSummary(status);
+        }
+        catch
+        {
+            _engineStatusSummary = BuildEngineStatusSummary(null);
+        }
     }
 
     private void OnReviewCountChanged()
@@ -140,28 +160,39 @@
 
     private void OnProfileChanged()
     {
-        InvokeAsync(LoadActiveProfileAsync);
+        _ = InvokeAsync(async () =>
+        {
+            await LoadActiveProfileAsync();
+            StateHasChanged();
+        });
     }
 
     public void Dispose()
     {
-        DeviceContext.OnChanged            -= OnDeviceContextChanged;
-        Orchestrator.OnReviewCountChanged  -= OnReviewCountChanged;
-        Orchestrator.OnProfileChanged      -= OnProfileChanged;
+        DeviceContext.OnChanged -= OnDeviceContextChanged;
+        Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
+        Orchestrator.OnProfileChanged -= OnProfileChanged;
     }
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    private string BuildEngineStatusSummary(SystemStatusViewModel? status)
+    {
+        var engineLabel = status?.IsHealthy == true
+            ? L["TopBar_EngineOnline"]
+            : L["TopBar_EngineUnavailable"];
+        var liveUpdatesLabel = Orchestrator.IsIntercomConnected
+            ? L["TopBar_LiveUpdatesConnected"]
+            : L["TopBar_LiveUpdatesOffline"];
+
+        return $"{engineLabel} · {liveUpdatesLabel}";
+    }
+
+    private static string GetAvatarInitial(string displayName)
+    {
+        var firstLetter = displayName.FirstOrDefault(static c => !char.IsWhiteSpace(c));
+        return firstLetter == default
+            ? "?"
+            : char.ToUpperInvariant(firstLetter).ToString();
+    }
 }
-
-<style>
-    /* Content area clears the fixed 64px top bar */
-    .main-content-with-topbar {
-        padding-top: 64px !important;
-    }
-
-    /* ── Global ambient background ── */
-    .app-bg {
-        background-color: #080B14;
-        min-height: 100vh;
-    }
-</style>

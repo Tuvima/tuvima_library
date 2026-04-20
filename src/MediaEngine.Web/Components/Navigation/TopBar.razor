@@ -1,42 +1,91 @@
 @namespace MediaEngine.Web.Components.Navigation
 @inject NavigationManager Nav
-@inject UniverseStateContainer State
 @inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
-
-@* TopBar â€” Fixed horizontal navigation bar.
-   Logo (left) + nav links (Home/Read/Watch/Listen) + search icon + ProfileDropdown (right).
-   Single responsive layout â€” no device variants, no hamburger menu. *@
 
 <header class="top-bar">
     <div class="top-bar-shell">
         <div class="top-bar-left">
-            <a href="/" class="top-bar-logo-link">
-                <AppLogo Style="height: 34px; display: block;" />
+            <button type="button"
+                    class="top-bar-mobile-trigger @(_isMobileMenuOpen ? "top-bar-mobile-trigger-active" : string.Empty)"
+                    @onclick="ToggleMobileMenu"
+                    aria-label="@(_isMobileMenuOpen ? L["Nav_CloseNavigation"] : L["Nav_OpenNavigation"])"
+                    aria-expanded="@_isMobileMenuOpen"
+                    aria-controls="top-bar-mobile-panel">
+                <AppIcon Name="@(_isMobileMenuOpen ? AppIcons.Close : "fa:bars")"
+                         Size="1rem"
+                         Class="top-bar-mobile-trigger-icon" />
+            </button>
+
+            <a href="/" class="top-bar-logo-link" aria-label="Tuvima Library">
+                <AppLogo Class="top-bar-logo" />
             </a>
 
-            <nav class="top-bar-nav">
+            <nav class="top-bar-nav" aria-label="Primary">
                 @foreach (var link in _navLinks)
                 {
+                    var isActive = IsActive(link.Path);
+
                     <a href="@link.Path"
-                       class="top-bar-nav-link @(IsActive(link.Path) ? "top-bar-nav-link-active" : "")"
-                       style="--top-bar-link-accent: @NavColor(link.Path);">
-                        @link.Label
+                       class="top-bar-nav-link @(isActive ? "top-bar-nav-link-active" : string.Empty)"
+                       aria-current="@(isActive ? "page" : null)">
+                        @L[link.LabelKey]
                     </a>
                 }
             </nav>
         </div>
 
         <div class="top-bar-right">
-            <button type="button" class="top-bar-search-btn" aria-label="Search">
-                <AppIcon Name="@AppIcons.Search" Size="1rem" />
-            </button>
+            <form class="top-bar-search"
+                  role="search"
+                  @onsubmit="HandleSearchSubmit"
+                  @onsubmit:preventDefault="true">
+                <button type="submit"
+                        class="top-bar-search-submit"
+                        aria-label="@L["Nav_Search"]"
+                        title="@L["Nav_Search"]">
+                    <AppIcon Name="@AppIcons.Search"
+                             Size="0.95rem"
+                             Class="top-bar-search-submit-icon" />
+                </button>
+
+                <input type="search"
+                       class="top-bar-search-input"
+                       autocomplete="off"
+                       placeholder="@L["Nav_SearchPlaceholder"]"
+                       aria-label="@L["Nav_SearchPlaceholder"]"
+                       @bind="_searchTerm"
+                       @bind:event="oninput" />
+            </form>
+
             <ProfileDropdown AvatarColor="@AvatarColor"
                              AvatarInitial="@AvatarInitial"
                              DisplayName="@DisplayName"
-                             ReviewCount="@ReviewCount" />
+                             ReviewCount="@ReviewCount"
+                             EngineStatusSummary="@EngineStatusSummary" />
         </div>
     </div>
+
+    @if (_isMobileMenuOpen)
+    {
+        <div class="top-bar-mobile-backdrop" @onclick="CloseMobileMenu"></div>
+        <div id="top-bar-mobile-panel" class="top-bar-mobile-panel">
+            @foreach (var link in _navLinks)
+            {
+                var isActive = IsActive(link.Path);
+
+                <a href="@link.Path"
+                   class="top-bar-mobile-link @(isActive ? "top-bar-mobile-link-active" : string.Empty)"
+                   aria-current="@(isActive ? "page" : null)"
+                   @onclick="CloseMobileMenu">
+                    <AppIcon Name="@link.Icon"
+                             Size="0.95rem"
+                             Class="top-bar-mobile-link-icon" />
+                    <span>@L[link.LabelKey]</span>
+                </a>
+            }
+        </div>
+    }
 </header>
 
 @code {
@@ -44,47 +93,78 @@
     [Parameter] public string AvatarColor { get; set; } = "#C9922E";
     [Parameter] public string AvatarInitial { get; set; } = "?";
     [Parameter] public string DisplayName { get; set; } = "User";
+    [Parameter] public string EngineStatusSummary { get; set; } = string.Empty;
 
-    private static readonly (string Path, string Label)[] _navLinks =
+    private readonly record struct TopBarNavLink(string Path, string Icon, string LabelKey);
+
+    private static readonly TopBarNavLink[] _navLinks =
     [
-        ("/", "Home"),
-        ("/read", "Read"),
-        ("/watch", "Watch"),
-        ("/listen", "Listen"),
+        new("/", AppIcons.Home, "Nav_Home"),
+        new("/read", AppIcons.Read, "Nav_Read"),
+        new("/watch", AppIcons.Watch, "Nav_Watch"),
+        new("/listen", AppIcons.Listen, "Nav_Listen"),
     ];
 
-    private string _currentPath = "";
+    private string _currentPath = "/";
+    private string _searchTerm = string.Empty;
+    private bool _isMobileMenuOpen;
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
-        UpdateCurrentPath();
+        UpdateLocationState();
     }
 
     private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
-        UpdateCurrentPath();
+        _isMobileMenuOpen = false;
+        UpdateLocationState();
         InvokeAsync(StateHasChanged);
     }
 
-    private void UpdateCurrentPath()
+    private void HandleSearchSubmit()
     {
-        _currentPath = "/" + Nav.ToBaseRelativePath(Nav.Uri).Split('?')[0].Split('#')[0].Trim('/');
+        var trimmedSearch = _searchTerm.Trim();
+        var url = string.IsNullOrWhiteSpace(trimmedSearch)
+            ? "/search"
+            : $"/search?q={Uri.EscapeDataString(trimmedSearch)}";
+
+        _isMobileMenuOpen = false;
+        Nav.NavigateTo(url);
     }
 
-    private bool IsActive(string path) => _currentPath.Equals(path, StringComparison.OrdinalIgnoreCase)
-        || (path == "/" && _currentPath == "");
+    private void ToggleMobileMenu() => _isMobileMenuOpen = !_isMobileMenuOpen;
 
-    private string NavColor(string path)
+    private void CloseMobileMenu() => _isMobileMenuOpen = false;
+
+    private void UpdateLocationState()
     {
-        if (!IsActive(path)) return "transparent";
-        return path switch
+        var relativePath = Nav.ToBaseRelativePath(Nav.Uri);
+        var trimmedPath = relativePath.Split('?', '#')[0].Trim('/');
+        _currentPath = string.IsNullOrWhiteSpace(trimmedPath)
+            ? "/"
+            : $"/{trimmedPath}";
+
+        if (!_currentPath.Equals("/search", StringComparison.OrdinalIgnoreCase))
         {
-            "/read" => "#5DCAA5",
-            "/watch" => "#60A5FA",
-            "/listen" => "#1ED760",
-            _ => "#C9922E",
-        };
+            return;
+        }
+
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        _searchTerm = query.TryGetValue("q", out var searchTerm)
+            ? searchTerm.ToString()
+            : string.Empty;
+    }
+
+    private bool IsActive(string path)
+    {
+        if (path == "/")
+        {
+            return _currentPath == "/";
+        }
+
+        return _currentPath.Equals(path, StringComparison.OrdinalIgnoreCase)
+            || _currentPath.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase);
     }
 
     public void Dispose()
@@ -92,138 +172,3 @@
         Nav.LocationChanged -= OnLocationChanged;
     }
 }
-
-<style>
-    .top-bar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 72px;
-        z-index: 1250;
-        display: flex;
-        justify-content: center;
-        padding: 0 1rem;
-        background: rgba(15, 23, 42, 0.84);
-        backdrop-filter: blur(18px);
-        -webkit-backdrop-filter: blur(18px);
-        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
-        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
-    }
-
-    .top-bar-shell {
-        width: min(100%, 1440px);
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-    }
-
-    .top-bar-left {
-        display: flex;
-        align-items: center;
-        gap: 1.25rem;
-    }
-
-    @@media (min-width: 640px) {
-        .top-bar-left {
-            gap: 2rem;
-        }
-    }
-
-    .top-bar-logo-link {
-        display: flex;
-        align-items: center;
-        text-decoration: none;
-        cursor: pointer;
-    }
-
-    .top-bar-nav {
-        display: none;
-        align-items: center;
-        gap: 1.25rem;
-    }
-
-    @@media (min-width: 640px) {
-        .top-bar-nav {
-            display: flex;
-        }
-    }
-
-    @@media (min-width: 1024px) {
-        .top-bar {
-            padding: 0 1.5rem;
-        }
-
-        .top-bar-nav {
-            gap: 2rem;
-        }
-    }
-
-    .top-bar-nav-link {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-        min-height: 2.5rem;
-        padding: 0 0.2rem;
-        color: rgba(226, 232, 240, 0.72);
-        font-size: 0.92rem;
-        font-weight: 600;
-        text-decoration: none;
-        transition: color 0.18s ease;
-    }
-
-    .top-bar-nav-link::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: -0.85rem;
-        height: 2px;
-        border-radius: 999px;
-        background: var(--top-bar-link-accent, #60a5fa);
-        opacity: 0;
-        transform: scaleX(0.7);
-        transition: opacity 0.18s ease, transform 0.18s ease;
-    }
-
-    .top-bar-nav-link:hover {
-        color: rgba(248, 250, 252, 0.94);
-    }
-
-    .top-bar-nav-link-active {
-        color: rgba(248, 250, 252, 0.98);
-    }
-
-    .top-bar-nav-link-active::after {
-        opacity: 1;
-        transform: scaleX(1);
-    }
-
-    .top-bar-right {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .top-bar-search-btn {
-        width: 2.75rem;
-        height: 2.75rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 0.875rem;
-        background: rgba(255, 255, 255, 0.04);
-        color: rgba(226, 232, 240, 0.78);
-        cursor: pointer;
-        transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
-    }
-
-    .top-bar-search-btn:hover {
-        transform: translateY(-1px);
-        color: rgba(248, 250, 252, 0.98);
-        border-color: rgba(96, 165, 250, 0.32);
-        background: rgba(96, 165, 250, 0.12);
-    }
-</style>

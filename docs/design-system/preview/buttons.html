@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Buttons</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:24px;font-family:var(--tv-font-sans);display:flex;flex-direction:column;gap:16px;}
+  .row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(248,248,248,.35);min-width:110px;}
+  /* Amber CTA — matches app.css .collection-primary-cta */
+  .btn-cta{
+    display:inline-flex;align-items:center;gap:10px;
+    font-family:var(--tv-font-sans);font-weight:700;font-size:14px;
+    color:#1A1208;letter-spacing:.01em;
+    background:linear-gradient(135deg,#D4A03C,#B87820);
+    border:1.5px solid rgba(0,0,0,.15);border-radius:8px;
+    padding:12px 22px;
+    box-shadow:0 4px 18px rgba(185,120,32,.30);
+    cursor:pointer;
+  }
+  .btn-cta:hover{background:linear-gradient(135deg,#DDA840,#C08428);box-shadow:0 6px 24px rgba(185,120,32,.5);}
+  .btn-cta .play{width:0;height:0;border-left:9px solid #1A1208;border-top:6px solid transparent;border-bottom:6px solid transparent;}
+  /* Ghost button */
+  .btn-ghost{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--tv-font-sans);font-weight:600;font-size:13px;
+    color:rgba(248,248,248,.88);
+    background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.08);border-radius:8px;
+    padding:10px 16px;cursor:pointer;
+  }
+  .btn-ghost:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.15);}
+  /* Icon button */
+  .btn-icon{
+    width:36px;height:36px;border-radius:999px;border:none;
+    background:rgba(0,0,0,.55);color:rgba(255,255,255,.85);
+    display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+    backdrop-filter:blur(8px);
+  }
+  .btn-icon:hover{background:rgba(201,146,46,.7);color:#fff;}
+  /* Text link */
+  .btn-link{
+    font-family:var(--tv-font-sans);font-weight:600;font-size:13px;
+    color:#EAB308;background:transparent;border:none;cursor:pointer;padding:6px 4px;
+  }
+  .btn-link:hover{color:#FCD34D;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="row">
+    <span class="lbl">Primary</span>
+    <button class="btn-cta"><span class="play"></span>Continue Reading</button>
+    <button class="btn-cta">Open Collection</button>
+  </div>
+  <div class="row">
+    <span class="lbl">Ghost</span>
+    <button class="btn-ghost">+ Add to Library</button>
+    <button class="btn-ghost">Mark as Read</button>
+  </div>
+  <div class="row">
+    <span class="lbl">Icon</span>
+    <button class="btn-icon" aria-label="prev">‹</button>
+    <button class="btn-icon" aria-label="play">▶</button>
+    <button class="btn-icon" aria-label="next">›</button>
+  </div>
+  <div class="row">
+    <span class="lbl">Link</span>
+    <button class="btn-link">See all →</button>
+    <button class="btn-link">Resolve 3 reviews</button>
+  </div>
+</div>
+</body>
+</html>

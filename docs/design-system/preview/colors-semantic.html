@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Semantic + provider colors</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:20px 22px;font-family:var(--tv-font-sans);}
+  .row{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;}
+  .sw{display:flex;flex-direction:column;gap:6px;}
+  .chip{height:54px;border-radius:10px;border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600;}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(248,248,248,.72);}
+  .val{font-family:var(--tv-font-mono);font-size:10px;color:rgba(248,248,248,.40);}
+  .section{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(248,248,248,.35);margin:0 0 8px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="section">Semantic</div>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:#34D399;color:#0B1220">Success</div><div class="lbl">success</div><div class="val">#34D399</div></div>
+    <div class="sw"><div class="chip" style="background:#FBBF24;color:#0B1220">Warning</div><div class="lbl">warning</div><div class="val">#FBBF24</div></div>
+    <div class="sw"><div class="chip" style="background:#EF4444">Error</div><div class="lbl">error</div><div class="val">#EF4444</div></div>
+    <div class="sw"><div class="chip" style="background:#60A5FA;color:#0B1220">Info</div><div class="lbl">info</div><div class="val">#60A5FA</div></div>
+    <div class="sw"><div class="chip" style="background:rgba(255,255,255,.04);color:rgba(255,255,255,.6);border-color:rgba(255,255,255,.08)">Neutral</div><div class="lbl">neutral</div><div class="val">white 4%</div></div>
+  </div>
+  <div class="section">Providers</div>
+  <div class="row">
+    <div class="sw"><div class="chip" style="background:#01B4E4">TMDB</div><div class="lbl">tmdb</div><div class="val">#01B4E4</div></div>
+    <div class="sw"><div class="chip" style="background:#339966">Wikidata</div><div class="lbl">wikidata</div><div class="val">#339966</div></div>
+    <div class="sw"><div class="chip" style="background:#BA478F">MusicBrainz</div><div class="lbl">musicbrainz</div><div class="val">#BA478F</div></div>
+    <div class="sw"><div class="chip" style="background:#FF2D55">Apple API</div><div class="lbl">apple</div><div class="val">#FF2D55</div></div>
+    <div class="sw"><div class="chip" style="background:#4CAF50">Open Library</div><div class="lbl">openlib</div><div class="val">#4CAF50</div></div>
+  </div>
+</div>
+</body>
+</html>

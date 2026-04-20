@@ -4,7 +4,9 @@
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
 
-<PageTitle>Search — Tuvima Library</PageTitle>
+@using MediaEngine.Web.Models.ViewDTOs
+
+<PageTitle>Search - Tuvima Library</PageTitle>
 
 <div class="search-page">
     <div class="search-page-header">
@@ -14,12 +16,12 @@
         <p class="search-page-subtitle">@L["Search_Subtitle"]</p>
     </div>
 
-    @if (State.IsLoaded && State.FilteredCollections.Count > 0)
+    @if (State.IsLoaded && VisibleCollections.Count > 0)
     {
         <div class="search-recent">
             <h3 class="search-recent-title">@L["Search_AllTitles"]</h3>
             <div class="search-recent-grid">
-                @foreach (var collection in State.FilteredCollections.Take(24))
+                @foreach (var collection in VisibleCollections)
                 {
                     <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo($"/book/{collection.Works.FirstOrDefault()?.Id ?? collection.Id}"))">
                         @if (!string.IsNullOrEmpty(collection.CoverUrl))
@@ -40,6 +42,18 @@
         </div>
     }
 </div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "q")] public string? Query { get; set; }
+
+    private IReadOnlyList<CollectionViewModel> VisibleCollections =>
+        State.FilteredCollections
+            .Where(collection =>
+                string.IsNullOrWhiteSpace(Query)
+                || collection.DisplayName.Contains(Query, StringComparison.OrdinalIgnoreCase))
+            .Take(24)
+            .ToList();
+}
 
 <style>
     .search-page {

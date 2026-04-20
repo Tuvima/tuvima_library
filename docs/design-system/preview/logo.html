@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Logo</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:22px;font-family:var(--tv-font-sans);display:grid;grid-template-columns:repeat(2,1fr);gap:14px;}
+  .cell{
+    border:1px solid rgba(255,255,255,.06);border-radius:12px;
+    padding:24px;display:flex;flex-direction:column;gap:12px;
+    justify-content:center;align-items:center;min-height:130px;
+  }
+  .cell.dark{background:rgba(255,255,255,.02);}
+  .cell.light{background:#F5EFDD;border-color:rgba(0,0,0,.08);}
+  .cell.mark-dark{background:rgba(255,255,255,.02);}
+  .cell img.full{width:72%;max-height:54px;object-fit:contain;}
+  .cell img.mark{width:64px;height:64px;}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(248,248,248,.45);}
+  .val{font-family:var(--tv-font-mono);font-size:10px;color:rgba(248,248,248,.30);}
+  .cell.light .lbl{color:rgba(0,0,0,.45);}
+  .cell.light .val{color:rgba(0,0,0,.30);}
+  .row{display:flex;flex-direction:column;align-items:center;gap:4px;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="cell dark">
+    <img class="full" src="../assets/images/tuvima-logo-on-dark.svg" alt="">
+    <div class="row">
+      <div class="lbl">Primary · on dark</div>
+      <div class="val">gold mark · white wordmark</div>
+    </div>
+  </div>
+  <div class="cell light">
+    <img class="full" src="../assets/images/tuvima-logo-on-light.svg" alt="">
+    <div class="row">
+      <div class="lbl">On light · monochrome</div>
+      <div class="val">solid ink · no gradient</div>
+    </div>
+  </div>
+  <div class="cell mark-dark">
+    <img class="mark" src="../assets/images/tuvima-icon.svg" alt="">
+    <div class="row">
+      <div class="lbl">Mark · primary</div>
+      <div class="val">gold radial gradient</div>
+    </div>
+  </div>
+  <div class="cell dark">
+    <img class="full" src="../assets/images/tuvima-logo-on-dark-mono.svg" alt="" style="opacity:.9">
+    <div class="row">
+      <div class="lbl">On dark · monochrome</div>
+      <div class="val">solid white · for dense UI chrome</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

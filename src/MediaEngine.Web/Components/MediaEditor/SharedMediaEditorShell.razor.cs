@@ -119,10 +119,9 @@ public partial class SharedMediaEditorShell
             Label = tab.Label,
             Disabled = IsTabDisabled(tab.Id)
         }).ToList();
-    protected IReadOnlyList<AppNavItem> ScopeTabItems =>
+    protected IReadOnlyList<MediaEditorScopeDto> ScopeOptions =>
         (_editorContext?.Scopes ?? [])
             .OrderBy(scope => scope.Order)
-            .Select(scope => new AppNavItem { Key = scope.ScopeId, Label = scope.Label })
             .ToList();
     protected IReadOnlyList<AppNavItem> QuickSearchTargetItems =>
         QuickSearchTargets
@@ -147,6 +146,8 @@ public partial class SharedMediaEditorShell
     protected bool IsArtworkBusy => _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
     protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetGeneratedHeroUrl());
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
+    protected string ScopePickerLabel => ActiveScope?.Label ?? "Scope";
+    protected string? ScopePickerTitle => GetScopePickerTitle(ActiveScope);
     protected ArtworkSlotDefinition? SelectedArtworkSlot =>
         ArtworkSlots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
         ?? ArtworkSlots.FirstOrDefault();
@@ -1736,6 +1737,23 @@ public partial class SharedMediaEditorShell
             "EpisodeStill" => "No episode still stored yet.",
             _ => "No artwork stored yet.",
         };
+
+    private static string? GetScopePickerTitle(MediaEditorScopeDto? scope)
+    {
+        if (scope is null)
+            return null;
+
+        if (!string.IsNullOrWhiteSpace(scope.DisplayTitle)
+            && !string.Equals(scope.DisplayTitle, scope.Label, StringComparison.OrdinalIgnoreCase))
+        {
+            return scope.DisplayTitle;
+        }
+
+        return string.IsNullOrWhiteSpace(scope.DisplaySubtitle) ? null : scope.DisplaySubtitle;
+    }
+
+    protected bool IsActiveScopeId(string scopeId) =>
+        string.Equals(ActiveScope?.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase);
 
     private IReadOnlyList<ArtworkSlotDefinition> ResolveArtworkSlots(MediaEditorScopeDto? scope) =>
         (_selectedMediaType, scope?.ScopeId, scope?.CanEditArtwork) switch

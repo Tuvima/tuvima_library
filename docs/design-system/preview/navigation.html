@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Navigation — top bar</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:linear-gradient(180deg,#0b1220,#111827);}
+  .wrap{padding:18px 0 0;font-family:var(--tv-font-sans);display:flex;flex-direction:column;align-items:stretch;gap:14px;}
+
+  /* Full-bleed top bar */
+  .top{
+    height:64px;padding:0 28px;
+    display:flex;align-items:center;gap:18px;
+    background:rgba(12,16,36,.72);backdrop-filter:blur(14px);
+    border-top:1px solid rgba(255,255,255,.08);
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .brand{display:flex;align-items:center;gap:10px;margin-right:16px;}
+  .brand img{height:24px;width:auto;}
+
+  .tabs{display:flex;gap:2px;}
+  .tab{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:8px 14px;border-radius:10px;
+    font-size:13px;font-weight:600;letter-spacing:.01em;
+    color:rgba(248,248,248,.56);cursor:pointer;
+    background:transparent;border:none;
+  }
+  .tab img{width:14px;height:14px;filter:invert(1) brightness(.95);opacity:.6;}
+  .tab:hover{color:rgba(248,248,248,.92);}
+  .tab:hover img{opacity:.92;}
+  .tab.active{color:#fff;background:rgba(255,255,255,.06);}
+  .tab.active img{opacity:1;}
+
+  .sp{flex:1;}
+
+  .actions{display:flex;align-items:center;gap:10px;position:relative;}
+  .search{
+    display:flex;align-items:center;gap:8px;
+    height:34px;padding:0 12px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);
+    border-radius:10px;min-width:220px;
+  }
+  .search img{width:13px;height:13px;filter:invert(1);opacity:.45;}
+  .search input{flex:1;background:transparent;border:none;outline:none;color:rgba(255,255,255,.85);font-family:var(--tv-font-sans);font-size:12.5px;}
+  .search input::placeholder{color:rgba(255,255,255,.35);}
+
+  .avatar-wrap{position:relative;}
+  .avatar{
+    width:34px;height:34px;border-radius:50%;
+    background:linear-gradient(135deg,#D4A03C,#B87820);
+    display:inline-flex;align-items:center;justify-content:center;
+    color:#1A1208;font-size:12px;font-weight:800;cursor:pointer;
+    position:relative;
+  }
+  .avatar .dot{
+    position:absolute;top:-2px;right:-2px;
+    width:14px;height:14px;border-radius:50%;
+    background:#EAB308;color:#1A1208;
+    font-size:9px;font-weight:800;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:2px solid #0B1220;
+  }
+
+  /* Popover */
+  .popover{
+    position:absolute;top:calc(100% + 10px);right:0;
+    min-width:260px;
+    background:rgba(12,16,36,.95);backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.08);border-radius:12px;
+    box-shadow:0 16px 36px rgba(0,0,0,.5);
+    padding:6px;z-index:10;
+  }
+  .popover::before{
+    content:"";position:absolute;top:-6px;right:16px;
+    width:10px;height:10px;background:rgba(12,16,36,.95);
+    border-top:1px solid rgba(255,255,255,.08);
+    border-left:1px solid rgba(255,255,255,.08);
+    transform:rotate(45deg);
+  }
+  .p-head{padding:12px 14px 10px;display:flex;gap:10px;align-items:center;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:6px;}
+  .p-head .avatar{width:40px;height:40px;font-size:14px;}
+  .p-name{font-size:13px;font-weight:700;color:rgba(248,248,248,.95);}
+  .p-lib{font-size:11px;color:rgba(248,248,248,.45);margin-top:1px;}
+
+  .p-item{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 12px;border-radius:8px;cursor:pointer;
+  }
+  .p-item:hover{background:rgba(255,255,255,.05);}
+  .p-item img{width:14px;height:14px;filter:invert(1);opacity:.65;}
+  .p-label{flex:1;font-size:12.5px;color:rgba(248,248,248,.85);font-weight:500;}
+  .p-sub{font-size:10.5px;color:rgba(248,248,248,.45);margin-top:1px;}
+  .p-right{font-size:10px;font-weight:800;letter-spacing:.05em;color:#1A1208;background:#EAB308;padding:2px 7px;border-radius:999px;}
+  .p-arrow{color:rgba(248,248,248,.35);font-size:11px;}
+  .p-sep{height:1px;background:rgba(255,255,255,.06);margin:6px 4px;}
+  .p-stack{display:flex;flex-direction:column;flex:1;}
+
+  .caption{padding:0 28px;font-size:11px;color:rgba(248,248,248,.4);font-family:var(--tv-font-mono);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <img src="../assets/images/tuvima-logo-on-dark.svg" alt="Tuvima">
+    </div>
+    <div class="tabs">
+      <button class="tab active"><img src="../assets/icons/book-open-reader.svg" alt="">Read</button>
+      <button class="tab"><img src="../assets/icons/film.svg" alt="">Watch</button>
+      <button class="tab"><img src="../assets/icons/headphones.svg" alt="">Listen</button>
+    </div>
+    <div class="sp"></div>
+    <div class="actions">
+      <div class="search">
+        <img src="../assets/icons/magnifying-glass.svg" alt="">
+        <input placeholder="Search your library…">
+      </div>
+      <div class="avatar-wrap">
+        <div class="avatar">JM<span class="dot">3</span></div>
+        <div class="popover">
+          <div class="p-head">
+            <div class="avatar">JM</div>
+            <div class="p-stack">
+              <div class="p-name">Jordan Marsh</div>
+              <div class="p-lib">142 works · 38 GB</div>
+            </div>
+          </div>
+          <div class="p-item">
+            <img src="../assets/icons/clipboard-check.svg" alt="">
+            <div class="p-stack">
+              <div class="p-label">Action Center</div>
+              <div class="p-sub">Review enrichment + duplicates</div>
+            </div>
+            <span class="p-right">3</span>
+          </div>
+          <div class="p-item">
+            <img src="../assets/icons/gear.svg" alt="">
+            <div class="p-stack">
+              <div class="p-label">Settings</div>
+              <div class="p-sub">Library, Engine, automation</div>
+            </div>
+            <span class="p-arrow">›</span>
+          </div>
+          <div class="p-item">
+            <img src="../assets/icons/folder-tree.svg" alt="">
+            <div class="p-stack">
+              <div class="p-label">Library Vault</div>
+              <div class="p-sub">Watched folders &amp; files</div>
+            </div>
+            <span class="p-arrow">›</span>
+          </div>
+          <div class="p-sep"></div>
+          <div class="p-item">
+            <img src="../assets/icons/microchip.svg" alt="">
+            <div class="p-stack">
+              <div class="p-label">Engine status</div>
+              <div class="p-sub">Idle · last run 2h ago</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="caption">Tabs map directly to media surfaces · Settings &amp; Action Center live inside the user avatar popover.</div>
+</div>
+</body>
+</html>

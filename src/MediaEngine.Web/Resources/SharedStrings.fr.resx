@@ -59,6 +59,10 @@
   <data name="Nav_Music" xml:space="preserve"><value>Musique</value></data>
   <data name="Nav_Comics" xml:space="preserve"><value>Comics</value></data>
   <data name="Nav_Settings" xml:space="preserve"><value>Paramètres</value></data>
+  <data name="Nav_Read" xml:space="preserve"><value>Lire</value></data>
+  <data name="Nav_Watch" xml:space="preserve"><value>Regarder</value></data>
+  <data name="Nav_Listen" xml:space="preserve"><value>Écouter</value></data>
+  <data name="Nav_Collections" xml:space="preserve"><value>Collections</value></data>
   <data name="Nav_OpenNavigation" xml:space="preserve"><value>Ouvrir la navigation</value></data>
   <data name="Nav_SearchPlaceholder" xml:space="preserve"><value>Rechercher dans votre bibliothèque…</value></data>
   <data name="Nav_ReviewQueue" xml:space="preserve"><value>File de révision</value></data>
@@ -70,6 +74,13 @@
   <data name="Nav_CollapseNavigation" xml:space="preserve"><value>Réduire la navigation</value></data>
   <data name="Nav_Expand" xml:space="preserve"><value>Développer</value></data>
   <data name="Nav_Collapse" xml:space="preserve"><value>Réduire</value></data>
+  <data name="TopBar_OpenProfileMenu" xml:space="preserve"><value>Ouvrir le menu du profil</value></data>
+  <data name="TopBar_SignedInAs" xml:space="preserve"><value>Connecté en tant que</value></data>
+  <data name="TopBar_EngineStatus" xml:space="preserve"><value>État du moteur</value></data>
+  <data name="TopBar_EngineOnline" xml:space="preserve"><value>Moteur en ligne</value></data>
+  <data name="TopBar_EngineUnavailable" xml:space="preserve"><value>Moteur indisponible</value></data>
+  <data name="TopBar_LiveUpdatesConnected" xml:space="preserve"><value>Mises à jour en direct connectées</value></data>
+  <data name="TopBar_LiveUpdatesOffline" xml:space="preserve"><value>Mises à jour en direct hors ligne</value></data>
 
   <!-- ── Command Palette ────────────────────────────────────────────────── -->
   <data name="CmdPalette_Placeholder" xml:space="preserve"><value>Rechercher des séries, naviguer…</value></data>

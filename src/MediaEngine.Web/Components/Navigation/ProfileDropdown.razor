@@ -1,65 +1,71 @@
 @namespace MediaEngine.Web.Components.Navigation
 @inject NavigationManager Nav
+@inject IStringLocalizer<SharedStrings> L
 
-<div class="profile-dropdown" @ref="_containerRef">
-    <button class="profile-trigger @(_isOpen ? "profile-trigger-active" : "")"
-            @onclick="Toggle" @onclick:stopPropagation="true">
-        <div class="profile-avatar" style="background: @AvatarColor;">
-            @AvatarInitial
-        </div>
-        <div class="profile-trigger-name">
-            @DisplayName.Split(' ').FirstOrDefault()
-        </div>
+<div class="profile-dropdown" style="--profile-avatar-color: @AvatarColor;">
+    <button type="button"
+            class="profile-trigger @(_isOpen ? "profile-trigger-active" : string.Empty)"
+            @onclick="Toggle"
+            aria-haspopup="menu"
+            aria-expanded="@_isOpen"
+            aria-label="@L["TopBar_OpenProfileMenu"]"
+            title="@L["TopBar_OpenProfileMenu"]">
+        <span class="profile-trigger-avatar">@AvatarInitial</span>
+        <span class="profile-trigger-name">@TriggerName</span>
+
+        @if (ReviewCount > 0)
+        {
+            <span class="profile-trigger-badge">@ReviewCount</span>
+        }
+
         <AppIcon Name="@AppIcons.ChevronDown"
                  Size="0.75rem"
-                 Class="@($"profile-chevron {(_isOpen ? "profile-chevron-open" : "")}")" />
+                 Class="@($"profile-trigger-chevron {(_isOpen ? "profile-trigger-chevron-open" : string.Empty)}")" />
     </button>
 
     @if (_isOpen)
     {
-        <div class="profile-menu-backdrop" @onclick="() => _isOpen = false"></div>
-        <div class="profile-menu">
-            <div class="profile-menu-header">
-                <span class="profile-menu-label">Signed in as</span>
-                <span class="profile-menu-name">@DisplayName</span>
-            </div>
-            <div class="profile-menu-items">
-                <div class="profile-menu-mobile-nav">
-                    <button class="profile-menu-item" @onclick='() => Navigate("/")'>
-                        <AppIcon Name="@AppIcons.Home" Size="0.9rem" Class="profile-menu-item-icon" />
-                        <span>Home</span>
-                    </button>
-                    <button class="profile-menu-item" @onclick='() => Navigate("/read")'>
-                        <AppIcon Name="@AppIcons.Read" Size="0.9rem" Class="profile-menu-item-icon" />
-                        <span>Read</span>
-                    </button>
-                    <button class="profile-menu-item" @onclick='() => Navigate("/watch")'>
-                        <AppIcon Name="@AppIcons.Watch" Size="0.9rem" Class="profile-menu-item-icon" />
-                        <span>Watch</span>
-                    </button>
-                    <button class="profile-menu-item" @onclick='() => Navigate("/listen")'>
-                        <AppIcon Name="@AppIcons.Listen" Size="0.9rem" Class="profile-menu-item-icon" />
-                        <span>Listen</span>
-                    </button>
-                    <div class="profile-menu-divider"></div>
-                </div>
+        <div class="profile-menu-backdrop" @onclick="Close"></div>
 
-                <button class="profile-menu-item" @onclick='() => Navigate("/settings/review")'>
-                    <AppIcon Name="@AppIcons.Review" Size="0.9rem" Class="profile-menu-item-icon" />
-                    <span class="profile-menu-item-label">Review</span>
+        <div class="profile-menu" role="menu">
+            <div class="profile-menu-header">
+                <span class="profile-menu-header-avatar">@AvatarInitial</span>
+                <div class="profile-menu-header-copy">
+                    <span class="profile-menu-header-label">@L["TopBar_SignedInAs"]</span>
+                    <span class="profile-menu-header-name">@SafeDisplayName</span>
+                </div>
+            </div>
+
+            <div class="profile-menu-actions">
+                <button type="button" class="profile-menu-item" @onclick='() => Navigate("/settings/review")'>
+                    <AppIcon Name="@AppIcons.Review"
+                             Size="0.95rem"
+                             Class="profile-menu-item-icon" />
+                    <span class="profile-menu-item-label">@L["Nav_ReviewQueue"]</span>
                     @if (ReviewCount > 0)
                     {
-                        <span class="profile-menu-badge">@ReviewCount</span>
+                        <span class="profile-menu-item-badge">@ReviewCount</span>
                     }
                 </button>
-                <button class="profile-menu-item" @onclick='() => Navigate("/collections")'>
-                    <AppIcon Name="@AppIcons.Collections" Size="0.9rem" Class="profile-menu-item-icon" />
-                    <span class="profile-menu-item-label">Collections</span>
+
+                <button type="button" class="profile-menu-item" @onclick='() => Navigate("/collections")'>
+                    <AppIcon Name="@AppIcons.Collections"
+                             Size="0.95rem"
+                             Class="profile-menu-item-icon" />
+                    <span class="profile-menu-item-label">@L["Nav_Collections"]</span>
                 </button>
-                <button class="profile-menu-item" @onclick='() => Navigate("/settings")'>
-                    <AppIcon Name="@AppIcons.Settings" Size="0.9rem" Class="profile-menu-item-icon" />
-                    <span class="profile-menu-item-label">Settings</span>
+
+                <button type="button" class="profile-menu-item" @onclick='() => Navigate("/settings")'>
+                    <AppIcon Name="@AppIcons.Settings"
+                             Size="0.95rem"
+                             Class="profile-menu-item-icon" />
+                    <span class="profile-menu-item-label">@L["Nav_Settings"]</span>
                 </button>
+            </div>
+
+            <div class="profile-menu-status">
+                <span class="profile-menu-status-label">@L["TopBar_EngineStatus"]</span>
+                <span class="profile-menu-status-text">@ResolvedEngineStatusSummary</span>
             </div>
         </div>
     }
@@ -70,11 +76,27 @@
     [Parameter] public string AvatarInitial { get; set; } = "?";
     [Parameter] public string DisplayName { get; set; } = "User";
     [Parameter] public int ReviewCount { get; set; }
+    [Parameter] public string EngineStatusSummary { get; set; } = string.Empty;
 
     private bool _isOpen;
-    private ElementReference _containerRef;
+
+    private string SafeDisplayName =>
+        string.IsNullOrWhiteSpace(DisplayName)
+            ? "User"
+            : DisplayName.Trim();
+
+    private string TriggerName =>
+        SafeDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
+        ?? SafeDisplayName;
+
+    private string ResolvedEngineStatusSummary =>
+        string.IsNullOrWhiteSpace(EngineStatusSummary)
+            ? L["TopBar_EngineUnavailable"]
+            : EngineStatusSummary;
 
     private void Toggle() => _isOpen = !_isOpen;
+
+    private void Close() => _isOpen = false;
 
     private void Navigate(string url)
     {
@@ -82,184 +104,3 @@
         Nav.NavigateTo(url);
     }
 }
-
-<style>
-    .profile-dropdown {
-        position: relative;
-        display: inline-flex;
-        align-items: center;
-    }
-
-    .profile-trigger {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        gap: 0.75rem;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(148, 163, 184, 0.18);
-        border-radius: 999px;
-        padding: 0.35rem 0.95rem 0.35rem 0.35rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .profile-trigger:hover {
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .profile-trigger-active {
-        border-color: rgba(96, 165, 250, 0.38);
-    }
-
-    .profile-avatar {
-        width: 2rem;
-        height: 2rem;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 0.85rem;
-        font-weight: 700;
-        color: #000;
-        flex-shrink: 0;
-    }
-
-    .profile-trigger-name {
-        font-size: 0.83rem;
-        font-weight: 600;
-        color: rgba(248, 250, 252, 0.96);
-    }
-
-    @@media (max-width: 768px) {
-        .profile-trigger-name {
-            display: none;
-        }
-    }
-
-    .profile-chevron {
-        color: rgba(226, 232, 240, 0.64);
-        transition: transform 0.2s ease;
-    }
-
-    .profile-chevron-open {
-        transform: rotate(180deg);
-    }
-
-    .profile-menu-backdrop {
-        position: fixed;
-        inset: 0;
-        z-index: 99;
-        background: transparent;
-        cursor: default;
-    }
-
-    .profile-menu {
-        position: absolute;
-        top: calc(100% + 12px);
-        right: 0;
-        width: 280px;
-        background: rgba(15, 23, 42, 0.96);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(148, 163, 184, 0.16);
-        border-radius: 18px;
-        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
-        z-index: 100;
-        overflow: hidden;
-        padding: 0.5rem 0;
-    }
-
-    .profile-menu-header {
-        padding: 0.85rem 1rem;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
-        margin-bottom: 0.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.15rem;
-    }
-
-    .profile-menu-label {
-        font-size: 0.64rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
-        color: rgba(148, 163, 184, 0.92);
-    }
-
-    .profile-menu-name {
-        font-size: 0.92rem;
-        font-weight: 700;
-        color: rgba(248, 250, 252, 0.98);
-    }
-
-    .profile-menu-items {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-        padding: 0 0.5rem;
-    }
-
-    .profile-menu-mobile-nav {
-        display: block;
-    }
-
-    @@media (min-width: 640px) {
-        .profile-menu-mobile-nav {
-            display: none;
-        }
-    }
-
-    .profile-menu-item {
-        display: flex;
-        align-items: center;
-        justify-content: flex-start;
-        gap: 0.75rem;
-        width: 100%;
-        padding: 0.7rem 0.8rem;
-        border-radius: 0.9rem;
-        color: rgba(226, 232, 240, 0.76);
-        font-size: 0.92rem;
-        font-weight: 500;
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        text-align: left;
-        transition: background 0.15s ease, color 0.15s ease;
-    }
-
-    .profile-menu-item-label {
-        flex: 1;
-        min-width: 0;
-        text-align: left;
-    }
-
-    .profile-menu-item:hover {
-        background: rgba(96, 165, 250, 0.1);
-        color: rgba(248, 250, 252, 0.96);
-    }
-
-    .profile-menu-item-icon {
-        color: rgba(148, 163, 184, 0.92);
-        transition: color 0.15s ease;
-    }
-
-    .profile-menu-item:hover .profile-menu-item-icon {
-        color: #60a5fa;
-    }
-
-    .profile-menu-badge {
-        margin-left: auto;
-        background: #60a5fa;
-        color: #0f172a;
-        font-size: 0.68rem;
-        font-weight: 700;
-        padding: 0.15rem 0.5rem;
-        border-radius: 999px;
-    }
-
-    .profile-menu-divider {
-        height: 1px;
-        background: rgba(148, 163, 184, 0.14);
-        margin: 0.35rem 0.5rem;
-    }
-</style>

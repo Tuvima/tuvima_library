@@ -98,22 +98,46 @@
             @if (IsSingleItem && _editorContext?.Scopes.Count > 1)
             {
                 <div class="sme-scope-switcher">
-                    <AppTabs Items="ScopeTabItems"
-                             ActiveKey="@ActiveScope?.ScopeId"
-                             Variant="secondary"
-                             AriaLabel="Edit scope"
-                             OnSelect="SelectScopeAsync"
-                             Class="sme-scope-list" />
-                    @if (!string.IsNullOrWhiteSpace(ActiveScope?.ScopeSummary) || !string.IsNullOrWhiteSpace(ActiveScope?.ReadOnlyHint))
-                    {
-                        <div class="sme-scope-summary">
-                            @ActiveScope?.ScopeSummary
-                            @if (!string.IsNullOrWhiteSpace(ActiveScope?.ReadOnlyHint))
+                    <MudMenu Dense="true"
+                             AnchorOrigin="Origin.BottomLeft"
+                             TransformOrigin="Origin.TopLeft"
+                             Class="sme-scope-picker">
+                        <ActivatorContent>
+                            <button type="button"
+                                    class="sme-scope-picker-trigger"
+                                    aria-label="Choose editing scope">
+                                <span class="sme-scope-picker-copy">
+                                    <span class="sme-scope-picker-kicker">Editing</span>
+                                    <span class="sme-scope-picker-label">@ScopePickerLabel</span>
+                                    @if (!string.IsNullOrWhiteSpace(ScopePickerTitle))
+                                    {
+                                        <span class="sme-scope-picker-title">@ScopePickerTitle</span>
+                                    }
+                                </span>
+                                <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" Style="font-size: 20px;" />
+                            </button>
+                        </ActivatorContent>
+                        <ChildContent>
+                            @foreach (var scope in ScopeOptions)
                             {
-                                <span class="sme-scope-summary-note">@ActiveScope?.ReadOnlyHint</span>
+                                <MudMenuItem OnClick="@(() => SelectScopeAsync(scope.ScopeId))">
+                                    <div class="sme-scope-menu-item @(IsActiveScopeId(scope.ScopeId) ? "sme-scope-menu-item--active" : "")">
+                                        <div class="sme-scope-menu-copy">
+                                            <div class="sme-scope-menu-label">@scope.Label</div>
+                                            @if (!string.IsNullOrWhiteSpace(GetScopePickerTitle(scope)))
+                                            {
+                                                <div class="sme-scope-menu-title">@GetScopePickerTitle(scope)</div>
+                                            }
+                                        </div>
+                                        @if (IsActiveScopeId(scope.ScopeId))
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.Check" Class="sme-scope-menu-check" />
+                                        }
+                                    </div>
+                                </MudMenuItem>
                             }
-                        </div>
-                    }
+                        </ChildContent>
+                    </MudMenu>
                 </div>
             }
 

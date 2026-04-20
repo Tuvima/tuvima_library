@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Shadows + glass</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{
+    padding:36px 28px 28px;
+    font-family:var(--tv-font-sans);
+    /* Lighter inner surface so shadows actually read */
+    background:
+      radial-gradient(ellipse 140% 70% at 50% 40%, #1E2640 0%, #0B1220 75%);
+  }
+  .grid{display:grid;grid-template-columns:repeat(5,1fr);gap:24px;}
+  .sw{display:flex;flex-direction:column;gap:10px;align-items:center;}
+
+  .tile{
+    width:100%;aspect-ratio:1.25;border-radius:14px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    position:relative;
+  }
+  .tile .name{font-size:11px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(248,248,248,.85);}
+  .tile .px{font-family:var(--tv-font-mono);font-size:9.5px;color:rgba(248,248,248,.4);}
+
+  /* Solid surface — light enough to receive a shadow on the lighter gradient */
+  .solid{background:#1E293B;border:1px solid rgba(255,255,255,.06);}
+
+  .sm   { box-shadow: 0 2px 8px rgba(0,0,0,.30); }
+  .base { box-shadow: 0 8px 32px rgba(0,0,0,.55); }
+  .md   { box-shadow: 0 16px 36px rgba(0,0,0,.55); }
+  .lg   { box-shadow: 0 22px 48px rgba(0,0,0,.70); }
+
+  /* Glass tile — blurred translucent over the colored gradient */
+  .glass{
+    background:rgba(255,255,255,.06);
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:
+      0 8px 32px rgba(0,0,0,.55),
+      inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  /* A colored wash behind the glass tile so the blur has something to chew on */
+  .glass-wrap{position:relative;width:100%;aspect-ratio:1.25;}
+  .glass-wrap::before{
+    content:"";position:absolute;inset:-10px;border-radius:18px;
+    background:
+      radial-gradient(circle at 30% 30%, #E9A84A 0%, transparent 60%),
+      radial-gradient(circle at 75% 70%, #5B6DF2 0%, transparent 65%);
+    opacity:.85;filter:saturate(1.1);
+    z-index:0;
+  }
+  .glass-wrap .tile{position:absolute;inset:0;z-index:1;}
+
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(248,248,248,.8);text-align:center;}
+  .val{font-family:var(--tv-font-mono);font-size:9.5px;color:rgba(248,248,248,.42);text-align:center;line-height:1.45;}
+
+  .usage{font-size:10.5px;color:rgba(248,248,248,.55);text-align:center;letter-spacing:.01em;max-width:120px;line-height:1.4;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="grid">
+    <div class="sw">
+      <div class="tile solid sm"><span class="name">sm</span><span class="px">0 2 8 · 30%</span></div>
+      <div class="lbl">card · rest</div>
+      <div class="usage">Poster cards &amp; edition rows at rest</div>
+    </div>
+    <div class="sw">
+      <div class="tile solid base"><span class="name">base</span><span class="px">0 8 32 · 55%</span></div>
+      <div class="lbl">glass panel</div>
+      <div class="usage">Floating glass surfaces &amp; top bar</div>
+    </div>
+    <div class="sw">
+      <div class="tile solid md"><span class="name">md</span><span class="px">0 16 36 · 55%</span></div>
+      <div class="lbl">modal</div>
+      <div class="usage">Dialogs, popovers, command palette</div>
+    </div>
+    <div class="sw">
+      <div class="tile solid lg"><span class="name">lg</span><span class="px">0 22 48 · 70%</span></div>
+      <div class="lbl">hero / detail poster</div>
+      <div class="usage">Collection-detail poster &amp; hero lift</div>
+    </div>
+    <div class="sw">
+      <div class="glass-wrap">
+        <div class="tile glass"><span class="name">glass</span><span class="px">blur(10)</span></div>
+      </div>
+      <div class="lbl">blur + inset</div>
+      <div class="usage">Glassmorphic recipe — see it bend color</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

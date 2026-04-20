@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Typography — body</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{padding:24px 26px;font-family:var(--tv-font-sans);display:flex;flex-direction:column;gap:14px;}
+  .row{display:flex;align-items:baseline;gap:16px;border-bottom:1px solid rgba(255,255,255,.04);padding-bottom:12px;}
+  .row:last-child{border:0;padding-bottom:0;}
+  .spec{font-family:var(--tv-font-mono);font-size:10px;color:rgba(248,248,248,.38);white-space:nowrap;min-width:130px;}
+  .sample{flex:1;min-width:0;}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="row"><span class="spec">Body · 13 / 400</span><span class="sample tv-p">You've read 38% of Dune — pick up where you left off. Frank Herbert's novel sits alongside the Villeneuve film and Scott Brick's narration.</span></div>
+  <div class="row"><span class="spec">Small · 12.5 / 400</span><span class="sample tv-small">Neil Gaiman · Audiobook · Bill Nighy, narrator · 2019</span></div>
+  <div class="row"><span class="spec">Meta · 12.5 / 500 · 0.02em</span><span class="sample tv-meta">Updated 2 hours ago · 142 works · 38 GB</span></div>
+  <div class="row"><span class="spec">Label · 10 / 800 · 0.10em</span><span class="sample tv-label">Continue your journey</span></div>
+  <div class="row"><span class="spec">Code · mono / 400</span><span class="sample"><code class="tv-code">GET /collections?hub=dune</code></span></div>
+</div>
+</body>
+</html>

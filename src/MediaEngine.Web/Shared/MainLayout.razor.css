@@ -1,0 +1,8 @@
+.main-content-with-topbar {
+    padding-top: var(--app-topbar-height, 72px) !important;
+}
+
+.app-bg {
+    background-color: #080B14;
+    min-height: 100vh;
+}

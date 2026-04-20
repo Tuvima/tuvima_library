@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Settings row (st-* pattern)</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .wrap{padding:22px;font-family:var(--tv-font-sans);}
+  .st-card{
+    background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);
+    border-radius:12px;padding:18px 22px;
+  }
+  .st-card--accent{border-color:rgba(201,146,46,.22);}
+  .st-label{font-family:var(--tv-font-sans);font-size:10px;font-weight:800;letter-spacing:.10em;text-transform:uppercase;color:rgba(248,248,248,.35);margin-bottom:4px;}
+  .st-title{font-size:14px;font-weight:700;color:rgba(248,248,248,.88);letter-spacing:-0.01em;margin-bottom:3px;}
+  .st-title--accent{color:#C9922E;}
+  .st-body{font-size:12.5px;color:rgba(248,248,248,.5);line-height:1.5;margin:0 0 14px;}
+  .st-rule{height:1px;background:rgba(255,255,255,.04);margin:14px 0;}
+  .st-row{display:flex;align-items:center;gap:16px;padding:9px 0;border-bottom:1px solid rgba(255,255,255,.04);}
+  .st-row:last-child{border:0;}
+  .st-info{flex:1;}
+  .tn{font-size:13px;font-weight:600;color:rgba(248,248,248,.85);}
+  .td{font-size:11.5px;color:rgba(248,248,248,.45);margin-top:2px;}
+  .switch{position:relative;width:36px;height:20px;border-radius:999px;background:rgba(255,255,255,.1);cursor:pointer;}
+  .switch.on{background:#EAB308;}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;}
+  .switch.on::after{transform:translateX(16px);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="st-card st-card--accent">
+    <div class="st-label">Library</div>
+    <div class="st-title st-title--accent">Automation</div>
+    <p class="st-body">Tuvima can run enrichment and de-duplication in the background. These settings govern when and how hard the Engine works.</p>
+    <div class="st-row">
+      <div class="st-info">
+        <div class="tn">Auto-import watched folders</div>
+        <div class="td">New files are added to the library automatically.</div>
+      </div>
+      <div class="switch on"></div>
+    </div>
+    <div class="st-row">
+      <div class="st-info">
+        <div class="tn">Run enrichment overnight</div>
+        <div class="td">Schedule Stage 2 Wikidata enrichment at 2am local.</div>
+      </div>
+      <div class="switch"></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tuvima · Media-type accents</title>
+<link rel="stylesheet" href="../colors_and_type.css">
+<style>
+  html,body{margin:0;padding:0;background:#0B1220;}
+  .card{
+    padding:22px;
+    display:grid;grid-template-columns:repeat(6,1fr);gap:12px;
+    font-family:var(--tv-font-sans);
+  }
+  .sw{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+  .chip{
+    width:100%;height:70px;border-radius:10px;
+    border:1px solid rgba(255,255,255,.08);
+    position:relative;overflow:hidden;
+    display:flex;align-items:flex-end;padding:10px;
+  }
+  .chip::before{
+    content:"";position:absolute;inset:0;
+    background:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.45));
+  }
+  .chip .ic{position:relative;color:rgba(255,255,255,.95);font-size:13px;font-weight:700;font-family:var(--tv-font-sans);}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(248,248,248,.72);}
+  .val{font-family:var(--tv-font-mono);font-size:10px;color:rgba(248,248,248,.40);}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="sw"><div class="chip" style="background:#A78BFA"><div class="ic">Book</div></div><div class="lbl">book</div><div class="val">#A78BFA</div></div>
+  <div class="sw"><div class="chip" style="background:#60A5FA"><div class="ic">Audiobook</div></div><div class="lbl">audiobook</div><div class="val">#60A5FA</div></div>
+  <div class="sw"><div class="chip" style="background:#F472B6"><div class="ic">Movie</div></div><div class="lbl">movie</div><div class="val">#F472B6</div></div>
+  <div class="sw"><div class="chip" style="background:#34D399"><div class="ic">TV</div></div><div class="lbl">tv show</div><div class="val">#34D399</div></div>
+  <div class="sw"><div class="chip" style="background:#FBBF24"><div class="ic">Music</div></div><div class="lbl">music</div><div class="val">#FBBF24</div></div>
+  <div class="sw"><div class="chip" style="background:#FB923C"><div class="ic">Comic</div></div><div class="lbl">comic</div><div class="val">#FB923C</div></div>
+</div>
+</body>
+</html>
