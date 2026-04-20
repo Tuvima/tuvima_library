@@ -2007,7 +2007,12 @@ public static class MetadataEndpoints
         var showName = FirstNonBlank(GetCanonicalValue(rootCanonicalMap, "title"), GetCanonicalValue(canonicalMap, "show_name"), detail?.ShowName, rootTitle, itemTitle);
         var seasonNumber = FirstNonBlank(GetCanonicalValue(canonicalMap, "season_number"), detail?.SeasonNumber);
         var episodeNumber = FirstNonBlank(GetCanonicalValue(canonicalMap, "episode_number"), detail?.EpisodeNumber);
-        var episodeTitle = FirstNonBlank(GetCanonicalValue(canonicalMap, "episode_title"), GetCanonicalValue(canonicalMap, "title"), itemTitle, "Episode");
+        var episodeTitle = FirstNonBlank(
+            detail?.EpisodeTitle,
+            GetCanonicalValue(canonicalMap, "episode_title"),
+            GetCanonicalValue(canonicalMap, "title"),
+            itemTitle,
+            "Episode");
         var artistName = FirstNonBlank(
             GetCanonicalValue(rootCanonicalMap, "artist"),
             GetCanonicalValue(canonicalMap, "artist"),

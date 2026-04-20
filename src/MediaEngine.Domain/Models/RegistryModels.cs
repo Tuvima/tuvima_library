@@ -145,6 +145,7 @@ public sealed record RegistryItemDetail
     [JsonPropertyName("show_name")]       public string? ShowName { get; init; }
     [JsonPropertyName("season_number")]   public string? SeasonNumber { get; init; }
     [JsonPropertyName("episode_number")]  public string? EpisodeNumber { get; init; }
+    [JsonPropertyName("episode_title")]   public string? EpisodeTitle { get; init; }
     [JsonPropertyName("release_date")]    public string? ReleaseDate { get; init; }
     [JsonPropertyName("narrator")]        public string? Narrator { get; init; }
     [JsonPropertyName("rating")]          public string? Rating { get; init; }

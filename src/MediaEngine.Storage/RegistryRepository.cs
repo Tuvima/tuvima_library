@@ -239,6 +239,10 @@ public sealed class RegistryRepository : IRegistryRepository
                 fd.description           AS Description,
                 fd.series                AS Series,
                 fd.series_position       AS SeriesPosition,
+                fd.show_name             AS ShowName,
+                fd.season_number         AS SeasonNumber,
+                fd.episode_number        AS EpisodeNumber,
+                fd.episode_title         AS EpisodeTitle,
                 fd.narrator              AS Narrator,
                 fd.rating                AS Rating,
                 fd.wikidata_qid          AS WikidataQid,
@@ -528,9 +532,10 @@ public sealed class RegistryRepository : IRegistryRepository
             Tagline = Canonical("tagline"),
             Series = projection?.Series ?? Canonical("series"),
             SeriesPosition = projection?.SeriesPosition ?? Canonical("series_position"),
-            ShowName = Canonical("show_name"),
-            SeasonNumber = Canonical("season_number"),
-            EpisodeNumber = Canonical("episode_number"),
+            ShowName = projection?.ShowName ?? Canonical("show_name"),
+            SeasonNumber = projection?.SeasonNumber ?? Canonical("season_number"),
+            EpisodeNumber = projection?.EpisodeNumber ?? Canonical("episode_number"),
+            EpisodeTitle = projection?.EpisodeTitle ?? Canonical("episode_title"),
             ReleaseDate = NormalizeReleaseDate(Canonical("release_date") ?? Canonical("date") ?? Canonical("year")),
             Narrator = projection?.Narrator ?? Canonical("narrator"),
             Rating = projection?.Rating ?? Canonical("rating"),
@@ -1480,6 +1485,10 @@ public sealed class RegistryRepository : IRegistryRepository
         public string? Description { get; set; }
         public string? Series { get; set; }
         public string? SeriesPosition { get; set; }
+        public string? ShowName { get; set; }
+        public string? SeasonNumber { get; set; }
+        public string? EpisodeNumber { get; set; }
+        public string? EpisodeTitle { get; set; }
         public string? Narrator { get; set; }
         public string? Rating { get; set; }
         public string? WikidataQid { get; set; }

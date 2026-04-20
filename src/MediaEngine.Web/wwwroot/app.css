@@ -457,4 +457,17 @@ body {
     }
 }
 
+.mud-dialog.sme-dialog {
+    background: #1b1c22 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 28px 70px rgba(0, 0, 0, 0.4) !important;
+    overflow: hidden !important;
+}
+
+.mud-dialog.sme-dialog .mud-dialog-content {
+    padding: 0 !important;
+    background: #1b1c22 !important;
+}
+
 

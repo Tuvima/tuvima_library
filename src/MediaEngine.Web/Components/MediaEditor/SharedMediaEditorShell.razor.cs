@@ -86,7 +86,6 @@ public partial class SharedMediaEditorShell
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
     private string _activeTab = "details";
     private string _activeScopeId = string.Empty;
-    private string _artworkScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
     private string _artworkUrlInput = string.Empty;
@@ -101,7 +100,6 @@ public partial class SharedMediaEditorShell
     private bool _saving;
     private bool _reclassifying;
     private bool _searchingCanonical;
-    private bool _artworkLoading;
     private bool _artworkUrlSubmitting;
     private bool _confirmDiscard;
     private string? _dragTargetArtworkType;
@@ -111,8 +109,9 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<(string Id, string Label)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
-    protected IReadOnlyList<MediaEditorScopeDto> ArtworkOwnerScopes => ResolveArtworkOwnerScopes();
     protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ArtworkScope);
+    protected bool SupportsCanonicalSearch => QuickSearchTargets.Count > 0;
+    protected string? CanonicalSearchUnavailableReason => GetCanonicalSearchUnavailableReason();
     protected IReadOnlyList<AppNavItem> TabItems =>
         Tabs.Select(tab => new AppNavItem
         {
@@ -128,15 +127,6 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<AppNavItem> QuickSearchTargetItems =>
         QuickSearchTargets
             .Select(target => new AppNavItem { Key = target.Key, Label = target.Label })
-            .ToList();
-    protected IReadOnlyList<AppNavItem> ArtworkOwnerTabItems =>
-        ArtworkOwnerScopes
-            .Select(scope => new AppNavItem
-            {
-                Key = scope.ScopeId,
-                Label = scope.Label,
-                Description = scope.DisplayTitle
-            })
             .ToList();
     protected IReadOnlyList<AppNavItem> ArtworkSlotItems =>
         ArtworkSlots
@@ -154,7 +144,7 @@ public partial class SharedMediaEditorShell
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
     protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? LaunchEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
-    protected bool IsArtworkBusy => _artworkLoading || _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
+    protected bool IsArtworkBusy => _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
     protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetGeneratedHeroUrl());
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
     protected ArtworkSlotDefinition? SelectedArtworkSlot =>
@@ -171,11 +161,7 @@ public partial class SharedMediaEditorShell
             .OrderBy(scope => scope.Order)
             .FirstOrDefault(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase))
         ?? _editorContext?.Scopes.OrderBy(scope => scope.Order).FirstOrDefault();
-    protected MediaEditorScopeDto? ArtworkScope =>
-        _editorContext?.Scopes
-            .OrderBy(scope => scope.Order)
-            .FirstOrDefault(scope => string.Equals(scope.ScopeId, _artworkScopeId, StringComparison.OrdinalIgnoreCase))
-        ?? ResolveDefaultArtworkScope();
+    protected MediaEditorScopeDto? ArtworkScope => ActiveScope;
     protected bool IsFileScope => string.Equals(ActiveScope?.ScopeId, "file", StringComparison.OrdinalIgnoreCase);
     protected string BreadcrumbText => BuildBreadcrumbText();
 
@@ -233,8 +219,6 @@ public partial class SharedMediaEditorShell
 
             if (_editorContext is null)
             {
-                _artworkStates.Clear();
-                _artworkScopeId = string.Empty;
                 var detailTask = ApiClient.GetRegistryItemDetailAsync(LaunchEntityId);
                 var canonicalTask = Orchestrator.GetCanonicalValuesAsync(LaunchEntityId);
                 var claimsTask = Orchestrator.GetClaimHistoryAsync(LaunchEntityId);
@@ -263,8 +247,6 @@ public partial class SharedMediaEditorShell
                     _activeScopeId = _editorContext.Scopes.OrderBy(scope => scope.Order).FirstOrDefault()?.ScopeId ?? string.Empty;
 
                 await LoadScopeStateAsync(forceReload: true);
-                ResetArtworkScopeSelection(_activeScopeId);
-                await LoadArtworkStateAsync(_artworkScopeId, forceReload: true);
             }
 
             _pendingArtworkFiles.Clear();
@@ -292,6 +274,7 @@ public partial class SharedMediaEditorShell
             if (IsFileScope)
                 _activeTab = "file";
 
+            EnsureActiveTabVisible();
             _canonicalSearchQuery = BuildSuggestedSearchQuery();
         }
         finally
@@ -354,8 +337,7 @@ public partial class SharedMediaEditorShell
         _selectedCandidateId = null;
         _selectedSuggestedFieldKeys.Clear();
         CloseArtworkZoom();
-        if (!string.Equals(_activeTab, "artwork", StringComparison.OrdinalIgnoreCase))
-            ResetArtworkScopeSelection(ActiveScope?.ScopeId);
+        EnsureActiveTabVisible();
         NormalizeArtworkSelection();
     }
 
@@ -397,79 +379,18 @@ public partial class SharedMediaEditorShell
 
     protected async Task SelectArtworkScopeAsync(string scopeId)
     {
-        if (string.IsNullOrWhiteSpace(scopeId) || string.Equals(_artworkScopeId, scopeId, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(scopeId))
             return;
 
-        _artworkScopeId = scopeId;
-        _artworkAddMenuAssetType = null;
-        _artworkUrlInput = string.Empty;
-        _showArtworkUrlInput = false;
-        _dragTargetArtworkType = null;
-        _artworkLoading = true;
-        StateHasChanged();
+        _activeTab = "artwork";
 
-        try
+        if (string.Equals(_activeScopeId, scopeId, StringComparison.OrdinalIgnoreCase))
         {
-            await LoadArtworkStateAsync(scopeId);
-            NormalizeArtworkSelection();
-        }
-        finally
-        {
-            _artworkLoading = false;
-            StateHasChanged();
-        }
-    }
-
-    private IReadOnlyList<MediaEditorScopeDto> ResolveArtworkOwnerScopes() =>
-        _editorContext?.Scopes
-            .Where(scope => !string.Equals(scope.ScopeId, "file", StringComparison.OrdinalIgnoreCase))
-            .OrderBy(scope => scope.Order)
-            .ToList()
-        ?? [];
-
-    private MediaEditorScopeDto? ResolveDefaultArtworkScope()
-    {
-        var scopes = ResolveArtworkOwnerScopes();
-        if (scopes.Count == 0)
-            return null;
-
-        if (!string.IsNullOrWhiteSpace(_artworkScopeId))
-        {
-            var explicitScope = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, _artworkScopeId, StringComparison.OrdinalIgnoreCase));
-            if (explicitScope is not null)
-                return explicitScope;
-        }
-
-        var preferredScopeId = !string.IsNullOrWhiteSpace(_activeScopeId) && !string.Equals(_activeScopeId, "file", StringComparison.OrdinalIgnoreCase)
-            ? _activeScopeId
-            : null;
-
-        if (!string.IsNullOrWhiteSpace(preferredScopeId))
-        {
-            var preferredScope = scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, preferredScopeId, StringComparison.OrdinalIgnoreCase) && scope.CanEditArtwork);
-            if (preferredScope is not null)
-                return preferredScope;
-        }
-
-        return scopes.FirstOrDefault(scope => scope.CanEditArtwork) ?? scopes[0];
-    }
-
-    private void ResetArtworkScopeSelection(string? preferredScopeId = null)
-    {
-        var scopes = ResolveArtworkOwnerScopes();
-        if (scopes.Count == 0)
-        {
-            _artworkScopeId = string.Empty;
+            EnsureActiveTabVisible();
             return;
         }
 
-        var preferred = !string.IsNullOrWhiteSpace(preferredScopeId)
-            ? scopes.FirstOrDefault(scope => string.Equals(scope.ScopeId, preferredScopeId, StringComparison.OrdinalIgnoreCase) && scope.CanEditArtwork)
-            : null;
-
-        _artworkScopeId = preferred?.ScopeId
-            ?? scopes.FirstOrDefault(scope => scope.CanEditArtwork)?.ScopeId
-            ?? scopes[0].ScopeId;
+        await SelectScopeAsync(scopeId);
     }
 
     private async Task LoadArtworkStateAsync(string? scopeId, bool forceReload = false)
@@ -505,7 +426,7 @@ public partial class SharedMediaEditorShell
         return Task.CompletedTask;
     }
 
-    protected bool IsTabDisabled(string tabId) => IsBatchMode && tabId is "universe" or "artwork" or "file";
+    protected bool IsTabDisabled(string tabId) => !IsTabVisible(tabId);
 
     protected bool CanReclassifyMediaType =>
         IsSingleItem
@@ -517,13 +438,20 @@ public partial class SharedMediaEditorShell
         if (!IsBatchMode)
         {
             var visibleKeys = GetVisibleFieldKeysForScope();
+            var sourceTabIds = string.Equals(tabId, "options", StringComparison.OrdinalIgnoreCase)
+                ? new[] { "options", "sorting" }
+                : new[] { tabId };
+
             return _schema.Groups
-                .Where(group => group.TabId == tabId)
+                .Where(group => sourceTabIds.Contains(group.TabId, StringComparer.OrdinalIgnoreCase))
                 .Select(group => new MediaEditorFieldGroup
                 {
                     Id = group.Id,
-                    Label = group.Label,
-                    TabId = group.TabId,
+                    Label = string.Equals(tabId, "options", StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(group.TabId, "sorting", StringComparison.OrdinalIgnoreCase)
+                        ? "Sort Order"
+                        : group.Label,
+                    TabId = tabId,
                     Fields = group.Fields
                         .Where(field => visibleKeys.Contains(field.Key, StringComparer.OrdinalIgnoreCase))
                         .ToList(),
@@ -550,25 +478,23 @@ public partial class SharedMediaEditorShell
                 },
             ],
             "options" =>
-            [
-                new MediaEditorFieldGroup
+                new[]
                 {
-                    Id = "batch_options",
-                    Label = "Batch Options",
-                    TabId = "options",
-                    Fields = batchFields.Where(field => field.Key is "description" or "comment" or "rating").ToList(),
-                },
-            ],
-            "sorting" =>
-            [
-                new MediaEditorFieldGroup
-                {
-                    Id = "batch_sorting",
-                    Label = "Batch Sorting",
-                    TabId = "sorting",
-                    Fields = batchFields.Where(field => field.Key.StartsWith("sort_", StringComparison.OrdinalIgnoreCase)).ToList(),
-                },
-            ],
+                    new MediaEditorFieldGroup
+                    {
+                        Id = "batch_options",
+                        Label = "Batch Options",
+                        TabId = "options",
+                        Fields = batchFields.Where(field => field.Key is "description" or "comment" or "rating").ToList(),
+                    },
+                    new MediaEditorFieldGroup
+                    {
+                        Id = "batch_sorting",
+                        Label = "Sort Order",
+                        TabId = "options",
+                        Fields = batchFields.Where(field => field.Key.StartsWith("sort_", StringComparison.OrdinalIgnoreCase)).ToList(),
+                    },
+                }.Where(group => group.Fields.Count > 0).ToList(),
             _ => [],
         };
     }
@@ -975,8 +901,14 @@ public partial class SharedMediaEditorShell
 
     protected Task SelectTabAsync(string tabId)
     {
-        if (!IsTabDisabled(tabId))
-            _activeTab = tabId;
+        var normalizedTabId = string.Equals(tabId, "sorting", StringComparison.OrdinalIgnoreCase) ? "options" : tabId;
+        if (!IsTabDisabled(normalizedTabId))
+        {
+            _activeTab = normalizedTabId;
+            if (!string.Equals(normalizedTabId, "file", StringComparison.OrdinalIgnoreCase))
+                _lastNonFileTab = normalizedTabId;
+        }
+
         return Task.CompletedTask;
     }
 
@@ -1588,12 +1520,18 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<(string Id, string Label)> ResolveVisibleTabs()
     {
         if (IsBatchMode)
-            return TabDefinitions;
+        {
+            return TabDefinitions
+                .Where(tab => tab.Id is "details" or "options")
+                .ToList();
+        }
 
         if (IsFileScope)
             return [("file", "File")];
 
-        return TabDefinitions.Where(tab => tab.Id != "file").ToList();
+        return TabDefinitions
+            .Where(tab => IsTabVisible(tab.Id))
+            .ToList();
     }
 
     private IReadOnlyList<(string Key, string Label)> ResolveQuickSearchTargets()
@@ -1604,8 +1542,8 @@ public partial class SharedMediaEditorShell
         return (_selectedMediaType, ActiveScope?.ScopeId) switch
         {
             ("TV", "series") => [("show", "Show")],
-            ("TV", "season") => [("show", "Show")],
-            ("TV", "episode") => [("show_episode", "Show / Episode"), ("show", "Show")],
+            ("TV", "season") => [],
+            ("TV", "episode") => [("show_episode", "Episode"), ("show", "Show")],
             ("Music", "artist") => [("artist", "Artist")],
             ("Music", "album") => [("album", "Album"), ("artist", "Artist")],
             ("Music", "track") => [("track", "Track"), ("album", "Album"), ("artist", "Artist")],
@@ -1628,8 +1566,8 @@ public partial class SharedMediaEditorShell
         return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
             ("TV", "series") => ["show_name", "year", "network", "runtime", "genre", "language", "description", "rating", "comment", "sort_series"],
-            ("TV", "season") => ["season_number", "description", "comment", "sort_series"],
-            ("TV", "episode") => ["show_name", "season_number", "episode_number", "episode_title", "runtime", "release_date", "description", "language", "rating", "comment", "sort_title"],
+            ("TV", "season") => ["season_number", "description", "comment"],
+            ("TV", "episode") => ["season_number", "episode_number", "episode_title", "runtime", "release_date", "description", "language", "rating", "comment", "sort_title"],
             ("Music", "artist") => ["artist", "genre", "description", "language", "rating", "comment", "sort_artist"],
             ("Music", "album") => ["album", "album_artist", "artist", "genre", "year", "language", "description", "rating", "comment", "sort_album"],
             ("Music", "track") => ["title", "artist", "album", "composer", "track_number", "disc_number", "duration", "rating", "comment", "sort_title"],
@@ -1647,7 +1585,7 @@ public partial class SharedMediaEditorShell
     private string GetArtworkTabExplanation()
     {
         if (ArtworkScope is null)
-            return "Artwork is managed by owner. Choose the owner that should receive the image.";
+            return "Artwork follows the scope selected above.";
 
         return (_selectedMediaType, ArtworkScope.ScopeId) switch
         {
@@ -1707,6 +1645,82 @@ public partial class SharedMediaEditorShell
                 .ToList(),
             _ => [],
         };
+    }
+
+    private bool IsTabVisible(string tabId)
+    {
+        if (IsBatchMode)
+            return tabId is "details" or "options";
+
+        if (IsFileScope)
+            return string.Equals(tabId, "file", StringComparison.OrdinalIgnoreCase);
+
+        return tabId switch
+        {
+            "details" => true,
+            "universe" => SupportsUniverseTab(),
+            "artwork" => SupportsArtworkTab(),
+            "options" => GetGroupsForTab("options").Any(),
+            _ => false,
+        };
+    }
+
+    private bool SupportsUniverseTab()
+    {
+        if (ActiveScope is null)
+            return false;
+
+        return (_selectedMediaType, ActiveScope.ScopeId) switch
+        {
+            ("TV", "series") => true,
+            ("Movies", "movie") => true,
+            ("Books", "series") or ("Books", "work") or ("Books", "volume_issue") => true,
+            ("Audiobooks", "series") or ("Audiobooks", "work") or ("Audiobooks", "volume_issue") => true,
+            ("Comics", "series") or ("Comics", "work") or ("Comics", "volume_issue") => true,
+            _ => false,
+        };
+    }
+
+    private bool SupportsArtworkTab()
+    {
+        if (ActiveScope is null)
+            return false;
+
+        return ActiveScope.CanEditArtwork
+               || ResolveArtworkSlots(ActiveScope).Count > 0
+               || GetArtworkReadOnlySwitchTargets().Count > 0;
+    }
+
+    private string? GetCanonicalSearchUnavailableReason()
+    {
+        if (!IsSingleItem || IsFileScope || SupportsCanonicalSearch || ActiveScope is null)
+            return null;
+
+        return (_selectedMediaType, ActiveScope.ScopeId) switch
+        {
+            ("TV", "season") => "Season metadata is edited here, but matching happens on the Series or Episode scopes.",
+            _ => null,
+        };
+    }
+
+    private void EnsureActiveTabVisible()
+    {
+        if (IsTabVisible(_activeTab))
+            return;
+
+        if (string.Equals(_activeTab, "sorting", StringComparison.OrdinalIgnoreCase) && IsTabVisible("options"))
+        {
+            _activeTab = "options";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_lastNonFileTab) && IsTabVisible(_lastNonFileTab))
+        {
+            _activeTab = _lastNonFileTab;
+            return;
+        }
+
+        _activeTab = Tabs.FirstOrDefault().Id ?? "details";
     }
 
     private static string GetArtworkEmptyStateLabel(string assetType) =>

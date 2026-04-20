@@ -132,30 +132,37 @@
                 }
                 else if (_activeTab == "details")
                 {
-                    <div class="sme-details">
+                    <div class="sme-details @(IsSingleItem && SupportsCanonicalSearch ? string.Empty : "sme-details--single")">
                         <div class="sme-fields-pane">
                             @if (IsSingleItem)
                             {
-                                <div class="sme-search-toolbar">
-                                    <AppTabs Items="QuickSearchTargetItems"
-                                             ActiveKey="@_canonicalTargetGroup"
-                                             Variant="secondary"
-                                             AriaLabel="Canonical search targets"
-                                             OnSelect="SetCanonicalTargetGroupAsync"
-                                             Class="sme-search-targets" />
+                                @if (SupportsCanonicalSearch)
+                                {
+                                    <div class="sme-search-toolbar">
+                                        <AppTabs Items="QuickSearchTargetItems"
+                                                 ActiveKey="@_canonicalTargetGroup"
+                                                 Variant="secondary"
+                                                 AriaLabel="Canonical search targets"
+                                                 OnSelect="SetCanonicalTargetGroupAsync"
+                                                 Class="sme-search-targets" />
 
-                                    <div class="sme-search-row">
-                                        <input class="sme-text-input"
-                                               placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
-                                               value="@_canonicalSearchQuery"
-                                               @oninput="HandleCanonicalQueryInput" />
-                                        <button class="sme-inline-btn sme-inline-btn--primary"
-                                                disabled="@_searchingCanonical"
-                                                @onclick="SearchCanonicalAsync">
-                                            @(_searchingCanonical ? "Searching..." : "Quick Search")
-                                        </button>
+                                        <div class="sme-search-row">
+                                            <input class="sme-text-input"
+                                                   placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
+                                                   value="@_canonicalSearchQuery"
+                                                   @oninput="HandleCanonicalQueryInput" />
+                                            <button class="sme-inline-btn sme-inline-btn--primary"
+                                                    disabled="@_searchingCanonical"
+                                                    @onclick="SearchCanonicalAsync">
+                                                @(_searchingCanonical ? "Searching..." : "Quick Search")
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
+                                }
+                                else if (!string.IsNullOrWhiteSpace(CanonicalSearchUnavailableReason))
+                                {
+                                    <div class="sme-search-inline-hint">@CanonicalSearchUnavailableReason</div>
+                                }
                             }
 
                             @foreach (var group in GetGroupsForTab("details"))
@@ -199,7 +206,7 @@
                             }
                         </div>
 
-                        @if (IsSingleItem)
+                        @if (IsSingleItem && SupportsCanonicalSearch)
                         {
                             <aside class="sme-search-pane">
                                 <div class="sme-search-pane-title">Canonical Search</div>
@@ -359,16 +366,6 @@
                     <div class="sme-artwork">
                         @if (IsSingleItem)
                         {
-                            @if (ArtworkOwnerScopes.Count > 1)
-                            {
-                                <AppTabs Items="ArtworkOwnerTabItems"
-                                         ActiveKey="@ArtworkScope?.ScopeId"
-                                         Variant="secondary"
-                                         AriaLabel="Artwork owner"
-                                         OnSelect="SelectArtworkScopeAsync"
-                                         Class="sme-artwork-owner-switcher" />
-                            }
-
                             <section class="sme-artwork-workspace">
                                 <AppSelectorNav Items="ArtworkSlotItems"
                                                 ActiveKey="@SelectedArtworkSlot?.AssetType"
@@ -377,13 +374,7 @@
                                                 Class="sme-artwork-rail" />
 
                                 <div class="sme-artwork-main">
-                                    @if (_artworkLoading)
-                                    {
-                                        <div class="sme-empty-panel">
-                                            <MudProgressCircular Indeterminate="true" Size="Size.Medium" />
-                                        </div>
-                                    }
-                                    else if (ArtworkSlots.Count == 0)
+                                    @if (ArtworkSlots.Count == 0)
                                     {
                                         <div class="sme-artwork-readonly">
                                             <div class="sme-artwork-readonly-title">@GetArtworkReadOnlyTitle()</div>
@@ -579,14 +570,13 @@
                 }
                 else if (_activeTab == "options" || _activeTab == "sorting")
                 {
-                    var tabId = _activeTab;
-                    var groups = GetGroupsForTab(tabId).ToList();
+                    var groups = GetGroupsForTab("options").ToList();
                     <div class="sme-fields-pane sme-fields-pane--single">
                         @if (groups.Count == 0)
                         {
                             <div class="sme-empty-panel">
                                 <MudIcon Icon="@Icons.Material.Outlined.Tune" Style="font-size: 24px; opacity: 0.18;" />
-                                <span>No @tabId settings are available for this selection.</span>
+                                <span>No options are available for this selection.</span>
                             </div>
                         }
                         else
