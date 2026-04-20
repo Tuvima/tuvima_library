@@ -1364,6 +1364,31 @@ public static class IntegrationTestEndpoints
                     report.IssuesFound.Add("Stage 3: No parent collections (universes) created after enrichment");
                     logger.LogWarning("[Phase 7] No universes found after Stage 3 enrichment");
                 }
+
+                var fictionalEntityCount = await conn.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM fictional_entities;");
+                var relationshipCount = await conn.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM entity_relationships;");
+                var performerLinkCount = await conn.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM character_performer_links;");
+
+                logger.LogInformation(
+                    "  Stage 3 graph: {Entities} fictional entities, {Relationships} relationships, {PerformerLinks} performer links",
+                    fictionalEntityCount,
+                    relationshipCount,
+                    performerLinkCount);
+
+                if (parentCollections.Count > 0 && fictionalEntityCount == 0)
+                {
+                    report.IssuesFound.Add("Stage 3: No fictional entities were stored after enrichment");
+                    logger.LogWarning("[Phase 7] No fictional entities found after Stage 3 enrichment");
+                }
+
+                if (fictionalEntityCount > 0 && relationshipCount == 0)
+                {
+                    report.IssuesFound.Add("Stage 3: Fictional entities were stored but no relationships were created");
+                    logger.LogWarning("[Phase 7] No entity relationships found after Stage 3 enrichment");
+                }
             }
         }
         catch (Exception ex)

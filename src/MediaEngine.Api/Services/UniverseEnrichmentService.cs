@@ -217,7 +217,16 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                 && DateTimeOffset.TryParse(stage3EnrichedAt, out var enrichedAt)
                 && enrichedAt > staleThreshold)
             {
-                continue;
+                if (!HasUniversePath(lookup, narrativeRoot: null))
+                    continue;
+
+                var hasLinkedEntities = await HasLinkedFictionalEntitiesAsync(
+                    services.FictionalEntityRepository,
+                    workQid,
+                    ct).ConfigureAwait(false);
+
+                if (hasLinkedEntities)
+                    continue;
             }
 
             var title = GetBestTitle(lookup);
@@ -293,7 +302,31 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                 await services.Enrichment.RunUniverseCorePassAsync(request.EntityId, request.WorkQid, ct).ConfigureAwait(false);
             }
 
-            await MarkStage3SettledAsync(services.CanonicalRepository, request.EntityId, ct).ConfigureAwait(false);
+            var stage3Settled = !hasUniversePath;
+            if (hasUniversePath)
+            {
+                stage3Settled = await HasLinkedFictionalEntitiesAsync(
+                    services.FictionalEntityRepository,
+                    request.WorkQid,
+                    ct).ConfigureAwait(false);
+
+                if (!stage3Settled)
+                {
+                    _logger.LogWarning(
+                        "[UNIVERSE-ENRICH] Stage 3 core completed for {Qid} ({EntityId}) but linked no fictional entities; leaving item retryable",
+                        request.WorkQid,
+                        request.EntityId);
+                }
+            }
+
+            if (stage3Settled)
+            {
+                await MarkStage3SettledAsync(services.CanonicalRepository, request.EntityId, ct).ConfigureAwait(false);
+            }
+            else
+            {
+                await ClearStage3SettledAsync(services.CanonicalRepository, request.EntityId, ct).ConfigureAwait(false);
+            }
 
             if (source == Stage3Source.Inline)
             {
@@ -424,6 +457,24 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         ], ct).ConfigureAwait(false);
     }
 
+    private static Task ClearStage3SettledAsync(
+        ICanonicalValueRepository canonicalRepository,
+        Guid entityId,
+        CancellationToken ct)
+        => canonicalRepository.DeleteByKeyAsync(entityId, "stage3_enriched_at", ct);
+
+    private static async Task<bool> HasLinkedFictionalEntitiesAsync(
+        IFictionalEntityRepository fictionalEntityRepository,
+        string workQid,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(workQid))
+            return false;
+
+        var linkedEntities = await fictionalEntityRepository.GetByWorkQidAsync(workQid, ct).ConfigureAwait(false);
+        return linkedEntities.Count > 0;
+    }
+
     private static async Task PublishUniverseProgressAsync(
         IEventPublisher eventPublisher,
         string workQid,
@@ -475,13 +526,8 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         return canonicalLookup.ContainsKey("fictional_universe_qid")
             || canonicalLookup.ContainsKey("franchise_qid")
             || canonicalLookup.ContainsKey("series_qid")
-            || canonicalLookup.ContainsKey("character")
-            || canonicalLookup.ContainsKey("characters")
             || canonicalLookup.ContainsKey("characters_qid")
-            || canonicalLookup.ContainsKey("narrative_location")
-            || canonicalLookup.ContainsKey("narrative_location_qid")
-            || canonicalLookup.ContainsKey("location")
-            || canonicalLookup.ContainsKey("organization");
+            || canonicalLookup.ContainsKey("narrative_location_qid");
     }
 
     private static string? GetBestTitle(IReadOnlyDictionary<string, string> lookup)
@@ -501,6 +547,7 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
             services.GetRequiredService<ICanonicalValueRepository>(),
             services.GetRequiredService<IWorkRepository>(),
             services.GetRequiredService<IEnrichmentService>(),
+            services.GetRequiredService<IFictionalEntityRepository>(),
             services.GetRequiredService<INarrativeRootResolver>(),
             services.GetRequiredService<IIdentityJobRepository>(),
             services.GetRequiredService<BatchProgressService>(),
@@ -538,6 +585,7 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         ICanonicalValueRepository CanonicalRepository,
         IWorkRepository WorkRepository,
         IEnrichmentService Enrichment,
+        IFictionalEntityRepository FictionalEntityRepository,
         INarrativeRootResolver NarrativeRootResolver,
         IIdentityJobRepository JobRepository,
         BatchProgressService BatchProgress,

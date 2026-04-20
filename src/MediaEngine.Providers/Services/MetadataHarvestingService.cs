@@ -351,14 +351,17 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
 
         try
         {
-            // Mark entity as enriched.
-            await _fictionalEntityRepo.UpdateEnrichmentAsync(
-                request.EntityId, description: null, imageUrl: null,
-                DateTimeOffset.UtcNow, ct).ConfigureAwait(false);
-
             // Build canonical values dictionary for relationship population.
             var canonicalDict = canonicals
                 .ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+
+            if (canonicalDict.Count == 0)
+            {
+                _logger.LogWarning(
+                    "Fictional entity enrichment returned no canonical values for entity {EntityId}; leaving it retryable",
+                    request.EntityId);
+                return;
+            }
 
             // Resolve universe QID from hints.
             var universeQid = request.Hints.GetValueOrDefault("universe_qid");
@@ -392,6 +395,13 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
                 currentDepth: currentDepth,
                 maxDepth: maxDepth,
                 ct: ct).ConfigureAwait(false);
+
+            await _fictionalEntityRepo.UpdateEnrichmentAsync(
+                request.EntityId,
+                canonicalDict.GetValueOrDefault(MetadataFieldConstants.Description),
+                imageUrl: null,
+                DateTimeOffset.UtcNow,
+                ct).ConfigureAwait(false);
 
             // Determine action type for activity log.
             var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? "Character";
@@ -1134,6 +1144,7 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             SparqlBaseUrl = sparqlBaseUrl,
             Language     = lang,
             Country      = country,
+            HydrationPass = request.Pass,
             Hints        = h,
         };
     }

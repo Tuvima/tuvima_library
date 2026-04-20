@@ -107,9 +107,15 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
     /// </summary>
     public double ReviewThreshold => _config.Reconciliation.ReviewThreshold;
 
-    /// <summary>Handles MediaAsset and Person entity types.</summary>
+    /// <summary>
+    /// Handles MediaAsset, Person, and Stage 3 fictional entity types.
+    /// </summary>
     public bool CanHandle(EntityType entityType) =>
-        entityType is EntityType.MediaAsset or EntityType.Person;
+        entityType is EntityType.MediaAsset
+            or EntityType.Person
+            or EntityType.Character
+            or EntityType.Location
+            or EntityType.Organization;
 
     /// <summary>
     /// Fetches metadata claims by reconciling the entity against Wikidata and
@@ -129,9 +135,13 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
         try
         {
-            return request.EntityType == EntityType.Person
-                ? await FetchPersonAsync(request, ct).ConfigureAwait(false)
-                : await FetchWorkAsync(request, ct).ConfigureAwait(false);
+            return request.EntityType switch
+            {
+                EntityType.Person => await FetchPersonAsync(request, ct).ConfigureAwait(false),
+                EntityType.Character or EntityType.Location or EntityType.Organization
+                    => await FetchFictionalEntityAsync(request, ct).ConfigureAwait(false),
+                _ => await FetchWorkAsync(request, ct).ConfigureAwait(false),
+            };
         }
         catch (OperationCanceledException)
         {
@@ -948,6 +958,34 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         return result;
+    }
+
+    private async Task<IReadOnlyList<ProviderClaim>> FetchFictionalEntityAsync(
+        ProviderLookupRequest request,
+        CancellationToken ct)
+    {
+        var hints = request.Hints ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var qid = request.PreResolvedQid
+            ?? hints.GetValueOrDefault(BridgeIdKeys.WikidataQid);
+
+        if (string.IsNullOrWhiteSpace(qid))
+        {
+            _logger.LogWarning(
+                "{Provider}: fictional entity fetch requested without a resolved QID for entity {EntityId}",
+                Name,
+                request.EntityId);
+            return [];
+        }
+
+        var entitySubType = hints.GetValueOrDefault("entity_sub_type")
+            ?? request.EntityType switch
+            {
+                EntityType.Location => "Location",
+                EntityType.Organization => "Organization",
+                _ => "Character",
+            };
+
+        return await LookupFictionalEntityAsync(qid, entitySubType, ct).ConfigureAwait(false);
     }
 
     private static int? GetCandidateYear(

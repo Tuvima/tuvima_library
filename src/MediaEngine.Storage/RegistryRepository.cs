@@ -470,20 +470,28 @@ public sealed class RegistryRepository : IRegistryRepository
                 """, new { workQid = workQidForUniverse });
         }
 
+        var hasUniverseLink = !string.IsNullOrWhiteSpace(universeQid);
+        var hasStage3GraphEvidence = linkedEntityCount > 0
+            || linkedRelationshipCount > 0
+            || linkedPortraitCount > 0;
+
         var stage3Status = latestJobState switch
         {
             nameof(IdentityJobState.UniverseEnriching) => "UniverseEnriching",
-            nameof(IdentityJobState.Ready) => "Ready",
             nameof(IdentityJobState.ReadyWithoutUniverse) => "ReadyWithoutUniverse",
-            nameof(IdentityJobState.Completed) => "Ready",
             nameof(IdentityJobState.Failed) => "Failed",
-            _ when stage3EnrichedAt.HasValue && !string.IsNullOrWhiteSpace(universeQid) => "Ready",
-            _ when stage3EnrichedAt.HasValue => "ReadyWithoutUniverse",
+            nameof(IdentityJobState.Ready) or nameof(IdentityJobState.Completed)
+                when !hasUniverseLink => "ReadyWithoutUniverse",
+            nameof(IdentityJobState.Ready) or nameof(IdentityJobState.Completed)
+                when hasStage3GraphEvidence => "Ready",
+            _ when stage3EnrichedAt.HasValue && hasStage3GraphEvidence => "Ready",
+            _ when stage3EnrichedAt.HasValue && !hasUniverseLink => "ReadyWithoutUniverse",
+            _ when hasUniverseLink => "Pending",
             _ => "Pending",
         };
         var universeSummary = new UniverseSummaryDto
         {
-            UniverseStatus = !string.IsNullOrWhiteSpace(universeQid)
+            UniverseStatus = hasUniverseLink
                 ? "linked"
                 : stage3Status == "ReadyWithoutUniverse" ? "not_applicable" : "unlinked",
             UniverseName = universeName,

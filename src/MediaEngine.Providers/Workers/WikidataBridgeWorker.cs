@@ -1063,6 +1063,7 @@ public sealed class WikidataBridgeWorker
                     MediaType      = mediaType,
                     Title          = titleHint,
                     PreResolvedQid = qid,
+                    HydrationPass  = HydrationPass.Universe,
                 }, ct);
 
             if (fullClaims.Count > 0)

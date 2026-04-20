@@ -2364,7 +2364,7 @@ public static class CollectionEndpoints
                     ON cp.fictional_entity_id = fe.id
                    AND cp.person_id = p.id
                 WHERE fewl.work_qid = @workQid
-                  AND fe.entity_subtype = 'Character'
+                  AND fe.entity_sub_type = 'Character'
                 ORDER BY fe.label, p.name, cp.is_default DESC
                 """,
                 new { workQid = rootWorkQid })).ToList();

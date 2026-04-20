@@ -1,3 +1,14 @@
+::deep .sme-dialog {
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+::deep .sme-dialog .mud-dialog-content {
+    padding: 0;
+    background: transparent;
+}
+
 .sme-shell {
     display: flex;
     flex-direction: column;
@@ -5,8 +16,8 @@
     max-height: 84vh;
     background: linear-gradient(180deg, rgba(27,27,32,0.98), rgba(19,19,24,0.98));
     color: rgba(248,248,248,0.94);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 22px;
+    border: 1px solid transparent;
+    border-radius: 16px;
     overflow: hidden;
 }
 
@@ -162,7 +173,7 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 14px 24px 0;
+    padding: 14px 30px 0;
 }
 
 .sme-scope-list {
@@ -204,7 +215,7 @@
 }
 
 .sme-tabs {
-    padding: 14px 24px 0;
+    padding: 14px 30px 0;
 }
 
 .sme-tab {
@@ -221,7 +232,7 @@
 .sme-body {
     flex: 1;
     min-height: 0;
-    padding: 18px 24px 20px;
+    padding: 18px 30px 20px;
     overflow: auto;
 }
 
@@ -1046,6 +1057,70 @@
 
 .sme-artwork-rail {
     min-width: 0;
+    gap: 4px;
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__item {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: rgba(248,248,248,0.8);
+    transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__item::before {
+    top: 8px;
+    bottom: 8px;
+    width: 2px;
+    border-radius: 2px;
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__item:hover:not(:disabled),
+.sme-artwork-rail ::deep .app-selector-nav__item:focus-visible {
+    border-color: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: rgba(255,255,255,0.96);
+    transform: translateY(-1px);
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__item.is-active {
+    border-color: rgba(234,179,8,0.18);
+    background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+    color: rgba(255,255,255,0.98);
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__item.is-active::before {
+    background: #eab308;
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__icon {
+    display: none;
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__copy {
+    gap: 4px;
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__label {
+    font-size: 0.94rem;
+    font-weight: 700;
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__description {
+    font-size: 0.74rem;
+    color: rgba(248,248,248,0.5);
+}
+
+.sme-artwork-rail ::deep .app-selector-nav__badge {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 8px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.82);
 }
 
 .sme-artwork-rail-item {
@@ -1405,7 +1480,7 @@
 .sme-artwork-readonly,
 .sme-artwork-derived {
     border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 14px;
+    border-radius: 12px;
     background: rgba(255,255,255,0.02);
 }
 
@@ -1484,12 +1559,21 @@
     border-color: rgba(234,179,8,0.5);
 }
 
+.sme-artwork-add-stage-copy {
+    flex-direction: column;
+    gap: 10px;
+    padding: 16px;
+    text-align: center;
+}
+
 .sme-artwork-add-copy {
-    color: rgba(255,255,255,0.72);
-    font-size: 0.78rem;
+    color: rgba(255,255,255,0.82);
+    font-size: 0.76rem;
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    line-height: 1.35;
+    max-width: 110px;
 }
 
 .sme-artwork-add-menu {
@@ -1504,6 +1588,15 @@
     color: rgba(255,255,255,0.56);
     font-size: 0.82rem;
     line-height: 1.45;
+}
+
+.sme-artwork-gallery-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    padding-bottom: 8px;
 }
 
 .sme-artwork-gallery-tile {
@@ -1553,6 +1646,37 @@
 
 .sme-artwork-gallery .sme-art-row-stage--logo {
     height: 94px;
+}
+
+.sme-artwork-gallery-popout {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    margin-top: -18px;
+}
+
+.sme-artwork-gallery-icon-button {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 999px;
+    background: rgba(20,20,26,0.94);
+    color: rgba(248,248,248,0.94);
+    box-shadow: 0 14px 28px rgba(0,0,0,0.3);
+    cursor: pointer;
+    transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.sme-artwork-gallery-icon-button:hover,
+.sme-artwork-gallery-icon-button:focus-visible {
+    transform: translateY(-1px);
+    border-color: rgba(234,179,8,0.34);
+    background: rgba(28,28,35,0.98);
+    outline: none;
 }
 
 .sme-artwork-gallery-check {
@@ -1703,7 +1827,8 @@
 
     .sme-body,
     .sme-footer,
-    .sme-tabs {
+    .sme-tabs,
+    .sme-scope-switcher {
         padding-left: 16px;
         padding-right: 16px;
     }
@@ -1739,7 +1864,7 @@
         padding-bottom: 6px;
     }
 
-    .sme-artwork-rail-item {
+    .sme-artwork-rail ::deep .app-selector-nav__item {
         min-width: 170px;
     }
 }
@@ -1795,6 +1920,10 @@
 
     .sme-artwork-gallery .sme-art-row-stage--logo {
         height: 84px;
+    }
+
+    .sme-artwork-gallery-popout {
+        margin-top: -16px;
     }
 
     .sme-artwork-selection-actions {

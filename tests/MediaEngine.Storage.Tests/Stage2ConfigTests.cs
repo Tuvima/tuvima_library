@@ -116,7 +116,7 @@ public sealed class Stage2ConfigTests
     }
 
     [Fact]
-    public void WikidataConfig_IncludesStage3HierarchyAndTvBridgeProperties()
+    public void WikidataConfig_IncludesStage3HierarchySeedsAndTvBridgeProperties()
     {
         var root = FindRepoRoot();
         var path = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
@@ -127,13 +127,23 @@ public sealed class Stage2ConfigTests
         Assert.NotNull(reconConfig);
 
         var workProps = reconConfig!.DataExtension.WorkProperties;
+        Assert.Contains("P674", workProps.Core);
+        Assert.Contains("P840", workProps.Core);
+        Assert.Contains("P921", workProps.Core);
         Assert.Contains("P8345", workProps.Core);
         Assert.Contains("P1434", workProps.Core);
+        Assert.Contains("P144", workProps.Core);
+        Assert.Contains("P4584", workProps.Core);
         Assert.Contains("P4835", workProps.Bridges);
 
         var labels = reconConfig.DataExtension.PropertyLabels;
+        Assert.Equal("characters", labels["P674"]);
+        Assert.Equal("narrative_location", labels["P840"]);
+        Assert.Equal("main_subject", labels["P921"]);
         Assert.Equal("franchise", labels["P8345"]);
         Assert.Equal("fictional_universe", labels["P1434"]);
+        Assert.Equal("based_on", labels["P144"]);
+        Assert.Equal("first_appearance", labels["P4584"]);
         Assert.Equal("tvdb_id", labels["P4835"]);
     }
 
