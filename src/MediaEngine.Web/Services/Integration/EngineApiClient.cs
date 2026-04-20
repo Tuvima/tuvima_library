@@ -3838,6 +3838,8 @@ public sealed class EngineApiClient : IEngineApiClient
                     group.BackgroundUrl = AbsoluteUrl(group.BackgroundUrl);
                 if (group.BannerUrl is not null)
                     group.BannerUrl = AbsoluteUrl(group.BannerUrl);
+                if (group.HeroUrl is not null)
+                    group.HeroUrl = AbsoluteUrl(group.HeroUrl);
                 if (group.LogoUrl is not null)
                     group.LogoUrl = AbsoluteUrl(group.LogoUrl);
 
@@ -3875,6 +3877,8 @@ public sealed class EngineApiClient : IEngineApiClient
                     g.BackgroundUrl = AbsoluteUrl(g.BackgroundUrl);
                 if (g.BannerUrl is not null)
                     g.BannerUrl = AbsoluteUrl(g.BannerUrl);
+                if (g.HeroUrl is not null)
+                    g.HeroUrl = AbsoluteUrl(g.HeroUrl);
                 if (g.LogoUrl is not null)
                     g.LogoUrl = AbsoluteUrl(g.LogoUrl);
                 if (g.ArtistPhotoUrl is not null)

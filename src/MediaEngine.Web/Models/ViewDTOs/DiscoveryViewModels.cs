@@ -50,6 +50,7 @@ public sealed class DiscoveryCardViewModel
     public string? CoverUrl { get; init; }
     public string? BackgroundUrl { get; init; }
     public string? BannerUrl { get; init; }
+    public string? HeroUrl { get; init; }
     public string? LogoUrl { get; init; }
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
     public string? StatusText { get; init; }

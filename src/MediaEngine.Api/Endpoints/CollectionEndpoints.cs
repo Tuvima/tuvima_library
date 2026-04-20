@@ -1261,14 +1261,16 @@ public static class CollectionEndpoints
                 string? cover = null;
                 string? background = null;
                 string? banner = null;
+                string? hero = null;
                 string? logo = null;
                 foreach (var w in h.Works)
                 {
                     cover = BuildCoverStreamUrl(w);
                     background = BuildBackgroundStreamUrl(w);
                     banner = BuildBannerStreamUrl(w);
+                    hero = BuildHeroStreamUrl(w);
                     logo = BuildLogoStreamUrl(w);
-                    if (cover is not null || background is not null || banner is not null || logo is not null) break;
+                    if (cover is not null || background is not null || banner is not null || hero is not null || logo is not null) break;
                 }
 
                 // Creator from first work.
@@ -1291,6 +1293,7 @@ public static class CollectionEndpoints
                     CoverUrl         = cover,
                     BackgroundUrl    = background,
                     BannerUrl        = banner,
+                    HeroUrl          = hero,
                     LogoUrl          = logo,
                     Description      = h.Description ?? GetCanonical(firstDto, "description"),
                     Tagline          = GetCanonical(firstDto, "tagline"),
@@ -1425,6 +1428,7 @@ public static class CollectionEndpoints
                         '/stream/' || g.first_asset_id || '/cover' AS cover_url,
                         '/stream/' || g.first_asset_id || '/background' AS background_url,
                         '/stream/' || g.first_asset_id || '/banner' AS banner_url,
+                        '/stream/' || g.first_asset_id || '/hero' AS hero_url,
                         '/stream/' || g.first_asset_id || '/logo' AS logo_url,
                         COALESCE(
                             (
@@ -1507,7 +1511,7 @@ public static class CollectionEndpoints
                 cmd.Parameters.Add(gp);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, int? SeasonCount, int AlbumCount)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, int? SeasonCount, int AlbumCount)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1526,8 +1530,9 @@ public static class CollectionEndpoints
                             reader.IsDBNull(8) ? null : reader.GetString(8),
                             reader.IsDBNull(9) ? null : reader.GetString(9),
                             reader.IsDBNull(10) ? null : reader.GetString(10),
-                            reader.IsDBNull(11) ? null : (int?)reader.GetInt32(11),
-                            reader.IsDBNull(12) ? 0 : reader.GetInt32(12)
+                            reader.IsDBNull(11) ? null : reader.GetString(11),
+                            reader.IsDBNull(12) ? null : (int?)reader.GetInt32(12),
+                            reader.IsDBNull(13) ? 0 : reader.GetInt32(13)
                         ));
                     }
                 }
@@ -1567,6 +1572,7 @@ public static class CollectionEndpoints
                         CoverUrl         = row.CoverUrl,
                         BackgroundUrl    = row.BackgroundUrl,
                         BannerUrl        = row.BannerUrl,
+                        HeroUrl          = row.HeroUrl,
                         LogoUrl          = row.LogoUrl,
                         Description      = row.Description,
                         Tagline          = row.Tagline,

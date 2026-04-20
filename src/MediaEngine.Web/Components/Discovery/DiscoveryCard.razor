@@ -216,7 +216,8 @@
     };
 
     private string? HoverArtUrl =>
-        Item.BackgroundUrl
+        Item.HeroUrl
+        ?? Item.BackgroundUrl
         ?? Item.BannerUrl
         ?? Item.CoverUrl
         ?? PreviewImages.FirstOrDefault();
@@ -388,10 +389,10 @@
 
 <style>
     .discovery-card {
-        --discovery-hover-lift: clamp(26px, 3vw, 34px);
-        --discovery-hover-clearance: clamp(210px, 22vw, 286px);
+        --discovery-hover-lift: clamp(12px, 1.8vw, 18px);
+        --discovery-hover-clearance: clamp(240px, 26vw, 332px);
         --discovery-card-media-height: clamp(176px, 17vw, 214px);
-        --discovery-hover-panel-width: clamp(380px, 30vw, 500px);
+        --discovery-hover-panel-width: clamp(420px, 31vw, 520px);
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -407,17 +408,17 @@
 
     .discovery-card.is-portrait {
         width: calc(var(--discovery-card-media-height) * 2 / 3);
-        --discovery-hover-panel-width: clamp(392px, 31vw, 520px);
+        --discovery-hover-panel-width: clamp(430px, 34vw, 560px);
     }
 
     .discovery-card.is-landscape {
         width: calc(var(--discovery-card-media-height) * 16 / 9);
-        --discovery-hover-panel-width: clamp(420px, 31vw, 560px);
+        --discovery-hover-panel-width: clamp(460px, 34vw, 620px);
     }
 
     .discovery-card.is-square {
         width: var(--discovery-card-media-height);
-        --discovery-hover-panel-width: clamp(380px, 30vw, 480px);
+        --discovery-hover-panel-width: clamp(420px, 33vw, 540px);
     }
 
     .discovery-card-frame {
@@ -444,17 +445,17 @@
         border: 1px solid rgba(255, 255, 255, 0.08);
         box-shadow: 0 18px 44px rgba(0, 0, 0, 0.26);
         cursor: pointer;
-        z-index: 2;
+        z-index: 1;
         transform-origin: center top;
-        transition: transform 0.22s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        transition: transform 0.2s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
     }
 
     .discovery-card:hover .discovery-card-media,
     .discovery-card:focus-within .discovery-card-media,
     .discovery-card.is-expanded .discovery-card-media {
-        transform: translateY(calc(-1 * var(--discovery-hover-lift))) scale(1.03);
+        transform: translateY(calc(-1 * var(--discovery-hover-lift))) scale(1.012);
         border-color: color-mix(in srgb, var(--discovery-accent) 42%, rgba(255, 255, 255, 0.16));
-        box-shadow: 0 30px 62px rgba(0, 0, 0, 0.42);
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.34);
     }
 
     .discovery-card-image {
@@ -587,14 +588,15 @@
         position: absolute;
         left: 50%;
         right: auto;
-        top: calc(100% - 8px);
+        top: 0;
         width: min(84vw, var(--discovery-hover-panel-width));
         min-width: 100%;
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
-        z-index: 1;
-        transform: translate(-50%, calc(10px - var(--discovery-hover-lift))) scale(0.985);
+        z-index: 4;
+        transform: translate(-50%, 12px) scale(0.982);
+        transform-origin: center top;
         border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 24px;
         background: linear-gradient(180deg, rgba(17, 20, 29, 0.96) 0%, rgba(7, 10, 18, 0.995) 100%);
@@ -662,10 +664,10 @@
     }
 
     .discovery-card-hover-body {
-        padding: 16px 18px 18px;
+        padding: 18px 20px 20px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
     }
 
     .discovery-card-hover-actions {
@@ -714,7 +716,7 @@
 
     .discovery-card-hover-title {
         font-family: 'Montserrat', sans-serif;
-        font-size: 1.02rem;
+        font-size: 1.08rem;
         font-weight: 800;
         line-height: 1.25;
         color: rgba(248, 250, 252, 0.98);
@@ -798,7 +800,7 @@
     .discovery-card-hover-description {
         margin: 2px 0 0;
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
+        font-size: 0.84rem;
         line-height: 1.58;
         color: rgba(226, 232, 240, 0.72);
         display: -webkit-box;
@@ -859,8 +861,8 @@
     @@media (max-width: 640px) {
         .discovery-card {
             --discovery-card-media-height: clamp(156px, 45vw, 190px);
-            --discovery-hover-panel-width: min(92vw, 420px);
-            --discovery-hover-clearance: clamp(196px, 32vw, 248px);
+            --discovery-hover-panel-width: min(92vw, 440px);
+            --discovery-hover-clearance: clamp(228px, 36vw, 280px);
         }
     }
 </style>

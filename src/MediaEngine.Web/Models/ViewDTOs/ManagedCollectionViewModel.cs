@@ -33,6 +33,9 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("banner_url")]
     public string? BannerUrl { get; set; }
 
+    [JsonPropertyName("hero_url")]
+    public string? HeroUrl { get; set; }
+
     [JsonPropertyName("logo_url")]
     public string? LogoUrl { get; set; }
 

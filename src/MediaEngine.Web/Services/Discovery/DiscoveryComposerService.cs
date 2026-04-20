@@ -687,6 +687,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
             BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl ?? latest.HeroUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
+            HeroUrl = group?.HeroUrl ?? latest.HeroUrl,
             LogoUrl = group?.LogoUrl ?? latest.LogoUrl,
             PreviewImages = latest.CollectionId.HasValue ? GetPreviewImages(groupPreviewImages, latest.CollectionId.Value) : [],
             StatusText = BuildContinueStatus(latest, DiscoveryBucket.Tv),
@@ -729,6 +730,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = latest.CoverUrl,
             BackgroundUrl = latest.BackgroundUrl ?? latest.HeroUrl,
             BannerUrl = latest.BannerUrl,
+            HeroUrl = latest.HeroUrl,
             LogoUrl = latest.LogoUrl,
             StatusText = BuildContinueStatus(latest, DiscoveryBucket.Music),
             MetaText = JoinPartsSafe($"{items.Count} tracks", latest.TrackNumber is not null ? $"Track {latest.TrackNumber}" : null),
@@ -773,6 +775,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
             BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl ?? latest.HeroUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
+            HeroUrl = group?.HeroUrl ?? latest.HeroUrl,
             LogoUrl = group?.LogoUrl ?? latest.LogoUrl,
             PreviewImages = latest.CollectionId.HasValue ? GetPreviewImages(groupPreviewImages, latest.CollectionId.Value) : [],
             StatusText = Pluralize(items.Count, "new episode"),
@@ -814,6 +817,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = latest.CoverUrl,
             BackgroundUrl = latest.BackgroundUrl ?? latest.HeroUrl,
             BannerUrl = latest.BannerUrl,
+            HeroUrl = latest.HeroUrl,
             LogoUrl = latest.LogoUrl,
             StatusText = Pluralize(items.Count, "new track"),
             MetaText = JoinPartsSafe(latest.Year, "Album"),
@@ -837,15 +841,21 @@ public sealed class DiscoveryComposerService
     private static DiscoveryHeroViewModel ToHeroFromCard(
         DiscoveryCardViewModel card,
         string eyebrow,
-        string accentColor) => new()
+        string accentColor)
     {
+        var backdrop = card.IsCollection
+            ? card.BackgroundUrl ?? card.HeroUrl ?? card.BannerUrl ?? card.CoverUrl
+            : card.HeroUrl ?? card.BackgroundUrl ?? card.BannerUrl ?? card.CoverUrl;
+
+        return new DiscoveryHeroViewModel
+        {
         Eyebrow = eyebrow,
         Title = card.Title,
         Subtitle = card.Subtitle,
         Description = TrimTo(card.Description, 240),
-        BackgroundImageUrl = card.BackgroundUrl ?? card.BannerUrl ?? card.CoverUrl,
+        BackgroundImageUrl = backdrop,
         BannerImageUrl = card.BannerUrl,
-        PreviewImageUrl = card.CoverUrl ?? card.BackgroundUrl,
+        PreviewImageUrl = card.CoverUrl ?? card.BackgroundUrl ?? card.HeroUrl,
         LogoUrl = card.LogoUrl,
         AccentColor = accentColor,
         StatusText = card.StatusText,
@@ -855,7 +865,8 @@ public sealed class DiscoveryComposerService
         PrimaryNavigationUrl = card.PrimaryNavigationUrl ?? card.NavigationUrl,
         SecondaryActionLabel = "Details",
         SecondaryNavigationUrl = card.DetailsNavigationUrl ?? card.NavigationUrl,
-    };
+        };
+    }
 
     private static bool SuppressIndividualOnHome(WorkViewModel work) =>
         work.CollectionId.HasValue && GetBucket(work.MediaType) is DiscoveryBucket.Tv or DiscoveryBucket.Music;
@@ -1066,9 +1077,9 @@ public sealed class DiscoveryComposerService
                 Title = activeJourney.Title,
                 Subtitle = activeJourney.CollectionDisplayName ?? activeJourney.Author,
                 Description = TrimTo(activeJourney.Description, 240),
-                BackgroundImageUrl = activeJourney.BackgroundUrl ?? activeJourney.BannerUrl ?? activeJourney.HeroUrl ?? activeJourney.CoverUrl,
+                BackgroundImageUrl = activeJourney.HeroUrl ?? activeJourney.BackgroundUrl ?? activeJourney.BannerUrl ?? activeJourney.CoverUrl,
                 BannerImageUrl = activeJourney.BannerUrl,
-                PreviewImageUrl = activeJourney.CoverUrl ?? activeJourney.BackgroundUrl,
+                PreviewImageUrl = activeJourney.CoverUrl ?? activeJourney.BackgroundUrl ?? activeJourney.HeroUrl,
                 LogoUrl = activeJourney.LogoUrl,
                 AccentColor = accentColor,
                 StatusText = activeJourney.ProgressPct > 0 ? activeJourney.ActionLabel : null,
@@ -1108,9 +1119,9 @@ public sealed class DiscoveryComposerService
                 Title = featuredGroup.DisplayName,
                 Subtitle = featuredGroup.Creator ?? featuredGroup.Network,
                 Description = BuildGroupDescriptionSafe(featuredGroup),
-                BackgroundImageUrl = featuredGroup.BackgroundUrl ?? featuredGroup.BannerUrl ?? featuredGroup.ArtistPhotoUrl ?? featuredGroup.CoverUrl,
+                BackgroundImageUrl = featuredGroup.HeroUrl ?? featuredGroup.BackgroundUrl ?? featuredGroup.BannerUrl ?? featuredGroup.ArtistPhotoUrl ?? featuredGroup.CoverUrl,
                 BannerImageUrl = featuredGroup.BannerUrl,
-                PreviewImageUrl = featuredGroup.CoverUrl ?? featuredGroup.ArtistPhotoUrl ?? previewImages.FirstOrDefault(),
+                PreviewImageUrl = featuredGroup.CoverUrl ?? featuredGroup.ArtistPhotoUrl ?? featuredGroup.HeroUrl ?? previewImages.FirstOrDefault(),
                 LogoUrl = featuredGroup.LogoUrl,
                 AccentColor = accentColor,
                 MetaText = JoinPartsSafe(featuredGroup.PrimaryMediaType, featuredGroup.Year, featuredGroup.WorkCount.ToString()),
@@ -1137,9 +1148,9 @@ public sealed class DiscoveryComposerService
             Title = work.Title,
             Subtitle = work.Author,
             Description = TrimTo(work.Description, 240),
-            BackgroundImageUrl = work.BackgroundUrl ?? work.BannerUrl ?? work.HeroUrl ?? work.CoverUrl,
+            BackgroundImageUrl = work.HeroUrl ?? work.BackgroundUrl ?? work.BannerUrl ?? work.CoverUrl,
             BannerImageUrl = work.BannerUrl,
-            PreviewImageUrl = work.CoverUrl ?? work.BackgroundUrl,
+            PreviewImageUrl = work.CoverUrl ?? work.BackgroundUrl ?? work.HeroUrl,
             LogoUrl = work.LogoUrl,
             AccentColor = accentColor,
             MetaText = JoinPartsSafe(
@@ -1170,6 +1181,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = item.CoverUrl,
             BackgroundUrl = item.BackgroundUrl ?? item.HeroUrl,
             BannerUrl = item.BannerUrl,
+            HeroUrl = item.HeroUrl,
             LogoUrl = item.LogoUrl,
             StatusText = item.ProgressPct > 0 ? item.ActionLabel : null,
             MetaText = JoinPartsSafe(
@@ -1210,6 +1222,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = work.CoverUrl,
             BackgroundUrl = work.BackgroundUrl ?? work.HeroUrl,
             BannerUrl = work.BannerUrl,
+            HeroUrl = work.HeroUrl,
             LogoUrl = work.LogoUrl,
             MetaText = JoinPartsSafe(
                 NormalizeDisplayKind(work.MediaType),
@@ -1272,6 +1285,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = coverUrl,
             BackgroundUrl = backgroundUrl,
             BannerUrl = group.BannerUrl,
+            HeroUrl = group.HeroUrl,
             LogoUrl = group.LogoUrl,
             PreviewImages = previewImages ?? [],
             StatusText = statusText,
@@ -1512,6 +1526,7 @@ public sealed class DiscoveryComposerService
 
     private static bool HasArtwork(DiscoveryCardViewModel card) =>
         !string.IsNullOrWhiteSpace(card.CoverUrl)
+        || !string.IsNullOrWhiteSpace(card.HeroUrl)
         || !string.IsNullOrWhiteSpace(card.BackgroundUrl)
         || !string.IsNullOrWhiteSpace(card.BannerUrl)
         || !string.IsNullOrWhiteSpace(card.LogoUrl)

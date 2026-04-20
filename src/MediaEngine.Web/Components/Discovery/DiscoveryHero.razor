@@ -102,7 +102,7 @@
             var backdrop = Hero.BackgroundImageUrl ?? Hero.BannerImageUrl ?? Hero.PreviewImageUrl;
             if (string.IsNullOrWhiteSpace(backdrop))
             {
-                return "background: radial-gradient(circle at top right, rgba(28, 231, 131, 0.16) 0%, rgba(4, 6, 12, 0) 28%), linear-gradient(135deg, rgba(4,6,12,0.98) 0%, rgba(2,4,8,1) 100%);";
+                return "background: linear-gradient(135deg, rgba(4,6,12,0.98) 0%, rgba(2,4,8,1) 100%);";
             }
 
             return $"background-image: linear-gradient(180deg, rgba(3,5,10,0.12) 0%, rgba(3,5,10,0.58) 42%, rgba(3,5,10,0.98) 100%), linear-gradient(90deg, rgba(3,5,10,0.98) 0%, rgba(3,5,10,0.86) 34%, rgba(3,5,10,0.24) 74%, rgba(3,5,10,0.96) 100%), url('{backdrop}');";
@@ -191,7 +191,7 @@
     .discovery-hero-backdrop {
         position: absolute;
         inset: 0;
-        background-position: center top;
+        background-position: center center;
         background-size: cover;
         transform: scale(1.03);
     }
@@ -200,10 +200,10 @@
         position: absolute;
         inset: 0;
         background:
-            radial-gradient(circle at top right, color-mix(in srgb, var(--hero-accent) 14%, transparent) 0%, transparent 32%),
+            radial-gradient(circle at top right, color-mix(in srgb, var(--hero-accent) 8%, transparent) 0%, transparent 32%),
             linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 20%);
         mix-blend-mode: screen;
-        opacity: 0.46;
+        opacity: 0.28;
         z-index: 0;
         pointer-events: none;
     }
