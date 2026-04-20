@@ -51,18 +51,20 @@ else
             <DiscoveryHero Hero="@_page.Hero" />
         }
 
-        @if (_page.Hubs.Count > 0)
-        {
-            <DiscoveryHubStrip Hubs="@_page.Hubs"
-                               Title="Library hubs"
-                               Subtitle="Collections, franchises, albums, and series assembled automatically from your library." />
-        }
-
-        <div class="home-discovery-shelves">
-            @foreach (var shelf in _page.Shelves)
+        <div class="home-discovery-content-shell">
+            @if (_page.Hubs.Count > 0)
             {
-                <DiscoveryShelf Shelf="@shelf" />
+                <DiscoveryHubStrip Hubs="@_page.Hubs"
+                                   Title="Library hubs"
+                                   Subtitle="Collections, franchises, albums, and series assembled automatically from your library." />
             }
+
+            <div class="home-discovery-shelves">
+                @foreach (var shelf in _page.Shelves)
+                {
+                    <DiscoveryShelf Shelf="@shelf" />
+                }
+            </div>
         </div>
     </div>
 }
@@ -139,17 +141,45 @@ else
 
 <style>
     .home-discovery-page {
+        position: relative;
+        z-index: 1;
         display: flex;
         flex-direction: column;
         gap: clamp(28px, 4vw, 42px);
         padding: 0 0 5rem;
     }
 
+    .home-discovery-content-shell {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        gap: clamp(26px, 3vw, 36px);
+        margin-top: clamp(-52px, -4vw, -30px);
+        padding: clamp(28px, 4vw, 40px) 0 2rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 32px 32px 0 0;
+        background:
+            linear-gradient(180deg, rgba(4, 6, 12, 0.62) 0%, rgba(4, 6, 12, 0.86) 16%, rgba(4, 6, 12, 0.96) 36%, rgba(4, 6, 12, 0.995) 100%);
+        backdrop-filter: blur(28px) saturate(140%);
+        box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.26);
+        overflow: hidden;
+    }
+
+    .home-discovery-content-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.14) 18%, rgba(255, 255, 255, 0.08) 82%, transparent 100%);
+        pointer-events: none;
+    }
+
     .home-discovery-shelves {
         display: flex;
         flex-direction: column;
         gap: 52px;
-        padding: 0 1.5rem;
+        padding: 0 1.5rem 1rem;
     }
 
     .home-discovery-empty {
@@ -189,6 +219,14 @@ else
     @@media (min-width: 768px) {
         .home-discovery-shelves {
             padding: 0 4rem;
+        }
+    }
+
+    @@media (max-width: 640px) {
+        .home-discovery-content-shell {
+            margin-top: -24px;
+            border-radius: 24px 24px 0 0;
+            padding-top: 22px;
         }
     }
 </style>

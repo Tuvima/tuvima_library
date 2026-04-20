@@ -5,6 +5,7 @@
 {
     <section class="discovery-hero-shell" style="--hero-accent: @Hero.AccentColor;">
         <div class="discovery-hero-backdrop" style="@BackgroundStyle"></div>
+        <div class="discovery-hero-texture"></div>
 
         <div class="discovery-hero-content">
             <div class="discovery-hero-copy">
@@ -32,9 +33,22 @@
                     <div class="discovery-hero-status">@Hero.StatusText</div>
                 }
 
-                @if (!string.IsNullOrWhiteSpace(Hero.MetaText))
+                @if (ShowMetaRow)
                 {
-                    <div class="discovery-hero-meta">@Hero.MetaText</div>
+                    <div class="discovery-hero-meta-row">
+                        @if (!string.IsNullOrWhiteSpace(HeroMediaIcon))
+                        {
+                            <span class="discovery-hero-kind" title="@HeroMediaKindLabel">
+                                <MudIcon Icon="@HeroMediaIcon" />
+                                <span class="discovery-visually-hidden">@HeroMediaKindLabel</span>
+                            </span>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(HeroMetaDisplay))
+                        {
+                            <div class="discovery-hero-meta">@HeroMetaDisplay</div>
+                        }
+                    </div>
                 }
 
                 @if (!string.IsNullOrWhiteSpace(Hero.Description))
@@ -88,13 +102,20 @@
             var backdrop = Hero.BackgroundImageUrl ?? Hero.BannerImageUrl ?? Hero.PreviewImageUrl;
             if (string.IsNullOrWhiteSpace(backdrop))
             {
-                return "background: linear-gradient(135deg, rgba(11,17,30,0.95) 0%, rgba(5,8,14,0.98) 100%);";
+                return "background: radial-gradient(circle at top right, rgba(28, 231, 131, 0.16) 0%, rgba(4, 6, 12, 0) 28%), linear-gradient(135deg, rgba(4,6,12,0.98) 0%, rgba(2,4,8,1) 100%);";
             }
 
-            return
-                $"background-image: linear-gradient(90deg, rgba(5,8,14,0.96) 0%, rgba(5,8,14,0.88) 32%, rgba(5,8,14,0.42) 72%, rgba(5,8,14,0.92) 100%), url('{backdrop}');";
+            return $"background-image: linear-gradient(180deg, rgba(3,5,10,0.12) 0%, rgba(3,5,10,0.58) 42%, rgba(3,5,10,0.98) 100%), linear-gradient(90deg, rgba(3,5,10,0.98) 0%, rgba(3,5,10,0.86) 34%, rgba(3,5,10,0.24) 74%, rgba(3,5,10,0.96) 100%), url('{backdrop}');";
         }
     }
+
+    private string? HeroMediaKindLabel => ExtractLeadingMediaKind(Hero.MetaText);
+
+    private string? HeroMediaIcon => ResolveMediaIcon(HeroMediaKindLabel);
+
+    private string HeroMetaDisplay => TrimLeadingMediaKind(Hero.MetaText, HeroMediaKindLabel);
+
+    private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HeroMediaIcon) || !string.IsNullOrWhiteSpace(HeroMetaDisplay);
 
     private void OpenPrimary() => Nav.NavigateTo(Hero.PrimaryNavigationUrl);
 
@@ -103,6 +124,47 @@
         if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
             Nav.NavigateTo(Hero.SecondaryNavigationUrl);
     }
+
+    private static string? ExtractLeadingMediaKind(string? metaText)
+    {
+        if (string.IsNullOrWhiteSpace(metaText))
+            return null;
+
+        var first = metaText
+            .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault();
+
+        return ResolveMediaIcon(first) is not null ? first : null;
+    }
+
+    private static string TrimLeadingMediaKind(string? metaText, string? mediaKind)
+    {
+        if (string.IsNullOrWhiteSpace(metaText))
+            return string.Empty;
+
+        if (string.IsNullOrWhiteSpace(mediaKind))
+            return metaText;
+
+        var parts = metaText
+            .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .ToList();
+
+        if (parts.Count > 0 && string.Equals(parts[0], mediaKind, StringComparison.OrdinalIgnoreCase))
+            parts.RemoveAt(0);
+
+        return string.Join(" / ", parts);
+    }
+
+    private static string? ResolveMediaIcon(string? mediaKind) => mediaKind?.Trim() switch
+    {
+        "Book" => Icons.Material.Filled.MenuBook,
+        "Audiobook" => Icons.Material.Filled.Headphones,
+        "Movie" => Icons.Material.Filled.Movie,
+        "TV" => Icons.Material.Filled.LiveTv,
+        "Comic" => Icons.Material.Filled.AutoStories,
+        "Music" => Icons.Material.Filled.MusicNote,
+        _ => null,
+    };
 }
 
 <style>
@@ -110,26 +172,40 @@
         position: relative;
         overflow: hidden;
         border-radius: 0;
-        min-height: clamp(420px, 54vw, 620px);
+        min-height: clamp(440px, 56vw, 660px);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(5, 8, 14, 0.92);
-        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.3);
+        background: #03050a;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+    }
+
+    .discovery-hero-shell::after {
+        content: "";
+        position: absolute;
+        inset: auto 0 0 0;
+        height: 220px;
+        background: linear-gradient(180deg, rgba(3, 5, 10, 0) 0%, rgba(3, 5, 10, 0.96) 100%);
+        z-index: 0;
+        pointer-events: none;
     }
 
     .discovery-hero-backdrop {
         position: absolute;
         inset: 0;
-        background-position: center center;
+        background-position: center top;
         background-size: cover;
-        transform: scale(1.02);
+        transform: scale(1.03);
     }
 
-    .discovery-hero-backdrop::after {
-        content: "";
+    .discovery-hero-texture {
         position: absolute;
-        inset: auto 0 0 0;
-        height: 240px;
-        background: linear-gradient(180deg, transparent 0%, rgba(5, 8, 14, 0.97) 100%);
+        inset: 0;
+        background:
+            radial-gradient(circle at top right, color-mix(in srgb, var(--hero-accent) 14%, transparent) 0%, transparent 32%),
+            linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 20%);
+        mix-blend-mode: screen;
+        opacity: 0.46;
+        z-index: 0;
+        pointer-events: none;
     }
 
     .discovery-hero-content {
@@ -137,7 +213,7 @@
         z-index: 1;
         min-height: inherit;
         display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(220px, 340px);
+        grid-template-columns: minmax(0, 1.15fr) minmax(220px, 340px);
         align-items: end;
         gap: 28px;
         padding: clamp(28px, 5vw, 48px);
@@ -148,7 +224,13 @@
         display: flex;
         flex-direction: column;
         gap: 14px;
-        padding-top: 40px;
+        padding: clamp(22px, 3vw, 30px);
+        padding-top: clamp(26px, 4vw, 36px);
+        border-radius: 28px;
+        background: linear-gradient(180deg, rgba(5, 8, 14, 0.68) 0%, rgba(5, 8, 14, 0.46) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(22px) saturate(138%);
+        box-shadow: 0 28px 60px rgba(0, 0, 0, 0.18);
     }
 
     .discovery-hero-eyebrow {
@@ -158,7 +240,7 @@
         padding: 7px 12px;
         border-radius: 999px;
         background: color-mix(in srgb, var(--hero-accent) 18%, rgba(255, 255, 255, 0.02));
-        border: 1px solid color-mix(in srgb, var(--hero-accent) 38%, rgba(255, 255, 255, 0.12));
+        border: 1px solid color-mix(in srgb, var(--hero-accent) 36%, rgba(255, 255, 255, 0.12));
         font-family: 'Montserrat', sans-serif;
         font-size: 10px;
         font-weight: 800;
@@ -173,7 +255,7 @@
         object-fit: contain;
         object-position: left center;
         display: block;
-        filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.28));
+        filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.32));
     }
 
     .discovery-hero-title {
@@ -191,14 +273,34 @@
         font-family: 'Montserrat', sans-serif;
         font-size: clamp(1rem, 1.6vw, 1.2rem);
         font-weight: 600;
-        color: rgba(226, 232, 240, 0.88);
+        color: rgba(226, 232, 240, 0.9);
     }
 
     .discovery-hero-status {
         font-family: 'Montserrat', sans-serif;
         font-size: 0.88rem;
         font-weight: 700;
-        color: color-mix(in srgb, var(--hero-accent) 78%, white 10%);
+        color: color-mix(in srgb, var(--hero-accent) 82%, white 10%);
+    }
+
+    .discovery-hero-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .discovery-hero-kind {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(248, 250, 252, 0.92);
+        backdrop-filter: blur(12px);
     }
 
     .discovery-hero-meta {
@@ -216,7 +318,7 @@
         font-family: 'Montserrat', sans-serif;
         font-size: 0.98rem;
         line-height: 1.7;
-        color: rgba(226, 232, 240, 0.76);
+        color: rgba(226, 232, 240, 0.78);
     }
 
     .discovery-hero-progress {
@@ -294,10 +396,11 @@
         width: min(100%, 320px);
         aspect-ratio: 2 / 3;
         overflow: hidden;
-        border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 28px 50px rgba(0, 0, 0, 0.34);
-        background: rgba(11, 17, 30, 0.88);
+        border-radius: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        box-shadow: 0 30px 56px rgba(0, 0, 0, 0.42);
+        background: linear-gradient(180deg, rgba(10, 14, 22, 0.92) 0%, rgba(5, 8, 14, 0.96) 100%);
+        backdrop-filter: blur(18px) saturate(130%);
     }
 
     .discovery-hero-preview-image {
@@ -305,6 +408,18 @@
         height: 100%;
         object-fit: cover;
         display: block;
+    }
+
+    .discovery-visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
     }
 
     @@media (max-width: 960px) {
@@ -330,7 +445,7 @@
 
         .discovery-hero-copy {
             gap: 12px;
-            padding-top: 20px;
+            padding: 20px;
         }
 
         .discovery-hero-logo {
@@ -340,6 +455,7 @@
 
         .discovery-hero-preview {
             width: min(58vw, 220px);
+            border-radius: 22px;
         }
     }
 </style>
