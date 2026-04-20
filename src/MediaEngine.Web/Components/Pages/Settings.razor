@@ -13,47 +13,54 @@
 <PageTitle>@BrowserTitle</PageTitle>
 
 <div class="settings-shell">
-    <section class="settings-shell-hero">
-        <div class="settings-shell-hero-copy">
-            <span class="settings-shell-eyebrow">Settings</span>
-            <div class="settings-shell-title-row">
-                <h1 class="settings-shell-title">@GetHeroTitle()</h1>
-                <span class="settings-shell-status @GetStatusClass()">@GetStatusLabel()</span>
+    <AppPageHeader Eyebrow="Settings"
+                   Title="@GetHeroTitle()"
+                   Subtitle="@GetSectionDescription(_activeSection)"
+                   StatusText="@GetStatusLabel()"
+                   StatusTone="@GetStatusTone()"
+                   Class="settings-shell-header">
+        <Actions>
+            <div class="settings-shell-role">
+                <span class="settings-shell-role-label">Role</span>
+                <span class="settings-shell-role-value">@_currentRole</span>
             </div>
-            <p class="settings-shell-subtitle">@GetSectionDescription(_activeSection)</p>
-        </div>
+        </Actions>
 
-        <div class="settings-shell-stats">
-            <a href="/settings/review" class="settings-shell-stat settings-shell-stat--interactive">
-                <span class="settings-shell-stat-label">Pending review</span>
-                <span class="settings-shell-stat-value">@_reviewCount</span>
-            </a>
-            <div class="settings-shell-stat">
-                <span class="settings-shell-stat-label">Current area</span>
-                <span class="settings-shell-stat-value">@CurrentGroup.Label</span>
+        <Stats>
+            <div class="settings-shell-stats">
+                <a href="/settings/review" class="settings-shell-stat settings-shell-stat--interactive">
+                    <span class="settings-shell-stat-label">Pending review</span>
+                    <span class="settings-shell-stat-value">@_reviewCount</span>
+                </a>
+                <div class="settings-shell-stat">
+                    <span class="settings-shell-stat-label">Current area</span>
+                    <span class="settings-shell-stat-value">@CurrentGroup.Label</span>
+                </div>
+                <div class="settings-shell-stat">
+                    <span class="settings-shell-stat-label">Version</span>
+                    <span class="settings-shell-stat-value">@(_systemStatus?.Version ?? "Unavailable")</span>
+                </div>
             </div>
-            <div class="settings-shell-stat">
-                <span class="settings-shell-stat-label">Version</span>
-                <span class="settings-shell-stat-value">@(_systemStatus?.Version ?? "Unavailable")</span>
-            </div>
-        </div>
+        </Stats>
 
-        <AppTabs Items="PrimaryTabItems"
-                 ActiveKey="@CurrentGroup.Key"
-                 AriaLabel="Settings sections"
-                 UseTabRoles="false"
-                 Class="settings-shell-primary-tabs" />
-
-        @if (CurrentGroupItems.Count > 1)
-        {
-            <AppTabs Items="SecondaryTabItems"
-                     ActiveKey="@_activeSection.ToString()"
-                     Variant="secondary"
-                     AriaLabel="@($"{CurrentGroup.Label} pages")"
+        <ChildContent>
+            <AppTabs Items="PrimaryTabItems"
+                     ActiveKey="@CurrentGroup.Key"
+                     AriaLabel="Settings sections"
                      UseTabRoles="false"
-                     Class="settings-shell-secondary-tabs" />
-        }
-    </section>
+                     Class="settings-shell-primary-tabs" />
+
+            @if (CurrentGroupItems.Count > 1)
+            {
+                <AppTabs Items="SecondaryTabItems"
+                         ActiveKey="@_activeSection.ToString()"
+                         Variant="secondary"
+                         AriaLabel="@($"{CurrentGroup.Label} pages")"
+                         UseTabRoles="false"
+                         Class="settings-shell-secondary-tabs" />
+            }
+        </ChildContent>
+    </AppPageHeader>
 
     <section class="settings-shell-panel">
         @switch (_activeSection)
@@ -283,15 +290,12 @@
         return _systemStatus?.IsHealthy == true ? "Engine online" : "Engine unavailable";
     }
 
-    private string GetStatusClass()
-    {
-        if (_shellStateLoading)
-            return "settings-shell-status--loading";
-
-        return _systemStatus?.IsHealthy == true
-            ? "settings-shell-status--healthy"
-            : "settings-shell-status--warning";
-    }
+    private string GetStatusTone() =>
+        _shellStateLoading
+            ? "neutral"
+            : _systemStatus?.IsHealthy == true
+                ? "healthy"
+                : "warning";
 
     private static string GetSectionDescription(SettingsSection section) => section switch
     {
@@ -315,312 +319,3 @@
         _ => "Settings",
     };
 }
-
-<style>
-    .settings-shell {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
-        padding: 4px 0 32px;
-        min-width: 0;
-    }
-
-    .settings-shell-hero {
-        position: relative;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        gap: 18px;
-        padding: 24px;
-        border-radius: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background:
-            radial-gradient(circle at top right, rgba(201, 146, 46, 0.18), transparent 36%),
-            linear-gradient(180deg, rgba(11, 17, 35, 0.92), rgba(8, 11, 20, 0.96));
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
-    }
-
-    .settings-shell-hero::after {
-        content: "";
-        position: absolute;
-        inset: auto -15% -45% auto;
-        width: 320px;
-        height: 320px;
-        border-radius: 50%;
-        background: radial-gradient(circle, rgba(255, 255, 255, 0.10), transparent 68%);
-        pointer-events: none;
-    }
-
-    .settings-shell-hero-copy,
-    .settings-shell-stats,
-    .settings-shell-primary-tabs,
-    .settings-shell-secondary-tabs {
-        position: relative;
-        z-index: 1;
-    }
-
-    .settings-shell-eyebrow {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 0.74rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: rgba(248, 248, 248, 0.48);
-    }
-
-    .settings-shell-title-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 12px;
-        margin-top: 6px;
-    }
-
-    .settings-shell-title {
-        margin: 0;
-        font-size: clamp(2rem, 3vw, 2.65rem);
-        font-weight: 900;
-        letter-spacing: -0.04em;
-        color: rgba(255, 255, 255, 0.96);
-    }
-
-    .settings-shell-status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.05);
-        color: rgba(255, 255, 255, 0.78);
-    }
-
-    .settings-shell-status::before {
-        content: "";
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: currentColor;
-        opacity: 0.9;
-    }
-
-    .settings-shell-status--healthy {
-        color: #65d28d;
-    }
-
-    .settings-shell-status--warning {
-        color: #f0b25f;
-    }
-
-    .settings-shell-status--loading {
-        color: rgba(255, 255, 255, 0.72);
-    }
-
-    .settings-shell-subtitle {
-        max-width: 720px;
-        margin: 0;
-        font-size: 0.98rem;
-        line-height: 1.7;
-        color: rgba(248, 248, 248, 0.58);
-    }
-
-    .settings-shell-stats {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 12px;
-    }
-
-    .settings-shell-stat {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 14px 16px;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(255, 255, 255, 0.04);
-        text-decoration: none;
-    }
-
-    .settings-shell-stat--interactive {
-        transition: border-color 0.18s ease, transform 0.18s ease, background 0.18s ease;
-    }
-
-    .settings-shell-stat--interactive:hover {
-        transform: translateY(-1px);
-        border-color: rgba(201, 146, 46, 0.35);
-        background: rgba(201, 146, 46, 0.10);
-    }
-
-    .settings-shell-stat-label {
-        font-size: 0.72rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: rgba(248, 248, 248, 0.42);
-    }
-
-    .settings-shell-stat-value {
-        font-size: 1.18rem;
-        font-weight: 800;
-        letter-spacing: -0.03em;
-        color: rgba(255, 255, 255, 0.92);
-    }
-
-    .settings-shell-primary-tabs,
-    .settings-shell-secondary-tabs {
-        display: flex;
-        gap: 10px;
-        overflow-x: auto;
-        scrollbar-width: none;
-        padding-bottom: 2px;
-    }
-
-    .settings-shell-primary-tabs::-webkit-scrollbar,
-    .settings-shell-secondary-tabs::-webkit-scrollbar {
-        display: none;
-    }
-
-    .settings-shell-tab,
-    .settings-shell-subtab {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        white-space: nowrap;
-        text-decoration: none;
-        border: 1px solid transparent;
-        transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
-    }
-
-    .settings-shell-tab {
-        padding: 12px 16px;
-        border-radius: 16px;
-        background: rgba(255, 255, 255, 0.03);
-        color: rgba(248, 248, 248, 0.68);
-        font-size: 0.86rem;
-        font-weight: 700;
-    }
-
-    .settings-shell-tab:hover,
-    .settings-shell-subtab:hover {
-        transform: translateY(-1px);
-        color: rgba(255, 255, 255, 0.92);
-        border-color: rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.05);
-    }
-
-    .settings-shell-tab--active {
-        color: rgba(255, 255, 255, 0.96);
-        border-color: rgba(201, 146, 46, 0.32);
-        background: rgba(201, 146, 46, 0.14);
-        box-shadow: inset 0 0 0 1px rgba(201, 146, 46, 0.10);
-    }
-
-    .settings-shell-tab-icon {
-        font-size: 1rem;
-    }
-
-    .settings-shell-subtab {
-        padding: 10px 14px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.025);
-        color: rgba(248, 248, 248, 0.58);
-        font-size: 0.82rem;
-        font-weight: 700;
-    }
-
-    .settings-shell-subtab--active {
-        color: rgba(255, 255, 255, 0.94);
-        border-color: rgba(255, 255, 255, 0.10);
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .settings-shell-badge {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 22px;
-        height: 22px;
-        padding: 0 7px;
-        border-radius: 999px;
-        background: rgba(201, 146, 46, 0.20);
-        color: #f4d9a0;
-        font-size: 0.72rem;
-        font-weight: 800;
-    }
-
-    .settings-shell-badge--sub {
-        min-width: 20px;
-        height: 20px;
-        font-size: 0.68rem;
-    }
-
-    .settings-shell-panel {
-        min-width: 0;
-        border-radius: 26px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: linear-gradient(180deg, rgba(10, 14, 25, 0.92), rgba(8, 11, 20, 0.95));
-        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
-        overflow: hidden;
-    }
-
-    .settings-shell-panel .st-page {
-        padding: 24px;
-    }
-
-    .settings-shell-panel .vault-layout {
-        padding: 0;
-    }
-
-    .settings-shell-panel .vault-header {
-        padding: 24px 24px 0;
-    }
-
-    .settings-shell-panel .vault-body {
-        padding-top: 0;
-    }
-
-    .settings-shell-panel .mud-paper {
-        background: rgba(255, 255, 255, 0.03) !important;
-        border-color: rgba(255, 255, 255, 0.06) !important;
-        border-radius: 18px !important;
-    }
-
-    .settings-shell-panel .mud-divider {
-        border-color: rgba(255, 255, 255, 0.05) !important;
-    }
-
-    @@media (max-width: 900px) {
-        .settings-shell-stats {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    @@media (max-width: 768px) {
-        .settings-shell {
-            gap: 18px;
-        }
-
-        .settings-shell-hero {
-            padding: 18px;
-            border-radius: 22px;
-        }
-
-        .settings-shell-panel {
-            border-radius: 20px;
-        }
-
-        .settings-shell-panel .st-page,
-        .settings-shell-panel .vault-header {
-            padding: 18px;
-        }
-
-        .settings-shell-title {
-            font-size: 1.7rem;
-        }
-    }
-</style>

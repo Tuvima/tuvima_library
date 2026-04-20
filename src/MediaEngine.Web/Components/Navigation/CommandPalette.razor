@@ -35,8 +35,17 @@
                          Style="font-size: 1.1rem;">
             <ItemTemplate Context="item">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="py-1">
-                    <MudIcon Icon="@item.Icon"
-                             Style="@($"color: {item.Color}; font-size: 20px; min-width: 20px;")" />
+                    @if (AppIconRegistry.TryResolve(item.Icon, out _))
+                    {
+                        <AppIcon Name="@item.Icon"
+                                 Size="1.05rem"
+                                 Style="@($"color: {item.Color}; min-width: 20px;")" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@item.Icon"
+                                 Style="@($"color: {item.Color}; font-size: 20px; min-width: 20px;")" />
+                    }
                     <div>
                         <MudText Typo="Typo.body2">@item.Label</MudText>
                         @if (!string.IsNullOrEmpty(item.Subtitle))
@@ -63,8 +72,8 @@
 
     private PaletteItem[] StaticItems =>
     [
-        new(L["CmdPalette_Library"],  "/",         Icons.Material.Filled.LibraryBooks, "#7C4DFF", null),
-        new(L["CmdPalette_Settings"], "/settings", Icons.Material.Filled.Settings,     "#9E9E9E", L["CmdPalette_SettingsSubtitle"]),
+        new(L["CmdPalette_Library"],  "/",         AppIcons.Collections, "#60A5FA", null),
+        new(L["CmdPalette_Settings"], "/settings", AppIcons.Settings,    "#94A3B8", L["CmdPalette_SettingsSubtitle"]),
     ];
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -126,11 +135,11 @@
     private static string MediaIcon(string mediaType) =>
         UniverseMapper.ClassifyBucketPublic(mediaType) switch
         {
-            MediaTypeBucket.Book    => Icons.Material.Filled.MenuBook,
-            MediaTypeBucket.Video   => Icons.Material.Filled.VideoFile,
-            MediaTypeBucket.Comic   => Icons.Material.Filled.AutoStories,
-            MediaTypeBucket.Audio   => Icons.Material.Filled.Headphones,
-            _                      => Icons.Material.Filled.Folder,
+            MediaTypeBucket.Book   => AppIcons.Read,
+            MediaTypeBucket.Video  => AppIcons.Watch,
+            MediaTypeBucket.Comic  => "fa:book-open",
+            MediaTypeBucket.Audio  => AppIcons.Listen,
+            _                     => AppIcons.Library,
         };
 
     private static string MediaColor(string mediaType) =>
@@ -161,10 +170,11 @@
 
 <style>
     .command-palette {
-        border-radius: 12px !important;
-        border: 1px solid rgba(124, 77, 255, 0.30);
-        background: var(--app-glass-bg) !important;
+        border-radius: 18px !important;
+        border: 1px solid rgba(96, 165, 250, 0.22);
+        background: rgba(15, 23, 42, 0.96) !important;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 32px 64px rgba(15, 23, 42, 0.28);
     }
 </style>

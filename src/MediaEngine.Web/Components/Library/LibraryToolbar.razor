@@ -5,8 +5,9 @@
 <div class="vault-toolbar">
     @* â”€â”€ Search â”€â”€ *@
     <div class="vault-search-wrap">
-        <MudIcon Icon="@Icons.Material.Outlined.Search"
-                 Class="vault-search-icon" />
+        <AppIcon Name="@AppIcons.Search"
+                 Class="vault-search-icon"
+                 Size="0.95rem" />
         <input type="text"
                class="vault-search-input"
                placeholder="@L["VaultToolbar_SearchPlaceholder"]"
@@ -27,7 +28,7 @@
                 <button class="vault-view-mode-btn @(isActive ? "vault-view-mode-btn--active" : "")"
                         title="@mode.Label"
                         @onclick="() => ViewModeChanged.InvokeAsync(mode.Value)">
-                    <MudIcon Icon="@mode.Icon" Style="font-size: 14px;" />
+                    <AppIcon Name="@mode.Icon" Size="0.85rem" />
                     <span>@mode.Label</span>
                 </button>
             }
@@ -37,7 +38,7 @@
     @* â”€â”€ Customize View button â”€â”€ *@
     <button class="vault-customize-btn" title="Customize view"
             @onclick="() => OnColumnPickerRequested.InvokeAsync()">
-        <MudIcon Icon="@Icons.Material.Outlined.Tune" Style="font-size: 14px;" />
+        <AppIcon Name="@AppIcons.Configure" Size="0.85rem" />
         <span>Customize</span>
     </button>
 </div>
@@ -98,12 +99,12 @@
 
     private List<ViewModeOption> GetViewModeOptions() => ResolvedTabId switch
     {
-        "movies"     => [new("All Movies", "all", Icons.Material.Outlined.ViewList), new("By Series", "series", Icons.Material.Outlined.Folder)],
-        "tv"         => [new("By Show", "shows", Icons.Material.Outlined.Folder)],
-        "music"      => [new("Albums", "albums", Icons.Material.Outlined.Album), new("Artists", "artists", Icons.Material.Outlined.Person), new("Tracks", "tracks", Icons.Material.Outlined.ViewList)],
-        "books"      => [new("All Books", "all", Icons.Material.Outlined.ViewList)],
-        "audiobooks" => [new("All Audiobooks", "all", Icons.Material.Outlined.ViewList)],
-        "comics"     => [new("By Series", "series", Icons.Material.Outlined.Folder), new("All Issues", "all", Icons.Material.Outlined.ViewList)],
+        "movies"     => [new("All Movies", "all", AppIcons.Table), new("By Series", "series", AppIcons.FolderTree)],
+        "tv"         => [new("By Show", "shows", AppIcons.FolderTree)],
+        "music"      => [new("Albums", "albums", AppIcons.Collections), new("Artists", "artists", AppIcons.Profile), new("Tracks", "tracks", AppIcons.Table)],
+        "books"      => [new("All Books", "all", AppIcons.Table)],
+        "audiobooks" => [new("All Audiobooks", "all", AppIcons.Table)],
+        "comics"     => [new("By Series", "series", AppIcons.FolderTree), new("All Issues", "all", AppIcons.Table)],
         _ => [],
     };
 

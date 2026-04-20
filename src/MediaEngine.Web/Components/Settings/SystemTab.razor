@@ -11,55 +11,56 @@
     else
     {
         <div class="settings-system-grid">
-            <MudPaper Elevation="0" Class="settings-system-card">
-                <div class="st-label">Health</div>
-                <MudText Typo="Typo.h6" Class="mb-2">Runtime status</MudText>
-                <MudText Typo="Typo.body2" Class="settings-system-copy">
-                    Current server reachability and the version reported by the engine.
-                </MudText>
-
-                <div class="settings-system-metric-row">
-                    <div class="settings-system-metric">
-                        <span class="settings-system-metric-label">Engine</span>
-                        <span class="settings-system-metric-value @(_status?.IsHealthy == true ? "settings-system-metric-value--healthy" : "settings-system-metric-value--warning")">
-                            @(_status?.IsHealthy == true ? "Online" : "Unavailable")
-                        </span>
+            <div class="settings-system-cell">
+                <AppSurfaceCard Eyebrow="Health"
+                                Title="Runtime status"
+                                Description="Current server reachability and the version reported by the engine."
+                                Class="settings-system-card">
+                    <div class="settings-system-metric-row">
+                        <div class="settings-system-metric">
+                            <span class="settings-system-metric-label">Engine</span>
+                            <span class="settings-system-metric-value @(_status?.IsHealthy == true ? "settings-system-metric-value--healthy" : "settings-system-metric-value--warning")">
+                                @(_status?.IsHealthy == true ? "Online" : "Unavailable")
+                            </span>
+                        </div>
+                        <div class="settings-system-metric">
+                            <span class="settings-system-metric-label">Version</span>
+                            <span class="settings-system-metric-value">@(_status?.Version ?? "Unknown")</span>
+                        </div>
+                        <div class="settings-system-metric">
+                            <span class="settings-system-metric-label">Language</span>
+                            <span class="settings-system-metric-value">@(_serverGeneral?.DisplayLanguage ?? _status?.Language ?? "en")</span>
+                        </div>
                     </div>
-                    <div class="settings-system-metric">
-                        <span class="settings-system-metric-label">Version</span>
-                        <span class="settings-system-metric-value">@(_status?.Version ?? "Unknown")</span>
-                    </div>
-                    <div class="settings-system-metric">
-                        <span class="settings-system-metric-label">Language</span>
-                        <span class="settings-system-metric-value">@(_serverGeneral?.DisplayLanguage ?? _status?.Language ?? "en")</span>
-                    </div>
-                </div>
-            </MudPaper>
+                </AppSurfaceCard>
+            </div>
 
-            <MudPaper Elevation="0" Class="settings-system-card">
-                <div class="st-label">Connectivity</div>
-                <MudText Typo="Typo.h6" Class="mb-2">Dashboard target</MudText>
-                <MudText Typo="Typo.body2" Class="settings-system-copy">
-                    The dashboard checks this engine endpoint for availability before system actions run.
-                </MudText>
+            <div class="settings-system-cell">
+                <AppSurfaceCard Eyebrow="Connectivity"
+                                Title="Dashboard target"
+                                Description="The dashboard checks this engine endpoint for availability before system actions run."
+                                Class="settings-system-card">
+                    <code class="settings-system-endpoint">@_engineBaseUrl</code>
 
-                <code class="settings-system-endpoint">@_engineBaseUrl</code>
-
-                @if (_status?.IsHealthy != true)
-                {
-                    <MudAlert Severity="Severity.Warning" Dense="true" Variant="Variant.Outlined" Class="mt-3">
-                        The engine did not respond to the latest health probe. Save and maintenance actions may fail until it is reachable again.
-                    </MudAlert>
-                }
-            </MudPaper>
+                    @if (_status?.IsHealthy != true)
+                    {
+                        <div class="settings-system-warning">
+                            <AppIcon Name="@AppIcons.Warning" Class="settings-system-warning-icon" />
+                            <span>The engine did not respond to the latest health probe. Save and maintenance actions may fail until it is reachable again.</span>
+                        </div>
+                    }
+                </AppSurfaceCard>
+            </div>
         </div>
     }
 
-    <MudPaper Elevation="0" Class="settings-system-shell">
-        <div class="st-label">Configuration</div>
-        <MudText Typo="Typo.h6" Class="mb-4">Server identity and regional defaults</MudText>
+    <AppSurfaceCard Eyebrow="Configuration"
+                    Title="Server identity and regional defaults"
+                    Description="Regional behavior, language preferences, and default date or time formatting for the engine."
+                    Class="settings-system-shell"
+                    BodyClassName="settings-system-shell-body">
         <ServerGeneralTab />
-    </MudPaper>
+    </AppSurfaceCard>
 </div>
 
 @code {
@@ -95,87 +96,3 @@
         _loading = false;
     }
 }
-
-<style>
-    .settings-system-page {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .settings-system-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-    }
-
-    .settings-system-card,
-    .settings-system-shell {
-        padding: 22px;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(255, 255, 255, 0.03);
-    }
-
-    .settings-system-copy {
-        color: rgba(248, 248, 248, 0.56);
-        line-height: 1.6;
-    }
-
-    .settings-system-metric-row {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        margin-top: 14px;
-    }
-
-    .settings-system-metric {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 12px 14px;
-        border-radius: 14px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    .settings-system-metric-label {
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: rgba(248, 248, 248, 0.4);
-    }
-
-    .settings-system-metric-value {
-        font-size: 1.05rem;
-        font-weight: 800;
-        color: rgba(255, 255, 255, 0.92);
-    }
-
-    .settings-system-metric-value--healthy {
-        color: #6bd58d;
-    }
-
-    .settings-system-metric-value--warning {
-        color: #f0b25f;
-    }
-
-    .settings-system-endpoint {
-        display: block;
-        padding: 12px 14px;
-        margin-top: 14px;
-        border-radius: 14px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(0, 0, 0, 0.18);
-        color: rgba(255, 255, 255, 0.85);
-        overflow-wrap: anywhere;
-    }
-
-    @@media (max-width: 1000px) {
-        .settings-system-grid,
-        .settings-system-metric-row {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>

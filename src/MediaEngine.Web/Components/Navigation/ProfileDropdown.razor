@@ -10,8 +10,8 @@
         <div class="profile-trigger-name">
             @DisplayName.Split(' ').FirstOrDefault()
         </div>
-        <MudIcon Icon="@MudBlazor.Icons.Material.Filled.ExpandMore"
-                 Size="Size.Small"
+        <AppIcon Name="@AppIcons.ChevronDown"
+                 Size="0.75rem"
                  Class="@($"profile-chevron {(_isOpen ? "profile-chevron-open" : "")}")" />
     </button>
 
@@ -24,30 +24,28 @@
                 <span class="profile-menu-name">@DisplayName</span>
             </div>
             <div class="profile-menu-items">
-                @* ── Category navigation (visible on very small phones where top-bar nav is hidden) ── *@
                 <div class="profile-menu-mobile-nav">
                     <button class="profile-menu-item" @onclick='() => Navigate("/")'>
-                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Home" Size="Size.Small" />
+                        <AppIcon Name="@AppIcons.Home" Size="0.9rem" Class="profile-menu-item-icon" />
                         <span>Home</span>
                     </button>
                     <button class="profile-menu-item" @onclick='() => Navigate("/read")'>
-                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.MenuBook" Size="Size.Small" />
+                        <AppIcon Name="@AppIcons.Read" Size="0.9rem" Class="profile-menu-item-icon" />
                         <span>Read</span>
                     </button>
                     <button class="profile-menu-item" @onclick='() => Navigate("/watch")'>
-                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Movie" Size="Size.Small" />
+                        <AppIcon Name="@AppIcons.Watch" Size="0.9rem" Class="profile-menu-item-icon" />
                         <span>Watch</span>
                     </button>
                     <button class="profile-menu-item" @onclick='() => Navigate("/listen")'>
-                        <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Headphones" Size="Size.Small" />
+                        <AppIcon Name="@AppIcons.Listen" Size="0.9rem" Class="profile-menu-item-icon" />
                         <span>Listen</span>
                     </button>
                     <div class="profile-menu-divider"></div>
                 </div>
 
-                <!-- Functional navigation links -->
                 <button class="profile-menu-item" @onclick='() => Navigate("/settings/review")'>
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.RateReview" Size="Size.Small" />
+                    <AppIcon Name="@AppIcons.Review" Size="0.9rem" Class="profile-menu-item-icon" />
                     <span class="profile-menu-item-label">Review</span>
                     @if (ReviewCount > 0)
                     {
@@ -55,11 +53,11 @@
                     }
                 </button>
                 <button class="profile-menu-item" @onclick='() => Navigate("/collections")'>
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Collections" Size="Size.Small" />
+                    <AppIcon Name="@AppIcons.Collections" Size="0.9rem" Class="profile-menu-item-icon" />
                     <span class="profile-menu-item-label">Collections</span>
                 </button>
                 <button class="profile-menu-item" @onclick='() => Navigate("/settings")'>
-                    <MudIcon Icon="@MudBlazor.Icons.Material.Outlined.Settings" Size="Size.Small" />
+                    <AppIcon Name="@AppIcons.Settings" Size="0.9rem" Class="profile-menu-item-icon" />
                     <span class="profile-menu-item-label">Settings</span>
                 </button>
             </div>
@@ -92,33 +90,30 @@
         align-items: center;
     }
 
-    /* ── Trigger button ── */
     .profile-trigger {
         display: flex;
         flex-direction: row;
         align-items: center;
-        gap: 12px;
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        gap: 0.75rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(148, 163, 184, 0.18);
         border-radius: 999px;
-        padding: 6px 16px 6px 6px;
+        padding: 0.35rem 0.95rem 0.35rem 0.35rem;
         cursor: pointer;
         transition: all 0.2s ease;
-        font-family: 'Montserrat', sans-serif;
     }
 
     .profile-trigger:hover {
-        background: rgba(255, 255, 255, 0.10);
+        background: rgba(255, 255, 255, 0.08);
     }
 
     .profile-trigger-active {
-        border-color: rgba(201, 146, 46, 0.50);
+        border-color: rgba(96, 165, 250, 0.38);
     }
 
-    /* ── Avatar circle ── */
     .profile-avatar {
-        width: 32px;
-        height: 32px;
+        width: 2rem;
+        height: 2rem;
         border-radius: 50%;
         display: flex;
         align-items: center;
@@ -129,14 +124,10 @@
         flex-shrink: 0;
     }
 
-    /* ── First name label ── */
     .profile-trigger-name {
-        font-size: 11px;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: -0.02em;
-        color: white;
-        font-family: 'Montserrat', sans-serif;
+        font-size: 0.83rem;
+        font-weight: 600;
+        color: rgba(248, 250, 252, 0.96);
     }
 
     @@media (max-width: 768px) {
@@ -145,9 +136,8 @@
         }
     }
 
-    /* ── Chevron ── */
     .profile-chevron {
-        color: rgba(248, 248, 248, 0.50);
+        color: rgba(226, 232, 240, 0.64);
         transition: transform 0.2s ease;
     }
 
@@ -155,7 +145,6 @@
         transform: rotate(180deg);
     }
 
-    /* ── Backdrop (click-outside) ── */
     .profile-menu-backdrop {
         position: fixed;
         inset: 0;
@@ -164,58 +153,52 @@
         cursor: default;
     }
 
-    /* ── Dropdown menu ── */
     .profile-menu {
         position: absolute;
         top: calc(100% + 12px);
         right: 0;
-        width: 260px;
-        background: rgba(10, 14, 23, 0.95);
+        width: 280px;
+        background: rgba(15, 23, 42, 0.96);
         backdrop-filter: blur(24px);
         -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(255, 255, 255, 0.10);
-        border-radius: 16px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.60);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 18px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
         z-index: 100;
         overflow: hidden;
-        padding: 8px 0;
+        padding: 0.5rem 0;
     }
 
-    /* ── Menu header ── */
     .profile-menu-header {
-        padding: 12px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        margin-bottom: 8px;
+        padding: 0.85rem 1rem;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+        margin-bottom: 0.5rem;
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: 0.15rem;
     }
 
     .profile-menu-label {
-        font-size: 10px;
+        font-size: 0.64rem;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.15em;
-        color: rgba(248, 248, 248, 0.38);
-        font-family: 'Montserrat', sans-serif;
+        color: rgba(148, 163, 184, 0.92);
     }
 
     .profile-menu-name {
-        font-size: 14px;
+        font-size: 0.92rem;
         font-weight: 700;
-        color: white;
-        font-family: 'Montserrat', sans-serif;
+        color: rgba(248, 250, 252, 0.98);
     }
 
-    /* ── Menu items container ── */
     .profile-menu-items {
         display: flex;
         flex-direction: column;
         align-items: stretch;
-        padding: 0 8px;
+        padding: 0 0.5rem;
     }
 
-    /* ── Mobile-only category nav (hidden on ≥640px where TopBar shows nav) ── */
     .profile-menu-mobile-nav {
         display: block;
     }
@@ -226,19 +209,17 @@
         }
     }
 
-    /* ── Individual menu item ── */
     .profile-menu-item {
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        gap: 12px;
+        gap: 0.75rem;
         width: 100%;
-        padding: 10px 12px;
-        border-radius: 12px;
-        color: rgba(248, 248, 248, 0.70);
-        font-size: 14px;
+        padding: 0.7rem 0.8rem;
+        border-radius: 0.9rem;
+        color: rgba(226, 232, 240, 0.76);
+        font-size: 0.92rem;
         font-weight: 500;
-        font-family: 'Montserrat', sans-serif;
         background: transparent;
         border: none;
         cursor: pointer;
@@ -253,31 +234,32 @@
     }
 
     .profile-menu-item:hover {
-        background: rgba(255, 255, 255, 0.05);
-        color: rgba(248, 248, 248, 0.90);
+        background: rgba(96, 165, 250, 0.1);
+        color: rgba(248, 250, 252, 0.96);
     }
 
-    .profile-menu-item:hover .mud-icon-root {
-        color: #C9922E;
+    .profile-menu-item-icon {
+        color: rgba(148, 163, 184, 0.92);
+        transition: color 0.15s ease;
     }
 
-    /* ── Danger variant ── */
-    /* ── Review count badge ── */
+    .profile-menu-item:hover .profile-menu-item-icon {
+        color: #60a5fa;
+    }
+
     .profile-menu-badge {
         margin-left: auto;
-        background: #C9922E;
-        color: black;
-        font-size: 10px;
+        background: #60a5fa;
+        color: #0f172a;
+        font-size: 0.68rem;
         font-weight: 700;
-        padding: 2px 8px;
+        padding: 0.15rem 0.5rem;
         border-radius: 999px;
-        font-family: 'Montserrat', sans-serif;
     }
 
-    /* ── Divider ── */
     .profile-menu-divider {
         height: 1px;
-        background: rgba(255, 255, 255, 0.05);
-        margin: 4px 8px;
+        background: rgba(148, 163, 184, 0.14);
+        margin: 0.35rem 0.5rem;
     }
 </style>

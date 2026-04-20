@@ -1,4 +1,5 @@
 using MudBlazor;
+using MediaEngine.Web.Components.Shared;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -66,13 +67,13 @@ public static class SettingsNav
 {
     public static readonly SettingsGroupDef[] AllGroups =
     [
-        new("overview",  "Overview",  Icons.Material.Outlined.Dashboard,   false, SettingsSection.Overview),
-        new("review",    "Review",    Icons.Material.Outlined.RateReview,  false, SettingsSection.Review),
-        new("personal",  "Personal",  Icons.Material.Outlined.Person,      false, SettingsSection.Profile),
-        new("library",   "Library",   Icons.Material.Outlined.FolderOpen,  true,  SettingsSection.Folders),
-        new("providers", "Providers", Icons.Material.Outlined.Share,       true,  SettingsSection.Providers),
-        new("ai",        "AI",        Icons.Material.Outlined.Psychology,  true,  SettingsSection.Models),
-        new("server",    "Server",    Icons.Material.Outlined.Dns,         true,  SettingsSection.System),
+        new("overview",  "Overview",  AppIcons.Overview,     false, SettingsSection.Overview),
+        new("review",    "Review",    AppIcons.Review,       false, SettingsSection.Review),
+        new("personal",  "Personal",  AppIcons.Profile,      false, SettingsSection.Profile),
+        new("library",   "Library",   AppIcons.Library,      true,  SettingsSection.Folders),
+        new("providers", "Providers", AppIcons.Providers,    true,  SettingsSection.Providers),
+        new("ai",        "AI",        AppIcons.Intelligence, true,  SettingsSection.Models),
+        new("server",    "Server",    AppIcons.Server,       true,  SettingsSection.System),
     ];
 
     public static readonly SettingsItemDef[] AllItems =

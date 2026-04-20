@@ -3,7 +3,7 @@
 
 <div class="vault-status-pill">
     <div class="vault-status-badge" style="color: @_color; background: @_bgColor; border-color: @_borderColor; @(Status == LibraryStatus.Unowned ? "opacity: 0.5;" : "")">
-        <MudIcon Icon="@_icon" Style="font-size: 12px;" />
+        <AppIcon Name="@_icon" Size="0.7rem" />
         <span>@_label</span>
     </div>
     @if (Status == LibraryStatus.Quarantined && QuarantineDays.HasValue)
@@ -54,14 +54,14 @@
 
     private string _icon => Status switch
     {
-        LibraryStatus.Verified => Icons.Material.Filled.Check,
-        LibraryStatus.Provisional => Icons.Material.Filled.Info,
-        LibraryStatus.NeedsReview => Icons.Material.Filled.Warning,
-        LibraryStatus.Quarantined => Icons.Material.Filled.Close,
-        LibraryStatus.WaitingForProvider => Icons.Material.Filled.Schedule,
-        LibraryStatus.RetailMatched => Icons.Material.Outlined.Schedule,
-        LibraryStatus.Unowned => Icons.Material.Outlined.RemoveShoppingCart,
-        _ => Icons.Material.Filled.HelpOutline,
+        LibraryStatus.Verified => AppIcons.Review,
+        LibraryStatus.Provisional => AppIcons.Info,
+        LibraryStatus.NeedsReview => AppIcons.Warning,
+        LibraryStatus.Quarantined => AppIcons.Close,
+        LibraryStatus.WaitingForProvider => AppIcons.Pending,
+        LibraryStatus.RetailMatched => AppIcons.Pending,
+        LibraryStatus.Unowned => AppIcons.Shopping,
+        _ => AppIcons.Info,
     };
 
     private string _label => Status switch
@@ -89,13 +89,13 @@
         display: flex;
         align-items: center;
         gap: 6px;
-        font-size: 10px;
-        font-weight: 800;
-        padding: 4px 8px;
-        border-radius: 6px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        padding: 0.32rem 0.55rem;
+        border-radius: 999px;
         border: 1px solid;
         white-space: nowrap;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
     }
 

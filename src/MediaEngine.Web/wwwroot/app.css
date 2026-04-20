@@ -15,7 +15,9 @@
 /* ── CSS custom properties (dark-only cinematic theme) ────────────────── */
 
 :root {
+    --app-font-sans:          "Inter", "Montserrat", "Segoe UI", sans-serif;
     --app-accent:             #EAB308;
+    --app-text-primary:       rgba(248, 250, 252, 0.98);
     --app-glass-bg:           rgba(12, 16, 36, 0.80);
     --app-glass-border:       rgba(255, 255, 255, 0.08);
     --app-glass-inner-bg:     rgba(255, 255, 255, 0.02);
@@ -23,6 +25,11 @@
     --app-text-muted:         rgba(248, 248, 248, 0.50);
     --app-text-soft:          rgba(248, 248, 248, 0.60);
     --app-text-faint:         rgba(248, 248, 248, 0.38);
+    --app-surface-1:          rgba(15, 23, 42, 0.92);
+    --app-surface-2:          rgba(15, 23, 42, 0.74);
+    --app-surface-3:          rgba(30, 41, 59, 0.58);
+    --app-border-subtle:      rgba(148, 163, 184, 0.18);
+    --app-border-strong:      rgba(96, 165, 250, 0.24);
     --app-icon-muted:         rgba(248, 248, 248, 0.35);
     --app-icon-soft:          rgba(248, 248, 248, 0.55);
     --app-hover-overlay:      rgba(255, 255, 255, 0.05);
@@ -30,6 +37,7 @@
     --app-radius-sm:          10px;
     --app-radius-md:          12px;
     --app-radius-lg:          16px;
+    --app-radius-xl:          20px;
     --app-tab-border:         rgba(255, 255, 255, 0.08);
     --app-tab-text:           rgba(248, 248, 248, 0.56);
     --app-tab-text-hover:     rgba(248, 248, 248, 0.88);
@@ -40,9 +48,11 @@
     --app-swatch-border:      rgba(255, 255, 255, 0.10);
     --app-swatch-active:      rgba(255, 255, 255, 0.80);
     --app-shadow:             0 8px 32px rgba(0, 0, 0, 0.50);
+    --app-shadow-md:          0 16px 36px rgba(15, 23, 42, 0.16);
+    --app-shadow-lg:          0 22px 48px rgba(15, 23, 42, 0.24);
     --app-inset-glow:         0 0 0 1px rgba(255, 255, 255, 0.04) inset;
     --app-dock-width:         0px;   /* Dock is floating — does not offset content */
-    --app-topbar-height:      64px;
+    --app-topbar-height:      72px;
 
     /* Dock panel — dark blue glassmorphic */
     --app-dock-bg:            rgba(8, 13, 30, 0.92);
@@ -60,8 +70,12 @@ html {
 
 body {
     margin: 0;
-    background: #080B14;
-    font-family: 'Montserrat', sans-serif;
+    background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.12), transparent 30%),
+        radial-gradient(circle at top right, rgba(14, 165, 233, 0.10), transparent 24%),
+        linear-gradient(180deg, #0b1220 0%, #111827 100%);
+    color: var(--app-text-primary);
+    font-family: var(--app-font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden; /* Prevent horizontal scrollbar from 100vw full-bleed hero */
@@ -85,7 +99,7 @@ body {
 
 /* Metadata/Labels: Medium (500), wide tracking, 70% opacity */
 .app-label {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans);
     font-weight: 500;
     font-size: 0.78rem;
     letter-spacing: 0.05em;

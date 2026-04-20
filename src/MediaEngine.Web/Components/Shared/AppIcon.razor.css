@@ -1,0 +1,16 @@
+.app-icon {
+    display: inline-block;
+    flex-shrink: 0;
+    width: var(--app-icon-size, 1rem);
+    height: var(--app-icon-size, 1rem);
+    background-color: currentColor;
+    vertical-align: middle;
+    mask-image: var(--app-icon-mask);
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    -webkit-mask-image: var(--app-icon-mask);
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+}

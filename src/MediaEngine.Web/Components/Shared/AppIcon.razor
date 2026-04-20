@@ -1,0 +1,53 @@
+@namespace MediaEngine.Web.Components.Shared
+
+@if (_descriptor is { } descriptor)
+{
+    <span class="@CssClass"
+          style="@BuildStyle(descriptor.Path)"
+          title="@Title"
+          role="@(Decorative ? null : "img")"
+          aria-label="@(Decorative ? null : AccessibleLabel)"
+          aria-hidden="@(Decorative ? "true" : null)"></span>
+}
+
+@code {
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string Size { get; set; } = "1rem";
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Style { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public bool Decorative { get; set; } = true;
+
+    private AppIconDescriptor? _descriptor;
+
+    private string CssClass =>
+        string.Join(
+            " ",
+            new[]
+            {
+                "app-icon",
+                string.IsNullOrWhiteSpace(Class) ? null : Class,
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string AccessibleLabel =>
+        !string.IsNullOrWhiteSpace(Title)
+            ? Title
+            : Name ?? "icon";
+
+    protected override void OnParametersSet()
+    {
+        _descriptor = AppIconRegistry.TryResolve(Name, out var descriptor)
+            ? descriptor
+            : null;
+    }
+
+    private string BuildStyle(string path) =>
+        string.Join(
+            "; ",
+            new[]
+            {
+                $"--app-icon-size:{Size}",
+                $"--app-icon-mask:url('{path}')",
+                string.IsNullOrWhiteSpace(Style) ? null : Style,
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

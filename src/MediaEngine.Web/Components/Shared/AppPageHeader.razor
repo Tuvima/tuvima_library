@@ -1,0 +1,80 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<section class="@RootClass">
+    <div class="app-page-header__top">
+        <div class="app-page-header__copy">
+            @if (!string.IsNullOrWhiteSpace(Eyebrow))
+            {
+                <div class="app-page-header__eyebrow">@Eyebrow</div>
+            }
+
+            <div class="app-page-header__title-row">
+                <h1 class="app-page-header__title">@Title</h1>
+
+                @if (!string.IsNullOrWhiteSpace(StatusText))
+                {
+                    <span class="@StatusClass">
+                        <span class="app-page-header__status-dot" aria-hidden="true"></span>
+                        @StatusText
+                    </span>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
+            {
+                <p class="app-page-header__subtitle">@Subtitle</p>
+            }
+        </div>
+
+        @if (Actions is not null)
+        {
+            <div class="app-page-header__actions">
+                @Actions
+            </div>
+        }
+    </div>
+
+    @if (Stats is not null)
+    {
+        <div class="app-page-header__stats">
+            @Stats
+        </div>
+    }
+
+    @if (ChildContent is not null)
+    {
+        <div class="app-page-header__content">
+            @ChildContent
+        </div>
+    }
+</section>
+
+@code {
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? StatusText { get; set; }
+    [Parameter] public string StatusTone { get; set; } = "neutral";
+    [Parameter] public RenderFragment? Stats { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass =>
+        string.Join(
+            " ",
+            new[]
+            {
+                "app-page-header",
+                string.IsNullOrWhiteSpace(Class) ? null : Class,
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string StatusClass =>
+        string.Join(
+            " ",
+            new[]
+            {
+                "app-page-header__status",
+                $"app-page-header__status--{StatusTone}",
+            });
+}

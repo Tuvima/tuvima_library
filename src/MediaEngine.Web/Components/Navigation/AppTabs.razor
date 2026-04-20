@@ -71,10 +71,21 @@
         var seq = 0;
         if (!string.IsNullOrWhiteSpace(item.Icon))
         {
-            __builder.OpenComponent<MudIcon>(seq++);
-            __builder.AddAttribute(seq++, "Icon", item.Icon);
-            __builder.AddAttribute(seq++, "Class", "app-tabs__icon");
-            __builder.CloseComponent();
+            if (AppIconRegistry.TryResolve(item.Icon, out _))
+            {
+                __builder.OpenComponent<AppIcon>(seq++);
+                __builder.AddAttribute(seq++, "Name", item.Icon);
+                __builder.AddAttribute(seq++, "Class", "app-tabs__icon");
+                __builder.AddAttribute(seq++, "Size", "0.95rem");
+                __builder.CloseComponent();
+            }
+            else
+            {
+                __builder.OpenComponent<MudIcon>(seq++);
+                __builder.AddAttribute(seq++, "Icon", item.Icon);
+                __builder.AddAttribute(seq++, "Class", "app-tabs__icon");
+                __builder.CloseComponent();
+            }
         }
 
         __builder.OpenElement(seq++, "span");

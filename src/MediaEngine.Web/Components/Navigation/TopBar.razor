@@ -4,40 +4,38 @@
 @inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
-@* TopBar — Fixed horizontal navigation bar.
+@* TopBar â€” Fixed horizontal navigation bar.
    Logo (left) + nav links (Home/Read/Watch/Listen) + search icon + ProfileDropdown (right).
-   Single responsive layout — no device variants, no hamburger menu. *@
+   Single responsive layout â€” no device variants, no hamburger menu. *@
 
 <header class="top-bar">
-    @* ── Logo ── *@
-    <div class="top-bar-left">
-        <a href="/" class="top-bar-logo-link">
-            <AppLogo Style="height: 36px; display: block;" />
-        </a>
+    <div class="top-bar-shell">
+        <div class="top-bar-left">
+            <a href="/" class="top-bar-logo-link">
+                <AppLogo Style="height: 34px; display: block;" />
+            </a>
 
-        @* ── Nav links (hidden on small screens, shown in hamburger-less responsive way) ── *@
-        <nav class="top-bar-nav">
-            @foreach (var link in _navLinks)
-            {
-                <a href="@link.Path"
-                   class="top-bar-nav-link @(IsActive(link.Path) ? "top-bar-nav-link-active" : "")"
-                   style="border-color: @NavColor(link.Path); @(IsActive(link.Path) ? $"color: white;" : "")">
-                    @link.Label
-                </a>
-            }
-        </nav>
-    </div>
+            <nav class="top-bar-nav">
+                @foreach (var link in _navLinks)
+                {
+                    <a href="@link.Path"
+                       class="top-bar-nav-link @(IsActive(link.Path) ? "top-bar-nav-link-active" : "")"
+                       style="--top-bar-link-accent: @NavColor(link.Path);">
+                        @link.Label
+                    </a>
+                }
+            </nav>
+        </div>
 
-    @* ── Right side: search + profile ── *@
-    <div class="top-bar-right">
-        <MudIconButton Icon="@MudBlazor.Icons.Material.Outlined.Search"
-                       Color="Color.Inherit" Size="Size.Medium"
-                       Class="top-bar-search-btn"
-                       aria-label="Search" />
-        <ProfileDropdown AvatarColor="@AvatarColor"
-                         AvatarInitial="@AvatarInitial"
-                         DisplayName="@DisplayName"
-                         ReviewCount="@ReviewCount" />
+        <div class="top-bar-right">
+            <button type="button" class="top-bar-search-btn" aria-label="Search">
+                <AppIcon Name="@AppIcons.Search" Size="1rem" />
+            </button>
+            <ProfileDropdown AvatarColor="@AvatarColor"
+                             AvatarInitial="@AvatarInitial"
+                             DisplayName="@DisplayName"
+                             ReviewCount="@ReviewCount" />
+        </div>
     </div>
 </header>
 
@@ -101,40 +99,30 @@
         top: 0;
         left: 0;
         right: 0;
-        height: 64px;
+        height: 72px;
         z-index: 1250;
+        display: flex;
+        justify-content: center;
+        padding: 0 1rem;
+        background: rgba(15, 23, 42, 0.84);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.16);
+    }
+
+    .top-bar-shell {
+        width: min(100%, 1440px);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0 0.75rem;
-        background: rgba(6, 10, 22, 0.60);
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    }
-
-    @@media (min-width: 640px) {
-        .top-bar {
-            padding: 0 1.5rem;
-        }
-    }
-
-    @@media (min-width: 768px) {
-        .top-bar {
-            padding: 0 2rem;
-        }
-    }
-
-    @@media (min-width: 1024px) {
-        .top-bar {
-            padding: 0 4rem;
-        }
+        gap: 1rem;
     }
 
     .top-bar-left {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 1.25rem;
     }
 
     @@media (min-width: 640px) {
@@ -146,20 +134,16 @@
     .top-bar-logo-link {
         display: flex;
         align-items: center;
-        gap: 12px;
         text-decoration: none;
         cursor: pointer;
     }
 
-    /* ── Nav links ── */
     .top-bar-nav {
         display: none;
         align-items: center;
         gap: 1.25rem;
     }
 
-    /* Show nav tabs on tablets and large phones (≥640px). Very small phones
-       fall back to the ProfileDropdown for category navigation. */
     @@media (min-width: 640px) {
         .top-bar-nav {
             display: flex;
@@ -167,45 +151,79 @@
     }
 
     @@media (min-width: 1024px) {
+        .top-bar {
+            padding: 0 1.5rem;
+        }
+
         .top-bar-nav {
             gap: 2rem;
         }
     }
 
     .top-bar-nav-link {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: rgba(148, 163, 184, 1);
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        min-height: 2.5rem;
+        padding: 0 0.2rem;
+        color: rgba(226, 232, 240, 0.72);
+        font-size: 0.92rem;
+        font-weight: 600;
         text-decoration: none;
-        padding: 4px 0;
-        border-bottom: 2px solid transparent;
-        transition: all 0.2s ease;
+        transition: color 0.18s ease;
+    }
+
+    .top-bar-nav-link::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -0.85rem;
+        height: 2px;
+        border-radius: 999px;
+        background: var(--top-bar-link-accent, #60a5fa);
+        opacity: 0;
+        transform: scaleX(0.7);
+        transition: opacity 0.18s ease, transform 0.18s ease;
     }
 
     .top-bar-nav-link:hover {
-        color: white;
+        color: rgba(248, 250, 252, 0.94);
     }
 
     .top-bar-nav-link-active {
-        color: white;
+        color: rgba(248, 250, 252, 0.98);
     }
 
-    /* ── Right side ── */
+    .top-bar-nav-link-active::after {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+
     .top-bar-right {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 0.75rem;
     }
 
     .top-bar-search-btn {
-        color: rgba(148, 163, 184, 1) !important;
+        width: 2.75rem;
+        height: 2.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 0.875rem;
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(226, 232, 240, 0.78);
+        cursor: pointer;
+        transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
     }
 
     .top-bar-search-btn:hover {
-        color: white !important;
-        background: rgba(255, 255, 255, 0.06) !important;
+        transform: translateY(-1px);
+        color: rgba(248, 250, 252, 0.98);
+        border-color: rgba(96, 165, 250, 0.32);
+        background: rgba(96, 165, 250, 0.12);
     }
 </style>
