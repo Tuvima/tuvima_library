@@ -5,9 +5,8 @@
     right: 0;
     z-index: 1250;
     display: flex;
-    justify-content: center;
     height: var(--app-topbar-height, 72px);
-    padding: 0 1rem;
+    padding: 0 1.1rem;
     background: rgba(8, 13, 30, 0.86);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
@@ -16,8 +15,7 @@
 }
 
 .top-bar-shell {
-    width: min(100%, 1440px);
-    min-width: 0;
+    width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -28,7 +26,7 @@
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 1.55rem;
 }
 
 .top-bar-logo-link {
@@ -38,16 +36,18 @@
     text-decoration: none;
 }
 
-::deep .top-bar-logo-mark {
+::deep .top-bar-logo {
     display: block;
-    height: 40px;
+    height: 34px;
     width: auto;
+    max-width: min(34vw, 270px);
 }
 
 .top-bar-nav {
     display: flex;
     align-items: center;
     gap: 1.2rem;
+    margin-left: 0.35rem;
 }
 
 .top-bar-nav-link {
@@ -58,7 +58,7 @@
     padding: 0.2rem 0;
     color: rgba(226, 232, 240, 0.72);
     font-family: 'Montserrat', sans-serif;
-    font-size: 0.78rem;
+    font-size: 0.86rem;
     font-weight: 500;
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -248,8 +248,9 @@
         flex: 1 1 auto;
     }
 
-    ::deep .top-bar-logo-mark {
-        height: 34px;
+    ::deep .top-bar-logo {
+        height: 30px;
+        max-width: min(46vw, 230px);
     }
 }
 

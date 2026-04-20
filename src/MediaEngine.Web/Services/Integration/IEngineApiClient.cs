@@ -317,6 +317,30 @@ public interface IEngineApiClient
     /// <summary>GET /metadata/{entityId}/editor-context — resolve scope-aware editor context.</summary>
     Task<MediaEditorContextDto?> GetMediaEditorContextAsync(Guid entityId, CancellationToken ct = default);
 
+    /// <summary>GET /metadata/{entityId}/navigator — resolve a series-aware media editor navigator.</summary>
+    Task<MediaEditorNavigatorDto?> GetMediaEditorNavigatorAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>GET /metadata/{entityId}/membership-suggestions — autocomplete targets for membership correction.</summary>
+    Task<List<MediaEditorMembershipSuggestionDto>> GetMediaEditorMembershipSuggestionsAsync(
+        Guid entityId,
+        string field,
+        string? query = null,
+        Guid? parentEntityId = null,
+        string? parentValue = null,
+        CancellationToken ct = default);
+
+    /// <summary>POST /metadata/{entityId}/membership-preview — preview hierarchy changes before applying them.</summary>
+    Task<MediaEditorMembershipPreviewDto?> PreviewMediaEditorMembershipAsync(
+        Guid entityId,
+        MediaEditorMembershipPreviewRequestDto request,
+        CancellationToken ct = default);
+
+    /// <summary>POST /metadata/{entityId}/membership-apply — apply a confirmed hierarchy change.</summary>
+    Task<MediaEditorMembershipPreviewDto?> ApplyMediaEditorMembershipAsync(
+        Guid entityId,
+        MediaEditorMembershipPreviewRequestDto request,
+        CancellationToken ct = default);
+
     /// <summary>GET /metadata/{entityId}/artwork/{scopeId} — load exact artwork for one editor scope.</summary>
     Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);
 

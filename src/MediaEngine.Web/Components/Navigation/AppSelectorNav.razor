@@ -34,6 +34,7 @@
     [Parameter] public EventCallback<string> OnSelect { get; set; }
     [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? Variant { get; set; }
 
     private string RootClass
         => string.Join(
@@ -41,6 +42,7 @@
             new[]
             {
                 "app-selector-nav",
+                string.IsNullOrWhiteSpace(Variant) ? null : $"app-selector-nav--{Variant}",
                 string.IsNullOrWhiteSpace(Class) ? null : Class
             }.Where(value => !string.IsNullOrWhiteSpace(value)));
 

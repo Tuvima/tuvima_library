@@ -88,14 +88,14 @@
                     }
                     @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
                     {
-                        <button class="sme-review-action" @onclick="@(() => _activeTab = "details")">
+                        <button class="sme-review-action" @onclick="@(() => _activeTab = "identity")">
                             Find @GetCanonicalTargetLabel(_canonicalTargetGroup)
                         </button>
                     }
                 </div>
             }
 
-            @if (IsSingleItem && _editorContext?.Scopes.Count > 1)
+            @if (ShowLegacyScopeSwitcher)
             {
                 <div class="sme-scope-switcher">
                     <MudMenu Dense="true"
@@ -141,13 +141,129 @@
                 </div>
             }
 
-            <AppTabs Items="TabItems"
-                     ActiveKey="@_activeTab"
-                     AriaLabel="Editor sections"
-                     OnSelect="SelectTabAsync"
-                     Class="sme-tabs" />
+            <div class="sme-workspace @(HasSeriesNavigator ? "sme-workspace--navigator" : string.Empty)">
+                @if (HasSeriesNavigator && NavigatorRootNode is not null)
+                {
+                    <aside class="sme-navigator">
+                        <div class="sme-navigator-title">Library Structure</div>
+                        <button type="button"
+                                class="sme-nav-button sme-nav-button--root @(SelectedNavigatorNode?.EntityId == NavigatorRootNode.EntityId ? "is-active" : "")"
+                                @onclick="@(() => SelectNavigatorNodeAsync(NavigatorRootNode.EntityId))">
+                            <span class="sme-nav-copy">
+                                <span class="sme-nav-label">@NavigatorRootNode.Label</span>
+                                <span class="sme-nav-title">@NavigatorRootNode.Title</span>
+                                @if (!string.IsNullOrWhiteSpace(NavigatorRootNode.Subtitle))
+                                {
+                                    <span class="sme-nav-subtitle">@NavigatorRootNode.Subtitle</span>
+                                }
+                            </span>
+                        </button>
 
-            <div class="sme-body">
+                        @foreach (var child in GetNavigatorChildren(NavigatorRootNode.NodeId))
+                        {
+                            var grandChildren = GetNavigatorChildren(child.NodeId);
+                            if (grandChildren.Count > 0)
+                            {
+                                <div class="sme-nav-group">
+                                    <button type="button"
+                                            class="sme-nav-button sme-nav-button--branch @(SelectedNavigatorNode?.EntityId == child.EntityId ? "is-active" : "")"
+                                            @onclick="@(() => SelectNavigatorNodeAsync(child.EntityId))">
+                                        <span class="sme-nav-copy">
+                                            <span class="sme-nav-label">@child.Label</span>
+                                            <span class="sme-nav-title">@child.Title</span>
+                                            @if (!string.IsNullOrWhiteSpace(child.Subtitle))
+                                            {
+                                                <span class="sme-nav-subtitle">@child.Subtitle</span>
+                                            }
+                                        </span>
+                                        @if (!string.IsNullOrWhiteSpace(child.OrdinalLabel))
+                                        {
+                                            <span class="sme-nav-badge">@child.OrdinalLabel</span>
+                                        }
+                                    </button>
+
+                                    <div class="sme-nav-children">
+                                        @foreach (var grandChild in grandChildren)
+                                        {
+                                            <button type="button"
+                                                    class="sme-nav-button sme-nav-button--leaf @(SelectedNavigatorNode?.EntityId == grandChild.EntityId ? "is-active" : "")"
+                                                    @onclick="@(() => SelectNavigatorNodeAsync(grandChild.EntityId))">
+                                                <span class="sme-nav-copy">
+                                                    <span class="sme-nav-label">@grandChild.Label</span>
+                                                    <span class="sme-nav-title">@grandChild.Title</span>
+                                                    @if (!string.IsNullOrWhiteSpace(grandChild.Subtitle))
+                                                    {
+                                                        <span class="sme-nav-subtitle">@grandChild.Subtitle</span>
+                                                    }
+                                                </span>
+                                                @if (!string.IsNullOrWhiteSpace(grandChild.OrdinalLabel))
+                                                {
+                                                    <span class="sme-nav-badge">@grandChild.OrdinalLabel</span>
+                                                }
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <button type="button"
+                                        class="sme-nav-button @(SelectedNavigatorNode?.EntityId == child.EntityId ? "is-active" : "")"
+                                        @onclick="@(() => SelectNavigatorNodeAsync(child.EntityId))">
+                                    <span class="sme-nav-copy">
+                                        <span class="sme-nav-label">@child.Label</span>
+                                        <span class="sme-nav-title">@child.Title</span>
+                                        @if (!string.IsNullOrWhiteSpace(child.Subtitle))
+                                        {
+                                            <span class="sme-nav-subtitle">@child.Subtitle</span>
+                                        }
+                                    </span>
+                                    @if (!string.IsNullOrWhiteSpace(child.OrdinalLabel))
+                                    {
+                                        <span class="sme-nav-badge">@child.OrdinalLabel</span>
+                                    }
+                                </button>
+                            }
+                        }
+                    </aside>
+                }
+
+                <div class="sme-main-pane">
+                    <AppTabs Items="TabItems"
+                             ActiveKey="@_activeTab"
+                             AriaLabel="Editor sections"
+                             OnSelect="SelectTabAsync"
+                             Class="sme-tabs" />
+
+                    @if (IsSingleItem && SupportsDeleteAction)
+                    {
+                        <div class="sme-selection-bar">
+                            <div class="sme-selection-copy">
+                                <div class="sme-selection-kicker">Editing</div>
+                                <div class="sme-selection-title">@((HasSeriesNavigator ? SelectedNavigatorNode?.Title : ActiveScope?.DisplayTitle) ?? HeaderTitle)</div>
+                            </div>
+                            <div class="sme-selection-actions">
+                                @if (_showQuarantineConfirm)
+                                {
+                                    <button class="sme-inline-btn sme-inline-btn--danger"
+                                            disabled="@_quarantining"
+                                            @onclick="QuarantineCurrentSelectionAsync">
+                                        @(_quarantining ? "Quarantining..." : $"Quarantine {GetQuarantineTargetEntityIds().Count}")
+                                    </button>
+                                    <button class="sme-inline-btn" @onclick="ToggleQuarantineConfirmAsync">Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="sme-inline-btn sme-inline-btn--danger"
+                                            @onclick="ToggleQuarantineConfirmAsync">
+                                        Delete
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="sme-body">
                 @if (_loading)
                 {
                     <div class="sme-loading">
@@ -156,38 +272,8 @@
                 }
                 else if (_activeTab == "details")
                 {
-                    <div class="sme-details @(IsSingleItem && SupportsCanonicalSearch ? string.Empty : "sme-details--single")">
-                        <div class="sme-fields-pane">
-                            @if (IsSingleItem)
-                            {
-                                @if (SupportsCanonicalSearch)
-                                {
-                                    <div class="sme-search-toolbar">
-                                        <AppTabs Items="QuickSearchTargetItems"
-                                                 ActiveKey="@_canonicalTargetGroup"
-                                                 Variant="secondary"
-                                                 AriaLabel="Canonical search targets"
-                                                 OnSelect="SetCanonicalTargetGroupAsync"
-                                                 Class="sme-search-targets" />
-
-                                        <div class="sme-search-row">
-                                            <input class="sme-text-input"
-                                                   placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
-                                                   value="@_canonicalSearchQuery"
-                                                   @oninput="HandleCanonicalQueryInput" />
-                                            <button class="sme-inline-btn sme-inline-btn--primary"
-                                                    disabled="@_searchingCanonical"
-                                                    @onclick="SearchCanonicalAsync">
-                                                @(_searchingCanonical ? "Searching..." : "Quick Search")
-                                            </button>
-                                        </div>
-                                    </div>
-                                }
-                                else if (!string.IsNullOrWhiteSpace(CanonicalSearchUnavailableReason))
-                                {
-                                    <div class="sme-search-inline-hint">@CanonicalSearchUnavailableReason</div>
-                                }
-                            }
+                    <div class="sme-details sme-details--single">
+                        <div class="sme-fields-pane sme-fields-pane--single">
 
                             @foreach (var group in GetGroupsForTab("details"))
                             {
@@ -230,7 +316,7 @@
                             }
                         </div>
 
-                        @if (IsSingleItem && SupportsCanonicalSearch)
+                        @if (IsSingleItem && SupportsCanonicalSearch && string.Equals(_activeTab, "__legacy__", StringComparison.Ordinal))
                         {
                             <aside class="sme-search-pane">
                                 <div class="sme-search-pane-title">Canonical Search</div>
@@ -351,20 +437,188 @@
                         }
                     </div>
                 }
-                else if (_activeTab == "universe")
+                else if (_activeTab == "identity")
                 {
                     <div class="sme-file-tab">
-                        @if (!IsSingleItem || _detail?.UniverseSummary is null)
+                        @if (IsSingleItem)
                         {
-                            <div class="sme-empty-panel">
-                                <MudIcon Icon="@Icons.Material.Outlined.AutoAwesomeMotion" Style="font-size: 24px; opacity: 0.18;" />
-                                <span>Universe details are available for a single item after identity loads.</span>
-                            </div>
+                            @if (SupportsCanonicalSearch)
+                            {
+                                <section class="sme-group">
+                                    <div class="sme-group-title">Canonical Search</div>
+                                    <AppTabs Items="QuickSearchTargetItems"
+                                             ActiveKey="@_canonicalTargetGroup"
+                                             Variant="secondary"
+                                             AriaLabel="Canonical search targets"
+                                             OnSelect="SetCanonicalTargetGroupAsync"
+                                             Class="sme-search-targets" />
+
+                                    <div class="sme-search-row">
+                                        <input class="sme-text-input"
+                                               placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
+                                               value="@_canonicalSearchQuery"
+                                               @oninput="HandleCanonicalQueryInput" />
+                                        <button class="sme-inline-btn sme-inline-btn--primary"
+                                                disabled="@_searchingCanonical"
+                                                @onclick="SearchCanonicalAsync">
+                                            @(_searchingCanonical ? "Searching..." : "Quick Search")
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section class="sme-group">
+                                    <div class="sme-group-title">Search Results</div>
+                                    @if (_canonicalSearchResponse is null)
+                                    {
+                                        <div class="sme-empty-panel">
+                                            <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 24px; opacity: 0.18;" />
+                                            <span>Search for a canonical @GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant().</span>
+                                        </div>
+                                    }
+                                    else if (_canonicalSearchResponse.LinkedCandidates.Count == 0 && _canonicalSearchResponse.RetailCandidates.Count == 0)
+                                    {
+                                        <div class="sme-empty-panel">
+                                            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Style="font-size: 24px; opacity: 0.18;" />
+                                            <span>@(_canonicalSearchResponse.NoResultMessage ?? "No safe canonical results were found.")</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        @if (_canonicalSearchResponse.LinkedCandidates.Count > 0)
+                                        {
+                                            <div class="sme-result-section-label">Linked results</div>
+                                            @foreach (var candidate in _canonicalSearchResponse.LinkedCandidates)
+                                            {
+                                                <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
+                                                    <button class="sme-candidate-summary" @onclick="@(() => SelectCandidate(candidate))">
+                                                        <div class="sme-candidate-copy">
+                                                            <div class="sme-candidate-title">@candidate.Label</div>
+                                                            @if (!string.IsNullOrWhiteSpace(candidate.Description))
+                                                            {
+                                                                <div class="sme-candidate-description">@candidate.Description</div>
+                                                            }
+                                                            <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
+                                                        </div>
+                                                        <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.LinkState : "Suggestion")</span>
+                                                    </button>
+                                                    @if (IsCandidateSelected(GetCandidateId(candidate)))
+                                                    {
+                                                        @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
+                                                        <button class="sme-inline-btn sme-inline-btn--primary"
+                                                                disabled="@(!candidate.IsApplicable)"
+                                                                @onclick="@(() => ApplyLinkedCandidateAsync(candidate))">
+                                                            Apply linked candidate
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+
+                                        @if (_canonicalSearchResponse.RetailCandidates.Count > 0)
+                                        {
+                                            <div class="sme-result-section-label">Provider results</div>
+                                            @foreach (var candidate in _canonicalSearchResponse.RetailCandidates)
+                                            {
+                                                <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
+                                                    <button class="sme-candidate-summary" @onclick="@(() => SelectCandidate(candidate))">
+                                                        <div class="sme-candidate-copy">
+                                                            <div class="sme-candidate-title">@candidate.Title</div>
+                                                            <div class="sme-candidate-description">@BuildRetailCandidateSubtitle(candidate)</div>
+                                                            <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
+                                                        </div>
+                                                        <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.ProviderName : "Suggestion")</span>
+                                                    </button>
+                                                    @if (IsCandidateSelected(GetCandidateId(candidate)))
+                                                    {
+                                                        @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
+                                                        <button class="sme-inline-btn sme-inline-btn--primary"
+                                                                disabled="@(!candidate.IsApplicable)"
+                                                                @onclick="@(() => ApplyRetailCandidateAsync(candidate))">
+                                                            Apply provider candidate
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                </section>
+                            }
+                            else if (!string.IsNullOrWhiteSpace(CanonicalSearchUnavailableReason))
+                            {
+                                <div class="sme-search-inline-hint">@CanonicalSearchUnavailableReason</div>
+                            }
                         }
-                        else
+
+                        @foreach (var group in GetGroupsForTab("identity"))
+                        {
+                            <section class="sme-group">
+                                <div class="sme-group-title">@group.Label</div>
+                                @foreach (var field in group.Fields)
+                                {
+                                    <div class="sme-field-row">
+                                        <label class="sme-field-label">
+                                            <span>@field.Label</span>
+                                            @if (field.IdentityField)
+                                            {
+                                                <MudTooltip Text="Used to identify the right title, edition, show, or person during matching.">
+                                                    <span class="sme-field-info" aria-label="Matching help">
+                                                        <MudIcon Icon="@Icons.Material.Outlined.Info" Style="font-size: 14px;" />
+                                                    </span>
+                                                </MudTooltip>
+                                            }
+                                        </label>
+                                        <div class="sme-field-control">
+                                            @if (field.InputKind == "textarea")
+                                            {
+                                                <textarea class="sme-textarea"
+                                                          placeholder="@GetPlaceholder(field)"
+                                                          value="@GetEditableValue(field.Key)"
+                                                          @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))"></textarea>
+                                            }
+                                            else if (SupportsMembershipSuggestions(field.Key))
+                                            {
+                                                <input class="sme-text-input"
+                                                       type="text"
+                                                       placeholder="@GetPlaceholder(field)"
+                                                       value="@GetEditableValue(field.Key)"
+                                                       @oninput="@(async (ChangeEventArgs args) => await OnMembershipFieldInputAsync(field.Key, args.Value?.ToString()))" />
+
+                                                @if (GetMembershipSuggestions(field.Key).Count > 0)
+                                                {
+                                                    <div class="sme-membership-suggestions">
+                                                        @foreach (var suggestion in GetMembershipSuggestions(field.Key))
+                                                        {
+                                                            <button type="button"
+                                                                    class="sme-membership-suggestion"
+                                                                    @onclick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
+                                                                <span class="sme-membership-suggestion-label">@suggestion.Label</span>
+                                                                @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
+                                                                {
+                                                                    <span class="sme-membership-suggestion-subtitle">@suggestion.Subtitle</span>
+                                                                }
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <input class="sme-text-input"
+                                                       type="text"
+                                                       placeholder="@GetPlaceholder(field)"
+                                                       value="@GetEditableValue(field.Key)"
+                                                       @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))" />
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </section>
+                        }
+
+                        @if (IsSingleItem && _detail?.UniverseSummary is not null)
                         {
                             var summary = _detail.UniverseSummary;
-                            <section class="sme-group">
+                            <section class="sme-group sme-group--universe">
                                 <div class="sme-group-title">Universe</div>
                                 <div class="sme-readonly-row"><span>Status</span><strong>@FormatUniverseStatus(summary.UniverseStatus)</strong></div>
                                 <div class="sme-readonly-row"><span>Stage 3</span><strong>@FormatUniverseStatus(summary.Stage3Status)</strong></div>
@@ -395,6 +649,7 @@
                                                 ActiveKey="@SelectedArtworkSlot?.AssetType"
                                                 AriaLabel="Artwork types"
                                                 OnSelect="SelectArtworkSlotAsync"
+                                                Variant="button-list"
                                                 Class="sme-artwork-rail" />
 
                                 <div class="sme-artwork-main">
@@ -592,7 +847,7 @@
                         }
                     </div>
                 }
-                else if (_activeTab == "options" || _activeTab == "sorting")
+                else if (_activeTab == "options")
                 {
                     var groups = GetGroupsForTab("options").ToList();
                     <div class="sme-fields-pane sme-fields-pane--single">
@@ -637,7 +892,7 @@
                         }
                     </div>
                 }
-                else if (_activeTab == "file")
+                else if (_activeTab == "inspector")
                 {
                     <div class="sme-file-tab">
                         @if (!IsSingleItem || _detail is null)
@@ -696,6 +951,8 @@
                         }
                     </div>
                 }
+                    </div>
+                </div>
             </div>
 
             <div class="sme-footer">
@@ -711,7 +968,15 @@
                         @(IsDirty ? "Cancel" : "Close")
                     </button>
                     <div class="sme-footer-spacer"></div>
-                    @if (IsDirty)
+                    @if (_pendingMembershipPreview is not null)
+                    {
+                        <div class="sme-footer-note">@_pendingMembershipPreview.Message</div>
+                        <button class="sme-footer-btn sme-footer-btn--ghost" @onclick="@(() => _pendingMembershipPreview = null)">Keep Editing</button>
+                        <button class="sme-footer-btn sme-footer-btn--primary" @onclick="ConfirmMembershipMoveAsync" disabled="@_saving">
+                            Save and Move
+                        </button>
+                    }
+                    else if (IsDirty)
                     {
                         <button class="sme-footer-btn sme-footer-btn--primary" @onclick="SaveAsync" disabled="@_saving">
                             @if (_saving)

@@ -14,11 +14,10 @@ public partial class SharedMediaEditorShell
     private static readonly (string Id, string Label)[] TabDefinitions =
     [
         ("details", "Details"),
-        ("universe", "Universe"),
+        ("identity", "Identity"),
         ("artwork", "Artwork"),
         ("options", "Options"),
-        ("sorting", "Sorting"),
-        ("file", "File"),
+        ("inspector", "Inspector"),
     ];
 
     private static readonly string[] ReclassifyMediaTypes =
@@ -74,9 +73,12 @@ public partial class SharedMediaEditorShell
     private List<RegistryItemHistoryDto> _history = [];
     private ArtworkEditorDto? _artwork;
     private MediaEditorContextDto? _editorContext;
+    private MediaEditorNavigatorDto? _navigator;
     private MediaEditorSchema _schema = MediaEditorSchemaCatalog.Resolve(null);
     private readonly Dictionary<string, string> _editedValues = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, HashSet<string>> _selectedSuggestedFieldKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Guid?> _selectedMembershipTargetIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<MediaEditorMembershipSuggestionDto>> _membershipSuggestions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IBrowserFile> _pendingArtworkFiles = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _pendingArtworkPreviewUrls = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _artworkUploadErrors = new(StringComparer.OrdinalIgnoreCase);
@@ -101,11 +103,14 @@ public partial class SharedMediaEditorShell
     private bool _reclassifying;
     private bool _searchingCanonical;
     private bool _artworkUrlSubmitting;
+    private bool _quarantining;
     private bool _confirmDiscard;
+    private bool _showQuarantineConfirm;
     private string? _dragTargetArtworkType;
     private string _reviewSummary = "Review the item identity.";
     private string _lastNonFileTab = "details";
     private bool _showArtworkUrlInput;
+    private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
 
     protected IReadOnlyList<(string Id, string Label)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
@@ -141,11 +146,14 @@ public partial class SharedMediaEditorShell
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
-    protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? LaunchEntityId;
+    protected Guid EditorContextEntityId => _editorContext?.LaunchEntityId ?? LaunchEntityId;
+    protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? EditorContextEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
     protected bool IsArtworkBusy => _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
     protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetGeneratedHeroUrl());
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
+    protected bool HasSeriesNavigator => IsSingleItem && _navigator?.Enabled == true;
+    protected bool ShowLegacyScopeSwitcher => IsSingleItem && !HasSeriesNavigator && (_editorContext?.Scopes.Count ?? 0) > 1;
     protected string ScopePickerLabel => ActiveScope?.Label ?? "Scope";
     protected string? ScopePickerTitle => GetScopePickerTitle(ActiveScope);
     protected ArtworkSlotDefinition? SelectedArtworkSlot =>
@@ -156,6 +164,13 @@ public partial class SharedMediaEditorShell
     protected ArtworkSlotDefinition? ZoomArtworkSlot => _zoomArtworkSlot;
     protected ArtworkVariantDisplayItem? ZoomArtworkVariant => _zoomArtworkVariant;
     protected bool IsArtworkZoomOpen => _zoomArtworkSlot is not null && _zoomArtworkVariant is not null;
+    protected MediaEditorNavigatorNodeDto? NavigatorRootNode =>
+        _navigator?.Nodes.FirstOrDefault(node => node.IsRoot)
+        ?? _navigator?.Nodes.FirstOrDefault(node => node.ParentNodeId is null);
+    protected MediaEditorNavigatorNodeDto? SelectedNavigatorNode =>
+        _navigator?.Nodes.FirstOrDefault(node => node.EntityId == EditorContextEntityId)
+        ?? NavigatorRootNode;
+    protected bool SupportsDeleteAction => GetQuarantineTargetEntityIds().Count > 0;
 
     protected MediaEditorScopeDto? ActiveScope =>
         _editorContext?.Scopes
@@ -199,32 +214,46 @@ public partial class SharedMediaEditorShell
     protected override async Task OnInitializedAsync()
     {
         _activeTab = string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab;
-        _lastNonFileTab = _activeTab == "file" ? "details" : _activeTab;
+        _lastNonFileTab = _activeTab == "inspector" ? "details" : _activeTab;
         _schema = MediaEditorSchemaCatalog.Resolve(Request.MediaType);
 
         if (IsSingleItem)
-            await LoadSingleItemAsync();
+            await LoadSingleItemAsync(resetEditorState: true);
         else
             await LoadBatchAsync();
     }
 
-    private async Task LoadSingleItemAsync()
+    private async Task LoadSingleItemAsync(Guid? targetEntityId = null, bool resetEditorState = false)
     {
         _loading = true;
         StateHasChanged();
 
         try
         {
-            _artworkStates.Clear();
-            _editorContext = await ApiClient.GetMediaEditorContextAsync(LaunchEntityId);
+            var entityId = targetEntityId ?? LaunchEntityId;
+
+            if (resetEditorState)
+            {
+                _editedValues.Clear();
+                _selectedMembershipTargetIds.Clear();
+                _membershipSuggestions.Clear();
+                _pendingArtworkFiles.Clear();
+                _pendingArtworkPreviewUrls.Clear();
+                _artworkUploadErrors.Clear();
+                _scopeStates.Clear();
+                _artworkStates.Clear();
+            }
+
+            _editorContext = await ApiClient.GetMediaEditorContextAsync(entityId);
+            _navigator = await ApiClient.GetMediaEditorNavigatorAsync(entityId);
 
             if (_editorContext is null)
             {
-                var detailTask = ApiClient.GetRegistryItemDetailAsync(LaunchEntityId);
-                var canonicalTask = Orchestrator.GetCanonicalValuesAsync(LaunchEntityId);
-                var claimsTask = Orchestrator.GetClaimHistoryAsync(LaunchEntityId);
-                var historyTask = ApiClient.GetItemHistoryAsync(LaunchEntityId);
-                var artworkTask = ApiClient.GetArtworkAsync(LaunchEntityId);
+                var detailTask = ApiClient.GetRegistryItemDetailAsync(entityId);
+                var canonicalTask = Orchestrator.GetCanonicalValuesAsync(entityId);
+                var claimsTask = Orchestrator.GetClaimHistoryAsync(entityId);
+                var historyTask = ApiClient.GetItemHistoryAsync(entityId);
+                var artworkTask = ApiClient.GetArtworkAsync(entityId);
 
                 await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask, artworkTask);
 
@@ -232,7 +261,7 @@ public partial class SharedMediaEditorShell
                 _canonicalValues = canonicalTask.Result;
                 _claims = claimsTask.Result;
                 _history = historyTask.Result;
-                _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = LaunchEntityId };
+                _artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = entityId };
                 _schema = MediaEditorSchemaCatalog.Resolve(_detail?.MediaType ?? Request.MediaType);
                 _selectedMediaType = _detail?.MediaType ?? Request.MediaType ?? "Books";
             }
@@ -250,10 +279,9 @@ public partial class SharedMediaEditorShell
                 await LoadScopeStateAsync(forceReload: true);
             }
 
-            _pendingArtworkFiles.Clear();
-            _pendingArtworkPreviewUrls.Clear();
-            _artworkUploadErrors.Clear();
             _dragTargetArtworkType = null;
+            _showQuarantineConfirm = false;
+            _pendingMembershipPreview = null;
             NormalizeArtworkSelection();
 
             if (Request.Mode == SharedMediaEditorMode.Review)
@@ -290,7 +318,8 @@ public partial class SharedMediaEditorShell
         if (!IsSingleItem || _editorContext is null || ActiveScope is null)
             return;
 
-        if (!forceReload && _scopeStates.TryGetValue(ActiveScope.ScopeId, out var cachedState))
+        var stateKey = BuildScopeStateKey(ActiveScope.FieldEntityId, ActiveScope.ScopeId);
+        if (!forceReload && _scopeStates.TryGetValue(stateKey, out var cachedState))
         {
             ApplyScopeState(cachedState);
             return;
@@ -302,7 +331,7 @@ public partial class SharedMediaEditorShell
         var historyTask = ApiClient.GetItemHistoryAsync(ActiveScope.FieldEntityId);
         var activeScopeSlots = ResolveArtworkSlots(ActiveScope);
         var artworkTask = ActiveScope.CanEditArtwork || activeScopeSlots.Count > 0
-            ? ApiClient.GetScopeArtworkAsync(LaunchEntityId, ActiveScope.ScopeId)
+            ? ApiClient.GetScopeArtworkAsync(EditorContextEntityId, ActiveScope.ScopeId)
             : Task.FromResult<ArtworkEditorDto?>(new ArtworkEditorDto { EntityId = ActiveScope.ArtworkOwnerEntityId ?? ActiveScope.FieldEntityId });
 
         await Task.WhenAll(detailTask, canonicalTask, claimsTask, historyTask, artworkTask);
@@ -316,8 +345,8 @@ public partial class SharedMediaEditorShell
             Artwork = artworkTask.Result ?? new ArtworkEditorDto { EntityId = ActiveScope.ArtworkOwnerEntityId ?? ActiveScope.FieldEntityId },
         };
 
-        _scopeStates[ActiveScope.ScopeId] = state;
-        _artworkStates[ActiveScope.ScopeId] = state.Artwork;
+        _scopeStates[stateKey] = state;
+        _artworkStates[stateKey] = state.Artwork;
         ApplyScopeState(state);
     }
 
@@ -329,7 +358,7 @@ public partial class SharedMediaEditorShell
         _history = state.History;
         _artwork = state.Artwork;
         if (ActiveScope is not null)
-            _artworkStates[ActiveScope.ScopeId] = state.Artwork;
+            _artworkStates[BuildScopeStateKey(ActiveScope.FieldEntityId, ActiveScope.ScopeId)] = state.Artwork;
         _selectedMediaType = _detail?.MediaType ?? _editorContext?.MediaType ?? Request.MediaType ?? "Books";
         _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
         _canonicalTargetGroup = ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup;
@@ -337,6 +366,8 @@ public partial class SharedMediaEditorShell
         _canonicalSearchResponse = null;
         _selectedCandidateId = null;
         _selectedSuggestedFieldKeys.Clear();
+        _showQuarantineConfirm = false;
+        _pendingMembershipPreview = null;
         CloseArtworkZoom();
         EnsureActiveTabVisible();
         NormalizeArtworkSelection();
@@ -347,7 +378,8 @@ public partial class SharedMediaEditorShell
         if (string.Equals(_activeScopeId, scopeId, StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (!string.IsNullOrWhiteSpace(_activeTab) && !string.Equals(_activeTab, "file", StringComparison.OrdinalIgnoreCase))
+        var wasFileScope = IsFileScope;
+        if (!string.IsNullOrWhiteSpace(_activeTab) && !string.Equals(_activeTab, "inspector", StringComparison.OrdinalIgnoreCase))
             _lastNonFileTab = _activeTab;
 
         _activeScopeId = scopeId;
@@ -357,9 +389,9 @@ public partial class SharedMediaEditorShell
 
         if (string.Equals(scopeId, "file", StringComparison.OrdinalIgnoreCase))
         {
-            _activeTab = "file";
+            _activeTab = "inspector";
         }
-        else if (string.Equals(_activeTab, "file", StringComparison.OrdinalIgnoreCase))
+        else if (wasFileScope && string.Equals(_activeTab, "inspector", StringComparison.OrdinalIgnoreCase))
         {
             _activeTab = _lastNonFileTab;
         }
@@ -370,6 +402,25 @@ public partial class SharedMediaEditorShell
         try
         {
             await LoadScopeStateAsync();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    protected async Task SelectNavigatorNodeAsync(Guid entityId)
+    {
+        if (entityId == Guid.Empty || entityId == EditorContextEntityId)
+            return;
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            await LoadSingleItemAsync(entityId, resetEditorState: false);
         }
         finally
         {
@@ -399,23 +450,24 @@ public partial class SharedMediaEditorShell
         if (!IsSingleItem || string.IsNullOrWhiteSpace(scopeId))
             return;
 
-        if (!forceReload && _artworkStates.ContainsKey(scopeId))
-            return;
-
         var scope = GetScopeById(scopeId);
         if (scope is null)
+            return;
+
+        var stateKey = BuildScopeStateKey(scope.FieldEntityId, scope.ScopeId);
+        if (!forceReload && _artworkStates.ContainsKey(stateKey))
             return;
 
         var slots = ResolveArtworkSlots(scope);
         if (!scope.CanEditArtwork && slots.Count == 0)
         {
-            _artworkStates[scope.ScopeId] = new ArtworkEditorDto { EntityId = scope.ArtworkOwnerEntityId ?? scope.FieldEntityId };
+            _artworkStates[stateKey] = new ArtworkEditorDto { EntityId = scope.ArtworkOwnerEntityId ?? scope.FieldEntityId };
             return;
         }
 
-        var artwork = await ApiClient.GetScopeArtworkAsync(LaunchEntityId, scope.ScopeId)
+        var artwork = await ApiClient.GetScopeArtworkAsync(EditorContextEntityId, scope.ScopeId)
                       ?? new ArtworkEditorDto { EntityId = scope.ArtworkOwnerEntityId ?? scope.FieldEntityId };
-        _artworkStates[scope.ScopeId] = artwork;
+        _artworkStates[stateKey] = artwork;
     }
 
     private Task LoadBatchAsync()
@@ -439,9 +491,12 @@ public partial class SharedMediaEditorShell
         if (!IsBatchMode)
         {
             var visibleKeys = GetVisibleFieldKeysForScope();
-            var sourceTabIds = string.Equals(tabId, "options", StringComparison.OrdinalIgnoreCase)
-                ? new[] { "options", "sorting" }
-                : new[] { tabId };
+            var sourceTabIds = tabId switch
+            {
+                "details" or "identity" => new[] { "details" },
+                "options" => new[] { "options", "sorting" },
+                _ => new[] { tabId },
+            };
 
             return _schema.Groups
                 .Where(group => sourceTabIds.Contains(group.TabId, StringComparer.OrdinalIgnoreCase))
@@ -455,6 +510,7 @@ public partial class SharedMediaEditorShell
                     TabId = tabId,
                     Fields = group.Fields
                         .Where(field => visibleKeys.Contains(field.Key, StringComparer.OrdinalIgnoreCase))
+                        .Where(field => ShouldIncludeFieldInTab(tabId, field))
                         .ToList(),
                 })
                 .Where(group => group.Fields.Count > 0)
@@ -500,6 +556,22 @@ public partial class SharedMediaEditorShell
         };
     }
 
+    private bool ShouldIncludeFieldInTab(string tabId, MediaEditorFieldDefinition field) =>
+        tabId switch
+        {
+            "details" => !IsIdentityTabField(field),
+            "identity" => IsIdentityTabField(field),
+            _ => true,
+        };
+
+    private bool IsIdentityTabField(MediaEditorFieldDefinition field)
+    {
+        if (field.IdentityField)
+            return true;
+
+        return GetPlacementFieldKeysForActiveScope().Contains(field.Key, StringComparer.OrdinalIgnoreCase);
+    }
+
     protected string GetPlaceholder(MediaEditorFieldDefinition field) =>
         IsBatchMode ? "Leave unchanged" : (field.Placeholder ?? field.Label);
 
@@ -535,9 +607,13 @@ public partial class SharedMediaEditorShell
         }
     }
 
-    protected async Task SaveAsync()
+    protected Task SaveAsync() => SaveAsyncCore(applyMembershipMove: false);
+
+    protected Task ConfirmMembershipMoveAsync() => SaveAsyncCore(applyMembershipMove: true);
+
+    private async Task SaveAsyncCore(bool applyMembershipMove)
     {
-        if (!IsDirty)
+        if (!IsDirty && (!applyMembershipMove || _pendingMembershipPreview is null))
         {
             MudDialog.Cancel();
             return;
@@ -568,29 +644,51 @@ public partial class SharedMediaEditorShell
                 return;
             }
 
+            if (!applyMembershipMove)
+            {
+                var membershipPreview = await PreviewMembershipChangeAsync();
+                if (membershipPreview is not null
+                    && !string.Equals(membershipPreview.Action, "none", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!membershipPreview.CanApply)
+                    {
+                        Snackbar.Add(membershipPreview.ConflictMessage ?? membershipPreview.Message, Severity.Error);
+                        return;
+                    }
+
+                    _pendingMembershipPreview = membershipPreview;
+                    return;
+                }
+            }
+
             var savedAnything = false;
+
+            if (applyMembershipMove && _pendingMembershipPreview is not null)
+            {
+                var membershipResult = await ApiClient.ApplyMediaEditorMembershipAsync(CurrentEntityId, BuildMembershipPreviewRequest());
+                if (membershipResult is null || !membershipResult.CanApply)
+                {
+                    Snackbar.Add(membershipResult?.ConflictMessage ?? membershipResult?.Message ?? "Membership update failed.", Severity.Error);
+                    return;
+                }
+
+                savedAnything = true;
+            }
 
             var fieldChangesByScope = _editedValues
                 .Select(entry => (Key: ParseScopedKey(entry.Key), Value: entry.Value))
-                .Where(entry => !string.IsNullOrWhiteSpace(entry.Key.ScopeId) && ActiveScopeExists(entry.Key.ScopeId))
-                .GroupBy(entry => entry.Key.ScopeId, StringComparer.OrdinalIgnoreCase)
+                .Where(entry => entry.Key.EntityId != Guid.Empty)
+                .GroupBy(entry => new ScopedEditorKey(entry.Key.EntityId, entry.Key.ScopeId), ScopedEditorKeyComparer.Instance)
                 .ToList();
 
-            if (fieldChangesByScope.Count > 0)
+            foreach (var scopeGroup in fieldChangesByScope)
             {
-                foreach (var scopeGroup in fieldChangesByScope)
+                var fields = scopeGroup.ToDictionary(entry => entry.Key.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+                var saved = await ApiClient.SaveItemPreferencesAsync(scopeGroup.Key.EntityId, fields);
+                if (!saved)
                 {
-                    var scope = GetScopeById(scopeGroup.Key);
-                    if (scope is null || !scope.CanEditFields)
-                        continue;
-
-                    var fields = scopeGroup.ToDictionary(entry => entry.Key.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
-                    var saved = await ApiClient.SaveItemPreferencesAsync(scope.FieldEntityId, fields);
-                    if (!saved)
-                    {
-                        Snackbar.Add($"Preference save failed for {scope.Label}.", Severity.Error);
-                        return;
-                    }
+                    Snackbar.Add($"Preference save failed for {scopeGroup.Key.ScopeId}.", Severity.Error);
+                    return;
                 }
 
                 savedAnything = true;
@@ -599,24 +697,20 @@ public partial class SharedMediaEditorShell
             foreach (var pendingArtwork in _pendingArtworkFiles.ToList())
             {
                 var parsedKey = ParseScopedKey(pendingArtwork.Key);
-                var scope = GetScopeById(parsedKey.ScopeId);
-                if (scope is null)
+                if (parsedKey.EntityId == Guid.Empty || string.IsNullOrWhiteSpace(parsedKey.ScopeId))
                     continue;
 
                 await using var stream = pendingArtwork.Value.OpenReadStream(10 * 1024 * 1024);
                 var uploaded = await ApiClient.UploadScopeArtworkVariantAsync(
-                    LaunchEntityId,
-                    scope.ScopeId,
+                    parsedKey.EntityId,
+                    parsedKey.ScopeId,
                     parsedKey.Key,
                     stream,
                     pendingArtwork.Value.Name);
 
                 if (!uploaded)
                 {
-                    var label = ResolveArtworkSlots(scope).FirstOrDefault(slot =>
-                        string.Equals(slot.AssetType, parsedKey.Key, StringComparison.OrdinalIgnoreCase))?.Label
-                        ?? parsedKey.Key;
-                    Snackbar.Add($"{label} upload failed.", Severity.Error);
+                    Snackbar.Add($"{parsedKey.Key} upload failed.", Severity.Error);
                     return;
                 }
 
@@ -629,7 +723,9 @@ public partial class SharedMediaEditorShell
                 return;
             }
 
-            Snackbar.Add("Changes saved.", Severity.Success);
+            Snackbar.Add(applyMembershipMove && _pendingMembershipPreview is not null
+                ? "Changes saved and membership updated."
+                : "Changes saved.", Severity.Success);
             MudDialog.Close(DialogResult.Ok(true));
         }
         finally
@@ -673,7 +769,8 @@ public partial class SharedMediaEditorShell
             _selectedSuggestedFieldKeys.Clear();
             _selectedCandidateId = null;
             _scopeStates.Clear();
-            await LoadSingleItemAsync();
+            _navigator = null;
+            await LoadSingleItemAsync(resetEditorState: true);
             Snackbar.Add($"Media type updated to {_selectedMediaType}.", Severity.Success);
         }
         finally
@@ -816,7 +913,7 @@ public partial class SharedMediaEditorShell
         if (ArtworkScope is null)
             return _artwork;
 
-        return _artworkStates.TryGetValue(ArtworkScope.ScopeId, out var artwork)
+        return _artworkStates.TryGetValue(BuildScopeStateKey(ArtworkScope.FieldEntityId, ArtworkScope.ScopeId), out var artwork)
             ? artwork
             : _artwork;
     }
@@ -829,7 +926,7 @@ public partial class SharedMediaEditorShell
         if (ActiveScope is not null && string.Equals(ArtworkScope.ScopeId, ActiveScope.ScopeId, StringComparison.OrdinalIgnoreCase))
             return _detail?.HeroUrl;
 
-        return _scopeStates.TryGetValue(ArtworkScope.ScopeId, out var state)
+        return _scopeStates.TryGetValue(BuildScopeStateKey(ArtworkScope.FieldEntityId, ArtworkScope.ScopeId), out var state)
             ? state.Detail?.HeroUrl
             : null;
     }
@@ -902,12 +999,11 @@ public partial class SharedMediaEditorShell
 
     protected Task SelectTabAsync(string tabId)
     {
-        var normalizedTabId = string.Equals(tabId, "sorting", StringComparison.OrdinalIgnoreCase) ? "options" : tabId;
-        if (!IsTabDisabled(normalizedTabId))
+        if (!IsTabDisabled(tabId))
         {
-            _activeTab = normalizedTabId;
-            if (!string.Equals(normalizedTabId, "file", StringComparison.OrdinalIgnoreCase))
-                _lastNonFileTab = normalizedTabId;
+            _activeTab = tabId;
+            if (!string.Equals(tabId, "inspector", StringComparison.OrdinalIgnoreCase))
+                _lastNonFileTab = tabId;
         }
 
         return Task.CompletedTask;
@@ -1016,7 +1112,7 @@ public partial class SharedMediaEditorShell
         try
         {
             var ok = await ApiClient.UploadScopeArtworkFromUrlAsync(
-                LaunchEntityId,
+                EditorContextEntityId,
                 scope.ScopeId,
                 slot.AssetType,
                 _artworkUrlInput.Trim());
@@ -1069,7 +1165,7 @@ public partial class SharedMediaEditorShell
         {
             await using var stream = file.OpenReadStream(10 * 1024 * 1024);
             var uploaded = await ApiClient.UploadScopeArtworkVariantAsync(
-                LaunchEntityId,
+                EditorContextEntityId,
                 scope.ScopeId,
                 assetType,
                 stream,
@@ -1465,7 +1561,12 @@ public partial class SharedMediaEditorShell
             .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
 
         foreach (var edit in _editedValues
-                     .Where(entry => string.Equals(ParseScopedKey(entry.Key).ScopeId, ActiveScope?.ScopeId, StringComparison.OrdinalIgnoreCase)))
+                     .Where(entry =>
+                     {
+                         var parsed = ParseScopedKey(entry.Key);
+                         return parsed.EntityId == CurrentEntityId
+                                && string.Equals(parsed.ScopeId, ActiveScope?.ScopeId, StringComparison.OrdinalIgnoreCase);
+                     }))
         {
             merged[ParseScopedKey(edit.Key).Key] = edit.Value;
         }
@@ -1528,7 +1629,7 @@ public partial class SharedMediaEditorShell
         }
 
         if (IsFileScope)
-            return [("file", "File")];
+            return [("inspector", "Inspector")];
 
         return TabDefinitions
             .Where(tab => IsTabVisible(tab.Id))
@@ -1654,32 +1755,28 @@ public partial class SharedMediaEditorShell
             return tabId is "details" or "options";
 
         if (IsFileScope)
-            return string.Equals(tabId, "file", StringComparison.OrdinalIgnoreCase);
+            return string.Equals(tabId, "inspector", StringComparison.OrdinalIgnoreCase);
 
         return tabId switch
         {
             "details" => true,
-            "universe" => SupportsUniverseTab(),
+            "identity" => SupportsIdentityTab(),
             "artwork" => SupportsArtworkTab(),
             "options" => GetGroupsForTab("options").Any(),
+            "inspector" => SupportsInspectorTab(),
             _ => false,
         };
     }
 
-    private bool SupportsUniverseTab()
+    private bool SupportsIdentityTab()
     {
-        if (ActiveScope is null)
+        if (IsBatchMode)
             return false;
 
-        return (_selectedMediaType, ActiveScope.ScopeId) switch
-        {
-            ("TV", "series") => true,
-            ("Movies", "movie") => true,
-            ("Books", "series") or ("Books", "work") or ("Books", "volume_issue") => true,
-            ("Audiobooks", "series") or ("Audiobooks", "work") or ("Audiobooks", "volume_issue") => true,
-            ("Comics", "series") or ("Comics", "work") or ("Comics", "volume_issue") => true,
-            _ => false,
-        };
+        return GetGroupsForTab("identity").Any()
+               || (IsSingleItem && SupportsCanonicalSearch)
+               || !string.IsNullOrWhiteSpace(CanonicalSearchUnavailableReason)
+               || _detail?.UniverseSummary is not null;
     }
 
     private bool SupportsArtworkTab()
@@ -1690,6 +1787,27 @@ public partial class SharedMediaEditorShell
         return ActiveScope.CanEditArtwork
                || ResolveArtworkSlots(ActiveScope).Count > 0
                || GetArtworkReadOnlySwitchTargets().Count > 0;
+    }
+
+    private bool SupportsInspectorTab()
+    {
+        if (!IsSingleItem || ActiveScope is null)
+            return false;
+
+        if (IsFileScope)
+            return true;
+
+        return (_selectedMediaType, ActiveScope.ScopeId) switch
+        {
+            ("TV", "episode") => true,
+            ("Music", "track") => true,
+            ("Movies", _) => true,
+            ("Books", "work") or ("Books", "volume_issue") => true,
+            ("Audiobooks", "work") or ("Audiobooks", "volume_issue") => true,
+            ("Comics", "work") or ("Comics", "volume_issue") => true,
+            _ when !HasSeriesNavigator => true,
+            _ => false,
+        };
     }
 
     private string? GetCanonicalSearchUnavailableReason()
@@ -1708,12 +1826,6 @@ public partial class SharedMediaEditorShell
     {
         if (IsTabVisible(_activeTab))
             return;
-
-        if (string.Equals(_activeTab, "sorting", StringComparison.OrdinalIgnoreCase) && IsTabVisible("options"))
-        {
-            _activeTab = "options";
-            return;
-        }
 
         if (!string.IsNullOrWhiteSpace(_lastNonFileTab) && IsTabVisible(_lastNonFileTab))
         {
@@ -1795,6 +1907,315 @@ public partial class SharedMediaEditorShell
             _ => [],
         };
 
+    private IReadOnlyList<string> GetPlacementFieldKeysForActiveScope()
+    {
+        if (ActiveScope is null)
+            return [];
+
+        return (_selectedMediaType, ActiveScope.ScopeId) switch
+        {
+            ("TV", "episode") => ["show_name", "season_number", "episode_number", "episode_title"],
+            ("TV", "season") => ["season_number"],
+            ("TV", "series") => ["show_name"],
+            ("Music", "track") => ["artist", "album", "track_number", "disc_number"],
+            ("Music", "album") => ["artist", "album"],
+            ("Comics", "volume_issue") => ["series", "volume", "series_position"],
+            ("Comics", "work") => ["series", "volume", "series_position"],
+            ("Comics", "series") => ["series"],
+            ("Books", "work") or ("Books", "volume_issue") => ["author", "series", "series_position"],
+            ("Books", "series") => ["author", "series"],
+            ("Audiobooks", "work") or ("Audiobooks", "volume_issue") => ["author", "series", "series_position"],
+            ("Audiobooks", "series") => ["author", "series"],
+            _ => [],
+        };
+    }
+
+    private bool SupportsMembershipSuggestions(string fieldKey) =>
+        !string.IsNullOrWhiteSpace(GetMembershipSuggestionField(fieldKey));
+
+    private string? GetMembershipSuggestionField(string fieldKey) =>
+        (_selectedMediaType, ActiveScope?.ScopeId, fieldKey) switch
+        {
+            ("TV", "episode", "show_name") => "show",
+            ("TV", "episode", "season_number") => "season",
+            ("Music", "track", "artist") => "artist",
+            ("Music", "track", "album") => "album",
+            ("Music", "album", "artist") => "artist",
+            ("Comics", "work", "series") or ("Comics", "volume_issue", "series") => "series",
+            ("Books", "work", "author") or ("Books", "volume_issue", "author") => "author",
+            ("Books", "work", "series") or ("Books", "volume_issue", "series") => "series",
+            ("Audiobooks", "work", "author") or ("Audiobooks", "volume_issue", "author") => "author",
+            ("Audiobooks", "work", "series") or ("Audiobooks", "volume_issue", "series") => "series",
+            _ => null,
+        };
+
+    private async Task OnMembershipFieldInputAsync(string key, string? value)
+    {
+        OnFieldInput(key, value);
+
+        var scopedKey = BuildScopedFieldKey(key);
+        _pendingMembershipPreview = null;
+        _selectedMembershipTargetIds.Remove(scopedKey);
+        ClearDependentMembershipSelections(key);
+
+        var suggestionField = GetMembershipSuggestionField(key);
+        var query = (value ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(suggestionField) || query.Length < 2)
+        {
+            _membershipSuggestions.Remove(scopedKey);
+            return;
+        }
+
+        var parentContext = ResolveMembershipSuggestionParentContext(key);
+        var suggestions = await ApiClient.GetMediaEditorMembershipSuggestionsAsync(
+            CurrentEntityId,
+            suggestionField,
+            query,
+            parentContext.ParentEntityId,
+            parentContext.ParentValue);
+
+        _membershipSuggestions[scopedKey] = suggestions;
+        StateHasChanged();
+    }
+
+    private async Task ApplyMembershipSuggestionAsync(string key, MediaEditorMembershipSuggestionDto suggestion)
+    {
+        OnFieldInput(key, suggestion.Label);
+
+        var scopedKey = BuildScopedFieldKey(key);
+        _selectedMembershipTargetIds[scopedKey] = suggestion.EntityId;
+        _membershipSuggestions.Remove(scopedKey);
+        _pendingMembershipPreview = null;
+
+        ClearDependentMembershipSelections(key);
+
+        if (string.Equals(key, "season_number", StringComparison.OrdinalIgnoreCase))
+            _editedValues[scopedKey] = ExtractLeadingNumber(suggestion.Label);
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private IReadOnlyList<MediaEditorMembershipSuggestionDto> GetMembershipSuggestions(string key) =>
+        _membershipSuggestions.TryGetValue(BuildScopedFieldKey(key), out var suggestions)
+            ? suggestions
+            : [];
+
+    private void ClearMembershipSuggestions(string key) =>
+        _membershipSuggestions.Remove(BuildScopedFieldKey(key));
+
+    private (Guid? ParentEntityId, string? ParentValue) ResolveMembershipSuggestionParentContext(string fieldKey)
+    {
+        if (string.Equals(fieldKey, "season_number", StringComparison.OrdinalIgnoreCase))
+        {
+            var showKey = BuildScopedFieldKey("show_name");
+            return (
+                _selectedMembershipTargetIds.TryGetValue(showKey, out var targetId) ? targetId : null,
+                GetEditableValue("show_name"));
+        }
+
+        if (string.Equals(fieldKey, "album", StringComparison.OrdinalIgnoreCase))
+            return (null, GetEditableValue("artist"));
+
+        if (string.Equals(fieldKey, "series", StringComparison.OrdinalIgnoreCase) && _selectedMediaType is "Books" or "Audiobooks")
+            return (null, GetEditableValue("author"));
+
+        return (null, null);
+    }
+
+    private void ClearDependentMembershipSelections(string fieldKey)
+    {
+        if (string.Equals(fieldKey, "show_name", StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedMembershipTargetIds.Remove(BuildScopedFieldKey("season_number"));
+            _membershipSuggestions.Remove(BuildScopedFieldKey("season_number"));
+        }
+        else if (string.Equals(fieldKey, "artist", StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedMembershipTargetIds.Remove(BuildScopedFieldKey("album"));
+            _membershipSuggestions.Remove(BuildScopedFieldKey("album"));
+        }
+        else if (string.Equals(fieldKey, "author", StringComparison.OrdinalIgnoreCase))
+        {
+            _selectedMembershipTargetIds.Remove(BuildScopedFieldKey("series"));
+            _membershipSuggestions.Remove(BuildScopedFieldKey("series"));
+        }
+    }
+
+    private async Task<MediaEditorMembershipPreviewDto?> PreviewMembershipChangeAsync()
+    {
+        if (!IsSingleItem || ActiveScope is null)
+            return null;
+
+        var placementFields = GetPlacementFieldKeysForActiveScope();
+        if (placementFields.Count == 0)
+            return null;
+
+        var hasPlacementEdit = placementFields.Any(field =>
+        {
+            var scopedKey = BuildScopedFieldKey(field);
+            return _editedValues.ContainsKey(scopedKey) || _selectedMembershipTargetIds.ContainsKey(scopedKey);
+        });
+
+        if (!hasPlacementEdit)
+            return null;
+
+        var preview = await ApiClient.PreviewMediaEditorMembershipAsync(CurrentEntityId, BuildMembershipPreviewRequest());
+        return preview;
+    }
+
+    private MediaEditorMembershipPreviewRequestDto BuildMembershipPreviewRequest()
+    {
+        var fieldValues = BuildDraftFields()
+            .ToDictionary(pair => pair.Key, pair => (string?)pair.Value, StringComparer.OrdinalIgnoreCase);
+
+        var targetIds = _selectedMembershipTargetIds
+            .Where(entry =>
+            {
+                var parsed = ParseScopedKey(entry.Key);
+                return parsed.EntityId == CurrentEntityId
+                       && string.Equals(parsed.ScopeId, ActiveScope?.ScopeId, StringComparison.OrdinalIgnoreCase);
+            })
+            .ToDictionary(entry => ParseScopedKey(entry.Key).Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
+
+        return new MediaEditorMembershipPreviewRequestDto
+        {
+            ScopeId = ActiveScope?.ScopeId,
+            FieldValues = fieldValues,
+            SelectedTargetIds = targetIds
+        };
+    }
+
+    private IReadOnlyList<MediaEditorNavigatorNodeDto> GetNavigatorChildren(Guid? parentNodeId)
+    {
+        if (_navigator is null)
+            return [];
+
+        return _navigator.Nodes
+            .Where(node => node.ParentNodeId == parentNodeId)
+            .OrderBy(node => node.Depth)
+            .ThenBy(node => ParseOrdinalLabel(node.OrdinalLabel))
+            .ThenBy(node => node.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private IReadOnlyList<MediaEditorNavigatorNodeDto> GetQuarantineTargetNodes(MediaEditorNavigatorNodeDto node)
+    {
+        if (_navigator is null)
+            return [];
+
+        if (node.IsLeaf)
+            return node.CanQuarantine ? [node] : [];
+
+        var descendants = new List<MediaEditorNavigatorNodeDto>();
+        foreach (var child in GetNavigatorChildren(node.NodeId))
+        {
+            descendants.AddRange(GetQuarantineTargetNodes(child));
+        }
+
+        return descendants
+            .Where(item => item.CanQuarantine)
+            .GroupBy(item => item.EntityId)
+            .Select(group => group.First())
+            .ToList();
+    }
+
+    private IReadOnlyList<Guid> GetQuarantineTargetEntityIds()
+    {
+        if (IsBatchMode || ActiveScope is null)
+            return [];
+
+        if (HasSeriesNavigator && SelectedNavigatorNode is not null)
+            return GetQuarantineTargetNodes(SelectedNavigatorNode).Select(node => node.EntityId).ToList();
+
+        return CurrentEntityId == Guid.Empty ? [] : [CurrentEntityId];
+    }
+
+    protected async Task ToggleQuarantineConfirmAsync()
+    {
+        _showQuarantineConfirm = !_showQuarantineConfirm;
+        if (!_showQuarantineConfirm)
+            return;
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected async Task QuarantineCurrentSelectionAsync()
+    {
+        var entityIds = GetQuarantineTargetEntityIds();
+        if (entityIds.Count == 0)
+            return;
+
+        _quarantining = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = entityIds.Count == 1
+                ? await ApiClient.RejectRegistryItemAsync(entityIds[0])
+                : await ApiClient.BatchRejectRegistryItemsAsync(entityIds.ToArray());
+
+            if (response is null)
+            {
+                Snackbar.Add("Quarantine failed.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(entityIds.Count == 1 ? "Item quarantined." : $"{entityIds.Count} items quarantined.", Severity.Success);
+
+            if (HasSeriesNavigator)
+            {
+                var fallbackEntityId = ResolveNavigatorFallbackEntityAfterQuarantine();
+                if (fallbackEntityId != Guid.Empty)
+                {
+                    await LoadSingleItemAsync(fallbackEntityId, resetEditorState: false);
+                    return;
+                }
+            }
+
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _quarantining = false;
+            _showQuarantineConfirm = false;
+            StateHasChanged();
+        }
+    }
+
+    private Guid ResolveNavigatorFallbackEntityAfterQuarantine()
+    {
+        var currentNode = SelectedNavigatorNode;
+        if (currentNode is null || _navigator is null)
+            return Guid.Empty;
+
+        if (currentNode.ParentNodeId is Guid parentNodeId)
+        {
+            var parentNode = _navigator.Nodes.FirstOrDefault(node => node.NodeId == parentNodeId);
+            if (parentNode is not null)
+                return parentNode.EntityId;
+        }
+
+        return NavigatorRootNode?.EntityId ?? Guid.Empty;
+    }
+
+    private static int ParseOrdinalLabel(string? ordinalLabel)
+    {
+        if (string.IsNullOrWhiteSpace(ordinalLabel))
+            return int.MaxValue;
+
+        var digits = new string(ordinalLabel.Where(char.IsDigit).ToArray());
+        return int.TryParse(digits, out var parsed) ? parsed : int.MaxValue;
+    }
+
+    private static string ExtractLeadingNumber(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+            return string.Empty;
+
+        var digits = new string(input.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(digits) ? input : digits;
+    }
+
     private async Task RefreshArtworkStateAsync(string? scopeId = null)
     {
         if (!IsSingleItem)
@@ -1804,8 +2225,14 @@ public partial class SharedMediaEditorShell
         if (string.IsNullOrWhiteSpace(targetScopeId))
             return;
 
-        _artworkStates.Remove(targetScopeId);
-        _scopeStates.Remove(targetScopeId);
+        var targetScope = GetScopeById(targetScopeId);
+        if (targetScope is null)
+            return;
+
+        var stateKey = BuildScopeStateKey(targetScope.FieldEntityId, targetScope.ScopeId);
+
+        _artworkStates.Remove(stateKey);
+        _scopeStates.Remove(stateKey);
 
         if (string.Equals(ActiveScope?.ScopeId, targetScopeId, StringComparison.OrdinalIgnoreCase))
             await LoadScopeStateAsync(forceReload: true);
@@ -1871,19 +2298,39 @@ public partial class SharedMediaEditorShell
     private string BuildScopedFieldKey(string key) =>
         IsBatchMode || ActiveScope is null
             ? key
-            : $"{ActiveScope.ScopeId}|{key}";
+            : $"{ActiveScope.FieldEntityId:D}|{ActiveScope.ScopeId}|{key}";
 
     private string BuildScopedArtworkKey(string? scopeId, string assetType) =>
         IsBatchMode || string.IsNullOrWhiteSpace(scopeId)
             ? assetType
-            : $"{scopeId}|{assetType}";
+            : $"{GetScopeById(scopeId)?.FieldEntityId ?? EditorContextEntityId:D}|{scopeId}|{assetType}";
 
-    private static (string ScopeId, string Key) ParseScopedKey(string compositeKey)
+    private static (Guid EntityId, string ScopeId, string Key) ParseScopedKey(string compositeKey)
     {
-        var splitIndex = compositeKey.IndexOf('|');
-        return splitIndex > 0
-            ? (compositeKey[..splitIndex], compositeKey[(splitIndex + 1)..])
-            : (string.Empty, compositeKey);
+        var segments = compositeKey.Split('|', 3, StringSplitOptions.None);
+        if (segments.Length == 3 && Guid.TryParse(segments[0], out var entityId))
+            return (entityId, segments[1], segments[2]);
+
+        if (segments.Length == 2)
+            return (Guid.Empty, segments[0], segments[1]);
+
+        return (Guid.Empty, string.Empty, compositeKey);
+    }
+
+    private static string BuildScopeStateKey(Guid entityId, string scopeId) =>
+        $"{entityId:D}|{scopeId}";
+
+    private readonly record struct ScopedEditorKey(Guid EntityId, string ScopeId);
+
+    private sealed class ScopedEditorKeyComparer : IEqualityComparer<ScopedEditorKey>
+    {
+        public static ScopedEditorKeyComparer Instance { get; } = new();
+
+        public bool Equals(ScopedEditorKey x, ScopedEditorKey y) =>
+            x.EntityId == y.EntityId && string.Equals(x.ScopeId, y.ScopeId, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode(ScopedEditorKey obj) =>
+            HashCode.Combine(obj.EntityId, StringComparer.OrdinalIgnoreCase.GetHashCode(obj.ScopeId ?? string.Empty));
     }
 
     private MediaEditorScopeDto? GetScopeById(string? scopeId) =>

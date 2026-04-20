@@ -1463,6 +1463,87 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<MediaEditorNavigatorDto?> GetMediaEditorNavigatorAsync(Guid entityId, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<MediaEditorNavigatorDto>($"/metadata/{entityId}/navigator", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/{EntityId}/navigator failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<List<MediaEditorMembershipSuggestionDto>> GetMediaEditorMembershipSuggestionsAsync(
+        Guid entityId,
+        string field,
+        string? query = null,
+        Guid? parentEntityId = null,
+        string? parentValue = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var queryParts = new List<string> { $"field={Uri.EscapeDataString(field)}" };
+            if (!string.IsNullOrWhiteSpace(query))
+                queryParts.Add($"query={Uri.EscapeDataString(query)}");
+            if (parentEntityId.HasValue)
+                queryParts.Add($"parentEntityId={Uri.EscapeDataString(parentEntityId.Value.ToString())}");
+            if (!string.IsNullOrWhiteSpace(parentValue))
+                queryParts.Add($"parentValue={Uri.EscapeDataString(parentValue)}");
+
+            var url = $"/metadata/{entityId}/membership-suggestions?{string.Join("&", queryParts)}";
+            return await _http.GetFromJsonAsync<List<MediaEditorMembershipSuggestionDto>>(url, ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /metadata/{EntityId}/membership-suggestions failed", entityId);
+            return [];
+        }
+    }
+
+    public async Task<MediaEditorMembershipPreviewDto?> PreviewMediaEditorMembershipAsync(
+        Guid entityId,
+        MediaEditorMembershipPreviewRequestDto request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"/metadata/{entityId}/membership-preview", request, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<MediaEditorMembershipPreviewDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/{EntityId}/membership-preview failed", entityId);
+            return null;
+        }
+    }
+
+    public async Task<MediaEditorMembershipPreviewDto?> ApplyMediaEditorMembershipAsync(
+        Guid entityId,
+        MediaEditorMembershipPreviewRequestDto request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"/metadata/{entityId}/membership-apply", request, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadFromJsonAsync<MediaEditorMembershipPreviewDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /metadata/{EntityId}/membership-apply failed", entityId);
+            return null;
+        }
+    }
+
     public async Task<bool> UploadEntityArtworkAsync(
         Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default)
     {

@@ -16,7 +16,7 @@ using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
 
-public static class MetadataEndpoints
+public static partial class MetadataEndpoints
 {
 
     /// <summary>
@@ -625,6 +625,8 @@ public static class MetadataEndpoints
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
+
+        MapMediaEditorNavigatorEndpoints(group);
 
         // ── GET /metadata/{entityId}/artwork/{scopeId} ─────────────────────
         group.MapGet("/{entityId:guid}/artwork/{scopeId}", async (
@@ -1844,7 +1846,7 @@ public static class MetadataEndpoints
         if (scopes.Count == 0)
             return null;
 
-        var initialScope = GetDefaultEditorScope(launch.MediaType, scopes);
+        var initialScope = GetDefaultEditorScope(launch, scopes);
 
         return new EditorScopeContext(
             launch.LaunchEntityId,
@@ -1866,6 +1868,7 @@ public static class MetadataEndpoints
         var workRow = conn.QueryFirstOrDefault<EditorLaunchWorkRow>("""
             SELECT w.id                 AS WorkId,
                    w.media_type         AS MediaType,
+                   w.work_kind          AS WorkKind,
                    w.parent_work_id     AS ParentWorkId,
                    COALESCE(gp.id, p.id, w.id) AS RootWorkId
             FROM works w
@@ -1885,6 +1888,7 @@ public static class MetadataEndpoints
                 TryParseGuid(workRow.ParentWorkId),
                 TryParseGuid(workRow.RootWorkId) ?? workId,
                 string.IsNullOrWhiteSpace(workRow.MediaType) ? "Books" : workRow.MediaType,
+                string.IsNullOrWhiteSpace(workRow.WorkKind) ? "standalone" : workRow.WorkKind,
                 representativeAsset?.AssetId,
                 representativeAsset?.FilePath);
         }
@@ -1894,6 +1898,7 @@ public static class MetadataEndpoints
                    a.file_path_root AS FilePath,
                    w.id             AS WorkId,
                    w.media_type     AS MediaType,
+                   w.work_kind      AS WorkKind,
                    w.parent_work_id AS ParentWorkId,
                    COALESCE(gp.id, p.id, w.id) AS RootWorkId
             FROM media_assets a
@@ -1915,6 +1920,7 @@ public static class MetadataEndpoints
             TryParseGuid(assetRow.ParentWorkId),
             TryParseGuid(assetRow.RootWorkId) ?? assetWorkId,
             string.IsNullOrWhiteSpace(assetRow.MediaType) ? "Books" : assetRow.MediaType,
+            string.IsNullOrWhiteSpace(assetRow.WorkKind) ? "standalone" : assetRow.WorkKind,
             TryParseGuid(assetRow.AssetId),
             assetRow.FilePath);
     }
@@ -2033,6 +2039,8 @@ public static class MetadataEndpoints
         var rootWorkId = launch.RootWorkId == Guid.Empty ? launch.WorkId : launch.RootWorkId;
         var hasParentScope = launch.ParentWorkId.HasValue && launch.ParentWorkId.Value != Guid.Empty;
         var hasDistinctRoot = rootWorkId != Guid.Empty && rootWorkId != launch.WorkId;
+        var launchWorkKind = launch.WorkKind.Trim().ToLowerInvariant();
+        var isParentLaunch = string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase);
         var containerFolder = GetContainerFolderPath(launch.RepresentativeMediaFilePath);
         var seriesFolder = GetSeriesFolderPath(launch.RepresentativeMediaFilePath);
         var seasonFolder = GetSeasonFolderPath(launch.RepresentativeMediaFilePath);
@@ -2209,13 +2217,14 @@ public static class MetadataEndpoints
             case "Audiobooks":
             case "Books":
             default:
-                if (hasDistinctRoot)
+                if (hasDistinctRoot || isParentLaunch)
                 {
+                    var seriesEntityId = hasDistinctRoot ? rootWorkId : launch.WorkId;
                     scopes.Add(new EditorScopeResolution(
                         "series",
                         "Series",
                         0,
-                        rootWorkId,
+                        seriesEntityId,
                         "Work",
                         null,
                         null,
@@ -2232,60 +2241,66 @@ public static class MetadataEndpoints
                         RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
                 }
 
-                scopes.Add(new EditorScopeResolution(
-                    hasDistinctRoot ? "volume_issue" : "work",
-                    hasDistinctRoot ? "Volume / Issue" : "Work",
-                    hasDistinctRoot ? 1 : 0,
-                    launch.WorkId,
-                    "Work",
-                    launch.WorkId,
-                    "Work",
-                    itemTitle,
-                    FirstNonBlank(seriesName, itemYear),
-                    itemTitle,
-                    mediaType switch
-                    {
-                        "Comics" => "issue",
-                        "Audiobooks" => "audiobook_identity",
-                        _ => "book_identity",
-                    },
-                    "Work metadata and artwork live here.",
-                    null,
-                    CanEditFields: true,
-                    CanEditArtwork: true,
-                    MediaType: mediaType,
-                    ArtworkFolderPath: containerFolder,
-                    RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                if (!isParentLaunch)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        hasDistinctRoot ? "volume_issue" : "work",
+                        hasDistinctRoot ? "Volume / Issue" : "Work",
+                        hasDistinctRoot ? 1 : 0,
+                        launch.WorkId,
+                        "Work",
+                        launch.WorkId,
+                        "Work",
+                        itemTitle,
+                        FirstNonBlank(seriesName, itemYear),
+                        itemTitle,
+                        mediaType switch
+                        {
+                            "Comics" => "issue",
+                            "Audiobooks" => "audiobook_identity",
+                            _ => "book_identity",
+                        },
+                        "Work metadata and artwork live here.",
+                        null,
+                        CanEditFields: true,
+                        CanEditArtwork: true,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: containerFolder,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
                 break;
         }
 
-        scopes.Add(new EditorScopeResolution(
-            "file",
-            "File",
-            scopes.Count,
-            launch.WorkId,
-            "Work",
-            null,
-            null,
-            Path.GetFileName(launch.RepresentativeMediaFilePath) ?? "File",
-            launch.RepresentativeMediaFilePath,
-            "File",
-            mediaType switch
-            {
-                "TV" => "show_episode",
-                "Music" => "track",
-                "Movies" => "movie_identity",
-                "Comics" => "issue",
-                "Audiobooks" => "audiobook_identity",
-                _ => "book_identity",
-            },
-            "File inspection and technical details for the concrete media file.",
-            "File scope is read-only in the edit panel.",
-            CanEditFields: false,
-            CanEditArtwork: false,
-            MediaType: mediaType,
-            ArtworkFolderPath: null,
-            RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+        if (!isParentLaunch || mediaType is "Movies")
+        {
+            scopes.Add(new EditorScopeResolution(
+                "file",
+                "File",
+                scopes.Count,
+                launch.WorkId,
+                "Work",
+                null,
+                null,
+                Path.GetFileName(launch.RepresentativeMediaFilePath) ?? "File",
+                launch.RepresentativeMediaFilePath,
+                "File",
+                mediaType switch
+                {
+                    "TV" => "show_episode",
+                    "Music" => "track",
+                    "Movies" => "movie_identity",
+                    "Comics" => "issue",
+                    "Audiobooks" => "audiobook_identity",
+                    _ => "book_identity",
+                },
+                "File inspection and technical details for the concrete media file.",
+                "File scope is read-only in the edit panel.",
+                CanEditFields: false,
+                CanEditArtwork: false,
+                MediaType: mediaType,
+                ArtworkFolderPath: null,
+                RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+        }
 
         return scopes;
     }
@@ -2384,16 +2399,25 @@ public static class MetadataEndpoints
             _ => [],
         };
 
-    private static string GetDefaultEditorScope(string mediaType, IReadOnlyList<EditorScopeResolution> scopes)
+    private static string GetDefaultEditorScope(EditorLaunchContext launch, IReadOnlyList<EditorScopeResolution> scopes)
     {
-        var preferredScopeId = NormalizeEditorMediaType(mediaType) switch
+        var launchWorkKind = launch.WorkKind.Trim().ToLowerInvariant();
+        var preferredScopeId = NormalizeEditorMediaType(launch.MediaType) switch
         {
+            "TV" when string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase) => "episode",
+            "TV" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase)
+                       && launch.ParentWorkId.HasValue
+                       && launch.ParentWorkId.Value != Guid.Empty => "season",
             "TV" => "series",
+            "Music" when string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase) => "track",
             "Music" => "album",
             "Movies" => "movie",
-            "Comics" or "Books" or "Audiobooks" => scopes.Any(scope => string.Equals(scope.ScopeId, "series", StringComparison.OrdinalIgnoreCase))
-                ? "series"
-                : "work",
+            "Comics" or "Books" or "Audiobooks" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "series",
+            "Comics" or "Books" or "Audiobooks" => scopes.Any(scope => string.Equals(scope.ScopeId, "volume_issue", StringComparison.OrdinalIgnoreCase))
+                ? "volume_issue"
+                : scopes.Any(scope => string.Equals(scope.ScopeId, "series", StringComparison.OrdinalIgnoreCase))
+                    ? "series"
+                    : "work",
             _ => scopes[0].ScopeId,
         };
 
@@ -2912,8 +2936,8 @@ public static class MetadataEndpoints
     {
         public Guid? AssetId => TryParseGuid(AssetIdValue);
     }
-    private sealed record EditorLaunchWorkRow(string WorkId, string MediaType, string? ParentWorkId, string? RootWorkId);
-    private sealed record EditorLaunchAssetRow(string AssetId, string? FilePath, string WorkId, string MediaType, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchWorkRow(string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
+    private sealed record EditorLaunchAssetRow(string AssetId, string? FilePath, string WorkId, string MediaType, string WorkKind, string? ParentWorkId, string? RootWorkId);
     private sealed record EditorLaunchContext(
         Guid LaunchEntityId,
         string LaunchEntityKind,
@@ -2921,6 +2945,7 @@ public static class MetadataEndpoints
         Guid? ParentWorkId,
         Guid RootWorkId,
         string MediaType,
+        string WorkKind,
         Guid? RepresentativeAssetId,
         string? RepresentativeMediaFilePath);
     private sealed record EditorScopeContext(

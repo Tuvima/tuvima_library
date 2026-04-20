@@ -96,6 +96,24 @@
     line-height: 1;
 }
 
+.app-selector-nav--button-list .app-selector-nav__item {
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.app-selector-nav--button-list .app-selector-nav__item::before {
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 2px;
+}
+
+.app-selector-nav--button-list .app-selector-nav__item.is-active {
+    border-color: rgba(234, 179, 8, 0.28);
+    background: rgba(234, 179, 8, 0.08);
+}
+
 @media (max-width: 960px) {
     .app-selector-nav {
         flex-direction: row;

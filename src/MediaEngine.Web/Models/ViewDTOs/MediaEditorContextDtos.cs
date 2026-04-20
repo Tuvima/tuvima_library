@@ -67,3 +67,141 @@ public sealed class MediaEditorScopeDto
     [JsonPropertyName("can_edit_artwork")]
     public bool CanEditArtwork { get; set; }
 }
+
+public sealed class MediaEditorNavigatorDto
+{
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; set; } = string.Empty;
+
+    [JsonPropertyName("container_entity_id")]
+    public Guid ContainerEntityId { get; set; }
+
+    [JsonPropertyName("selected_entity_id")]
+    public Guid SelectedEntityId { get; set; }
+
+    [JsonPropertyName("container_label")]
+    public string ContainerLabel { get; set; } = string.Empty;
+
+    [JsonPropertyName("container_title")]
+    public string ContainerTitle { get; set; } = string.Empty;
+
+    [JsonPropertyName("container_subtitle")]
+    public string? ContainerSubtitle { get; set; }
+
+    [JsonPropertyName("nodes")]
+    public List<MediaEditorNavigatorNodeDto> Nodes { get; set; } = [];
+}
+
+public sealed class MediaEditorNavigatorNodeDto
+{
+    [JsonPropertyName("node_id")]
+    public Guid NodeId { get; set; }
+
+    [JsonPropertyName("parent_node_id")]
+    public Guid? ParentNodeId { get; set; }
+
+    [JsonPropertyName("entity_id")]
+    public Guid EntityId { get; set; }
+
+    [JsonPropertyName("scope_id")]
+    public string ScopeId { get; set; } = string.Empty;
+
+    [JsonPropertyName("node_kind")]
+    public string NodeKind { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("subtitle")]
+    public string? Subtitle { get; set; }
+
+    [JsonPropertyName("ordinal_label")]
+    public string? OrdinalLabel { get; set; }
+
+    [JsonPropertyName("depth")]
+    public int Depth { get; set; }
+
+    [JsonPropertyName("is_root")]
+    public bool IsRoot { get; set; }
+
+    [JsonPropertyName("is_leaf")]
+    public bool IsLeaf { get; set; }
+
+    [JsonPropertyName("is_owned")]
+    public bool IsOwned { get; set; }
+
+    [JsonPropertyName("can_quarantine")]
+    public bool CanQuarantine { get; set; }
+
+    [JsonPropertyName("quarantine_count")]
+    public int QuarantineCount { get; set; }
+}
+
+public sealed class MediaEditorMembershipSuggestionDto
+{
+    [JsonPropertyName("entity_id")]
+    public Guid? EntityId { get; set; }
+
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("subtitle")]
+    public string? Subtitle { get; set; }
+}
+
+public sealed class MediaEditorMembershipPreviewRequestDto
+{
+    [JsonPropertyName("scope_id")]
+    public string? ScopeId { get; set; }
+
+    [JsonPropertyName("field_values")]
+    public Dictionary<string, string?> FieldValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("selected_target_ids")]
+    public Dictionary<string, Guid?> SelectedTargetIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class MediaEditorMembershipPreviewDto
+{
+    [JsonPropertyName("action")]
+    public string Action { get; set; } = string.Empty;
+
+    [JsonPropertyName("current_path")]
+    public string CurrentPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("target_path")]
+    public string TargetPath { get; set; } = string.Empty;
+
+    [JsonPropertyName("requires_new_target")]
+    public bool RequiresNewTarget { get; set; }
+
+    [JsonPropertyName("can_apply")]
+    public bool CanApply { get; set; }
+
+    [JsonPropertyName("applied")]
+    public bool Applied { get; set; }
+
+    [JsonPropertyName("selected_entity_id")]
+    public Guid SelectedEntityId { get; set; }
+
+    [JsonPropertyName("target_root_entity_id")]
+    public Guid TargetRootEntityId { get; set; }
+
+    [JsonPropertyName("target_parent_entity_id")]
+    public Guid? TargetParentEntityId { get; set; }
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("conflict_message")]
+    public string? ConflictMessage { get; set; }
+}
