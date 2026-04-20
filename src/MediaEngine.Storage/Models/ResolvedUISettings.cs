@@ -24,7 +24,7 @@ public sealed class ResolvedUISettings
     public bool DarkMode { get; set; } = true;
 
     [JsonPropertyName("accent_color")]
-    public string AccentColor { get; set; } = "#7C4DFF";
+    public string AccentColor { get; set; } = "#EAB308";
 
     // ── Layout ─────────────────────────────────────────────────────────
 
@@ -35,7 +35,7 @@ public sealed class ResolvedUISettings
     public string ContentMaxWidth { get; set; } = "Full";
 
     [JsonPropertyName("border_radius")]
-    public int BorderRadius { get; set; } = 32;
+    public int BorderRadius { get; set; } = 12;
 
     // ── Constraints ────────────────────────────────────────────────────
 

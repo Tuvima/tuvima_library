@@ -14,20 +14,11 @@
     </div>
 
     <div class="collections-tab-row">
-        <div class="collections-tab-bar">
-            @foreach (var tab in _tabs)
-            {
-                <button class="collections-tab @(_activeTab == tab.Id ? "collections-tab--active" : null)"
-                        @onclick="() => SwitchTab(tab.Id)">
-                    <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
-                    <span>@tab.Label</span>
-                    @if (tab.Count > 0)
-                    {
-                        <span class="collections-tab-badge">@tab.Count</span>
-                    }
-                </button>
-            }
-        </div>
+        <AppTabs Items="TabItems"
+                 ActiveKey="@_activeTab"
+                 AriaLabel="Collection filters"
+                 OnSelect="SwitchTab"
+                 Class="collections-tab-bar" />
         <button class="collections-add-btn" @onclick="OpenBuilder">
             <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
             <span>New Collection</span>
@@ -161,6 +152,14 @@
     private ProfileViewModel? _activeProfile;
     private List<CollectionListItemViewModel> _allCollections = [];
     private List<CollectionListItemViewModel> _filteredCollections = [];
+    private IReadOnlyList<AppNavItem> TabItems =>
+        _tabs.Select(tab => new AppNavItem
+        {
+            Key = tab.Id,
+            Label = tab.Label,
+            Icon = tab.Icon,
+            Badge = tab.Count > 0 ? tab.Count.ToString() : null
+        }).ToList();
 
     private bool CanManageSharedCollections =>
         _activeProfile?.Role is "Administrator" or "Curator";

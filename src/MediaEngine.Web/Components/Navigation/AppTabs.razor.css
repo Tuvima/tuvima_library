@@ -1,0 +1,147 @@
+.app-tabs {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+    min-width: 0;
+    overflow-x: auto;
+    padding: 0 0 1px;
+    border-bottom: 1px solid var(--app-tab-border, rgba(255, 255, 255, 0.08));
+    scrollbar-width: none;
+}
+
+.app-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+.app-tabs--stretch {
+    width: 100%;
+}
+
+.app-tabs__item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 0 0 13px;
+    border: none;
+    background: transparent;
+    color: var(--app-tab-text, rgba(248, 248, 248, 0.58));
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: color 0.16s ease, opacity 0.16s ease;
+}
+
+.app-tabs__item::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 999px;
+    background: transparent;
+    transform: scaleX(0.72);
+    opacity: 0;
+    transition: transform 0.16s ease, opacity 0.16s ease, background 0.16s ease;
+}
+
+.app-tabs__item:hover:not(:disabled),
+.app-tabs__item:focus-visible {
+    color: var(--app-tab-text-hover, rgba(248, 248, 248, 0.9));
+    outline: none;
+}
+
+.app-tabs__item:disabled {
+    cursor: default;
+    opacity: 0.46;
+}
+
+.app-tabs__item.is-active {
+    color: var(--app-tab-text-active, rgba(255, 255, 255, 0.96));
+}
+
+.app-tabs__item.is-active::after {
+    background: var(--app-accent, #eab308);
+    opacity: 1;
+    transform: scaleX(1);
+}
+
+.app-tabs__item.is-attention {
+    color: rgba(255, 222, 161, 0.92);
+}
+
+.app-tabs__icon {
+    font-size: 1rem;
+    color: currentColor;
+}
+
+.app-tabs__copy {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.app-tabs__label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1.2;
+}
+
+.app-tabs__description {
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--app-tab-meta, rgba(248, 248, 248, 0.42));
+    line-height: 1.2;
+}
+
+.app-tabs__badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--app-tab-badge-bg, rgba(255, 255, 255, 0.08));
+    color: var(--app-tab-badge-text, rgba(255, 255, 255, 0.88));
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.app-tabs__item.is-attention .app-tabs__badge {
+    background: rgba(234, 179, 8, 0.18);
+    color: rgba(255, 242, 204, 0.98);
+}
+
+.app-tabs--secondary {
+    gap: 16px;
+}
+
+.app-tabs--secondary .app-tabs__item {
+    padding-bottom: 11px;
+}
+
+.app-tabs--secondary .app-tabs__label {
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+    .app-tabs {
+        gap: 14px;
+    }
+
+    .app-tabs__item {
+        padding-bottom: 11px;
+    }
+
+    .app-tabs__label {
+        font-size: 0.82rem;
+    }
+}

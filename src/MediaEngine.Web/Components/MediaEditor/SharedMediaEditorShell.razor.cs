@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using MediaEngine.Web.Components.Navigation;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
@@ -89,6 +90,7 @@ public partial class SharedMediaEditorShell
     private string _canonicalTargetGroup = "";
     private string _canonicalSearchQuery = "";
     private string _artworkUrlInput = string.Empty;
+    private string? _artworkAddMenuAssetType;
     private string? _selectedCandidateId;
     private string? _selectedArtworkAssetType;
     private string? _focusedArtworkVariantKey;
@@ -111,6 +113,42 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
     protected IReadOnlyList<MediaEditorScopeDto> ArtworkOwnerScopes => ResolveArtworkOwnerScopes();
     protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ArtworkScope);
+    protected IReadOnlyList<AppNavItem> TabItems =>
+        Tabs.Select(tab => new AppNavItem
+        {
+            Key = tab.Id,
+            Label = tab.Label,
+            Disabled = IsTabDisabled(tab.Id)
+        }).ToList();
+    protected IReadOnlyList<AppNavItem> ScopeTabItems =>
+        (_editorContext?.Scopes ?? [])
+            .OrderBy(scope => scope.Order)
+            .Select(scope => new AppNavItem { Key = scope.ScopeId, Label = scope.Label })
+            .ToList();
+    protected IReadOnlyList<AppNavItem> QuickSearchTargetItems =>
+        QuickSearchTargets
+            .Select(target => new AppNavItem { Key = target.Key, Label = target.Label })
+            .ToList();
+    protected IReadOnlyList<AppNavItem> ArtworkOwnerTabItems =>
+        ArtworkOwnerScopes
+            .Select(scope => new AppNavItem
+            {
+                Key = scope.ScopeId,
+                Label = scope.Label,
+                Description = scope.DisplayTitle
+            })
+            .ToList();
+    protected IReadOnlyList<AppNavItem> ArtworkSlotItems =>
+        ArtworkSlots
+            .Select(slot => new AppNavItem
+            {
+                Key = slot.AssetType,
+                Label = slot.Label,
+                Icon = slot.Icon,
+                Description = slot.MetaLabel,
+                Badge = FormatCountBadge(GetArtworkGalleryItems(slot.AssetType).Count)
+            })
+            .ToList();
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
@@ -330,6 +368,9 @@ public partial class SharedMediaEditorShell
             _lastNonFileTab = _activeTab;
 
         _activeScopeId = scopeId;
+        _artworkAddMenuAssetType = null;
+        _artworkUrlInput = string.Empty;
+        _showArtworkUrlInput = false;
 
         if (string.Equals(scopeId, "file", StringComparison.OrdinalIgnoreCase))
         {
@@ -360,6 +401,7 @@ public partial class SharedMediaEditorShell
             return;
 
         _artworkScopeId = scopeId;
+        _artworkAddMenuAssetType = null;
         _artworkUrlInput = string.Empty;
         _showArtworkUrlInput = false;
         _dragTargetArtworkType = null;
@@ -738,7 +780,9 @@ public partial class SharedMediaEditorShell
         _pendingArtworkPreviewUrls[scopedKey] = $"data:{contentType};base64,{Convert.ToBase64String(ms.ToArray())}";
         _dragTargetArtworkType = null;
         _selectedArtworkAssetType = assetType;
+        _artworkAddMenuAssetType = null;
         _showArtworkUrlInput = false;
+        _artworkUrlInput = string.Empty;
         NormalizeArtworkSelection();
         await UploadPendingArtworkAsync(scope, assetType, file, scopedKey);
     }
@@ -927,11 +971,66 @@ public partial class SharedMediaEditorShell
                ?? items.FirstOrDefault();
     }
 
-    protected void SelectArtworkSlot(string assetType)
+    protected void SelectArtworkSlot(string assetType) => ApplyArtworkSlotSelection(assetType);
+
+    protected Task SelectTabAsync(string tabId)
+    {
+        if (!IsTabDisabled(tabId))
+            _activeTab = tabId;
+        return Task.CompletedTask;
+    }
+
+    protected Task SetCanonicalTargetGroupAsync(string targetGroup)
+    {
+        SetCanonicalTargetGroup(targetGroup);
+        return Task.CompletedTask;
+    }
+
+    protected Task SelectArtworkSlotAsync(string assetType)
+    {
+        ApplyArtworkSlotSelection(assetType);
+        return Task.CompletedTask;
+    }
+
+    protected bool IsArtworkAddMenuOpen(string assetType) =>
+        string.Equals(_artworkAddMenuAssetType, assetType, StringComparison.OrdinalIgnoreCase);
+
+    protected void ToggleArtworkAddMenu(string assetType)
+    {
+        var isOpen = IsArtworkAddMenuOpen(assetType);
+        ApplyArtworkSlotSelection(assetType, clearTransientUi: false);
+
+        if (isOpen)
+        {
+            _artworkAddMenuAssetType = null;
+            _showArtworkUrlInput = false;
+            _artworkUrlInput = string.Empty;
+            return;
+        }
+
+        _artworkAddMenuAssetType = assetType;
+        _showArtworkUrlInput = false;
+        _artworkUrlInput = string.Empty;
+    }
+
+    protected void OpenArtworkUrlInput(string assetType)
+    {
+        ApplyArtworkSlotSelection(assetType, clearTransientUi: false);
+        _artworkAddMenuAssetType = assetType;
+        _artworkUrlInput = string.Empty;
+        _showArtworkUrlInput = true;
+    }
+
+    private void ApplyArtworkSlotSelection(string assetType, bool clearTransientUi = true)
     {
         _selectedArtworkAssetType = assetType;
-        _artworkUrlInput = string.Empty;
-        _showArtworkUrlInput = false;
+        if (clearTransientUi)
+        {
+            _artworkAddMenuAssetType = null;
+            _artworkUrlInput = string.Empty;
+            _showArtworkUrlInput = false;
+        }
+
         _focusedArtworkVariantKey = GetArtworkGalleryItems(assetType).FirstOrDefault(item => item.IsPending)?.Key
                                     ?? GetArtworkGalleryItems(assetType).FirstOrDefault(item => item.IsPreferred)?.Key
                                     ?? GetArtworkGalleryItems(assetType).FirstOrDefault()?.Key;
@@ -998,6 +1097,7 @@ public partial class SharedMediaEditorShell
             }
 
             _artworkUrlInput = string.Empty;
+            _artworkAddMenuAssetType = null;
             _showArtworkUrlInput = false;
             await RefreshArtworkStateAsync(scope.ScopeId);
             Snackbar.Add($"{slot.Label} updated.", Severity.Success);
@@ -1016,7 +1116,14 @@ public partial class SharedMediaEditorShell
     {
         _showArtworkUrlInput = !_showArtworkUrlInput;
         if (!_showArtworkUrlInput)
+        {
             _artworkUrlInput = string.Empty;
+            _artworkAddMenuAssetType = null;
+        }
+        else
+        {
+            _artworkAddMenuAssetType = _selectedArtworkAssetType;
+        }
     }
 
     private async Task UploadPendingArtworkAsync(MediaEditorScopeDto scope, string assetType, IBrowserFile file, string scopedKey)
@@ -1683,6 +1790,9 @@ public partial class SharedMediaEditorShell
         var availableSlots = ArtworkSlots;
         if (availableSlots.Count == 0)
         {
+            _artworkAddMenuAssetType = null;
+            _artworkUrlInput = string.Empty;
+            _showArtworkUrlInput = false;
             _selectedArtworkAssetType = null;
             _focusedArtworkVariantKey = null;
             return;
@@ -1692,6 +1802,14 @@ public partial class SharedMediaEditorShell
             || !availableSlots.Any(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase)))
         {
             _selectedArtworkAssetType = availableSlots[0].AssetType;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_artworkAddMenuAssetType)
+            && !availableSlots.Any(slot => string.Equals(slot.AssetType, _artworkAddMenuAssetType, StringComparison.OrdinalIgnoreCase)))
+        {
+            _artworkAddMenuAssetType = null;
+            _artworkUrlInput = string.Empty;
+            _showArtworkUrlInput = false;
         }
 
         var selectedAssetType = _selectedArtworkAssetType!;
@@ -1715,6 +1833,8 @@ public partial class SharedMediaEditorShell
 
     private static string BuildVariantKey(Guid variantId) =>
         variantId == Guid.Empty ? "synthetic" : variantId.ToString("D");
+
+    private static string? FormatCountBadge(int count) => count > 0 ? count.ToString() : null;
 
     private string BuildScopedFieldKey(string key) =>
         IsBatchMode || ActiveScope is null

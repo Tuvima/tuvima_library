@@ -33,8 +33,8 @@ public sealed class ThemeService
         {
         LayoutProperties = new LayoutProperties
         {
-            // 8 px border radius — rectangular with a light curve.
-            DefaultBorderRadius = "8px",
+            // 12 px border radius — restrained card and control curve.
+            DefaultBorderRadius = "12px",
         },
 
         PaletteDark = new PaletteDark

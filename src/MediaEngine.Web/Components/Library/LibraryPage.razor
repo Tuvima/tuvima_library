@@ -27,44 +27,22 @@
         @if (!ReviewOnly)
         {
         <div class="vault-tab-row">
-            <div class="vault-tab-bar">
-                @if (HidePrimaryTabsForPreset)
-                {
-                    @foreach (var tab in VisibleMediaTabs)
-                    {
-                        var count = GetTabBadgeCount(tab.Id);
-                        <button class="vault-tab @(_activeTab == tab.Id ? "vault-tab--active" : "")"
-                                @onclick="() => SwitchTab(tab.Id)">
-                            <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
-                            <span>@tab.Label</span>
-                            @if (count > 0)
-                            {
-                                <span class="vault-tab-badge">@(count >= 1000 ? $"{count/1000.0:0.#}k" : count)</span>
-                            }
-                        </button>
-                    }
-                }
-                else
-                {
-                    @foreach (var tab in PrimaryTabsForDisplay)
-                    {
-                        <button class="vault-tab @(_primaryTab == tab.Id ? "vault-tab--active" : "")"
-                                @onclick="() => SwitchPrimaryTab(tab.Id)">
-                            <MudIcon Icon="@tab.Icon" Style="font-size: 16px;" />
-                            <span>@tab.Label</span>
-                        </button>
-                    }
-                    @if (_actionCenterTotal > 0)
-                    {
-                        <button class="vault-tab vault-tab--action-center @(_primaryTab == "action_center" ? "vault-tab--active" : "") vault-tab--alert"
-                                @onclick='() => SwitchPrimaryTab("action_center")'>
-                            <MudIcon Icon="@Icons.Material.Outlined.Warning" Style="font-size: 16px;" />
-                            <span>Action Center</span>
-                            <span class="vault-tab-badge vault-tab-badge--alert">@_actionCenterTotal</span>
-                        </button>
-                    }
-                }
-            </div>
+            @if (HidePrimaryTabsForPreset)
+            {
+                <AppTabs Items="VisibleMediaTabItems"
+                         ActiveKey="@_activeTab"
+                         AriaLabel="Library tabs"
+                         OnSelect="SwitchTab"
+                         Class="vault-tab-bar" />
+            }
+            else
+            {
+                <AppTabs Items="PrimaryTabItems"
+                         ActiveKey="@_primaryTab"
+                         AriaLabel="Library sections"
+                         OnSelect="SwitchPrimaryTab"
+                         Class="vault-tab-bar" />
+            }
             <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
                 <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
                 <span>@L["Vault_AddMedia"]</span>
@@ -78,20 +56,12 @@
             && TryGetVisibleSubTabs(_primaryTab, out var subs))
         {
             <div class="vault-subtab-row">
-                <div class="vault-tab-bar vault-tab-bar--sub">
-                    @foreach (var sub in subs)
-                    {
-                        var count = GetTabBadgeCount(sub.Id);
-                        <button class="vault-tab vault-tab--sub @(_activeTab == sub.Id ? "vault-tab--active" : "")"
-                                @onclick="() => SwitchTab(sub.Id)">
-                            <span>@sub.Label</span>
-                            @if (count > 0)
-                            {
-                                <span class="vault-tab-badge">@(count >= 1000 ? $"{count/1000.0:0.#}k" : count)</span>
-                            }
-                        </button>
-                    }
-                </div>
+                <AppTabs Items="BuildTabItems(subs)"
+                         ActiveKey="@_activeTab"
+                         Variant="secondary"
+                         AriaLabel="@($"{_primaryTab} subtabs")"
+                         OnSelect="SwitchTab"
+                         Class="vault-tab-bar vault-tab-bar--sub" />
             </div>
         }
 
@@ -544,10 +514,45 @@
             .ToArray();
 
     private IReadOnlyList<(string Id, string Label, string Icon)> PrimaryTabsForDisplay => _primaryTabs;
+    private IReadOnlyList<AppNavItem> VisibleMediaTabItems => BuildTabItems(VisibleMediaTabs);
+    private IReadOnlyList<AppNavItem> PrimaryTabItems
+    {
+        get
+        {
+            var items = BuildTabItems(PrimaryTabsForDisplay).ToList();
+            if (_actionCenterTotal > 0)
+            {
+                items.Add(new AppNavItem
+                {
+                    Key = "action_center",
+                    Label = "Action Center",
+                    Icon = Icons.Material.Outlined.Warning,
+                    Badge = FormatTabBadge(_actionCenterTotal),
+                    Attention = true
+                });
+            }
+
+            return items;
+        }
+    }
 
     // â”€â”€ Tab helpers â”€â”€
 
     private static readonly string[] _mediaTabIds = ["new", "movies", "tv", "music", "books", "audiobooks", "comics"];
+
+    private IReadOnlyList<AppNavItem> BuildTabItems(IEnumerable<(string Id, string Label, string Icon)> tabs) =>
+        tabs.Select(tab => new AppNavItem
+        {
+            Key = tab.Id,
+            Label = tab.Label,
+            Icon = tab.Icon,
+            Badge = FormatTabBadge(GetTabBadgeCount(tab.Id))
+        }).ToList();
+
+    private static string? FormatTabBadge(int count) =>
+        count > 0
+            ? (count >= 1000 ? $"{count / 1000.0:0.#}k" : count.ToString())
+            : null;
 
     private static bool IsMediaTab(string tabId) => _mediaTabIds.Contains(tabId);
 
@@ -2189,13 +2194,6 @@
     /* â”€â”€ Tab bar â”€â”€ */
     .vault-tab-bar {
         display: flex;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 12px;
-        padding: 4px;
-        gap: 4px;
-        overflow-x: auto;
-        scrollbar-width: none;
         flex: 1;
         min-width: 0;
     }
@@ -2234,13 +2232,10 @@
     .vault-subtab-row {
         display: flex;
         padding: 0 24px;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
     }
 
     .vault-tab-bar--sub {
-        background: transparent;
-        border: none;
-        padding: 0;
         flex: unset;
     }
 

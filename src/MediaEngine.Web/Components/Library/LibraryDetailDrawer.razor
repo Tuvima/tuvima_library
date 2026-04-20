@@ -206,16 +206,12 @@
                 </div>
 
                 @* Tab switcher *@
-                <div class="vdd-details-tabs">
-                    <button class="vdd-details-tab @(_detailsTab == 0 ? "vdd-details-tab--active" : "")"
-                            @onclick="() => _detailsTab = 0">
-                        Current Metadata
-                    </button>
-                    <button class="vdd-details-tab @(_detailsTab == 1 ? "vdd-details-tab--active" : "")"
-                            @onclick="() => _detailsTab = 1">
-                        Original Metadata
-                    </button>
-                </div>
+                <AppTabs Items="DetailTabs"
+                         ActiveKey="@_detailsTab.ToString()"
+                         Variant="secondary"
+                         AriaLabel="Metadata views"
+                         OnSelect="OnDetailsTabSelected"
+                         Class="vdd-details-tabs" />
 
                 @if (_detailsTab == 0)
                 {
@@ -1353,6 +1349,11 @@
     }
 
     private int ActiveTab => _selectedStage;  // 0=Retail, 1=Wikidata, 2=Enrichment
+    private IReadOnlyList<AppNavItem> DetailTabs =>
+    [
+        new() { Key = "0", Label = "Current Metadata" },
+        new() { Key = "1", Label = "Original Metadata" }
+    ];
 
     private int GetPreferredStage()
     {
@@ -1366,6 +1367,12 @@
             return 1;
 
         return 2;
+    }
+
+    private Task OnDetailsTabSelected(string tabId)
+    {
+        _detailsTab = string.Equals(tabId, "1", StringComparison.Ordinal) ? 1 : 0;
+        return Task.CompletedTask;
     }
 
     private async Task NavigateToCreatorPerson(string creatorName)
@@ -4656,11 +4663,8 @@
     }
 
     .vdd-details-tabs {
-        display: flex;
-        gap: 4px;
         padding: 0 8px;
         margin-bottom: 10px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .vdd-details-tab {

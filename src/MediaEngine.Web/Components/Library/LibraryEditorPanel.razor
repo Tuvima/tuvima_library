@@ -68,21 +68,11 @@
     </div>
 
     @* â”€â”€ Tabs â”€â”€ *@
-    <div class="vep-tabs">
-        <button class="vep-tab @(_activeTab == "details" ? "vep-tab--active" : "")"
-                @onclick='() => _activeTab = "details"'>Details</button>
-        @if (IsSingleItem)
-        {
-            <button class="vep-tab @(_activeTab == "pipeline" ? "vep-tab--active" : "")"
-                    @onclick='() => _activeTab = "pipeline"'>Pipeline</button>
-        }
-        <button class="vep-tab @(_activeTab == "artwork" ? "vep-tab--active" : "")"
-                @onclick='() => _activeTab = "artwork"'>Artwork</button>
-        <button class="vep-tab @(_activeTab == "actions" ? "vep-tab--active" : "")"
-                @onclick='() => _activeTab = "actions"'>
-            <MudIcon Icon="@Icons.Material.Outlined.ElectricBolt" Style="font-size: 14px;" />
-        </button>
-    </div>
+    <AppTabs Items="EditorTabs"
+             ActiveKey="@_activeTab"
+             AriaLabel="Editor sections"
+             OnSelect="OnTabSelected"
+             Class="vep-tabs" />
 
     @* â”€â”€ Tab content â”€â”€ *@
     <div class="vep-body">
@@ -221,12 +211,35 @@
     private LibraryItemViewModel SingleItem => Items[0];
 
     private List<EditorFieldDef> _editorFields = [];
+    private IReadOnlyList<AppNavItem> EditorTabs
+    {
+        get
+        {
+            var items = new List<AppNavItem>
+            {
+                new() { Key = "details", Label = "Details" }
+            };
+
+            if (IsSingleItem)
+                items.Add(new AppNavItem { Key = "pipeline", Label = "Pipeline" });
+
+            items.Add(new AppNavItem { Key = "artwork", Label = "Artwork" });
+            items.Add(new AppNavItem { Key = "actions", Label = "Actions", Icon = Icons.Material.Outlined.ElectricBolt });
+            return items;
+        }
+    }
 
     protected override void OnParametersSet()
     {
         _editorFields = BuildFieldsForMediaTypes();
         _editedValues.Clear();
         _activeTab = "details";
+    }
+
+    private Task OnTabSelected(string tabId)
+    {
+        _activeTab = tabId;
+        return Task.CompletedTask;
     }
 
     private List<EditorFieldDef> BuildFieldsForMediaTypes()
@@ -506,8 +519,6 @@
     }
 
     .vep-tabs {
-        display: flex;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         padding: 0 20px;
     }
 

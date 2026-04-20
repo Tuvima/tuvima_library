@@ -25,16 +25,11 @@
                     <div class="browse-shell__title-text">@CurrentTab.Label</div>
                 </div>
 
-                <div class="browse-shell__tabs">
-                    @foreach (var tab in Preset.Tabs)
-                    {
-                        <button type="button"
-                                class="browse-shell__tab @(tab.Id == _activeTabId ? "is-active" : "")"
-                                @onclick="() => SwitchTabAsync(tab.Id)">
-                            @tab.Label
-                        </button>
-                    }
-                </div>
+                <AppTabs Items="BrowseTabItems"
+                         ActiveKey="@_activeTabId"
+                         AriaLabel="Browse sections"
+                         OnSelect="OnBrowseTabSelected"
+                         Class="browse-shell__tabs" />
             </div>
 
             <div class="browse-shell__toolbar">
@@ -49,17 +44,12 @@
                 {
                     @if (CurrentTab.GroupingOptions.Count > 1)
                     {
-                        <div class="browse-shell__groupings">
-                            @foreach (var option in CurrentTab.GroupingOptions)
-                            {
-                                <button type="button"
-                                        class="browse-shell__chip @(option.Value == _grouping ? "is-active" : "")"
-                                        @onclick="() => SwitchGroupingAsync(option.Value)">
-                                    <MudIcon Icon="@option.Icon" Style="font-size: 16px;" />
-                                    <span>@option.Label</span>
-                                </button>
-                            }
-                        </div>
+                        <AppTabs Items="GroupingTabItems"
+                                 ActiveKey="@_grouping"
+                                 Variant="secondary"
+                                 AriaLabel="Grouping options"
+                                 OnSelect="OnGroupingSelected"
+                                 Class="browse-shell__groupings" />
                     }
 
                     <div class="browse-shell__search">
@@ -83,20 +73,12 @@
 
                         @if (SupportsLayoutToggle)
                         {
-                            <div class="browse-shell__layout-toggle">
-                                <button type="button"
-                                        class="browse-shell__layout-button @(_layout == LibraryLayoutMode.Card ? "is-active" : "")"
-                                        @onclick="() => SwitchLayoutAsync(LibraryLayoutMode.Card)">
-                                    <MudIcon Icon="@Icons.Material.Outlined.GridView" Style="font-size: 18px;" />
-                                    <span>Cards</span>
-                                </button>
-                                <button type="button"
-                                        class="browse-shell__layout-button @(_layout == LibraryLayoutMode.List ? "is-active" : "")"
-                                        @onclick="() => SwitchLayoutAsync(LibraryLayoutMode.List)">
-                                    <MudIcon Icon="@Icons.Material.Outlined.ViewList" Style="font-size: 18px;" />
-                                    <span>List</span>
-                                </button>
-                            </div>
+                            <AppTabs Items="LayoutTabItems"
+                                     ActiveKey="@_layout.ToString()"
+                                     Variant="secondary"
+                                     AriaLabel="Layout options"
+                                     OnSelect="OnLayoutSelected"
+                                     Class="browse-shell__layout-toggle" />
                         }
                     </div>
                 }
@@ -197,6 +179,26 @@
     private List<Guid>? _artistAlbumCollectionIds;
 
     private System.Timers.Timer? _searchDebounceTimer;
+    private IReadOnlyList<AppNavItem> BrowseTabItems =>
+        Preset.Tabs
+            .Select(tab => new AppNavItem { Key = tab.Id, Label = tab.Label })
+            .ToList();
+
+    private IReadOnlyList<AppNavItem> GroupingTabItems =>
+        CurrentTab.GroupingOptions
+            .Select(option => new AppNavItem
+            {
+                Key = option.Value,
+                Label = option.Label,
+                Icon = option.Icon
+            })
+            .ToList();
+
+    private IReadOnlyList<AppNavItem> LayoutTabItems =>
+    [
+        new() { Key = LibraryLayoutMode.Card.ToString(), Label = "Cards", Icon = Icons.Material.Outlined.GridView },
+        new() { Key = LibraryLayoutMode.List.ToString(), Label = "List", Icon = Icons.Material.Outlined.ViewList }
+    ];
 
     private BrowseTabPreset CurrentTab =>
         Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
@@ -206,6 +208,18 @@
     private bool IsContainerGrouping => _grouping is "series" or "shows" or "albums" or "artists";
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
+
+    private Task OnBrowseTabSelected(string tabId) => SwitchTabAsync(tabId);
+
+    private Task OnGroupingSelected(string grouping) => SwitchGroupingAsync(grouping);
+
+    private Task OnLayoutSelected(string layout)
+    {
+        var mode = string.Equals(layout, LibraryLayoutMode.List.ToString(), StringComparison.OrdinalIgnoreCase)
+            ? LibraryLayoutMode.List
+            : LibraryLayoutMode.Card;
+        return SwitchLayoutAsync(mode);
+    }
 
     private List<LibraryColumnDef> ActiveColumns =>
         IsContainerGrouping
@@ -1123,14 +1137,9 @@
     .browse-shell__tabs,
     .browse-shell__groupings,
     .browse-shell__layout-toggle {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+        min-width: 0;
     }
 
-    .browse-shell__tab,
-    .browse-shell__chip,
-    .browse-shell__layout-button,
     .browse-shell__back,
     .browse-shell__load-more-button {
         display: inline-flex;
@@ -1148,22 +1157,11 @@
         transition: all 0.16s ease;
     }
 
-    .browse-shell__tab:hover,
-    .browse-shell__chip:hover,
-    .browse-shell__layout-button:hover,
     .browse-shell__back:hover,
     .browse-shell__load-more-button:hover {
         color: #fff;
         border-color: rgba(255, 255, 255, 0.16);
         background: rgba(255, 255, 255, 0.06);
-    }
-
-    .browse-shell__tab.is-active,
-    .browse-shell__chip.is-active,
-    .browse-shell__layout-button.is-active {
-        color: #0c1018;
-        background: #f59e0b;
-        border-color: rgba(245, 158, 11, 0.74);
     }
 
     .browse-shell__search {

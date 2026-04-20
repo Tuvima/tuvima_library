@@ -25,7 +25,7 @@ public sealed class UIGlobalSettings
 
     /// <summary>Default accent colour (deep violet).</summary>
     [JsonPropertyName("accent_color")]
-    public string AccentColor { get; set; } = "#7C4DFF";
+    public string AccentColor { get; set; } = "#EAB308";
 
     // ── Layout defaults ────────────────────────────────────────────────
 
@@ -43,7 +43,7 @@ public sealed class UIGlobalSettings
 
     /// <summary>Global border radius in pixels (32 = glassmorphic Spatial Bento design).</summary>
     [JsonPropertyName("border_radius")]
-    public int BorderRadius { get; set; } = 32;
+    public int BorderRadius { get; set; } = 12;
 
     // ── Feature flags ──────────────────────────────────────────────────
 

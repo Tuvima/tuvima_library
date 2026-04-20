@@ -98,15 +98,12 @@
             @if (IsSingleItem && _editorContext?.Scopes.Count > 1)
             {
                 <div class="sme-scope-switcher">
-                    <div class="sme-scope-list" role="tablist" aria-label="Edit scope">
-                        @foreach (var scope in _editorContext.Scopes.OrderBy(scope => scope.Order))
-                        {
-                            <button class="sme-scope-chip @(string.Equals(scope.ScopeId, ActiveScope?.ScopeId, StringComparison.OrdinalIgnoreCase) ? "sme-scope-chip--active" : "")"
-                                    @onclick="async () => await SelectScopeAsync(scope.ScopeId)">
-                                @scope.Label
-                            </button>
-                        }
-                    </div>
+                    <AppTabs Items="ScopeTabItems"
+                             ActiveKey="@ActiveScope?.ScopeId"
+                             Variant="secondary"
+                             AriaLabel="Edit scope"
+                             OnSelect="SelectScopeAsync"
+                             Class="sme-scope-list" />
                     @if (!string.IsNullOrWhiteSpace(ActiveScope?.ScopeSummary) || !string.IsNullOrWhiteSpace(ActiveScope?.ReadOnlyHint))
                     {
                         <div class="sme-scope-summary">
@@ -120,16 +117,11 @@
                 </div>
             }
 
-            <div class="sme-tabs">
-                @foreach (var tab in Tabs)
-                {
-                    <button class="sme-tab @(_activeTab == tab.Id ? "sme-tab--active" : "")"
-                            disabled="@IsTabDisabled(tab.Id)"
-                            @onclick="@(() => _activeTab = tab.Id)">
-                        @tab.Label
-                    </button>
-                }
-            </div>
+            <AppTabs Items="TabItems"
+                     ActiveKey="@_activeTab"
+                     AriaLabel="Editor sections"
+                     OnSelect="SelectTabAsync"
+                     Class="sme-tabs" />
 
             <div class="sme-body">
                 @if (_loading)
@@ -145,15 +137,12 @@
                             @if (IsSingleItem)
                             {
                                 <div class="sme-search-toolbar">
-                                    <div class="sme-search-targets">
-                                        @foreach (var target in QuickSearchTargets)
-                                        {
-                                            <button class="sme-target-chip @(_canonicalTargetGroup == target.Key ? "sme-target-chip--active" : "")"
-                                                    @onclick="@(() => SetCanonicalTargetGroup(target.Key))">
-                                                @target.Label
-                                            </button>
-                                        }
-                                    </div>
+                                    <AppTabs Items="QuickSearchTargetItems"
+                                             ActiveKey="@_canonicalTargetGroup"
+                                             Variant="secondary"
+                                             AriaLabel="Canonical search targets"
+                                             OnSelect="SetCanonicalTargetGroupAsync"
+                                             Class="sme-search-targets" />
 
                                     <div class="sme-search-row">
                                         <input class="sme-text-input"
@@ -372,31 +361,20 @@
                         {
                             @if (ArtworkOwnerScopes.Count > 1)
                             {
-                                <section class="sme-artwork-owner-switcher" aria-label="Artwork owner">
-                                    @foreach (var scope in ArtworkOwnerScopes)
-                                    {
-                                        <button type="button"
-                                                class="sme-artwork-owner-chip @(string.Equals(scope.ScopeId, ArtworkScope?.ScopeId, StringComparison.OrdinalIgnoreCase) ? "sme-artwork-owner-chip--active" : "")"
-                                                @onclick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
-                                            <span class="sme-artwork-owner-chip-label">@scope.Label</span>
-                                            <span class="sme-artwork-owner-chip-copy">@scope.DisplayTitle</span>
-                                        </button>
-                                    }
-                                </section>
+                                <AppTabs Items="ArtworkOwnerTabItems"
+                                         ActiveKey="@ArtworkScope?.ScopeId"
+                                         Variant="secondary"
+                                         AriaLabel="Artwork owner"
+                                         OnSelect="SelectArtworkScopeAsync"
+                                         Class="sme-artwork-owner-switcher" />
                             }
 
                             <section class="sme-artwork-workspace">
-                                <aside class="sme-artwork-rail" aria-label="Artwork types">
-                                    @foreach (var slot in ArtworkSlots)
-                                    {
-                                        <button type="button"
-                                                class="sme-artwork-rail-item @(string.Equals(slot.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase) ? "sme-artwork-rail-item--active" : "")"
-                                                @onclick="@(() => SelectArtworkSlot(slot.AssetType))">
-                                            <span class="sme-artwork-rail-icon"><MudIcon Icon="@slot.Icon" Style="font-size: 18px;" /></span>
-                                            <span class="sme-artwork-rail-label">@slot.Label</span>
-                                        </button>
-                                    }
-                                </aside>
+                                <AppSelectorNav Items="ArtworkSlotItems"
+                                                ActiveKey="@SelectedArtworkSlot?.AssetType"
+                                                AriaLabel="Artwork types"
+                                                OnSelect="SelectArtworkSlotAsync"
+                                                Class="sme-artwork-rail" />
 
                                 <div class="sme-artwork-main">
                                     @if (_artworkLoading)
@@ -432,91 +410,102 @@
                                                  @ondragleave="@(() => ClearArtworkDragTarget(slot.AssetType))"
                                                  @ondragover:preventDefault="true"
                                                  @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
-                                            <div class="sme-artwork-import-strip">
-                                                <div class="sme-artwork-import-inline">
-                                                    <label class="sme-artwork-import-link" title="@slot.UploadHelp">
-                                                        <span>choose an image</span>
-                                                        <span class="sme-art-slot-input-shell">
-                                                            <InputFile class="sme-art-slot-file-input"
-                                                                       OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
-                                                                       accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
-                                                        </span>
-                                                    </label>
-                                                    <span class="sme-artwork-import-separator">&middot;</span>
-                                                    <span class="sme-artwork-import-copy">drag and drop</span>
-                                                    <span class="sme-artwork-import-separator">&middot;</span>
+                                            <div class="sme-artwork-gallery sme-artwork-gallery--@slot.PreviewClass">
+                                                <div class="sme-artwork-add-entry">
                                                     <button type="button"
-                                                            class="sme-artwork-import-link sme-artwork-import-link--button"
-                                                            disabled="@_artworkUrlSubmitting"
-                                                            @onclick="ToggleArtworkUrlInput">
-                                                        enter a url
+                                                            class="sme-artwork-gallery-add @(IsArtworkAddMenuOpen(slot.AssetType) ? "sme-artwork-gallery-add--open" : "")"
+                                                            title="@slot.UploadHelp"
+                                                            @onclick="@(() => ToggleArtworkAddMenu(slot.AssetType))">
+                                                        <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
+                                                            <div class="sme-cover-fallback sme-art-slot-placeholder">
+                                                                <span class="sme-art-add-symbol">+</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="sme-artwork-add-copy">Add @slot.Label</div>
                                                     </button>
+
+                                                    @if (IsArtworkAddMenuOpen(slot.AssetType))
+                                                    {
+                                                        <div class="sme-artwork-add-menu">
+                                                            <label class="sme-art-slot-action sme-art-slot-action--primary" title="@slot.UploadHelp">
+                                                                <span>Upload file</span>
+                                                                <span class="sme-art-slot-input-shell">
+                                                                    <InputFile class="sme-art-slot-file-input"
+                                                                               OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
+                                                                               accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
+                                                                </span>
+                                                            </label>
+                                                            <button type="button"
+                                                                    class="sme-art-slot-action sme-art-slot-action--ghost"
+                                                                    disabled="@_artworkUrlSubmitting"
+                                                                    @onclick="@(() => OpenArtworkUrlInput(slot.AssetType))">
+                                                                Enter URL
+                                                            </button>
+                                                        </div>
+                                                    }
                                                 </div>
-                                                @if (_showArtworkUrlInput)
+
+                                                @foreach (var item in rowItems)
                                                 {
-                                                    <div class="sme-artwork-import-url-row">
-                                                        <input class="sme-text-input" type="url" placeholder="Paste an image URL" value="@_artworkUrlInput" @oninput="HandleArtworkUrlInput" />
-                                                        <button type="button" class="sme-inline-btn sme-inline-btn--primary" disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" @onclick="ApplyArtworkUrlAsync">Add</button>
-                                                    </div>
-                                                }
-                                                @if (HasPendingArtwork(slot.AssetType))
-                                                {
-                                                    <div class="sme-artwork-import-status">
-                                                        <span>@GetPendingArtworkFileName(slot.AssetType)</span>
-                                                        <button type="button" class="sme-inline-btn" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</button>
-                                                        @if (HasArtworkUploadError(slot.AssetType))
-                                                        {
-                                                            <button type="button" class="sme-inline-btn" @onclick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</button>
-                                                        }
-                                                    </div>
-                                                }
-                                                @if (HasArtworkUploadError(slot.AssetType))
-                                                {
-                                                    <div class="sme-artwork-import-error">@GetArtworkUploadError(slot.AssetType)</div>
+                                                    <button type="button" class="sme-artwork-gallery-tile @(item.IsPreferred ? "sme-artwork-gallery-tile--preferred" : "") @(item.IsPending ? "sme-artwork-gallery-tile--pending" : "") @(IsFocusedArtworkVariant(item.Key) ? "sme-artwork-gallery-tile--focused" : "")" title="@BuildArtworkVariantHoverLabel(slot, item)" @onclick="@(() => HandleArtworkVariantClickAsync(slot, item))">
+                                                        <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
+                                                            @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                                                            {
+                                                                <img src="@item.ImageUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="sme-cover-fallback sme-art-slot-placeholder"><MudIcon Icon="@slot.Icon" Style="font-size: 28px; opacity: 0.18;" /></div>
+                                                            }
+                                                            @if (item.IsPreferred)
+                                                            {
+                                                                <span class="sme-artwork-gallery-check" aria-label="Primary image">
+                                                                    <MudIcon Icon="@Icons.Material.Filled.Check" Style="font-size: 18px;" />
+                                                                </span>
+                                                            }
+                                                            else if (item.IsPending)
+                                                            {
+                                                                <span class="sme-artwork-gallery-check sme-artwork-gallery-check--pending" aria-label="Pending upload">
+                                                                    <MudIcon Icon="@Icons.Material.Filled.Schedule" Style="font-size: 16px;" />
+                                                                </span>
+                                                            }
+                                                        </div>
+                                                    </button>
                                                 }
                                             </div>
 
-                                            <div class="sme-artwork-gallery sme-artwork-gallery--@slot.PreviewClass">
-                                                @if (rowItems.Count == 0)
-                                                {
-                                                    <div class="sme-art-row-empty">
-                                                        <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
-                                                            <div class="sme-cover-fallback sme-art-slot-placeholder"><MudIcon Icon="@slot.Icon" Style="font-size: 28px; opacity: 0.18;" /></div>
-                                                        </div>
-                                                        <div class="sme-art-row-empty-copy">@GetArtworkEmptyStateLabel(slot.AssetType)</div>
+                                            @if (rowItems.Count == 0)
+                                            {
+                                                <div class="sme-artwork-gallery-empty-note">@GetArtworkEmptyStateLabel(slot.AssetType)</div>
+                                            }
+
+                                            @if (_showArtworkUrlInput && string.Equals(slot.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <div class="sme-artwork-import-url-row">
+                                                    <input class="sme-text-input" type="url" placeholder="Paste an image URL" value="@_artworkUrlInput" @oninput="HandleArtworkUrlInput" />
+                                                    <div class="sme-artwork-import-url-actions">
+                                                        <button type="button" class="sme-inline-btn" @onclick="ToggleArtworkUrlInput">Cancel</button>
+                                                        <button type="button" class="sme-inline-btn sme-inline-btn--primary" disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" @onclick="ApplyArtworkUrlAsync">Add</button>
                                                     </div>
-                                                }
-                                                else
-                                                {
-                                                    @foreach (var item in rowItems)
+                                                </div>
+                                            }
+
+                                            @if (HasPendingArtwork(slot.AssetType))
+                                            {
+                                                <div class="sme-artwork-import-status">
+                                                    <span>@GetPendingArtworkFileName(slot.AssetType)</span>
+                                                    <button type="button" class="sme-inline-btn" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</button>
+                                                    @if (HasArtworkUploadError(slot.AssetType))
                                                     {
-                                                        <button type="button" class="sme-artwork-gallery-tile @(item.IsPreferred ? "sme-artwork-gallery-tile--preferred" : "") @(item.IsPending ? "sme-artwork-gallery-tile--pending" : "") @(IsFocusedArtworkVariant(item.Key) ? "sme-artwork-gallery-tile--focused" : "")" title="@BuildArtworkVariantHoverLabel(slot, item)" @onclick="@(() => HandleArtworkVariantClickAsync(slot, item))">
-                                                            <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
-                                                                @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
-                                                                {
-                                                                    <img src="@item.ImageUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
-                                                                }
-                                                                else
-                                                                {
-                                                                    <div class="sme-cover-fallback sme-art-slot-placeholder"><MudIcon Icon="@slot.Icon" Style="font-size: 28px; opacity: 0.18;" /></div>
-                                                                }
-                                                                @if (item.IsPreferred)
-                                                                {
-                                                                    <span class="sme-artwork-gallery-check" aria-label="Primary image">
-                                                                        <MudIcon Icon="@Icons.Material.Filled.Check" Style="font-size: 18px;" />
-                                                                    </span>
-                                                                }
-                                                                else if (item.IsPending)
-                                                                {
-                                                                    <span class="sme-artwork-gallery-check sme-artwork-gallery-check--pending" aria-label="Pending upload">
-                                                                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Style="font-size: 16px;" />
-                                                                    </span>
-                                                                }
-                                                            </div>
-                                                        </button>
+                                                        <button type="button" class="sme-inline-btn" @onclick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</button>
                                                     }
-                                                }
-                                            </div>
+                                                </div>
+                                            }
+
+                                            @if (HasArtworkUploadError(slot.AssetType))
+                                            {
+                                                <div class="sme-artwork-import-error">@GetArtworkUploadError(slot.AssetType)</div>
+                                            }
 
                                             @if (focusedItem is not null)
                                             {

@@ -1,10 +1,10 @@
 {
   "schema_version": "1.0",
   "dark_mode": true,
-  "accent_color": "#7C4DFF",
+  "accent_color": "#EAB308",
   "content_padding": "pa-4",
   "content_max_width": "ExtraLarge",
-  "border_radius": 32,
+  "border_radius": 12,
   "features": {
     "command_palette": true,
     "search_button": true,

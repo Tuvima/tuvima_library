@@ -166,9 +166,7 @@
 }
 
 .sme-scope-list {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    padding-bottom: 2px;
 }
 
 .sme-scope-chip {
@@ -206,8 +204,6 @@
 }
 
 .sme-tabs {
-    display: flex;
-    gap: 6px;
     padding: 14px 24px 0;
 }
 
@@ -284,9 +280,6 @@
 }
 
 .sme-search-targets {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
     margin-bottom: 10px;
 }
 
@@ -1001,9 +994,7 @@
 }
 
 .sme-artwork-owner-switcher {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
+    padding-bottom: 2px;
 }
 
 .sme-artwork-owner-chip {
@@ -1054,9 +1045,6 @@
 }
 
 .sme-artwork-rail {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
     min-width: 0;
 }
 
@@ -1430,76 +1418,92 @@
     background: rgba(201,146,46,0.06);
 }
 
-.sme-artwork-import-strip {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 18px;
-    border: 0;
-    border-bottom: 1px solid rgba(255,255,255,0.06);
-    border-radius: 0;
-    background:
-        linear-gradient(135deg, rgba(255,255,255,0.02) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.02) 50%, rgba(255,255,255,0.02) 75%, transparent 75%, transparent),
-        rgba(22,22,24,0.92);
-    background-size: 18px 18px, auto;
-}
-
-.sme-artwork-import-inline {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-}
-
-.sme-artwork-import-link {
-    position: relative;
-    appearance: none;
-    border: 0;
-    background: none;
-    padding: 0;
-    color: #d89b23;
-    font: inherit;
-    cursor: pointer;
-    text-transform: lowercase;
-}
-
-.sme-artwork-import-link--button[disabled] {
-    opacity: 0.6;
-    cursor: default;
-}
-
-.sme-artwork-import-separator {
-    color: rgba(255,255,255,0.36);
-}
-
-.sme-artwork-import-copy {
-    color: rgba(255,255,255,0.74);
-    font-size: 0.92rem;
-}
-
 .sme-artwork-import-url-row {
-    width: min(100%, 560px);
+    width: 100%;
     display: flex;
     gap: 10px;
     align-items: center;
+    padding: 0 18px 18px;
 }
 
 .sme-artwork-import-status,
 .sme-artwork-import-error {
-    width: min(100%, 560px);
-    justify-content: center;
-    text-align: center;
+    width: 100%;
+    padding: 0 18px 18px;
+    justify-content: flex-start;
+    text-align: left;
+}
+
+.sme-artwork-import-url-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+    justify-content: flex-end;
 }
 
 .sme-artwork-gallery {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-start;
-    gap: 18px;
+    gap: 14px;
     padding: 18px;
     min-height: 220px;
+}
+
+.sme-artwork-add-entry {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sme-artwork-gallery-add {
+    appearance: none;
+    border: 0;
+    background: none;
+    color: inherit;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sme-artwork-gallery-add .sme-art-row-stage {
+    border-style: dashed;
+    border-color: rgba(234,179,8,0.28);
+    background:
+        radial-gradient(circle at top, rgba(234,179,8,0.10), transparent 48%),
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)),
+        rgba(255,255,255,0.02);
+    transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
+}
+
+.sme-artwork-gallery-add:hover .sme-art-row-stage,
+.sme-artwork-gallery-add:focus-visible .sme-art-row-stage,
+.sme-artwork-gallery-add--open .sme-art-row-stage {
+    transform: translateY(-1px);
+    border-color: rgba(234,179,8,0.5);
+}
+
+.sme-artwork-add-copy {
+    color: rgba(255,255,255,0.72);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.sme-artwork-add-menu {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    max-width: 260px;
+}
+
+.sme-artwork-gallery-empty-note {
+    padding: 0 18px 18px;
+    color: rgba(255,255,255,0.56);
+    font-size: 0.82rem;
+    line-height: 1.45;
 }
 
 .sme-artwork-gallery-tile {
@@ -1756,6 +1760,11 @@
     .sme-artwork-import-url-row {
         flex-direction: column;
         align-items: stretch;
+        width: 100%;
+    }
+
+    .sme-artwork-import-url-actions,
+    .sme-artwork-add-menu {
         width: 100%;
     }
 

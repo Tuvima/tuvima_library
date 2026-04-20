@@ -26,15 +26,11 @@
                 </button>
             </div>
 
-            <div class="collection-editor-tabs">
-                @foreach (var tab in Tabs)
-                {
-                    <button class="collection-editor-tab @(_activeTab == tab.Id ? "collection-editor-tab--active" : "")"
-                            @onclick="@(() => _activeTab = tab.Id)">
-                        @tab.Label
-                    </button>
-                }
-            </div>
+            <AppTabs Items="TabItems"
+                     ActiveKey="@_activeTab"
+                     AriaLabel="Collection editor sections"
+                     OnSelect="OnTabSelected"
+                     Class="collection-editor-tabs" />
 
             <div class="collection-editor-body">
                 @switch (_activeTab)
@@ -123,6 +119,8 @@
             : _previewResult is null
                 ? "Rule-based collection. Add at least one rule value to preview matching items."
                 : $"{_previewResult.Count} item(s) currently match these rules.";
+    private IReadOnlyList<AppNavItem> TabItems =>
+        Tabs.Select(tab => new AppNavItem { Key = tab.Id, Label = tab.Label }).ToList();
 
     private List<WorkViewModel> FilteredLibraryItems =>
         _libraryItems
@@ -176,6 +174,12 @@
     {
         if (SupportsManualItems)
             await EnsureManualCollectionContextAsync();
+    }
+
+    private Task OnTabSelected(string tabId)
+    {
+        _activeTab = tabId;
+        return Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

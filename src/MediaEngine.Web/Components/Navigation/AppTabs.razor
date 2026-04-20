@@ -1,0 +1,106 @@
+@namespace MediaEngine.Web.Components.Navigation
+@using MudBlazor
+
+<nav class="@RootClass" aria-label="@AriaLabel" role="@(UseTabRoles ? "tablist" : null)">
+    @foreach (var item in Items)
+    {
+        var isActive = string.Equals(item.Key, ActiveKey, StringComparison.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(item.Href))
+        {
+            <a href="@item.Href"
+               class="@BuildItemClass(isActive, item)"
+               aria-current="@(isActive ? "page" : null)"
+               title="@item.Description">
+                @RenderItem(item)
+            </a>
+        }
+        else
+        {
+            <button type="button"
+                    class="@BuildItemClass(isActive, item)"
+                    disabled="@item.Disabled"
+                    role="@(UseTabRoles ? "tab" : null)"
+                    aria-selected="@(UseTabRoles ? isActive : null)"
+                    title="@item.Description"
+                    @onclick="@(() => HandleSelectAsync(item.Key))">
+                @RenderItem(item)
+            </button>
+        }
+    }
+</nav>
+
+@code {
+    [Parameter] public IReadOnlyList<AppNavItem> Items { get; set; } = [];
+    [Parameter] public string? ActiveKey { get; set; }
+    [Parameter] public EventCallback<string> OnSelect { get; set; }
+    [Parameter] public string Variant { get; set; } = "primary";
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool UseTabRoles { get; set; } = true;
+    [Parameter] public bool Stretch { get; set; }
+
+    private string RootClass
+        => string.Join(
+            " ",
+            new[]
+            {
+                "app-tabs",
+                $"app-tabs--{Variant.ToLowerInvariant()}",
+                Stretch ? "app-tabs--stretch" : null,
+                string.IsNullOrWhiteSpace(Class) ? null : Class
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private async Task HandleSelectAsync(string key)
+    {
+        if (OnSelect.HasDelegate)
+            await OnSelect.InvokeAsync(key);
+    }
+
+    private string BuildItemClass(bool isActive, AppNavItem item)
+        => string.Join(
+            " ",
+            new[]
+            {
+                "app-tabs__item",
+                isActive ? "is-active" : null,
+                item.Attention ? "is-attention" : null
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private RenderFragment RenderItem(AppNavItem item) => __builder =>
+    {
+        var seq = 0;
+        if (!string.IsNullOrWhiteSpace(item.Icon))
+        {
+            __builder.OpenComponent<MudIcon>(seq++);
+            __builder.AddAttribute(seq++, "Icon", item.Icon);
+            __builder.AddAttribute(seq++, "Class", "app-tabs__icon");
+            __builder.CloseComponent();
+        }
+
+        __builder.OpenElement(seq++, "span");
+        __builder.AddAttribute(seq++, "class", "app-tabs__copy");
+
+        __builder.OpenElement(seq++, "span");
+        __builder.AddAttribute(seq++, "class", "app-tabs__label");
+        __builder.AddContent(seq++, item.Label);
+        __builder.CloseElement();
+
+        if (!string.IsNullOrWhiteSpace(item.Description))
+        {
+            __builder.OpenElement(seq++, "span");
+            __builder.AddAttribute(seq++, "class", "app-tabs__description");
+            __builder.AddContent(seq++, item.Description);
+            __builder.CloseElement();
+        }
+
+        __builder.CloseElement();
+
+        if (!string.IsNullOrWhiteSpace(item.Badge))
+        {
+            __builder.OpenElement(seq++, "span");
+            __builder.AddAttribute(seq++, "class", "app-tabs__badge");
+            __builder.AddContent(seq++, item.Badge);
+            __builder.CloseElement();
+        }
+    };
+}
