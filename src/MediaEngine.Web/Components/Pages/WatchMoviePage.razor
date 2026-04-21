@@ -1,0 +1,552 @@
+@page "/watch/movie/{WorkId:guid}"
+@using MediaEngine.Web.Components.Watch
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Playback
+
+@namespace MediaEngine.Web.Components.Pages
+
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject WatchlistService WatchlistService
+@inject NavigationManager Nav
+
+<PageTitle>@((_movie?.Title ?? "Movie")) - Tuvima</PageTitle>
+<WatchTvStyles />
+
+@if (_loading)
+{
+    <div class="watch-tv-state">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Style="color: rgba(255,255,255,0.28);" />
+    </div>
+}
+else if (_movie is null)
+{
+    <div class="watch-tv-state">
+        <MudIcon Icon="@Icons.Material.Outlined.LocalMovies" Style="font-size: 56px; opacity: 0.22;" />
+        <h3>Movie not found</h3>
+        <p>This title could not be loaded from your library.</p>
+        <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="GoBack">Back to Watch</button>
+    </div>
+}
+else
+{
+    <div class="watch-tv-page">
+        <section class="watch-movie-hero">
+            @if (!string.IsNullOrWhiteSpace(HeroBackgroundUrl))
+            {
+                <div class="watch-movie-hero__bg">
+                    <img src="@HeroBackgroundUrl" alt="" />
+                </div>
+            }
+
+            <div class="watch-movie-hero__overlay"></div>
+
+            <div class="watch-movie-hero__topbar">
+                <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="GoBack">
+                    <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
+                    <span>Back</span>
+                </button>
+
+                <div class="watch-movie-hero__quick-actions">
+                    <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="OpenTrailer">
+                        <MudIcon Icon="@Icons.Material.Outlined.OndemandVideo" Style="font-size: 18px;" />
+                        <span>Trailer</span>
+                    </button>
+                    <button type="button"
+                            class="watch-tv-button watch-tv-button--secondary"
+                            @onclick="ToggleWatchlistAsync"
+                            disabled="@(!_activeProfileId.HasValue || _watchlistBusy)">
+                        <MudIcon Icon="@WatchlistIcon" Style="font-size: 18px;" />
+                        <span>@WatchlistLabel</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="watch-movie-hero__content">
+                <div class="watch-movie-hero__copy">
+                    <div class="watch-movie-hero__eyebrow">@(_movie.Tagline ?? "Movie")</div>
+                    <h1>@_movie.Title</h1>
+
+                    @if (!string.IsNullOrWhiteSpace(_movie.Description))
+                    {
+                        <p class="watch-movie-hero__description">@_movie.Description</p>
+                    }
+
+                    <div class="watch-movie-hero__meta">
+                        @foreach (var chip in MetaChips)
+                        {
+                            <span>@chip</span>
+                        }
+                    </div>
+
+                    <div class="watch-movie-hero__stats">
+                        @foreach (var stat in HeroStats)
+                        {
+                            <div class="watch-movie-hero__stat">
+                                <div class="watch-movie-hero__stat-label">@stat.Label</div>
+                                <div class="watch-movie-hero__stat-value">@stat.Value</div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="watch-movie-hero__actions">
+                        <button type="button" class="watch-tv-button watch-tv-button--primary" @onclick="PlayMovieAsync">
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
+                            <span>@PrimaryActionLabel</span>
+                        </button>
+                        @if (_collectionId.HasValue)
+                        {
+                            <button type="button" class="watch-tv-button watch-tv-button--secondary" @onclick="OpenCollection">
+                                <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 18px;" />
+                                <span>Collection</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <div class="watch-movie-hero__poster">
+                    @if (!string.IsNullOrWhiteSpace(_movie.CoverUrl))
+                    {
+                        <img src="@_movie.CoverUrl" alt="@_movie.Title" />
+                    }
+                    else
+                    {
+                        <div class="watch-movie-hero__poster-placeholder">
+                            <MudIcon Icon="@Icons.Material.Outlined.LocalMovies" Style="font-size: 64px;" />
+                        </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @if (_people.Count > 0)
+        {
+            <section class="watch-tv-section">
+                <div class="watch-tv-section__header">
+                    <h2>People</h2>
+                </div>
+
+                <div class="watch-tv-rail watch-tv-rail--cast">
+                    @foreach (var person in _people.Take(12))
+                    {
+                        <button type="button"
+                                class="watch-tv-cast-card"
+                                @onclick="@(() => OpenPerson(person.Id))">
+                            <div class="watch-tv-cast-card__image">
+                                @if (!string.IsNullOrWhiteSpace(person.LocalHeadshotUrl) || !string.IsNullOrWhiteSpace(person.HeadshotUrl))
+                                {
+                                    <img src="@(person.LocalHeadshotUrl ?? person.HeadshotUrl)" alt="@person.Name" />
+                                }
+                                else
+                                {
+                                    <div class="watch-tv-cast-card__placeholder">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 34px;" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="watch-tv-cast-card__name">@person.Name</div>
+                            <div class="watch-tv-cast-card__role">@string.Join(" · ", person.Roles.Take(2))</div>
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (_related?.Collections.Count > 0)
+        {
+            <section class="watch-tv-section">
+                <div class="watch-tv-section__header">
+                    <h2>@_related.SectionTitle</h2>
+                </div>
+
+                <div class="watch-tv-rail">
+                    @foreach (var collection in _related.Collections)
+                    {
+                        <button type="button" class="watch-tv-related-card" @onclick="@(() => OpenRelated(collection))">
+                            <div class="watch-tv-related-card__poster">
+                                @if (!string.IsNullOrWhiteSpace(collection.CoverUrl))
+                                {
+                                    <img src="@collection.CoverUrl" alt="@collection.DisplayName" />
+                                }
+                                else
+                                {
+                                    <div class="watch-tv-related-card__placeholder">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Movie" Style="font-size: 36px;" />
+                                    </div>
+                                }
+                            </div>
+                            <div class="watch-tv-related-card__title">@collection.DisplayName</div>
+                            <div class="watch-tv-related-card__meta">@collection.Year</div>
+                        </button>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public Guid WorkId { get; set; }
+    [SupplyParameterFromQuery(Name = "collectionId")] public Guid? CollectionId { get; set; }
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+
+    private RegistryItemDetailViewModel? _movie;
+    private RelatedCollectionsViewModel? _related;
+    private Guid? _assetId;
+    private ProgressStateDto? _progress;
+    private Guid? _activeProfileId;
+    private WatchlistMembership? _watchlist;
+    private List<PersonViewModel> _people = [];
+    private Guid? _collectionId;
+    private bool _loading = true;
+    private bool _watchlistBusy;
+
+    private string? HeroBackgroundUrl =>
+        _movie?.BackgroundUrl ?? _movie?.BannerUrl ?? _movie?.HeroUrl ?? _movie?.CoverUrl;
+
+    private string PrimaryActionLabel => _progress?.ProgressPct is > 0 and < 99.5 ? "Resume" : "Play";
+
+    private string WatchlistIcon => _watchlist?.IsInWatchlist == true
+        ? Icons.Material.Outlined.BookmarkAdded
+        : Icons.Material.Outlined.BookmarkAdd;
+
+    private string WatchlistLabel => _watchlist?.IsInWatchlist == true
+        ? "In watchlist"
+        : "Watchlist";
+
+    private IReadOnlyList<string> MetaChips =>
+        new[]
+        {
+            _movie?.Year,
+            _movie?.Runtime,
+            _movie?.Genre,
+            _movie?.Rating,
+        }
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Cast<string>()
+        .ToList();
+
+    private IReadOnlyList<(string Label, string Value)> HeroStats =>
+        new[]
+        {
+            ("Directed by", _movie?.Director),
+            ("Written by", _movie?.Writer),
+            ("Release date", _movie?.ReleaseDate),
+            ("Cast", _movie?.Cast),
+        }
+        .Where(item => !string.IsNullOrWhiteSpace(item.Item2))
+        .Select(item => (item.Item1, item.Item2!))
+        .ToList();
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var movieTask = ApiClient.GetRegistryItemDetailAsync(WorkId);
+        var worksTask = Orchestrator.GetLibraryWorksAsync();
+        var profileTask = Orchestrator.GetActiveProfileAsync();
+        var peopleTask = Orchestrator.GetPersonsByWorkAsync(WorkId);
+
+        await Task.WhenAll(movieTask, worksTask, profileTask, peopleTask);
+
+        _movie = movieTask.Result;
+        _activeProfileId = profileTask.Result?.Id;
+        _people = peopleTask.Result;
+
+        var work = worksTask.Result.FirstOrDefault(item => item.Id == WorkId);
+        _collectionId = CollectionId ?? work?.CollectionId;
+
+        _assetId = await Orchestrator.ResolveWorkToAssetAsync(WorkId);
+        if (_assetId.HasValue)
+        {
+            _progress = await Orchestrator.GetProgressAsync(_assetId.Value);
+        }
+
+        if (_collectionId.HasValue)
+        {
+            _related = await ApiClient.GetRelatedCollectionsAsync(_collectionId.Value);
+        }
+
+        if (_activeProfileId.HasValue)
+        {
+            _watchlist = await WatchlistService.GetMembershipAsync(WorkId, _activeProfileId.Value);
+        }
+
+        _loading = false;
+    }
+
+    private async Task PlayMovieAsync()
+    {
+        if (!_assetId.HasValue)
+        {
+            _assetId = await Orchestrator.ResolveWorkToAssetAsync(WorkId);
+        }
+
+        if (_assetId.HasValue)
+        {
+            var returnUrl = Uri.EscapeDataString(CurrentPageUrl());
+            var collectionQuery = _collectionId.HasValue ? $"&collectionId={_collectionId.Value}" : string.Empty;
+            Nav.NavigateTo($"/watch/player/{_assetId.Value}?workId={WorkId}{collectionQuery}&returnUrl={returnUrl}");
+        }
+    }
+
+    private async Task ToggleWatchlistAsync()
+    {
+        if (!_activeProfileId.HasValue || _watchlistBusy)
+        {
+            return;
+        }
+
+        _watchlistBusy = true;
+        try
+        {
+            _watchlist = await WatchlistService.ToggleAsync(WorkId, _activeProfileId.Value);
+        }
+        finally
+        {
+            _watchlistBusy = false;
+        }
+    }
+
+    private void OpenTrailer()
+    {
+        var query = Uri.EscapeDataString($"{_movie?.Title} trailer");
+        Nav.NavigateTo($"https://www.youtube.com/results?search_query={query}", forceLoad: true);
+    }
+
+    private void OpenCollection()
+    {
+        if (_collectionId.HasValue)
+        {
+            Nav.NavigateTo($"/collection/{_collectionId.Value}");
+        }
+    }
+
+    private void OpenRelated(CollectionViewModel collection)
+    {
+        Nav.NavigateTo($"/collection/{collection.Id}");
+    }
+
+    private void OpenPerson(Guid personId)
+    {
+        Nav.NavigateTo($"/person/{personId}");
+    }
+
+    private void GoBack()
+    {
+        if (!string.IsNullOrWhiteSpace(ReturnUrl))
+        {
+            Nav.NavigateTo(ReturnUrl!);
+            return;
+        }
+
+        Nav.NavigateTo("/watch/movies");
+    }
+
+    private string CurrentPageUrl()
+    {
+        var path = $"/watch/movie/{WorkId}";
+        var queryParts = new List<string>();
+        if (_collectionId.HasValue)
+        {
+            queryParts.Add($"collectionId={_collectionId.Value}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(ReturnUrl))
+        {
+            queryParts.Add($"returnUrl={Uri.EscapeDataString(ReturnUrl!)}");
+        }
+
+        return queryParts.Count == 0 ? path : $"{path}?{string.Join("&", queryParts)}";
+    }
+}
+
+<style>
+    .watch-movie-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 28px;
+        min-height: 580px;
+        margin-bottom: 24px;
+        background: #080b12;
+    }
+
+    .watch-movie-hero__bg,
+    .watch-movie-hero__bg img,
+    .watch-movie-hero__overlay {
+        position: absolute;
+        inset: 0;
+    }
+
+    .watch-movie-hero__bg img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scale(1.02);
+    }
+
+    .watch-movie-hero__overlay {
+        background:
+            linear-gradient(90deg, rgba(8, 11, 18, 0.96) 0%, rgba(8, 11, 18, 0.84) 38%, rgba(8, 11, 18, 0.22) 80%, rgba(8, 11, 18, 0.88) 100%),
+            linear-gradient(180deg, rgba(8, 11, 18, 0.22) 0%, rgba(8, 11, 18, 0.72) 100%);
+    }
+
+    .watch-movie-hero__topbar,
+    .watch-movie-hero__content {
+        position: relative;
+        z-index: 1;
+    }
+
+    .watch-movie-hero__topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 26px 28px 0;
+    }
+
+    .watch-movie-hero__quick-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .watch-movie-hero__content {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 260px;
+        gap: 28px;
+        align-items: end;
+        min-height: 500px;
+        padding: 44px 28px 34px;
+    }
+
+    .watch-movie-hero__copy {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        max-width: 720px;
+    }
+
+    .watch-movie-hero__eyebrow {
+        color: rgba(255, 255, 255, 0.62);
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+    }
+
+    .watch-movie-hero__copy h1 {
+        margin: 0;
+        color: #fff;
+        font-size: clamp(2.8rem, 6vw, 5.5rem);
+        line-height: 0.94;
+        letter-spacing: -0.04em;
+    }
+
+    .watch-movie-hero__description {
+        margin: 0;
+        max-width: 60ch;
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 0.98rem;
+        line-height: 1.7;
+    }
+
+    .watch-movie-hero__meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .watch-movie-hero__meta span {
+        padding: 0.5rem 0.8rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.72);
+        font-size: 0.8rem;
+        font-weight: 700;
+    }
+
+    .watch-movie-hero__stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 14px;
+        max-width: 720px;
+    }
+
+    .watch-movie-hero__stat {
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .watch-movie-hero__stat-label {
+        color: rgba(255, 255, 255, 0.46);
+        font-size: 0.74rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+
+    .watch-movie-hero__stat-value {
+        color: rgba(255, 255, 255, 0.92);
+        font-size: 0.94rem;
+        line-height: 1.45;
+    }
+
+    .watch-movie-hero__actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding-top: 4px;
+    }
+
+    .watch-movie-hero__poster {
+        width: 100%;
+        max-width: 260px;
+        aspect-ratio: 2 / 3;
+        justify-self: end;
+        border-radius: 24px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 26px 56px rgba(0, 0, 0, 0.34);
+    }
+
+    .watch-movie-hero__poster img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .watch-movie-hero__poster-placeholder {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.28);
+    }
+
+    @@media (max-width: 960px) {
+        .watch-movie-hero__content {
+            grid-template-columns: 1fr;
+            align-items: end;
+        }
+
+        .watch-movie-hero__poster {
+            justify-self: start;
+            max-width: 220px;
+        }
+    }
+</style>

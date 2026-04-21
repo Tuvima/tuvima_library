@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Navigation
+@using MediaEngine.Web.Services.Navigation
 @inject NavigationManager Nav
 @inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
@@ -94,7 +95,7 @@
 
         return results.Select(r => new PaletteItem(
             Label:    r.Title,
-            Href:     r.CollectionId is { } collectionId ? $"/collection/{collectionId}" : $"/work/{r.WorkId}",
+            Href:     MediaNavigation.ForSearchResult(r),
             Icon:     MediaIcon(r.MediaType),
             Color:    MediaColor(r.MediaType),
             Subtitle: BuildSubtitle(r)));

@@ -1,0 +1,426 @@
+@namespace MediaEngine.Web.Components.Listen
+@using System.Text.Json
+@using MediaEngine.Web.Services.Playback
+@inject ListenPlaybackService Playback
+@inject IJSRuntime JS
+@implements IDisposable
+
+@if (Playback.HasQueue && Playback.CurrentItem is not null)
+{
+    <div class="listen-player-shell">
+        @if (Playback.IsQueueOpen)
+        {
+            <div class="listen-player-queue-backdrop" @onclick="Playback.CloseQueue"></div>
+            <aside class="listen-player-queue">
+                <div class="listen-player-queue__header">
+                    <div>
+                        <div class="listen-player-queue__eyebrow">Queue</div>
+                        <h3>@(Playback.SourceLabel ?? "Now Playing")</h3>
+                    </div>
+                    <button type="button" class="listen-player-queue__close" @onclick="Playback.CloseQueue">
+                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+                    </button>
+                </div>
+
+                <div class="listen-player-queue__list">
+                    @for (var index = 0; index < Playback.Queue.Count; index++)
+                    {
+                        var item = Playback.Queue[index];
+                        <button type="button"
+                                class="listen-player-queue__item @(Playback.CurrentIndex == index ? "is-active" : null)"
+                                @onclick="@(() => PlayFromQueueAsync(index))">
+                            <div class="listen-player-queue__thumb">
+                                @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                {
+                                    <img src="@item.CoverUrl" alt="@item.Title" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 18px;" />
+                                }
+                            </div>
+                            <div class="listen-player-queue__meta">
+                                <div class="listen-player-queue__title">@item.Title</div>
+                                <div class="listen-player-queue__subtitle">@FirstNonBlank(item.Subtitle, item.Album, item.MediaType)</div>
+                            </div>
+                            <div class="listen-player-queue__duration">@item.Duration</div>
+                        </button>
+                    }
+                </div>
+            </aside>
+        }
+
+        <div class="listen-player">
+            <div class="listen-player__meta">
+                <div class="listen-player__thumb">
+                    @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
+                    {
+                        <img src="@Playback.CurrentItem.CoverUrl" alt="@Playback.CurrentItem.Title" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 18px;" />
+                    }
+                </div>
+
+                <div class="listen-player__copy">
+                    <div class="listen-player__title">@Playback.CurrentItem.Title</div>
+                    <div class="listen-player__subtitle">@FirstNonBlank(Playback.CurrentItem.Subtitle, Playback.CurrentItem.Album, Playback.SourceLabel)</div>
+                </div>
+            </div>
+
+            <div class="listen-player__controls">
+                <button type="button" class="listen-player__icon" @onclick="PlayPreviousAsync" disabled="@(Playback.CurrentIndex <= 0)">
+                    <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Style="font-size: 20px;" />
+                </button>
+
+                @if (!string.IsNullOrWhiteSpace(Playback.CurrentStreamUrl))
+                {
+                    <audio @key="Playback.CurrentStreamUrl"
+                           class="listen-player__audio"
+                           src="@Playback.CurrentStreamUrl"
+                           controls
+                           autoplay
+                           @onended="PlayNextAsync">
+                    </audio>
+                }
+                else
+                {
+                    <div class="listen-player__pending">Resolving stream…</div>
+                }
+
+                <button type="button"
+                        class="listen-player__icon"
+                        @onclick="PlayNextAsync"
+                        disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
+                    <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Style="font-size: 20px;" />
+                </button>
+            </div>
+
+            <button type="button" class="listen-player__queue-button" @onclick="Playback.ToggleQueue">
+                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
+                <span>@Playback.Queue.Count</span>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _restored;
+
+    protected override void OnInitialized()
+    {
+        Playback.OnChanged += HandlePlaybackChanged;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_restored)
+        {
+            return;
+        }
+
+        _restored = true;
+
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("listenPlayback.getState");
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                var snapshot = JsonSerializer.Deserialize<ListenPlaybackSnapshot>(json);
+                if (snapshot is not null)
+                {
+                    Playback.RestoreState(snapshot);
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private void HandlePlaybackChanged()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            if (_restored)
+            {
+                try
+                {
+                    await JS.InvokeVoidAsync("listenPlayback.setState", JsonSerializer.Serialize(Playback.CreateSnapshot()));
+                }
+                catch
+                {
+                }
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private Task PlayFromQueueAsync(int index) => Playback.PlayIndexAsync(index);
+
+    private Task PlayNextAsync() => Playback.SkipNextAsync();
+
+    private Task PlayPreviousAsync() => Playback.SkipPreviousAsync();
+
+    private static string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
+
+    public void Dispose()
+    {
+        Playback.OnChanged -= HandlePlaybackChanged;
+    }
+}
+
+<style>
+    .listen-player-shell {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1320;
+        pointer-events: none;
+    }
+
+    .listen-player {
+        pointer-events: auto;
+        display: grid;
+        grid-template-columns: minmax(0, 280px) minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 18px;
+        padding: 14px 20px;
+        background: rgba(8, 10, 18, 0.94);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 -22px 40px rgba(0, 0, 0, 0.24);
+        backdrop-filter: blur(22px);
+    }
+
+    .listen-player__meta {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .listen-player__thumb {
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.6);
+        flex-shrink: 0;
+    }
+
+    .listen-player__thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .listen-player__copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .listen-player__title {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 0.92rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .listen-player__subtitle {
+        color: rgba(255, 255, 255, 0.56);
+        font-size: 0.8rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .listen-player__controls {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .listen-player__audio {
+        width: 100%;
+        min-width: 0;
+        filter: saturate(0.82) brightness(0.98);
+    }
+
+    .listen-player__pending {
+        color: rgba(255, 255, 255, 0.56);
+        font-size: 0.82rem;
+        text-align: center;
+    }
+
+    .listen-player__icon,
+    .listen-player__queue-button,
+    .listen-player-queue__close {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-width: 42px;
+        min-height: 42px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.04);
+        color: rgba(255, 255, 255, 0.76);
+        cursor: pointer;
+        transition: all 0.16s ease;
+    }
+
+    .listen-player__icon:hover:not(:disabled),
+    .listen-player__queue-button:hover,
+    .listen-player-queue__close:hover {
+        color: rgba(255, 255, 255, 0.96);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .listen-player__icon:disabled {
+        opacity: 0.32;
+        cursor: default;
+    }
+
+    .listen-player__queue-button {
+        padding: 0 14px;
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .listen-player-queue-backdrop {
+        pointer-events: auto;
+        position: fixed;
+        inset: 0;
+        background: rgba(3, 6, 12, 0.54);
+    }
+
+    .listen-player-queue {
+        pointer-events: auto;
+        position: fixed;
+        right: 18px;
+        bottom: 88px;
+        width: min(420px, calc(100vw - 36px));
+        max-height: min(62vh, 720px);
+        display: flex;
+        flex-direction: column;
+        border-radius: 22px;
+        background: rgba(7, 10, 18, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 28px 60px rgba(0, 0, 0, 0.36);
+        overflow: hidden;
+    }
+
+    .listen-player-queue__header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 18px 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .listen-player-queue__eyebrow {
+        color: rgba(255, 255, 255, 0.42);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+    }
+
+    .listen-player-queue__header h3 {
+        margin: 4px 0 0;
+        color: rgba(255, 255, 255, 0.95);
+        font-size: 1.05rem;
+    }
+
+    .listen-player-queue__list {
+        display: flex;
+        flex-direction: column;
+        overflow: auto;
+        padding: 10px;
+    }
+
+    .listen-player-queue__item {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 12px;
+        padding: 10px;
+        border: 0;
+        border-radius: 16px;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .listen-player-queue__item:hover,
+    .listen-player-queue__item.is-active {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .listen-player-queue__thumb {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .listen-player-queue__thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .listen-player-queue__meta {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .listen-player-queue__title {
+        color: rgba(255, 255, 255, 0.94);
+        font-size: 0.88rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .listen-player-queue__subtitle,
+    .listen-player-queue__duration {
+        color: rgba(255, 255, 255, 0.54);
+        font-size: 0.78rem;
+    }
+
+    @@media (max-width: 860px) {
+        .listen-player {
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .listen-player__queue-button {
+            justify-self: flex-end;
+        }
+    }
+</style>

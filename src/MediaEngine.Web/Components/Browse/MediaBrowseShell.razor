@@ -5,6 +5,7 @@
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Navigation
 
 @implements IDisposable
 
@@ -478,7 +479,7 @@
     private BrowseHeroViewModel BuildJourneyHero(JourneyItemViewModel item)
     {
         var primaryUrl = BuildJourneyPrimaryUrl(item);
-        var secondaryUrl = item.CollectionId.HasValue ? $"/collection/{item.CollectionId.Value}" : $"/book/{item.WorkId}";
+        var secondaryUrl = MediaNavigation.ForJourney(item);
         var backgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl);
         var listenTitle = Preset.HeroVariant == BrowseHeroVariant.Listen && !string.IsNullOrWhiteSpace(item.CollectionDisplayName)
             ? item.CollectionDisplayName!
@@ -523,8 +524,8 @@
             BackgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
             PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open album" : "Open",
             SecondaryActionLabel = "Details",
-            PrimaryNavigationUrl = $"/book/{item.EntityId}",
-            SecondaryNavigationUrl = $"/book/{item.EntityId}",
+            PrimaryNavigationUrl = MediaNavigation.ForLibraryItem(item),
+            SecondaryNavigationUrl = MediaNavigation.ForLibraryItem(item),
         };
     }
 
@@ -576,8 +577,8 @@
             AccentColor = AccentForMedia(item.MediaType),
             Shape = shape,
             Presentation = presentation,
-            NavigationUrl = $"/book/{item.EntityId}",
-            DetailsNavigationUrl = $"/book/{item.EntityId}",
+            NavigationUrl = MediaNavigation.ForLibraryItem(item),
+            DetailsNavigationUrl = MediaNavigation.ForLibraryItem(item),
             PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open" : "Details",
             Creator = item.Creator,
             CollectionKey = item.ContextLabel,
@@ -763,12 +764,18 @@
             return;
         }
 
-        Nav.NavigateTo($"/book/{entityId}");
+        var selectedItem = ActiveTableItems.FirstOrDefault(item => item.EntityId == entityId);
+        Nav.NavigateTo(selectedItem is not null
+            ? MediaNavigation.ForLibraryItem(selectedItem)
+            : $"/book/{entityId}");
     }
 
     private Task OpenItem(Guid entityId)
     {
-        Nav.NavigateTo($"/book/{entityId}");
+        var displayItem = _items.FirstOrDefault(item => item.EntityId == entityId);
+        Nav.NavigateTo(displayItem is not null
+            ? MediaNavigation.ForLibraryItem(displayItem)
+            : $"/book/{entityId}");
         return Task.CompletedTask;
     }
 
@@ -965,7 +972,8 @@
     private string BuildJourneyPrimaryUrl(JourneyItemViewModel item)
     {
         var mediaType = item.MediaType.ToLowerInvariant();
-        if (mediaType.Contains("book"))
+        if ((mediaType.Contains("book") || mediaType.Contains("comic") || mediaType.Contains("epub"))
+            && !mediaType.Contains("audio"))
         {
             var url = $"/read/{item.AssetId}";
             if (item.CollectionId.HasValue)
@@ -975,12 +983,7 @@
             return url;
         }
 
-        if (item.CollectionId.HasValue)
-        {
-            return $"/collection/{item.CollectionId.Value}";
-        }
-
-        return $"/book/{item.WorkId}";
+        return MediaNavigation.ForJourney(item);
     }
 
     private IEnumerable<(string Value, string Label)> GetSortOptions() => IsContainerGrouping

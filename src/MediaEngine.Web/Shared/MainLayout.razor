@@ -10,6 +10,7 @@
 
 @using MediaEngine.Web.Resources
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Components.Listen
 @using Microsoft.Extensions.Localization
 
 <MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
@@ -35,6 +36,8 @@
         </MudContainer>
     </MudMainContent>
 </MudLayout>
+
+<ListenNowPlayingBar />
 
 @code {
     private CommandPalette? _palette;

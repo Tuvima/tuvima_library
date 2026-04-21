@@ -1,5 +1,6 @@
 @page "/search"
 @namespace MediaEngine.Web.Components.Pages
+@using MediaEngine.Web.Services.Navigation
 @inject UniverseStateContainer State
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
@@ -23,7 +24,7 @@
             <div class="search-recent-grid">
                 @foreach (var collection in VisibleCollections)
                 {
-                    <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo($"/book/{collection.Works.FirstOrDefault()?.Id ?? collection.Id}"))">
+                    <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo(MediaNavigation.ForCollection(collection)))">
                         @if (!string.IsNullOrEmpty(collection.CoverUrl))
                         {
                             <img src="@collection.CoverUrl" alt="@collection.DisplayName" class="search-recent-cover" loading="lazy" />

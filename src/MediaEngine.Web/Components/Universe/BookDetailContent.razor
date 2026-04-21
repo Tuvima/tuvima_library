@@ -1,10 +1,12 @@
 @using MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Components.Registry
+@using MediaEngine.Web.Services.Playback
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
 @inject NavigationManager       Nav
 @inject IDialogService          DialogService
 @inject MediaEditorLauncherService MediaEditorLauncher
+@inject ListenPlaybackService ListenPlayback
 
 @* Edit panel for standalone mode is rendered inline below, same as embedded *@
 
@@ -610,6 +612,9 @@ else
     /// Hero uses absolute positioning within the container instead of fixed to viewport.</summary>
     [Parameter] public bool Embedded { get; set; }
 
+    /// <summary>Optional view preference: "read" or "listen".</summary>
+    [Parameter] public string? PreferredMode { get; set; }
+
     private bool                    _loading            = true;
     private CollectionViewModel?           _collection;
     private WorkViewModel?          _work;
@@ -638,7 +643,7 @@ else
         _showFullDescription = false;
         _showAllGenres       = false;
         _lightboxOpen        = false;
-        _selectedFormatKey   = null;
+        _selectedFormatKey   = NormalizePreferredMode(PreferredMode);
 
         // Load works directly (work-first architecture — collections deferred to Universe phase)
         var allWorks = await Orchestrator.GetLibraryWorksAsync();
@@ -692,6 +697,12 @@ else
 
             if (_siblingWorks.Count == 0)
                 _siblingWorks = [_work];
+
+            if (_selectedFormatKey is not null
+                && !_siblingWorks.Any(sibling => string.Equals(GetFormatKey(sibling.MediaType), _selectedFormatKey, StringComparison.OrdinalIgnoreCase)))
+            {
+                _selectedFormatKey = null;
+            }
 
             // Create a synthetic collection for backward compat with code that references _collection
             _collection = new CollectionViewModel { Works = _siblingWorks };
@@ -756,7 +767,7 @@ else
         var work = ActiveWork ?? _work;
 
         var formatKey = GetFormatKey(work.MediaType);
-        if (formatKey is "epub" or "audiobook")
+        if (formatKey == "epub")
         {
             var assetId = await Orchestrator.ResolveWorkToAssetAsync(work.Id);
             if (assetId.HasValue)
@@ -767,6 +778,11 @@ else
             {
                 ShowToast("Could not find a readable file for this title");
             }
+        }
+        else if (formatKey == "audiobook")
+        {
+            await ListenPlayback.PlayWorkAsync(work, _work?.Title ?? work.Title);
+            ShowToast("Audiobook added to the queue");
         }
         else
         {
@@ -927,12 +943,22 @@ else
 
     private static string GetFormatLabel(string key) => key switch
     {
-        "epub"      => "Book",
-        "audiobook" => "Audiobook",
+        "epub"      => "Read",
+        "audiobook" => "Listen",
         "video"     => "Movie",
         "comic"     => "Comic",
         _           => key
     };
+
+    private static string? NormalizePreferredMode(string? preferredMode)
+        => preferredMode?.Trim().ToLowerInvariant() switch
+        {
+            "listen" => "audiobook",
+            "audiobook" => "audiobook",
+            "read" => "epub",
+            "book" => "epub",
+            _ => null,
+        };
 
     private static string GetFormatMudIcon(string key) => key switch
     {

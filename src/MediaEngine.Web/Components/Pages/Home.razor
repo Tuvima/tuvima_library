@@ -1,5 +1,6 @@
 @* Route "/" has moved to LibraryBrowsePage.razor — this file is retained for reference. *@
 @page "/home-legacy"
+@using MediaEngine.Web.Services.Navigation
 @inject UIOrchestratorService  Orchestrator
 @inject UniverseStateContainer  State
 @inject DeviceContextService    DeviceContext
@@ -160,7 +161,15 @@ else
                 </div>
                 @foreach (var result in _homeSearchResults)
                 {
-                    var navUrl = "/book/" + result.WorkId;
+                    var navUrl = MediaNavigation.ForSearchResult(new SearchResultViewModel
+                    {
+                        WorkId = result.WorkId,
+                        CollectionId = result.CollectionId,
+                        MediaType = result.MediaType,
+                        Title = result.Title,
+                        Author = result.Author,
+                        CollectionDisplayName = result.CollectionDisplayName,
+                    });
                     <div class="home-search-card" @onclick="() => Nav.NavigateTo(navUrl)">
                         <div class="home-search-card-info">
                             <span class="home-search-card-title">@result.Title</span>

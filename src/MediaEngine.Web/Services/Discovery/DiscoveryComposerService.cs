@@ -1,6 +1,7 @@
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.Navigation;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -670,12 +671,8 @@ public sealed class DiscoveryComposerService
             .OrderByDescending(item => item.LastAccessed)
             .First();
         var title = group?.DisplayName ?? latest.CollectionDisplayName ?? latest.Series ?? latest.Title;
-        var detailsUrl = latest.CollectionId.HasValue
-            ? BuildCollectionDetailsUrl(DiscoveryBucket.Tv, latest.CollectionId.Value)
-            : $"/book/{latest.WorkId}";
-        var primaryUrl = latest.CollectionId.HasValue
-            ? $"/watch/tv/show/{latest.CollectionId.Value}/episode/{latest.WorkId}"
-            : $"/book/{latest.WorkId}";
+        var detailsUrl = BuildJourneyDetailsUrl(latest);
+        var primaryUrl = MediaNavigation.ForJourney(latest);
 
         return new DiscoveryCardViewModel
         {
@@ -715,9 +712,7 @@ public sealed class DiscoveryComposerService
         var latest = items
             .OrderByDescending(item => item.LastAccessed)
             .First();
-        var detailsUrl = latest.CollectionId.HasValue
-            ? BuildCollectionDetailsUrl(DiscoveryBucket.Music, latest.CollectionId.Value)
-            : $"/book/{latest.WorkId}";
+        var detailsUrl = BuildJourneyDetailsUrl(latest);
         var title = latest.CollectionDisplayName ?? latest.Series ?? latest.Title;
 
         return new DiscoveryCardViewModel
@@ -760,9 +755,7 @@ public sealed class DiscoveryComposerService
         var latest = items
             .OrderByDescending(GetHomeSortTimestamp)
             .First();
-        var detailsUrl = latest.CollectionId.HasValue
-            ? BuildCollectionDetailsUrl(DiscoveryBucket.Tv, latest.CollectionId.Value)
-            : $"/book/{latest.Id}";
+        var detailsUrl = BuildWorkDetailsUrl(latest);
         var title = group?.DisplayName ?? latest.ShowName ?? latest.Series ?? latest.Title;
 
         return new DiscoveryCardViewModel
@@ -802,9 +795,7 @@ public sealed class DiscoveryComposerService
         var latest = items
             .OrderByDescending(GetHomeSortTimestamp)
             .First();
-        var detailsUrl = latest.CollectionId.HasValue
-            ? BuildCollectionDetailsUrl(DiscoveryBucket.Music, latest.CollectionId.Value)
-            : $"/book/{latest.Id}";
+        var detailsUrl = BuildWorkDetailsUrl(latest);
         var title = latest.Album ?? latest.Title;
 
         return new DiscoveryCardViewModel
@@ -1087,11 +1078,9 @@ public sealed class DiscoveryComposerService
                     activeJourney.ProgressDisplay),
                 ProgressPct = activeJourney.ProgressPct,
                 PrimaryActionLabel = activeJourney.ActionVerb,
-                PrimaryNavigationUrl = $"/book/{activeJourney.WorkId}",
+                PrimaryNavigationUrl = MediaNavigation.ForJourney(activeJourney),
                 SecondaryActionLabel = "Details",
-                SecondaryNavigationUrl = activeJourney.CollectionId.HasValue
-                    ? $"/collection/{activeJourney.CollectionId.Value}"
-                    : $"/book/{activeJourney.WorkId}",
+                SecondaryNavigationUrl = BuildJourneyDetailsUrl(activeJourney),
             };
         }
 
@@ -1124,9 +1113,9 @@ public sealed class DiscoveryComposerService
                 AccentColor = accentColor,
                 MetaText = JoinPartsSafe(featuredGroup.PrimaryMediaType, featuredGroup.Year, featuredGroup.WorkCount.ToString()),
                 PrimaryActionLabel = "Explore collection",
-                PrimaryNavigationUrl = $"/collection/{featuredGroup.CollectionId}",
+                PrimaryNavigationUrl = MediaNavigation.ForContentGroup(featuredGroup),
                 SecondaryActionLabel = "Details",
-                SecondaryNavigationUrl = $"/collection/{featuredGroup.CollectionId}",
+                SecondaryNavigationUrl = MediaNavigation.ForContentGroup(featuredGroup),
             };
         }
 
@@ -1157,11 +1146,9 @@ public sealed class DiscoveryComposerService
                 work.Genres.FirstOrDefault()),
             ProgressPct = progressPct,
             PrimaryActionLabel = progressPct is > 0 ? ContinueLabel(bucket) : "Open",
-            PrimaryNavigationUrl = $"/book/{work.Id}",
+            PrimaryNavigationUrl = MediaNavigation.ForWork(work),
             SecondaryActionLabel = "Details",
-            SecondaryNavigationUrl = work.CollectionId.HasValue
-                ? $"/collection/{work.CollectionId.Value}"
-                : $"/book/{work.Id}",
+            SecondaryNavigationUrl = BuildWorkDetailsUrl(work),
         };
     }
 
@@ -1190,13 +1177,9 @@ public sealed class DiscoveryComposerService
             MediaKind = NormalizeDisplayKind(item.MediaType),
             AccentColor = AccentForBucket(bucket),
             Shape = ShapeForBucket(bucket),
-            NavigationUrl = item.CollectionId.HasValue
-                ? BuildCollectionDetailsUrl(bucket, item.CollectionId.Value)
-                : $"/book/{item.WorkId}",
-            PrimaryNavigationUrl = $"/book/{item.WorkId}",
-            DetailsNavigationUrl = item.CollectionId.HasValue
-                ? BuildCollectionDetailsUrl(bucket, item.CollectionId.Value)
-                : $"/book/{item.WorkId}",
+            NavigationUrl = BuildJourneyDetailsUrl(item),
+            PrimaryNavigationUrl = MediaNavigation.ForJourney(item),
+            DetailsNavigationUrl = BuildJourneyDetailsUrl(item),
             PrimaryActionLabel = item.ActionVerb,
             ProgressPct = item.ProgressPct,
             Creator = item.Author,
@@ -1230,13 +1213,9 @@ public sealed class DiscoveryComposerService
             MediaKind = NormalizeDisplayKind(work.MediaType),
             AccentColor = AccentForBucket(bucket),
             Shape = ShapeForBucket(bucket),
-            NavigationUrl = work.CollectionId.HasValue
-                ? BuildCollectionDetailsUrl(bucket, work.CollectionId.Value)
-                : $"/book/{work.Id}",
-            PrimaryNavigationUrl = $"/book/{work.Id}",
-            DetailsNavigationUrl = work.CollectionId.HasValue
-                ? BuildCollectionDetailsUrl(bucket, work.CollectionId.Value)
-                : $"/book/{work.Id}",
+            NavigationUrl = BuildWorkDetailsUrl(work),
+            PrimaryNavigationUrl = MediaNavigation.ForWork(work),
+            DetailsNavigationUrl = BuildWorkDetailsUrl(work),
             PrimaryActionLabel = progressPct is > 0 ? ContinueLabel(bucket) : "Open",
             ProgressPct = progressPct,
             Creator = work.Author,
@@ -1293,9 +1272,9 @@ public sealed class DiscoveryComposerService
             AccentColor = !string.IsNullOrWhiteSpace(group.MediaTypeColor) ? group.MediaTypeColor : AccentForBucket(bucket),
             Shape = shape,
             Presentation = presentation,
-            NavigationUrl = navigationUrl ?? $"/collection/{group.CollectionId}",
-            PrimaryNavigationUrl = primaryNavigationUrl ?? navigationUrl ?? $"/collection/{group.CollectionId}",
-            DetailsNavigationUrl = detailsNavigationUrl ?? navigationUrl ?? $"/collection/{group.CollectionId}",
+            NavigationUrl = navigationUrl ?? MediaNavigation.ForContentGroup(group),
+            PrimaryNavigationUrl = primaryNavigationUrl ?? navigationUrl ?? MediaNavigation.ForContentGroup(group),
+            DetailsNavigationUrl = detailsNavigationUrl ?? navigationUrl ?? MediaNavigation.ForContentGroup(group),
             PrimaryActionLabel = primaryActionLabel ?? "Explore",
             Creator = group.Creator,
             CollectionKey = group.DisplayName,
@@ -1337,7 +1316,7 @@ public sealed class DiscoveryComposerService
         AccentColor = group.MediaTypeColor,
         Badge = NormalizeDisplayKind(group.PrimaryMediaType),
         CountLabel = CountLabel(group),
-        NavigationUrl = $"/collection/{group.CollectionId}",
+        NavigationUrl = MediaNavigation.ForContentGroup(group),
     };
 
     private static string BuildSystemViewNavigationUrl(
@@ -1348,10 +1327,35 @@ public sealed class DiscoveryComposerService
         string groupName,
         string mediaType)
     {
+        if (string.Equals(routeBase, "/listen", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(routeTab, "music", StringComparison.OrdinalIgnoreCase))
+        {
+            if (string.Equals(groupType, "artist", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"/listen/music/artists/{Uri.EscapeDataString(groupName)}";
+            }
+
+            if (string.Equals(groupType, "album", StringComparison.OrdinalIgnoreCase)
+                && Guid.TryParse(groupName, out var albumId))
+            {
+                return $"/listen/music/albums/{albumId}";
+            }
+        }
+
         var path = $"{routeBase.TrimEnd('/')}/{routeTab}";
         var groupId = CreateDeterministicGuid($"{groupField}:{groupName}");
         return $"{path}?group={groupId}&groupType={Uri.EscapeDataString(groupType)}&groupName={Uri.EscapeDataString(groupName)}&groupField={Uri.EscapeDataString(groupField)}&groupMediaType={Uri.EscapeDataString(mediaType)}";
     }
+
+    private static string BuildJourneyDetailsUrl(JourneyItemViewModel item)
+        => item.CollectionId.HasValue
+            ? MediaNavigation.ForCollectionMedia(item.MediaType, item.CollectionId.Value, item.WorkId)
+            : MediaNavigation.ForJourney(item);
+
+    private static string BuildWorkDetailsUrl(WorkViewModel work)
+        => work.CollectionId.HasValue
+            ? MediaNavigation.ForCollectionMedia(work.MediaType, work.CollectionId.Value, work.Id)
+            : MediaNavigation.ForWork(work);
 
     private static Dictionary<Guid, double> BuildProgressLookup(IEnumerable<JourneyItemViewModel> journey) =>
         journey

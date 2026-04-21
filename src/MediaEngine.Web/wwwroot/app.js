@@ -235,3 +235,15 @@ window.registrySettings = {
         localStorage.setItem('registry-card-size', size.toString());
     }
 };
+
+window.listenPlayback = {
+    getState: function () {
+        return localStorage.getItem('listen-playback-state');
+    },
+    setState: function (json) {
+        localStorage.setItem('listen-playback-state', json);
+    },
+    clearState: function () {
+        localStorage.removeItem('listen-playback-state');
+    }
+};

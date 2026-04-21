@@ -1,3 +1,5 @@
+using MediaEngine.Web.Services.Navigation;
+
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
@@ -28,7 +30,7 @@ public sealed record PosterItemViewModel
         FormatBadge      = collection.PrimaryMediaType,
         IsNew            = DateTimeOffset.UtcNow - collection.CreatedAt < TimeSpan.FromDays(7),
         Progress         = null,
-        NavigationUrl    = $"/collection/{collection.Id}",
+        NavigationUrl    = MediaNavigation.ForCollection(collection),
         DominantHexColor = collection.DominantHexColor,
         SourceType       = PosterSourceType.Collection,
     };
@@ -43,7 +45,7 @@ public sealed record PosterItemViewModel
         FormatBadge      = work.MediaType,
         IsNew            = false,
         Progress         = null,
-        NavigationUrl    = $"/book/{work.Id}",
+        NavigationUrl    = MediaNavigation.ForWork(work),
         DominantHexColor = dominantHexColor ?? "#1A2040",
         SourceType       = PosterSourceType.Work,
     };
@@ -58,7 +60,7 @@ public sealed record PosterItemViewModel
         FormatBadge      = item.MediaType,
         IsNew            = false,
         Progress         = item.ProgressPct > 0 ? item.ProgressPct : null,
-        NavigationUrl    = $"/book/{item.WorkId}",
+        NavigationUrl    = MediaNavigation.ForJourney(item),
         DominantHexColor = "#1A2040",
         SourceType       = PosterSourceType.Work,
     };

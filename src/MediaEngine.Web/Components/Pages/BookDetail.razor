@@ -3,11 +3,16 @@
 
 <PageTitle>@(Id.ToString()) — Tuvima Library</PageTitle>
 
-<BookDetailContent WorkId="@Id" AutoOpenEdit="@(AutoEdit == true)" />
+<BookDetailContent WorkId="@Id"
+                   AutoOpenEdit="@(AutoEdit == true)"
+                   PreferredMode="@Mode" />
 
 @code {
     [Parameter] public Guid Id { get; set; }
 
     [SupplyParameterFromQuery(Name = "edit")]
     public bool? AutoEdit { get; set; }
+
+    [SupplyParameterFromQuery(Name = "mode")]
+    public string? Mode { get; set; }
 }
