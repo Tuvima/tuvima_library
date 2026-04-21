@@ -99,8 +99,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Centralized organization gate — single source of truth for promotion eligibility.
     private readonly IOrganizationGate _gate;
 
-    // Centralized image path resolution — all artwork lives under {libraryRoot}/.images/.
-    private readonly ImagePathService? _imagePathService;
+    // Managed artwork lives in the central asset store under {libraryRoot}/.data/assets/.
+    private readonly IEntityAssetRepository? _entityAssetRepo;
+    private readonly AssetPathService? _assetPathService;
+    private readonly IWorkRepository? _workRepo;
+    private readonly IAssetExportService? _assetExportService;
 
     // Per-file ingestion lifecycle log — tracks each file from detection to completion.
     private readonly IIngestionLogRepository _ingestionLog;
@@ -166,7 +169,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         ScoringConfiguration       scoringConfig,
         IIngestionBatchRepository  batchRepo,
         IIdentityJobRepository     identityJobRepo,
-        ImagePathService?          imagePathService = null)
+        IEntityAssetRepository?    entityAssetRepo = null,
+        AssetPathService?          assetPathService = null,
+        IWorkRepository?           workRepo = null,
+        IAssetExportService?       assetExportService = null)
     {
         _watcher          = watcher;
         _debounce         = debounce;
@@ -195,7 +201,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _timelineRepo      = timelineRepo;
         _scoringConfig     = scoringConfig;
         _batchRepo         = batchRepo;
-        _imagePathService  = imagePathService;
+        _entityAssetRepo   = entityAssetRepo;
+        _assetPathService  = assetPathService;
+        _workRepo          = workRepo;
+        _assetExportService = assetExportService;
         _identityJobRepo  = identityJobRepo;
     }
 
@@ -1486,44 +1495,114 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // HydrationPipelineService.ExtractPersonReferencesFromRawClaims handles person
         // creation, linking, and enrichment after pen name detection has run.
 
-        // Step 11b: persist embedded cover art.
-        // Write to .data/images/works/_pending/{assetId12}/cover.jpg so the image
-        // is decoupled from the file path and survives future file moves.
-        if (_imagePathService is not null && result.CoverImage is { Length: > 0 })
+        // Step 11b: persist embedded cover art into the central asset store.
+        if (_entityAssetRepo is not null
+            && _assetPathService is not null
+            && result.CoverImage is { Length: > 0 })
         {
             try
             {
-                // Write to .images/ — no QID yet at this stage (provisional slot).
-                string coverPath   = _imagePathService.GetWorkCoverPath(wikidataQid: null, assetId);
-                string coverFolder = Path.GetDirectoryName(coverPath) ?? string.Empty;
-                ImagePathService.EnsureDirectory(coverPath);
-
-                await File.WriteAllBytesAsync(coverPath, result.CoverImage, ct).ConfigureAwait(false);
-
-                // Generate thumbnail (200px wide, quality 75) for list view performance.
-                var thumbPath = _imagePathService.GetWorkCoverThumbPath(wikidataQid: null, assetId);
-                GenerateThumbnail(coverPath, thumbPath);
-
-                await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, ct).ConfigureAwait(false);
+                var existingAssets = await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), "CoverArt", ct)
+                    .ConfigureAwait(false);
+                var preferredUserOverride = existingAssets.FirstOrDefault(asset => asset.IsPreferred && asset.IsUserOverride);
+                if (preferredUserOverride is not null)
                 {
-                    ActionType     = Domain.Enums.SystemActionType.CoverArtSaved,
-                    EntityId       = assetId,
-                    EntityType     = "MediaAsset",
-                    CollectionName        = resolvedTitle,
-                    ChangesJson    = JsonSerializer.Serialize(new
+                    _logger.LogDebug(
+                        "Skipping embedded cover persistence for {AssetId} because owner {OwnerEntityId} already has a user-selected cover",
+                        assetId,
+                        ownerEntityId);
+                }
+                else
+                {
+                    var existingEmbedded = existingAssets.FirstOrDefault(asset =>
+                        string.Equals(asset.SourceProvider, "embedded", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(asset.SourceProvider, "local_processor", StringComparison.OrdinalIgnoreCase));
+                    var coverVariantId = existingEmbedded?.Id ?? Guid.NewGuid();
+                    var coverPath = _assetPathService.GetCentralAssetPath(
+                        "Work",
+                        ownerEntityId,
+                        "CoverArt",
+                        coverVariantId,
+                        InferArtworkExtension(result.CoverImageMimeType));
+                    var coverFolder = Path.GetDirectoryName(coverPath) ?? string.Empty;
+                    AssetPathService.EnsureDirectory(coverPath);
+
+                    await File.WriteAllBytesAsync(coverPath, result.CoverImage, ct).ConfigureAwait(false);
+
+                    var thumbPath = _assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg");
+                    GenerateThumbnail(coverPath, thumbPath);
+
+                    var storedAsset = existingEmbedded ?? new EntityAsset
                     {
-                        cover_size_bytes = result.CoverImage.Length,
-                        filename         = "cover.jpg",
-                        folder           = coverFolder,
-                        location         = "images",
-                    }),
-                    Detail         = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
-                    IngestionRunId = ingestionRunId,
-                }, ct).ConfigureAwait(false);
+                        Id = coverVariantId,
+                        EntityId = ownerEntityId.ToString(),
+                        EntityType = "Work",
+                        AssetTypeValue = "CoverArt",
+                        AssetClassValue = "Artwork",
+                        StorageLocationValue = "Central",
+                        OwnerScope = "Work",
+                        CreatedAt = DateTimeOffset.UtcNow,
+                    };
+
+                    storedAsset.ImageUrl = $"/stream/artwork/{coverVariantId}";
+                    storedAsset.LocalImagePath = coverPath;
+                    storedAsset.SourceProvider = "embedded";
+                    storedAsset.IsPreferred = true;
+                    storedAsset.IsUserOverride = false;
+                    storedAsset.IsLocallyExported = false;
+                    storedAsset.IsPreferredExported = false;
+
+                    await _entityAssetRepo.UpsertAsync(storedAsset, ct).ConfigureAwait(false);
+                    await _entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct).ConfigureAwait(false);
+                    await _canonicalRepo.UpsertBatchAsync(
+                        [
+                            ArtworkCanonicalHelper.Create(
+                                ownerEntityId,
+                                MetadataFieldConstants.CoverUrl,
+                                $"/stream/artwork/{storedAsset.Id}",
+                                DateTimeOffset.UtcNow),
+                            .. ArtworkCanonicalHelper.CreateFlags(
+                                ownerEntityId,
+                                coverState: "present",
+                                coverSource: "embedded",
+                                heroState: "pending",
+                                lastScoredAt: DateTimeOffset.UtcNow,
+                                settled: true),
+                        ],
+                        ct).ConfigureAwait(false);
+
+                    if (_assetExportService is not null)
+                    {
+                        await _assetExportService.ReconcileArtworkAsync(
+                            storedAsset.EntityId,
+                            storedAsset.EntityType,
+                            storedAsset.AssetTypeValue,
+                            ct).ConfigureAwait(false);
+                    }
+
+                    await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+                    {
+                        ActionType     = Domain.Enums.SystemActionType.CoverArtSaved,
+                        EntityId       = assetId,
+                        EntityType     = "MediaAsset",
+                        CollectionName        = resolvedTitle,
+                        ChangesJson    = JsonSerializer.Serialize(new
+                        {
+                            cover_size_bytes = result.CoverImage.Length,
+                            filename         = Path.GetFileName(coverPath),
+                            folder           = coverFolder,
+                            location         = "central_asset_store",
+                            owner_entity_id  = ownerEntityId,
+                        }),
+                        Detail         = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
+                        IngestionRunId = ingestionRunId,
+                    }, ct).ConfigureAwait(false);
+                }
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to write cover.jpg for {Path}", currentPath);
+                _logger.LogWarning(ex, "Failed to persist embedded cover art for {Path}", currentPath);
             }
         }
 
@@ -1612,11 +1691,11 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             : null;
 
         // Build hero URL if hero was generated for this asset.
-        // Check .images/ first, then fall back to legacy location alongside the media file.
         bool heroExists = false;
-        if (_imagePathService is not null)
+        if (_assetPathService is not null)
         {
-            heroExists = File.Exists(_imagePathService.GetWorkHeroPath(wikidataQid: null, assetId));
+            var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, ct).ConfigureAwait(false);
+            heroExists = File.Exists(_assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
         }
         if (!heroExists && fileIsInLibrary)
         {
@@ -2335,23 +2414,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             TryDeleteEmptyDirectory(editionFolder);
         }
 
-        // 1b. Clean .images/ pending directory for this asset (if ImagePathService is active).
-        if (_imagePathService is not null)
-        {
-            try
-            {
-                var pendingDir = Path.Combine(
-                    _imagePathService.ImagesRoot, "works", "_pending",
-                    staged.Id.ToString("N")[..12]);
-                if (Directory.Exists(pendingDir))
-                    Directory.Delete(pendingDir, recursive: true);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Failed to clean .images/_pending for asset {Id}", staged.Id);
-            }
-        }
-
         // 2. Delete DB records: claims → canonical values → asset.
         await _claimRepo.DeleteByEntityAsync(staged.Id, ct).ConfigureAwait(false);
         await _canonicalRepo.DeleteByEntityAsync(staged.Id, ct).ConfigureAwait(false);
@@ -2943,7 +3005,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             using var image = SkiaSharp.SKImage.FromBitmap(resized);
             using var data  = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 75);
 
-            Domain.Services.ImagePathService.EnsureDirectory(thumbPath);
+            AssetPathService.EnsureDirectory(thumbPath);
             using var output = File.OpenWrite(thumbPath);
             data.SaveTo(output);
         }
@@ -2952,4 +3014,18 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             // Thumbnail generation is best-effort — don't fail ingestion.
         }
     }
+
+    private async Task<Guid> ResolveArtworkOwnerEntityIdAsync(Guid assetId, CancellationToken ct)
+    {
+        if (_workRepo is null)
+            return assetId;
+
+        var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
+        return lineage?.TargetForParentScope ?? assetId;
+    }
+
+    private static string InferArtworkExtension(string? contentType) =>
+        string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
+            ? ".png"
+            : ".jpg";
 }

@@ -43,8 +43,6 @@ public sealed class FictionalEntityWorker
     {
         var canonicalEntityId = await ResolveCanonicalEntityIdAsync(entityId, ct);
         var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
-        if (canonicals.Count == 0 && canonicalEntityId != entityId)
-            canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
 
         // 1. Resolve narrative root
         var narrativeRoot = await _narrativeRootResolver.ResolveAsync(canonicalEntityId, ct);

@@ -125,6 +125,28 @@ public class ClaimScopeRegistryTests
             ClaimScopeRegistry.GetScope(MetadataFieldConstants.Narrator, MediaType.Audiobooks));
     }
 
+    [Theory]
+    [InlineData(MediaType.Books)]
+    [InlineData(MediaType.Audiobooks)]
+    [InlineData(MediaType.Comics)]
+    [InlineData(MediaType.TV)]
+    [InlineData(MediaType.Movies)]
+    public void NarrativeUniverseClaims_RouteToParent(MediaType mediaType)
+    {
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeRegistry.GetScope(MetadataFieldConstants.FictionalUniverse, mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeRegistry.GetScope("fictional_universe_qid", mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeRegistry.GetScope(MetadataFieldConstants.Characters, mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeRegistry.GetScope("characters_qid", mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeRegistry.GetScope(MetadataFieldConstants.NarrativeLocation, mediaType));
+        Assert.Equal(ClaimScope.Parent,
+            ClaimScopeRegistry.GetScope("narrative_location_qid", mediaType));
+    }
+
     // ── Comics ───────────────────────────────────────────────────────────
 
     [Fact]

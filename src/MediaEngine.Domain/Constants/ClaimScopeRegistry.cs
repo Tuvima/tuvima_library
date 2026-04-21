@@ -92,6 +92,9 @@ public static class ClaimScopeRegistry
                 [MetadataFieldConstants.Description] = ClaimScope.Parent,
                 [MetadataFieldConstants.Cover]       = ClaimScope.Parent,
                 [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
+                [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
                 // director stays Self — different per episode
             },
             [MediaType.Comics] = new(StringComparer.OrdinalIgnoreCase)
@@ -102,17 +105,26 @@ public static class ClaimScopeRegistry
                 [MetadataFieldConstants.Description]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Cover]        = ClaimScope.Self,
                 [MetadataFieldConstants.CoverUrl]     = ClaimScope.Self,
+                [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
             },
             [MediaType.Books] = new(StringComparer.OrdinalIgnoreCase)
             {
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
+                [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
             },
             [MediaType.Audiobooks] = new(StringComparer.OrdinalIgnoreCase)
             {
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,
                 [MetadataFieldConstants.Narrator]    = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
+                [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
             },
             [MediaType.Movies] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -128,6 +140,9 @@ public static class ClaimScopeRegistry
                 [MetadataFieldConstants.CastMember]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Director]    = ClaimScope.Parent,
                 [MetadataFieldConstants.Runtime]     = ClaimScope.Parent,
+                [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
             },
         };
 

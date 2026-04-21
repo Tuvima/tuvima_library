@@ -457,8 +457,7 @@ catch
 }
 
 // Auto-create the .data/ subdirectories under LibraryRoot at startup.
-// Central managed assets now live under .data/assets; .data/images remains only
-// as a legacy migration/fallback location.
+// Managed artwork lives under .data/assets.
 try
 {
     var coreForDataDir = configLoader.LoadCore();
@@ -471,7 +470,6 @@ try
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "transcripts"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "subtitle-cache"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "people"));
-        Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "images"));
         Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "database"));
     }
 }
@@ -494,9 +492,8 @@ builder.Services.AddSingleton(sp =>
     return new MediaEngine.Domain.Services.AssetPathService(libraryRoot, core.StoragePolicy);
 });
 
-// ── Legacy Image Path Service ────────────────────────────────────────────────
-// Retained for startup migration and legacy fallback reads while old libraries
-// are reconciled into the central asset tree.
+// ── Image Path Service ───────────────────────────────────────────────────────
+// Still used for co-located sidecar/export path helpers and non-work imagery.
 builder.Services.AddSingleton(sp =>
 {
     var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();

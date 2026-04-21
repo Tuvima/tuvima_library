@@ -31,7 +31,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly IHeroBannerGenerator     _heroGenerator;
     private readonly IOrganizationGate        _gate;
     private readonly IngestionOptions         _options;
-    private readonly ImagePathService?        _imagePathService;
+    private readonly IEntityAssetRepository?  _entityAssetRepo;
+    private readonly IWorkRepository?         _workRepo;
+    private readonly AssetPathService?        _assetPathService;
     private readonly ILibraryFolderResolver?  _libraryResolver;
     private readonly ILogger<AutoOrganizeService> _logger;
 
@@ -46,7 +48,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         IOrganizationGate          gate,
         IOptions<IngestionOptions> options,
         ILogger<AutoOrganizeService> logger,
-        ImagePathService?          imagePathService = null,
+        IEntityAssetRepository?    entityAssetRepo = null,
+        IWorkRepository?           workRepo = null,
+        AssetPathService?          assetPathService = null,
         ILibraryFolderResolver?    libraryResolver  = null)
     {
         _assetRepo        = assetRepo;
@@ -58,7 +62,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _heroGenerator    = heroGenerator;
         _gate             = gate;
         _options          = options.Value;
-        _imagePathService = imagePathService;
+        _entityAssetRepo  = entityAssetRepo;
+        _workRepo         = workRepo;
+        _assetPathService = assetPathService;
         _libraryResolver  = libraryResolver;
         _logger           = logger;
     }
@@ -370,42 +376,29 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
     /// <summary>
     /// Generates a cinematic hero banner from cover art after promotion to the library.
-    /// When ImagePathService is active, reads cover from .images/ and writes hero there too.
+    /// Uses the preferred centrally-managed cover variant for the work owner scope.
     /// </summary>
     private async Task GenerateHeroBannerAsync(
         Guid assetId, string editionFolder, CancellationToken ct)
     {
-        // Resolve paths using .images/ when available, else use legacy edition folder.
-        string coverPath;
-        string heroOutputDir;
-        if (_imagePathService is not null)
-        {
-            // Look up QID from canonical values for correct .images/ sub-directory.
-            var canonicals = await _canonicalRepo.GetByEntityAsync(assetId, ct).ConfigureAwait(false);
-            var wikidataQid = canonicals
-                .FirstOrDefault(c => c.Key is "wikidata_qid"
-                    && !string.IsNullOrEmpty(c.Value)
-                    && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
-                ?.Value;
-
-            coverPath    = _imagePathService.GetWorkCoverPath(wikidataQid, assetId);
-            heroOutputDir = _imagePathService.GetWorkImageDir(wikidataQid, assetId);
-
-            // Fallback: if .images/ cover doesn't exist, try legacy paths.
-            // CoverArtWorker writes poster.jpg (via GetMediaFilePosterPath), not cover.jpg.
-            if (!File.Exists(coverPath))
-                coverPath = Path.Combine(editionFolder, "cover.jpg");
-            if (!File.Exists(coverPath))
-                coverPath = Path.Combine(editionFolder, "poster.jpg");
-        }
-        else
-        {
-            coverPath    = Path.Combine(editionFolder, "cover.jpg");
-            heroOutputDir = editionFolder;
-        }
-
-        if (!File.Exists(coverPath))
+        if (_entityAssetRepo is null || _assetPathService is null)
             return;
+
+        var ownerEntityId = assetId;
+        if (_workRepo is not null)
+        {
+            var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
+            ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+        }
+
+        var preferredCover = await _entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct)
+            .ConfigureAwait(false);
+        var coverPath = preferredCover?.LocalImagePath;
+        if (string.IsNullOrWhiteSpace(coverPath) || !File.Exists(coverPath))
+            return;
+
+        var heroPath = _assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg");
+        var heroOutputDir = Path.GetDirectoryName(heroPath) ?? editionFolder;
 
         try
         {
@@ -419,13 +412,13 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             // created by a provider download during hydration in staging.
             heroCanonicals.Add(new CanonicalValue
             {
-                EntityId = assetId, Key = "cover_url",
-                Value = $"/stream/{assetId}/cover",
+                EntityId = ownerEntityId, Key = "cover_url",
+                Value = preferredCover!.ImageUrl ?? $"/stream/artwork/{preferredCover.Id}",
                 LastScoredAt = DateTimeOffset.UtcNow,
             });
 
             heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
-                assetId,
+                ownerEntityId,
                 coverState: "present",
                 coverSource: null,
                 heroState: "present",
@@ -436,15 +429,15 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             {
                 heroCanonicals.Add(new CanonicalValue
                 {
-                    EntityId = assetId, Key = "dominant_color",
+                    EntityId = ownerEntityId, Key = "dominant_color",
                     Value = heroResult.DominantHexColor,
                     LastScoredAt = DateTimeOffset.UtcNow,
                 });
             }
             heroCanonicals.Add(new CanonicalValue
             {
-                EntityId = assetId, Key = "hero",
-                Value = $"/stream/{assetId}/hero",
+                EntityId = ownerEntityId, Key = "hero",
+                Value = $"/stream/{ownerEntityId}/hero",
                 LastScoredAt = DateTimeOffset.UtcNow,
             });
             await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct)

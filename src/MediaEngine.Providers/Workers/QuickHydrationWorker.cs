@@ -28,7 +28,6 @@ public sealed class QuickHydrationWorker
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ICollectionRepository _collectionRepo;
     private readonly IUniverseEnrichmentScheduler _universeEnrichment;
-    private readonly ImagePathService? _imagePathService;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
 
@@ -60,9 +59,9 @@ public sealed class QuickHydrationWorker
         _canonicalRepo = canonicalRepo;
         _collectionRepo = collectionRepo;
         _universeEnrichment = universeEnrichment;
-        _imagePathService = imagePathService;
         _logger = logger;
         _batchProgress = batchProgress;
+        _ = imagePathService;
 
         _batchSize = Math.Max(1, configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
     }
@@ -137,16 +136,6 @@ public sealed class QuickHydrationWorker
             string.IsNullOrWhiteSpace(authorForLog) ? string.Empty : $" by {authorForLog}",
             job.ResolvedQid,
             job.EntityId);
-
-        // Strict ordering: move any pre-QID pending images into the resolved slot
-        // before cover-art download runs in the quick pass.
-        if (_imagePathService is not null)
-        {
-            await _imagePathService.SweepPendingToQidAsync(job.EntityId, job.ResolvedQid, ct);
-            _logger.LogInformation(
-                "Swept pending images for entity {EntityId} -> {Qid}",
-                job.EntityId, job.ResolvedQid);
-        }
 
         await _enrichment.RunQuickPassAsync(job.EntityId, job.ResolvedQid, ct);
 

@@ -20,6 +20,7 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Services;
 
 // ─────────────────────────────────────────────────────────────────
 // Host builder
@@ -97,6 +98,18 @@ var host = Host.CreateDefaultBuilder(args)
 
         services.AddSingleton<ITransactionJournal, TransactionJournal>();
         services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
+        services.AddSingleton<IWorkRepository, WorkRepository>();
+        services.AddSingleton<HierarchyResolver>();
+        services.AddSingleton<IEntityAssetRepository, EntityAssetRepository>();
+        services.AddSingleton(sp =>
+        {
+            var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
+            var libraryRoot = core.LibraryRoot;
+            if (string.IsNullOrWhiteSpace(libraryRoot))
+                libraryRoot = Path.Combine(Path.GetTempPath(), "tuvima_assets_unset");
+
+            return new AssetPathService(libraryRoot, core.StoragePolicy);
+        });
 
         // ── Storage repositories (Phase 9) ───────────────────
         services.AddSingleton<ICollectionRepository, CollectionRepository>();

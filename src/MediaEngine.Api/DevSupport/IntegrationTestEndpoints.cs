@@ -1139,13 +1139,15 @@ public static class IntegrationTestEndpoints
     {
         var allItems = await registryRepo.GetPageAsync(new RegistryQuery(Offset: 0, Limit: 500, IncludeAll: true), ct);
         var organizer = new FileOrganizer(loggerFactory.CreateLogger<FileOrganizer>());
-        var imagePathService = new ImagePathService(options.Value.LibraryRoot);
+        var assetPathService = new AssetPathService(options.Value.LibraryRoot);
         var assetIds = await LoadWorkAssetIdsAsync(db);
         var assetCanonicals = await LoadCanonicalValueMapsAsync(db, assetIds.Values);
+        var preferredCoverPaths = await LoadPreferredArtworkPathsAsync(db, "CoverArt");
         var assetIdsByPath = await LoadAssetIdsByPathAsync(db);
         var optionalArtworkStates = await LoadOptionalArtworkStatesAsync(db);
         var workHierarchy = await LoadWorkHierarchyAsync(db);
         var watchRoots = ResolveLeafSourcePaths(configLoader);
+        var requireSidecarArtwork = ShouldRequireSidecarArtwork(configLoader.LoadCore().StoragePolicy);
         var expectations = DevSeedEndpoints.GetAllExpectations()
             .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -1207,19 +1209,30 @@ public static class IntegrationTestEndpoints
 
                 if (check.FileExists && expectLibraryPlacement && expectedCoverArt)
                 {
-                    check.RequiresSidecarArtwork = true;
-                    check.HasPoster = HasAnySidecarPoster(filePath);
-                    check.HasPosterThumb = HasAnySidecarPosterThumb(filePath);
-                    check.HasHero = File.Exists(Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "hero.jpg"));
+                    check.RequiresStoredArtwork = true;
+
+                    if (requireSidecarArtwork)
+                    {
+                        check.RequiresSidecarArtwork = true;
+                        check.HasPoster = HasAnySidecarPoster(filePath);
+                        check.HasPosterThumb = HasAnySidecarPosterThumb(filePath);
+                        check.HasHero = File.Exists(Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "hero.jpg"));
+                    }
                 }
             }
 
             resolvedAssetId ??= assetIds.TryGetValue(item.EntityId, out var fallbackAssetId) ? fallbackAssetId : null;
             if (resolvedAssetId is Guid assetId && !string.IsNullOrWhiteSpace(options.Value.LibraryRoot))
             {
-                check.HasStoredCover = File.Exists(imagePathService.GetWorkCoverPath(item.WikidataQid, assetId));
-                check.HasStoredCoverThumb = File.Exists(imagePathService.GetWorkCoverThumbPath(item.WikidataQid, assetId));
-                check.HasStoredHero = File.Exists(imagePathService.GetWorkHeroPath(item.WikidataQid, assetId));
+                var ownerEntityId = ResolveArtworkOwnerEntityId(item.EntityId, workHierarchy);
+                check.HasStoredCover = HasCentralPreferredArtwork(
+                    ownerEntityId,
+                    preferredCoverPaths,
+                    assetPathService,
+                    "Work",
+                    "CoverArt");
+                check.HasStoredCoverThumb = File.Exists(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg"));
+                check.HasStoredHero = File.Exists(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
 
                 if (assetCanonicals.TryGetValue(assetId, out var fanartMetadata))
                     check.HasFanartBridgeId = HasFanartBridgeId(fanartMetadata);
@@ -1426,15 +1439,15 @@ public static class IntegrationTestEndpoints
 
                 var fictionalEntityCount = await conn.ExecuteScalarAsync<int>(
                     "SELECT COUNT(*) FROM fictional_entities;");
-                var relationshipCount = await conn.ExecuteScalarAsync<int>(
-                    "SELECT COUNT(*) FROM entity_relationships;");
+                var workLinkCount = await conn.ExecuteScalarAsync<int>(
+                    "SELECT COUNT(*) FROM fictional_entity_work_links;");
                 var performerLinkCount = await conn.ExecuteScalarAsync<int>(
                     "SELECT COUNT(*) FROM character_performer_links;");
 
                 logger.LogInformation(
-                    "  Stage 3 graph: {Entities} fictional entities, {Relationships} relationships, {PerformerLinks} performer links",
+                    "  Stage 3 graph: {Entities} fictional entities, {WorkLinks} work links, {PerformerLinks} performer links",
                     fictionalEntityCount,
-                    relationshipCount,
+                    workLinkCount,
                     performerLinkCount);
 
                 if (parentCollections.Count > 0 && fictionalEntityCount == 0)
@@ -1443,10 +1456,10 @@ public static class IntegrationTestEndpoints
                     logger.LogWarning("[Phase 7] No fictional entities found after Stage 3 enrichment");
                 }
 
-                if (fictionalEntityCount > 0 && relationshipCount == 0)
+                if (fictionalEntityCount > 0 && workLinkCount == 0)
                 {
-                    report.IssuesFound.Add("Stage 3: Fictional entities were stored but no relationships were created");
-                    logger.LogWarning("[Phase 7] No entity relationships found after Stage 3 enrichment");
+                    report.IssuesFound.Add("Stage 3: Fictional entities were stored but no work links were created");
+                    logger.LogWarning("[Phase 7] No fictional entity work links found after Stage 3 enrichment");
                 }
             }
         }
@@ -1516,6 +1529,7 @@ public static class IntegrationTestEndpoints
         public string? WikidataQid { get; set; }
         public string? CuratorState { get; set; }
         public string? ReviewTrigger { get; set; }
+        public bool HasStoredCoverArt { get; set; }
     }
 
     /// <summary>
@@ -1544,7 +1558,7 @@ public static class IntegrationTestEndpoints
         // reconciliation purposes (first resolved row wins for identified check).
 
         // Dapper anonymous class for SQL projection
-        IEnumerable<WorkReconRow> dbRows;
+        List<WorkReconRow> dbRows;
         using (var conn = db.CreateConnection())
         {
             // For reconciliation, we need to match the seed-supplied title against
@@ -1553,11 +1567,17 @@ public static class IntegrationTestEndpoints
             // alternate_title claims, original_title, etc. We emit one row per
             // (work, title-source) pair via UNION so the C# index can lookup
             // the work from any of its known titles.
-            dbRows = await conn.QueryAsync<WorkReconRow>(
+            dbRows = (await conn.QueryAsync<WorkReconRow>(
                 """
                 WITH work_assets AS (
-                    SELECT w.id AS work_id, w.media_type, w.curator_state, ma.id AS asset_id
+                    SELECT w.id AS work_id,
+                           COALESCE(gp.id, p.id, w.id) AS root_work_id,
+                           w.media_type,
+                           w.curator_state,
+                           ma.id AS asset_id
                     FROM works w
+                    LEFT JOIN works p ON p.id = w.parent_work_id
+                    LEFT JOIN works gp ON gp.id = p.parent_work_id
                     INNER JOIN editions e ON e.work_id = w.id
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
                 ),
@@ -1576,13 +1596,21 @@ public static class IntegrationTestEndpoints
                 ),
                 titles AS (
                     -- Canonical title
-                    SELECT wa.work_id, wa.media_type, wa.curator_state, LOWER(cv.value) AS title_lower
+                    SELECT wa.work_id,
+                           wa.root_work_id,
+                           wa.media_type,
+                           wa.curator_state,
+                           LOWER(cv.value) AS title_lower
                     FROM work_assets wa
                     INNER JOIN canonical_values cv ON cv.entity_id = wa.asset_id
                     WHERE cv.key IN ('title', 'original_title', 'show_name', 'series', 'episode_title', 'alternate_title', 'album')
                     UNION
                     -- File processor claim title (this is the seed-supplied title)
-                    SELECT wa.work_id, wa.media_type, wa.curator_state, LOWER(mc.claim_value) AS title_lower
+                    SELECT wa.work_id,
+                           wa.root_work_id,
+                           wa.media_type,
+                           wa.curator_state,
+                           LOWER(mc.claim_value) AS title_lower
                     FROM work_assets wa
                     INNER JOIN metadata_claims mc ON mc.entity_id = wa.asset_id
                     WHERE mc.claim_key IN ('title', 'original_title', 'show_name', 'series', 'episode_title', 'alternate_title', 'album')
@@ -1592,23 +1620,29 @@ public static class IntegrationTestEndpoints
                     LOWER(t.media_type)         AS MediaTypeLower,
                     (SELECT qid FROM work_qids WHERE work_id = t.work_id) AS WikidataQid,
                     t.curator_state             AS CuratorState,
-                    (SELECT trigger FROM work_reviews WHERE work_id = t.work_id) AS ReviewTrigger
+                    (SELECT trigger FROM work_reviews WHERE work_id = t.work_id) AS ReviewTrigger,
+                    EXISTS(
+                        SELECT 1
+                        FROM entity_assets ea
+                        WHERE ea.entity_id = t.root_work_id
+                          AND ea.asset_type = 'CoverArt'
+                          AND ea.is_preferred = 1
+                          AND ea.local_image_path IS NOT NULL
+                          AND TRIM(ea.local_image_path) <> ''
+                    ) AS HasStoredCoverArt
                 FROM titles t
                 WHERE t.title_lower IS NOT NULL AND t.title_lower <> ''
-                """);
+                """)).AsList();
         }
 
-        // Cover-art lookup built from the Vault display validation pass (Phase 4b).
-        // Keyed by "title_lower|media_type_lower" → HasCoverArt flag. Used below
-        // to enforce per-seed ExpectedCoverArt assertions.
+        // Cover-art lookup built from the central managed asset store.
+        // Keyed by "title_lower|media_type_lower" → HasStoredCoverArt flag.
         var coverArtByKey = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-        foreach (var check in report.LibraryChecks)
+        foreach (var row in dbRows)
         {
-            string k = $"{check.Title.ToLowerInvariant()}|{check.MediaType.ToLowerInvariant()}";
-            // Prefer the "has cover art" result if any duplicate key already exists —
-            // matches the "first resolved wins" semantics used for QID below.
-            if (!coverArtByKey.TryGetValue(k, out var existing) || (check.HasCoverArt && !existing))
-                coverArtByKey[k] = check.HasCoverArt;
+            string key = $"{row.TitleLower}|{row.MediaTypeLower}";
+            if (!coverArtByKey.TryGetValue(key, out var existing) || (row.HasStoredCoverArt && !existing))
+                coverArtByKey[key] = row.HasStoredCoverArt;
         }
 
         var retailProviderByKey = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -1726,8 +1760,9 @@ public static class IntegrationTestEndpoints
                     classification = "WrongQid";
                     actualDesc     = $"Identified as {actual.WikidataQid} (expected {exp.ExpectedQid})";
                 }
-                // MissingCoverArt: seed declares ExpectedCoverArt=true, Vault check
-                // reports no cover URL for this title. Only applies to identified items
+                // MissingCoverArt: seed declares ExpectedCoverArt=true, but the
+                // central managed asset store has no preferred cover for this title.
+                // Only applies to identified items
                 // (we never expect cover art on placeholder/review-queue entries).
                 else if (exp.ExpectedCoverArt)
                 {
@@ -1735,7 +1770,7 @@ public static class IntegrationTestEndpoints
                     if (coverArtByKey.TryGetValue(coverKey, out var hasCover) && !hasCover)
                     {
                         classification = "MissingCoverArt";
-                        actualDesc     = $"Identified{(actual.WikidataQid is { Length: > 0 } q ? $" as {q}" : "")} but no cover art downloaded";
+                        actualDesc     = $"Identified{(actual.WikidataQid is { Length: > 0 } q ? $" as {q}" : "")} but no central stored artwork was persisted";
                     }
                 }
 
@@ -2438,6 +2473,77 @@ public static class IntegrationTestEndpoints
         return maps;
     }
 
+    private static async Task<Dictionary<Guid, string>> LoadPreferredArtworkPathsAsync(
+        IDatabaseConnection db,
+        string assetType)
+    {
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<(string EntityId, string LocalImagePath)>("""
+            SELECT entity_id        AS EntityId,
+                   local_image_path AS LocalImagePath
+            FROM entity_assets
+            WHERE asset_type = @assetType
+              AND is_preferred = 1
+              AND local_image_path IS NOT NULL
+              AND TRIM(local_image_path) <> '';
+            """, new { assetType });
+
+        return rows
+            .Where(row => Guid.TryParse(row.EntityId, out _))
+            .ToDictionary(
+                row => Guid.Parse(row.EntityId),
+                row => row.LocalImagePath,
+                EqualityComparer<Guid>.Default);
+    }
+
+    private static Guid ResolveArtworkOwnerEntityId(
+        Guid workId,
+        IReadOnlyDictionary<Guid, WorkHierarchyNode> hierarchy)
+    {
+        var current = workId;
+        var visited = new HashSet<Guid>();
+
+        while (visited.Add(current)
+               && hierarchy.TryGetValue(current, out var node)
+               && node.ParentWorkId.HasValue)
+        {
+            current = node.ParentWorkId.Value;
+        }
+
+        return current;
+    }
+
+    private static bool HasCentralPreferredArtwork(
+        Guid ownerEntityId,
+        IReadOnlyDictionary<Guid, string> preferredArtworkPaths,
+        AssetPathService assetPathService,
+        string ownerKind,
+        string assetType)
+    {
+        if (!preferredArtworkPaths.TryGetValue(ownerEntityId, out var localImagePath)
+            || string.IsNullOrWhiteSpace(localImagePath)
+            || !File.Exists(localImagePath))
+        {
+            return false;
+        }
+
+        var artworkDirectory = GetCentralArtworkDirectory(assetPathService, ownerKind, ownerEntityId, assetType);
+        return localImagePath.StartsWith(artworkDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool ShouldRequireSidecarArtwork(LibraryStoragePolicy storagePolicy) =>
+        storagePolicy.ArtworkExport || storagePolicy.ExportProfile.Artwork;
+
+    private static string GetCentralArtworkDirectory(
+        AssetPathService assetPathService,
+        string ownerKind,
+        Guid ownerEntityId,
+        string assetType)
+    {
+        var samplePath = assetPathService.GetCentralAssetPath(ownerKind, ownerEntityId, assetType, Guid.NewGuid(), ".jpg");
+        return Path.GetDirectoryName(samplePath) ?? string.Empty;
+    }
+
     private static string NormalizeExpectationKey(string title, string mediaType) =>
         $"{title.Trim().ToLowerInvariant()}|{mediaType.Trim().ToLowerInvariant()}";
 
@@ -2729,7 +2835,7 @@ public static class IntegrationTestEndpoints
         if (check.RequiresSidecarArtwork && (!check.HasPoster || !check.HasPosterThumb || !check.HasHero))
             return "Sidecar artwork is incomplete next to the media file";
         if (check.RequiresStoredArtwork && (!check.HasStoredCover || !check.HasStoredCoverThumb || !check.HasStoredHero))
-            return "Stored artwork set is incomplete under .data/images";
+            return "Stored artwork set is incomplete in the central asset store";
 
         return "OK";
     }

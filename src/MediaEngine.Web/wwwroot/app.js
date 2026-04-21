@@ -247,3 +247,27 @@ window.listenPlayback = {
         localStorage.removeItem('listen-playback-state');
     }
 };
+
+window.listenUi = {
+    getMode: function () {
+        return localStorage.getItem('listen-ui-mode');
+    },
+    setMode: function (mode) {
+        if (!mode) return;
+        localStorage.setItem('listen-ui-mode', mode);
+    },
+    getMusicRoute: function () {
+        return localStorage.getItem('listen-ui-music-route');
+    },
+    setMusicRoute: function (route) {
+        if (!route) return;
+        localStorage.setItem('listen-ui-music-route', route);
+    },
+    getSelectedArtist: function () {
+        return localStorage.getItem('listen-ui-selected-artist');
+    },
+    setSelectedArtist: function (artistName) {
+        if (!artistName) return;
+        localStorage.setItem('listen-ui-selected-artist', artistName);
+    }
+};

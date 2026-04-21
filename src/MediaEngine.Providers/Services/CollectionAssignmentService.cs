@@ -66,9 +66,6 @@ public sealed class CollectionAssignmentService
         // the root work's canonicals instead of the file asset's canonicals.
         var canonicalEntityId = lineage?.TargetForParentScope ?? workId.Value;
         var canonicals = await _canonicalRepo.GetByEntityAsync(canonicalEntityId, ct);
-        if (canonicals.Count == 0 && canonicalEntityId != entityId)
-            canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
-
         var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
 
         // Try to find a parent QID from Wikidata relationship properties.

@@ -58,10 +58,13 @@ public sealed class DurablePipelineTests : IDisposable
     private readonly IReviewQueueRepository _reviewRepo;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IIngestionLogRepository _ingestionLog;
+    private readonly IWorkRepository _workRepo;
+    private readonly IEntityAssetRepository _entityAssetRepo;
     private readonly IMediaEntityChainFactory _chainFactory;
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly IIdentityJobRepository _identityJobRepo;
     private readonly IScoringEngine _scorer;
+    private readonly AssetPathService _assetPaths;
 
     // ── External I/O stubs ────────────────────────────────────────────────
 
@@ -92,8 +95,10 @@ public sealed class DurablePipelineTests : IDisposable
         _reviewRepo      = new ReviewQueueRepository(db);
         _activityRepo    = new SystemActivityRepository(db);
         _ingestionLog    = new IngestionLogRepository(db);
-        var workRepo = new WorkRepository(db);
-        _chainFactory    = new MediaEntityChainFactory(db, workRepo, new CollectionRepository(db), new HierarchyResolver(workRepo));
+        _workRepo        = new WorkRepository(db);
+        _entityAssetRepo = new EntityAssetRepository(db);
+        _assetPaths      = new AssetPathService(_libraryDir);
+        _chainFactory    = new MediaEntityChainFactory(db, _workRepo, new CollectionRepository(db), new HierarchyResolver(_workRepo));
         _batchRepo       = new IngestionBatchRepository(db);
         _identityJobRepo = new IdentityJobRepository(db);
 
@@ -234,6 +239,41 @@ public sealed class DurablePipelineTests : IDisposable
         Assert.NotNull(after);
         Assert.Equal(2, after!.FilesProcessed);
         Assert.Equal(1, after.FilesTotal);
+    }
+
+    [Fact]
+    public async Task IngestionEngine_EmbeddedCover_PersistsToCentralAssetStore()
+    {
+        var filePath = CreateWatchFile("Children of Dune.epub");
+        _processors.SetNextResult(new ProcessorResult
+        {
+            FilePath = filePath,
+            DetectedType = MediaType.Books,
+            CoverImage = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s4s46QAAAAASUVORK5CYII="),
+            CoverImageMimeType = "image/png",
+            Claims =
+            [
+                new ExtractedClaim { Key = "title", Value = "Children of Dune", Confidence = 0.95 },
+                new ExtractedClaim { Key = "author", Value = "Frank Herbert", Confidence = 0.92 },
+            ],
+        });
+
+        await RunPipelineAsync();
+
+        var asset = await FindAssetByFileNameAsync("Children of Dune.epub");
+        Assert.NotNull(asset);
+
+        var lineage = await _workRepo.GetLineageByAssetAsync(asset!.Id);
+        var ownerEntityId = lineage?.TargetForParentScope ?? asset.Id;
+        var coverAssets = await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), "CoverArt");
+        var embeddedCover = Assert.Single(coverAssets);
+
+        Assert.Equal("Central", embeddedCover.StorageLocationValue);
+        Assert.True(File.Exists(embeddedCover.LocalImagePath));
+        Assert.StartsWith(_assetPaths.ArtworkRoot, embeddedCover.LocalImagePath!, StringComparison.OrdinalIgnoreCase);
+
+        var legacyImageRoot = Path.Combine(_libraryDir, ".data", "images");
+        Assert.False(Directory.Exists(legacyImageRoot) && Directory.EnumerateFiles(legacyImageRoot, "*", SearchOption.AllDirectories).Any());
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -549,7 +589,10 @@ public sealed class DurablePipelineTests : IDisposable
             new StubEntityTimelineRepository(),
             new ScoringConfiguration(),
             _batchRepo,
-            _identityJobRepo);
+            _identityJobRepo,
+            _entityAssetRepo,
+            _assetPaths,
+            _workRepo);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         try
@@ -577,6 +620,18 @@ public sealed class DurablePipelineTests : IDisposable
             new NoOpEventPublisher(),
             new NoOpCanonicalValueRepository(),
             NullLogger<StageOutcomeFactory>.Instance);
+
+    private async Task<MediaAsset?> FindAssetByFileNameAsync(string fileName)
+    {
+        using var conn = _dbFactory.Connection.CreateConnection();
+        var assetId = conn.QueryFirstOrDefault<string?>(
+            "SELECT id FROM media_assets WHERE file_path_root LIKE @pattern LIMIT 1;",
+            new { pattern = "%" + fileName });
+
+        return assetId is not null && Guid.TryParse(assetId, out var parsedId)
+            ? await _assetRepo.FindByIdAsync(parsedId)
+            : null;
+    }
 
     private static TimelineRecorder CreateTimelineRecorder() =>
         new TimelineRecorder(new NoOpEntityTimelineRepository());

@@ -59,13 +59,13 @@
                     }
                     else
                     {
-                        <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 18px;" />
+                        <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Style="font-size: 18px;" />
                     }
                 </div>
 
                 <div class="listen-player__copy">
                     <div class="listen-player__title">@Playback.CurrentItem.Title</div>
-                    <div class="listen-player__subtitle">@FirstNonBlank(Playback.CurrentItem.Subtitle, Playback.CurrentItem.Album, Playback.SourceLabel)</div>
+                    <div class="listen-player__subtitle">@PlayerSubtitleFor(Playback.CurrentItem, Playback.SourceLabel)</div>
                 </div>
             </div>
 
@@ -163,6 +163,23 @@
     private Task PlayNextAsync() => Playback.SkipNextAsync();
 
     private Task PlayPreviousAsync() => Playback.SkipPreviousAsync();
+
+    private static string FallbackIconFor(ListenQueueItem item)
+        => IsAudiobook(item) ? Icons.Material.Outlined.Headphones : Icons.Material.Outlined.Album;
+
+    private static string PlayerSubtitleFor(ListenQueueItem item, string? sourceLabel)
+    {
+        if (IsAudiobook(item))
+        {
+            return FirstNonBlank(item.Subtitle, item.Album, sourceLabel, "Audiobook");
+        }
+
+        return FirstNonBlank(item.Subtitle, item.Album, sourceLabel, "Music library");
+    }
+
+    private static bool IsAudiobook(ListenQueueItem item)
+        => item.MediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(item.MediaType, "M4B", StringComparison.OrdinalIgnoreCase);
 
     private static string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";

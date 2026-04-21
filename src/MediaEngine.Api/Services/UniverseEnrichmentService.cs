@@ -507,12 +507,6 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         var canonicalEntityId = lineage?.TargetForParentScope ?? entityId;
         var canonicals = await canonicalRepository.GetByEntityAsync(canonicalEntityId, ct).ConfigureAwait(false);
 
-        if (canonicals.Count == 0 && canonicalEntityId != entityId)
-        {
-            canonicalEntityId = entityId;
-            canonicals = await canonicalRepository.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
-        }
-
         return new Stage3Scope(canonicalEntityId, canonicals);
     }
 
