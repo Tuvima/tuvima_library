@@ -132,6 +132,12 @@ public static class IntegrationTestEndpoints
         public bool HasStoredBackground { get; set; }
         public bool HasStoredLogo { get; set; }
         public bool HasStoredBanner { get; set; }
+        public bool HasStoredDiscArt { get; set; }
+        public bool HasStoredClearArt { get; set; }
+        public bool HasStoredSeasonPoster { get; set; }
+        public bool HasStoredSeasonThumb { get; set; }
+        public bool HasStoredEpisodeStill { get; set; }
+        public bool HasFanartBridgeId { get; set; }
         public string? Detail { get; set; }
         public bool Pass =>
             FileExists
@@ -170,8 +176,49 @@ public static class IntegrationTestEndpoints
         public int WithBackground { get; set; }
         public int WithLogo { get; set; }
         public int WithBanner { get; set; }
+        public int WithDiscArt { get; set; }
+        public int WithClearArt { get; set; }
+        public int WithSeasonPoster { get; set; }
+        public int WithSeasonThumb { get; set; }
+        public int WithEpisodeStill { get; set; }
         public bool Pass => EligibleCount == 0 || WithAnyFanart > 0;
     }
+
+    private sealed class OptionalArtworkState
+    {
+        public bool HasBackground { get; set; }
+        public bool HasLogo { get; set; }
+        public bool HasBanner { get; set; }
+        public bool HasDiscArt { get; set; }
+        public bool HasClearArt { get; set; }
+        public bool HasSeasonPoster { get; set; }
+        public bool HasSeasonThumb { get; set; }
+        public bool HasEpisodeStill { get; set; }
+
+        public void Merge(OptionalArtworkState other)
+        {
+            HasBackground |= other.HasBackground;
+            HasLogo |= other.HasLogo;
+            HasBanner |= other.HasBanner;
+            HasDiscArt |= other.HasDiscArt;
+            HasClearArt |= other.HasClearArt;
+            HasSeasonPoster |= other.HasSeasonPoster;
+            HasSeasonThumb |= other.HasSeasonThumb;
+            HasEpisodeStill |= other.HasEpisodeStill;
+        }
+
+        public bool HasAny =>
+            HasBackground
+            || HasLogo
+            || HasBanner
+            || HasDiscArt
+            || HasClearArt
+            || HasSeasonPoster
+            || HasSeasonThumb
+            || HasEpisodeStill;
+    }
+
+    private sealed record WorkHierarchyNode(Guid WorkId, Guid? ParentWorkId);
 
     private sealed class ReconciliationItemResult
     {
@@ -1096,6 +1143,8 @@ public static class IntegrationTestEndpoints
         var assetIds = await LoadWorkAssetIdsAsync(db);
         var assetCanonicals = await LoadCanonicalValueMapsAsync(db, assetIds.Values);
         var assetIdsByPath = await LoadAssetIdsByPathAsync(db);
+        var optionalArtworkStates = await LoadOptionalArtworkStatesAsync(db);
+        var workHierarchy = await LoadWorkHierarchyAsync(db);
         var watchRoots = ResolveLeafSourcePaths(configLoader);
         var expectations = DevSeedEndpoints.GetAllExpectations()
             .GroupBy(e => NormalizeExpectationKey(e.Title, e.MediaType), StringComparer.OrdinalIgnoreCase)
@@ -1171,10 +1220,20 @@ public static class IntegrationTestEndpoints
                 check.HasStoredCover = File.Exists(imagePathService.GetWorkCoverPath(item.WikidataQid, assetId));
                 check.HasStoredCoverThumb = File.Exists(imagePathService.GetWorkCoverThumbPath(item.WikidataQid, assetId));
                 check.HasStoredHero = File.Exists(imagePathService.GetWorkHeroPath(item.WikidataQid, assetId));
-                check.HasStoredBackground = File.Exists(imagePathService.GetWorkBackgroundPath(item.WikidataQid, assetId));
-                check.HasStoredLogo = File.Exists(imagePathService.GetWorkLogoPath(item.WikidataQid, assetId));
-                check.HasStoredBanner = File.Exists(imagePathService.GetWorkBannerPath(item.WikidataQid, assetId));
+
+                if (assetCanonicals.TryGetValue(assetId, out var fanartMetadata))
+                    check.HasFanartBridgeId = HasFanartBridgeId(fanartMetadata);
             }
+
+            var optionalArtwork = ResolveOptionalArtworkState(item.EntityId, workHierarchy, optionalArtworkStates);
+            check.HasStoredBackground = optionalArtwork.HasBackground;
+            check.HasStoredLogo = optionalArtwork.HasLogo;
+            check.HasStoredBanner = optionalArtwork.HasBanner;
+            check.HasStoredDiscArt = optionalArtwork.HasDiscArt;
+            check.HasStoredClearArt = optionalArtwork.HasClearArt;
+            check.HasStoredSeasonPoster = optionalArtwork.HasSeasonPoster;
+            check.HasStoredSeasonThumb = optionalArtwork.HasSeasonThumb;
+            check.HasStoredEpisodeStill = optionalArtwork.HasEpisodeStill;
 
             check.Detail = DescribeFileSystemCheck(check);
             report.FileSystemChecks.Add(check);
@@ -2026,13 +2085,16 @@ public static class IntegrationTestEndpoints
 
             sb.AppendLine($"<details{(failingChecks.Count == 0 ? " open" : "")}><summary style=\"cursor:pointer;color:#8B9DC3;font-weight:600\">All filesystem checks ({report.FileSystemChecks.Count})</summary>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Result</th><th>Expected</th><th>Actual</th><th>Template</th><th>Sidecars</th><th>Stored Core</th><th>Optional Stored Art</th></tr>");
+            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Result</th><th>Expected</th><th>Actual</th><th>Template</th><th>Sidecars</th><th>Stored Core</th><th>Optional Stored Art (BG/LO/BA/DI/CL/SP/ST/EP)</th></tr>");
             foreach (var check in report.FileSystemChecks.OrderBy(f => f.MediaType).ThenBy(f => f.Title))
             {
                 string result = check.Pass
                     ? "<span class=\"badge badge-pass\">PASS</span>"
                     : "<span class=\"badge badge-fail\">FAIL</span>";
-                string optionalArt = $"{BoolMark(check.HasStoredBackground)}/{BoolMark(check.HasStoredLogo)}/{BoolMark(check.HasStoredBanner)}";
+                string optionalArt =
+                    $"{BoolMark(check.HasStoredBackground)}/{BoolMark(check.HasStoredLogo)}/{BoolMark(check.HasStoredBanner)}/" +
+                    $"{BoolMark(check.HasStoredDiscArt)}/{BoolMark(check.HasStoredClearArt)}/" +
+                    $"{BoolMark(check.HasStoredSeasonPoster)}/{BoolMark(check.HasStoredSeasonThumb)}/{BoolMark(check.HasStoredEpisodeStill)}";
                 string sidecars = check.RequiresSidecarArtwork
                     ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(check.HasHero)}"
                     : "n/a";
@@ -2060,13 +2122,13 @@ public static class IntegrationTestEndpoints
                 : $"<span class=\"badge badge-warn\">{report.Stage3FanartSummaries.Count - fanartPass} ISSUES</span>";
             sb.AppendLine($"<h2>Stage 3 Artwork Validation {fanartBadge}</h2>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Media Type</th><th>Eligible QID Items</th><th>Any Fanart</th><th>Backgrounds</th><th>Logos</th><th>Banners</th><th>Status</th></tr>");
+            sb.AppendLine("<tr><th>Media Type</th><th>Eligible Fanart Items</th><th>Any Fanart</th><th>Backgrounds</th><th>Logos</th><th>Banners</th><th>Disc Art</th><th>Clear Art</th><th>Season Posters</th><th>Season Thumbs</th><th>Episode Stills</th><th>Status</th></tr>");
             foreach (var summary in report.Stage3FanartSummaries.OrderBy(s => s.MediaType))
             {
                 string badge = summary.Pass
                     ? "<span class=\"badge badge-pass\">PASS</span>"
                     : "<span class=\"badge badge-fail\">FAIL</span>";
-                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{badge}</td></tr>");
+                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{summary.WithDiscArt}</td><td>{summary.WithClearArt}</td><td>{summary.WithSeasonPoster}</td><td>{summary.WithSeasonThumb}</td><td>{summary.WithEpisodeStill}</td><td>{badge}</td></tr>");
             }
             sb.AppendLine("</table>");
         }
@@ -2234,6 +2296,106 @@ public static class IntegrationTestEndpoints
                 g => g.Key,
                 g => Guid.Parse(g.OrderBy(r => r.AssetId, StringComparer.OrdinalIgnoreCase).First().AssetId),
                 StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static async Task<Dictionary<Guid, OptionalArtworkState>> LoadOptionalArtworkStatesAsync(IDatabaseConnection db)
+    {
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<(string EntityId, string AssetType, string LocalImagePath)>("""
+            SELECT entity_id        AS EntityId,
+                   asset_type       AS AssetType,
+                   local_image_path AS LocalImagePath
+            FROM entity_assets
+            WHERE entity_type = 'Work'
+              AND asset_type IN ('Background', 'Logo', 'Banner', 'DiscArt', 'ClearArt', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
+              AND local_image_path IS NOT NULL
+              AND TRIM(local_image_path) <> '';
+            """);
+
+        var result = new Dictionary<Guid, OptionalArtworkState>();
+        foreach (var row in rows)
+        {
+            if (!Guid.TryParse(row.EntityId, out var workId))
+                continue;
+            if (string.IsNullOrWhiteSpace(row.LocalImagePath) || !File.Exists(row.LocalImagePath))
+                continue;
+
+            if (!result.TryGetValue(workId, out var state))
+            {
+                state = new OptionalArtworkState();
+                result[workId] = state;
+            }
+
+            switch (row.AssetType)
+            {
+                case "Background":
+                    state.HasBackground = true;
+                    break;
+                case "Logo":
+                    state.HasLogo = true;
+                    break;
+                case "Banner":
+                    state.HasBanner = true;
+                    break;
+                case "DiscArt":
+                    state.HasDiscArt = true;
+                    break;
+                case "ClearArt":
+                    state.HasClearArt = true;
+                    break;
+                case "SeasonPoster":
+                    state.HasSeasonPoster = true;
+                    break;
+                case "SeasonThumb":
+                    state.HasSeasonThumb = true;
+                    break;
+                case "EpisodeStill":
+                    state.HasEpisodeStill = true;
+                    break;
+            }
+        }
+
+        return result;
+    }
+
+    private static async Task<Dictionary<Guid, WorkHierarchyNode>> LoadWorkHierarchyAsync(IDatabaseConnection db)
+    {
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<(string Id, string? ParentWorkId)>("""
+            SELECT id             AS Id,
+                   parent_work_id AS ParentWorkId
+            FROM works;
+            """);
+
+        return rows
+            .Where(row => Guid.TryParse(row.Id, out _))
+            .ToDictionary(
+                row => Guid.Parse(row.Id),
+                row => new WorkHierarchyNode(
+                    Guid.Parse(row.Id),
+                    Guid.TryParse(row.ParentWorkId, out var parentWorkId) ? parentWorkId : null));
+    }
+
+    private static OptionalArtworkState ResolveOptionalArtworkState(
+        Guid workId,
+        IReadOnlyDictionary<Guid, WorkHierarchyNode> hierarchy,
+        IReadOnlyDictionary<Guid, OptionalArtworkState> states)
+    {
+        var merged = new OptionalArtworkState();
+        var visited = new HashSet<Guid>();
+        Guid? current = workId;
+
+        while (current.HasValue && visited.Add(current.Value))
+        {
+            if (states.TryGetValue(current.Value, out var state))
+                merged.Merge(state);
+
+            current = hierarchy.TryGetValue(current.Value, out var node)
+                ? node.ParentWorkId
+                : null;
+        }
+
+        return merged;
     }
 
     private static async Task<Dictionary<Guid, Dictionary<string, string>>> LoadCanonicalValueMapsAsync(
@@ -2486,6 +2648,7 @@ public static class IntegrationTestEndpoints
                     string.Equals(check.MediaType, mediaType, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(check.ExpectedLocation, "Library", StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrWhiteSpace(check.WikidataQid)
+                    && check.HasFanartBridgeId
                     && check.FileExists
                     && check.LocationMatchesExpectation)
                 .ToList();
@@ -2497,15 +2660,28 @@ public static class IntegrationTestEndpoints
             {
                 MediaType = mediaType,
                 EligibleCount = eligible.Count,
-                WithAnyFanart = eligible.Count(check => check.HasStoredBackground || check.HasStoredLogo || check.HasStoredBanner),
+                WithAnyFanart = eligible.Count(check =>
+                    check.HasStoredBackground
+                    || check.HasStoredLogo
+                    || check.HasStoredBanner
+                    || check.HasStoredDiscArt
+                    || check.HasStoredClearArt
+                    || check.HasStoredSeasonPoster
+                    || check.HasStoredSeasonThumb
+                    || check.HasStoredEpisodeStill),
                 WithBackground = eligible.Count(check => check.HasStoredBackground),
                 WithLogo = eligible.Count(check => check.HasStoredLogo),
                 WithBanner = eligible.Count(check => check.HasStoredBanner),
+                WithDiscArt = eligible.Count(check => check.HasStoredDiscArt),
+                WithClearArt = eligible.Count(check => check.HasStoredClearArt),
+                WithSeasonPoster = eligible.Count(check => check.HasStoredSeasonPoster),
+                WithSeasonThumb = eligible.Count(check => check.HasStoredSeasonThumb),
+                WithEpisodeStill = eligible.Count(check => check.HasStoredEpisodeStill),
             };
 
             report.Stage3FanartSummaries.Add(summary);
             logger.LogInformation(
-                "  Stage 3 fanart: {MediaType} {WithAny}/{Eligible} items have background/logo/banner evidence",
+                "  Stage 3 fanart: {MediaType} {WithAny}/{Eligible} items have stored fanart evidence",
                 summary.MediaType,
                 summary.WithAnyFanart,
                 summary.EligibleCount);
@@ -2513,7 +2689,7 @@ public static class IntegrationTestEndpoints
             if (!summary.Pass)
             {
                 report.IssuesFound.Add(
-                    $"Stage 3 fanart: no stored background/logo/banner assets were created for eligible {summary.MediaType} items");
+                    $"Stage 3 fanart: no stored optional artwork assets were created for eligible {summary.MediaType} items");
             }
         }
     }
@@ -2523,6 +2699,22 @@ public static class IntegrationTestEndpoints
             .Equals(
                 Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasFanartBridgeId(IReadOnlyDictionary<string, string> metadata)
+    {
+        static bool HasValue(IReadOnlyDictionary<string, string> map, params string[] keys) =>
+            keys.Any(key => map.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value));
+
+        return HasValue(
+            metadata,
+            BridgeIdKeys.TmdbId,
+            "tmdb_movie_id",
+            "tmdb_tv_id",
+            BridgeIdKeys.TvdbId,
+            BridgeIdKeys.MusicBrainzId,
+            "musicbrainz_artist_id",
+            BridgeIdKeys.MusicBrainzReleaseGroupId);
+    }
 
     private static string DescribeFileSystemCheck(FileSystemCheckResult check)
     {

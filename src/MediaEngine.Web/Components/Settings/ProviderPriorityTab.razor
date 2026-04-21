@@ -1,6 +1,8 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject IEngineApiClient ApiClient
 @inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
+@using MediaEngine.Domain.Enums
+@using MediaEngine.Storage.Models
 @using MediaEngine.Web.Models.ViewDTOs
 
 @* Providers — full-width priority chain design.
@@ -714,6 +716,7 @@
 
     // Pipeline strategy per media type
     private Dictionary<string, string> _strategies = new();
+    private PipelineConfiguration _pipelineConfiguration = new();
 
     // Drawer state
     private bool               _drawerOpen        = false;
@@ -756,39 +759,13 @@
         try
         {
             _providerStatusByKey = BuildProviderStatusLookup(await ApiClient.GetProviderStatusAsync());
-            var slots = await ApiClient.GetProviderSlotsAsync();
-            if (slots is not null && slots.Count > 0)
+            var pipelines = await ApiClient.GetPipelinesAsync();
+            if (pipelines?.Pipelines is { Count: > 0 })
             {
-                _assignments = new Dictionary<string, List<ProviderAssignment>>();
-                foreach (var (mediaType, slotConfig) in slots)
-                {
-                    var chain = new List<ProviderAssignment>();
-                    if (!string.IsNullOrWhiteSpace(slotConfig.Primary))
-                        chain.Add(CreateAssignmentFromSlot(slotConfig.Primary));
-                    if (!string.IsNullOrWhiteSpace(slotConfig.Secondary))
-                        chain.Add(CreateAssignmentFromSlot(slotConfig.Secondary));
-                    if (!string.IsNullOrWhiteSpace(slotConfig.Tertiary))
-                        chain.Add(CreateAssignmentFromSlot(slotConfig.Tertiary));
+                ApplyPipelineConfiguration(pipelines);
+                return;
 
                     // Normalize key to title case (e.g. "books" → "Books")
-                    var normalizedKey = char.ToUpperInvariant(mediaType[0]) + mediaType[1..];
-                    _assignments[normalizedKey] = chain;
-                }
-
-                // Ensure all media types have an entry even if the Engine returned nothing for them.
-                foreach (var mt in _mediaTypes)
-                {
-                    if (!_assignments.ContainsKey(mt))
-                        _assignments[mt] = [];
-                }
-
-                // Initialize strategies from defaults (pipeline API will provide these later)
-                foreach (var mt in _mediaTypes)
-                {
-                    if (!_strategies.ContainsKey(mt))
-                        _strategies[mt] = DefaultStrategies.GetValueOrDefault(mt, "Waterfall");
-                }
-                return;
             }
         }
         catch { /* Fall through to defaults */ }
@@ -796,7 +773,24 @@
         ResetToDefaults();
     }
 
-    private ProviderAssignment CreateAssignmentFromSlot(string providerSlotName)
+    private void ApplyPipelineConfiguration(PipelineConfiguration pipelines)
+    {
+        _pipelineConfiguration = pipelines;
+        _assignments = new Dictionary<string, List<ProviderAssignment>>(StringComparer.OrdinalIgnoreCase);
+        _strategies = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var mediaType in _mediaTypes)
+        {
+            var pipeline = pipelines.GetPipelineForMediaType(mediaType);
+            _assignments[mediaType] = pipeline.Providers
+                .OrderBy(provider => provider.Rank)
+                .Select(provider => CreateAssignmentFromProviderKey(provider.Name))
+                .ToList();
+            _strategies[mediaType] = FormatProviderStrategy(pipeline.Strategy);
+        }
+    }
+
+    private ProviderAssignment CreateAssignmentFromProviderKey(string providerSlotName)
     {
         // Slot names are stored as "apple_api", "google_books" etc. — convert to display name.
         var displayName = ResolveDisplayName(providerSlotName);
@@ -1088,7 +1082,7 @@
                 Retries          = a.Retries,
                 LanguageStrategy = a.LanguageStrategy,
             }).ToList());
-        _strategies = new Dictionary<string, string>(DefaultStrategies);
+        _strategies = new Dictionary<string, string>(DefaultStrategies, StringComparer.OrdinalIgnoreCase);
     }
 
     private string GetStrategy(string mediaType)
@@ -1114,7 +1108,7 @@
                 foreach (var assignment in chain)
                 {
                     if (!savedProviders.Add(assignment.Name)) continue;
-                    var providerName = assignment.Name.Replace(" ", "_").ToLowerInvariant();
+                    var providerName = ResolveProviderConfigName(assignment.Name);
                     var info = GetProviderInfo(assignment.Name);
                     string? apiKeyValue = null;
                     if (info?.RequiresKey == true)
@@ -1135,20 +1129,9 @@
                 }
             }
 
-            // Save priority order per media type via slots.
-            var slots = _assignments.ToDictionary(
-                kv => kv.Key.ToLowerInvariant(),
-                kv =>
-                {
-                    var names = kv.Value.Select(a => a.Name.Replace(" ", "_").ToLowerInvariant()).ToList();
-                    return new MediaEngine.Web.Models.ViewDTOs.ProviderSlotDto
-                    {
-                        Primary   = names.Count > 0 ? names[0] : null,
-                        Secondary = names.Count > 1 ? names[1] : null,
-                        Tertiary  = names.Count > 2 ? names[2] : null,
-                    };
-                });
-            await ApiClient.UpdateProviderSlotsAsync(slots);
+            var pipelines = BuildPipelineConfigurationForSave();
+            await ApiClient.SavePipelinesAsync(pipelines);
+            _pipelineConfiguration = pipelines;
         }
         catch
         {
@@ -1158,6 +1141,57 @@
         {
             _saving = false;
         }
+    }
+
+    private PipelineConfiguration BuildPipelineConfigurationForSave()
+    {
+        _pipelineConfiguration.Pipelines ??= new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var mediaType in _mediaTypes)
+        {
+            if (!_pipelineConfiguration.Pipelines.TryGetValue(mediaType, out var pipeline))
+            {
+                pipeline = new MediaTypePipeline();
+                _pipelineConfiguration.Pipelines[mediaType] = pipeline;
+            }
+
+            pipeline.Strategy = ParseProviderStrategy(GetStrategy(mediaType));
+            pipeline.Providers = GetChain(mediaType)
+                .Select((assignment, index) => new PipelineProviderEntry
+                {
+                    Rank = index + 1,
+                    Name = ResolveProviderConfigName(assignment.Name),
+                })
+                .ToList();
+        }
+
+        return _pipelineConfiguration;
+    }
+
+    private static string FormatProviderStrategy(ProviderStrategy strategy) => strategy switch
+    {
+        ProviderStrategy.Cascade => "Cascade",
+        ProviderStrategy.Sequential => "Sequential",
+        _ => "Waterfall",
+    };
+
+    private static ProviderStrategy ParseProviderStrategy(string strategy) =>
+        strategy.Trim().ToLowerInvariant() switch
+        {
+            "cascade" => ProviderStrategy.Cascade,
+            "sequential" => ProviderStrategy.Sequential,
+            _ => ProviderStrategy.Waterfall,
+        };
+
+    private string ResolveProviderConfigName(string providerName)
+    {
+        var live = _liveCatalogue.FirstOrDefault(p =>
+            string.Equals(p.DisplayName, providerName, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
+        if (live is not null)
+            return live.Name;
+
+        return providerName.Replace(" ", "_").ToLowerInvariant();
     }
 
     // ── Display helpers ──────────────────────────────────────────────────────────

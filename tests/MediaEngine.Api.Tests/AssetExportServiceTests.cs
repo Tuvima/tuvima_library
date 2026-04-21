@@ -137,6 +137,57 @@ public sealed class AssetExportServiceTests : IDisposable
         Assert.True(File.Exists(exportPath));
     }
 
+    [Fact]
+    public async Task ReconcileArtworkAsync_HybridPolicy_ExportsDiscArtAsPngSidecar()
+    {
+        var context = await SeedMovieAsync();
+        var policy = new LibraryStoragePolicy
+        {
+            Mode = StorageMode.Hybrid,
+            ArtworkExport = true,
+            CleanupManagedLocalArtwork = true,
+            ExportProfile = new SidecarExportProfile
+            {
+                Name = "plex-jellyfin-common",
+                Artwork = true,
+                PreferredSubtitles = false,
+                MetadataSidecars = false,
+            }
+        };
+
+        var assetPaths = new AssetPathService(_libraryRoot, policy);
+        var variantId = Guid.NewGuid();
+        var centralPath = assetPaths.GetCentralAssetPath("Work", context.WorkId, "DiscArt", variantId, ".png");
+        AssetPathService.EnsureDirectory(centralPath);
+        await File.WriteAllBytesAsync(centralPath, [4, 3, 2, 1]);
+
+        var entityAssetRepo = new EntityAssetRepository(_db);
+        await entityAssetRepo.UpsertAsync(new EntityAsset
+        {
+            Id = variantId,
+            EntityId = context.WorkId.ToString(),
+            EntityType = "Work",
+            AssetTypeValue = "DiscArt",
+            LocalImagePath = centralPath,
+            SourceProvider = "fanart_tv",
+            AssetClassValue = "Artwork",
+            StorageLocationValue = "Central",
+            OwnerScope = "Work",
+            IsPreferred = true,
+        });
+
+        var service = new AssetExportService(_db, entityAssetRepo, assetPaths, NullLogger<AssetExportService>.Instance);
+        await service.ReconcileArtworkAsync(context.WorkId.ToString(), "Work", "DiscArt");
+
+        var exportPath = Path.Combine(context.MovieFolder, "discart.png");
+        Assert.True(File.Exists(exportPath));
+
+        var persisted = await entityAssetRepo.FindByIdAsync(variantId);
+        Assert.NotNull(persisted);
+        Assert.True(persisted!.IsLocallyExported);
+        Assert.True(persisted.IsPreferredExported);
+    }
+
     private async Task<MovieContext> SeedMovieAsync()
     {
         var collectionId = Guid.NewGuid();

@@ -685,7 +685,7 @@ public sealed class DiscoveryComposerService
             Subtitle = group?.Network ?? group?.Creator ?? latest.Author,
             Description = TrimTo(group?.Description ?? latest.Description ?? group?.Tagline, 150),
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
-            BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl ?? latest.HeroUrl,
+            BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
             HeroUrl = group?.HeroUrl ?? latest.HeroUrl,
             LogoUrl = group?.LogoUrl ?? latest.LogoUrl,
@@ -728,7 +728,7 @@ public sealed class DiscoveryComposerService
             Subtitle = latest.Author,
             Description = TrimTo(latest.Description, 150),
             CoverUrl = latest.CoverUrl,
-            BackgroundUrl = latest.BackgroundUrl ?? latest.HeroUrl,
+            BackgroundUrl = latest.BackgroundUrl,
             BannerUrl = latest.BannerUrl,
             HeroUrl = latest.HeroUrl,
             LogoUrl = latest.LogoUrl,
@@ -773,7 +773,7 @@ public sealed class DiscoveryComposerService
             Subtitle = group?.Network ?? group?.Creator,
             Description = TrimTo(group?.Description ?? latest.Description ?? group?.Tagline, 150),
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
-            BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl ?? latest.HeroUrl,
+            BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
             HeroUrl = group?.HeroUrl ?? latest.HeroUrl,
             LogoUrl = group?.LogoUrl ?? latest.LogoUrl,
@@ -815,7 +815,7 @@ public sealed class DiscoveryComposerService
             Subtitle = latest.Artist ?? latest.Author,
             Description = TrimTo(latest.Description, 150),
             CoverUrl = latest.CoverUrl,
-            BackgroundUrl = latest.BackgroundUrl ?? latest.HeroUrl,
+            BackgroundUrl = latest.BackgroundUrl,
             BannerUrl = latest.BannerUrl,
             HeroUrl = latest.HeroUrl,
             LogoUrl = latest.LogoUrl,
@@ -843,9 +843,7 @@ public sealed class DiscoveryComposerService
         string eyebrow,
         string accentColor)
     {
-        var backdrop = card.IsCollection
-            ? card.BackgroundUrl ?? card.HeroUrl ?? card.BannerUrl ?? card.CoverUrl
-            : card.HeroUrl ?? card.BackgroundUrl ?? card.BannerUrl ?? card.CoverUrl;
+        var backdrop = card.HeroUrl ?? card.BackgroundUrl ?? card.BannerUrl ?? card.CoverUrl;
 
         return new DiscoveryHeroViewModel
         {
@@ -1179,7 +1177,7 @@ public sealed class DiscoveryComposerService
             Subtitle = item.Author,
             Description = TrimTo(item.Description, 150),
             CoverUrl = item.CoverUrl,
-            BackgroundUrl = item.BackgroundUrl ?? item.HeroUrl,
+            BackgroundUrl = item.BackgroundUrl,
             BannerUrl = item.BannerUrl,
             HeroUrl = item.HeroUrl,
             LogoUrl = item.LogoUrl,
@@ -1220,7 +1218,7 @@ public sealed class DiscoveryComposerService
             Subtitle = work.Author,
             Description = TrimTo(work.Description, 150),
             CoverUrl = work.CoverUrl,
-            BackgroundUrl = work.BackgroundUrl ?? work.HeroUrl,
+            BackgroundUrl = work.BackgroundUrl,
             BannerUrl = work.BannerUrl,
             HeroUrl = work.HeroUrl,
             LogoUrl = work.LogoUrl,
@@ -1272,8 +1270,8 @@ public sealed class DiscoveryComposerService
             ? group.ArtistPhotoUrl ?? group.CoverUrl
             : group.CoverUrl ?? group.ArtistPhotoUrl;
         var backgroundUrl = prefersArtistImage
-            ? group.ArtistPhotoUrl ?? group.CoverUrl
-            : group.BackgroundUrl ?? group.BannerUrl ?? group.CoverUrl ?? group.ArtistPhotoUrl;
+            ? group.ArtistPhotoUrl
+            : group.BackgroundUrl;
 
         return new DiscoveryCardViewModel
         {

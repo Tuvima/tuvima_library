@@ -1340,7 +1340,7 @@ public static partial class MetadataEndpoints
         // â"€â"€ POST /metadata/search-all â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         //
         // Fan-out search: queries ALL eligible providers concurrently and returns
-        // merged results grouped by provider. Powers the CollectionDetail edit panel.
+        // merged results grouped by provider. Powers the shared media editor search flow.
 
         group.MapPost("/search-all", async (
             FanOutSearchRequest request,
@@ -2036,6 +2036,7 @@ public static partial class MetadataEndpoints
         (NormalizeEditorMediaType(mediaType), scopeId) switch
         {
             ("TV", "series") => ["show_name", "year", "network"],
+            ("TV", "season") => ["show_name", "season_number"],
             ("TV", "episode") => ["show_name", "season_number", "episode_number", "episode_title"],
             ("Music", "album") => ["artist", "album", "year"],
             ("Music", "track") => ["title", "artist", "album", "track_number", "disc_number"],
@@ -2207,6 +2208,12 @@ public static partial class MetadataEndpoints
             case "TV":
                 var isEpisodeLaunch = !string.IsNullOrWhiteSpace(episodeNumber)
                     || (hasParentScope && launch.ParentWorkId!.Value != rootWorkId);
+                var isSeasonLaunch = isParentLaunch && hasParentScope;
+                var seasonWorkId = isSeasonLaunch
+                    ? launch.WorkId
+                    : isEpisodeLaunch && hasParentScope
+                        ? launch.ParentWorkId!.Value
+                        : Guid.Empty;
 
                 scopes.Add(new EditorScopeResolution(
                     "series",
@@ -2227,6 +2234,29 @@ public static partial class MetadataEndpoints
                     MediaType: mediaType,
                     ArtworkFolderPath: seriesFolder ?? containerFolder,
                     RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+
+                if (seasonWorkId != Guid.Empty)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "season",
+                        "Season",
+                        1,
+                        seasonWorkId,
+                        "Work",
+                        seasonWorkId,
+                        "Work",
+                        seasonLabel,
+                        showName,
+                        seasonLabel,
+                        "show",
+                        "Season metadata and season artwork live here.",
+                        "Series artwork is managed on the Series scope.",
+                        CanEditFields: true,
+                        CanEditArtwork: true,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: seasonFolder ?? containerFolder,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
 
                 if (isEpisodeLaunch)
                 {
@@ -2444,13 +2474,29 @@ public static partial class MetadataEndpoints
     private static IReadOnlyList<string> GetScopedArtworkSlots(string mediaType, string scopeId) =>
         (NormalizeEditorMediaType(mediaType), scopeId) switch
         {
-            ("TV", "series") or ("Movies", "item") =>
+            ("TV", "series") =>
             [
                 "CoverArt",
                 "SquareArt",
                 "Background",
                 "Banner",
                 "Logo",
+                "ClearArt",
+            ],
+            ("TV", "season") =>
+            [
+                "SeasonPoster",
+                "SeasonThumb",
+            ],
+            ("Movies", "item") =>
+            [
+                "CoverArt",
+                "SquareArt",
+                "Background",
+                "Banner",
+                "Logo",
+                "DiscArt",
+                "ClearArt",
             ],
             ("TV", "episode") =>
             [
@@ -2460,6 +2506,8 @@ public static partial class MetadataEndpoints
             [
                 "CoverArt",
                 "SquareArt",
+                "DiscArt",
+                "ClearArt",
             ],
             ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
             [
@@ -2476,6 +2524,7 @@ public static partial class MetadataEndpoints
         var preferredScopeId = NormalizeEditorMediaType(launch.MediaType) switch
         {
             "TV" when string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase) => "episode",
+            "TV" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase) && launch.ParentWorkId.HasValue => "season",
             "TV" => "series",
             "Music" when string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase) => "track",
             "Music" => "album",
@@ -2556,6 +2605,8 @@ public static partial class MetadataEndpoints
             "square" or "Square" or "SquareArt" => "SquareArt",
             "background" or "Background" => "Background",
             "logo" or "Logo" => "Logo",
+            "discart" or "disc" or "DiscArt" => "DiscArt",
+            "clearart" or "clear" or "ClearArt" => "ClearArt",
             "seasonposter" or "SeasonPoster" => "SeasonPoster",
             "seasonthumb" or "SeasonThumb" => "SeasonThumb",
             "episodestill" or "EpisodeStill" or "still" or "Still" => "EpisodeStill",
@@ -2564,7 +2615,9 @@ public static partial class MetadataEndpoints
 
     private static bool IsArtworkUploadAllowed(string? contentType, string normalizedAssetType)
     {
-        if (string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedAssetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalizedAssetType, "ClearArt", StringComparison.OrdinalIgnoreCase))
             return string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase);
 
         return contentType is not null && (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
@@ -2801,6 +2854,8 @@ public static partial class MetadataEndpoints
 
     private static string BuildArtworkExtension(string normalizedAssetType, string? contentType) =>
         string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(normalizedAssetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(normalizedAssetType, "ClearArt", StringComparison.OrdinalIgnoreCase)
             ? ".png"
             : string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
                 ? ".png"
@@ -2817,6 +2872,8 @@ public static partial class MetadataEndpoints
             "Background" => "background",
             "Banner" => "banner",
             "Logo" => "logo",
+            "DiscArt" => "disc",
+            "ClearArt" => "clearart",
             "SeasonPoster" => "season_poster",
             "SeasonThumb" => "season_thumb",
             "EpisodeStill" => "episode_still",

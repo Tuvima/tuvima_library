@@ -4,7 +4,13 @@
 @if (Hero is not null)
 {
     <section class="discovery-hero-shell" style="--hero-accent: @Hero.AccentColor;">
-        <div class="discovery-hero-backdrop" style="@BackgroundStyle"></div>
+        <div class="discovery-hero-backdrop">
+            @if (!string.IsNullOrWhiteSpace(ActiveHeroBackdropUrl))
+            {
+                <img src="@ActiveHeroBackdropUrl" alt="" class="discovery-hero-backdrop-image" @onerror="HandleHeroBackdropError" />
+            }
+        </div>
+        <div class="discovery-hero-overlay"></div>
         <div class="discovery-hero-texture"></div>
 
         <div class="discovery-hero-content">
@@ -95,19 +101,21 @@
 @code {
     [Parameter, EditorRequired] public DiscoveryHeroViewModel Hero { get; set; } = default!;
 
-    private string BackgroundStyle
-    {
-        get
-        {
-            var backdrop = Hero.BackgroundImageUrl ?? Hero.BannerImageUrl ?? Hero.PreviewImageUrl;
-            if (string.IsNullOrWhiteSpace(backdrop))
-            {
-                return "background: linear-gradient(135deg, rgba(4,6,12,0.98) 0%, rgba(2,4,8,1) 100%);";
-            }
+    private int _heroBackdropIndex;
 
-            return $"background-image: linear-gradient(180deg, rgba(3,5,10,0.12) 0%, rgba(3,5,10,0.58) 42%, rgba(3,5,10,0.98) 100%), linear-gradient(90deg, rgba(3,5,10,0.98) 0%, rgba(3,5,10,0.86) 34%, rgba(3,5,10,0.24) 74%, rgba(3,5,10,0.96) 100%), url('{backdrop}');";
+    private IReadOnlyList<string> HeroBackdropCandidates =>
+        new[]
+        {
+            Hero.BackgroundImageUrl,
+            Hero.BannerImageUrl,
+            Hero.PreviewImageUrl,
         }
-    }
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Cast<string>()
+        .ToList();
+
+    private string? ActiveHeroBackdropUrl => HeroBackdropCandidates.Skip(_heroBackdropIndex).FirstOrDefault();
 
     private string? HeroMediaKindLabel => ExtractLeadingMediaKind(Hero.MetaText);
 
@@ -117,12 +125,26 @@
 
     private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HeroMediaIcon) || !string.IsNullOrWhiteSpace(HeroMetaDisplay);
 
+    protected override void OnParametersSet()
+    {
+        _heroBackdropIndex = 0;
+    }
+
     private void OpenPrimary() => Nav.NavigateTo(Hero.PrimaryNavigationUrl);
 
     private void OpenSecondary()
     {
         if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
             Nav.NavigateTo(Hero.SecondaryNavigationUrl);
+    }
+
+    private void HandleHeroBackdropError()
+    {
+        if (_heroBackdropIndex < HeroBackdropCandidates.Count - 1)
+        {
+            _heroBackdropIndex++;
+            StateHasChanged();
+        }
     }
 
     private static string? ExtractLeadingMediaKind(string? metaText)
@@ -172,38 +194,45 @@
         position: relative;
         overflow: hidden;
         border-radius: 0;
-        min-height: clamp(440px, 56vw, 660px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+        min-height: clamp(420px, 50vw, 620px);
         background: #03050a;
-        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
-    }
-
-    .discovery-hero-shell::after {
-        content: "";
-        position: absolute;
-        inset: auto 0 0 0;
-        height: 220px;
-        background: linear-gradient(180deg, rgba(3, 5, 10, 0) 0%, rgba(3, 5, 10, 0.96) 100%);
-        z-index: 0;
-        pointer-events: none;
     }
 
     .discovery-hero-backdrop {
         position: absolute;
         inset: 0;
-        background-position: center center;
-        background-size: cover;
-        transform: scale(1.03);
+        background:
+            radial-gradient(circle at center, rgba(14, 18, 28, 0.42) 0%, rgba(3, 5, 10, 0.92) 100%),
+            linear-gradient(135deg, rgba(4, 6, 12, 0.98) 0%, rgba(2, 4, 8, 1) 100%);
+    }
+
+    .discovery-hero-backdrop-image {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center center;
+        display: block;
+        transform: scale(1.02);
+    }
+
+    .discovery-hero-overlay {
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(180deg, rgba(3, 5, 10, 0.16) 0%, rgba(3, 5, 10, 0.34) 18%, rgba(3, 5, 10, 0.72) 72%, rgba(3, 5, 10, 0.985) 100%),
+            linear-gradient(90deg, rgba(3, 5, 10, 0.98) 0%, rgba(3, 5, 10, 0.88) 30%, rgba(3, 5, 10, 0.34) 60%, rgba(3, 5, 10, 0.86) 100%);
+        z-index: 0;
+        pointer-events: none;
     }
 
     .discovery-hero-texture {
         position: absolute;
         inset: 0;
         background:
-            radial-gradient(circle at top right, color-mix(in srgb, var(--hero-accent) 8%, transparent) 0%, transparent 32%),
-            linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 20%);
+            radial-gradient(circle at top right, color-mix(in srgb, var(--hero-accent) 8%, transparent) 0%, transparent 34%),
+            linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 24%);
         mix-blend-mode: screen;
-        opacity: 0.28;
+        opacity: 0.18;
         z-index: 0;
         pointer-events: none;
     }
@@ -213,24 +242,18 @@
         z-index: 1;
         min-height: inherit;
         display: grid;
-        grid-template-columns: minmax(0, 1.15fr) minmax(220px, 340px);
-        align-items: end;
-        gap: 28px;
-        padding: clamp(28px, 5vw, 48px);
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+        align-items: center;
+        gap: clamp(28px, 3vw, 44px);
+        padding: clamp(22px, 3vw, 34px) clamp(28px, 4vw, 48px) clamp(28px, 4vw, 44px);
     }
 
     .discovery-hero-copy {
-        max-width: 760px;
+        max-width: min(720px, 100%);
         display: flex;
         flex-direction: column;
         gap: 14px;
-        padding: clamp(22px, 3vw, 30px);
-        padding-top: clamp(26px, 4vw, 36px);
-        border-radius: 28px;
-        background: linear-gradient(180deg, rgba(5, 8, 14, 0.68) 0%, rgba(5, 8, 14, 0.46) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        backdrop-filter: blur(22px) saturate(138%);
-        box-shadow: 0 28px 60px rgba(0, 0, 0, 0.18);
+        padding: 0;
     }
 
     .discovery-hero-eyebrow {
@@ -255,7 +278,7 @@
         object-fit: contain;
         object-position: left center;
         display: block;
-        filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.32));
+        filter: drop-shadow(0 16px 34px rgba(0, 0, 0, 0.42));
     }
 
     .discovery-hero-title {
@@ -314,11 +337,12 @@
 
     .discovery-hero-description {
         margin: 0;
-        max-width: 640px;
+        max-width: 680px;
         font-family: 'Montserrat', sans-serif;
-        font-size: 0.98rem;
-        line-height: 1.7;
-        color: rgba(226, 232, 240, 0.78);
+        font-size: 1rem;
+        line-height: 1.68;
+        color: rgba(226, 232, 240, 0.86);
+        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.26);
     }
 
     .discovery-hero-progress {
@@ -391,16 +415,14 @@
     }
 
     .discovery-hero-preview {
-        align-self: end;
+        align-self: center;
         justify-self: end;
-        width: min(100%, 320px);
+        width: min(100%, 292px);
         aspect-ratio: 2 / 3;
         overflow: hidden;
-        border-radius: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        box-shadow: 0 30px 56px rgba(0, 0, 0, 0.42);
-        background: linear-gradient(180deg, rgba(10, 14, 22, 0.92) 0%, rgba(5, 8, 14, 0.96) 100%);
-        backdrop-filter: blur(18px) saturate(130%);
+        border-radius: 22px;
+        box-shadow: 0 26px 52px rgba(0, 0, 0, 0.44);
+        background: rgba(0, 0, 0, 0.2);
     }
 
     .discovery-hero-preview-image {
@@ -426,10 +448,11 @@
         .discovery-hero-content {
             grid-template-columns: 1fr;
             align-items: end;
+            padding-top: 24px;
         }
 
         .discovery-hero-preview {
-            width: min(58vw, 280px);
+            width: min(52vw, 260px);
             justify-self: start;
         }
     }
@@ -440,12 +463,11 @@
         }
 
         .discovery-hero-content {
-            padding: 22px;
+            padding: 24px 22px 24px;
         }
 
         .discovery-hero-copy {
             gap: 12px;
-            padding: 20px;
         }
 
         .discovery-hero-logo {
@@ -454,8 +476,8 @@
         }
 
         .discovery-hero-preview {
-            width: min(58vw, 220px);
-            border-radius: 22px;
+            width: min(50vw, 210px);
+            border-radius: 18px;
         }
     }
 </style>

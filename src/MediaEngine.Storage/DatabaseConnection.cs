@@ -1920,7 +1920,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 id               TEXT PRIMARY KEY,
                 entity_id        TEXT NOT NULL,
                 entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
-                asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
+                asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','DiscArt','ClearArt','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
                 image_url        TEXT,
                 local_image_path TEXT,
                 source_provider  TEXT,
@@ -2966,6 +2966,8 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     !sql.Contains("SquareArt", StringComparison.OrdinalIgnoreCase)
                     || sql.Contains("Backdrop", StringComparison.OrdinalIgnoreCase)
                     || !sql.Contains("Background", StringComparison.OrdinalIgnoreCase)
+                    || !sql.Contains("DiscArt", StringComparison.OrdinalIgnoreCase)
+                    || !sql.Contains("ClearArt", StringComparison.OrdinalIgnoreCase)
                     || !sql.Contains("SeasonPoster", StringComparison.OrdinalIgnoreCase)
                     || !sql.Contains("SeasonThumb", StringComparison.OrdinalIgnoreCase)
                     || !sql.Contains("EpisodeStill", StringComparison.OrdinalIgnoreCase);
@@ -2982,7 +2984,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     id               TEXT PRIMARY KEY,
                     entity_id        TEXT NOT NULL,
                     entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
-                    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
+                    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','DiscArt','ClearArt','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
                     image_url        TEXT,
                     local_image_path TEXT,
                     source_provider  TEXT,

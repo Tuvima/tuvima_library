@@ -80,7 +80,12 @@ public sealed class AssetStorageStartupService : IHostedService
 
             var extension = Path.GetExtension(row.LocalImagePath);
             if (string.IsNullOrWhiteSpace(extension))
-                extension = string.Equals(row.AssetType, "Logo", StringComparison.OrdinalIgnoreCase) ? ".png" : ".jpg";
+                extension =
+                    string.Equals(row.AssetType, "Logo", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(row.AssetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(row.AssetType, "ClearArt", StringComparison.OrdinalIgnoreCase)
+                        ? ".png"
+                        : ".jpg";
 
             var targetPath = _assetPaths.GetCentralAssetPath(
                 row.EntityType,

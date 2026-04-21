@@ -192,6 +192,49 @@ public sealed class RepositoryTests : IDisposable
     // ════════════════════════════════════════════════════════════════════════
 
     [Fact]
+    public async Task EntityAsset_Upsert_AllowsDiscArtAndClearArtTypes()
+    {
+        var repo = new EntityAssetRepository(_db);
+        var entityId = Guid.NewGuid().ToString();
+        var createdAt = DateTimeOffset.UtcNow;
+
+        await repo.UpsertAsync(new EntityAsset
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = "Work",
+            AssetTypeValue = "DiscArt",
+            LocalImagePath = "/library/Movies/Arrival/discart.png",
+            SourceProvider = "fanart_tv",
+            AssetClassValue = "Artwork",
+            StorageLocationValue = "Central",
+            OwnerScope = "Work",
+            IsPreferred = true,
+            CreatedAt = createdAt,
+        });
+
+        await repo.UpsertAsync(new EntityAsset
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = "Work",
+            AssetTypeValue = "ClearArt",
+            LocalImagePath = "/library/Movies/Arrival/clearart.png",
+            SourceProvider = "fanart_tv",
+            AssetClassValue = "Artwork",
+            StorageLocationValue = "Central",
+            OwnerScope = "Work",
+            IsPreferred = true,
+            CreatedAt = createdAt,
+        });
+
+        var assets = await repo.GetByEntityAsync(entityId);
+
+        Assert.Contains(assets, asset => asset.AssetTypeValue == "DiscArt");
+        Assert.Contains(assets, asset => asset.AssetTypeValue == "ClearArt");
+    }
+
+    [Fact]
     public async Task ReviewQueue_InsertAndGetPending()
     {
         var repo = new ReviewQueueRepository(_db);

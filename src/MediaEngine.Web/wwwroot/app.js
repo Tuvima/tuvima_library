@@ -128,6 +128,78 @@ window.scrollSwimlaneEx = function (el, direction) {
         }, 420); // wait for smooth-scroll animation to settle
     });
 };
+
+// -- Discovery card hover positioning ------------------------------------
+
+window.positionDiscoveryCardHover = function (cardEl) {
+    if (!cardEl) return;
+
+    window.requestAnimationFrame(function () {
+        var panel = cardEl.querySelector('.discovery-card-hover-panel');
+        if (!panel) return;
+
+        var cardRect = cardEl.getBoundingClientRect();
+        var panelWidth = panel.offsetWidth;
+        var gutter = 12;
+        var shift = 0;
+        var panelLeft = cardRect.left;
+
+        if (panelLeft < gutter) {
+            shift = gutter - panelLeft;
+        }
+
+        var overflowRight = panelLeft + shift + panelWidth - (window.innerWidth - gutter);
+        if (overflowRight > 0) {
+            shift -= overflowRight;
+        }
+
+        cardEl.style.setProperty('--discovery-hover-shift-x', shift + 'px');
+    });
+};
+
+window.clearDiscoveryCardHover = function (cardEl) {
+    if (!cardEl) return;
+    cardEl.style.setProperty('--discovery-hover-shift-x', '0px');
+};
+
+window.registerDiscoveryCardHover = function (cardEl) {
+    if (!cardEl || cardEl.__discoveryHoverRegistered) return;
+
+    var update = function () {
+        window.positionDiscoveryCardHover(cardEl);
+    };
+
+    var clear = function () {
+        window.clearDiscoveryCardHover(cardEl);
+    };
+
+    cardEl.addEventListener('mouseenter', update);
+    cardEl.addEventListener('focusin', update);
+    cardEl.addEventListener('mouseleave', clear);
+    cardEl.addEventListener('focusout', clear);
+
+    cardEl.__discoveryHoverUpdate = update;
+    cardEl.__discoveryHoverClear = clear;
+    cardEl.__discoveryHoverRegistered = true;
+};
+
+window.unregisterDiscoveryCardHover = function (cardEl) {
+    if (!cardEl || !cardEl.__discoveryHoverRegistered) return;
+
+    if (cardEl.__discoveryHoverUpdate) {
+        cardEl.removeEventListener('mouseenter', cardEl.__discoveryHoverUpdate);
+        cardEl.removeEventListener('focusin', cardEl.__discoveryHoverUpdate);
+    }
+
+    if (cardEl.__discoveryHoverClear) {
+        cardEl.removeEventListener('mouseleave', cardEl.__discoveryHoverClear);
+        cardEl.removeEventListener('focusout', cardEl.__discoveryHoverClear);
+    }
+
+    delete cardEl.__discoveryHoverUpdate;
+    delete cardEl.__discoveryHoverClear;
+    delete cardEl.__discoveryHoverRegistered;
+};
 // -- Alphabetical Grid scroll-to-letter ---------------------------------
 
 /**

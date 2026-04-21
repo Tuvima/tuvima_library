@@ -93,22 +93,6 @@ public sealed class FieldMappingDto
 
 // ── Provider Slot DTOs ─────────────────────────────────────────────────────
 
-/// <summary>
-/// Provider slot assignment for a single media type.
-/// Maps from <c>GET /settings/provider-slots</c>.
-/// </summary>
-public sealed record ProviderSlotDto
-{
-    [JsonPropertyName("primary")]
-    public string? Primary { get; init; }
-
-    [JsonPropertyName("secondary")]
-    public string? Secondary { get; init; }
-
-    [JsonPropertyName("tertiary")]
-    public string? Tertiary { get; init; }
-}
-
 // ── Provider Health DTOs ──────────────────────────────────────────────────
 
 /// <summary>

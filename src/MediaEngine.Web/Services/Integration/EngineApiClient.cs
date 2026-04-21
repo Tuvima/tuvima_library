@@ -1112,47 +1112,6 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    // ── Provider slots (/settings/provider-slots) ───────────────────────
-
-    public async Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(
-        CancellationToken ct = default)
-    {
-        try
-        {
-            return await _http.GetFromJsonAsync<Dictionary<string, ProviderSlotDto>>(
-                "/settings/provider-slots", ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /settings/provider-slots failed");
-            LastError = ex.Message;
-            return null;
-        }
-    }
-
-    public async Task<bool> UpdateProviderSlotsAsync(
-        Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.PutAsJsonAsync("/settings/provider-slots", slots, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                var detail = await resp.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning("PUT /settings/provider-slots returned {Status}: {Detail}",
-                    (int)resp.StatusCode, detail);
-                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
-            }
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /settings/provider-slots failed");
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
     // ── Pipelines (/settings/pipelines) ──────────────────────────────────
 
     public async Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default)
@@ -3191,10 +3150,32 @@ public sealed class EngineApiClient : IEngineApiClient
     /// </summary>
     private string AbsoluteUrl(string value)
     {
-        if (value.StartsWith('/') && _http.BaseAddress is { } baseAddr)
-            return new Uri(baseAddr, value).ToString();
+        if (string.IsNullOrWhiteSpace(value))
+            return value;
+
+        if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
+            return absolute.ToString();
+
+        if (_http.BaseAddress is { } baseAddr)
+            return new Uri(baseAddr, value.StartsWith('/') ? value : $"/{value}").ToString();
+
         return value;
     }
+
+    private string NormalizeCanonicalValue(string key, string value) =>
+        IsArtworkCanonicalKey(key)
+            ? AbsoluteUrl(value)
+            : value;
+
+    private static bool IsArtworkCanonicalKey(string? key) => key?.Trim().ToLowerInvariant() switch
+    {
+        "cover" or "cover_url" or
+        "background" or "background_url" or
+        "banner" or "banner_url" or
+        "hero" or "hero_url" or
+        "logo" or "logo_url" => true,
+        _ => false,
+    };
 
     private WorkViewModel MapLibraryWork(LibraryWorkRaw work)
     {
@@ -3202,7 +3183,7 @@ public sealed class EngineApiClient : IEngineApiClient
             .Select(kv => new CanonicalValueViewModel
             {
                 Key = kv.Key,
-                Value = AbsoluteUrl(kv.Value),
+                Value = NormalizeCanonicalValue(kv.Key, kv.Value),
             })
             .ToList();
 
@@ -3230,7 +3211,7 @@ public sealed class EngineApiClient : IEngineApiClient
         var canonicalValues = work.CanonicalValues.Select(cv => new CanonicalValueViewModel
         {
             Key = cv.Key,
-            Value = AbsoluteUrl(cv.Value),
+            Value = NormalizeCanonicalValue(cv.Key, cv.Value),
             LastScoredAt = cv.LastScoredAt,
         }).ToList();
 

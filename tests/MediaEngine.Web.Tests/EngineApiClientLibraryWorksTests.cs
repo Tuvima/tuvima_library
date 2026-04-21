@@ -64,6 +64,39 @@ public sealed class EngineApiClientLibraryWorksTests
     }
 
     [Fact]
+    public async Task GetLibraryWorksAsync_NormalizesRootRelativeAndRootlessArtworkUrls()
+    {
+        const string json = """
+            [
+              {
+                "id": "11111111-1111-1111-1111-111111111111",
+                "mediaType": "Books",
+                "assetId": "22222222-2222-2222-2222-222222222222",
+                "coverUrl": "stream/22222222-2222-2222-2222-222222222222/cover",
+                "heroUrl": "stream/22222222-2222-2222-2222-222222222222/hero",
+                "canonicalValues": {
+                  "title": "Dune"
+                }
+              }
+            ]
+            """;
+
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var results = await client.GetLibraryWorksAsync();
+
+        var work = Assert.Single(results);
+        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/cover", work.CoverUrl);
+        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/hero", work.HeroUrl);
+    }
+
+    [Fact]
     public async Task GetContentGroupsAsync_MapsRichArtworkAndContextFields()
     {
         const string json = """

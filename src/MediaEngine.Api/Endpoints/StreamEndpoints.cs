@@ -373,12 +373,22 @@ public static class StreamEndpoints
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
+            var requestedEntityId = assetId;
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
+            var resolvedAssetId = assetId;
+
+            if (asset is null)
+            {
+                asset = await assetRepo.FindFirstByWorkIdAsync(assetId, ct);
+                if (asset is not null)
+                    resolvedAssetId = asset.Id;
+            }
+
             if (asset is null)
                 return Results.NotFound($"Asset '{assetId}' not found.");
 
-            var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
-            var ownerEntityId = lineage?.TargetForParentScope ?? assetId;
+            var lineage = await workRepo.GetLineageByAssetAsync(resolvedAssetId, ct);
+            var ownerEntityId = lineage?.TargetForParentScope ?? requestedEntityId;
             var centralHeroPath = assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg");
             if (File.Exists(centralHeroPath))
             {
@@ -387,17 +397,17 @@ public static class StreamEndpoints
             }
 
             // Resolve image path — try .images/ first, fall back to legacy location.
-            var canonicals = await canonicalRepo.GetByEntityAsync(assetId, ct);
+            var canonicals = await canonicalRepo.GetByEntityAsync(resolvedAssetId, ct);
             var wikidataQid = canonicals
                 .FirstOrDefault(c => c.Key is "wikidata_qid"
                     && !string.IsNullOrEmpty(c.Value)
                     && !c.Value.StartsWith("NF", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
-            var newHeroPath  = imagePathService.GetWorkHeroPath(wikidataQid, assetId);
+            var newHeroPath  = imagePathService.GetWorkHeroPath(wikidataQid, resolvedAssetId);
             // Pending fallback: hero banners generated before the QID was resolved live
             // in _pending/{assetId12}/ until SweepPendingToQid moves them.
-            var pendingHeroPath = imagePathService.GetWorkHeroPath(null, assetId);
+            var pendingHeroPath = imagePathService.GetWorkHeroPath(null, resolvedAssetId);
             var legacyHeroPath = string.IsNullOrEmpty(asset.FilePathRoot)
                 ? null
                 : Path.Combine(Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty, "hero.jpg");
@@ -423,7 +433,7 @@ public static class StreamEndpoints
                     .CreateLogger("MediaEngine.Api.StreamEndpoints")
                     .LogWarning(
                         "Hero banner served from _pending for {EntityId} — needs sweep",
-                        assetId);
+                        requestedEntityId);
             }
 
             var bytes = await File.ReadAllBytesAsync(heroPath, ct);

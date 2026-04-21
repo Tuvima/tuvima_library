@@ -43,9 +43,9 @@ else if (IsEmpty)
 }
 else
 {
-    <GlobalBackground ImageUrl="@(_page.Hero?.BackgroundImageUrl ?? _page.Hero?.BannerImageUrl)" Color="#080B14" />
+    <GlobalBackground Color="#05070C" />
 
-    <div class="home-discovery-page">
+    <div class="home-discovery-page @(_page.Hero is not null ? "home-discovery-page--with-hero" : null)">
         @if (_page.Hero is not null)
         {
             <DiscoveryHero Hero="@_page.Hero" />
@@ -145,8 +145,13 @@ else
         z-index: 1;
         display: flex;
         flex-direction: column;
-        gap: clamp(28px, 4vw, 42px);
+        gap: 0;
         padding: 0 0 5rem;
+        background: #05070c;
+    }
+
+    .home-discovery-page--with-hero {
+        margin-top: -3rem;
     }
 
     .home-discovery-content-shell {
@@ -156,23 +161,10 @@ else
         display: flex;
         flex-direction: column;
         gap: clamp(26px, 3vw, 36px);
-        margin-top: clamp(-52px, -4vw, -30px);
-        padding: clamp(28px, 4vw, 40px) 0 2rem;
+        margin-top: 0;
+        padding: clamp(20px, 3vw, 28px) 0 2rem;
+        background: linear-gradient(180deg, rgba(5, 7, 12, 1) 0%, rgba(5, 7, 12, 1) 100%);
         overflow: visible;
-    }
-
-    .home-discovery-content-shell::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 32px 32px 0 0;
-        background:
-            linear-gradient(180deg, rgba(4, 6, 10, 0.8) 0%, rgba(4, 6, 10, 0.92) 14%, rgba(4, 6, 10, 0.965) 32%, rgba(4, 6, 10, 0.992) 100%);
-        backdrop-filter: blur(28px) saturate(130%);
-        box-shadow: 0 -24px 60px rgba(0, 0, 0, 0.34);
-        z-index: -1;
-        pointer-events: none;
     }
 
     .home-discovery-shelves {
@@ -224,8 +216,6 @@ else
 
     @@media (max-width: 640px) {
         .home-discovery-content-shell {
-            margin-top: -24px;
-            border-radius: 24px 24px 0 0;
             padding-top: 22px;
         }
     }

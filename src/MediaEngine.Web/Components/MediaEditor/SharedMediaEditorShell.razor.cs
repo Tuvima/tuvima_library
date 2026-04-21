@@ -53,6 +53,12 @@ public partial class SharedMediaEditorShell
     private static readonly ArtworkSlotDefinition LogoArtworkSlot =
         new("Logo", "Logo", "Title treatment or transparent branding art.", Icons.Material.Outlined.BrandingWatermark, "logo", "logo", true, "Best for transparent logos or wordmarks.", "Logo");
 
+    private static readonly ArtworkSlotDefinition DiscArtArtworkSlot =
+        new("DiscArt", "Disc Art", "Transparent disc or label art for movies and music releases.", Icons.Material.Outlined.Album, "square", "fit", true, "Best for CD, vinyl, or disc-face artwork.", "Disc");
+
+    private static readonly ArtworkSlotDefinition ClearArtArtworkSlot =
+        new("ClearArt", "Clear Art", "Transparent key art designed to sit over a background image.", Icons.Material.Outlined.FilterNone, "logo", "fit", true, "Best for transparent character or title overlay art.", "Clear");
+
     private static readonly ArtworkSlotDefinition SeasonPosterArtworkSlot =
         new("SeasonPoster", "Season Poster", "Poster art stored for the season container.", Icons.Material.Outlined.ViewAgenda, "portrait", "fit", true, "Best for season-specific poster art.", "Season");
 
@@ -931,6 +937,8 @@ public partial class SharedMediaEditorShell
 
     protected string GetArtworkAcceptedTypes(string assetType) =>
         string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(assetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(assetType, "ClearArt", StringComparison.OrdinalIgnoreCase)
             ? "image/png"
             : "image/png,image/jpeg";
 
@@ -1675,6 +1683,7 @@ public partial class SharedMediaEditorShell
         return (_selectedMediaType, ActiveScope?.ScopeId) switch
         {
             ("TV", "series") => [("show", "Show")],
+            ("TV", "season") => [("show", "Show")],
             ("TV", "episode") => [("show_episode", "Episode"), ("show", "Show")],
             ("Music", "album") => [("album", "Album"), ("artist", "Artist")],
             ("Music", "track") => [("track", "Track"), ("album", "Album"), ("artist", "Artist")],
@@ -1824,6 +1833,8 @@ public partial class SharedMediaEditorShell
             "Background" => "No background art stored yet.",
             "Banner" => "No banner art stored yet.",
             "Logo" => "No logo art stored yet.",
+            "DiscArt" => "No disc art stored yet.",
+            "ClearArt" => "No clear art stored yet.",
             "CoverArt" => "No cover art stored yet.",
             "SeasonPoster" => "No season poster stored yet.",
             "SeasonThumb" => "No season thumb stored yet.",
@@ -1851,18 +1862,36 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<ArtworkSlotDefinition> ResolveArtworkSlots(MediaEditorScopeDto? scope) =>
         (_selectedMediaType, scope?.ScopeId, scope?.CanEditArtwork) switch
         {
-            ("TV", "series", true) or ("Movies", "item", true) =>
+            ("TV", "series", true) =>
             [
                 PosterCoverArtworkSlot,
                 SquareArtArtworkSlot,
                 BackgroundArtworkSlot,
                 BannerArtworkSlot,
                 LogoArtworkSlot,
+                ClearArtArtworkSlot,
+            ],
+            ("Movies", "item", true) =>
+            [
+                PosterCoverArtworkSlot,
+                SquareArtArtworkSlot,
+                BackgroundArtworkSlot,
+                BannerArtworkSlot,
+                LogoArtworkSlot,
+                ClearArtArtworkSlot,
+                DiscArtArtworkSlot,
+            ],
+            ("TV", "season", true) =>
+            [
+                SeasonPosterArtworkSlot,
+                SeasonThumbArtworkSlot,
             ],
             ("Music", "album", true) =>
             [
                 AlbumArtArtworkSlot,
                 SquareArtArtworkSlot,
+                DiscArtArtworkSlot,
+                ClearArtArtworkSlot,
             ],
             ("TV", "episode", true) =>
             [

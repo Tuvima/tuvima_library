@@ -179,18 +179,6 @@ public sealed class WikidataBridgeWorker
                 }
             }
 
-            if (_batchProgress is not null)
-            {
-                foreach (var runId in jobs
-                             .Select(j => j.IngestionRunId)
-                             .Where(id => id.HasValue)
-                             .Select(id => id!.Value)
-                             .Distinct())
-                {
-                    await _batchProgress.EmitProgressAsync(runId, isFinal: false, ct).ConfigureAwait(false);
-                }
-            }
-
             return jobs.Count;
         }
 

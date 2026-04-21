@@ -7,14 +7,6 @@
 
 <PageTitle>@(_collection?.DisplayName ?? "Collection") — Tuvima Library</PageTitle>
 
-@* â”€â”€ Edit-metadata panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
-<CollectionEditPanel @bind-IsOpen="_editDrawerOpen"
-              CollectionId="Id"
-              EntityId="@(_collection?.Works.FirstOrDefault()?.Id ?? Guid.Empty)"
-              MediaType="@_collection?.PrimaryMediaType"
-              CurrentCoverUrl="@_collection?.CoverUrl"
-              OnApplied="@OnEditApplied" />
-
 @if (_loading)
 {
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
@@ -293,15 +285,6 @@ else
                             <span class="collection-detail-action-label">Share</span>
                         </button>
 
-                        @* Edit *@
-                        <button class="collection-detail-action-btn" @onclick="@(() => _editDrawerOpen = true)">
-                            <div class="collection-detail-action-circle">
-                                <MudIcon Icon="@Icons.Material.Filled.Edit"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
-                            </div>
-                            <span class="collection-detail-action-label">Edit</span>
-                        </button>
-
                         @* ⋯ More *@
                         <MudMenu Dense="true"
                                  AnchorOrigin="Origin.BottomLeft"
@@ -462,15 +445,6 @@ else
                             <span class="collection-detail-action-label">Share</span>
                         </button>
 
-                        @* Edit *@
-                        <button class="collection-detail-action-btn" @onclick="@(() => _editDrawerOpen = true)">
-                            <div class="collection-detail-action-circle">
-                                <MudIcon Icon="@Icons.Material.Filled.Edit"
-                                         Style="color: rgba(248,248,248,0.65); font-size: 1.3rem;" />
-                            </div>
-                            <span class="collection-detail-action-label">Edit</span>
-                        </button>
-
                         @* ⋯ More *@
                         <MudMenu Dense="true"
                                  AnchorOrigin="Origin.BottomLeft"
@@ -576,7 +550,6 @@ else
     private string?                 _toastMessage;
     private bool                    _showFullDescription;
     private bool                    _showAllGenres;
-    private bool                    _editDrawerOpen;
     private bool                    _lightboxOpen;
     private System.Threading.Timer? _toastTimer;
     /// <summary>Currently selected format key ("epub", "audiobook", "video", "comic").
@@ -590,7 +563,6 @@ else
         _loading             = true;
         _showFullDescription = false;
         _showAllGenres       = false;
-        _editDrawerOpen      = false;
         _lightboxOpen        = false;
         _selectedFormatKey   = null;
         _parentCollection           = null;
@@ -788,15 +760,6 @@ else
         ShowToast(result is not null
             ? "Metadata updated successfully"
             : "Metadata update failed \u2014 check Engine logs");
-    }
-
-    private async Task OnEditApplied()
-    {
-        // Reload collection data after edit panel applies changes
-        _loading = true;
-        StateHasChanged();
-        State.Invalidate();
-        await OnParametersSetAsync();
     }
 
     private void ShowToast(string message)

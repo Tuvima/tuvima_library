@@ -43,29 +43,40 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private const string FanartProviderConfigName = "fanart_tv";
     private const double CharacterMatchThreshold = 0.70;
 
+    private sealed record ImageFieldMapping(AssetType Type, bool UpdatePreferred, params string[] JsonFields);
+
     /// <summary>
     /// Maps media type → list of (Fanart JSON field, AssetType to store).
     /// CoverArt is excluded — CoverArtWorker handles that separately.
     /// </summary>
-    private static readonly Dictionary<string, (string JsonField, AssetType Type)[]> FieldMappings = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, ImageFieldMapping[]> FieldMappings = new(StringComparer.OrdinalIgnoreCase)
     {
         ["Movies"] = [
-            ("moviebackground", AssetType.Background),
-            ("hdmovielogo",     AssetType.Logo),
-            ("moviebanner",     AssetType.Banner),
+            new(AssetType.Background, true, "moviebackground"),
+            new(AssetType.Logo, true, "hdmovielogo", "movielogo"),
+            new(AssetType.ClearArt, true, "hdmovieclearart", "movieclearart"),
+            new(AssetType.Banner, true, "moviebanner"),
+            new(AssetType.CoverArt, false, "movieposter"),
+            new(AssetType.DiscArt, true, "moviedisc"),
         ],
         ["TV"] = [
-            ("showbackground", AssetType.Background),
-            ("hdtvlogo",       AssetType.Logo),
-            ("tvbanner",       AssetType.Banner),
+            new(AssetType.Background, true, "showbackground"),
+            new(AssetType.Logo, true, "hdtvlogo", "clearlogo"),
+            new(AssetType.ClearArt, true, "hdclearart", "clearart"),
+            new(AssetType.Banner, true, "tvbanner"),
+            new(AssetType.CoverArt, false, "tvposter"),
         ],
         ["Music"] = [
-            ("artistbackground", AssetType.Background),
-            ("musiclogo",        AssetType.Logo),
-            ("albumcover",       AssetType.SquareArt),
-            ("cdart",            AssetType.Logo),
+            new(AssetType.Background, true, "artistbackground"),
+            new(AssetType.Logo, true, "musiclogo"),
+            new(AssetType.SquareArt, true, "albumcover"),
+            new(AssetType.DiscArt, true, "cdart"),
         ],
     };
+
+    private static readonly string[] TvSeasonPosterFields = ["seasonposter"];
+    private static readonly string[] TvSeasonThumbFields = ["seasonthumb"];
+    private static readonly string[] TvEpisodeStillFields = ["tvthumb"];
 
     /// <summary>
     /// Maps media type → Fanart JSON field containing character art.
@@ -197,23 +208,45 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         string? backgroundPath = null;
         if (FieldMappings.TryGetValue(resolvedMediaType, out var mappings))
         {
-            foreach (var (jsonField, assetType) in mappings)
+            foreach (var mapping in mappings)
             {
                 var localPath = await ProcessImageArrayAsync(
                     json,
-                    jsonField,
-                    assetType,
+                    mapping.JsonFields,
+                    mapping.Type,
                     context.CanonicalEntityId,
-                    assetId,
                     workQid,
-                    resolvedMediaType,
-                    context.MediaFilePath,
-                    context.ArtworkFolderPath,
+                    mapping.UpdatePreferred,
                     ct);
 
-                if (assetType == AssetType.Background && localPath is not null)
+                if (mapping.Type == AssetType.Background && localPath is not null)
                     backgroundPath = localPath;
             }
+        }
+
+        if (string.Equals(resolvedMediaType, "TV", StringComparison.OrdinalIgnoreCase))
+        {
+            await ProcessSeasonScopedImageArrayAsync(
+                json,
+                TvSeasonPosterFields,
+                AssetType.SeasonPoster,
+                context.CanonicalEntityId,
+                workQid,
+                ct);
+            await ProcessSeasonScopedImageArrayAsync(
+                json,
+                TvSeasonThumbFields,
+                AssetType.SeasonThumb,
+                context.CanonicalEntityId,
+                workQid,
+                ct);
+            await ProcessEpisodeScopedImageArrayAsync(
+                json,
+                TvEpisodeStillFields,
+                AssetType.EpisodeStill,
+                context.CanonicalEntityId,
+                workQid,
+                ct);
         }
 
         // ── Step 5: Regenerate hero from the higher-resolution background art ──
@@ -344,23 +377,140 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     /// preferred. Returns the preferred local file path if successful.
     /// </summary>
     private async Task<string?> ProcessImageArrayAsync(
-        JsonNode json, string jsonField, AssetType assetType,
+        JsonNode json,
+        IReadOnlyList<string> jsonFields,
+        AssetType assetType,
         Guid ownerEntityId,
-        Guid assetId,
         string workQid,
-        string mediaType,
-        string mediaFilePath,
-        string? artworkFolderPath,
+        bool updatePreferred,
         CancellationToken ct)
     {
-        var imageArray = ResolveImageArray(json, jsonField);
-        if (imageArray is null || imageArray.Count == 0)
+        var imageNodes = ResolveImageNodes(json, jsonFields);
+        if (imageNodes.Count == 0)
         {
-            _logger.LogDebug("[IMAGE-ENRICH] No {JsonField} images returned for {WorkQid}", jsonField, workQid);
+            _logger.LogDebug(
+                "[IMAGE-ENRICH] No {JsonFields} images returned for {WorkQid}",
+                string.Join(", ", jsonFields),
+                workQid);
             return null;
         }
 
-        var rankedImages = imageArray
+        return await ProcessRankedImagesAsync(imageNodes, assetType, ownerEntityId, workQid, updatePreferred, ct);
+    }
+
+    private async Task ProcessSeasonScopedImageArrayAsync(
+        JsonNode json,
+        IReadOnlyList<string> jsonFields,
+        AssetType assetType,
+        Guid showWorkId,
+        string workQid,
+        CancellationToken ct)
+    {
+        var imageNodes = ResolveImageNodes(json, jsonFields);
+        if (imageNodes.Count == 0)
+            return;
+
+        foreach (var seasonGroup in imageNodes
+                     .Select(node => new
+                     {
+                         Node = node,
+                         HasSeason = TryGetOrdinal(node, out var seasonOrdinal, "season", "season_number"),
+                         SeasonOrdinal = seasonOrdinal,
+                     })
+                     .Where(entry => entry.HasSeason)
+                     .GroupBy(entry => entry.SeasonOrdinal))
+        {
+            var seasonWorkId = await _workRepo.FindChildByOrdinalAsync(showWorkId, seasonGroup.Key, ct);
+            if (!seasonWorkId.HasValue)
+            {
+                _logger.LogDebug(
+                    "[IMAGE-ENRICH] No season work found for show {ShowWorkId} season {Season} while processing {AssetType}",
+                    showWorkId,
+                    seasonGroup.Key,
+                    assetType);
+                continue;
+            }
+
+            await ProcessRankedImagesAsync(
+                seasonGroup.Select(entry => entry.Node),
+                assetType,
+                seasonWorkId.Value,
+                workQid,
+                updatePreferred: true,
+                ct);
+        }
+    }
+
+    private async Task ProcessEpisodeScopedImageArrayAsync(
+        JsonNode json,
+        IReadOnlyList<string> jsonFields,
+        AssetType assetType,
+        Guid showWorkId,
+        string workQid,
+        CancellationToken ct)
+    {
+        var imageNodes = ResolveImageNodes(json, jsonFields);
+        if (imageNodes.Count == 0)
+            return;
+
+        var seasonCache = new Dictionary<int, Guid?>();
+        foreach (var episodeGroup in imageNodes
+                     .Select(node => new
+                     {
+                         Node = node,
+                         HasSeason = TryGetOrdinal(node, out var seasonOrdinal, "season", "season_number"),
+                         SeasonOrdinal = seasonOrdinal,
+                         HasEpisode = TryGetOrdinal(node, out var episodeOrdinal, "episode", "episode_number"),
+                         EpisodeOrdinal = episodeOrdinal,
+                     })
+                     .Where(entry => entry.HasSeason && entry.HasEpisode)
+                     .GroupBy(entry => (entry.SeasonOrdinal, entry.EpisodeOrdinal)))
+        {
+            if (!seasonCache.TryGetValue(episodeGroup.Key.SeasonOrdinal, out var seasonWorkId))
+            {
+                seasonWorkId = await _workRepo.FindChildByOrdinalAsync(showWorkId, episodeGroup.Key.SeasonOrdinal, ct);
+                seasonCache[episodeGroup.Key.SeasonOrdinal] = seasonWorkId;
+            }
+
+            if (!seasonWorkId.HasValue)
+            {
+                _logger.LogDebug(
+                    "[IMAGE-ENRICH] No season work found for show {ShowWorkId} season {Season} while processing episode stills",
+                    showWorkId,
+                    episodeGroup.Key.SeasonOrdinal);
+                continue;
+            }
+
+            var episodeWorkId = await _workRepo.FindChildByOrdinalAsync(seasonWorkId.Value, episodeGroup.Key.EpisodeOrdinal, ct);
+            if (!episodeWorkId.HasValue)
+            {
+                _logger.LogDebug(
+                    "[IMAGE-ENRICH] No episode work found for season {SeasonWorkId} episode {Episode} while processing {AssetType}",
+                    seasonWorkId.Value,
+                    episodeGroup.Key.EpisodeOrdinal,
+                    assetType);
+                continue;
+            }
+
+            await ProcessRankedImagesAsync(
+                episodeGroup.Select(entry => entry.Node),
+                assetType,
+                episodeWorkId.Value,
+                workQid,
+                updatePreferred: true,
+                ct);
+        }
+    }
+
+    private async Task<string?> ProcessRankedImagesAsync(
+        IEnumerable<JsonNode?> imageNodes,
+        AssetType assetType,
+        Guid ownerEntityId,
+        string workQid,
+        bool updatePreferred,
+        CancellationToken ct)
+    {
+        var rankedImages = imageNodes
             .Where(n => n is not null)
             .Where(n => IsAllowedArtworkLanguage(n, assetType))
             .OrderByDescending(GetArtworkLanguageRank)
@@ -371,7 +521,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             return null;
 
         var existingVariants = (await _assetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType.ToString(), ct)).ToList();
-        EntityAsset? preferredVariant = null;
+        EntityAsset? preferredVariant = updatePreferred
+            ? existingVariants.FirstOrDefault(asset => asset.IsPreferred && asset.IsUserOverride)
+            : null;
 
         foreach (var imageNode in rankedImages)
         {
@@ -384,7 +536,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
             if (existing is not null)
             {
-                preferredVariant ??= existing;
+                if (updatePreferred && preferredVariant is null && !existing.IsUserOverride)
+                    preferredVariant = existing;
+
                 continue;
             }
 
@@ -394,19 +548,19 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
             var variant = new EntityAsset
             {
-                Id             = Guid.NewGuid(),
-                EntityId       = ownerEntityId.ToString(),
-                EntityType     = "Work",
+                Id = Guid.NewGuid(),
+                EntityId = ownerEntityId.ToString(),
+                EntityType = "Work",
                 AssetTypeValue = assetType.ToString(),
-                ImageUrl       = imageUrl,
+                ImageUrl = imageUrl,
                 LocalImagePath = string.Empty,
                 SourceProvider = "fanart_tv",
                 AssetClassValue = "Artwork",
                 StorageLocationValue = "Central",
                 OwnerScope = InferOwnerScope(assetType),
-                IsPreferred    = false,
+                IsPreferred = false,
                 IsUserOverride = false,
-                CreatedAt      = DateTimeOffset.UtcNow,
+                CreatedAt = DateTimeOffset.UtcNow,
             };
 
             variant.LocalImagePath = _assetPaths.GetCentralAssetPath(
@@ -419,18 +573,29 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             await PersistImageAsync(bytes, variant.LocalImagePath, imageUrl, ct);
             await _assetRepo.UpsertAsync(variant, ct);
             existingVariants.Add(variant);
-            preferredVariant ??= variant;
+
+            if (updatePreferred && preferredVariant is null)
+                preferredVariant = variant;
 
             _logger.LogInformation(
                 "[IMAGE-ENRICH] Downloaded {AssetType} variant for {WorkQid} ({Bytes} bytes)",
-                assetType, workQid, bytes.Length);
+                assetType,
+                workQid,
+                bytes.Length);
         }
 
-        if (preferredVariant is null)
-            preferredVariant = existingVariants
-                .OrderByDescending(asset => asset.IsPreferred)
-                .ThenByDescending(asset => asset.CreatedAt)
-                .FirstOrDefault();
+        if (!updatePreferred)
+        {
+            return existingVariants
+                .FirstOrDefault(asset => asset.IsPreferred)
+                ?.LocalImagePath;
+        }
+
+        preferredVariant ??= existingVariants
+            .OrderByDescending(asset => asset.IsPreferred && asset.IsUserOverride)
+            .ThenByDescending(asset => asset.IsPreferred)
+            .ThenByDescending(asset => asset.CreatedAt)
+            .FirstOrDefault();
 
         if (preferredVariant is null)
             return null;
@@ -438,7 +603,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         await _assetRepo.SetPreferredAsync(preferredVariant.Id, ct);
         await UpsertPreferredArtworkCanonicalAsync(ownerEntityId, assetType, preferredVariant.Id, ct);
         if (_assetExportService is not null)
-            await _assetExportService.ReconcileArtworkAsync(preferredVariant.EntityId, preferredVariant.EntityType, preferredVariant.AssetTypeValue, ct);
+            await _assetExportService.ReconcileArtworkAsync(
+                preferredVariant.EntityId,
+                preferredVariant.EntityType,
+                preferredVariant.AssetTypeValue,
+                ct);
 
         return preferredVariant.LocalImagePath;
     }
@@ -517,10 +686,16 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var canonicalKey = assetType switch
         {
+            AssetType.CoverArt => "cover_url",
             AssetType.Background => "background",
             AssetType.Banner => "banner",
             AssetType.Logo => "logo",
+            AssetType.DiscArt => "disc",
+            AssetType.ClearArt => "clearart",
             AssetType.SquareArt => "square",
+            AssetType.SeasonPoster => "season_poster",
+            AssetType.SeasonThumb => "season_thumb",
+            AssetType.EpisodeStill => "episode_still",
             _ => null,
         };
 
@@ -541,7 +716,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     private static string InferVariantExtension(AssetType assetType, string imageUrl)
     {
-        if (assetType == AssetType.Logo)
+        if (assetType is AssetType.Logo or AssetType.DiscArt or AssetType.ClearArt)
             return ".png";
 
         if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
@@ -806,21 +981,29 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         return lookup;
     }
 
-    private static JsonArray? ResolveImageArray(JsonNode json, string jsonField)
+    private static List<JsonNode> ResolveImageNodes(JsonNode json, IReadOnlyList<string> jsonFields)
     {
-        if (json[jsonField] is JsonArray directArray && directArray.Count > 0)
-            return directArray;
+        var results = new List<JsonNode>();
 
-        if (json["albums"] is not JsonObject albums)
-            return null;
-
-        foreach (var (_, albumNode) in albums)
+        foreach (var jsonField in jsonFields)
         {
-            if (albumNode?[jsonField] is JsonArray nestedArray && nestedArray.Count > 0)
-                return nestedArray;
+            if (json[jsonField] is JsonArray directArray && directArray.Count > 0)
+                results.AddRange(directArray.Where(node => node is not null).Select(node => node!));
         }
 
-        return null;
+        if (json["albums"] is JsonObject albums)
+        {
+            foreach (var (_, albumNode) in albums)
+            {
+                foreach (var jsonField in jsonFields)
+                {
+                    if (albumNode?[jsonField] is JsonArray nestedArray && nestedArray.Count > 0)
+                        results.AddRange(nestedArray.Where(node => node is not null).Select(node => node!));
+                }
+            }
+        }
+
+        return results;
     }
 
     private static int GetLikes(JsonNode? node) =>
@@ -870,7 +1053,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     private static bool IsAllowedArtworkLanguage(JsonNode? imageNode, AssetType assetType)
     {
-        if (assetType is not (AssetType.Logo or AssetType.Banner or AssetType.SquareArt))
+        if (assetType is not (AssetType.Logo or AssetType.Banner or AssetType.SquareArt or AssetType.ClearArt))
             return true;
 
         return IsPreferredArtworkLanguage(imageNode?["lang"]?.GetValue<string>());
@@ -888,6 +1071,18 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             return 2;
 
         return IsPreferredArtworkLanguage(language) ? 1 : 0;
+    }
+
+    private static bool TryGetOrdinal(JsonNode? imageNode, out int ordinal, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            if (TryGetInt(imageNode?[key], out ordinal))
+                return true;
+        }
+
+        ordinal = 0;
+        return false;
     }
 
     private sealed record ImageWorkContext(Guid AssetId, Guid CanonicalEntityId, string? MediaFilePath, string? ArtworkFolderPath);

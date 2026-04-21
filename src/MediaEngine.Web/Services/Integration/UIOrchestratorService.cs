@@ -523,15 +523,6 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     // ── Provider slots ──────────────────────────────────────────────────────
 
-    /// <summary>Returns provider slot assignments per media type.</summary>
-    public Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(CancellationToken ct = default)
-        => _api.GetProviderSlotsAsync(ct);
-
-    /// <summary>Saves provider slot assignments. Returns true on success.</summary>
-    public Task<bool> UpdateProviderSlotsAsync(
-        Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default)
-        => _api.UpdateProviderSlotsAsync(slots, ct);
-
     // ── Pipelines ───────────────────────────────────────────────────────────
 
     public Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default)

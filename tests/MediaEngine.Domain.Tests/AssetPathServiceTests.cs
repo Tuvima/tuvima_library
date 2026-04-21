@@ -34,6 +34,34 @@ public sealed class AssetPathServiceTests
     }
 
     [Fact]
+    public void DiscAndClearArtPaths_UseDedicatedArtworkNames()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "tuvima-domain-tests");
+        var service = new AssetPathService(root);
+        var ownerId = Guid.Parse("77777777-7777-7777-7777-777777777777");
+        var variantId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+        var mediaPath = Path.Combine("C:\\media", "Movies", "Arrival (2016)", "Arrival (2016).mkv");
+
+        var discCentralPath = service.GetCentralAssetPath("Work", ownerId, "DiscArt", variantId, ".png");
+        var clearCentralPath = service.GetCentralAssetPath("Work", ownerId, "ClearArt", variantId, ".png");
+        var discSidecarPath = service.GetLocalSidecarPath(mediaPath, "DiscArt", ".png");
+        var clearSidecarPath = service.GetLocalSidecarPath(mediaPath, "ClearArt", ".png");
+
+        Assert.Equal(
+            Path.Combine(root, ".data", "assets", "artwork", "work", ownerId.ToString("D"), "discart", $"{variantId:N}.png"),
+            discCentralPath);
+        Assert.Equal(
+            Path.Combine(root, ".data", "assets", "artwork", "work", ownerId.ToString("D"), "clearart", $"{variantId:N}.png"),
+            clearCentralPath);
+        Assert.Equal(
+            Path.Combine("C:\\media", "Movies", "Arrival (2016)", "discart.png"),
+            discSidecarPath);
+        Assert.Equal(
+            Path.Combine("C:\\media", "Movies", "Arrival (2016)", "clearart.png"),
+            clearSidecarPath);
+    }
+
+    [Fact]
     public void DerivedHeroPath_UsesCentralDerivedFolder()
     {
         var root = Path.Combine(Path.GetTempPath(), "tuvima-domain-tests");

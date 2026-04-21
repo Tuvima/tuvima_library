@@ -99,6 +99,14 @@ public sealed class ImagePathService
     public string GetWorkLogoPath(string? wikidataQid, Guid assetId) =>
         Path.Combine(GetWorkImageDir(wikidataQid, assetId), "logo.png");
 
+    /// <summary>Gets discart.png path for a work (transparent PNG).</summary>
+    public string GetWorkDiscArtPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "discart.png");
+
+    /// <summary>Gets clearart.png path for a work (transparent PNG).</summary>
+    public string GetWorkClearArtPath(string? wikidataQid, Guid assetId) =>
+        Path.Combine(GetWorkImageDir(wikidataQid, assetId), "clearart.png");
+
     /// <summary>Gets banner.jpg path for a work.</summary>
     public string GetWorkBannerPath(string? wikidataQid, Guid assetId) =>
         Path.Combine(GetWorkImageDir(wikidataQid, assetId), "banner.jpg");
@@ -114,6 +122,8 @@ public sealed class ImagePathService
             "banner" => "banner",
             "squareart" => "square",
             "logo" => "logo",
+            "discart" => "discart",
+            "clearart" => "clearart",
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
         };
 
@@ -346,6 +356,18 @@ public sealed class ImagePathService
         => BuildSiblingPath(mediaFilePath, "logo", ".png");
 
     /// <summary>
+    /// Returns the canonical disc-art path next to the media file (PNG for transparency).
+    /// </summary>
+    public static string GetMediaFileDiscArtPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "discart", ".png");
+
+    /// <summary>
+    /// Returns the canonical clear-art path next to the media file (PNG for transparency).
+    /// </summary>
+    public static string GetMediaFileClearArtPath(string mediaFilePath)
+        => BuildSiblingPath(mediaFilePath, "clearart", ".png");
+
+    /// <summary>
     /// Returns the canonical square-art path next to the media file.
     /// </summary>
     public static string GetMediaFileSquareArtPath(string mediaFilePath)
@@ -388,6 +410,8 @@ public sealed class ImagePathService
             "Banner" => "banner",
             "SquareArt" => "square",
             "Logo" => "logo",
+            "DiscArt" => "discart",
+            "ClearArt" => "clearart",
             "EpisodeStill" => "thumb",
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
         };
@@ -423,6 +447,8 @@ public sealed class ImagePathService
             "Banner" => "banner",
             "SquareArt" => "square",
             "Logo" => "logo",
+            "DiscArt" => "discart",
+            "ClearArt" => "clearart",
             "SeasonPoster" => "poster",
             "SeasonThumb" => "thumb",
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported folder artwork type."),

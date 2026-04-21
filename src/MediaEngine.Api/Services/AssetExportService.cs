@@ -260,16 +260,18 @@ public sealed class AssetExportService : IAssetExportService
     {
         if (_assetPaths.Policy.Mode == StorageMode.CoLocated)
         {
-            return assetType is "CoverArt" or "Background" or "Banner" or "Logo" or "SquareArt" or "SeasonPoster" or "SeasonThumb" or "EpisodeStill";
+            return assetType is
+                "CoverArt" or "Background" or "Banner" or "Logo" or "DiscArt" or "ClearArt" or "SquareArt" or "SeasonPoster" or "SeasonThumb" or "EpisodeStill";
         }
 
-        return assetType is "CoverArt" or "Background" or "Banner" or "Logo" or "SeasonPoster" or "SeasonThumb";
+        return assetType is
+            "CoverArt" or "Background" or "Banner" or "Logo" or "DiscArt" or "ClearArt" or "SeasonPoster" or "SeasonThumb";
     }
 
     private static string ResolvePreferredExtension(string assetType) =>
         assetType switch
         {
-            "Logo" => ".png",
+            "Logo" or "DiscArt" or "ClearArt" => ".png",
             _ => ".jpg",
         };
 

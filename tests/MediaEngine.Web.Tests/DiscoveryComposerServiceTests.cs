@@ -238,7 +238,7 @@ public sealed class DiscoveryComposerServiceTests
 
         Assert.Equal("Continue with your library", page.Hero?.Eyebrow);
         Assert.Equal("Funny AF with Kevin Hart", page.Hero?.Title);
-        Assert.Equal("/art/show-background.jpg", page.Hero?.BackgroundImageUrl);
+        Assert.Equal("/art/episode-hero-2.jpg", page.Hero?.BackgroundImageUrl);
         Assert.Equal("/art/show-logo.png", page.Hero?.LogoUrl);
         Assert.Equal("Continue watching", page.Hero?.PrimaryActionLabel);
         Assert.Equal($"/watch/tv/show/{tvCollectionId}/episode/{latestEpisodeId}", page.Hero?.PrimaryNavigationUrl);

@@ -254,14 +254,6 @@ public interface IEngineApiClient
     /// <summary>POST /metadata/{entityId}/reclassify — reclassify a media asset to a different media type.</summary>
     Task<bool> ReclassifyMediaTypeAsync(Guid entityId, string mediaType, CancellationToken ct = default);
 
-    // ── Provider slots (/settings/provider-slots) ──────────────────────────
-
-    /// <summary>GET /settings/provider-slots — current Primary/Secondary/Tertiary slots per media type.</summary>
-    Task<Dictionary<string, ProviderSlotDto>?> GetProviderSlotsAsync(CancellationToken ct = default);
-
-    /// <summary>PUT /settings/provider-slots — save slot assignments for all media types.</summary>
-    Task<bool> UpdateProviderSlotsAsync(Dictionary<string, ProviderSlotDto> slots, CancellationToken ct = default);
-
     // ── Pipelines (/settings/pipelines) ─────────────────────────────────────
 
     /// <summary>GET /settings/pipelines — pipeline configuration per media type.</summary>

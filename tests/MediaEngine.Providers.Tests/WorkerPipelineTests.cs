@@ -1397,6 +1397,91 @@ public sealed class WorkerPipelineTests
     }
 
     [Fact]
+    public async Task WikidataBridgeWorker_NoReconAdapter_EmitsBatchProgressOnce()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var batchId = Guid.NewGuid();
+        var dbPath = Path.Combine(Path.GetTempPath(), $"bridge-progress-{Guid.NewGuid():N}.db");
+
+        try
+        {
+            var jobRepo = new StubIdentityJobRepository();
+            await jobRepo.CreateAsync(new IdentityJob
+            {
+                Id = jobId,
+                EntityId = entityId,
+                EntityType = "MediaAsset",
+                MediaType = "Books",
+                State = IdentityJobState.RetailMatched.ToString(),
+                IngestionRunId = batchId,
+            });
+
+            var wikidataCandidateRepo = new StubWikidataCandidateRepository();
+            var configLoader = new StubConfigurationLoader();
+            var canonicalRepo = new StubCanonicalValueRepository();
+            var claimRepo = new StubMetadataClaimRepository();
+            var bridgeIdRepo = new StubBridgeIdRepository();
+            var scoringEngine = new StubScoringEngine();
+            var outcomeFactory = CreateStubStageOutcomeFactory();
+            var timeline = CreateStubTimelineRecorder();
+            var bridgeIdHelper = new BridgeIdHelper(configLoader);
+            var batchRepo = new RecordingIngestionBatchRepository(new IngestionBatch
+            {
+                Id = batchId,
+                FilesTotal = 1,
+                StartedAt = DateTimeOffset.UtcNow,
+                Status = "running",
+            });
+            var eventPublisher = new RecordingEventPublisher();
+            using var db = new DatabaseConnection(dbPath);
+            db.InitializeSchema();
+            db.RunStartupChecks();
+            var batchProgress = new BatchProgressService(
+                batchRepo,
+                db,
+                eventPublisher,
+                NullLogger<BatchProgressService>.Instance);
+
+            var plainProvider = new StubExternalMetadataProvider
+            {
+                Name = "stub_provider",
+                ProviderId = Guid.NewGuid(),
+                Claims = [],
+            };
+
+            var worker = new WikidataBridgeWorker(
+                jobRepo,
+                wikidataCandidateRepo,
+                outcomeFactory,
+                timeline,
+                bridgeIdHelper,
+                new IExternalMetadataProvider[] { plainProvider },
+                bridgeIdRepo,
+                claimRepo,
+                canonicalRepo,
+                scoringEngine,
+                configLoader,
+                new StubWorkRepository(),
+                new WorkClaimRouter(),
+                new CatalogUpsertService(new StubWorkRepository()),
+                batchRepo,
+                null!,
+                CoverArtWorkerTestFactory.Create(canonicalRepo, new StubWorkRepository()),
+                NullLogger<WikidataBridgeWorker>.Instance,
+                batchProgress);
+
+            await worker.PollAsync(CancellationToken.None);
+
+            Assert.Equal(1, eventPublisher.CountFor(SignalREvents.BatchProgress));
+        }
+        finally
+        {
+            try { File.Delete(dbPath); } catch { }
+        }
+    }
+
+    [Fact]
     public void WikidataBridgeWorker_ComicLookupHints_PrefixSeriesAndFallbackWriter()
     {
         var entityId = Guid.NewGuid();
@@ -2127,6 +2212,57 @@ public sealed class WorkerPipelineTests
     }
 
     // ── NoOpCollectionRepository ─────────────────────────────────────────────────
+
+    private sealed class RecordingIngestionBatchRepository : IIngestionBatchRepository
+    {
+        private readonly IngestionBatch _batch;
+
+        public RecordingIngestionBatchRepository(IngestionBatch batch)
+            => _batch = batch;
+
+        public Task CreateAsync(IngestionBatch batch, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task UpdateCountsAsync(Guid id, int filesTotal, int filesProcessed, int filesIdentified, int filesReview, int filesNoMatch, int filesFailed, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task CompleteAsync(Guid id, string status, CancellationToken ct = default)
+        {
+            _batch.Status = status;
+            _batch.CompletedAt = DateTimeOffset.UtcNow;
+            return Task.CompletedTask;
+        }
+
+        public Task IncrementCounterAsync(Guid id, BatchCounterColumn column, CancellationToken ct = default)
+            => Task.CompletedTask;
+
+        public Task<IngestionBatch?> GetByIdAsync(Guid id, CancellationToken ct = default)
+            => Task.FromResult(id == _batch.Id ? _batch : null);
+
+        public Task<IReadOnlyList<IngestionBatch>> GetRecentAsync(int limit = 20, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<IngestionBatch>>([_batch]);
+
+        public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default)
+            => Task.FromResult(0);
+
+        public Task<int> AbandonRunningAsync(CancellationToken ct = default)
+            => Task.FromResult(0);
+    }
+
+    private sealed class RecordingEventPublisher : IEventPublisher
+    {
+        private readonly Dictionary<string, int> _counts = new(StringComparer.OrdinalIgnoreCase);
+
+        public Task PublishAsync<TPayload>(string eventName, TPayload payload, CancellationToken ct = default)
+            where TPayload : notnull
+        {
+            _counts[eventName] = CountFor(eventName) + 1;
+            return Task.CompletedTask;
+        }
+
+        public int CountFor(string eventName)
+            => _counts.TryGetValue(eventName, out var count) ? count : 0;
+    }
 
     private sealed class NoOpCollectionRepository : ICollectionRepository
     {
