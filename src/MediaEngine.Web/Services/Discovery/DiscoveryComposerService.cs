@@ -502,6 +502,101 @@ public sealed class DiscoveryComposerService
         };
     }
 
+    public DiscoveryPageViewModel ComposeMusicHome(
+        IReadOnlyList<WorkViewModel> musicWorks,
+        IReadOnlyList<JourneyItemViewModel> musicJourney,
+        IReadOnlyList<ContentGroupViewModel> albumGroups,
+        IReadOnlyList<ContentGroupViewModel> artistGroups,
+        IReadOnlyCollection<Guid>? favoriteWorkIds = null)
+    {
+        var orderedWorks = musicWorks
+            .OrderByDescending(GetSortTimestamp)
+            .ThenByDescending(work => ParseYear(work.Year))
+            .ToList();
+
+        var orderedJourney = musicJourney
+            .Where(item => GetBucket(item.MediaType) == DiscoveryBucket.Music)
+            .OrderByDescending(item => item.LastAccessed)
+            .ToList();
+
+        var orderedAlbums = albumGroups
+            .OrderByDescending(group => group.CreatedAt)
+            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var orderedArtists = artistGroups
+            .OrderByDescending(group => group.WorkCount)
+            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var progressLookup = BuildProgressLookup(orderedJourney);
+        var favoriteSet = favoriteWorkIds?.ToHashSet() ?? [];
+        var shelves = new List<DiscoveryShelfViewModel>();
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Recently Played",
+            subtitle: "Pick up albums and tracks from your latest listening sessions",
+            seeAllRoute: ListenNavigation.SongsRoute,
+            items: orderedJourney.Select(ToJourneyCard));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Favorite Songs",
+            subtitle: "Tracks you marked as favorites",
+            seeAllRoute: "/listen/music/playlists/system/favorite-songs",
+            items: orderedWorks
+                .Where(work => favoriteSet.Contains(work.Id))
+                .Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Recently Added",
+            subtitle: "Fresh arrivals from your music library",
+            seeAllRoute: "/listen/music/playlists/system/recently-added",
+            items: orderedWorks.Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Albums",
+            subtitle: "Album-first browsing with cover art at the center",
+            seeAllRoute: ListenNavigation.AlbumsRoute,
+            items: orderedAlbums.Select(CreateAlbumGroupCard));
+
+        AddHomeCollectionShelf(
+            shelves,
+            title: "Artists",
+            subtitle: "Artist-led listening built from your library",
+            seeAllRoute: ListenNavigation.ArtistsRoute,
+            items: orderedArtists.Select(group => ToSystemViewCard(
+                group,
+                groupType: "artist",
+                groupField: "artist",
+                routeBase: "/listen",
+                routeTab: "music",
+                presentation: DiscoveryCardPresentation.Artist,
+                shape: DiscoveryCardShape.Square)));
+
+        return new DiscoveryPageViewModel
+        {
+            Key = "listen-music",
+            AccentColor = "#1ED760",
+            Hero = BuildHero(
+                journey: orderedJourney,
+                works: orderedWorks,
+                groups: orderedAlbums,
+                groupPreviewImages: null,
+                accentColor: "#1ED760",
+                journeyEyebrow: "Recently played",
+                workEyebrow: "New music in your library",
+                groupEyebrow: "Featured album"),
+            Shelves = shelves,
+            Catalog = orderedWorks.Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id))).ToList(),
+            EmptyTitle = "No music is ready yet",
+            EmptySubtitle = "Music will appear here once the library has tracks and albums to browse.",
+        };
+    }
+
     private static IReadOnlyList<DiscoveryShelfViewModel> BuildAffinityShelves(
         IReadOnlyList<DiscoveryCardViewModel> readItems,
         IReadOnlyList<DiscoveryCardViewModel> watchItems,

@@ -208,6 +208,7 @@ public static class MediaEditorSchemaCatalog
         Add(values, "track_number", FindCanonicalValue(canonicals, "track_number"));
         Add(values, "disc_number", FindCanonicalValue(canonicals, "disc_number"));
         Add(values, "duration", FindCanonicalValue(canonicals, "duration"));
+        Add(values, "lyrics", FindCanonicalValue(canonicals, "lyrics"));
         Add(values, "show_name", FindCanonicalValue(canonicals, "show_name"));
         Add(values, "season_number", FindCanonicalValue(canonicals, "season_number"));
         Add(values, "episode_number", FindCanonicalValue(canonicals, "episode_number"));
@@ -266,6 +267,7 @@ public static class MediaEditorSchemaCatalog
                 Field("duration", "Duration")),
             Group("music_options", "Options", "options",
                 Field("description", "Description", "textarea"),
+                Field("lyrics", "Lyrics", "textarea", batch: false),
                 Field("language", "Language"),
                 Field("rating", "Rating"),
                 Field("comment", "Comment", "textarea")),

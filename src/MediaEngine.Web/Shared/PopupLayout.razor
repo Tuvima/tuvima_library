@@ -1,0 +1,19 @@
+@namespace MediaEngine.Web.Shared
+@inherits LayoutComponentBase
+@inject ThemeService ThemeService
+
+<MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="popup-layout-shell">
+    @Body
+</div>
+
+<style>
+    .popup-layout-shell {
+        min-height: 100vh;
+        background: #121317;
+    }
+</style>

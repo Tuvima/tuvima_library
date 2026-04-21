@@ -1,5 +1,7 @@
 @namespace MediaEngine.Web.Components.Listen
+@using System.Globalization
 @using System.Text.Json
+@using Microsoft.JSInterop
 @using MediaEngine.Web.Services.Playback
 @inject ListenPlaybackService Playback
 @inject IJSRuntime JS
@@ -8,49 +10,148 @@
 @if (Playback.HasQueue && Playback.CurrentItem is not null)
 {
     <div class="listen-player-shell">
-        @if (Playback.IsQueueOpen)
+        @if (Playback.IsPanelOpen)
         {
-            <div class="listen-player-queue-backdrop" @onclick="Playback.CloseQueue"></div>
-            <aside class="listen-player-queue">
-                <div class="listen-player-queue__header">
-                    <div>
-                        <div class="listen-player-queue__eyebrow">Queue</div>
-                        <h3>@(Playback.SourceLabel ?? "Now Playing")</h3>
+            <div class="listen-player-panel-backdrop" @onclick="Playback.ClosePanel"></div>
+            <aside class="listen-player-panel">
+                <div class="listen-player-panel__header">
+                    <div class="listen-player-panel__summary">
+                        <div class="listen-player-panel__thumb">
+                            @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
+                            {
+                                <img src="@Playback.CurrentItem.CoverUrl" alt="@Playback.CurrentItem.Title" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Style="font-size: 18px;" />
+                            }
+                        </div>
+                        <div class="listen-player-panel__copy">
+                            <div class="listen-player-panel__title">@Playback.CurrentItem.Title</div>
+                            <div class="listen-player-panel__subtitle">@PlayerSubtitleFor(Playback.CurrentItem, Playback.SourceLabel)</div>
+                        </div>
                     </div>
-                    <button type="button" class="listen-player-queue__close" @onclick="Playback.CloseQueue">
-                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+                    <div class="listen-player-panel__actions">
+                        <button type="button" class="listen-player-panel__close" @onclick="Playback.ClosePanel">
+                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+                        </button>
+                    </div>
+                </div>
+
+                <div class="listen-player-panel__tabs" role="tablist" aria-label="Queue panel">
+                    <button type="button"
+                            class="listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.Queue ? "is-active" : null)"
+                            @onclick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Queue))">
+                        Playing Next
+                    </button>
+                    <button type="button"
+                            class="listen-player-panel__tab @(Playback.ActiveTab == ListenPlaybackTabs.History ? "is-active" : null)"
+                            @onclick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
+                        History
                     </button>
                 </div>
 
-                <div class="listen-player-queue__list">
-                    @for (var index = 0; index < Playback.Queue.Count; index++)
-                    {
-                        var item = Playback.Queue[index];
-                        <button type="button"
-                                class="listen-player-queue__item @(Playback.CurrentIndex == index ? "is-active" : null)"
-                                @onclick="@(() => PlayFromQueueAsync(index))">
-                            <div class="listen-player-queue__thumb">
-                                @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
-                                {
-                                    <img src="@item.CoverUrl" alt="@item.Title" />
-                                }
-                                else
-                                {
-                                    <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 18px;" />
-                                }
-                            </div>
-                            <div class="listen-player-queue__meta">
-                                <div class="listen-player-queue__title">@item.Title</div>
-                                <div class="listen-player-queue__subtitle">@FirstNonBlank(item.Subtitle, item.Album, item.MediaType)</div>
-                            </div>
-                            <div class="listen-player-queue__duration">@item.Duration</div>
+                @if (Playback.ActiveTab == ListenPlaybackTabs.Queue)
+                {
+                    <div class="listen-player-panel__subheader">
+                        <span>Playing Next</span>
+                        <button type="button" class="listen-player-panel__text-action" @onclick="ClearUpcoming">
+                            Clear
                         </button>
+                    </div>
+
+                    @if (Playback.UpcomingQueue.Count == 0)
+                    {
+                        <div class="listen-player-panel__empty">The queue ends with the current track.</div>
                     }
-                </div>
+                    else
+                    {
+                        <div class="listen-player-panel__list">
+                            @for (var index = Playback.CurrentIndex + 1; index < Playback.Queue.Count; index++)
+                            {
+                                var item = Playback.Queue[index];
+                                <div class="listen-player-panel__item">
+                                    <button type="button" class="listen-player-panel__item-main" @onclick="@(() => PlayFromQueueAsync(index))">
+                                        <div class="listen-player-panel__item-thumb">
+                                            @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                            {
+                                                <img src="@item.CoverUrl" alt="@item.Title" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@FallbackIconFor(item)" Style="font-size: 16px;" />
+                                            }
+                                        </div>
+                                        <div class="listen-player-panel__item-copy">
+                                            <div class="listen-player-panel__item-title">@item.Title</div>
+                                            <div class="listen-player-panel__item-subtitle">@FirstNonBlank(item.Subtitle, item.Album, item.MediaType)</div>
+                                        </div>
+                                        <div class="listen-player-panel__item-duration">@item.Duration</div>
+                                    </button>
+                                    <button type="button"
+                                            class="listen-player-panel__item-remove"
+                                            aria-label="Remove from queue"
+                                            @onclick="@(() => RemoveUpcoming(index))">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="listen-player-panel__subheader">
+                        <span>History</span>
+                    </div>
+
+                    @if (Playback.History.Count == 0)
+                    {
+                        <div class="listen-player-panel__empty">Played tracks will appear here for this session.</div>
+                    }
+                    else
+                    {
+                        <div class="listen-player-panel__list">
+                            @foreach (var item in Playback.History)
+                            {
+                                <button type="button" class="listen-player-panel__item-main" @onclick="@(() => PlayHistoryItemAsync(item))">
+                                    <div class="listen-player-panel__item-thumb">
+                                        @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                        {
+                                            <img src="@item.CoverUrl" alt="@item.Title" />
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@FallbackIconFor(item)" Style="font-size: 16px;" />
+                                        }
+                                    </div>
+                                    <div class="listen-player-panel__item-copy">
+                                        <div class="listen-player-panel__item-title">@item.Title</div>
+                                        <div class="listen-player-panel__item-subtitle">@FirstNonBlank(item.Subtitle, item.Album, FormatHistoryStamp(item.PlayedAt))</div>
+                                    </div>
+                                    <div class="listen-player-panel__item-duration">@item.Duration</div>
+                                </button>
+                            }
+                        </div>
+                    }
+                }
             </aside>
         }
 
         <div class="listen-player">
+            <audio @ref="_audioRef"
+                   @key="Playback.CurrentStreamUrl"
+                   class="listen-player__audio-native"
+                   src="@Playback.CurrentStreamUrl"
+                   autoplay
+                   @onloadedmetadata="HandleAudioMetricsChangedAsync"
+                   @ondurationchange="HandleAudioMetricsChangedAsync"
+                   @ontimeupdate="HandleAudioMetricsChangedAsync"
+                   @onplay="HandleAudioStarted"
+                   @onpause="HandleAudioPaused"
+                   @onended="HandleAudioEndedAsync">
+            </audio>
+
             <div class="listen-player__meta">
                 <div class="listen-player__thumb">
                     @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
@@ -69,44 +170,70 @@
                 </div>
             </div>
 
-            <div class="listen-player__controls">
-                <button type="button" class="listen-player__icon" @onclick="PlayPreviousAsync" disabled="@(Playback.CurrentIndex <= 0)">
-                    <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Style="font-size: 20px;" />
-                </button>
+            <div class="listen-player__transport">
+                <div class="listen-player__transport-buttons">
+                    <button type="button" class="listen-player__icon" @onclick="PlayPreviousAsync" disabled="@(Playback.CurrentIndex <= 0)">
+                        <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Style="font-size: 20px;" />
+                    </button>
+                    <button type="button" class="listen-player__play" @onclick="TogglePlayPauseAsync">
+                        <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Style="font-size: 24px;" />
+                    </button>
+                    <button type="button" class="listen-player__icon" @onclick="PlayNextAsync" disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
+                        <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Style="font-size: 20px;" />
+                    </button>
+                </div>
 
-                @if (!string.IsNullOrWhiteSpace(Playback.CurrentStreamUrl))
-                {
-                    <audio @key="Playback.CurrentStreamUrl"
-                           class="listen-player__audio"
-                           src="@Playback.CurrentStreamUrl"
-                           controls
-                           autoplay
-                           @onended="PlayNextAsync">
-                    </audio>
-                }
-                else
-                {
-                    <div class="listen-player__pending">Resolving stream…</div>
-                }
-
-                <button type="button"
-                        class="listen-player__icon"
-                        @onclick="PlayNextAsync"
-                        disabled="@(Playback.CurrentIndex >= Playback.Queue.Count - 1)">
-                    <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Style="font-size: 20px;" />
-                </button>
+                <div class="listen-player__progress">
+                    <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+                    <input type="range"
+                           min="0"
+                           max="@ProgressMax"
+                           step="1"
+                           value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)"
+                           class="listen-player__progress-slider"
+                           @oninput="SeekAsync" />
+                    <span>@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
+                </div>
             </div>
 
-            <button type="button" class="listen-player__queue-button" @onclick="Playback.ToggleQueue">
-                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
-                <span>@Playback.Queue.Count</span>
-            </button>
+            <div class="listen-player__actions">
+                <button type="button" class="listen-player__icon" @onclick="ToggleMuteAsync">
+                    <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Style="font-size: 18px;" />
+                </button>
+                <input type="range"
+                       min="0"
+                       max="1"
+                       step="0.05"
+                       value="@Playback.Volume"
+                       class="listen-player__volume-slider"
+                       @oninput="SetVolumeAsync" />
+                <button type="button" class="listen-player__icon" @onclick="Playback.TogglePanel">
+                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
+                </button>
+                <button type="button" class="listen-player__icon" @onclick="TogglePopupAsync">
+                    <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Style="font-size: 18px;" />
+                </button>
+                <button type="button" class="listen-player__icon" @onclick="ClosePlayerAsync">
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+                </button>
+            </div>
         </div>
     </div>
 }
 
 @code {
+    private const string PopupRoute = "/listen/player-popup";
+
+    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private ElementReference _audioRef;
+    private DotNetObjectReference<ListenNowPlayingBar>? _selfReference;
     private bool _restored;
+    private string? _lastAppliedStreamUrl;
+    private bool? _lastAppliedPlayingState;
+    private double? _lastAppliedVolume;
+    private bool? _lastAppliedMuteState;
+
+    private double ProgressMax => Playback.DurationSeconds > 0 ? Playback.DurationSeconds : 1;
 
     protected override void OnInitialized()
     {
@@ -115,27 +242,33 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_restored)
+        if (firstRender)
         {
-            return;
-        }
+            _selfReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("listenPlayback.registerCommandHandler", _selfReference);
 
-        _restored = true;
-
-        try
-        {
-            var json = await JS.InvokeAsync<string?>("listenPlayback.getState");
-            if (!string.IsNullOrWhiteSpace(json))
+            try
             {
-                var snapshot = JsonSerializer.Deserialize<ListenPlaybackSnapshot>(json);
-                if (snapshot is not null)
+                var json = await JS.InvokeAsync<string?>("listenPlayback.getState");
+                if (!string.IsNullOrWhiteSpace(json))
                 {
-                    Playback.RestoreState(snapshot);
+                    var snapshot = JsonSerializer.Deserialize<ListenPlaybackSnapshot>(json, _jsonOptions);
+                    if (snapshot is not null)
+                    {
+                        Playback.RestoreState(snapshot);
+                    }
                 }
             }
+            catch
+            {
+            }
+
+            _restored = true;
         }
-        catch
+
+        if (Playback.CurrentItem is not null && !string.IsNullOrWhiteSpace(Playback.CurrentStreamUrl))
         {
+            await SyncAudioAsync();
         }
     }
 
@@ -147,7 +280,14 @@
             {
                 try
                 {
-                    await JS.InvokeVoidAsync("listenPlayback.setState", JsonSerializer.Serialize(Playback.CreateSnapshot()));
+                    if (Playback.HasQueue)
+                    {
+                        await JS.InvokeVoidAsync("listenPlayback.setState", JsonSerializer.Serialize(Playback.CreateSnapshot(), _jsonOptions));
+                    }
+                    else
+                    {
+                        await JS.InvokeVoidAsync("listenPlayback.clearState");
+                    }
                 }
                 catch
                 {
@@ -158,11 +298,210 @@
         });
     }
 
+    private async Task SyncAudioAsync()
+    {
+        if (!string.Equals(_lastAppliedStreamUrl, Playback.CurrentStreamUrl, StringComparison.Ordinal))
+        {
+            _lastAppliedStreamUrl = Playback.CurrentStreamUrl;
+            _lastAppliedPlayingState = null;
+        }
+
+        if (_lastAppliedVolume != Playback.Volume)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.setVolume", _audioRef, Playback.Volume);
+            _lastAppliedVolume = Playback.Volume;
+        }
+
+        if (_lastAppliedMuteState != Playback.IsMuted)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.setMuted", _audioRef, Playback.IsMuted);
+            _lastAppliedMuteState = Playback.IsMuted;
+        }
+
+        if (_lastAppliedPlayingState != Playback.IsPlaying)
+        {
+            if (Playback.IsPlaying)
+            {
+                await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _audioRef);
+            }
+
+            _lastAppliedPlayingState = Playback.IsPlaying;
+        }
+    }
+
+    private async Task HandleAudioMetricsChangedAsync()
+    {
+        var state = await JS.InvokeAsync<AudioMetrics>("listenPlayback.readAudioState", _audioRef);
+        Playback.UpdateTransportState(
+            currentTimeSeconds: state.CurrentTime,
+            durationSeconds: state.Duration,
+            isPlaying: !state.Paused,
+            volume: state.Volume,
+            isMuted: state.Muted);
+    }
+
+    private Task HandleAudioStarted()
+    {
+        Playback.UpdateTransportState(isPlaying: true);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleAudioPaused()
+    {
+        Playback.UpdateTransportState(isPlaying: false);
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleAudioEndedAsync()
+    {
+        await Playback.CompleteCurrentAsync();
+    }
+
+    private async Task TogglePlayPauseAsync()
+    {
+        if (Playback.IsPlaying)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _audioRef);
+            Playback.UpdateTransportState(isPlaying: false);
+        }
+        else
+        {
+            await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
+            Playback.UpdateTransportState(isPlaying: true);
+        }
+    }
+
     private Task PlayFromQueueAsync(int index) => Playback.PlayIndexAsync(index);
 
-    private Task PlayNextAsync() => Playback.SkipNextAsync();
+    private Task PlayHistoryItemAsync(ListenQueueItem item)
+        => Playback.PlayQueueItemAsync(item, item.Album ?? item.Title);
+
+    private async Task PlayNextAsync() => await Playback.SkipNextAsync();
 
     private Task PlayPreviousAsync() => Playback.SkipPreviousAsync();
+
+    private void RemoveUpcoming(int absoluteIndex) => Playback.RemoveUpcomingAt(absoluteIndex);
+
+    private void ClearUpcoming() => Playback.ClearUpcoming();
+
+    private async Task SeekAsync(ChangeEventArgs args)
+    {
+        if (!double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+        {
+            return;
+        }
+
+        await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, seconds);
+        Playback.UpdateTransportState(currentTimeSeconds: seconds);
+    }
+
+    private Task SetVolumeAsync(ChangeEventArgs args)
+    {
+        if (!double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var volume))
+        {
+            return Task.CompletedTask;
+        }
+
+        volume = Math.Clamp(volume, 0d, 1d);
+        Playback.UpdateTransportState(volume: volume, isMuted: volume <= 0 ? true : false);
+        return Task.CompletedTask;
+    }
+
+    private Task ToggleMuteAsync()
+    {
+        Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
+        return Task.CompletedTask;
+    }
+
+    private async Task TogglePopupAsync()
+    {
+        if (Playback.IsPopupOpen)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.closePopup");
+            Playback.SetPopupOpen(false);
+            return;
+        }
+
+        var opened = await JS.InvokeAsync<bool>("listenPlayback.openPopup", PopupRoute);
+        Playback.SetPopupOpen(opened);
+    }
+
+    private async Task ClosePlayerAsync()
+    {
+        await JS.InvokeVoidAsync("listenPlayback.closePopup");
+        await JS.InvokeVoidAsync("listenPlayback.clearState");
+        Playback.ClosePlayer();
+    }
+
+    [JSInvokable]
+    public async Task HandlePlaybackCommand(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return;
+        }
+
+        var command = JsonSerializer.Deserialize<PopupCommand>(json, _jsonOptions);
+        if (command is null)
+        {
+            return;
+        }
+
+        switch (command.Action)
+        {
+            case "toggle-play":
+                await TogglePlayPauseAsync();
+                break;
+            case "play-next":
+                await PlayNextAsync();
+                break;
+            case "play-previous":
+                await PlayPreviousAsync();
+                break;
+            case "toggle-panel":
+                Playback.TogglePanel();
+                break;
+            case "show-queue":
+                Playback.SetActiveTab(ListenPlaybackTabs.Queue);
+                Playback.TogglePanel();
+                break;
+            case "clear-upcoming":
+                Playback.ClearUpcoming();
+                break;
+            case "remove-upcoming" when command.Index.HasValue:
+                Playback.RemoveUpcomingAt(command.Index.Value);
+                break;
+            case "play-index" when command.Index.HasValue:
+                await Playback.PlayIndexAsync(command.Index.Value);
+                break;
+            case "play-history" when command.Item is not null:
+                await Playback.PlayQueueItemAsync(command.Item, command.Item.Album ?? command.Item.Title);
+                break;
+            case "set-tab" when !string.IsNullOrWhiteSpace(command.Tab):
+                Playback.SetActiveTab(command.Tab);
+                break;
+            case "seek" when command.Value.HasValue:
+                await JS.InvokeVoidAsync("listenPlayback.seekAudio", _audioRef, command.Value.Value);
+                Playback.UpdateTransportState(currentTimeSeconds: command.Value.Value);
+                break;
+            case "set-volume" when command.Value.HasValue:
+                Playback.UpdateTransportState(volume: command.Value.Value, isMuted: command.Value.Value <= 0);
+                break;
+            case "toggle-mute":
+                Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
+                break;
+            case "close-player":
+                await ClosePlayerAsync();
+                break;
+            case "popup-closed":
+                Playback.SetPopupOpen(false);
+                break;
+        }
+    }
 
     private static string FallbackIconFor(ListenQueueItem item)
         => IsAudiobook(item) ? Icons.Material.Outlined.Headphones : Icons.Material.Outlined.Album;
@@ -177,6 +516,20 @@
         return FirstNonBlank(item.Subtitle, item.Album, sourceLabel, "Music library");
     }
 
+    private static string FormatHistoryStamp(DateTimeOffset? playedAt)
+        => playedAt.HasValue
+            ? playedAt.Value.LocalDateTime.ToString("M/d h:mm tt", CultureInfo.CurrentCulture)
+            : "Played earlier";
+
+    private static string FormatTimestamp(double seconds)
+    {
+        var safe = Math.Max(0, seconds);
+        var span = TimeSpan.FromSeconds(safe);
+        return span.TotalHours >= 1
+            ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+    }
+
     private static bool IsAudiobook(ListenQueueItem item)
         => item.MediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase)
            || string.Equals(item.MediaType, "M4B", StringComparison.OrdinalIgnoreCase);
@@ -187,14 +540,32 @@
     public void Dispose()
     {
         Playback.OnChanged -= HandlePlaybackChanged;
+        _selfReference?.Dispose();
+    }
+
+    private sealed class AudioMetrics
+    {
+        public double CurrentTime { get; set; }
+        public double Duration { get; set; }
+        public double Volume { get; set; }
+        public bool Muted { get; set; }
+        public bool Paused { get; set; }
+    }
+
+    private sealed class PopupCommand
+    {
+        public string Action { get; set; } = string.Empty;
+        public int? Index { get; set; }
+        public double? Value { get; set; }
+        public string? Tab { get; set; }
+        public ListenQueueItem? Item { get; set; }
     }
 }
 
 <style>
     .listen-player-shell {
         position: fixed;
-        left: 0;
-        right: 0;
+        inset-inline: 0;
         bottom: 0;
         z-index: 1320;
         pointer-events: none;
@@ -203,241 +574,286 @@
     .listen-player {
         pointer-events: auto;
         display: grid;
-        grid-template-columns: minmax(0, 280px) minmax(0, 1fr) auto;
+        grid-template-columns: minmax(0, 300px) minmax(0, 1fr) auto;
+        gap: 20px;
         align-items: center;
-        gap: 18px;
-        padding: 14px 20px;
-        background: rgba(8, 10, 18, 0.94);
+        padding: 14px 18px;
         border-top: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 -22px 40px rgba(0, 0, 0, 0.24);
-        backdrop-filter: blur(22px);
+        background: rgba(9, 11, 18, 0.96);
+        box-shadow: 0 -24px 48px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(20px);
     }
 
-    .listen-player__meta {
+    .listen-player__audio-native {
+        display: none;
+    }
+
+    .listen-player__meta,
+    .listen-player-panel__summary,
+    .listen-player-panel__item-main {
         min-width: 0;
         display: flex;
         align-items: center;
         gap: 12px;
     }
 
-    .listen-player__thumb {
-        width: 52px;
-        height: 52px;
-        border-radius: 12px;
+    .listen-player__thumb,
+    .listen-player-panel__thumb,
+    .listen-player-panel__item-thumb {
+        flex-shrink: 0;
         overflow: hidden;
+        border-radius: 12px;
         background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.7);
         display: flex;
         align-items: center;
         justify-content: center;
-        color: rgba(255, 255, 255, 0.6);
-        flex-shrink: 0;
     }
 
-    .listen-player__thumb img {
+    .listen-player__thumb,
+    .listen-player-panel__thumb {
+        width: 54px;
+        height: 54px;
+    }
+
+    .listen-player-panel__item-thumb {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+    }
+
+    .listen-player__thumb img,
+    .listen-player-panel__thumb img,
+    .listen-player-panel__item-thumb img {
         width: 100%;
         height: 100%;
         object-fit: cover;
     }
 
-    .listen-player__copy {
+    .listen-player__copy,
+    .listen-player-panel__copy,
+    .listen-player-panel__item-copy {
         min-width: 0;
         display: flex;
         flex-direction: column;
         gap: 4px;
     }
 
-    .listen-player__title {
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 0.92rem;
+    .listen-player__title,
+    .listen-player-panel__title,
+    .listen-player-panel__item-title {
+        color: rgba(255, 255, 255, 0.96);
         font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    .listen-player__subtitle {
-        color: rgba(255, 255, 255, 0.56);
-        font-size: 0.8rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .listen-player__subtitle,
+    .listen-player-panel__subtitle,
+    .listen-player-panel__item-subtitle,
+    .listen-player-panel__item-duration {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.82rem;
     }
 
-    .listen-player__controls {
+    .listen-player__transport {
         min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .listen-player__transport-buttons,
+    .listen-player__actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .listen-player__progress {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 10px;
         align-items: center;
-        gap: 12px;
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.8rem;
     }
 
-    .listen-player__audio {
+    .listen-player__progress-slider,
+    .listen-player__volume-slider {
         width: 100%;
-        min-width: 0;
-        filter: saturate(0.82) brightness(0.98);
+        accent-color: #ff476d;
     }
 
-    .listen-player__pending {
-        color: rgba(255, 255, 255, 0.56);
-        font-size: 0.82rem;
-        text-align: center;
+    .listen-player__volume-slider {
+        width: 96px;
     }
 
     .listen-player__icon,
-    .listen-player__queue-button,
-    .listen-player-queue__close {
+    .listen-player__play,
+    .listen-player-panel__close,
+    .listen-player-panel__item-remove,
+    .listen-player-panel__tab,
+    .listen-player-panel__text-action {
+        border: 0;
+        cursor: pointer;
+        transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+    }
+
+    .listen-player__icon,
+    .listen-player-panel__close,
+    .listen-player-panel__item-remove {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.84);
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 6px;
-        min-width: 42px;
-        min-height: 42px;
+    }
+
+    .listen-player__play {
+        width: 44px;
+        height: 44px;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.04);
-        color: rgba(255, 255, 255, 0.76);
-        cursor: pointer;
-        transition: all 0.16s ease;
+        background: linear-gradient(135deg, #ff416c, #ff2746);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    .listen-player__icon:hover:not(:disabled),
-    .listen-player__queue-button:hover,
-    .listen-player-queue__close:hover {
-        color: rgba(255, 255, 255, 0.96);
-        background: rgba(255, 255, 255, 0.08);
+    .listen-player__icon:hover,
+    .listen-player__play:hover,
+    .listen-player-panel__close:hover,
+    .listen-player-panel__item-remove:hover,
+    .listen-player-panel__tab:hover,
+    .listen-player-panel__text-action:hover {
+        transform: translateY(-1px);
     }
 
-    .listen-player__icon:disabled {
-        opacity: 0.32;
-        cursor: default;
-    }
-
-    .listen-player__queue-button {
-        padding: 0 14px;
-        font-size: 0.82rem;
-        font-weight: 800;
-    }
-
-    .listen-player-queue-backdrop {
-        pointer-events: auto;
+    .listen-player-panel-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(3, 6, 12, 0.54);
+        background: rgba(0, 0, 0, 0.34);
+        pointer-events: auto;
     }
 
-    .listen-player-queue {
-        pointer-events: auto;
+    .listen-player-panel {
         position: fixed;
-        right: 18px;
-        bottom: 88px;
-        width: min(420px, calc(100vw - 36px));
-        max-height: min(62vh, 720px);
+        right: 20px;
+        bottom: 96px;
+        width: min(360px, calc(100vw - 24px));
+        max-height: min(70vh, 720px);
+        overflow: hidden;
+        pointer-events: auto;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        background: rgba(16, 18, 25, 0.98);
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.42);
         display: flex;
         flex-direction: column;
-        border-radius: 22px;
-        background: rgba(7, 10, 18, 0.96);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 28px 60px rgba(0, 0, 0, 0.36);
-        overflow: hidden;
     }
 
-    .listen-player-queue__header {
+    .listen-player-panel__header,
+    .listen-player-panel__subheader {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 18px 18px 14px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        padding: 14px 16px 0;
     }
 
-    .listen-player-queue__eyebrow {
-        color: rgba(255, 255, 255, 0.42);
-        font-size: 0.72rem;
-        font-weight: 800;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-    }
-
-    .listen-player-queue__header h3 {
-        margin: 4px 0 0;
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 1.05rem;
-    }
-
-    .listen-player-queue__list {
-        display: flex;
-        flex-direction: column;
-        overflow: auto;
-        padding: 10px;
-    }
-
-    .listen-player-queue__item {
+    .listen-player-panel__tabs {
         display: grid;
-        grid-template-columns: 48px minmax(0, 1fr) auto;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        padding: 14px 16px 0;
+    }
+
+    .listen-player-panel__tab {
+        min-height: 38px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.78);
+        font-weight: 700;
+    }
+
+    .listen-player-panel__tab.is-active {
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+    }
+
+    .listen-player-panel__subheader {
+        padding: 14px 16px 10px;
+        color: rgba(255, 255, 255, 0.78);
+        font-weight: 700;
+    }
+
+    .listen-player-panel__text-action {
+        background: transparent;
+        color: rgba(255, 255, 255, 0.72);
+        font-weight: 700;
+    }
+
+    .listen-player-panel__list {
+        overflow: auto;
+        padding: 0 8px 12px;
+    }
+
+    .listen-player-panel__item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 8px;
         align-items: center;
-        gap: 12px;
-        padding: 10px;
+    }
+
+    .listen-player-panel__item-main {
+        width: 100%;
+        padding: 10px 8px;
+        border-radius: 12px;
         border: 0;
-        border-radius: 16px;
         background: transparent;
         color: inherit;
         text-align: left;
         cursor: pointer;
     }
 
-    .listen-player-queue__item:hover,
-    .listen-player-queue__item.is-active {
-        background: rgba(255, 255, 255, 0.06);
+    .listen-player-panel__item-main:hover {
+        background: rgba(255, 255, 255, 0.05);
     }
 
-    .listen-player-queue__thumb {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        overflow: hidden;
-        background: rgba(255, 255, 255, 0.08);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(255, 255, 255, 0.6);
-    }
-
-    .listen-player-queue__thumb img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .listen-player-queue__meta {
-        min-width: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .listen-player-queue__title {
-        color: rgba(255, 255, 255, 0.94);
-        font-size: 0.88rem;
-        font-weight: 700;
+    .listen-player-panel__item-duration {
+        margin-left: auto;
         white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
     }
 
-    .listen-player-queue__subtitle,
-    .listen-player-queue__duration {
-        color: rgba(255, 255, 255, 0.54);
-        font-size: 0.78rem;
+    .listen-player-panel__empty {
+        padding: 8px 16px 18px;
+        color: rgba(255, 255, 255, 0.52);
+        font-size: 0.88rem;
     }
 
-    @@media (max-width: 860px) {
+    @@media (max-width: 960px) {
         .listen-player {
             grid-template-columns: 1fr;
-            gap: 12px;
+            gap: 14px;
         }
 
-        .listen-player__queue-button {
-            justify-self: flex-end;
+        .listen-player__actions {
+            justify-content: space-between;
+        }
+
+        .listen-player__volume-slider {
+            flex: 1;
+            max-width: 160px;
+        }
+
+        .listen-player-panel {
+            right: 12px;
+            bottom: 168px;
         }
     }
 </style>

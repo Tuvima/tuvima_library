@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Discovery;
+using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Web.Services.Playback;
@@ -12,14 +14,19 @@ namespace MediaEngine.Web.Components.Pages;
 
 public partial class ListenPage
 {
-    private const string DefaultMusicRoute = "/listen/music/albums";
-    private const string ArtistsRoute = "/listen/music/artists";
-    private const string AudiobooksRoute = "/listen/audiobooks";
+    private const string MusicHomeRoute = ListenNavigation.MusicHomeRoute;
+    private const string AlbumsRoute = ListenNavigation.AlbumsRoute;
+    private const string ArtistsRoute = ListenNavigation.ArtistsRoute;
+    private const string SongsRoute = ListenNavigation.SongsRoute;
+    private const string PlaylistsRoute = ListenNavigation.PlaylistsRoute;
+    private const string AudiobooksRoute = ListenNavigation.AudiobooksRoute;
 
     [Inject] private IEngineApiClient ApiClient { get; set; } = default!;
     [Inject] private UIOrchestratorService Orchestrator { get; set; } = default!;
     [Inject] private ListenPlaybackService Playback { get; set; } = default!;
     [Inject] private MediaReactionService Reactions { get; set; } = default!;
+    [Inject] private DiscoveryComposerService Discovery { get; set; } = default!;
+    [Inject] private MediaEditorLauncherService MediaEditorLauncher { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private ISnackbar Snackbar { get; set; } = default!;
@@ -30,9 +37,11 @@ public partial class ListenPage
     [Parameter] public string? PlaylistKey { get; set; }
     [Parameter] public Guid? WorkId { get; set; }
     [SupplyParameterFromQuery(Name = "track")] public Guid? Track { get; set; }
+    [SupplyParameterFromQuery(Name = "edit")] public bool Edit { get; set; }
 
     private readonly List<WorkViewModel> _allWorks = [];
     private readonly List<WorkViewModel> _musicWorks = [];
+    private readonly List<JourneyItemViewModel> _musicJourney = [];
     private readonly List<WorkViewModel> _audiobookWorks = [];
     private readonly List<ContentGroupViewModel> _albumGroups = [];
     private readonly List<ContentGroupViewModel> _artistGroups = [];
@@ -43,6 +52,7 @@ public partial class ListenPage
 
     private CollectionGroupDetailViewModel? _albumDetail;
     private CollectionGroupDetailViewModel? _artistDetail;
+    private DiscoveryPageViewModel _musicHomePage = new() { Key = "listen-music" };
     private Guid? _activeProfileId;
     private HashSet<Guid> _favoriteWorkIds = [];
     private HashSet<Guid> _dislikedWorkIds = [];
@@ -54,20 +64,32 @@ public partial class ListenPage
     private string? _error;
     private string _songSortColumn = "dateAdded";
     private bool _songSortDescending = true;
+    private string _songSearch = string.Empty;
+    private string _songGenreFilter = "all";
+    private string _songFavoriteFilter = "all";
+    private string _albumSearch = string.Empty;
+    private string _albumSort = "recent";
+    private string _albumArtistFilter = "all";
+    private string _albumGenreFilter = "all";
+    private bool _albumFavoriteOnly;
+    private bool _albumArtOnly;
+    private string _artistSearch = string.Empty;
+    private string _artistSort = "name";
     private string? _lastHandledTrackContext;
     private string? _selectedArtistName;
-    private string? _restoredMusicRoute;
     private string? _restoredArtistName;
+    private string? _restoredMode;
     private string? _lastPersistedMode;
-    private string? _lastPersistedMusicRoute;
     private string? _lastPersistedArtistName;
 
     private string CurrentPath => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
-    private string CurrentPathAndQuery => Nav.ToAbsoluteUri(Nav.Uri).PathAndQuery;
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
-    private bool IsDefaultEntry => string.Equals(CurrentPath, "/listen", StringComparison.OrdinalIgnoreCase) || string.Equals(CurrentPath, "/listen/music", StringComparison.OrdinalIgnoreCase);
+    private bool IsDefaultEntry => string.Equals(CurrentPath, "/listen", StringComparison.OrdinalIgnoreCase);
     private bool IsAudiobooksView => string.Equals(CurrentPath, AudiobooksRoute, StringComparison.OrdinalIgnoreCase);
     private bool IsMusicMode => !IsAudiobooksView;
+    private bool IsMusicHome => IsMusicMode
+        && (string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase)
+            || IsDefaultEntry);
     private bool IsAlbumsView => IsMusicMode && !CollectionId.HasValue && string.Equals(NormalizedSection, "albums", StringComparison.OrdinalIgnoreCase);
     private bool IsAlbumDetail => IsMusicMode && CollectionId.HasValue && CurrentPath.StartsWith("/listen/music/albums/", StringComparison.OrdinalIgnoreCase);
     private bool IsSongsView => IsMusicMode && string.Equals(NormalizedSection, "songs", StringComparison.OrdinalIgnoreCase);
@@ -82,20 +104,43 @@ public partial class ListenPage
             ? $"{ActivePlaylistTitle} - Listen"
             : IsArtistsSurface && !string.IsNullOrWhiteSpace(SelectedArtistName)
                 ? $"{SelectedArtistName} - Listen"
+                : IsMusicHome || IsDefaultEntry
+                    ? "Music - Listen"
                 : IsAudiobooksView
                     ? "Audiobooks - Listen"
                     : "Listen - Tuvima";
 
     private IReadOnlyList<WorkViewModel> SortedSongs => SortSongs(_musicWorks);
+    private IReadOnlyList<WorkViewModel> FilteredSongs => ApplySongFilters(SortedSongs);
     private IReadOnlyList<WorkViewModel> RecentlyAddedTracks => _musicWorks.OrderByDescending(work => work.CreatedAt).ToList();
     private IReadOnlyList<WorkViewModel> AlbumTracks => _albumDetail is null ? [] : ResolveGroupWorks(_albumDetail.Works);
     private IReadOnlyList<CollectionGroupSeasonViewModel> ArtistAlbums => _artistDetail?.Seasons ?? [];
     private IReadOnlyList<WorkViewModel> ArtistTracks => ResolveArtistTracks();
     private IReadOnlyList<WorkViewModel> ActivePlaylistTracks => ResolveActivePlaylistTracks();
+    private IReadOnlyList<ContentGroupViewModel> FilteredAlbumGroups => ApplyAlbumFilters();
+    private IReadOnlyList<ContentGroupViewModel> FilteredArtistGroups => ApplyArtistFilters();
     private IReadOnlyList<string> PlaylistCoverUrls => ActivePlaylistTracks.Select(track => track.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Distinct().Cast<string>().Take(4).ToList();
     private IReadOnlyList<ManagedCollectionViewModel> PlaylistCollections => _managedCollections
         .Where(IsUserVisiblePlaylist)
         .OrderBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    private bool HasPlaylistCollections => PlaylistCollections.Count > 0;
+    private IReadOnlyList<ListenPlaylistCard> HomePlaylistCards => PlaylistCollections
+        .Take(6)
+        .Select(ToPlaylistCard)
+        .ToList();
+    private IReadOnlyList<string> SongGenres => _musicWorks
+        .SelectMany(work => work.Genres)
+        .Where(genre => !string.IsNullOrWhiteSpace(genre))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    private IReadOnlyList<string> AlbumArtists => _albumGroups
+        .Select(album => album.Creator)
+        .Where(name => !string.IsNullOrWhiteSpace(name))
+        .Cast<string>()
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
         .ToList();
 
     private ManagedCollectionViewModel? ActivePlaylistCollection => CollectionId.HasValue
@@ -138,16 +183,29 @@ public partial class ListenPage
     [
         new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
         new("Favorite Songs", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder, _favoriteWorkIds.Count.ToString(CultureInfo.InvariantCulture)),
-        new("All Music", "/listen/music/songs", Icons.Material.Outlined.LibraryMusic, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
+        new("All Songs", SongsRoute, Icons.Material.Outlined.LibraryMusic, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
     ];
 
-    private IReadOnlyList<ListenNavItem> MusicLibraryItems =>
-    [
-        new("Albums", "/listen/music/albums", Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Songs", "/listen/music/songs", Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
-        new("Playlists", "/listen/music/playlists", Icons.Material.Outlined.QueueMusic, PlaylistCollections.Count.ToString(CultureInfo.InvariantCulture)),
-    ];
+    private IReadOnlyList<ListenNavItem> MusicLibraryItems
+    {
+        get
+        {
+            var items = new List<ListenNavItem>
+            {
+                new("Home", MusicHomeRoute, Icons.Material.Outlined.Home, null),
+                new("Albums", AlbumsRoute, Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
+                new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
+                new("Songs", SongsRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
+            };
+
+            if (HasPlaylistCollections)
+            {
+                items.Add(new("Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic, PlaylistCollections.Count.ToString(CultureInfo.InvariantCulture)));
+            }
+
+            return items;
+        }
+    }
 
     private IReadOnlyList<ListenNavItem> AudiobookLibraryItems =>
     [
@@ -164,9 +222,13 @@ public partial class ListenPage
         if (firstRender && !_uiStateLoaded)
         {
             await RestoreUiStateAsync();
+            if (IsDefaultEntry)
+            {
+                return;
+            }
         }
 
-        if (_uiStateLoaded && !_loading && !_redirecting)
+        if (_uiStateLoaded && !_loading && !_redirecting && !IsDefaultEntry)
         {
             await PersistUiStateAsync();
         }
@@ -176,13 +238,12 @@ public partial class ListenPage
     {
         get
         {
-            var items = new List<ListenNavItem>
+            var items = new List<ListenNavItem>();
+
+            if (HasPlaylistCollections)
             {
-                new("All Playlists", "/listen/music/playlists", Icons.Material.Outlined.QueueMusic),
-                new("All Music", "/listen/music/playlists/system/all-music", Icons.Material.Outlined.LibraryMusic, null, true),
-                new("Favorite Songs", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder, null, true),
-                new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, null, true),
-            };
+                items.Add(new("All Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic));
+            }
 
             items.AddRange(PlaylistCollections.Select(collection =>
                 new ListenNavItem(
@@ -195,13 +256,6 @@ public partial class ListenPage
             return items;
         }
     }
-
-    private IReadOnlyList<ListenPlaylistCard> SystemPlaylistCards =>
-    [
-        new("All Music", "System Playlist", $"{_musicWorks.Count} tracks", "/listen/music/playlists/system/all-music", "Every song you own in one place."),
-        new("Favorite Songs", "System Playlist", $"{_favoriteWorkIds.Count} liked", "/listen/music/playlists/system/favorite-songs", "Positive reactions from the active profile."),
-        new("Recently Added", "System Playlist", $"{RecentlyAddedTracks.Count} tracks", "/listen/music/playlists/system/recently-added", "Fresh arrivals from your library."),
-    ];
 
     private async Task LoadAsync()
     {
@@ -221,26 +275,20 @@ public partial class ListenPage
             return;
         }
 
-        if (IsDefaultEntry)
-        {
-            _redirecting = true;
-            Nav.NavigateTo(DefaultMusicRoute, replace: true);
-            return;
-        }
-
         try
         {
             var profile = await Orchestrator.GetActiveProfileAsync();
             _activeProfileId = profile?.Id;
 
             var worksTask = Orchestrator.GetLibraryWorksAsync();
+            var journeyTask = Orchestrator.GetJourneyAsync(_activeProfileId, 48);
             var albumGroupsTask = ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album");
             var artistGroupsTask = ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist");
             var collectionsTask = _activeProfileId.HasValue
                 ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
 
-            await Task.WhenAll(worksTask, albumGroupsTask, artistGroupsTask, collectionsTask);
+            await Task.WhenAll(worksTask, journeyTask, albumGroupsTask, artistGroupsTask, collectionsTask);
 
             _allWorks.Clear();
             _allWorks.AddRange(worksTask.Result);
@@ -250,6 +298,9 @@ public partial class ListenPage
 
             _audiobookWorks.Clear();
             _audiobookWorks.AddRange(_allWorks.Where(IsAudiobookWork).OrderBy(work => work.Author).ThenBy(work => work.Series).ThenBy(work => work.Title));
+
+            _musicJourney.Clear();
+            _musicJourney.AddRange(journeyTask.Result.Where(item => IsMusicWork(item.MediaType)));
 
             _workLookup.Clear();
             foreach (var work in _allWorks.GroupBy(work => work.Id).Select(group => group.First()))
@@ -268,6 +319,7 @@ public partial class ListenPage
 
             _favoriteWorkIds = (await Reactions.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
             _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
+            _musicHomePage = Discovery.ComposeMusicHome(_musicWorks, _musicJourney, _albumGroups, _artistGroups, _favoriteWorkIds);
 
             if (IsAlbumDetail && CollectionId.HasValue)
             {
@@ -301,11 +353,19 @@ public partial class ListenPage
 
         try
         {
-            _restoredMusicRoute = await JS.InvokeAsync<string?>("listenUi.getMusicRoute");
+            _restoredMode = await JS.InvokeAsync<string?>("listenUi.getMode");
             _restoredArtistName = await JS.InvokeAsync<string?>("listenUi.getSelectedArtist");
         }
         catch
         {
+        }
+
+        _lastPersistedMode = _restoredMode;
+        _lastPersistedArtistName = _restoredArtistName;
+
+        if (IsDefaultEntry)
+        {
+            Nav.NavigateTo(ResolveConfiguredEntryRoute(), replace: true);
             return;
         }
 
@@ -324,17 +384,6 @@ public partial class ListenPage
             {
                 await JS.InvokeVoidAsync("listenUi.setMode", mode);
                 _lastPersistedMode = mode;
-            }
-
-            if (IsMusicMode)
-            {
-                var musicRoute = CurrentPathAndQuery;
-                if (!string.Equals(_lastPersistedMusicRoute, musicRoute, StringComparison.OrdinalIgnoreCase))
-                {
-                    await JS.InvokeVoidAsync("listenUi.setMusicRoute", musicRoute);
-                    _lastPersistedMusicRoute = musicRoute;
-                    _restoredMusicRoute = musicRoute;
-                }
             }
 
             if (!string.IsNullOrWhiteSpace(_selectedArtistName)
@@ -468,11 +517,8 @@ public partial class ListenPage
         try
         {
             await JS.InvokeVoidAsync("listenUi.setSelectedArtist", artistName);
-            await JS.InvokeVoidAsync("listenUi.setMusicRoute", ArtistsRoute);
             _lastPersistedArtistName = artistName;
             _restoredArtistName = artistName;
-            _lastPersistedMusicRoute = ArtistsRoute;
-            _restoredMusicRoute = ArtistsRoute;
         }
         catch
         {
@@ -487,7 +533,7 @@ public partial class ListenPage
             return;
         }
 
-        var context = $"{CurrentPath}|{Track.Value}";
+        var context = $"{CurrentPath}|{Track.Value}|{Edit}";
         if (string.Equals(_lastHandledTrackContext, context, StringComparison.Ordinal))
         {
             return;
@@ -500,31 +546,11 @@ public partial class ListenPage
             return;
         }
 
-        if (IsAlbumDetail && AlbumTracks.Count > 0)
+        if (Edit)
         {
-            await PlayTracksAsync(AlbumTracks, Track, _albumDetail?.DisplayName ?? requestedTrack.Album ?? requestedTrack.Title);
+            await OpenTrackEditorAsync(requestedTrack, navigateBackToTrackContext: true);
             return;
         }
-
-        if (IsPlaylistSurface && ActivePlaylistTracks.Count > 0)
-        {
-            await PlayTracksAsync(ActivePlaylistTracks, Track, ActivePlaylistTitle);
-            return;
-        }
-
-        if (IsArtistsSurface && ArtistTracks.Count > 0)
-        {
-            await PlayTracksAsync(ArtistTracks, Track, SelectedArtistName);
-            return;
-        }
-
-        if (IsSongsView)
-        {
-            await PlayTracksAsync(SortedSongs, Track, "All Music");
-            return;
-        }
-
-        await Playback.PlayWorkAsync(requestedTrack, requestedTrack.Album ?? requestedTrack.Title);
     }
 
     private void ToggleRail() => _railOpen = !_railOpen;
@@ -533,19 +559,13 @@ public partial class ListenPage
     private void NavigateTo(string route)
     {
         CloseRail();
-        if (IsMusicRoute(route))
-        {
-            _lastPersistedMusicRoute = route;
-            _restoredMusicRoute = route;
-        }
-
         Nav.NavigateTo(route);
     }
 
     private async Task OpenMusicModeAsync()
     {
         await PersistModePreferenceAsync("music");
-        NavigateTo(ResolveMusicModeRoute());
+        NavigateTo(MusicHomeRoute);
     }
 
     private async Task OpenAudiobooksModeAsync()
@@ -553,6 +573,9 @@ public partial class ListenPage
         await PersistModePreferenceAsync("audiobooks");
         NavigateTo(AudiobooksRoute);
     }
+
+    private string ResolveConfiguredEntryRoute()
+        => ListenNavigation.ResolveEntryRoute(_lastPersistedMode ?? _restoredMode, null);
 
     private async Task PersistModePreferenceAsync(string mode)
     {
@@ -571,32 +594,9 @@ public partial class ListenPage
         }
     }
 
-    private string ResolveMusicModeRoute()
-    {
-        if (IsMusicMode)
-        {
-            return CurrentPathAndQuery;
-        }
-
-        if (IsMusicRoute(_restoredMusicRoute))
-        {
-            return _restoredMusicRoute!;
-        }
-
-        if (IsMusicRoute(_lastPersistedMusicRoute))
-        {
-            return _lastPersistedMusicRoute!;
-        }
-
-        return DefaultMusicRoute;
-    }
-
-    private static bool IsMusicRoute(string? route)
-        => !string.IsNullOrWhiteSpace(route)
-           && route.StartsWith("/listen/music", StringComparison.OrdinalIgnoreCase);
-
     private bool IsRouteActive(string route)
-        => string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase)
+        => (IsDefaultEntry && string.Equals(route, MusicHomeRoute, StringComparison.OrdinalIgnoreCase))
+           || string.Equals(CurrentPath, route, StringComparison.OrdinalIgnoreCase)
            || CurrentPath.StartsWith(route + "/", StringComparison.OrdinalIgnoreCase);
 
     private async Task PlaySingleWorkAsync(WorkViewModel work, string sourceLabel)
@@ -626,6 +626,58 @@ public partial class ListenPage
         }
 
         await Playback.ReplaceQueueAsync(works, startIndex, sourceLabel, shuffle);
+    }
+
+    private async Task QueueTrackAsync(WorkViewModel work)
+    {
+        await Playback.AddToQueueAsync(work);
+        Snackbar.Add($"{work.Title} added to the queue", Severity.Success);
+    }
+
+    private async Task EditTrackAsync(WorkViewModel work)
+    {
+        if (work.CollectionId.HasValue)
+        {
+            NavigateTo($"/listen/music/albums/{work.CollectionId.Value}?track={work.Id}&edit=true");
+            return;
+        }
+
+        await OpenTrackEditorAsync(work, navigateBackToTrackContext: false);
+    }
+
+    private async Task OpenTrackEditorAsync(WorkViewModel work, bool navigateBackToTrackContext)
+    {
+        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
+        {
+            EntityIds = [work.Id],
+            LaunchEntityId = work.Id,
+            LaunchEntityKind = "Work",
+            Mode = SharedMediaEditorMode.Normal,
+            MediaType = work.MediaType,
+            HeaderTitle = work.Title,
+            HeaderSubtitle = FirstNonBlank(work.Artist, work.Author, work.Album, work.Series),
+            CoverUrl = work.CoverUrl,
+            PreviewItems =
+            [
+                new MediaEditorPreviewItem
+                {
+                    EntityId = work.Id,
+                    Title = work.Title,
+                    CoverUrl = work.CoverUrl,
+                    MediaType = work.MediaType,
+                }
+            ],
+        });
+
+        if (applied)
+        {
+            await LoadAsync();
+        }
+
+        if (navigateBackToTrackContext && work.CollectionId.HasValue)
+        {
+            Nav.NavigateTo($"/listen/music/albums/{work.CollectionId.Value}?track={work.Id}", replace: true);
+        }
     }
 
     private async Task AddToPlaylistAsync(WorkViewModel work, ManagedCollectionViewModel collection)
@@ -659,6 +711,107 @@ public partial class ListenPage
         await Reactions.SetReactionAsync(work.Id, nextReaction, _activeProfileId);
         await RefreshReactionStateAsync();
     }
+
+    private IReadOnlyList<WorkViewModel> ApplySongFilters(IEnumerable<WorkViewModel> works)
+    {
+        var filtered = works;
+
+        if (!string.IsNullOrWhiteSpace(_songSearch))
+        {
+            filtered = filtered.Where(work =>
+                work.Title.Contains(_songSearch, StringComparison.OrdinalIgnoreCase)
+                || (work.Artist?.Contains(_songSearch, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (work.Album?.Contains(_songSearch, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        if (!string.Equals(_songGenreFilter, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(work => work.Genres.Any(genre => string.Equals(genre, _songGenreFilter, StringComparison.OrdinalIgnoreCase)));
+        }
+
+        if (string.Equals(_songFavoriteFilter, "favorites", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(work => _favoriteWorkIds.Contains(work.Id));
+        }
+        else if (string.Equals(_songFavoriteFilter, "unrated", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(work => !_favoriteWorkIds.Contains(work.Id));
+        }
+
+        return filtered.ToList();
+    }
+
+    private IReadOnlyList<ContentGroupViewModel> ApplyAlbumFilters()
+    {
+        IEnumerable<ContentGroupViewModel> filtered = _albumGroups;
+
+        if (!string.IsNullOrWhiteSpace(_albumSearch))
+        {
+            filtered = filtered.Where(group =>
+                group.DisplayName.Contains(_albumSearch, StringComparison.OrdinalIgnoreCase)
+                || (group.Creator?.Contains(_albumSearch, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        if (!string.Equals(_albumArtistFilter, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(group => string.Equals(group.Creator, _albumArtistFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.Equals(_albumGenreFilter, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(group => AlbumMatchesGenre(group, _albumGenreFilter));
+        }
+
+        if (_albumFavoriteOnly)
+        {
+            filtered = filtered.Where(AlbumHasFavorites);
+        }
+
+        if (_albumArtOnly)
+        {
+            filtered = filtered.Where(group => !string.IsNullOrWhiteSpace(group.CoverUrl));
+        }
+
+        filtered = _albumSort switch
+        {
+            "title" => filtered.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase),
+            "artist" => filtered.OrderBy(group => group.Creator, StringComparer.OrdinalIgnoreCase).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase),
+            "year" => filtered.OrderByDescending(group => ParseYear(group.Year)).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase),
+            _ => filtered.OrderByDescending(group => group.CreatedAt).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase),
+        };
+
+        return filtered.ToList();
+    }
+
+    private IReadOnlyList<ContentGroupViewModel> ApplyArtistFilters()
+    {
+        IEnumerable<ContentGroupViewModel> filtered = _artistGroups;
+
+        if (!string.IsNullOrWhiteSpace(_artistSearch))
+        {
+            filtered = filtered.Where(group => group.DisplayName.Contains(_artistSearch, StringComparison.OrdinalIgnoreCase));
+        }
+
+        filtered = _artistSort switch
+        {
+            "tracks" => filtered.OrderByDescending(group => group.WorkCount).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase),
+            _ => filtered.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase),
+        };
+
+        return filtered.ToList();
+    }
+
+    private bool AlbumMatchesGenre(ContentGroupViewModel album, string genre)
+        => AlbumWorksFor(album).Any(work => work.Genres.Any(item => string.Equals(item, genre, StringComparison.OrdinalIgnoreCase)));
+
+    private bool AlbumHasFavorites(ContentGroupViewModel album)
+        => AlbumWorksFor(album).Any(work => _favoriteWorkIds.Contains(work.Id));
+
+    private IReadOnlyList<WorkViewModel> AlbumWorksFor(ContentGroupViewModel album)
+        => _musicWorks
+            .Where(work => work.CollectionId == album.CollectionId
+                || (!string.IsNullOrWhiteSpace(work.Album) && string.Equals(work.Album, album.DisplayName, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
 
     private async Task RefreshReactionStateAsync()
     {
@@ -782,7 +935,7 @@ public partial class ListenPage
         builder.AddAttribute(seq++, "type", "button");
         builder.AddAttribute(seq++, "class", "listen-card listen-card--album");
         builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => NavigateTo($"/listen/music/albums/{album.CollectionId}")));
-        BuildArtwork(builder, ref seq, "listen-card__art", album.CoverUrl ?? album.ArtistPhotoUrl, album.DisplayName, Icons.Material.Outlined.Album);
+        BuildArtwork(builder, ref seq, "listen-card__art listen-card__art--album", album.CoverUrl ?? album.ArtistPhotoUrl, album.DisplayName, Icons.Material.Outlined.Album);
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "listen-card__title");
         builder.AddContent(seq++, album.DisplayName);
@@ -805,7 +958,7 @@ public partial class ListenPage
             builder.AddAttribute(seq++, "type", "button");
             builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => NavigateTo(route)));
         }
-        BuildArtwork(builder, ref seq, "listen-card__art", album.CoverUrl, album.SeasonLabel ?? $"Album {album.SeasonNumber}", Icons.Material.Outlined.Album);
+        BuildArtwork(builder, ref seq, "listen-card__art listen-card__art--album", album.CoverUrl, album.SeasonLabel ?? $"Album {album.SeasonNumber}", Icons.Material.Outlined.Album);
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "listen-card__title");
         builder.AddContent(seq++, album.SeasonLabel ?? $"Album {album.SeasonNumber}");
@@ -874,7 +1027,7 @@ public partial class ListenPage
         foreach (var track in tracks)
         {
             builder.OpenElement(seq++, "tr");
-            builder.AddAttribute(seq++, "class", $"listen-table__row {(_dislikedWorkIds.Contains(track.Id) ? "is-muted" : null)}");
+            builder.AddAttribute(seq++, "class", $"listen-table__row {(_dislikedWorkIds.Contains(track.Id) ? "is-muted" : null)} {(Track == track.Id ? "is-selected" : null)}");
 
             builder.OpenElement(seq++, "td");
             BuildTrackTitleCell(builder, ref seq, track, sourceLabel, tracks);
@@ -935,7 +1088,7 @@ public partial class ListenPage
         {
             var libraryTrack = _workLookup.GetValueOrDefault(track.WorkId);
             builder.OpenElement(seq++, "tr");
-            builder.AddAttribute(seq++, "class", $"listen-table__row {(libraryTrack is null ? "is-disabled" : null)}");
+            builder.AddAttribute(seq++, "class", $"listen-table__row {(libraryTrack is null ? "is-disabled" : null)} {(Track == track.WorkId ? "is-selected" : null)}");
             BuildSimpleCell(builder, ref seq, track.TrackNumber ?? track.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "-");
 
             builder.OpenElement(seq++, "td");
@@ -999,8 +1152,10 @@ public partial class ListenPage
         builder.AddAttribute(seq++, "class", "listen-row-menu__panel");
         BuildMenuButton(builder, ref seq, "Play now", () => PlayTracksAsync(sourceTracks, track.Id, sourceLabel));
         BuildMenuButton(builder, ref seq, "Play next", () => Playback.InsertNextAsync(track));
+        BuildMenuButton(builder, ref seq, "Add to queue", () => QueueTrackAsync(track));
         BuildMenuButton(builder, ref seq, _favoriteWorkIds.Contains(track.Id) ? "Remove favorite" : "Favorite", () => ToggleFavoriteAsync(track));
         BuildMenuButton(builder, ref seq, _dislikedWorkIds.Contains(track.Id) ? "Clear dislike" : "Dislike", () => ToggleDislikeAsync(track));
+        BuildMenuButton(builder, ref seq, "Edit track", () => EditTrackAsync(track));
 
         foreach (var playlist in PlaylistCollections.Take(8))
         {
@@ -1045,10 +1200,9 @@ public partial class ListenPage
     {
         builder.OpenElement(seq++, "div");
         builder.AddAttribute(seq++, "class", "listen-track-title");
-        BuildArtwork(builder, ref seq, "listen-track-title__thumb", track.CoverUrl, track.Title, Icons.Material.Outlined.MusicNote);
         builder.OpenElement(seq++, "button");
         builder.AddAttribute(seq++, "type", "button");
-        builder.AddAttribute(seq++, "class", "listen-track-link");
+        builder.AddAttribute(seq++, "class", "listen-track-link listen-track-link--primary");
         builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => PlayTracksAsync(tracks, track.Id, sourceLabel)));
         builder.AddContent(seq++, track.Title);
         builder.CloseElement();
@@ -1126,12 +1280,19 @@ public partial class ListenPage
                || string.Equals(mediaType, "Audio", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool IsMusicWork(string? mediaType)
+        => (mediaType ?? string.Empty).Contains("Music", StringComparison.OrdinalIgnoreCase)
+           || string.Equals(mediaType, "Audio", StringComparison.OrdinalIgnoreCase);
+
     private static bool IsAudiobookWork(WorkViewModel work)
         => (work.MediaType ?? string.Empty).Contains("Audiobook", StringComparison.OrdinalIgnoreCase)
            || string.Equals(work.MediaType, "M4B", StringComparison.OrdinalIgnoreCase);
 
     private static int ParseTrackNumber(string? value)
         => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : int.MaxValue;
+
+    private static int ParseYear(string? value)
+        => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
 
     private static int GetDurationSortKey(WorkViewModel work)
     {

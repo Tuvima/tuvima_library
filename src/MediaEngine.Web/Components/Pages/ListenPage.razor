@@ -7,6 +7,7 @@
 @page "/listen/music/playlists/system/{PlaylistKey}"
 @page "/listen/audiobooks"
 @page "/listen/audiobook/{WorkId:guid}"
+@using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
@@ -77,20 +78,23 @@ else
                     }
                 </section>
 
-                <section class="listen-rail__section">
-                    <div class="listen-rail__label">Playlists</div>
-                    @foreach (var item in PlaylistNavItems)
-                    {
-                        <button type="button" class="listen-rail__item @(item.IsChild ? "is-child" : null) @(IsRouteActive(item.Route) ? "is-active" : null)" @onclick="@(() => NavigateTo(item.Route))">
-                            <MudIcon Icon="@item.Icon" Style="font-size: 18px;" />
-                            <span>@item.Label</span>
-                            @if (!string.IsNullOrWhiteSpace(item.Meta))
-                            {
-                                <span class="listen-rail__meta">@item.Meta</span>
-                            }
-                        </button>
-                    }
-                </section>
+                @if (PlaylistNavItems.Count > 0)
+                {
+                    <section class="listen-rail__section">
+                        <div class="listen-rail__label">Playlists</div>
+                        @foreach (var item in PlaylistNavItems)
+                        {
+                            <button type="button" class="listen-rail__item @(item.IsChild ? "is-child" : null) @(IsRouteActive(item.Route) ? "is-active" : null)" @onclick="@(() => NavigateTo(item.Route))">
+                                <MudIcon Icon="@item.Icon" Style="font-size: 18px;" />
+                                <span>@item.Label</span>
+                                @if (!string.IsNullOrWhiteSpace(item.Meta))
+                                {
+                                    <span class="listen-rail__meta">@item.Meta</span>
+                                }
+                            </button>
+                        }
+                    </section>
+                }
             }
             else
             {
@@ -114,9 +118,12 @@ else
         <main class="listen-content">
             <header class="listen-topbar">
                 <div class="listen-topbar__identity">
-                    <button type="button" class="listen-button listen-button--secondary listen-topbar__menu" @onclick="ToggleRail">
+                    <button type="button"
+                            class="listen-button listen-button--secondary listen-topbar__menu"
+                            @onclick="ToggleRail"
+                            aria-label="Open browse menu">
                         <MudIcon Icon="@Icons.Material.Outlined.Menu" Style="font-size: 18px;" />
-                        <span>Library</span>
+                        <span>Browse</span>
                     </button>
                     <div>
                         <div class="listen-kicker">Library</div>
@@ -142,19 +149,89 @@ else
                 </div>
             </header>
 
-            @if (IsAlbumsView)
+            @if (IsMusicHome)
+            {
+                <section class="listen-home">
+                    @if (_musicHomePage.Hero is not null)
+                    {
+                        <div class="listen-home__hero">
+                            <DiscoveryHero Hero="@_musicHomePage.Hero" />
+                        </div>
+                    }
+
+                    <div class="listen-home__content">
+                        @foreach (var shelf in _musicHomePage.Shelves)
+                        {
+                            <DiscoveryShelf Shelf="@shelf" />
+                        }
+
+                        @if (HomePlaylistCards.Count > 0)
+                        {
+                            <section class="listen-section">
+                                <div class="listen-section__header">
+                                    <div>
+                                        <div class="listen-kicker">Playlists</div>
+                                        <h2>Your playlists</h2>
+                                        <p class="listen-section__summary">Saved playlists created from your library.</p>
+                                    </div>
+                                </div>
+
+                                <div class="listen-card-grid">
+                                    @foreach (var playlist in HomePlaylistCards)
+                                    {
+                                        @RenderPlaylistCard(playlist)
+                                    }
+                                </div>
+                            </section>
+                        }
+                    </div>
+                </section>
+            }
+            else if (IsAlbumsView)
             {
                 <section class="listen-section">
                     <div class="listen-section__header">
                         <div>
                             <div class="listen-kicker">Music</div>
                             <h2>Albums</h2>
-                            <p class="listen-section__summary">@Pluralize(_albumGroups.Count, "album") in your library.</p>
+                            <p class="listen-section__summary">@Pluralize(FilteredAlbumGroups.Count, "album") ready to browse.</p>
                         </div>
                         <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(_musicWorks, null, "All Music", true))" disabled="@(_musicWorks.Count == 0)">Shuffle library</button>
                     </div>
 
-                    @if (_albumGroups.Count == 0)
+                    <div class="listen-filter-bar">
+                        <input class="listen-filter-input" @bind="_albumSearch" @bind:event="oninput" placeholder="Search albums or artists" />
+                        <select class="listen-filter-select" @bind="_albumSort">
+                            <option value="recent">Recently added</option>
+                            <option value="title">Title</option>
+                            <option value="artist">Artist</option>
+                            <option value="year">Year</option>
+                        </select>
+                        <select class="listen-filter-select" @bind="_albumArtistFilter">
+                            <option value="all">All artists</option>
+                            @foreach (var artist in AlbumArtists)
+                            {
+                                <option value="@artist">@artist</option>
+                            }
+                        </select>
+                        <select class="listen-filter-select" @bind="_albumGenreFilter">
+                            <option value="all">All genres</option>
+                            @foreach (var genre in SongGenres)
+                            {
+                                <option value="@genre">@genre</option>
+                            }
+                        </select>
+                        <label class="listen-filter-toggle">
+                            <input type="checkbox" @bind="_albumFavoriteOnly" />
+                            <span>Favorites</span>
+                        </label>
+                        <label class="listen-filter-toggle">
+                            <input type="checkbox" @bind="_albumArtOnly" />
+                            <span>With art</span>
+                        </label>
+                    </div>
+
+                    @if (FilteredAlbumGroups.Count == 0)
                     {
                         <div class="listen-empty">
                             <div>
@@ -166,7 +243,7 @@ else
                     else
                     {
                         <div class="listen-card-grid listen-card-grid--albums">
-                            @foreach (var album in _albumGroups)
+                            @foreach (var album in FilteredAlbumGroups)
                             {
                                 @RenderAlbumCard(album)
                             }
@@ -203,6 +280,7 @@ else
                             <p>@_albumDetail.Description</p>
                         }
                         <div class="listen-actions">
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => NavigateTo(AlbumsRoute))">Browse albums</button>
                             <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(AlbumTracks, null, _albumDetail.DisplayName))" disabled="@(AlbumTracks.Count == 0)">Play</button>
                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(AlbumTracks, null, _albumDetail.DisplayName, true))" disabled="@(AlbumTracks.Count == 0)">Shuffle</button>
                             @if (!string.IsNullOrWhiteSpace(_albumDetail.Creator))
@@ -231,12 +309,20 @@ else
                             <div>
                                 <div class="listen-kicker">Music</div>
                                 <h2>Artists</h2>
-                                <p class="listen-section__summary">@Pluralize(_artistGroups.Count, "artist") in your library.</p>
+                                <p class="listen-section__summary">@Pluralize(FilteredArtistGroups.Count, "artist") in your library.</p>
                             </div>
                         </div>
 
+                        <div class="listen-filter-bar listen-filter-bar--compact">
+                            <input class="listen-filter-input" @bind="_artistSearch" @bind:event="oninput" placeholder="Search artists" />
+                            <select class="listen-filter-select" @bind="_artistSort">
+                                <option value="name">Artist name</option>
+                                <option value="tracks">Most tracks</option>
+                            </select>
+                        </div>
+
                         <div class="listen-artists__list-body">
-                            @foreach (var artist in _artistGroups)
+                            @foreach (var artist in FilteredArtistGroups)
                             {
                                 <button type="button"
                                         class="listen-list-item @(string.Equals(artist.DisplayName, SelectedArtistName, StringComparison.OrdinalIgnoreCase) ? "is-active" : null)"
@@ -355,15 +441,31 @@ else
                         <div>
                             <div class="listen-kicker">Music</div>
                             <h2>Songs</h2>
-                            <p class="listen-section__summary">@Pluralize(SortedSongs.Count, "song") in your library.</p>
+                            <p class="listen-section__summary">@Pluralize(FilteredSongs.Count, "song") in your library.</p>
                         </div>
                         <div class="listen-actions">
-                            <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(SortedSongs, null, "All Music"))" disabled="@(SortedSongs.Count == 0)">Play all</button>
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(SortedSongs, null, "All Music", true))" disabled="@(SortedSongs.Count == 0)">Shuffle</button>
+                            <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(FilteredSongs, null, "All Music"))" disabled="@(FilteredSongs.Count == 0)">Play all</button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(FilteredSongs, null, "All Music", true))" disabled="@(FilteredSongs.Count == 0)">Shuffle</button>
                         </div>
                     </div>
 
-                    @if (SortedSongs.Count == 0)
+                    <div class="listen-filter-bar">
+                        <input class="listen-filter-input" @bind="_songSearch" @bind:event="oninput" placeholder="Search songs, artists, or albums" />
+                        <select class="listen-filter-select" @bind="_songGenreFilter">
+                            <option value="all">All genres</option>
+                            @foreach (var genre in SongGenres)
+                            {
+                                <option value="@genre">@genre</option>
+                            }
+                        </select>
+                        <select class="listen-filter-select" @bind="_songFavoriteFilter">
+                            <option value="all">All songs</option>
+                            <option value="favorites">Favorites</option>
+                            <option value="unrated">Non-favorites</option>
+                        </select>
+                    </div>
+
+                    @if (FilteredSongs.Count == 0)
                     {
                         <div class="listen-empty">
                             <div>
@@ -374,7 +476,7 @@ else
                     }
                     else
                     {
-                        @RenderTrackTable(SortedSongs, "All Music", showAlbum: true, showAdded: true, showGenre: true, sortable: true)
+                        @RenderTrackTable(FilteredSongs, "All Music", showAlbum: true, showAdded: true, showGenre: true, sortable: true)
                     }
                 </section>
             }
@@ -385,20 +487,28 @@ else
                         <div>
                             <div class="listen-kicker">Music</div>
                             <h2>Playlists</h2>
-                            <p class="listen-section__summary">System views and saved collections.</p>
+                            <p class="listen-section__summary">Saved playlists created from your library.</p>
                         </div>
                     </div>
 
-                    <div class="listen-card-grid">
-                        @foreach (var playlist in SystemPlaylistCards)
-                        {
-                            @RenderPlaylistCard(playlist)
-                        }
-                        @foreach (var playlist in PlaylistCollections)
-                        {
-                            @RenderPlaylistCard(ToPlaylistCard(playlist))
-                        }
-                    </div>
+                    @if (PlaylistCollections.Count == 0)
+                    {
+                        <div class="listen-empty">
+                            <div>
+                                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 56px; opacity: 0.22;" />
+                                <p>No saved playlists yet. Favorites and recently added stay available from Pins.</p>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="listen-card-grid">
+                            @foreach (var playlist in PlaylistCollections)
+                            {
+                                @RenderPlaylistCard(ToPlaylistCard(playlist))
+                            }
+                        </div>
+                    }
                 </section>
             }
             else if (IsPlaylistSurface)
@@ -434,6 +544,7 @@ else
                             <p>@ActivePlaylistDescription</p>
                         }
                         <div class="listen-actions">
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => NavigateTo(PlaylistsRoute))">All playlists</button>
                             <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(ActivePlaylistTracks, null, ActivePlaylistTitle))" disabled="@(ActivePlaylistTracks.Count == 0)">Play</button>
                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(ActivePlaylistTracks, null, ActivePlaylistTitle, true))" disabled="@(ActivePlaylistTracks.Count == 0)">Shuffle</button>
                         </div>

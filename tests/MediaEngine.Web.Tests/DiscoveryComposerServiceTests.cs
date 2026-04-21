@@ -33,6 +33,79 @@ public sealed class DiscoveryComposerServiceTests
     }
 
     [Fact]
+    public void ComposeMusicHome_CreatesMusicLandingShelves()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var albumId = Guid.Parse("aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa");
+
+        var works = new[]
+        {
+            CreateWork(
+                id: Guid.Parse("bbbbbbbb-1111-1111-1111-bbbbbbbbbbbb"),
+                mediaType: "Music",
+                title: "Static",
+                creator: "Among The Outcasts",
+                year: "2026",
+                collectionId: albumId,
+                canonicalExtras: new Dictionary<string, string>
+                {
+                    ["artist"] = "Among The Outcasts",
+                    ["album"] = "Static On The Line",
+                    ["genre"] = "Rock",
+                })
+        };
+
+        var journey = new[]
+        {
+            CreateJourneyItem(
+                workId: works[0].Id,
+                assetId: Guid.Parse("cccccccc-1111-1111-1111-cccccccccccc"),
+                mediaType: "Music",
+                title: "Static",
+                author: "Among The Outcasts",
+                collectionId: albumId,
+                collectionDisplayName: "Static On The Line",
+                lastAccessed: new DateTimeOffset(2026, 4, 21, 8, 0, 0, TimeSpan.Zero),
+                coverUrl: "/art/static.jpg")
+        };
+
+        var albums = new[]
+        {
+            new ContentGroupViewModel
+            {
+                CollectionId = albumId,
+                DisplayName = "Static On The Line",
+                PrimaryMediaType = "Music",
+                Creator = "Among The Outcasts",
+                CoverUrl = "/art/static.jpg",
+                WorkCount = 1,
+                CreatedAt = new DateTimeOffset(2026, 4, 21, 0, 0, 0, TimeSpan.Zero),
+            }
+        };
+
+        var artists = new[]
+        {
+            new ContentGroupViewModel
+            {
+                CollectionId = Guid.Parse("dddddddd-1111-1111-1111-dddddddddddd"),
+                DisplayName = "Among The Outcasts",
+                PrimaryMediaType = "Music",
+                ArtistPhotoUrl = "/art/artist.jpg",
+                WorkCount = 1,
+                CreatedAt = new DateTimeOffset(2026, 4, 21, 0, 0, 0, TimeSpan.Zero),
+            }
+        };
+
+        var page = service.ComposeMusicHome(works, journey, albums, artists, [works[0].Id]);
+
+        Assert.Equal("listen-music", page.Key);
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Recently Played");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Favorite Songs");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Albums");
+        Assert.Contains(page.Shelves, shelf => shelf.Title == "Artists");
+    }
+
+    [Fact]
     public void ComposeHome_UsesSafeSeparatorsInHeroAndCollectionDescriptions()
     {
         var service = new DiscoveryComposerService(null!);
@@ -261,7 +334,7 @@ public sealed class DiscoveryComposerServiceTests
         Assert.Equal(DiscoveryCardPresentation.Album, continueAlbum.Presentation);
         Assert.Equal(DiscoveryCardShape.Square, continueAlbum.Shape);
         Assert.Equal("Continue album", continueAlbum.PrimaryActionLabel);
-        Assert.Equal($"/collection/{albumCollectionId}", continueAlbum.NavigationUrl);
+        Assert.Equal($"/listen/music/albums/{albumCollectionId}", continueAlbum.NavigationUrl);
 
         var continueMovie = Assert.Single(continueShelf.Items, item => item.Title == "Anaconda");
         Assert.False(continueMovie.IsCollection);
@@ -407,7 +480,7 @@ public sealed class DiscoveryComposerServiceTests
         var artistCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Artists").Items);
         Assert.Equal(DiscoveryCardPresentation.Artist, artistCard.Presentation);
         Assert.Equal("/art/artist.jpg", artistCard.CoverUrl);
-        Assert.Contains("groupField=artist", artistCard.NavigationUrl, StringComparison.Ordinal);
+        Assert.Equal("/listen/music/artists/boygenius", artistCard.NavigationUrl);
     }
 
     private static WorkViewModel CreateWork(

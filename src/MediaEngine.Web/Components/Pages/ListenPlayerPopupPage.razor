@@ -1,0 +1,487 @@
+@page "/listen/player-popup"
+@layout MediaEngine.Web.Shared.PopupLayout
+@using System.Globalization
+@using System.Text.Json
+@using Microsoft.JSInterop
+@using MediaEngine.Web.Services.Playback
+@inject IJSRuntime JS
+@implements IDisposable
+
+<PageTitle>Mini Player</PageTitle>
+
+<div class="listen-popup">
+    @if (CurrentItem is null)
+    {
+        <div class="listen-popup__empty">
+            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px; opacity: 0.34;" />
+            <p>Nothing is playing right now.</p>
+        </div>
+    }
+    else
+    {
+        <div class="listen-popup__header">
+            <div class="listen-popup__thumb">
+                @if (!string.IsNullOrWhiteSpace(CurrentItem.CoverUrl))
+                {
+                    <img src="@CurrentItem.CoverUrl" alt="@CurrentItem.Title" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 18px;" />
+                }
+            </div>
+            <div class="listen-popup__copy">
+                <div class="listen-popup__title">@CurrentItem.Title</div>
+                <div class="listen-popup__subtitle">@FirstNonBlank(CurrentItem.Subtitle, CurrentItem.Album, _snapshot.SourceLabel)</div>
+            </div>
+        </div>
+
+        <div class="listen-popup__tabs">
+            <button type="button"
+                    class="listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.Queue ? "is-active" : null)"
+                    @onclick="@(() => SetTabAsync(ListenPlaybackTabs.Queue))">
+                Playing Next
+            </button>
+            <button type="button"
+                    class="listen-popup__tab @(_snapshot.ActiveTab == ListenPlaybackTabs.History ? "is-active" : null)"
+                    @onclick="@(() => SetTabAsync(ListenPlaybackTabs.History))">
+                History
+            </button>
+        </div>
+
+        @if (_snapshot.ActiveTab == ListenPlaybackTabs.Queue)
+        {
+            <div class="listen-popup__subheader">
+                <span>Playing Next</span>
+                <button type="button" class="listen-popup__text-action" @onclick="ClearUpcomingAsync">Clear</button>
+            </div>
+
+            @if (UpcomingItems.Count == 0)
+            {
+                <div class="listen-popup__empty-state">The queue ends with the current track.</div>
+            }
+            else
+            {
+                <div class="listen-popup__list">
+                    @for (var index = _snapshot.CurrentIndex + 1; index < _snapshot.Queue.Count; index++)
+                    {
+                        var item = _snapshot.Queue[index];
+                        <div class="listen-popup__row">
+                            <button type="button" class="listen-popup__row-main" @onclick="@(() => PlayIndexAsync(index))">
+                                <div class="listen-popup__row-thumb">
+                                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                    {
+                                        <img src="@item.CoverUrl" alt="@item.Title" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 16px;" />
+                                    }
+                                </div>
+                                <div class="listen-popup__row-copy">
+                                    <div class="listen-popup__row-title">@item.Title</div>
+                                    <div class="listen-popup__row-subtitle">@FirstNonBlank(item.Subtitle, item.Album)</div>
+                                </div>
+                                <div class="listen-popup__row-duration">@item.Duration</div>
+                            </button>
+                            <button type="button" class="listen-popup__row-action" @onclick="@(() => RemoveUpcomingAsync(index))">
+                                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 16px;" />
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        }
+        else
+        {
+            <div class="listen-popup__subheader">
+                <span>History</span>
+            </div>
+
+            @if (_snapshot.History.Count == 0)
+            {
+                <div class="listen-popup__empty-state">Played tracks will appear here for this session.</div>
+            }
+            else
+            {
+                <div class="listen-popup__list">
+                    @foreach (var item in _snapshot.History)
+                    {
+                        <button type="button" class="listen-popup__row-main" @onclick="@(() => PlayHistoryAsync(item))">
+                            <div class="listen-popup__row-thumb">
+                                @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                {
+                                    <img src="@item.CoverUrl" alt="@item.Title" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Outlined.MusicNote" Style="font-size: 16px;" />
+                                }
+                            </div>
+                            <div class="listen-popup__row-copy">
+                                <div class="listen-popup__row-title">@item.Title</div>
+                                <div class="listen-popup__row-subtitle">@FirstNonBlank(item.Subtitle, item.Album, FormatHistoryStamp(item.PlayedAt))</div>
+                            </div>
+                            <div class="listen-popup__row-duration">@item.Duration</div>
+                        </button>
+                    }
+                </div>
+            }
+        }
+
+        <div class="listen-popup__progress">
+            <span>@FormatTimestamp(_snapshot.CurrentTimeSeconds)</span>
+            <input type="range"
+                   min="0"
+                   max="@ProgressMax"
+                   step="1"
+                   value="@Math.Min(_snapshot.CurrentTimeSeconds, ProgressMax)"
+                   @oninput="SeekAsync" />
+            <span>@FormatTimestamp(Math.Max(0, _snapshot.DurationSeconds - _snapshot.CurrentTimeSeconds))</span>
+        </div>
+
+        <div class="listen-popup__controls">
+            <button type="button" class="listen-popup__icon" @onclick="ToggleMuteAsync">
+                <MudIcon Icon="@(_snapshot.IsMuted || _snapshot.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Style="font-size: 18px;" />
+            </button>
+            <input type="range"
+                   min="0"
+                   max="1"
+                   step="0.05"
+                   value="@_snapshot.Volume"
+                   class="listen-popup__volume"
+                   @oninput="SetVolumeAsync" />
+            <button type="button" class="listen-popup__icon" @onclick="PlayPreviousAsync">
+                <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Style="font-size: 20px;" />
+            </button>
+            <button type="button" class="listen-popup__play" @onclick="TogglePlayAsync">
+                <MudIcon Icon="@(_snapshot.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" Style="font-size: 22px;" />
+            </button>
+            <button type="button" class="listen-popup__icon" @onclick="PlayNextAsync">
+                <MudIcon Icon="@Icons.Material.Outlined.SkipNext" Style="font-size: 20px;" />
+            </button>
+            <button type="button" class="listen-popup__icon" @onclick="ClosePlayerAsync">
+                <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private ListenPlaybackSnapshot _snapshot = new();
+    private DotNetObjectReference<ListenPlayerPopupPage>? _selfReference;
+
+    private ListenQueueItem? CurrentItem =>
+        _snapshot.CurrentIndex >= 0 && _snapshot.CurrentIndex < _snapshot.Queue.Count
+            ? _snapshot.Queue[_snapshot.CurrentIndex]
+            : null;
+
+    private IReadOnlyList<ListenQueueItem> UpcomingItems =>
+        _snapshot.CurrentIndex < 0 || _snapshot.CurrentIndex >= _snapshot.Queue.Count
+            ? _snapshot.Queue
+            : _snapshot.Queue.Skip(_snapshot.CurrentIndex + 1).ToList();
+
+    private double ProgressMax => _snapshot.DurationSeconds > 0 ? _snapshot.DurationSeconds : 1;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        _selfReference = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("listenPlayback.registerStateHandler", _selfReference);
+        await JS.InvokeVoidAsync("listenPlayback.registerPopupWindow");
+
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("listenPlayback.getState");
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                var snapshot = JsonSerializer.Deserialize<ListenPlaybackSnapshot>(json, _jsonOptions);
+                if (snapshot is not null)
+                {
+                    _snapshot = snapshot;
+                    StateHasChanged();
+                }
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    [JSInvokable]
+    public Task HandlePlaybackState(string json)
+    {
+        _snapshot = string.IsNullOrWhiteSpace(json)
+            ? new ListenPlaybackSnapshot()
+            : JsonSerializer.Deserialize<ListenPlaybackSnapshot>(json, _jsonOptions) ?? new ListenPlaybackSnapshot();
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task SetTabAsync(string tab) => SendCommandAsync(new PopupCommand { Action = "set-tab", Tab = tab });
+    private Task TogglePlayAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-play" });
+    private Task PlayNextAsync() => SendCommandAsync(new PopupCommand { Action = "play-next" });
+    private Task PlayPreviousAsync() => SendCommandAsync(new PopupCommand { Action = "play-previous" });
+    private Task ClearUpcomingAsync() => SendCommandAsync(new PopupCommand { Action = "clear-upcoming" });
+    private Task RemoveUpcomingAsync(int index) => SendCommandAsync(new PopupCommand { Action = "remove-upcoming", Index = index });
+    private Task PlayIndexAsync(int index) => SendCommandAsync(new PopupCommand { Action = "play-index", Index = index });
+    private Task PlayHistoryAsync(ListenQueueItem item) => SendCommandAsync(new PopupCommand { Action = "play-history", Item = item });
+    private Task ToggleMuteAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-mute" });
+    private Task ClosePlayerAsync() => SendCommandAsync(new PopupCommand { Action = "close-player" });
+
+    private async Task SeekAsync(ChangeEventArgs args)
+    {
+        if (double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+        {
+            await SendCommandAsync(new PopupCommand { Action = "seek", Value = seconds });
+        }
+    }
+
+    private async Task SetVolumeAsync(ChangeEventArgs args)
+    {
+        if (double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var volume))
+        {
+            await SendCommandAsync(new PopupCommand { Action = "set-volume", Value = volume });
+        }
+    }
+
+    private Task SendCommandAsync(PopupCommand command)
+        => JS.InvokeVoidAsync("listenPlayback.sendCommand", JsonSerializer.Serialize(command, _jsonOptions)).AsTask();
+
+    private static string FormatTimestamp(double seconds)
+    {
+        var safe = Math.Max(0, seconds);
+        var span = TimeSpan.FromSeconds(safe);
+        return span.TotalHours >= 1
+            ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatHistoryStamp(DateTimeOffset? playedAt)
+        => playedAt.HasValue
+            ? playedAt.Value.LocalDateTime.ToString("M/d h:mm tt", CultureInfo.CurrentCulture)
+            : "Played earlier";
+
+    private static string FirstNonBlank(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
+
+    public void Dispose()
+    {
+        _selfReference?.Dispose();
+    }
+
+    private sealed class PopupCommand
+    {
+        public string Action { get; set; } = string.Empty;
+        public int? Index { get; set; }
+        public double? Value { get; set; }
+        public string? Tab { get; set; }
+        public ListenQueueItem? Item { get; set; }
+    }
+}
+
+<style>
+    .listen-popup {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 14px;
+        background: #1a1b20;
+        color: rgba(255, 255, 255, 0.92);
+    }
+
+    .listen-popup__header,
+    .listen-popup__row-main,
+    .listen-popup__subheader,
+    .listen-popup__controls,
+    .listen-popup__progress {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .listen-popup__thumb,
+    .listen-popup__row-thumb {
+        flex-shrink: 0;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .listen-popup__thumb {
+        width: 62px;
+        height: 62px;
+    }
+
+    .listen-popup__row-thumb {
+        width: 40px;
+        height: 40px;
+    }
+
+    .listen-popup__thumb img,
+    .listen-popup__row-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .listen-popup__copy,
+    .listen-popup__row-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .listen-popup__title,
+    .listen-popup__row-title {
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .listen-popup__subtitle,
+    .listen-popup__row-subtitle,
+    .listen-popup__row-duration,
+    .listen-popup__progress span {
+        color: rgba(255, 255, 255, 0.62);
+        font-size: 0.84rem;
+    }
+
+    .listen-popup__tabs {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .listen-popup__tab,
+    .listen-popup__icon,
+    .listen-popup__play,
+    .listen-popup__row-action,
+    .listen-popup__text-action {
+        border: 0;
+        cursor: pointer;
+        transition: background 0.16s ease, transform 0.16s ease;
+    }
+
+    .listen-popup__tab {
+        min-height: 38px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.78);
+        font-weight: 700;
+    }
+
+    .listen-popup__tab.is-active {
+        background: rgba(0, 0, 0, 0.92);
+        color: white;
+    }
+
+    .listen-popup__subheader {
+        justify-content: space-between;
+        color: rgba(255, 255, 255, 0.76);
+        font-weight: 700;
+    }
+
+    .listen-popup__text-action {
+        background: transparent;
+        color: rgba(255, 255, 255, 0.72);
+        font-weight: 700;
+    }
+
+    .listen-popup__list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-height: 0;
+        max-height: 420px;
+        overflow: auto;
+    }
+
+    .listen-popup__row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px;
+        align-items: center;
+    }
+
+    .listen-popup__row-main {
+        width: 100%;
+        padding: 8px 6px;
+        border-radius: 10px;
+        background: transparent;
+        color: inherit;
+        text-align: left;
+    }
+
+    .listen-popup__row-main:hover,
+    .listen-popup__row-action:hover,
+    .listen-popup__tab:hover,
+    .listen-popup__icon:hover,
+    .listen-popup__play:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .listen-popup__row-duration {
+        margin-left: auto;
+        white-space: nowrap;
+    }
+
+    .listen-popup__row-action,
+    .listen-popup__icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.82);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .listen-popup__play {
+        width: 42px;
+        height: 42px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, #ff416c, #ff2746);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .listen-popup__progress input,
+    .listen-popup__volume {
+        width: 100%;
+        accent-color: #ff476d;
+    }
+
+    .listen-popup__controls {
+        margin-top: auto;
+        justify-content: space-between;
+    }
+
+    .listen-popup__empty,
+    .listen-popup__empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 180px;
+        color: rgba(255, 255, 255, 0.58);
+        text-align: center;
+    }
+</style>

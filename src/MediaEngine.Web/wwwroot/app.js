@@ -236,17 +236,165 @@ window.registrySettings = {
     }
 };
 
-window.listenPlayback = {
-    getState: function () {
-        return localStorage.getItem('listen-playback-state');
-    },
-    setState: function (json) {
-        localStorage.setItem('listen-playback-state', json);
-    },
-    clearState: function () {
-        localStorage.removeItem('listen-playback-state');
+window.listenPlayback = (function () {
+    var stateKey = 'listen-playback-state';
+    var commandKey = 'listen-playback-command';
+    var popupName = 'tuvima-listen-mini-player';
+    var channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('tuvima-listen-playback') : null;
+    var stateHandler = null;
+    var commandHandler = null;
+    var popupWindow = null;
+
+    function notifyState(json) {
+        if (stateHandler && json) {
+            stateHandler.invokeMethodAsync('HandlePlaybackState', json);
+        }
     }
-};
+
+    function notifyCommand(json) {
+        if (commandHandler && json) {
+            commandHandler.invokeMethodAsync('HandlePlaybackCommand', json);
+        }
+    }
+
+    if (channel) {
+        channel.onmessage = function (event) {
+            if (!event || !event.data) return;
+
+            if (event.data.type === 'state') {
+                notifyState(event.data.json);
+            }
+
+            if (event.data.type === 'command') {
+                notifyCommand(event.data.json);
+            }
+        };
+    }
+
+    window.addEventListener('storage', function (event) {
+        if (!event) return;
+
+        if (event.key === stateKey) {
+            notifyState(event.newValue || '');
+        }
+
+        if (event.key === commandKey && event.newValue) {
+            notifyCommand(event.newValue);
+        }
+    });
+
+    return {
+        getState: function () {
+            return localStorage.getItem(stateKey);
+        },
+        setState: function (json) {
+            localStorage.setItem(stateKey, json);
+            if (channel) {
+                channel.postMessage({ type: 'state', json: json });
+            }
+        },
+        clearState: function () {
+            localStorage.removeItem(stateKey);
+            if (channel) {
+                channel.postMessage({ type: 'state', json: '' });
+            }
+        },
+        sendCommand: function (json) {
+            if (!json) return;
+            localStorage.setItem(commandKey, json);
+            if (channel) {
+                channel.postMessage({ type: 'command', json: json });
+            }
+        },
+        registerStateHandler: function (dotNetRef) {
+            stateHandler = dotNetRef;
+        },
+        registerCommandHandler: function (dotNetRef) {
+            commandHandler = dotNetRef;
+        },
+        openPopup: function (url) {
+            popupWindow = window.open(
+                url,
+                popupName,
+                'popup=yes,width=380,height=700,resizable=yes,scrollbars=no'
+            );
+
+            if (popupWindow && typeof popupWindow.focus === 'function') {
+                popupWindow.focus();
+            }
+
+            return !!popupWindow;
+        },
+        closePopup: function () {
+            if (popupWindow && !popupWindow.closed) {
+                popupWindow.close();
+            }
+
+            popupWindow = null;
+        },
+        registerPopupWindow: function () {
+            window.addEventListener('beforeunload', function () {
+                try {
+                    var json = JSON.stringify({ action: 'popup-closed' });
+                    localStorage.setItem(commandKey, json);
+                    if (channel) {
+                        channel.postMessage({ type: 'command', json: json });
+                    }
+                } catch {
+                }
+            });
+        },
+        closeOwnWindow: function () {
+            window.close();
+        },
+        readAudioState: function (element) {
+            if (!element) {
+                return {
+                    currentTime: 0,
+                    duration: 0,
+                    volume: 0.8,
+                    muted: false,
+                    paused: true
+                };
+            }
+
+            return {
+                currentTime: element.currentTime || 0,
+                duration: isFinite(element.duration) ? element.duration : 0,
+                volume: typeof element.volume === 'number' ? element.volume : 0.8,
+                muted: !!element.muted,
+                paused: !!element.paused
+            };
+        },
+        playAudio: async function (element) {
+            if (!element) return false;
+
+            try {
+                await element.play();
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        pauseAudio: function (element) {
+            if (!element) return;
+            element.pause();
+        },
+        seekAudio: function (element, seconds) {
+            if (!element) return;
+            element.currentTime = Math.max(0, seconds || 0);
+        },
+        setVolume: function (element, volume) {
+            if (!element) return;
+            var next = Math.max(0, Math.min(1, volume || 0));
+            element.volume = next;
+        },
+        setMuted: function (element, muted) {
+            if (!element) return;
+            element.muted = !!muted;
+        }
+    };
+})();
 
 window.listenUi = {
     getMode: function () {
