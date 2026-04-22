@@ -142,11 +142,10 @@ else
             <header class="listen-topbar">
                 <div class="listen-topbar__identity">
                     <button type="button"
-                            class="listen-button listen-button--secondary listen-topbar__menu"
+                            class="listen-icon-button listen-topbar__menu"
                             @onclick="ToggleRail"
-                            aria-label="Open browse menu">
+                            aria-label="Open library navigation">
                         <MudIcon Icon="@Icons.Material.Outlined.Menu" Style="font-size: 18px;" />
-                        <span>Browse</span>
                     </button>
                     <div>
                         <div class="listen-kicker">Library</div>
@@ -350,14 +349,14 @@ else
                             <h2>@Pluralize(AlbumTracks.Count, "track")</h2>
                         </div>
                     </div>
-                    @if (HasTrackSelection)
-                    {
-                        <div class="listen-grid-batchbar">
-                            <div class="listen-grid-batchbar__copy">@SelectedTrackCount selected</div>
-                            <div class="listen-grid-batchbar__actions">
-                                <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync">Play</button>
-                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))">Play next</button>
-                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))">Add to queue</button>
+                    <div class="listen-track-toolbar">
+                        <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Select tracks to queue, edit, or add to playlists.")</div>
+                        <div class="listen-track-toolbar__actions">
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))" disabled="@(!HasTrackSelection)">Add to queue</button>
+                            @if (HasTrackSelection)
+                            {
                                 <details class="listen-row-menu">
                                     <summary class="listen-row-menu__summary">Add to playlist</summary>
                                     <div class="listen-row-menu__panel">
@@ -368,11 +367,16 @@ else
                                         }
                                     </div>
                                 </details>
-                                <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync">Edit</button>
-                                <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync">Delete</button>
-                            </div>
+                            }
+                            else
+                            {
+                                <button type="button" class="listen-button listen-button--secondary" disabled="true">Add to playlist</button>
+                            }
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync" disabled="@(!HasTrackSelection)">Edit</button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync" disabled="@(!HasTrackSelection)">Delete</button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => _showSongColumnPicker = true)">Columns</button>
                         </div>
-                    }
+                    </div>
 
                     <LibraryConfigurableTable Columns="@_musicTrackColumns"
                                              VisibleColumnKeys="@_visibleSongColumnKeys"
@@ -384,6 +388,7 @@ else
                                              SortAscending="@SongSortAscending"
                                              OnSortRequested="OnTrackSortRequested"
                                              OnAuthorClicked="OnTrackArtistClicked"
+                                             OnFavoriteToggled="OnTrackFavoriteToggled"
                                              OnRowDoubleClicked="OnTrackRowActivated"
                                              OnRowContextRequested="OnTrackContextRequested"
                                              OnRowDragStarted="OnTrackDragStarted"
@@ -454,7 +459,7 @@ else
                             <div class="listen-empty">
                                 <div>
                                     <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Style="font-size: 56px; opacity: 0.22;" />
-                                    <p>Choose an artist to view albums and tracks.</p>
+                                    <p>Choose an artist to view albums.</p>
                                 </div>
                             </div>
                         }
@@ -500,6 +505,7 @@ else
                                         <div>
                                             <div class="listen-kicker">Albums</div>
                                             <h2>Discography</h2>
+                                            <p class="listen-section__summary">Open an album to view and manage its tracks.</p>
                                         </div>
                                     </div>
                                     <div class="listen-card-grid listen-card-grid--albums">
@@ -556,60 +562,6 @@ else
                                     </div>
                                 </section>
                             }
-
-                            @if (ArtistTracks.Count > 0)
-                            {
-                                <section class="listen-section">
-                                    <div class="listen-section__header">
-                                        <div>
-                                            <div class="listen-kicker">Tracks</div>
-                                            <h2>@Pluralize(ArtistTracks.Count, "track")</h2>
-                                        </div>
-                                    </div>
-                                    @if (HasTrackSelection)
-                                    {
-                                        <div class="listen-grid-batchbar">
-                                            <div class="listen-grid-batchbar__copy">@SelectedTrackCount selected</div>
-                                            <div class="listen-grid-batchbar__actions">
-                                                <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync">Play</button>
-                                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))">Play next</button>
-                                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))">Add to queue</button>
-                                                <details class="listen-row-menu">
-                                                    <summary class="listen-row-menu__summary">Add to playlist</summary>
-                                                    <div class="listen-row-menu__panel">
-                                                        <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync())">Create new playlist</button>
-                                                        @foreach (var playlist in PlaylistCollections)
-                                                        {
-                                                            <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync(playlist.Id))">Add to @playlist.Name</button>
-                                                        }
-                                                    </div>
-                                                </details>
-                                                <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync">Edit</button>
-                                                <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync">Delete</button>
-                                            </div>
-                                        </div>
-                                    }
-
-                                    <LibraryConfigurableTable Columns="@_musicTrackColumns"
-                                                             VisibleColumnKeys="@_visibleSongColumnKeys"
-                                                             Items="@BuildTrackGridItems(ArtistTracks)"
-                                                             Loading="@_loading"
-                                                             SelectedItems="@_selectedTrackIds"
-                                                             SelectedItemsChanged="OnTrackSelectionChanged"
-                                                             ActiveSortKey="@_songSortColumn"
-                                                             SortAscending="@SongSortAscending"
-                                                             OnSortRequested="OnTrackSortRequested"
-                                                             OnAuthorClicked="OnTrackArtistClicked"
-                                                             OnRowDoubleClicked="OnTrackRowActivated"
-                                                             OnRowContextRequested="OnTrackContextRequested"
-                                                             OnRowDragStarted="OnTrackDragStarted"
-                                                             OnRowDragEnded="OnTrackDragEnded"
-                                                             SelectOnRowClick="true"
-                                                             ActivateOnEnter="true"
-                                                             EnableRowContextMenu="true"
-                                                             EnableRowDragging="true" />
-                                </section>
-                            }
                         }
                     </div>
                 </section>
@@ -663,7 +615,6 @@ else
                             <option value="30">Last 30 days</option>
                             <option value="90">Last 90 days</option>
                         </select>
-                        <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => _showSongColumnPicker = true)">Columns</button>
                     </div>
 
                     @if (FilteredSongs.Count == 0)
@@ -677,14 +628,14 @@ else
                     }
                     else
                     {
-                        @if (HasTrackSelection)
-                        {
-                            <div class="listen-grid-batchbar">
-                                <div class="listen-grid-batchbar__copy">@SelectedTrackCount selected</div>
-                                <div class="listen-grid-batchbar__actions">
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync">Play</button>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))">Play next</button>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))">Add to queue</button>
+                        <div class="listen-track-toolbar">
+                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Select tracks to queue, edit, or add to playlists.")</div>
+                            <div class="listen-track-toolbar__actions">
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))" disabled="@(!HasTrackSelection)">Add to queue</button>
+                                @if (HasTrackSelection)
+                                {
                                     <details class="listen-row-menu">
                                         <summary class="listen-row-menu__summary">Add to playlist</summary>
                                         <div class="listen-row-menu__panel">
@@ -695,11 +646,16 @@ else
                                             }
                                         </div>
                                     </details>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync">Edit</button>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync">Delete</button>
-                                </div>
+                                }
+                                else
+                                {
+                                    <button type="button" class="listen-button listen-button--secondary" disabled="true">Add to playlist</button>
+                                }
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync" disabled="@(!HasTrackSelection)">Edit</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync" disabled="@(!HasTrackSelection)">Delete</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => _showSongColumnPicker = true)">Columns</button>
                             </div>
-                        }
+                        </div>
 
                         <LibraryConfigurableTable Columns="@_musicTrackColumns"
                                                  VisibleColumnKeys="@_visibleSongColumnKeys"
@@ -711,6 +667,7 @@ else
                                                  SortAscending="@SongSortAscending"
                                                  OnSortRequested="OnTrackSortRequested"
                                                  OnAuthorClicked="OnTrackArtistClicked"
+                                                 OnFavoriteToggled="OnTrackFavoriteToggled"
                                                  OnRowDoubleClicked="OnTrackRowActivated"
                                                  OnRowContextRequested="OnTrackContextRequested"
                                                  OnRowDragStarted="OnTrackDragStarted"
@@ -817,14 +774,14 @@ else
                     }
                     else
                     {
-                        @if (HasTrackSelection)
-                        {
-                            <div class="listen-grid-batchbar">
-                                <div class="listen-grid-batchbar__copy">@SelectedTrackCount selected</div>
-                                <div class="listen-grid-batchbar__actions">
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync">Play</button>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))">Play next</button>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))">Add to queue</button>
+                        <div class="listen-track-toolbar">
+                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Select tracks to queue, edit, or add to playlists.")</div>
+                            <div class="listen-track-toolbar__actions">
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(false))" disabled="@(!HasTrackSelection)">Add to queue</button>
+                                @if (HasTrackSelection)
+                                {
                                     <details class="listen-row-menu">
                                         <summary class="listen-row-menu__summary">Add to playlist</summary>
                                         <div class="listen-row-menu__panel">
@@ -835,11 +792,16 @@ else
                                             }
                                         </div>
                                     </details>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync">Edit</button>
-                                    <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync">Delete</button>
-                                </div>
+                                }
+                                else
+                                {
+                                    <button type="button" class="listen-button listen-button--secondary" disabled="true">Add to playlist</button>
+                                }
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync" disabled="@(!HasTrackSelection)">Edit</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync" disabled="@(!HasTrackSelection)">Delete</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => _showSongColumnPicker = true)">Columns</button>
                             </div>
-                        }
+                        </div>
 
                         <LibraryConfigurableTable Columns="@_musicTrackColumns"
                                                  VisibleColumnKeys="@_visibleSongColumnKeys"
@@ -851,6 +813,7 @@ else
                                                  SortAscending="@SongSortAscending"
                                                  OnSortRequested="OnTrackSortRequested"
                                                  OnAuthorClicked="OnTrackArtistClicked"
+                                                 OnFavoriteToggled="OnTrackFavoriteToggled"
                                                  OnRowDoubleClicked="OnTrackRowActivated"
                                                  OnRowContextRequested="OnTrackContextRequested"
                                                  OnRowDragStarted="OnTrackDragStarted"
@@ -931,10 +894,10 @@ else
                 <details class="listen-row-menu">
                     <summary class="listen-row-menu__summary">Add to playlist</summary>
                     <div class="listen-row-menu__panel">
-                        <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync())">Create new playlist</button>
+                        <button type="button" class="listen-row-menu__action" @onclick="@(() => AddContextMenuTrackToPlaylistAsync())">Create new playlist</button>
                         @foreach (var playlist in PlaylistCollections)
                         {
-                            <button type="button" class="listen-row-menu__action" @onclick="@(() => AddSelectedTracksToPlaylistAsync(playlist.Id))">Add to @playlist.Name</button>
+                            <button type="button" class="listen-row-menu__action" @onclick="@(() => AddContextMenuTrackToPlaylistAsync(playlist.Id))">Add to @playlist.Name</button>
                         }
                     </div>
                 </details>

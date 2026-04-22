@@ -83,6 +83,7 @@ else
     [Parameter] public EventCallback<string> OnAuthorClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnEditClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnFavoriteToggled { get; set; }
     [Parameter] public bool SelectOnRowClick { get; set; }
     [Parameter] public bool ActivateOnEnter { get; set; }
     [Parameter] public bool EnableRowContextMenu { get; set; }
@@ -153,8 +154,8 @@ else
             foreach (var item in items) updated.Remove(item.EntityId);
         else
             foreach (var item in items) updated.Add(item.EntityId);
-        SelectedItems = updated;
-        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+        SelectedItems = new HashSet<Guid>(updated);
+        await SelectedItemsChanged.InvokeAsync(new HashSet<Guid>(SelectedItems));
     }
 
     private async Task ToggleItem(LibraryItemViewModel item, List<LibraryItemViewModel> contextList, MouseEventArgs e)
@@ -178,8 +179,8 @@ else
             _lastClickedIndex = currentIndex;
         }
 
-        SelectedItems = updated;
-        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+        SelectedItems = new HashSet<Guid>(updated);
+        await SelectedItemsChanged.InvokeAsync(new HashSet<Guid>(SelectedItems));
     }
 
     private async Task ToggleGroupSelection(List<LibraryItemViewModel> groupItems)
@@ -190,8 +191,8 @@ else
             foreach (var item in groupItems) updated.Remove(item.EntityId);
         else
             foreach (var item in groupItems) updated.Add(item.EntityId);
-        SelectedItems = updated;
-        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+        SelectedItems = new HashSet<Guid>(updated);
+        await SelectedItemsChanged.InvokeAsync(new HashSet<Guid>(SelectedItems));
     }
 
     private async Task RequestSort(string sortKey)
@@ -283,8 +284,14 @@ else
             _lastClickedIndex = currentIndex;
         }
 
-        SelectedItems = updated;
-        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+        SelectedItems = new HashSet<Guid>(updated);
+        await SelectedItemsChanged.InvokeAsync(new HashSet<Guid>(SelectedItems));
+    }
+
+    private async Task HandleFavoriteToggleAsync(Guid entityId)
+    {
+        if (OnFavoriteToggled.HasDelegate)
+            await OnFavoriteToggled.InvokeAsync(entityId);
     }
 
     private RenderFragment RenderTable(List<LibraryItemViewModel> items) => __builder =>
@@ -313,9 +320,16 @@ else
                             }
                             else if (col.Sortable && col.SortKey is not null)
                             {
-                                <button class="vmt-sort-header" @onclick:stopPropagation="true"
+                                <button class="vmt-sort-header @(col.RenderType == ColumnRenderType.FavoriteToggle ? "vmt-sort-header--icon" : null)" @onclick:stopPropagation="true"
                                         @onclick="() => RequestSort(col.SortKey!)">
-                                    @col.Label
+                                    @if (col.RenderType == ColumnRenderType.FavoriteToggle)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Outlined.StarBorder" Style="font-size: 14px;" />
+                                    }
+                                    else
+                                    {
+                                        @col.Label
+                                    }
                                     @if (ActiveSortKey == col.SortKey)
                                     {
                                         <MudIcon Icon="@(SortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
@@ -343,7 +357,8 @@ else
                     var isSelected = SelectedItems.Contains(item.EntityId);
                     var isDrillable = IsDrillable?.Invoke(item) == true;
                     var rowInteractive = SelectOnRowClick || OnRowClicked.HasDelegate || OnRowDoubleClicked.HasDelegate;
-                    <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") vmt-row--drillable"
+                    <tr @key="item.EntityId"
+                        class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") vmt-row--drillable"
                         style="cursor: @(rowInteractive ? "pointer" : "default");"
                         tabindex="@(rowInteractive || ActivateOnEnter ? "0" : null)"
                         draggable="@EnableRowDragging"
@@ -365,7 +380,7 @@ else
                             var tdPaddingStyle = col.Key == "media" ? "padding-left: 24px;" : "";
                             var tdPaddingRightStyle = col.Key == "status" ? "padding-right: 24px;" : "";
 
-                            <td class="vmt-td @tdAlignClass" style="@tdPaddingStyle @tdPaddingRightStyle">
+                            <td @key="col.Key" class="vmt-td @tdAlignClass" style="@tdPaddingStyle @tdPaddingRightStyle">
                                 @switch (col.RenderType)
                                 {
                                     case ColumnRenderType.Checkbox:
@@ -513,6 +528,18 @@ else
 
                                     case ColumnRenderType.Text:
                                         <span class="vct-text-cell">@GetDisplayTextValue(item, col.PropertyName)</span>
+                                        break;
+
+                                    case ColumnRenderType.FavoriteToggle:
+                                        <button type="button"
+                                                class="vmt-favorite-button @(item.IsFavorite ? "is-active" : null)"
+                                                title="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"
+                                                aria-label="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"
+                                                @onclick:stopPropagation="true"
+                                                @onclick="() => HandleFavoriteToggleAsync(item.EntityId)">
+                                            <MudIcon Icon="@(item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                                     Style="font-size: 18px;" />
+                                        </button>
                                         break;
 
                                     case ColumnRenderType.ClickableText:
@@ -910,8 +937,7 @@ else
 <style>
     /* â”€â”€ Row selection â”€â”€ */
     .vmt-row--selected {
-        border-left: 3px solid rgba(201, 146, 46, 0.7);
-        background: rgba(201, 146, 46, 0.04);
+        background: rgba(96, 165, 250, 0.08);
     }
 
     /* â”€â”€ Checkbox â”€â”€ */
@@ -940,7 +966,7 @@ else
     .vmt-table-wrap {
         background: rgba(255, 255, 255, 0.01);
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 16px;
+        border-radius: 10px;
         overflow: hidden;
     }
 
@@ -1035,7 +1061,7 @@ else
     }
 
     .vmt-thumb {
-        border-radius: 8px;
+        border-radius: 6px;
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.06);
         background: rgba(255, 255, 255, 0.02);
@@ -1303,6 +1329,34 @@ else
         color: rgba(255, 255, 255, 0.8);
         text-decoration: underline;
         text-decoration-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .vmt-sort-header--icon {
+        min-width: 18px;
+        justify-content: center;
+    }
+
+    .vmt-favorite-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: rgba(255, 255, 255, 0.38);
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .vmt-favorite-button:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.78);
+    }
+
+    .vmt-favorite-button.is-active {
+        color: #ff4f76;
     }
 
     /* â”€â”€ Tablet â”€â”€ */

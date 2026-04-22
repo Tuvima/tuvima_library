@@ -78,6 +78,8 @@ public enum ColumnRenderType
     ClickableText,
     /// <summary>Small standalone cover art thumbnail (32x32, no overlay badge).</summary>
     CoverThumb,
+    /// <summary>Inline favorite toggle icon for music rows.</summary>
+    FavoriteToggle,
     /// <summary>Title text with inline status dot indicator.</summary>
     TitleCell,
 }
@@ -253,7 +255,7 @@ public static class LibraryColumnDefinitions
         new() { Key = "artist",       Label = "Artist",       Width = "16%",   DefaultVisible = true,  Sortable = true, SortKey = "artist",       RenderType = ColumnRenderType.ClickableText, PropertyName = "Artist" },
         new() { Key = "album",        Label = "Album",        Width = "18%",   DefaultVisible = true,  Sortable = true, SortKey = "album",        RenderType = ColumnRenderType.Text,        PropertyName = "Album" },
         new() { Key = "genre",        Label = "Genre",        Width = "12%",   DefaultVisible = true,  Sortable = true, SortKey = "genre",        RenderType = ColumnRenderType.Text,        PropertyName = "Genre" },
-        new() { Key = "favorite",     Label = "Favorite",     Width = "90px",  Align = "center", DefaultVisible = true,  Sortable = true, SortKey = "favorite",     RenderType = ColumnRenderType.Text,        PropertyName = "Favorite" },
+        new() { Key = "favorite",     Label = "Favorite",     Width = "72px",  Align = "center", DefaultVisible = true,  Sortable = true, SortKey = "favorite",     RenderType = ColumnRenderType.FavoriteToggle, PropertyName = "Favorite" },
         new() { Key = "plays",        Label = "Plays",        Width = "84px",  Align = "right",  DefaultVisible = true,  Sortable = true, SortKey = "plays",        RenderType = ColumnRenderType.Text,        PropertyName = "PlayCount" },
         new() { Key = "date_added",   Label = "Date Added",   Width = "168px", DefaultVisible = true,  Sortable = true, SortKey = "dateAdded",    RenderType = ColumnRenderType.Text,        PropertyName = "DateAdded" },
         new() { Key = "album_artist", Label = "Album Artist", Width = "16%",   DefaultVisible = false, Sortable = true, SortKey = "album_artist", RenderType = ColumnRenderType.Text,        PropertyName = "AlbumArtist" },

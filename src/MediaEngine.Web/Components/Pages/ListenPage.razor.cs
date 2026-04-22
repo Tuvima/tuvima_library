@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -922,7 +921,7 @@ public partial class ListenPage
 
     private async Task OnTrackSelectionChanged(HashSet<Guid> selected)
     {
-        _selectedTrackIds = selected;
+        _selectedTrackIds = selected.ToHashSet();
         CloseTrackContextMenu();
         await InvokeAsync(StateHasChanged);
     }
@@ -951,11 +950,17 @@ public partial class ListenPage
         _trackContextMenuX = request.ClientX;
         _trackContextMenuY = request.ClientY;
 
-        if (!_selectedTrackIds.Contains(request.EntityId))
-            _selectedTrackIds = [request.EntityId];
-
         StateHasChanged();
         return Task.CompletedTask;
+    }
+
+    private async Task OnTrackFavoriteToggled(Guid entityId)
+    {
+        var target = CurrentTrackSurfaceTracks.FirstOrDefault(work => work.Id == entityId);
+        if (target is null)
+            return;
+
+        await ToggleFavoriteAsync(target);
     }
 
     private Task OnTrackDragStarted(Guid entityId)
@@ -1055,6 +1060,26 @@ public partial class ListenPage
         }
 
         await CreatePlaylistAndAddTracksAsync(SelectedTrackWorks);
+    }
+
+    private async Task AddContextMenuTrackToPlaylistAsync(Guid? collectionId = null)
+    {
+        if (ContextMenuTrack is null)
+            return;
+
+        if (collectionId.HasValue)
+        {
+            var collection = PlaylistCollections.FirstOrDefault(item => item.Id == collectionId.Value);
+            if (collection is null)
+                return;
+
+            await AddTracksToPlaylistAsync([ContextMenuTrack], collection);
+            CloseTrackContextMenu();
+            return;
+        }
+
+        await CreatePlaylistAndAddTracksAsync([ContextMenuTrack]);
+        CloseTrackContextMenu();
     }
 
     private async Task AddTracksToPlaylistAsync(IEnumerable<WorkViewModel> works, ManagedCollectionViewModel collection)
