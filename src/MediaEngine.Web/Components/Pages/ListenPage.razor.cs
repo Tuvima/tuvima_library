@@ -1267,49 +1267,6 @@ public partial class ListenPage
             _ => string.IsNullOrWhiteSpace(column) ? "dateAdded" : column,
         };
 
-#pragma warning disable ASP0006
-    private RenderFragment RenderAlbumCard(ContentGroupViewModel album) => builder =>
-    {
-        var seq = 0;
-        builder.OpenElement(seq++, "button");
-        builder.AddAttribute(seq++, "type", "button");
-        builder.AddAttribute(seq++, "class", "listen-card listen-card--album");
-        builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => NavigateTo($"/listen/music/albums/{album.CollectionId}")));
-        BuildArtwork(builder, ref seq, "listen-card__art listen-card__art--album", album.CoverUrl ?? album.ArtistPhotoUrl, album.DisplayName, Icons.Material.Outlined.Album);
-        builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "listen-card__title");
-        builder.AddContent(seq++, album.DisplayName);
-        builder.CloseElement();
-        builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "listen-card__meta");
-        builder.AddContent(seq++, FirstNonBlank(album.Creator, album.Year, Pluralize(album.WorkCount, "track")));
-        builder.CloseElement();
-        builder.CloseElement();
-    };
-
-    private RenderFragment RenderArtistAlbumCard(CollectionGroupSeasonViewModel album) => builder =>
-    {
-        var seq = 0;
-        var route = album.AlbumCollectionId.HasValue ? $"/listen/music/albums/{album.AlbumCollectionId.Value}" : null;
-        builder.OpenElement(seq++, route is null ? "div" : "button");
-        builder.AddAttribute(seq++, "class", "listen-card listen-card--album");
-        if (route is not null)
-        {
-            builder.AddAttribute(seq++, "type", "button");
-            builder.AddAttribute(seq++, "onclick", EventCallback.Factory.Create(this, () => NavigateTo(route)));
-        }
-        BuildArtwork(builder, ref seq, "listen-card__art listen-card__art--album", album.CoverUrl, album.SeasonLabel ?? $"Album {album.SeasonNumber}", Icons.Material.Outlined.Album);
-        builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "listen-card__title");
-        builder.AddContent(seq++, album.SeasonLabel ?? $"Album {album.SeasonNumber}");
-        builder.CloseElement();
-        builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", "listen-card__meta");
-        builder.AddContent(seq++, FirstNonBlank(album.Year, Pluralize(album.Episodes.Count, "track")));
-        builder.CloseElement();
-        builder.CloseElement();
-    };
-
     private RenderFragment RenderPlaylistCard(ListenPlaylistCard playlist) => builder =>
     {
         var seq = 0;
@@ -1514,27 +1471,6 @@ public partial class ListenPage
         builder.CloseElement();
         builder.CloseElement();
     };
-
-    private static void BuildArtwork(RenderTreeBuilder builder, ref int seq, string className, string? url, string alt, string fallbackIcon)
-    {
-        builder.OpenElement(seq++, "div");
-        builder.AddAttribute(seq++, "class", className);
-        if (!string.IsNullOrWhiteSpace(url))
-        {
-            builder.OpenElement(seq++, "img");
-            builder.AddAttribute(seq++, "src", url);
-            builder.AddAttribute(seq++, "alt", alt);
-            builder.CloseElement();
-        }
-        else
-        {
-            builder.OpenComponent<MudIcon>(seq++);
-            builder.AddAttribute(seq++, "Icon", fallbackIcon);
-            builder.AddAttribute(seq++, "Style", "font-size: 42px;");
-            builder.CloseComponent();
-        }
-        builder.CloseElement();
-    }
 
     private void BuildTrackTitleCell(RenderTreeBuilder builder, ref int seq, WorkViewModel track, string sourceLabel, IReadOnlyList<WorkViewModel> tracks)
     {

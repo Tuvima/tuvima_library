@@ -268,7 +268,26 @@ else
                         <div class="listen-card-grid listen-card-grid--albums">
                             @foreach (var album in FilteredAlbumGroups)
                             {
-                                @RenderAlbumCard(album)
+                                <button type="button"
+                                        class="listen-card listen-card--album"
+                                        @onclick="@(() => NavigateTo($"/listen/music/albums/{album.CollectionId}"))"
+                                        aria-label="@($"Open album {album.DisplayName}")">
+                                    <div class="listen-card__art listen-card__art--album">
+                                        @if (!string.IsNullOrWhiteSpace(album.CoverUrl ?? album.ArtistPhotoUrl))
+                                        {
+                                            <img src="@(album.CoverUrl ?? album.ArtistPhotoUrl)"
+                                                 alt="@album.DisplayName"
+                                                 loading="lazy"
+                                                 decoding="async" />
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 42px;" />
+                                        }
+                                    </div>
+                                    <div class="listen-card__title">@album.DisplayName</div>
+                                    <div class="listen-card__meta">@FirstNonBlank(album.Creator, album.Year, Pluralize(album.WorkCount, "track"))</div>
+                                </button>
                             }
                         </div>
                     }
@@ -476,7 +495,53 @@ else
                                     <div class="listen-card-grid listen-card-grid--albums">
                                         @foreach (var album in ArtistAlbums)
                                         {
-                                            @RenderArtistAlbumCard(album)
+                                            var albumRoute = album.AlbumCollectionId.HasValue
+                                                ? $"/listen/music/albums/{album.AlbumCollectionId.Value}"
+                                                : null;
+
+                                            @if (albumRoute is null)
+                                            {
+                                                <div class="listen-card listen-card--album" aria-label="Album tile">
+                                                    <div class="listen-card__art listen-card__art--album">
+                                                        @if (!string.IsNullOrWhiteSpace(album.CoverUrl))
+                                                        {
+                                                            <img src="@album.CoverUrl"
+                                                                 alt="@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")"
+                                                                 loading="lazy"
+                                                                 decoding="async" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 42px;" />
+                                                        }
+                                                    </div>
+                                                    <div class="listen-card__title">@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")</div>
+                                                    <div class="listen-card__meta">@FirstNonBlank(album.Year, Pluralize(album.Episodes.Count, "track"))</div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <button type="button"
+                                                        class="listen-card listen-card--album"
+                                                        @onclick="@(() => NavigateTo(albumRoute))"
+                                                        aria-label="@($"Open album {album.SeasonLabel ?? $"Album {album.SeasonNumber}"}")">
+                                                    <div class="listen-card__art listen-card__art--album">
+                                                        @if (!string.IsNullOrWhiteSpace(album.CoverUrl))
+                                                        {
+                                                            <img src="@album.CoverUrl"
+                                                                 alt="@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")"
+                                                                 loading="lazy"
+                                                                 decoding="async" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <MudIcon Icon="@Icons.Material.Outlined.Album" Style="font-size: 42px;" />
+                                                        }
+                                                    </div>
+                                                    <div class="listen-card__title">@(album.SeasonLabel ?? $"Album {album.SeasonNumber}")</div>
+                                                    <div class="listen-card__meta">@FirstNonBlank(album.Year, Pluralize(album.Episodes.Count, "track"))</div>
+                                                </button>
+                                            }
                                         }
                                     </div>
                                 </section>
