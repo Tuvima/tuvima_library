@@ -1,7 +1,9 @@
 using System.Globalization;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using MediaEngine.Web.Components.Library;
+using MediaEngine.Web.Components.Listen;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Discovery;
 using MediaEngine.Web.Services.Editing;
@@ -49,11 +51,11 @@ public partial class ListenPage
     private readonly List<CollectionItemViewModel> _playlistItems = [];
     private readonly Dictionary<Guid, WorkViewModel> _workLookup = [];
     private readonly Dictionary<string, CollectionGroupDetailViewModel?> _artistDetailCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<LibraryColumnDef> _musicTrackColumns = LibraryColumnDefinitions.GetColumnsByTab("music");
 
     private CollectionGroupDetailViewModel? _albumDetail;
     private CollectionGroupDetailViewModel? _artistDetail;
     private DiscoveryPageViewModel _musicHomePage = new() { Key = "listen-music" };
+    private ListenTrackDataGrid? _trackGrid;
     private Guid? _activeProfileId;
     private HashSet<Guid> _favoriteWorkIds = [];
     private HashSet<Guid> _dislikedWorkIds = [];
@@ -86,13 +88,11 @@ public partial class ListenPage
     private string? _lastPersistedMode;
     private string? _lastPersistedArtistName;
     private HashSet<Guid> _selectedTrackIds = [];
-    private List<string> _visibleSongColumnKeys = [];
     private HashSet<Guid> _draggingTrackIds = [];
     private Guid? _trackContextMenuWorkId;
     private string _trackContextMenuSourceLabel = "All Music";
     private double _trackContextMenuX;
     private double _trackContextMenuY;
-    private bool _showSongColumnPicker;
 
     private string CurrentPath => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
@@ -175,7 +175,6 @@ public partial class ListenPage
         .ToList();
     private bool HasTrackSelection => _selectedTrackIds.Count > 0;
     private int SelectedTrackCount => _selectedTrackIds.Count;
-    private bool SongSortAscending => !_songSortDescending;
 
     private ManagedCollectionViewModel? ActivePlaylistCollection => CollectionId.HasValue
         ? PlaylistCollections.FirstOrDefault(collection => collection.Id == CollectionId.Value)
@@ -935,14 +934,6 @@ public partial class ListenPage
         await PlayTracksAsync(CurrentTrackSurfaceTracks, target.Id, CurrentTrackSurfaceLabel);
     }
 
-    private async Task OnTrackSortRequested((string sortKey, bool ascending) request)
-    {
-        _songSortColumn = NormalizeSongSortColumn(request.sortKey);
-        _songSortDescending = !request.ascending;
-        CloseTrackContextMenu();
-        await InvokeAsync(StateHasChanged);
-    }
-
     private Task OnTrackContextRequested(LibraryRowContextMenuRequest request)
     {
         _trackContextMenuWorkId = request.EntityId;
@@ -1171,30 +1162,8 @@ public partial class ListenPage
         return Task.CompletedTask;
     }
 
-    private Task OnSongColumnVisibilityChanged(List<string> visibleKeys)
-    {
-        _visibleSongColumnKeys = visibleKeys;
-        StateHasChanged();
-        return Task.CompletedTask;
-    }
-
-    private void HandleSongSort(string column)
-    {
-        column = NormalizeSongSortColumn(column);
-
-        if (string.Equals(_songSortColumn, column, StringComparison.OrdinalIgnoreCase))
-        {
-            _songSortDescending = !_songSortDescending;
-            return;
-        }
-
-        _songSortColumn = column;
-        _songSortDescending =
-            string.Equals(column, "dateAdded", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(column, "favorite", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(column, "plays", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(column, "time", StringComparison.OrdinalIgnoreCase);
-    }
+    private Task OpenTrackColumnsAsync(MouseEventArgs args)
+        => _trackGrid?.OpenColumnsPanelAsync(args) ?? Task.CompletedTask;
 
     private IReadOnlyList<WorkViewModel> ResolveGroupWorks(IEnumerable<CollectionGroupWorkViewModel> works)
         => works

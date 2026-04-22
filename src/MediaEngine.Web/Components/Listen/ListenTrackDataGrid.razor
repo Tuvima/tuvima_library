@@ -1,0 +1,615 @@
+@using System.Globalization
+@using Microsoft.AspNetCore.Components.Web
+@using MediaEngine.Web.Components.Library
+@using MediaEngine.Web.Models.ViewDTOs
+@using MudBlazor
+@inject IJSRuntime JS
+
+<div class="listen-track-grid">
+    <MudDataGrid T="LibraryItemViewModel"
+                 @ref="_grid"
+                 Items="@Items"
+                 ReadOnly="true"
+                 Dense="true"
+                 Hover="true"
+                 Square="true"
+                 Bordered="false"
+                 Striped="false"
+                 Filterable="true"
+                 Hideable="true"
+                 ShowColumnOptions="true"
+                 DragDropColumnReordering="true"
+                 SortMode="SortMode.Multiple"
+                 FilterMode="DataGridFilterMode.ColumnFilterMenu"
+                 FixedHeader="true"
+                 Height="@GridHeight"
+                 RowsPerPage="@(Math.Max(Items.Count, 1))"
+                 ColumnResizeMode="ResizeMode.Container"
+                 Loading="@Loading"
+                 RowClassFunc="GetRowClass"
+                 RowClick="HandleRowClickAsync"
+                 RowContextMenuClick="HandleRowContextMenuAsync">
+        <Columns>
+            <TemplateColumn
+                            Title=""
+                            Sortable="false"
+                            Filterable="false"
+                            Hideable="false"
+                            ShowColumnOptions="false"
+                            Resizable="false"
+                            DragAndDropEnabled="false">
+                <CellTemplate Context="cell">
+                    <div class="listen-track-grid__play-cell"
+                         draggable="true"
+                         title="Play or drag this song"
+                         @ondragstart="@(() => HandleDragStartAsync(cell.Item.EntityId))"
+                         @ondragend="HandleDragEndAsync">
+                        <button type="button"
+                                class="listen-track-grid__icon-button"
+                                @onclick:stopPropagation="true"
+                                @onclick="@(() => ActivateRowAsync(cell.Item.EntityId))">
+                            <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Style="font-size: 18px;" />
+                        </button>
+                    </div>
+                </CellTemplate>
+            </TemplateColumn>
+
+            <PropertyColumn
+                            Property="item => item.Title"
+                            Title="Title"
+                            SortBy="item => item.SortTitle ?? item.Title"
+                            Hidden="@IsHidden(TrackColumnKeys.Title)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Title, hidden))">
+                <CellTemplate Context="cell">
+                    <div class="listen-track-grid__title-cell"
+                         draggable="true"
+                         @ondragstart="@(() => HandleDragStartAsync(cell.Item.EntityId))"
+                         @ondragend="HandleDragEndAsync">
+                        <div class="listen-track-grid__title-text">@cell.Item.Title</div>
+                    </div>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.Duration ?? string.Empty"
+                            Title="Time"
+                            SortBy="item => item.DurationSeconds ?? 0"
+                            Hidden="@IsHidden(TrackColumnKeys.Time)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Time, hidden))">
+                <CellTemplate Context="cell">
+                    <span class="listen-track-grid__mono">@FormatDuration(cell.Item)</span>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.Artist ?? string.Empty"
+                            Title="Artist"
+                            SortBy="item => item.SortArtist ?? item.Artist ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.Artist)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Artist, hidden))">
+                <CellTemplate Context="cell">
+                    @if (OnArtistClicked.HasDelegate && !string.IsNullOrWhiteSpace(cell.Item.Artist))
+                    {
+                        <button type="button"
+                                class="listen-track-grid__link"
+                                @onclick:stopPropagation="true"
+                                @onclick="@(() => OnArtistClicked.InvokeAsync(cell.Item.Artist!))">
+                            @cell.Item.Artist
+                        </button>
+                    }
+                    else
+                    {
+                        <span>@DisplayOrDash(cell.Item.Artist)</span>
+                    }
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.Album ?? string.Empty"
+                            Title="Album"
+                            SortBy="item => item.SortAlbum ?? item.Album ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.Album)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Album, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.Genre ?? string.Empty"
+                            Title="Genre"
+                            SortBy="item => item.Genre ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.Genre)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Genre, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.IsFavorite"
+                            Title="Favorite"
+                            SortBy="item => item.IsFavorite"
+                            Hidden="@IsHidden(TrackColumnKeys.Favorite)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Favorite, hidden))">
+                <CellTemplate Context="cell">
+                    <button type="button"
+                            class="listen-track-grid__favorite @(cell.Item.IsFavorite ? "is-active" : null)"
+                            aria-label="Toggle favorite"
+                            title="Toggle favorite"
+                            @onclick:stopPropagation="true"
+                            @onclick="@(() => ToggleFavoriteAsync(cell.Item.EntityId))">
+                        <MudIcon Icon="@(cell.Item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                 Style="font-size: 16px;" />
+                    </button>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.PlayCount"
+                            Title="Plays"
+                            SortBy="item => item.PlayCount ?? 0"
+                            Hidden="@IsHidden(TrackColumnKeys.Plays)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Plays, hidden))">
+                <CellTemplate Context="cell">
+                    <span class="listen-track-grid__mono">@DisplayNumber(cell.Item.PlayCount)</span>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.CreatedAt"
+                            Title="Date Added"
+                            SortBy="item => item.CreatedAt"
+                            Hidden="@IsHidden(TrackColumnKeys.DateAdded)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.DateAdded, hidden))">
+                <CellTemplate Context="cell">
+                    <span class="listen-track-grid__muted">@FormatDateTime(cell.Item.CreatedAt)</span>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.AlbumArtist ?? string.Empty"
+                            Title="Album Artist"
+                            SortBy="item => item.AlbumArtist ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.AlbumArtist)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.AlbumArtist, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.Composer ?? string.Empty"
+                            Title="Composer"
+                            SortBy="item => item.Composer ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.Composer)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Composer, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.Comments ?? string.Empty"
+                            Title="Comments"
+                            SortBy="item => item.Comments ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.Comments)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Comments, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.DateModified"
+                            Title="Date Modified"
+                            SortBy="item => item.DateModified ?? DateTimeOffset.MinValue"
+                            Hidden="@IsHidden(TrackColumnKeys.DateModified)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.DateModified, hidden))">
+                <CellTemplate Context="cell">
+                    <span class="listen-track-grid__muted">@FormatOptionalDateTime(cell.Item.DateModified)</span>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.DiscNumber ?? string.Empty"
+                            Title="Disc Number"
+                            SortBy="item => ParseInteger(item.DiscNumber)"
+                            Hidden="@IsHidden(TrackColumnKeys.DiscNumber)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.DiscNumber, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.Kind ?? string.Empty"
+                            Title="Kind"
+                            SortBy="item => item.Kind ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.Kind)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Kind, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.LastPlayedAt"
+                            Title="Last Played"
+                            SortBy="item => item.LastPlayedAt ?? DateTimeOffset.MinValue"
+                            Hidden="@IsHidden(TrackColumnKeys.LastPlayed)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.LastPlayed, hidden))">
+                <CellTemplate Context="cell">
+                    <span class="listen-track-grid__muted">@FormatOptionalDateTime(cell.Item.LastPlayedAt)</span>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.Rating ?? string.Empty"
+                            Title="Rating"
+                            SortBy="item => item.Rating ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.Rating)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Rating, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.ReleaseDate"
+                            Title="Release Date"
+                            SortBy="item => item.ReleaseDate ?? DateTimeOffset.MinValue"
+                            Hidden="@IsHidden(TrackColumnKeys.ReleaseDate)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.ReleaseDate, hidden))">
+                <CellTemplate Context="cell">
+                    <span class="listen-track-grid__muted">@FormatOptionalDateTime(cell.Item.ReleaseDate)</span>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.FileSizeBytes"
+                            Title="Size"
+                            SortBy="item => item.FileSizeBytes ?? 0"
+                            Hidden="@IsHidden(TrackColumnKeys.Size)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Size, hidden))">
+                <CellTemplate Context="cell">
+                    <span class="listen-track-grid__mono">@LibraryHelpers.FormatFileSize(cell.Item.FileSizeBytes)</span>
+                </CellTemplate>
+            </PropertyColumn>
+
+            <PropertyColumn
+                            Property="item => item.SortAlbum ?? string.Empty"
+                            Title="Sort Album"
+                            SortBy="item => item.SortAlbum ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.SortAlbum)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.SortAlbum, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.SortArtist ?? string.Empty"
+                            Title="Sort Artist"
+                            SortBy="item => item.SortArtist ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.SortArtist)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.SortArtist, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.SortTitle ?? string.Empty"
+                            Title="Sort Title"
+                            SortBy="item => item.SortTitle ?? string.Empty"
+                            Hidden="@IsHidden(TrackColumnKeys.SortTitle)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.SortTitle, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.TrackNumber ?? string.Empty"
+                            Title="Track Number"
+                            SortBy="item => ParseInteger(item.TrackNumber)"
+                            Hidden="@IsHidden(TrackColumnKeys.TrackNumber)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.TrackNumber, hidden))" />
+
+            <PropertyColumn
+                            Property="item => item.Year ?? string.Empty"
+                            Title="Year"
+                            SortBy="item => ParseInteger(item.Year)"
+                            Hidden="@IsHidden(TrackColumnKeys.Year)"
+                            HiddenChanged="@((bool hidden) => SetColumnHiddenAsync(TrackColumnKeys.Year, hidden))" />
+
+            <TemplateColumn
+                            Title=""
+                            Sortable="false"
+                            Filterable="false"
+                            Hideable="false"
+                            ShowColumnOptions="false"
+                            Resizable="false"
+                            DragAndDropEnabled="false">
+                <CellTemplate Context="cell">
+                    <button type="button"
+                            class="listen-track-grid__icon-button"
+                            aria-label="Open track menu"
+                            title="Track menu"
+                            @onclick:stopPropagation="true"
+                            @onclick="@(e => OpenContextMenuFromButtonAsync(cell.Item.EntityId, e))">
+                        <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Style="font-size: 18px;" />
+                    </button>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+    </MudDataGrid>
+</div>
+
+@code
+{
+    private const string DefaultGridHeight = "min(68vh, 780px)";
+
+    [Parameter] public IReadOnlyList<LibraryItemViewModel> Items { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public HashSet<Guid> SelectedIds { get; set; } = [];
+    [Parameter] public EventCallback<HashSet<Guid>> SelectedIdsChanged { get; set; }
+    [Parameter] public EventCallback<Guid> OnRowActivated { get; set; }
+    [Parameter] public EventCallback<LibraryRowContextMenuRequest> OnRowContextRequested { get; set; }
+    [Parameter] public EventCallback<Guid> OnFavoriteToggled { get; set; }
+    [Parameter] public EventCallback<string> OnArtistClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnRowDragStarted { get; set; }
+    [Parameter] public EventCallback OnRowDragEnded { get; set; }
+    [Parameter] public string ViewKey { get; set; } = "listen-tracks";
+    [Parameter] public string GridHeight { get; set; } = DefaultGridHeight;
+
+    private MudDataGrid<LibraryItemViewModel>? _grid;
+    private readonly HashSet<string> _hiddenColumns = DefaultHiddenColumns();
+    private int? _selectionAnchorIndex;
+    private bool _columnsLoaded;
+
+    private static HashSet<string> DefaultHiddenColumns() =>
+    [
+        TrackColumnKeys.AlbumArtist,
+        TrackColumnKeys.Composer,
+        TrackColumnKeys.Comments,
+        TrackColumnKeys.DateModified,
+        TrackColumnKeys.DiscNumber,
+        TrackColumnKeys.Kind,
+        TrackColumnKeys.LastPlayed,
+        TrackColumnKeys.Rating,
+        TrackColumnKeys.ReleaseDate,
+        TrackColumnKeys.Size,
+        TrackColumnKeys.SortAlbum,
+        TrackColumnKeys.SortArtist,
+        TrackColumnKeys.SortTitle,
+        TrackColumnKeys.TrackNumber,
+        TrackColumnKeys.Year,
+    ];
+
+    public Task OpenColumnsPanelAsync(MouseEventArgs args)
+    {
+        _grid?.ShowColumnsPanel(args);
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _columnsLoaded)
+        {
+            return;
+        }
+
+        _columnsLoaded = true;
+
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("listenUi.getTrackGridColumns", ViewKey);
+            if (string.IsNullOrWhiteSpace(json))
+            {
+                return;
+            }
+
+            var visibleColumns = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
+            if (visibleColumns is null || visibleColumns.Count == 0)
+            {
+                return;
+            }
+
+            _hiddenColumns.Clear();
+            foreach (var key in TrackColumnKeys.All.Where(key => !visibleColumns.Contains(key, StringComparer.OrdinalIgnoreCase)))
+            {
+                _hiddenColumns.Add(key);
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+        }
+    }
+
+    private bool IsHidden(string key) => _hiddenColumns.Contains(key);
+
+    private async Task SetColumnHiddenAsync(string key, bool hidden)
+    {
+        if (hidden)
+        {
+            _hiddenColumns.Add(key);
+        }
+        else
+        {
+            _hiddenColumns.Remove(key);
+        }
+
+        await PersistColumnsAsync();
+    }
+
+    private async Task PersistColumnsAsync()
+    {
+        try
+        {
+            var visibleColumns = TrackColumnKeys.All.Where(key => !_hiddenColumns.Contains(key)).ToList();
+            var json = System.Text.Json.JsonSerializer.Serialize(visibleColumns);
+            await JS.InvokeVoidAsync("listenUi.setTrackGridColumns", ViewKey, json);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task HandleRowClickAsync(DataGridRowClickEventArgs<LibraryItemViewModel> args)
+    {
+        if (args.Item is null)
+        {
+            return;
+        }
+
+        if (args.MouseEventArgs.Detail >= 2)
+        {
+            await ActivateRowAsync(args.Item.EntityId);
+            return;
+        }
+
+        await UpdateSelectionAsync(args.Item, args.MouseEventArgs);
+    }
+
+    private async Task HandleRowContextMenuAsync(DataGridRowClickEventArgs<LibraryItemViewModel> args)
+    {
+        if (args.Item is null || !OnRowContextRequested.HasDelegate)
+        {
+            return;
+        }
+
+        await OnRowContextRequested.InvokeAsync(new LibraryRowContextMenuRequest(
+            args.Item.EntityId,
+            args.MouseEventArgs.ClientX,
+            args.MouseEventArgs.ClientY));
+    }
+
+    private async Task OpenContextMenuFromButtonAsync(Guid entityId, MouseEventArgs args)
+    {
+        if (!OnRowContextRequested.HasDelegate)
+        {
+            return;
+        }
+
+        await OnRowContextRequested.InvokeAsync(new LibraryRowContextMenuRequest(entityId, args.ClientX, args.ClientY));
+    }
+
+    private async Task UpdateSelectionAsync(LibraryItemViewModel item, MouseEventArgs args)
+    {
+        var orderedItems = CurrentVisibleItems;
+        var clickedIndex = orderedItems.FindIndex(candidate => candidate.EntityId == item.EntityId);
+        var nextSelection = SelectedIds.ToHashSet();
+
+        if (args.ShiftKey && _selectionAnchorIndex.HasValue && clickedIndex >= 0)
+        {
+            if (!(args.CtrlKey || args.MetaKey))
+            {
+                nextSelection.Clear();
+            }
+
+            var start = Math.Min(_selectionAnchorIndex.Value, clickedIndex);
+            var end = Math.Max(_selectionAnchorIndex.Value, clickedIndex);
+            for (var index = start; index <= end && index < orderedItems.Count; index++)
+            {
+                nextSelection.Add(orderedItems[index].EntityId);
+            }
+        }
+        else if (args.CtrlKey || args.MetaKey)
+        {
+            if (!nextSelection.Add(item.EntityId))
+            {
+                nextSelection.Remove(item.EntityId);
+            }
+
+            if (clickedIndex >= 0)
+            {
+                _selectionAnchorIndex = clickedIndex;
+            }
+        }
+        else
+        {
+            nextSelection.Clear();
+            nextSelection.Add(item.EntityId);
+            if (clickedIndex >= 0)
+            {
+                _selectionAnchorIndex = clickedIndex;
+            }
+        }
+
+        await SelectedIdsChanged.InvokeAsync(nextSelection);
+    }
+
+    private async Task ActivateRowAsync(Guid entityId)
+    {
+        if (OnRowActivated.HasDelegate)
+        {
+            await OnRowActivated.InvokeAsync(entityId);
+        }
+    }
+
+    private async Task ToggleFavoriteAsync(Guid entityId)
+    {
+        if (OnFavoriteToggled.HasDelegate)
+        {
+            await OnFavoriteToggled.InvokeAsync(entityId);
+        }
+    }
+
+    private async Task HandleDragStartAsync(Guid entityId)
+    {
+        if (OnRowDragStarted.HasDelegate)
+        {
+            await OnRowDragStarted.InvokeAsync(entityId);
+        }
+    }
+
+    private async Task HandleDragEndAsync()
+    {
+        if (OnRowDragEnded.HasDelegate)
+        {
+            await OnRowDragEnded.InvokeAsync();
+        }
+    }
+
+    private string GetRowClass(LibraryItemViewModel item, int rowIndex)
+        => SelectedIds.Contains(item.EntityId)
+            ? "listen-track-grid__row listen-track-grid__row--selected"
+            : "listen-track-grid__row";
+
+    private List<LibraryItemViewModel> CurrentVisibleItems
+        => _grid?.FilteredItems?.ToList() ?? Items.ToList();
+
+    private static int ParseInteger(string? value)
+        => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : 0;
+
+    private static string FormatDuration(LibraryItemViewModel item)
+        => LibraryHelpers.FormatDuration(item.DurationSeconds, item.Duration ?? "0:00");
+
+    private static string FormatDateTime(DateTimeOffset value)
+        => value == default
+            ? "-"
+            : value.LocalDateTime.ToString("M/d/yyyy, h:mm tt", CultureInfo.CurrentCulture);
+
+    private static string FormatOptionalDateTime(DateTimeOffset? value)
+        => value.HasValue ? FormatDateTime(value.Value) : "-";
+
+    private static string DisplayOrDash(string? value)
+        => string.IsNullOrWhiteSpace(value) ? "-" : value;
+
+    private static string DisplayNumber(int? value)
+        => value is > 0 ? value.Value.ToString(CultureInfo.CurrentCulture) : "-";
+
+    private static class TrackColumnKeys
+    {
+        public const string Title = "title";
+        public const string Time = "time";
+        public const string Artist = "artist";
+        public const string Album = "album";
+        public const string Genre = "genre";
+        public const string Favorite = "favorite";
+        public const string Plays = "plays";
+        public const string DateAdded = "date_added";
+        public const string AlbumArtist = "album_artist";
+        public const string Composer = "composer";
+        public const string Comments = "comments";
+        public const string DateModified = "date_modified";
+        public const string DiscNumber = "disc_number";
+        public const string Kind = "kind";
+        public const string LastPlayed = "last_played";
+        public const string Rating = "rating";
+        public const string ReleaseDate = "release_date";
+        public const string Size = "size";
+        public const string SortAlbum = "sort_album";
+        public const string SortArtist = "sort_artist";
+        public const string SortTitle = "sort_title";
+        public const string TrackNumber = "track_number";
+        public const string Year = "year";
+
+        public static readonly string[] All =
+        [
+            Title,
+            Time,
+            Artist,
+            Album,
+            Genre,
+            Favorite,
+            Plays,
+            DateAdded,
+            AlbumArtist,
+            Composer,
+            Comments,
+            DateModified,
+            DiscNumber,
+            Kind,
+            LastPlayed,
+            Rating,
+            ReleaseDate,
+            Size,
+            SortAlbum,
+            SortArtist,
+            SortTitle,
+            TrackNumber,
+            Year,
+        ];
+    }
+}

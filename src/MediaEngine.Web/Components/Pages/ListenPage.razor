@@ -7,8 +7,10 @@
 @page "/listen/music/playlists/system/{PlaylistKey}"
 @page "/listen/audiobooks"
 @page "/listen/audiobook/{WorkId:guid}"
+@using Microsoft.AspNetCore.Components.Web
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Components.Discovery
+@using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
 
@@ -350,7 +352,7 @@ else
                         </div>
                     </div>
                     <div class="listen-track-toolbar">
-                        <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Select tracks to queue, edit, or add to playlists.")</div>
+                        <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Single-click to select, ctrl/shift-click to add more, double-click or use the play icon to start playback.")</div>
                         <div class="listen-track-toolbar__actions">
                             <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
@@ -374,29 +376,22 @@ else
                             }
                             <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync" disabled="@(!HasTrackSelection)">Edit</button>
                             <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync" disabled="@(!HasTrackSelection)">Delete</button>
-                            <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => _showSongColumnPicker = true)">Columns</button>
+                            <button type="button" class="listen-button listen-button--secondary" @onclick="OpenTrackColumnsAsync">Columns</button>
                         </div>
                     </div>
 
-                    <LibraryConfigurableTable Columns="@_musicTrackColumns"
-                                             VisibleColumnKeys="@_visibleSongColumnKeys"
-                                             Items="@BuildTrackGridItems(AlbumTracks)"
-                                             Loading="@_loading"
-                                             SelectedItems="@_selectedTrackIds"
-                                             SelectedItemsChanged="OnTrackSelectionChanged"
-                                             ActiveSortKey="@_songSortColumn"
-                                             SortAscending="@SongSortAscending"
-                                             OnSortRequested="OnTrackSortRequested"
-                                             OnAuthorClicked="OnTrackArtistClicked"
-                                             OnFavoriteToggled="OnTrackFavoriteToggled"
-                                             OnRowDoubleClicked="OnTrackRowActivated"
-                                             OnRowContextRequested="OnTrackContextRequested"
-                                             OnRowDragStarted="OnTrackDragStarted"
-                                             OnRowDragEnded="OnTrackDragEnded"
-                                             SelectOnRowClick="true"
-                                             ActivateOnEnter="true"
-                                             EnableRowContextMenu="true"
-                                             EnableRowDragging="true" />
+                    <ListenTrackDataGrid @ref="_trackGrid"
+                                         Items="@BuildTrackGridItems(AlbumTracks)"
+                                         Loading="@_loading"
+                                         SelectedIds="@_selectedTrackIds"
+                                         SelectedIdsChanged="OnTrackSelectionChanged"
+                                         OnArtistClicked="OnTrackArtistClicked"
+                                         OnFavoriteToggled="OnTrackFavoriteToggled"
+                                         OnRowActivated="OnTrackRowActivated"
+                                         OnRowContextRequested="OnTrackContextRequested"
+                                         OnRowDragStarted="OnTrackDragStarted"
+                                         OnRowDragEnded="OnTrackDragEnded"
+                                         ViewKey="listen-tracks" />
                 </section>
             }
             else if (IsArtistsSurface)
@@ -629,7 +624,7 @@ else
                     else
                     {
                         <div class="listen-track-toolbar">
-                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Select tracks to queue, edit, or add to playlists.")</div>
+                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Single-click to select, ctrl/shift-click to add more, double-click or use the play icon to start playback.")</div>
                             <div class="listen-track-toolbar__actions">
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
@@ -653,29 +648,22 @@ else
                                 }
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync" disabled="@(!HasTrackSelection)">Edit</button>
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync" disabled="@(!HasTrackSelection)">Delete</button>
-                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => _showSongColumnPicker = true)">Columns</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="OpenTrackColumnsAsync">Columns</button>
                             </div>
                         </div>
 
-                        <LibraryConfigurableTable Columns="@_musicTrackColumns"
-                                                 VisibleColumnKeys="@_visibleSongColumnKeys"
-                                                 Items="@BuildTrackGridItems(FilteredSongs)"
-                                                 Loading="@_loading"
-                                                 SelectedItems="@_selectedTrackIds"
-                                                 SelectedItemsChanged="OnTrackSelectionChanged"
-                                                 ActiveSortKey="@_songSortColumn"
-                                                 SortAscending="@SongSortAscending"
-                                                 OnSortRequested="OnTrackSortRequested"
-                                                 OnAuthorClicked="OnTrackArtistClicked"
-                                                 OnFavoriteToggled="OnTrackFavoriteToggled"
-                                                 OnRowDoubleClicked="OnTrackRowActivated"
-                                                 OnRowContextRequested="OnTrackContextRequested"
-                                                 OnRowDragStarted="OnTrackDragStarted"
-                                                 OnRowDragEnded="OnTrackDragEnded"
-                                                 SelectOnRowClick="true"
-                                                 ActivateOnEnter="true"
-                                                 EnableRowContextMenu="true"
-                                                 EnableRowDragging="true" />
+                        <ListenTrackDataGrid @ref="_trackGrid"
+                                             Items="@BuildTrackGridItems(FilteredSongs)"
+                                             Loading="@_loading"
+                                             SelectedIds="@_selectedTrackIds"
+                                             SelectedIdsChanged="OnTrackSelectionChanged"
+                                             OnArtistClicked="OnTrackArtistClicked"
+                                             OnFavoriteToggled="OnTrackFavoriteToggled"
+                                             OnRowActivated="OnTrackRowActivated"
+                                             OnRowContextRequested="OnTrackContextRequested"
+                                             OnRowDragStarted="OnTrackDragStarted"
+                                             OnRowDragEnded="OnTrackDragEnded"
+                                             ViewKey="listen-tracks" />
                     }
                 </section>
             }
@@ -775,7 +763,7 @@ else
                     else
                     {
                         <div class="listen-track-toolbar">
-                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Select tracks to queue, edit, or add to playlists.")</div>
+                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Single-click to select, ctrl/shift-click to add more, double-click or use the play icon to start playback.")</div>
                             <div class="listen-track-toolbar__actions">
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
@@ -799,29 +787,22 @@ else
                                 }
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="EditSelectedTrackAsync" disabled="@(!HasTrackSelection)">Edit</button>
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="DeleteSelectedTracksAsync" disabled="@(!HasTrackSelection)">Delete</button>
-                                <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => _showSongColumnPicker = true)">Columns</button>
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="OpenTrackColumnsAsync">Columns</button>
                             </div>
                         </div>
 
-                        <LibraryConfigurableTable Columns="@_musicTrackColumns"
-                                                 VisibleColumnKeys="@_visibleSongColumnKeys"
-                                                 Items="@BuildTrackGridItems(ActivePlaylistTracks)"
-                                                 Loading="@_loading"
-                                                 SelectedItems="@_selectedTrackIds"
-                                                 SelectedItemsChanged="OnTrackSelectionChanged"
-                                                 ActiveSortKey="@_songSortColumn"
-                                                 SortAscending="@SongSortAscending"
-                                                 OnSortRequested="OnTrackSortRequested"
-                                                 OnAuthorClicked="OnTrackArtistClicked"
-                                                 OnFavoriteToggled="OnTrackFavoriteToggled"
-                                                 OnRowDoubleClicked="OnTrackRowActivated"
-                                                 OnRowContextRequested="OnTrackContextRequested"
-                                                 OnRowDragStarted="OnTrackDragStarted"
-                                                 OnRowDragEnded="OnTrackDragEnded"
-                                                 SelectOnRowClick="true"
-                                                 ActivateOnEnter="true"
-                                                 EnableRowContextMenu="true"
-                                                 EnableRowDragging="true" />
+                        <ListenTrackDataGrid @ref="_trackGrid"
+                                             Items="@BuildTrackGridItems(ActivePlaylistTracks)"
+                                             Loading="@_loading"
+                                             SelectedIds="@_selectedTrackIds"
+                                             SelectedIdsChanged="OnTrackSelectionChanged"
+                                             OnArtistClicked="OnTrackArtistClicked"
+                                             OnFavoriteToggled="OnTrackFavoriteToggled"
+                                             OnRowActivated="OnTrackRowActivated"
+                                             OnRowContextRequested="OnTrackContextRequested"
+                                             OnRowDragStarted="OnTrackDragStarted"
+                                             OnRowDragEnded="OnTrackDragEnded"
+                                             ViewKey="listen-tracks" />
                     }
                 </section>
             }
@@ -905,13 +886,5 @@ else
             <button type="button" class="listen-context-menu__dismiss" @onclick="@(() => CloseTrackContextMenu())" aria-label="Close context menu"></button>
         }
 
-        @if (_showSongColumnPicker)
-        {
-            <LibraryColumnPicker AllColumns="@_musicTrackColumns"
-                                 VisibleKeys="@_visibleSongColumnKeys"
-                                 VisibleKeysChanged="OnSongColumnVisibilityChanged"
-                                 ViewKey="listen-songs"
-                                 OnClose="@(() => _showSongColumnPicker = false)" />
-        }
     </div>
 }

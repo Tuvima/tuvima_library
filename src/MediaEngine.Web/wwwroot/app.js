@@ -417,5 +417,13 @@ window.listenUi = {
     setSelectedArtist: function (artistName) {
         if (!artistName) return;
         localStorage.setItem('listen-ui-selected-artist', artistName);
+    },
+    getTrackGridColumns: function (viewKey) {
+        if (!viewKey) return null;
+        return localStorage.getItem('listen-track-grid-columns-' + viewKey);
+    },
+    setTrackGridColumns: function (viewKey, json) {
+        if (!viewKey || !json) return;
+        localStorage.setItem('listen-track-grid-columns-' + viewKey, json);
     }
 };
