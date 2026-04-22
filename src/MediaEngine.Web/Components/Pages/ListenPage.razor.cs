@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.JSInterop;
+using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Discovery;
 using MediaEngine.Web.Services.Editing;
@@ -49,6 +50,7 @@ public partial class ListenPage
     private readonly List<CollectionItemViewModel> _playlistItems = [];
     private readonly Dictionary<Guid, WorkViewModel> _workLookup = [];
     private readonly Dictionary<string, CollectionGroupDetailViewModel?> _artistDetailCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<LibraryColumnDef> _musicTrackColumns = LibraryColumnDefinitions.GetColumnsByTab("music");
 
     private CollectionGroupDetailViewModel? _albumDetail;
     private CollectionGroupDetailViewModel? _artistDetail;
@@ -67,6 +69,9 @@ public partial class ListenPage
     private string _songSearch = string.Empty;
     private string _songGenreFilter = "all";
     private string _songFavoriteFilter = "all";
+    private string _songArtistFilter = "all";
+    private string _songAlbumFilter = "all";
+    private string _songDateAddedFilter = "all";
     private string _albumSearch = string.Empty;
     private string _albumSort = "recent";
     private string _albumArtistFilter = "all";
@@ -81,6 +86,14 @@ public partial class ListenPage
     private string? _restoredMode;
     private string? _lastPersistedMode;
     private string? _lastPersistedArtistName;
+    private HashSet<Guid> _selectedTrackIds = [];
+    private List<string> _visibleSongColumnKeys = [];
+    private HashSet<Guid> _draggingTrackIds = [];
+    private Guid? _trackContextMenuWorkId;
+    private string _trackContextMenuSourceLabel = "All Music";
+    private double _trackContextMenuX;
+    private double _trackContextMenuY;
+    private bool _showSongColumnPicker;
 
     private string CurrentPath => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
@@ -113,7 +126,12 @@ public partial class ListenPage
     private IReadOnlyList<WorkViewModel> SortedSongs => SortSongs(_musicWorks);
     private IReadOnlyList<WorkViewModel> FilteredSongs => ApplySongFilters(SortedSongs);
     private IReadOnlyList<WorkViewModel> RecentlyAddedTracks => _musicWorks.OrderByDescending(work => work.CreatedAt).ToList();
-    private IReadOnlyList<WorkViewModel> AlbumTracks => _albumDetail is null ? [] : ResolveGroupWorks(_albumDetail.Works);
+    private IReadOnlyList<WorkViewModel> AlbumTracks => _albumDetail is null
+        ? []
+        : ResolveGroupWorks(_albumDetail.Works)
+            .OrderBy(work => ParseTrackNumber(work.TrackNumber))
+            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
     private IReadOnlyList<CollectionGroupSeasonViewModel> ArtistAlbums => _artistDetail?.Seasons ?? [];
     private IReadOnlyList<WorkViewModel> ArtistTracks => ResolveArtistTracks();
     private IReadOnlyList<WorkViewModel> ActivePlaylistTracks => ResolveActivePlaylistTracks();
@@ -135,6 +153,20 @@ public partial class ListenPage
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
         .ToList();
+    private IReadOnlyList<string> SongArtists => _musicWorks
+        .Select(work => FirstNonBlank(work.Artist, work.Author, null))
+        .Where(name => !string.IsNullOrWhiteSpace(name) && !string.Equals(name, "-", StringComparison.Ordinal))
+        .Cast<string>()
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    private IReadOnlyList<string> SongAlbums => _musicWorks
+        .Select(work => work.Album)
+        .Where(name => !string.IsNullOrWhiteSpace(name))
+        .Cast<string>()
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+        .ToList();
     private IReadOnlyList<string> AlbumArtists => _albumGroups
         .Select(album => album.Creator)
         .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -142,6 +174,9 @@ public partial class ListenPage
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
         .ToList();
+    private bool HasTrackSelection => _selectedTrackIds.Count > 0;
+    private int SelectedTrackCount => _selectedTrackIds.Count;
+    private bool SongSortAscending => !_songSortDescending;
 
     private ManagedCollectionViewModel? ActivePlaylistCollection => CollectionId.HasValue
         ? PlaylistCollections.FirstOrDefault(collection => collection.Id == CollectionId.Value)
@@ -196,12 +231,8 @@ public partial class ListenPage
                 new("Albums", AlbumsRoute, Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
                 new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
                 new("Songs", SongsRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
+                new("Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic, PlaylistCollections.Count.ToString(CultureInfo.InvariantCulture)),
             };
-
-            if (HasPlaylistCollections)
-            {
-                items.Add(new("Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic, PlaylistCollections.Count.ToString(CultureInfo.InvariantCulture)));
-            }
 
             return items;
         }
@@ -238,12 +269,10 @@ public partial class ListenPage
     {
         get
         {
-            var items = new List<ListenNavItem>();
-
-            if (HasPlaylistCollections)
+            var items = new List<ListenNavItem>
             {
-                items.Add(new("All Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic));
-            }
+                new("All Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic),
+            };
 
             items.AddRange(PlaylistCollections.Select(collection =>
                 new ListenNavItem(
@@ -266,6 +295,9 @@ public partial class ListenPage
         _artistDetail = null;
         _artistLoading = false;
         _playlistItems.Clear();
+        _selectedTrackIds.Clear();
+        CloseTrackContextMenu();
+        _draggingTrackIds.Clear();
         StateHasChanged();
 
         if (WorkId.HasValue)
@@ -546,6 +578,8 @@ public partial class ListenPage
             return;
         }
 
+        _selectedTrackIds = [requestedTrack.Id];
+
         if (Edit)
         {
             await OpenTrackEditorAsync(requestedTrack, navigateBackToTrackContext: true);
@@ -559,6 +593,7 @@ public partial class ListenPage
     private void NavigateTo(string route)
     {
         CloseRail();
+        CloseTrackContextMenu();
         Nav.NavigateTo(route);
     }
 
@@ -681,22 +716,7 @@ public partial class ListenPage
     }
 
     private async Task AddToPlaylistAsync(WorkViewModel work, ManagedCollectionViewModel collection)
-    {
-        if (!_activeProfileId.HasValue)
-        {
-            Snackbar.Add("Choose an active profile before saving to playlists.", Severity.Warning);
-            return;
-        }
-
-        if (await ApiClient.AddCollectionItemAsync(collection.Id, work.Id, _activeProfileId.Value))
-        {
-            Snackbar.Add($"Added to {collection.Name}", Severity.Success);
-        }
-        else
-        {
-            Snackbar.Add($"Could not add {work.Title} to {collection.Name}", Severity.Error);
-        }
-    }
+        => await AddTracksToPlaylistAsync([work], collection);
 
     private async Task ToggleFavoriteAsync(WorkViewModel work)
     {
@@ -729,14 +749,32 @@ public partial class ListenPage
             filtered = filtered.Where(work => work.Genres.Any(genre => string.Equals(genre, _songGenreFilter, StringComparison.OrdinalIgnoreCase)));
         }
 
+        if (!string.Equals(_songArtistFilter, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(work => string.Equals(FirstNonBlank(work.Artist, work.Author, null), _songArtistFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (!string.Equals(_songAlbumFilter, "all", StringComparison.OrdinalIgnoreCase))
+        {
+            filtered = filtered.Where(work => string.Equals(work.Album, _songAlbumFilter, StringComparison.OrdinalIgnoreCase));
+        }
+
         if (string.Equals(_songFavoriteFilter, "favorites", StringComparison.OrdinalIgnoreCase))
         {
             filtered = filtered.Where(work => _favoriteWorkIds.Contains(work.Id));
         }
-        else if (string.Equals(_songFavoriteFilter, "unrated", StringComparison.OrdinalIgnoreCase))
+        else if (string.Equals(_songFavoriteFilter, "nonfavorites", StringComparison.OrdinalIgnoreCase))
         {
             filtered = filtered.Where(work => !_favoriteWorkIds.Contains(work.Id));
         }
+
+        filtered = _songDateAddedFilter switch
+        {
+            "7" => filtered.Where(work => work.CreatedAt >= DateTimeOffset.UtcNow.AddDays(-7)),
+            "30" => filtered.Where(work => work.CreatedAt >= DateTimeOffset.UtcNow.AddDays(-30)),
+            "90" => filtered.Where(work => work.CreatedAt >= DateTimeOffset.UtcNow.AddDays(-90)),
+            _ => filtered,
+        };
 
         return filtered.ToList();
     }
@@ -820,11 +858,305 @@ public partial class ListenPage
         StateHasChanged();
     }
 
+    private List<LibraryItemViewModel> BuildTrackGridItems(IEnumerable<WorkViewModel> works) =>
+        works.Select(MapTrackToLibraryItem).ToList();
+
+    private LibraryItemViewModel MapTrackToLibraryItem(WorkViewModel work)
+    {
+        var durationSeconds = GetTrackDurationSeconds(work);
+        var artist = FirstNonBlank(work.Artist, work.Author, null);
+        var comments = GetCanonicalValue(work, "comment", "comments", "description");
+        var releaseDate = ParseCanonicalDate(GetCanonicalValue(work, "release_date", "date_released"));
+        var lastPlayedAt = ParseCanonicalDate(GetCanonicalValue(work, "last_played", "played_at"));
+        var dateModified = ParseCanonicalDate(GetCanonicalValue(work, "date_modified", "modified_at", "updated_at"));
+
+        return new LibraryItemViewModel
+        {
+            EntityId = work.Id,
+            Title = work.Title,
+            OriginalTitle = work.OriginalTitle,
+            Artist = string.Equals(artist, "-", StringComparison.Ordinal) ? null : artist,
+            Album = work.Album,
+            AlbumArtist = GetCanonicalValue(work, "album_artist"),
+            Composer = GetCanonicalValue(work, "composer"),
+            Comments = comments,
+            Genre = work.Genres.FirstOrDefault() ?? work.Genre,
+            Duration = LibraryHelpers.FormatDuration(durationSeconds, fallback: "0:00"),
+            DurationSeconds = durationSeconds,
+            TrackNumber = work.TrackNumber,
+            DiscNumber = GetCanonicalValue(work, "disc_number"),
+            Rating = GetCanonicalValue(work, "rating", "album_rating"),
+            Year = work.Year,
+            SortTitle = GetCanonicalValue(work, "sort_title") ?? work.Title,
+            SortArtist = GetCanonicalValue(work, "sort_artist") ?? artist,
+            SortAlbum = GetCanonicalValue(work, "sort_album") ?? work.Album,
+            Kind = GetCanonicalValue(work, "kind") ?? "Audio File",
+            MediaType = "Music",
+            CoverUrl = work.CoverUrl,
+            CoverThumbUrl = work.CoverUrl,
+            CreatedAt = work.CreatedAt,
+            DateModified = dateModified,
+            LastPlayedAt = lastPlayedAt,
+            ReleaseDate = releaseDate,
+            PlayCount = GetPlayCount(work),
+            IsFavorite = _favoriteWorkIds.Contains(work.Id),
+        };
+    }
+
+    private IReadOnlyList<WorkViewModel> CurrentTrackSurfaceTracks =>
+        IsAlbumDetail ? AlbumTracks :
+        IsArtistsSurface ? ArtistTracks :
+        IsPlaylistSurface ? ActivePlaylistTracks :
+        FilteredSongs;
+
+    private string CurrentTrackSurfaceLabel =>
+        IsAlbumDetail && _albumDetail is not null ? _albumDetail.DisplayName :
+        IsArtistsSurface && _artistDetail is not null ? _artistDetail.DisplayName :
+        IsPlaylistSurface ? ActivePlaylistTitle :
+        "All Music";
+
+    private IReadOnlyList<WorkViewModel> SelectedTrackWorks =>
+        CurrentTrackSurfaceTracks
+            .Where(work => _selectedTrackIds.Contains(work.Id))
+            .ToList();
+
+    private async Task OnTrackSelectionChanged(HashSet<Guid> selected)
+    {
+        _selectedTrackIds = selected;
+        CloseTrackContextMenu();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnTrackRowActivated(Guid entityId)
+    {
+        var target = CurrentTrackSurfaceTracks.FirstOrDefault(work => work.Id == entityId);
+        if (target is null)
+            return;
+
+        await PlayTracksAsync(CurrentTrackSurfaceTracks, target.Id, CurrentTrackSurfaceLabel);
+    }
+
+    private async Task OnTrackSortRequested((string sortKey, bool ascending) request)
+    {
+        _songSortColumn = NormalizeSongSortColumn(request.sortKey);
+        _songSortDescending = !request.ascending;
+        CloseTrackContextMenu();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private Task OnTrackContextRequested(LibraryRowContextMenuRequest request)
+    {
+        _trackContextMenuWorkId = request.EntityId;
+        _trackContextMenuSourceLabel = CurrentTrackSurfaceLabel;
+        _trackContextMenuX = request.ClientX;
+        _trackContextMenuY = request.ClientY;
+
+        if (!_selectedTrackIds.Contains(request.EntityId))
+            _selectedTrackIds = [request.EntityId];
+
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private Task OnTrackDragStarted(Guid entityId)
+    {
+        _draggingTrackIds = _selectedTrackIds.Contains(entityId)
+            ? _selectedTrackIds.ToHashSet()
+            : [entityId];
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnTrackDragEnded()
+    {
+        _draggingTrackIds.Clear();
+        return Task.CompletedTask;
+    }
+
+    private void CloseTrackContextMenu() => _trackContextMenuWorkId = null;
+
+    private WorkViewModel? ContextMenuTrack =>
+        _trackContextMenuWorkId.HasValue
+            ? CurrentTrackSurfaceTracks.FirstOrDefault(work => work.Id == _trackContextMenuWorkId.Value)
+            : null;
+
+    private async Task PlaySelectedTracksAsync()
+    {
+        if (SelectedTrackWorks.Count == 0)
+            return;
+
+        await PlayTracksAsync(SelectedTrackWorks, SelectedTrackWorks[0].Id, "Selected Tracks");
+        _selectedTrackIds.Clear();
+    }
+
+    private async Task QueueSelectedTracksAsync(bool next)
+    {
+        if (SelectedTrackWorks.Count == 0)
+            return;
+
+        foreach (var track in SelectedTrackWorks)
+        {
+            if (next)
+                await Playback.InsertNextAsync(track);
+            else
+                await Playback.AddToQueueAsync(track);
+        }
+
+        Snackbar.Add(next ? "Selected songs will play next." : "Selected songs added to the queue.", Severity.Success);
+        CloseTrackContextMenu();
+    }
+
+    private async Task EditSelectedTrackAsync()
+    {
+        var target = SelectedTrackWorks.FirstOrDefault();
+        if (target is null)
+            return;
+
+        await EditTrackAsync(target);
+    }
+
+    private async Task DeleteSelectedTracksAsync()
+    {
+        if (SelectedTrackWorks.Count == 0)
+            return;
+
+        var deleteCount = SelectedTrackWorks.Count;
+
+        var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete {deleteCount} selected song(s) from the library?");
+        if (!confirmed)
+            return;
+
+        var response = await ApiClient.BatchDeleteRegistryItemsAsync(SelectedTrackWorks.Select(track => track.Id).ToArray());
+        if (response is null)
+        {
+            Snackbar.Add("Delete failed.", Severity.Error);
+            return;
+        }
+
+        _selectedTrackIds.Clear();
+        CloseTrackContextMenu();
+        await LoadAsync();
+        Snackbar.Add($"{deleteCount} songs deleted.", Severity.Success);
+    }
+
+    private async Task AddSelectedTracksToPlaylistAsync(Guid? collectionId = null)
+    {
+        if (SelectedTrackWorks.Count == 0)
+            return;
+
+        if (collectionId.HasValue)
+        {
+            var collection = PlaylistCollections.FirstOrDefault(item => item.Id == collectionId.Value);
+            if (collection is null)
+                return;
+
+            await AddTracksToPlaylistAsync(SelectedTrackWorks, collection);
+            return;
+        }
+
+        await CreatePlaylistAndAddTracksAsync(SelectedTrackWorks);
+    }
+
+    private async Task AddTracksToPlaylistAsync(IEnumerable<WorkViewModel> works, ManagedCollectionViewModel collection)
+    {
+        if (!_activeProfileId.HasValue)
+        {
+            Snackbar.Add("Choose an active profile before saving to playlists.", Severity.Warning);
+            return;
+        }
+
+        var added = 0;
+        foreach (var work in works)
+        {
+            if (await ApiClient.AddCollectionItemAsync(collection.Id, work.Id, _activeProfileId.Value))
+                added++;
+        }
+
+        if (added == 0)
+        {
+            Snackbar.Add($"Could not add songs to {collection.Name}.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"Added {added} song(s) to {collection.Name}.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private async Task CreatePlaylistAndAddTracksAsync(IEnumerable<WorkViewModel> works)
+    {
+        if (!_activeProfileId.HasValue)
+        {
+            Snackbar.Add("Choose an active profile before creating playlists.", Severity.Warning);
+            return;
+        }
+
+        var timestamp = DateTimeOffset.Now.ToString("M-d HHmm", CultureInfo.InvariantCulture);
+        var created = await ApiClient.CreateCollectionAsync(
+            name: $"New Playlist {timestamp}",
+            description: "Created from the Listen grid.",
+            iconName: Icons.Material.Outlined.QueueMusic,
+            collectionType: "Playlist",
+            rules: [],
+            matchMode: "all",
+            sortField: null,
+            sortDirection: "asc",
+            liveUpdating: false,
+            visibility: "private",
+            profileId: _activeProfileId.Value);
+
+        if (!created)
+        {
+            Snackbar.Add("Could not create a playlist for the dropped songs.", Severity.Error);
+            return;
+        }
+
+        await LoadAsync();
+        var createdPlaylist = PlaylistCollections.OrderByDescending(collection => collection.CreatedAt).FirstOrDefault();
+        if (createdPlaylist is null)
+        {
+            Snackbar.Add("Playlist was created, but it could not be loaded yet.", Severity.Warning);
+            return;
+        }
+
+        await AddTracksToPlaylistAsync(works, createdPlaylist);
+    }
+
+    private async Task HandlePlaylistDropAsync(Guid? collectionId = null)
+    {
+        if (_draggingTrackIds.Count == 0)
+            return;
+
+        _selectedTrackIds = _draggingTrackIds.ToHashSet();
+        if (collectionId.HasValue)
+            await AddSelectedTracksToPlaylistAsync(collectionId.Value);
+        else
+            await AddSelectedTracksToPlaylistAsync();
+
+        _draggingTrackIds.Clear();
+    }
+
     private void OpenArtist(string artistName)
         => NavigateTo($"/listen/music/artists/{Uri.EscapeDataString(artistName)}");
 
+    private Task OnTrackArtistClicked(string artistName)
+    {
+        if (!string.IsNullOrWhiteSpace(artistName))
+            OpenArtist(artistName);
+
+        return Task.CompletedTask;
+    }
+
+    private Task OnSongColumnVisibilityChanged(List<string> visibleKeys)
+    {
+        _visibleSongColumnKeys = visibleKeys;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
     private void HandleSongSort(string column)
     {
+        column = NormalizeSongSortColumn(column);
+
         if (string.Equals(_songSortColumn, column, StringComparison.OrdinalIgnoreCase))
         {
             _songSortDescending = !_songSortDescending;
@@ -896,7 +1228,7 @@ public partial class ListenPage
 
     private IReadOnlyList<WorkViewModel> SortSongs(IEnumerable<WorkViewModel> works)
     {
-        var ordered = _songSortColumn switch
+        var ordered = NormalizeSongSortColumn(_songSortColumn) switch
         {
             "title" => _songSortDescending
                 ? works.OrderByDescending(work => work.Title, StringComparer.OrdinalIgnoreCase)
@@ -926,6 +1258,14 @@ public partial class ListenPage
 
         return ordered.ToList();
     }
+
+    private static string NormalizeSongSortColumn(string? column) =>
+        (column ?? string.Empty).Trim().ToLowerInvariant() switch
+        {
+            "date_added" => "dateAdded",
+            "track_number" => "title",
+            _ => string.IsNullOrWhiteSpace(column) ? "dateAdded" : column,
+        };
 
 #pragma warning disable ASP0006
     private RenderFragment RenderAlbumCard(ContentGroupViewModel album) => builder =>
@@ -1296,44 +1636,46 @@ public partial class ListenPage
 
     private static int GetDurationSortKey(WorkViewModel work)
     {
-        var duration = GetTrackDuration(work);
-        if (string.IsNullOrWhiteSpace(duration) || string.Equals(duration, "-", StringComparison.Ordinal))
-        {
-            return -1;
-        }
-
-        var parts = duration.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length is 2 or 3)
-        {
-            var multiplier = 1;
-            var total = 0;
-
-            for (var index = parts.Length - 1; index >= 0; index--)
-            {
-                if (!int.TryParse(parts[index], NumberStyles.Integer, CultureInfo.InvariantCulture, out var segment))
-                {
-                    return -1;
-                }
-
-                total += segment * multiplier;
-                multiplier *= 60;
-            }
-
-            return total;
-        }
-
-        return TimeSpan.TryParse(duration, CultureInfo.InvariantCulture, out var parsed)
-            ? (int)parsed.TotalSeconds
-            : -1;
+        var durationSeconds = GetTrackDurationSeconds(work);
+        return durationSeconds > 0 ? (int)Math.Min(durationSeconds, int.MaxValue) : 0;
     }
 
     private static string GetTrackDuration(WorkViewModel work)
-    {
-        var duration = work.CanonicalValues.FirstOrDefault(item =>
-            string.Equals(item.Key, "duration", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(item.Key, "runtime", StringComparison.OrdinalIgnoreCase))?.Value;
+        => LibraryHelpers.FormatDuration(GetTrackDurationSeconds(work), fallback: "0:00");
 
-        return string.IsNullOrWhiteSpace(duration) ? "-" : duration;
+    private static long GetTrackDurationSeconds(WorkViewModel work)
+        => LibraryHelpers.NormalizeDurationSeconds(
+            GetCanonicalValue(work, "duration_sec"),
+            GetCanonicalValue(work, "duration_seconds"),
+            GetCanonicalValue(work, "duration"),
+            GetCanonicalValue(work, "runtime")) ?? 0;
+
+    private static string? GetCanonicalValue(WorkViewModel work, params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = work.CanonicalValues.FirstOrDefault(item =>
+                string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
+
+            if (!string.IsNullOrWhiteSpace(value))
+                return value;
+        }
+
+        return null;
+    }
+
+    private static DateTimeOffset? ParseCanonicalDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var parsed))
+            return parsed;
+
+        if (DateTimeOffset.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out parsed))
+            return parsed;
+
+        return null;
     }
 
     private static string FirstNonBlank(params string?[] values)

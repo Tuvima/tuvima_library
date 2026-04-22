@@ -29,10 +29,14 @@ public sealed class LibraryItemViewModel
     public string? Runtime { get; init; }
     public string? Rating { get; init; }
     public string? Album { get; init; }
+    public string? AlbumArtist { get; init; }
+    public string? Composer { get; init; }
+    public string? Comments { get; init; }
     public string? TrackNumber { get; init; }
     public string? Season { get; init; }
     public string? Episode { get; init; }
     public string? Duration { get; init; }
+    public long? DurationSeconds { get; init; }
     public string? DiscNumber { get; init; }
     public string? ShowName { get; init; }
     public string? EpisodeTitle { get; init; }
@@ -42,6 +46,10 @@ public sealed class LibraryItemViewModel
     public string? SeasonCount { get; init; }
     public string? AlbumCount { get; init; }
     public string? Year { get; init; }
+    public string? SortTitle { get; init; }
+    public string? SortArtist { get; init; }
+    public string? SortAlbum { get; init; }
+    public string? Kind { get; init; }
     public string MediaType { get; init; } = "";
     public string? CoverUrl { get; init; }
     public string? CoverThumbUrl { get; init; }
@@ -56,9 +64,14 @@ public sealed class LibraryItemViewModel
     public string? RetailMatchDetail { get; init; }
     public string WikidataMatch { get; init; } = "none";
     public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? DateModified { get; init; }
+    public DateTimeOffset? LastPlayedAt { get; init; }
+    public DateTimeOffset? ReleaseDate { get; init; }
     public string? FileName { get; init; }
     public string? FilePath { get; init; }
     public long? FileSizeBytes { get; init; }
+    public int? PlayCount { get; init; }
+    public bool IsFavorite { get; init; }
     public Guid? ReviewItemId { get; init; }
     public bool HasUserLocks { get; init; }
     public string? HeroUrl { get; init; }

@@ -1964,9 +1964,9 @@ public static partial class MetadataEndpoints
         {
             return normalized switch
             {
-                "TV" => ["details", "episodes", "artwork", "id", "options"],
-                "Music" => ["details", "tracks", "artwork", "id", "options"],
-                _ => ["details", "id", "options"],
+                "TV" => ["details", "episodes", "artwork", "links", "options"],
+                "Music" => ["details", "tracks", "artwork", "links", "options"],
+                _ => ["details", "links", "options"],
             };
         }
 
@@ -1974,7 +1974,7 @@ public static partial class MetadataEndpoints
         if (canEditArtwork)
             tabs.Add("artwork");
 
-        tabs.Add("id");
+        tabs.Add("links");
         tabs.Add("options");
 
         if (!string.IsNullOrWhiteSpace(representativeMediaFilePath))
@@ -2032,20 +2032,7 @@ public static partial class MetadataEndpoints
         return map;
     }
 
-    private static IReadOnlyList<string> GetLockedFieldKeys(string mediaType, string scopeId) =>
-        (NormalizeEditorMediaType(mediaType), scopeId) switch
-        {
-            ("TV", "series") => ["show_name", "year", "network"],
-            ("TV", "season") => ["show_name", "season_number"],
-            ("TV", "episode") => ["show_name", "season_number", "episode_number", "episode_title"],
-            ("Music", "album") => ["artist", "album", "year"],
-            ("Music", "track") => ["title", "artist", "album", "track_number", "disc_number"],
-            ("Movies", _) => ["title", "year", "director"],
-            ("Books", _) => ["title", "author", "series", "series_position"],
-            ("Audiobooks", _) => ["title", "author", "narrator", "series", "series_position"],
-            ("Comics", _) => ["series", "series_position", "title"],
-            _ => [],
-        };
+    private static IReadOnlyList<string> GetLockedFieldKeys(string mediaType, string scopeId) => [];
 
     private static IReadOnlyList<string> BuildDisplayOverrideKeys(string mediaType) =>
         NormalizeEditorMediaType(mediaType) switch

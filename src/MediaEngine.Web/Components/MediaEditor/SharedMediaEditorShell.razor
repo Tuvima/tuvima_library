@@ -88,7 +88,7 @@
                     }
                     @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
                     {
-                        <button class="sme-review-action" @onclick="@(() => _activeTab = "id")">
+                        <button class="sme-review-action" @onclick="@(() => _activeTab = "links")">
                             Find @GetCanonicalTargetLabel(_canonicalTargetGroup)
                         </button>
                     }
@@ -168,7 +168,7 @@
                                                 <span>@field.Label</span>
                                                 @if (isLocked)
                                                 {
-                                                    <MudTooltip Text="Derived from current canonical match. Change this in the ID tab.">
+                                                    <MudTooltip Text="Linked identity field. Edit it here or use Links to search provider matches.">
                                                         <span class="sme-field-info sme-field-info--locked" aria-label="Locked field">
                                                             <MudIcon Icon="@Icons.Material.Outlined.Lock" Style="font-size: 14px;" />
                                                         </span>
@@ -203,7 +203,7 @@
                                                 }
                                                 @if (isLocked)
                                                 {
-                                                    <div class="sme-field-hint">Derived from current canonical match. Change this in the ID tab.</div>
+                                                    <div class="sme-field-hint">Edit here directly, or use Links to search and relink the canonical match.</div>
                                                 }
                                             </div>
                                         </div>
@@ -229,6 +229,75 @@
                                                        value="@GetEditableValue(key)"
                                                        @oninput="@((ChangeEventArgs args) => OnFieldInput(key, args.Value?.ToString()))" />
                                                 <div class="sme-field-hint">@GetDisplayOverrideHint(key)</div>
+                                            </div>
+                                        </div>
+                                    }
+                                </section>
+                            }
+
+                            @if (IsSingleItem && GetPlacementFieldKeysForActiveScope().Count > 0)
+                            {
+                                <section class="sme-group">
+                                    <div class="sme-group-title">Placement & Identity</div>
+                                    @foreach (var key in GetPlacementFieldKeysForActiveScope())
+                                    {
+                                        var field = _schema.Groups
+                                            .SelectMany(candidateGroup => candidateGroup.Fields)
+                                            .FirstOrDefault(candidate => string.Equals(candidate.Key, key, StringComparison.OrdinalIgnoreCase));
+                                        if (field is null)
+                                        {
+                                            continue;
+                                        }
+
+                                        <div class="sme-field-row">
+                                            <label class="sme-field-label">
+                                                <span>@field.Label</span>
+                                                <MudTooltip Text="Type to update this field. Existing library matches appear first, with provider search available inline when needed.">
+                                                    <span class="sme-field-info" aria-label="Placement help">
+                                                        <MudIcon Icon="@Icons.Material.Outlined.ManageSearch" Style="font-size: 14px;" />
+                                                    </span>
+                                                </MudTooltip>
+                                            </label>
+                                            <div class="sme-field-control">
+                                                <div class="sme-membership-input-row">
+                                                    <input class="sme-text-input"
+                                                           type="text"
+                                                           placeholder="@GetPlaceholder(field)"
+                                                           value="@GetEditableValue(field.Key)"
+                                                           @oninput="@(async (ChangeEventArgs args) => await OnMembershipFieldInputAsync(field.Key, args.Value?.ToString()))" />
+                                                    @if (CanSearchRetailMembership(field.Key))
+                                                    {
+                                                        <button type="button"
+                                                                class="sme-inline-btn"
+                                                                @onclick="@(() => SearchRetailMembershipAsync(field.Key))">
+                                                            Search
+                                                        </button>
+                                                    }
+                                                </div>
+
+                                                @if (GetMembershipSuggestions(field.Key).Count > 0)
+                                                {
+                                                    <div class="sme-membership-suggestions">
+                                                        @foreach (var suggestion in GetMembershipSuggestions(field.Key))
+                                                        {
+                                                            <button type="button"
+                                                                    class="sme-membership-suggestion"
+                                                                    @onclick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
+                                                                <span class="sme-membership-suggestion-label">@suggestion.Label</span>
+                                                                @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
+                                                                {
+                                                                    <span class="sme-membership-suggestion-subtitle">@suggestion.Subtitle</span>
+                                                                }
+                                                                @if (!string.IsNullOrWhiteSpace(GetMembershipSuggestionMeta(suggestion)))
+                                                                {
+                                                                    <span class="sme-membership-suggestion-subtitle">@GetMembershipSuggestionMeta(suggestion)</span>
+                                                                }
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                }
+
+                                                <div class="sme-field-hint">If the right album or artist is already in your library, select it here. If not, use Search to look up provider results without leaving Details.</div>
                                             </div>
                                         </div>
                                     }
@@ -326,7 +395,7 @@
                         }
                     </div>
                 }
-                else if (_activeTab == "id")
+                else if (_activeTab == "links")
                 {
                     <div class="sme-file-tab">
                         @if (_editorContext?.IdentitySummary is not null)
@@ -457,77 +526,7 @@
                             }
                         }
 
-                        @if (IsSingleItem && GetPlacementFieldKeysForActiveScope().Count > 0)
-                        {
-                            <section class="sme-group">
-                                <div class="sme-group-title">Membership</div>
-                                @foreach (var key in GetPlacementFieldKeysForActiveScope())
-                                {
-                                    var field = _schema.Groups
-                                        .SelectMany(candidateGroup => candidateGroup.Fields)
-                                        .FirstOrDefault(candidate => string.Equals(candidate.Key, key, StringComparison.OrdinalIgnoreCase));
-                                    if (field is null)
-                                    {
-                                        continue;
-                                    }
-
-                                    <div class="sme-field-row">
-                                        <label class="sme-field-label">
-                                            <span>@field.Label</span>
-                                            @if (IsFieldLocked(field.Key))
-                                            {
-                                                <MudTooltip Text="Derived from current canonical match. Change this in the ID tab.">
-                                                    <span class="sme-field-info sme-field-info--locked" aria-label="Locked field">
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Lock" Style="font-size: 14px;" />
-                                                    </span>
-                                                </MudTooltip>
-                                            }
-                                        </label>
-                                        <div class="sme-field-control">
-                                            <div class="sme-membership-input-row">
-                                                <input class="sme-text-input"
-                                                       type="text"
-                                                       placeholder="@GetPlaceholder(field)"
-                                                       value="@GetEditableValue(field.Key)"
-                                                       @oninput="@(async (ChangeEventArgs args) => await OnMembershipFieldInputAsync(field.Key, args.Value?.ToString()))" />
-                                                @if (CanSearchRetailMembership(field.Key))
-                                                {
-                                                    <button type="button"
-                                                            class="sme-inline-btn"
-                                                            @onclick="@(() => SearchRetailMembershipAsync(field.Key))">
-                                                        Search Retail
-                                                    </button>
-                                                }
-                                            </div>
-
-                                            @if (GetMembershipSuggestions(field.Key).Count > 0)
-                                            {
-                                                <div class="sme-membership-suggestions">
-                                                    @foreach (var suggestion in GetMembershipSuggestions(field.Key))
-                                                    {
-                                                        <button type="button"
-                                                                class="sme-membership-suggestion"
-                                                                @onclick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
-                                                            <span class="sme-membership-suggestion-label">@suggestion.Label</span>
-                                                            @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
-                                                            {
-                                                                <span class="sme-membership-suggestion-subtitle">@suggestion.Subtitle</span>
-                                                            }
-                                                            @if (!string.IsNullOrWhiteSpace(GetMembershipSuggestionMeta(suggestion)))
-                                                            {
-                                                                <span class="sme-membership-suggestion-subtitle">@GetMembershipSuggestionMeta(suggestion)</span>
-                                                            }
-                                                        </button>
-                                                    }
-                                                </div>
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            </section>
-                        }
-
-                        @foreach (var group in GetGroupsForTab("id"))
+                        @foreach (var group in GetGroupsForTab("links"))
                         {
                             <section class="sme-group">
                                 <div class="sme-group-title">@group.Label</div>

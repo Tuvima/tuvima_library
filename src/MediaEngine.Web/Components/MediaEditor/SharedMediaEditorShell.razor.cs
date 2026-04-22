@@ -17,7 +17,7 @@ public partial class SharedMediaEditorShell
         "episodes",
         "tracks",
         "artwork",
-        "id",
+        "links",
         "options",
         "file",
     ];
@@ -1800,7 +1800,7 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<string> GetAvailableTabIds() =>
         _editorContext?.AvailableTabs?.Count > 0
             ? _editorContext.AvailableTabs
-            : ["details", "artwork", "id", "options"];
+            : ["details", "artwork", "links", "options"];
 
     private string GetTabLabel(string tabId) =>
         tabId switch
@@ -1809,7 +1809,7 @@ public partial class SharedMediaEditorShell
             "episodes" => _editorContext?.ContentTabLabel ?? "Episodes",
             "tracks" => _editorContext?.ContentTabLabel ?? "Tracks",
             "artwork" => "Artwork",
-            "id" => "ID",
+            "links" => "Links",
             "options" => "Options",
             "file" => "File",
             _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(tabId.Replace('_', ' ')),
@@ -2009,6 +2009,7 @@ public partial class SharedMediaEditorShell
         (_selectedMediaType, ActiveScope?.ScopeId, fieldKey) switch
         {
             ("TV", "episode", "show_name") => true,
+            ("Music", "track", "artist") => true,
             ("Music", "track", "album") => true,
             _ => false,
         };
@@ -2285,8 +2286,9 @@ public partial class SharedMediaEditorShell
     private string NormalizeTabId(string? tabId) =>
         (tabId ?? string.Empty).Trim().ToLowerInvariant() switch
         {
-            "identity" => "id",
-            "universe" => "id",
+            "identity" => "links",
+            "universe" => "links",
+            "id" => "links",
             "inspector" => "file",
             "" => "details",
             var normalized => normalized,

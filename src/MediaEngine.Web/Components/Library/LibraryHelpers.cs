@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediaEngine.Domain;
 using MediaEngine.Web.Components.Registry;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -126,6 +127,104 @@ public static class LibraryHelpers
             < 1024 * 1024 * 1024 => $"{bytes.Value / (1024.0 * 1024.0):F1} MB",
             _ => $"{bytes.Value / (1024.0 * 1024.0 * 1024.0):F2} GB",
         };
+    }
+
+    /// <summary>Normalizes mixed duration metadata into a single seconds value for sorting and display.</summary>
+    public static long? NormalizeDurationSeconds(params string?[] candidates)
+    {
+        foreach (var candidate in candidates)
+        {
+            if (TryParseDurationSeconds(candidate, out var seconds))
+                return seconds;
+        }
+
+        return null;
+    }
+
+    /// <summary>Formats a normalized duration into m:ss or h:mm:ss, defaulting missing values to 0:00.</summary>
+    public static string FormatDuration(long? durationSeconds, string? fallback = null)
+    {
+        if (durationSeconds is > 0)
+        {
+            var totalSeconds = durationSeconds.Value;
+            var hours = totalSeconds / 3600;
+            var minutes = (totalSeconds % 3600) / 60;
+            var seconds = totalSeconds % 60;
+            return hours > 0
+                ? $"{hours}:{minutes:00}:{seconds:00}"
+                : $"{minutes}:{seconds:00}";
+        }
+
+        if (TryParseDurationSeconds(fallback, out var parsedFallback))
+            return FormatDuration(parsedFallback);
+
+        return "0:00";
+    }
+
+    /// <summary>Formats a rating into a simple star display when numeric data is available.</summary>
+    public static string FormatRating(string? rating)
+    {
+        if (string.IsNullOrWhiteSpace(rating))
+            return "Ã¢â‚¬â€";
+
+        if (int.TryParse(rating, NumberStyles.Integer, CultureInfo.InvariantCulture, out var wholeStars))
+        {
+            wholeStars = Math.Clamp(wholeStars, 0, 5);
+            return wholeStars == 0 ? "Ã¢â‚¬â€" : new string('★', wholeStars);
+        }
+
+        if (double.TryParse(rating, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+        {
+            var rounded = (int)Math.Round(Math.Clamp(numeric, 0d, 5d), MidpointRounding.AwayFromZero);
+            return rounded == 0 ? "Ã¢â‚¬â€" : new string('★', rounded);
+        }
+
+        return rating;
+    }
+
+    private static bool TryParseDurationSeconds(string? value, out long seconds)
+    {
+        seconds = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var trimmed = value.Trim();
+
+        if (trimmed.Contains(':', StringComparison.Ordinal))
+        {
+            var parts = trimmed.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            if (parts.Length is 2 or 3)
+            {
+                long total = 0;
+                long multiplier = 1;
+                for (var index = parts.Length - 1; index >= 0; index--)
+                {
+                    if (!long.TryParse(parts[index], NumberStyles.Integer, CultureInfo.InvariantCulture, out var segment))
+                        return false;
+
+                    total += segment * multiplier;
+                    multiplier *= 60;
+                }
+
+                seconds = Math.Max(0, total);
+                return true;
+            }
+
+            if (TimeSpan.TryParse(trimmed, CultureInfo.InvariantCulture, out var parsedTimeSpan))
+            {
+                seconds = Math.Max(0, (long)Math.Round(parsedTimeSpan.TotalSeconds, MidpointRounding.AwayFromZero));
+                return true;
+            }
+        }
+
+        if (!double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric) || numeric < 0)
+            return false;
+
+        if (numeric >= 10000 && Math.Abs(numeric % 1000d) < 0.0001d)
+            numeric /= 1000d;
+
+        seconds = Math.Max(0, (long)Math.Round(numeric, MidpointRounding.AwayFromZero));
+        return true;
     }
 
     /// <summary>Returns provider lookup buttons based on media type, matching configured slot providers.</summary>

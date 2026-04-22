@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Library
+@using System.Globalization
 @using MediaEngine.Web.Models.ViewDTOs
 @using Microsoft.AspNetCore.Components.Web
 
@@ -75,9 +76,17 @@ else
     [Parameter] public bool Loading { get; set; }
     [Parameter] public int PosterSize { get; set; } = 48;
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
+    [Parameter] public EventCallback<Guid> OnRowDoubleClicked { get; set; }
+    [Parameter] public EventCallback<LibraryRowContextMenuRequest> OnRowContextRequested { get; set; }
+    [Parameter] public EventCallback<Guid> OnRowDragStarted { get; set; }
+    [Parameter] public EventCallback OnRowDragEnded { get; set; }
     [Parameter] public EventCallback<string> OnAuthorClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnEditClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnDeleteClicked { get; set; }
+    [Parameter] public bool SelectOnRowClick { get; set; }
+    [Parameter] public bool ActivateOnEnter { get; set; }
+    [Parameter] public bool EnableRowContextMenu { get; set; }
+    [Parameter] public bool EnableRowDragging { get; set; }
 
     // Batch selection
     [Parameter] public HashSet<Guid> SelectedItems { get; set; } = [];
@@ -191,6 +200,93 @@ else
         await OnSortRequested.InvokeAsync((sortKey, ascending));
     }
 
+    private async Task HandleRowClickAsync(LibraryItemViewModel item, List<LibraryItemViewModel> contextList, MouseEventArgs e)
+    {
+        if (SelectOnRowClick)
+        {
+            await SelectRowAsync(item, contextList, e);
+            return;
+        }
+
+        if (OnRowClicked.HasDelegate)
+            await OnRowClicked.InvokeAsync(item.EntityId);
+    }
+
+    private async Task HandleRowDoubleClickAsync(LibraryItemViewModel item)
+    {
+        if (OnRowDoubleClicked.HasDelegate)
+            await OnRowDoubleClicked.InvokeAsync(item.EntityId);
+    }
+
+    private async Task HandleRowContextMenuAsync(LibraryItemViewModel item, MouseEventArgs e)
+    {
+        if (!EnableRowContextMenu && !OnRowContextRequested.HasDelegate)
+            return;
+
+        await OnRowContextRequested.InvokeAsync(new LibraryRowContextMenuRequest(item.EntityId, e.ClientX, e.ClientY));
+    }
+
+    private async Task HandleRowDragStartAsync(LibraryItemViewModel item)
+    {
+        if (!EnableRowDragging && !OnRowDragStarted.HasDelegate)
+            return;
+
+        await OnRowDragStarted.InvokeAsync(item.EntityId);
+    }
+
+    private async Task HandleRowDragEndAsync()
+    {
+        if (OnRowDragEnded.HasDelegate)
+            await OnRowDragEnded.InvokeAsync();
+    }
+
+    private async Task HandleRowKeyDownAsync(LibraryItemViewModel item, KeyboardEventArgs e)
+    {
+        if (!ActivateOnEnter || !string.Equals(e.Key, "Enter", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (OnRowDoubleClicked.HasDelegate)
+        {
+            await OnRowDoubleClicked.InvokeAsync(item.EntityId);
+            return;
+        }
+
+        if (OnRowClicked.HasDelegate)
+            await OnRowClicked.InvokeAsync(item.EntityId);
+    }
+
+    private async Task SelectRowAsync(LibraryItemViewModel item, List<LibraryItemViewModel> contextList, MouseEventArgs e)
+    {
+        var updated = new HashSet<Guid>(SelectedItems);
+        var currentIndex = contextList.IndexOf(item);
+
+        if (e.ShiftKey && _lastClickedIndex >= 0 && currentIndex >= 0)
+        {
+            updated.Clear();
+            var start = Math.Min(_lastClickedIndex, currentIndex);
+            var end = Math.Max(_lastClickedIndex, currentIndex);
+            for (var index = start; index <= end; index++)
+                updated.Add(contextList[index].EntityId);
+        }
+        else if (e.CtrlKey || e.MetaKey)
+        {
+            if (updated.Contains(item.EntityId))
+                updated.Remove(item.EntityId);
+            else
+                updated.Add(item.EntityId);
+            _lastClickedIndex = currentIndex;
+        }
+        else
+        {
+            updated.Clear();
+            updated.Add(item.EntityId);
+            _lastClickedIndex = currentIndex;
+        }
+
+        SelectedItems = updated;
+        await SelectedItemsChanged.InvokeAsync(SelectedItems);
+    }
+
     private RenderFragment RenderTable(List<LibraryItemViewModel> items) => __builder =>
     {
         var cols = ActiveColumns;
@@ -246,9 +342,18 @@ else
                     var isQuarantined = item.LibraryDisplayStatus == LibraryStatus.Quarantined;
                     var isSelected = SelectedItems.Contains(item.EntityId);
                     var isDrillable = IsDrillable?.Invoke(item) == true;
+                    var rowInteractive = SelectOnRowClick || OnRowClicked.HasDelegate || OnRowDoubleClicked.HasDelegate;
                     <tr class="vmt-row @(isQuarantined ? "vmt-row--quarantined" : "") @(isSelected ? "vmt-row--selected" : "") vmt-row--drillable"
-                        style="cursor: pointer;"
-                        @onclick="() => OnRowClicked.InvokeAsync(item.EntityId)">
+                        style="cursor: @(rowInteractive ? "pointer" : "default");"
+                        tabindex="@(rowInteractive || ActivateOnEnter ? "0" : null)"
+                        draggable="@EnableRowDragging"
+                        @onclick="@(async (MouseEventArgs args) => await HandleRowClickAsync(item, items, args))"
+                        @ondblclick="@(async () => await HandleRowDoubleClickAsync(item))"
+                        @oncontextmenu:preventDefault="@(EnableRowContextMenu || OnRowContextRequested.HasDelegate)"
+                        @oncontextmenu="@(async (MouseEventArgs args) => await HandleRowContextMenuAsync(item, args))"
+                        @ondragstart="@(async () => await HandleRowDragStartAsync(item))"
+                        @ondragend="HandleRowDragEndAsync"
+                        @onkeydown="@(async (KeyboardEventArgs args) => await HandleRowKeyDownAsync(item, args))">
                         @foreach (var col in cols)
                         {
                             var tdAlignClass = col.Align switch
@@ -385,7 +490,7 @@ else
                                         break;
 
                                     case ColumnRenderType.Date:
-                                        <span class="vct-text-cell">@FormatRelativeTime(item.CreatedAt)</span>
+                                        <span class="vct-text-cell">@FormatAbsoluteDate(item.CreatedAt)</span>
                                         break;
 
                                     case ColumnRenderType.Duration:
@@ -407,11 +512,11 @@ else
                                         break;
 
                                     case ColumnRenderType.Text:
-                                        <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
+                                        <span class="vct-text-cell">@GetDisplayTextValue(item, col.PropertyName)</span>
                                         break;
 
                                     case ColumnRenderType.ClickableText:
-                                        var clickText = GetTextValue(item, col.PropertyName);
+                                        var clickText = GetDisplayTextValue(item, col.PropertyName);
                                         if (!string.IsNullOrEmpty(clickText))
                                         {
                                             var parts = clickText.Split(new[] { " and ", " & ", ", " }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
@@ -474,7 +579,7 @@ else
                                         break;
 
                                     case ColumnRenderType.Count:
-                                        <span class="vct-text-cell">@GetTextValue(item, col.PropertyName)</span>
+                                        <span class="vct-text-cell">@GetDisplayTextValue(item, col.PropertyName)</span>
                                         break;
 
                                     case ColumnRenderType.ManageActions:
@@ -687,6 +792,58 @@ else
         return item.Author;
     }
 
+    private static string GetDisplayTextValue(LibraryItemViewModel item, string? propertyName)
+    {
+        const string EmptyValue = "-";
+
+        return propertyName switch
+        {
+            "ParentContext" => item.ShowName ?? item.Series ?? item.Album ?? EmptyValue,
+            "Author" => item.Author ?? EmptyValue,
+            "Director" => item.Director ?? EmptyValue,
+            "Artist" => item.Artist ?? EmptyValue,
+            "AlbumArtist" => item.AlbumArtist ?? EmptyValue,
+            "Composer" => item.Composer ?? EmptyValue,
+            "Comments" or "Comment" => item.Comments ?? EmptyValue,
+            "Favorite" => item.IsFavorite ? "Yes" : EmptyValue,
+            "PlayCount" => item.PlayCount is > 0 ? item.PlayCount.Value.ToString(CultureInfo.InvariantCulture) : EmptyValue,
+            "DateAdded" => item.CreatedAt == default ? EmptyValue : FormatAbsoluteDate(item.CreatedAt),
+            "DateModified" => item.DateModified.HasValue ? FormatAbsoluteDate(item.DateModified.Value) : EmptyValue,
+            "LastPlayed" => item.LastPlayedAt.HasValue ? FormatAbsoluteDate(item.LastPlayedAt.Value) : EmptyValue,
+            "ReleaseDate" => item.ReleaseDate.HasValue ? FormatAbsoluteDate(item.ReleaseDate.Value) : EmptyValue,
+            "Duration" or "Runtime" => LibraryHelpers.FormatDuration(item.DurationSeconds, item.Duration ?? item.Runtime),
+            "Rating" => LibraryHelpers.FormatRating(item.Rating),
+            "Album" => item.Album ?? EmptyValue,
+            "Genre" => item.Genre ?? EmptyValue,
+            "Kind" => item.Kind ?? EmptyValue,
+            "TrackNumber" => item.TrackNumber ?? EmptyValue,
+            "DiscNumber" => item.DiscNumber ?? EmptyValue,
+            "Year" => FormatYear(item.Year),
+            "SortTitle" => item.SortTitle ?? EmptyValue,
+            "SortArtist" => item.SortArtist ?? EmptyValue,
+            "SortAlbum" => item.SortAlbum ?? EmptyValue,
+            "Series" => item.Series ?? item.UniverseName ?? EmptyValue,
+            "SeriesPosition" => item.SeriesPosition ?? EmptyValue,
+            "Narrator" => item.Narrator ?? item.Author ?? EmptyValue,
+            "Season" => item.Season ?? EmptyValue,
+            "Episode" => item.Episode ?? EmptyValue,
+            "Network" => item.Network ?? EmptyValue,
+            "EpisodeTitle" => item.EpisodeTitle ?? EmptyValue,
+            "IssueNumber" => EmptyValue,
+            "Name" => item.Title,
+            "Type" => item.MediaType ?? EmptyValue,
+            "SeriesCount" => EmptyValue,
+            "PeopleCount" => EmptyValue,
+            "ItemCount" => EmptyValue,
+            "Featured" => EmptyValue,
+            "WorkCount" => item.TrackCount ?? EmptyValue,
+            "SeasonCount" => item.SeasonCount ?? EmptyValue,
+            "AlbumCount" => item.AlbumCount ?? EmptyValue,
+            "Creator" => item.Author ?? item.Artist ?? item.Director ?? EmptyValue,
+            _ => GetTextValue(item, propertyName),
+        };
+    }
+
     private static string GetTextValue(LibraryItemViewModel item, string? propertyName) =>
         propertyName switch
         {
@@ -743,6 +900,11 @@ else
         if (diff.TotalDays < 365)    return $"{(int)(diff.TotalDays / 30)}mo ago";
         return $"{(int)(diff.TotalDays / 365)}y ago";
     }
+
+    private static string FormatAbsoluteDate(DateTimeOffset dt) =>
+        dt == default
+            ? "-"
+            : dt.LocalDateTime.ToString("M/d/yyyy, h:mm tt", CultureInfo.CurrentCulture);
 }
 
 <style>
