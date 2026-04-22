@@ -202,7 +202,17 @@ else
                                 <div class="listen-card-grid">
                                     @foreach (var playlist in HomePlaylistCards)
                                     {
-                                        @RenderPlaylistCard(playlist)
+                                        <button type="button"
+                                                class="listen-card listen-card--playlist"
+                                                @onclick="@(() => NavigateTo(playlist.Route))">
+                                            <div class="listen-card__art listen-card__art--playlist">
+                                                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                            </div>
+                                            <div class="listen-card__meta listen-card__meta--label">@playlist.Type</div>
+                                            <div class="listen-card__title">@playlist.Title</div>
+                                            <div class="listen-card__meta">@playlist.Meta</div>
+                                            <p>@playlist.Description</p>
+                                        </button>
                                     }
                                 </div>
                             </section>
@@ -737,7 +747,19 @@ else
                         <div class="listen-card-grid">
                             @foreach (var playlist in PlaylistCollections)
                             {
-                                @RenderPlaylistCard(ToPlaylistCard(playlist))
+                                var card = ToPlaylistCard(playlist);
+
+                                <button type="button"
+                                        class="listen-card listen-card--playlist"
+                                        @onclick="@(() => NavigateTo(card.Route))">
+                                    <div class="listen-card__art listen-card__art--playlist">
+                                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                    </div>
+                                    <div class="listen-card__meta listen-card__meta--label">@card.Type</div>
+                                    <div class="listen-card__title">@card.Title</div>
+                                    <div class="listen-card__meta">@card.Meta</div>
+                                    <p>@card.Description</p>
+                                </button>
                             }
                         </div>
                     }
