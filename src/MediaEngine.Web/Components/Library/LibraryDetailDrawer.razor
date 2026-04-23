@@ -1277,11 +1277,6 @@
     private string _primarySearchField = "title";
     private string _primarySearchValue = "";
     private List<(string FieldKey, string Value)> _searchFilters = [];
-    private bool _showFilterDropdown;
-    private bool _showPrimaryDropdown;
-    private bool _showMediaTypeDropdown;
-    private bool _showWikiMediaTypeDropdown;
-    private bool _showCanonicalTargetDropdown;
     private List<RetailCandidateDto> _retailSearchResults = [];
     private RetailCandidateDto? _pendingRetailMatch;
     private bool _confirmingRetailMatch;
@@ -1411,11 +1406,6 @@
         _primarySearchField = "title";
         _primarySearchValue = "";
         _searchFilters = [];
-        _showFilterDropdown = false;
-        _showPrimaryDropdown = false;
-        _showMediaTypeDropdown = false;
-        _showWikiMediaTypeDropdown = false;
-        _showCanonicalTargetDropdown = false;
         _retailSearchResults = [];
         _searchingWikidata = false;
         _wikidataSearchResults = [];
@@ -1786,21 +1776,17 @@
     private void AddSearchFilter(string fieldKey)
     {
         _searchFilters.Add((fieldKey, ""));
-        _showFilterDropdown = false;
     }
 
     private void SetPrimaryField(string fieldKey)
     {
         _primarySearchField = fieldKey;
-        _showPrimaryDropdown = false;
     }
 
     private void SetRetailMediaType(string mt)
     {
         _searchMediaType = mt;
         _canonicalTargetGroup = GetDefaultCanonicalTargetGroup(mt);
-        _showMediaTypeDropdown = false;
-        _showCanonicalTargetDropdown = false;
         _searchFilters.Clear();
         _canonicalSearchResponse = null;
         _retailSearchResults = [];
@@ -1812,8 +1798,6 @@
     {
         _searchMediaType = mt;
         _canonicalTargetGroup = GetDefaultCanonicalTargetGroup(mt);
-        _showWikiMediaTypeDropdown = false;
-        _showCanonicalTargetDropdown = false;
         _canonicalSearchResponse = null;
         _retailSearchResults = [];
         _wikidataSearchResults = [];
@@ -1823,7 +1807,6 @@
     private void SetCanonicalTargetGroup(string targetGroup)
     {
         _canonicalTargetGroup = targetGroup;
-        _showCanonicalTargetDropdown = false;
         _canonicalSearchResponse = null;
         _retailSearchResults = [];
         _wikidataSearchResults = [];

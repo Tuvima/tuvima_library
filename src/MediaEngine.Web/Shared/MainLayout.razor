@@ -31,91 +31,75 @@
                        aria-label="@(_isMobileDrawerOpen ? L["Nav_CloseNavigation"] : L["Nav_OpenNavigation"])"
                        OnClick="@ToggleMobileDrawer" />
 
-        <MudLink Href="/" Underline="Underline.None" Class="layout-shell__logo-link" aria-label="Tuvima Library">
-            <AppLogo Class="layout-shell__logo" />
-        </MudLink>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="layout-shell__left-rail">
+            <MudLink Href="/" Underline="Underline.None" Class="layout-shell__brand-link" aria-label="Tuvima Library">
+                <AppLogo Variant="mark" Class="layout-shell__brand-mark" />
+                <span class="layout-shell__brand-wordmark">Library</span>
+            </MudLink>
 
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__desktop-nav">
-            @foreach (var link in _navLinks)
-            {
-                <MudNavLink Href="@link.Path"
-                            Match="@link.Match"
-                            Icon="@link.Icon"
-                            ActiveClass="layout-shell__nav-link--active"
-                            Class="layout-shell__nav-link">
-                    @L[link.LabelKey]
-                </MudNavLink>
-            }
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__desktop-nav">
+                @foreach (var link in _navLinks)
+                {
+                    <MudNavLink Href="@link.Path"
+                                Match="@link.Match"
+                                ActiveClass="layout-shell__nav-link--active"
+                                Class="layout-shell__nav-link">
+                        @L[link.LabelKey]
+                    </MudNavLink>
+                }
+            </MudStack>
         </MudStack>
 
-        <MudSpacer />
+        <div class="layout-shell__search-shell">
+            <MudTextField T="string"
+                          @bind-Value="_searchTerm"
+                          Placeholder="@L["Nav_SearchPlaceholder"]"
+                          aria-label="@L["Nav_SearchPlaceholder"]"
+                          Variant="Variant.Outlined"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Search"
+                          OnKeyDown="@HandleSearchKeyDown"
+                          Class="layout-shell__search" />
+        </div>
 
-        <MudChip T="string"
-                 Size="Size.Small"
-                 Variant="Variant.Outlined"
-                 Color="@GetEngineStatusColor()"
-                 Icon="@GetEngineStatusIcon()"
-                 Class="layout-shell__status-chip">
-            @GetEngineStatusLabel()
-        </MudChip>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__actions">
+            @if (_reviewCount > 0)
+            {
+                <MudBadge Overlap="true"
+                          Dot="true"
+                          Color="Color.Warning"
+                          Class="layout-shell__review-badge">
+                    <MudIconButton Icon="@Icons.Material.Outlined.NotificationsNone"
+                                   Color="Color.Inherit"
+                                   Class="layout-shell__review-button"
+                                   aria-label="@(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])"
+                                   OnClick="@OpenReviewQueue" />
+                </MudBadge>
+            }
+            else
+            {
+                <MudIconButton Icon="@Icons.Material.Outlined.NotificationsNone"
+                               Color="Color.Inherit"
+                               Class="layout-shell__review-button"
+                               aria-label="@L["Nav_ReviewQueue"]"
+                               OnClick="@OpenReviewQueue" />
+            }
 
-        <MudTextField T="string"
-                      @bind-Value="_searchTerm"
-                      Placeholder="@L["Nav_SearchPlaceholder"]"
-                      aria-label="@L["Nav_SearchPlaceholder"]"
-                      Variant="Variant.Outlined"
-                      Margin="Margin.Dense"
-                      Immediate="true"
-                      Adornment="Adornment.Start"
-                      AdornmentIcon="@Icons.Material.Outlined.Search"
-                      OnKeyDown="@HandleSearchKeyDown"
-                      Class="layout-shell__search" />
-
-        <MudIconButton Icon="@Icons.Material.Outlined.ArrowForward"
-                       Color="Color.Inherit"
-                       Class="layout-shell__search-submit"
-                       aria-label="@L["Nav_Search"]"
-                       OnClick="@HandleSearchSubmit" />
-
-        <MudMenu AnchorOrigin="Origin.BottomRight"
-                 TransformOrigin="Origin.TopRight"
-                 Class="layout-shell__profile-menu">
+            <MudMenu AnchorOrigin="Origin.BottomRight"
+                     TransformOrigin="Origin.TopRight"
+                     Class="layout-shell__profile-menu">
             <ActivatorContent>
-                <MudButton Variant="Variant.Outlined"
+                <MudButton Variant="Variant.Text"
                            Color="Color.Inherit"
-                           Class="layout-shell__profile-trigger">
-                    @if (_reviewCount > 0)
-                    {
-                        <MudBadge Overlap="true"
-                                  Dot="true"
-                                  Color="Color.Warning"
-                                  Class="layout-shell__profile-badge">
-                            <MudAvatar Size="Size.Medium"
-                                       Style="@($"background:{_avatarColor}; color:#081018;")"
-                                       Class="layout-shell__avatar">
-                                @_avatarInitial
-                            </MudAvatar>
-                        </MudBadge>
-                    }
-                    else
-                    {
-                        <MudAvatar Size="Size.Medium"
-                                   Style="@($"background:{_avatarColor}; color:#081018;")"
-                                   Class="layout-shell__avatar">
-                            @_avatarInitial
-                        </MudAvatar>
-                    }
-                    <MudText Typo="Typo.subtitle2" Class="layout-shell__profile-name">@_displayName</MudText>
-                    @if (_reviewCount > 0)
-                    {
-                        <MudChip T="string"
-                                 Size="Size.Small"
-                                 Variant="Variant.Filled"
-                                 Color="Color.Warning"
-                                 Class="layout-shell__profile-review-count">
-                            @_reviewCount
-                        </MudChip>
-                    }
+                           Class="layout-shell__avatar-trigger"
+                           aria-label="@_displayName">
+                    <MudAvatar Size="Size.Medium"
+                               Style="@($"background:{_avatarColor}; color:#081018;")"
+                               Class="layout-shell__avatar">
+                        @_avatarInitial
+                    </MudAvatar>
                 </MudButton>
             </ActivatorContent>
 
@@ -132,7 +116,8 @@
                 <MudDivider />
                 <MudText Typo="Typo.caption" Class="px-4 py-3 layout-shell__menu-status">@_engineStatusSummary</MudText>
             </ChildContent>
-        </MudMenu>
+            </MudMenu>
+        </MudStack>
     </MudAppBar>
 
     <MudDrawer @bind-Open="_isMobileDrawerOpen"
@@ -143,8 +128,9 @@
                Width="300px"
                Class="layout-shell__drawer">
         <MudDrawerHeader Class="layout-shell__drawer-header">
-            <MudLink Href="/" Underline="Underline.None" Class="layout-shell__logo-link" aria-label="Tuvima Library">
-                <AppLogo Class="layout-shell__logo" />
+            <MudLink Href="/" Underline="Underline.None" Class="layout-shell__brand-link" aria-label="Tuvima Library">
+                <AppLogo Variant="mark" Class="layout-shell__brand-mark" />
+                <span class="layout-shell__brand-wordmark">Library</span>
             </MudLink>
             <MudSpacer />
             <MudIconButton Icon="@Icons.Material.Outlined.Close"
@@ -208,6 +194,7 @@
 
     private static readonly ShellNavLink[] _navLinks =
     [
+        new("/", Icons.Material.Outlined.Home, "Nav_Home", NavLinkMatch.All),
         new("/read", Icons.Material.Outlined.AutoStories, "Nav_Read", NavLinkMatch.Prefix),
         new("/watch", Icons.Material.Outlined.LiveTv, "Nav_Watch", NavLinkMatch.Prefix),
         new("/listen", Icons.Material.Outlined.Headphones, "Nav_Listen", NavLinkMatch.Prefix),
@@ -288,6 +275,12 @@
 
         _isMobileDrawerOpen = false;
         Nav.NavigateTo(url);
+    }
+
+    private void OpenReviewQueue()
+    {
+        _isMobileDrawerOpen = false;
+        Nav.NavigateTo("/settings/review");
     }
 
     private void SyncLocationState()

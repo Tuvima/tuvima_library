@@ -53,9 +53,10 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Single(cut.FindAll(".mud-appbar"));
-            Assert.Equal(3, cut.FindAll(".layout-shell__nav-link").Count);
+            Assert.Equal(4, cut.FindAll(".layout-shell__nav-link").Count);
             Assert.Contains("Body content", cut.Markup);
-            Assert.Contains("Engine online", cut.Markup);
+            Assert.Contains("Library", cut.Markup);
+            Assert.Contains("Search your library", cut.Markup);
         });
     }
 
