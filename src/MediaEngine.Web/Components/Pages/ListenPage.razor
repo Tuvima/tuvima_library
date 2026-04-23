@@ -2,6 +2,7 @@
 @page "/listen/music"
 @page "/listen/music/{Section}"
 @page "/listen/music/albums/{CollectionId:guid}"
+@page "/listen/music/albums/by-name/{AlbumKey}"
 @page "/listen/music/artists/{ArtistKey}"
 @page "/listen/music/playlists/{CollectionId:guid}"
 @page "/listen/music/playlists/system/{PlaylistKey}"
@@ -281,7 +282,7 @@ else
                             {
                                 <button type="button"
                                         class="listen-card listen-card--album"
-                                        @onclick="@(() => NavigateTo($"/listen/music/albums/{album.CollectionId}"))"
+                                        @onclick="@(() => OpenAlbum(album))"
                                         aria-label="@($"Open album {album.DisplayName}")">
                                     <div class="listen-card__art listen-card__art--album">
                                         @if (!string.IsNullOrWhiteSpace(album.CoverUrl ?? album.ArtistPhotoUrl))
@@ -508,7 +509,7 @@ else
                                         {
                                             var albumRoute = album.AlbumCollectionId.HasValue
                                                 ? $"/listen/music/albums/{album.AlbumCollectionId.Value}"
-                                                : null;
+                                                : BuildAlbumDetailRoute(album.SeasonLabel, _artistDetail?.DisplayName);
 
                                             @if (albumRoute is null)
                                             {
@@ -868,9 +869,9 @@ else
                 <button type="button" class="listen-context-menu__action" @onclick="@(() => ToggleFavoriteAsync(ContextMenuTrack))">@(_favoriteWorkIds.Contains(ContextMenuTrack.Id) ? "Remove favorite" : "Favorite")</button>
                 <button type="button" class="listen-context-menu__action" @onclick="@(() => ToggleDislikeAsync(ContextMenuTrack))">@(_dislikedWorkIds.Contains(ContextMenuTrack.Id) ? "Clear dislike" : "Dislike")</button>
                 <button type="button" class="listen-context-menu__action" @onclick="@(() => EditTrackAsync(ContextMenuTrack))">Edit track</button>
-                @if (ContextMenuTrack.CollectionId.HasValue)
+                @if (!string.IsNullOrWhiteSpace(BuildAlbumRouteForTrack(ContextMenuTrack)))
                 {
-                    <button type="button" class="listen-context-menu__action" @onclick="@(() => NavigateTo($"/listen/music/albums/{ContextMenuTrack.CollectionId.Value}?track={ContextMenuTrack.Id}"))">Open album</button>
+                    <button type="button" class="listen-context-menu__action" @onclick="@(() => NavigateTo(BuildAlbumRouteForTrack(ContextMenuTrack)!))">Open album</button>
                 }
                 <details class="listen-row-menu">
                     <summary class="listen-row-menu__summary">Add to playlist</summary>

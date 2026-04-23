@@ -727,8 +727,8 @@ public interface IEngineApiClient
     /// <summary>GET /collections/artist-detail-by-name?artistName=X — artist drill-down by name (system-view mode).</summary>
     Task<CollectionGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default);
 
-    /// <summary>GET /collections/system-view-detail?groupField=&amp;groupValue=&amp;mediaType= — generic system-view drill-down for any group field.</summary>
-    Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default);
+    /// <summary>GET /collections/system-view-detail?groupField=&amp;groupValue=&amp;mediaType=&amp;artistName= — generic system-view drill-down for any group field.</summary>
+    Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, string? artistName = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/managed — all non-Universe collections for the Vault Collections tab.</summary>
     Task<List<ManagedCollectionViewModel>> GetManagedCollectionsAsync(Guid? profileId = null, CancellationToken ct = default);

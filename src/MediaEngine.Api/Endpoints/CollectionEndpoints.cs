@@ -9,6 +9,8 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -990,6 +992,7 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupField")] string? groupField,
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupValue")] string? groupValue,
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "mediaType")] string? mediaType,
+            [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
             IDatabaseConnection db,
             CancellationToken ct) =>
         {
@@ -1028,7 +1031,24 @@ public static class CollectionEndpoints
                     INNER JOIN media_assets ma ON ma.id = cv.entity_id
                     INNER JOIN editions e ON e.id = ma.edition_id
                     {mediaTypeFilter}
+                    LEFT JOIN works p ON p.id = w.parent_work_id
+                    LEFT JOIN works gp ON gp.id = p.parent_work_id
                     WHERE cv.key = @GroupField AND cv.value = @GroupValue COLLATE NOCASE
+                      AND (
+                          @ArtistName IS NULL
+                          OR EXISTS (
+                              SELECT 1
+                              FROM canonical_values cv_artist
+                              WHERE cv_artist.key IN ('artist', 'author')
+                                AND cv_artist.value = @ArtistName COLLATE NOCASE
+                                AND (
+                                    cv_artist.entity_id = ma.id
+                                    OR cv_artist.entity_id = w.id
+                                    OR cv_artist.entity_id = p.id
+                                    OR cv_artist.entity_id = gp.id
+                                )
+                          )
+                      )
                 ),
                 work_data AS (
                     SELECT
@@ -1071,6 +1091,11 @@ public static class CollectionEndpoints
             pValue.ParameterName = "@GroupValue";
             pValue.Value = groupValue;
             cmd.Parameters.Add(pValue);
+
+            var pArtist = cmd.CreateParameter();
+            pArtist.ParameterName = "@ArtistName";
+            pArtist.Value = string.IsNullOrWhiteSpace(artistName) ? DBNull.Value : artistName;
+            cmd.Parameters.Add(pArtist);
 
             if (!string.IsNullOrWhiteSpace(mediaType))
             {
@@ -1592,7 +1617,8 @@ public static class CollectionEndpoints
             log.LogInformation("[ByAlbum] Returning {Total} content groups for mediaType={MediaType} groupField={GroupField}",
                 result.Count, mediaType ?? "(none)", groupField ?? "(none)");
 
-            return Results.Ok(result.OrderBy(r => r.DisplayName).ToList());
+            var normalizedGroups = NormalizeSystemViewGroups(result, mediaType, groupField);
+            return Results.Ok(normalizedGroups.OrderBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase).ToList());
         })
         .WithName("GetSystemViewGroups")
         .WithSummary("Resolves built-in browse views (By Show, By Artist, By Album) as dynamic content groups for the Vault container views.")
@@ -2949,6 +2975,118 @@ public static class CollectionEndpoints
         }
 
         return result;
+    }
+
+    private static IReadOnlyList<ContentGroupDto> NormalizeSystemViewGroups(
+        IReadOnlyList<ContentGroupDto> groups,
+        string? mediaType,
+        string? groupField)
+    {
+        if (groups.Count == 0)
+        {
+            return groups;
+        }
+
+        var normalizedGroups = IsMusicAlbumSystemView(mediaType, groupField)
+            ? groups
+                .GroupBy(group => BuildSystemViewGroupIdentity(group, mediaType, groupField), StringComparer.OrdinalIgnoreCase)
+                .Select(group => (Key: group.Key, Items: (IReadOnlyList<ContentGroupDto>)group.ToList()))
+                .ToList()
+            : groups
+                .Select(group => (
+                    Key: BuildSystemViewGroupIdentity(group, mediaType, groupField),
+                    Items: (IReadOnlyList<ContentGroupDto>)[group]))
+                .ToList();
+
+        return normalizedGroups
+            .Select(group =>
+            {
+                var preferred = group.Items
+                    .OrderByDescending(ScoreSystemViewGroup)
+                    .ThenByDescending(item => item.CreatedAt)
+                    .First();
+
+                var seasonCounts = group.Items
+                    .Where(item => item.SeasonCount.HasValue)
+                    .Select(item => item.SeasonCount!.Value)
+                    .ToList();
+
+                var albumCounts = group.Items
+                    .Where(item => item.AlbumCount.HasValue)
+                    .Select(item => item.AlbumCount!.Value)
+                    .ToList();
+
+                return new ContentGroupDto
+                {
+                    CollectionId = CreateDeterministicSystemViewGroupId($"{mediaType}|{groupField}|{group.Key}"),
+                    DisplayName = preferred.DisplayName.Trim(),
+                    WikidataQid = preferred.WikidataQid,
+                    PrimaryMediaType = preferred.PrimaryMediaType,
+                    WorkCount = group.Items.Max(item => item.WorkCount),
+                    CoverUrl = preferred.CoverUrl,
+                    BackgroundUrl = preferred.BackgroundUrl,
+                    BannerUrl = preferred.BannerUrl,
+                    HeroUrl = preferred.HeroUrl,
+                    LogoUrl = preferred.LogoUrl,
+                    Description = preferred.Description,
+                    Tagline = preferred.Tagline,
+                    Creator = preferred.Creator,
+                    Director = preferred.Director,
+                    Writer = preferred.Writer,
+                    ReleaseDate = preferred.ReleaseDate,
+                    UniverseStatus = preferred.UniverseStatus,
+                    CreatedAt = preferred.CreatedAt,
+                    ArtistPhotoUrl = preferred.ArtistPhotoUrl,
+                    ArtistPersonId = preferred.ArtistPersonId,
+                    Network = preferred.Network,
+                    Year = preferred.Year,
+                    SeasonCount = seasonCounts.Count == 0 ? null : seasonCounts.Max(),
+                    AlbumCount = albumCounts.Count == 0 ? null : albumCounts.Max(),
+                };
+            })
+            .ToList();
+    }
+
+    private static bool IsMusicAlbumSystemView(string? mediaType, string? groupField)
+        => string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+           && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildSystemViewGroupIdentity(ContentGroupDto group, string? mediaType, string? groupField)
+    {
+        var name = NormalizeSystemViewIdentity(group.DisplayName);
+        if (string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{name}|{NormalizeSystemViewIdentity(group.Creator)}";
+        }
+
+        return string.Join("|",
+            name,
+            NormalizeSystemViewIdentity(group.Creator),
+            NormalizeSystemViewIdentity(group.Network),
+            NormalizeSystemViewIdentity(group.Year));
+    }
+
+    private static int ScoreSystemViewGroup(ContentGroupDto group)
+    {
+        var score = 0;
+        score += string.IsNullOrWhiteSpace(group.CoverUrl) ? 0 : 8;
+        score += string.IsNullOrWhiteSpace(group.ArtistPhotoUrl) ? 0 : 8;
+        score += string.IsNullOrWhiteSpace(group.Description) ? 0 : 4;
+        score += string.IsNullOrWhiteSpace(group.Creator) ? 0 : 2;
+        score += group.WorkCount;
+        return score;
+    }
+
+    private static string NormalizeSystemViewIdentity(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? "(blank)"
+            : value.Trim().ToLowerInvariant();
+
+    private static Guid CreateDeterministicSystemViewGroupId(string value)
+    {
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value));
+        return new Guid(bytes);
     }
 
     /// <summary>

@@ -3743,13 +3743,15 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, CancellationToken ct = default)
+    public async Task<CollectionGroupDetailViewModel?> GetSystemViewGroupDetailAsync(string groupField, string groupValue, string? mediaType = null, string? artistName = null, CancellationToken ct = default)
     {
         try
         {
             var url = $"/collections/system-view-detail?groupField={Uri.EscapeDataString(groupField)}&groupValue={Uri.EscapeDataString(groupValue)}";
             if (!string.IsNullOrWhiteSpace(mediaType))
                 url += $"&mediaType={Uri.EscapeDataString(mediaType)}";
+            if (!string.IsNullOrWhiteSpace(artistName))
+                url += $"&artistName={Uri.EscapeDataString(artistName)}";
             var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(url, ct);
             NormalizeCollectionGroupDetail(result);
             return result;

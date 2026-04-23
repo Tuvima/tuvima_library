@@ -321,7 +321,7 @@
     [Parameter] public string GridHeight { get; set; } = DefaultGridHeight;
 
     private MudDataGrid<LibraryItemViewModel>? _grid;
-    private readonly HashSet<string> _hiddenColumns = DefaultHiddenColumns();
+    private readonly HashSet<string> _hiddenColumns = new(DefaultHiddenColumns(), StringComparer.OrdinalIgnoreCase);
     private int? _selectionAnchorIndex;
     private bool _columnsLoaded;
 
@@ -362,19 +362,8 @@
         try
         {
             var json = await JS.InvokeAsync<string?>("listenUi.getTrackGridColumns", ViewKey);
-            if (string.IsNullOrWhiteSpace(json))
-            {
-                return;
-            }
-
-            var visibleColumns = System.Text.Json.JsonSerializer.Deserialize<List<string>>(json);
-            if (visibleColumns is null || visibleColumns.Count == 0)
-            {
-                return;
-            }
-
             _hiddenColumns.Clear();
-            foreach (var key in TrackColumnKeys.All.Where(key => !visibleColumns.Contains(key, StringComparer.OrdinalIgnoreCase)))
+            foreach (var key in ListenGridColumnState.ResolveHiddenColumns(json, TrackColumnKeys.All, DefaultHiddenColumns()))
             {
                 _hiddenColumns.Add(key);
             }

@@ -200,6 +200,40 @@ public sealed class EngineApiClientLibraryWorksTests
     }
 
     [Fact]
+    public async Task GetSystemViewGroupDetailAsync_IncludesArtistFilterWhenProvided()
+    {
+        HttpRequestMessage? capturedRequest = null;
+        const string json = """
+            {
+              "collection_id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+              "display_name": "The Record",
+              "works": [],
+              "seasons": [],
+              "top_cast": []
+            }
+            """;
+
+        using var httpClient = CreateHttpClient(request =>
+        {
+            capturedRequest = request;
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            };
+        });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var detail = await client.GetSystemViewGroupDetailAsync("album", "The Record", mediaType: "Music", artistName: "boygenius");
+
+        Assert.NotNull(detail);
+        Assert.NotNull(capturedRequest);
+        Assert.Equal(
+            "http://localhost:61495/collections/system-view-detail?groupField=album&groupValue=The Record&mediaType=Music&artistName=boygenius",
+            capturedRequest!.RequestUri!.ToString());
+    }
+
+    [Fact]
     public async Task UploadScopeArtworkFromUrlAsync_PostsToScopedArtworkEndpoint()
     {
         HttpRequestMessage? capturedRequest = null;

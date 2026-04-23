@@ -35,11 +35,13 @@ public partial class ListenPage
 
     [Parameter] public string? Section { get; set; }
     [Parameter] public Guid? CollectionId { get; set; }
+    [Parameter] public string? AlbumKey { get; set; }
     [Parameter] public string? ArtistKey { get; set; }
     [Parameter] public string? PlaylistKey { get; set; }
     [Parameter] public Guid? WorkId { get; set; }
     [SupplyParameterFromQuery(Name = "track")] public Guid? Track { get; set; }
     [SupplyParameterFromQuery(Name = "edit")] public bool Edit { get; set; }
+    [SupplyParameterFromQuery(Name = "artist")] public string? AlbumArtist { get; set; }
 
     private readonly List<WorkViewModel> _allWorks = [];
     private readonly List<WorkViewModel> _musicWorks = [];
@@ -103,7 +105,9 @@ public partial class ListenPage
         && (string.Equals(CurrentPath, MusicHomeRoute, StringComparison.OrdinalIgnoreCase)
             || IsDefaultEntry);
     private bool IsAlbumsView => IsMusicMode && !CollectionId.HasValue && string.Equals(NormalizedSection, "albums", StringComparison.OrdinalIgnoreCase);
-    private bool IsAlbumDetail => IsMusicMode && CollectionId.HasValue && CurrentPath.StartsWith("/listen/music/albums/", StringComparison.OrdinalIgnoreCase);
+    private bool IsAlbumDetail => IsMusicMode
+        && (CollectionId.HasValue || !string.IsNullOrWhiteSpace(AlbumKey))
+        && CurrentPath.StartsWith("/listen/music/albums/", StringComparison.OrdinalIgnoreCase);
     private bool IsSongsView => IsMusicMode && string.Equals(NormalizedSection, "songs", StringComparison.OrdinalIgnoreCase);
     private bool IsPlaylistsView => IsMusicMode && !CollectionId.HasValue && string.IsNullOrWhiteSpace(PlaylistKey) && string.Equals(NormalizedSection, "playlists", StringComparison.OrdinalIgnoreCase);
     private bool IsPlaylistSurface => IsMusicMode && ((CollectionId.HasValue && CurrentPath.StartsWith("/listen/music/playlists/", StringComparison.OrdinalIgnoreCase)) || !string.IsNullOrWhiteSpace(PlaylistKey));
@@ -351,9 +355,9 @@ public partial class ListenPage
             _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
             _musicHomePage = Discovery.ComposeMusicHome(_musicWorks, _musicJourney, _albumGroups, _artistGroups, _favoriteWorkIds);
 
-            if (IsAlbumDetail && CollectionId.HasValue)
+            if (IsAlbumDetail)
             {
-                _albumDetail = await ApiClient.GetCollectionGroupDetailAsync(CollectionId.Value);
+                _albumDetail = await LoadAlbumDetailAsync();
             }
 
             if (CollectionId.HasValue && IsPlaylistSurface)
@@ -595,6 +599,69 @@ public partial class ListenPage
         Nav.NavigateTo(route);
     }
 
+    private async Task<CollectionGroupDetailViewModel?> LoadAlbumDetailAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(AlbumKey))
+        {
+            var albumName = Uri.UnescapeDataString(AlbumKey);
+            return await ApiClient.GetSystemViewGroupDetailAsync(
+                "album",
+                albumName,
+                mediaType: "Music",
+                artistName: string.IsNullOrWhiteSpace(AlbumArtist) ? null : Uri.UnescapeDataString(AlbumArtist));
+        }
+
+        if (!CollectionId.HasValue)
+        {
+            return null;
+        }
+
+        var selectedAlbum = _albumGroups.FirstOrDefault(group => group.CollectionId == CollectionId.Value);
+        if (selectedAlbum is not null)
+        {
+            return await ApiClient.GetSystemViewGroupDetailAsync(
+                "album",
+                selectedAlbum.DisplayName,
+                mediaType: "Music",
+                artistName: selectedAlbum.Creator);
+        }
+
+        return await ApiClient.GetCollectionGroupDetailAsync(CollectionId.Value);
+    }
+
+    private void OpenAlbum(ContentGroupViewModel album)
+    {
+        var route = BuildAlbumDetailRoute(album.DisplayName, album.Creator);
+        NavigateTo(route);
+    }
+
+    private string BuildAlbumDetailRoute(string? albumName, string? artistName = null, Guid? trackId = null, bool edit = false)
+    {
+        if (string.IsNullOrWhiteSpace(albumName))
+        {
+            return AlbumsRoute;
+        }
+
+        var queryParts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(artistName))
+        {
+            queryParts.Add($"artist={Uri.EscapeDataString(artistName)}");
+        }
+
+        if (trackId.HasValue)
+        {
+            queryParts.Add($"track={trackId.Value:D}");
+        }
+
+        if (edit)
+        {
+            queryParts.Add("edit=true");
+        }
+
+        var query = queryParts.Count == 0 ? string.Empty : "?" + string.Join("&", queryParts);
+        return $"/listen/music/albums/by-name/{Uri.EscapeDataString(albumName)}{query}";
+    }
+
     private async Task OpenMusicModeAsync()
     {
         await PersistModePreferenceAsync("music");
@@ -669,9 +736,10 @@ public partial class ListenPage
 
     private async Task EditTrackAsync(WorkViewModel work)
     {
-        if (work.CollectionId.HasValue)
+        var albumRoute = BuildAlbumRouteForTrack(work, edit: true);
+        if (!string.IsNullOrWhiteSpace(albumRoute))
         {
-            NavigateTo($"/listen/music/albums/{work.CollectionId.Value}?track={work.Id}&edit=true");
+            NavigateTo(albumRoute);
             return;
         }
 
@@ -707,10 +775,29 @@ public partial class ListenPage
             await LoadAsync();
         }
 
-        if (navigateBackToTrackContext && work.CollectionId.HasValue)
+        var trackContextRoute = BuildAlbumRouteForTrack(work);
+        if (navigateBackToTrackContext && !string.IsNullOrWhiteSpace(trackContextRoute))
         {
-            Nav.NavigateTo($"/listen/music/albums/{work.CollectionId.Value}?track={work.Id}", replace: true);
+            Nav.NavigateTo(trackContextRoute, replace: true);
         }
+    }
+
+    private string? BuildAlbumRouteForTrack(WorkViewModel work, bool edit = false)
+    {
+        if (work.CollectionId.HasValue)
+        {
+            var query = edit
+                ? $"?track={work.Id:D}&edit=true"
+                : $"?track={work.Id:D}";
+            return $"/listen/music/albums/{work.CollectionId.Value:D}{query}";
+        }
+
+        if (string.IsNullOrWhiteSpace(work.Album))
+        {
+            return null;
+        }
+
+        return BuildAlbumDetailRoute(work.Album, FirstNonBlankOrNull(work.Artist, work.Author), work.Id, edit);
     }
 
     private async Task AddToPlaylistAsync(WorkViewModel work, ManagedCollectionViewModel collection)
@@ -845,9 +932,30 @@ public partial class ListenPage
 
     private IReadOnlyList<WorkViewModel> AlbumWorksFor(ContentGroupViewModel album)
         => _musicWorks
-            .Where(work => work.CollectionId == album.CollectionId
-                || (!string.IsNullOrWhiteSpace(work.Album) && string.Equals(work.Album, album.DisplayName, StringComparison.OrdinalIgnoreCase)))
+            .Where(work => AlbumMatchesWork(album, work))
             .ToList();
+
+    private static bool AlbumMatchesWork(ContentGroupViewModel album, WorkViewModel work)
+    {
+        if (work.CollectionId == album.CollectionId)
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(work.Album)
+            || !string.Equals(work.Album, album.DisplayName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(album.Creator))
+        {
+            return true;
+        }
+
+        var workCreator = FirstNonBlankOrNull(work.Artist, work.Author);
+        return string.Equals(workCreator, album.Creator, StringComparison.OrdinalIgnoreCase);
+    }
 
     private async Task RefreshReactionStateAsync()
     {
@@ -1328,6 +1436,9 @@ public partial class ListenPage
 
     private static string FirstNonBlank(params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
+
+    private static string? FirstNonBlankOrNull(params string?[] values)
+        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string FormatDateAdded(DateTimeOffset createdAt)
         => createdAt == default ? "-" : createdAt.LocalDateTime.ToString("M/d/yyyy", CultureInfo.CurrentCulture);
