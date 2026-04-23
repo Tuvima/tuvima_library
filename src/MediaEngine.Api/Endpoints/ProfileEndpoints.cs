@@ -2,7 +2,9 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Identity.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -53,6 +55,25 @@ public static class ProfileEndpoints
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAdmin();
+
+        group.MapGet("/{id:guid}/taste", async (
+            Guid id,
+            IProfileService svc,
+            ITasteProfiler tasteProfiler,
+            CancellationToken ct) =>
+        {
+            var profile = await svc.GetProfileAsync(id, ct);
+            if (profile is null)
+                return Results.NotFound($"Profile '{id}' not found.");
+
+            var taste = await tasteProfiler.GetProfileAsync(id, ct);
+            return Results.Ok(taste);
+        })
+        .WithName("GetProfileTaste")
+        .WithSummary("Get the computed taste profile for a user profile.")
+        .Produces<TasteProfile>(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
 
         group.MapPost("/", async (
             CreateProfileRequest request,

@@ -1,4 +1,5 @@
 ﻿using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -79,6 +80,9 @@ public interface IEngineApiClient
 
     /// <summary>DELETE /profiles/{id} — delete a profile.</summary>
     Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /profiles/{id}/taste — read the computed taste profile for a user.</summary>
+    Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);
 
     // ── Metadata claims (/metadata) ─────────────────────────────────────────────
 
@@ -426,6 +430,9 @@ public interface IEngineApiClient
     /// <summary>GET /persons/{id} \u2014 full person detail with social links and enrichment data.</summary>
     Task<PersonDetailViewModel?> GetPersonDetailAsync(Guid personId, CancellationToken ct = default);
 
+    /// <summary>GET /persons/{id}/library-credits \u2014 role-aware owned work credits for a person.</summary>
+    Task<List<PersonLibraryCreditViewModel>> GetPersonLibraryCreditsAsync(Guid personId, CancellationToken ct = default);
+
     /// <summary>GET /persons/{id}/works \u2014 all collections containing works by this person.</summary>
     Task<List<CollectionViewModel>> GetWorksByPersonAsync(Guid personId, CancellationToken ct = default);
 
@@ -442,6 +449,9 @@ public interface IEngineApiClient
 
     /// <summary>GET /vault/persons/{personId}/character-roles — character roles with portraits for a person.</summary>
     Task<IReadOnlyList<CharacterRoleDto>> GetPersonCharacterRolesAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>GET /works/{id}/cast — actor and character credits for a single work.</summary>
+    Task<List<CollectionGroupPersonViewModel>> GetWorkCastAsync(Guid workId, CancellationToken ct = default);
 
     /// <summary>PUT /vault/characters/{fictionalEntityId}/portraits/{portraitId}/default — set the default portrait for a character.</summary>
     Task SetDefaultPortraitAsync(Guid fictionalEntityId, Guid portraitId, CancellationToken ct = default);

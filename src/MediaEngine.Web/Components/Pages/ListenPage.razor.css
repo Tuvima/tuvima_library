@@ -36,14 +36,6 @@
     line-height: 1.6;
 }
 
-.listen-page__backdrop {
-    position: fixed;
-    inset: 0;
-    border: 0;
-    background: rgba(5, 8, 16, 0.6);
-    z-index: calc(var(--app-z-drawer) - 10);
-}
-
 .listen-rail {
     position: sticky;
     top: 0;
@@ -173,18 +165,6 @@
     display: flex;
     align-items: center;
     gap: 14px;
-}
-
-.listen-topbar__menu,
-.listen-rail__close {
-    display: none;
-}
-
-.listen-topbar__menu,
-.listen-rail__close {
-    width: 42px;
-    min-width: 42px;
-    padding: 0;
 }
 
 .listen-mode-switch {
@@ -825,27 +805,7 @@
 
 @media (max-width: 860px) {
     .listen-page {
-        grid-template-columns: 1fr;
-    }
-
-    .listen-rail {
-        position: fixed;
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: min(320px, calc(100vw - 24px));
-        transform: translateX(-108%);
-        z-index: var(--app-z-drawer);
-        transition: transform 0.2s ease;
-    }
-
-    .listen-rail.is-open {
-        transform: translateX(0);
-    }
-
-    .listen-topbar__menu,
-    .listen-rail__close {
-        display: inline-flex;
+        grid-template-columns: minmax(220px, 236px) minmax(0, 1fr);
     }
 
     .listen-content {
@@ -903,6 +863,10 @@
 }
 
 @media (max-width: 760px) {
+    .listen-page {
+        grid-template-columns: minmax(188px, 208px) minmax(0, 1fr);
+    }
+
     .listen-card-grid,
     .listen-card-grid--albums,
     .listen-card-grid--books {
@@ -921,6 +885,17 @@
 }
 
 @media (max-width: 640px) {
+    .listen-page {
+        grid-template-columns: 1fr;
+    }
+
+    .listen-rail {
+        position: static;
+        height: auto;
+        border-right: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
     .listen-card-grid,
     .listen-card-grid--albums,
     .listen-card-grid--books {

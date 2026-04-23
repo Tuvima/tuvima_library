@@ -505,13 +505,22 @@ else
         episode.BackgroundUrl ?? episode.BannerUrl ?? episode.HeroUrl ?? episode.CoverUrl;
 
     private static string? GetCastImage(CollectionGroupPersonViewModel cast) =>
-        cast.CharacterImageUrl ?? cast.ActorHeadshotUrl ?? cast.HeadshotUrl;
+        cast.Characters.FirstOrDefault()?.PortraitUrl
+        ?? cast.CharacterImageUrl
+        ?? cast.ActorHeadshotUrl
+        ?? cast.HeadshotUrl;
 
     private static string GetCastName(CollectionGroupPersonViewModel cast) =>
         cast.ActorName ?? cast.Name;
 
     private static string GetCastRole(CollectionGroupPersonViewModel cast) =>
-        cast.CharacterName ?? "Cast";
+        cast.Characters
+            .Select(character => character.CharacterName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .DefaultIfEmpty(cast.CharacterName ?? "Cast")
+            .First();
 
     private static string BuildJourneyLine(JourneyItemViewModel journey)
     {

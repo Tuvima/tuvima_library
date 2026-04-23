@@ -32,35 +32,39 @@
 <DrawerSection Title="In Your Library" Icon="@Icons.Material.Outlined.LibraryBooks" DefaultOpen="true">
     @if (_roleGroups.Count > 0)
     {
-        @foreach (var (roleLabel, works) in _roleGroups)
+        @foreach (var (roleLabel, credits) in _roleGroups)
         {
             <div class="pbd-role-group">
                 <span class="pbd-role-label">@roleLabel</span>
                 <div class="pbd-works-list">
                     @{
-                        var visibleWorks = _showAllWorks ? works : works.Take(InitialWorksToShow).ToList();
-                        var remaining    = works.Count - InitialWorksToShow;
+                        var visibleCredits = _showAllWorks ? credits : credits.Take(InitialWorksToShow).ToList();
+                        var remaining      = credits.Count - InitialWorksToShow;
                     }
-                    @foreach (var work in visibleWorks)
+                    @foreach (var credit in visibleCredits)
                     {
-                        <button class="pbd-work-row" @onclick="() => OnWorkClicked.InvokeAsync(work.Id)">
+                        <button class="pbd-work-row" @onclick="() => OnWorkClicked.InvokeAsync(credit.WorkId)">
                             <div class="pbd-work-thumb">
-                                @if (!string.IsNullOrEmpty(work.CoverUrl))
+                                @if (!string.IsNullOrEmpty(credit.CoverUrl))
                                 {
-                                    <img src="@work.CoverUrl" alt="" loading="lazy" class="pbd-work-thumb-img" />
+                                    <img src="@credit.CoverUrl" alt="" loading="lazy" class="pbd-work-thumb-img" />
                                 }
                                 else
                                 {
-                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(work.PrimaryMediaType ?? "")" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
+                                    <MudIcon Icon="@LibraryHelpers.GetMediaTypeIcon(credit.MediaType ?? "")" Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
                                 }
                             </div>
                             <div class="pbd-work-info">
-                                <span class="pbd-work-title">@work.DisplayName</span>
-                                @if (!string.IsNullOrEmpty(work.PrimaryMediaType))
+                                <span class="pbd-work-title">@credit.Title</span>
+                                @if (!string.IsNullOrEmpty(BuildCreditMeta(credit)))
                                 {
-                                    <span class="pbd-work-type" style="color: @LibraryHelpers.GetMediaTypeColor(work.PrimaryMediaType);">
-                                        @LibraryHelpers.FormatMediaType(work.PrimaryMediaType)
+                                    <span class="pbd-work-type" style="color: @LibraryHelpers.GetMediaTypeColor(credit.MediaType ?? "");">
+                                        @BuildCreditMeta(credit)
                                     </span>
+                                }
+                                @if (!string.IsNullOrEmpty(BuildCreditSubtitle(credit)))
+                                {
+                                    <span class="pbd-work-type">@BuildCreditSubtitle(credit)</span>
                                 }
                             </div>
                             <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Style="font-size: 16px; color: rgba(255,255,255,0.15); flex-shrink: 0;" />
@@ -248,7 +252,7 @@
 @code {
     [Parameter, EditorRequired] public PersonListItemDto Person { get; set; } = null!;
     [Parameter] public PersonAliasesResponseDto? Aliases { get; set; }
-    [Parameter] public List<CollectionViewModel>? PersonWorks { get; set; }
+    [Parameter] public List<PersonLibraryCreditViewModel>? PersonCredits { get; set; }
     [Parameter] public IReadOnlyList<CharacterRoleDto> PersonCharacterRoles { get; set; } = [];
     [Parameter] public List<GroupMemberView>? GroupMembers { get; set; }
     [Parameter] public List<GroupMemberView>? MemberOfGroups { get; set; }
@@ -256,12 +260,7 @@
     [Parameter] public EventCallback<Guid> OnWorkClicked { get; set; }
     [Parameter] public EventCallback<Guid> OnMemberClicked { get; set; }
 
-    // Works grouped by the person's role for the "In Your Library" section.
-    // PersonWorks from GetWorksByPersonAsync returns CollectionViewModel items which carry
-    // the person's role via the CollectionType or DisplayName context.
-    // For now we show all works under a single "Works" group; role-specific grouping
-    // requires an API extension to return role per work.
-    private List<(string RoleLabel, List<CollectionViewModel> Works)> _roleGroups = [];
+    private List<(string RoleLabel, List<PersonLibraryCreditViewModel> Credits)> _roleGroups = [];
 
     private bool _showAllWorks;
     private const int InitialWorksToShow = 5;
@@ -272,32 +271,65 @@
         _roleGroups = BuildRoleGroups();
     }
 
-    private List<(string RoleLabel, List<CollectionViewModel> Works)> BuildRoleGroups()
+    private List<(string RoleLabel, List<PersonLibraryCreditViewModel> Credits)> BuildRoleGroups()
     {
-        if (PersonWorks is null || PersonWorks.Count == 0)
+        if (PersonCredits is null || PersonCredits.Count == 0)
             return [];
 
-        // Group by media type to provide role-aware labelling where possible.
-        // When the API is extended to return role-per-work, replace this with proper grouping.
-        var groups = new List<(string, List<CollectionViewModel>)>();
+        return PersonCredits
+            .GroupBy(credit => $"{FormatRole(credit.Role)} · {FormatMediaType(credit.MediaType)}")
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => (group.Key, group.ToList()))
+            .ToList();
+    }
 
-        // Use the person's known roles to create meaningful headings
-        var knownRoles = Person.Roles.Count > 0 ? Person.Roles : ["works"];
-        var primaryRole = knownRoles[0].ToLowerInvariant();
+    private static string FormatRole(string? role) => role?.ToLowerInvariant() switch
+    {
+        "actor" => "Actor",
+        "voice actor" => "Voice Actor",
+        "director" => "Director",
+        "artist" => "Artist",
+        "performer" => "Performer",
+        "author" => "Author",
+        "narrator" => "Narrator",
+        "illustrator" => "Illustrator",
+        "composer" => "Composer",
+        _ => role ?? "Credit",
+    };
 
-        // Map role to a readable heading
-        var roleHeading = primaryRole switch
-        {
-            "author"      => "Author of:",
-            "narrator"    => "Narrator of:",
-            "director"    => "Director of:",
-            "illustrator" => "Illustrator of:",
-            "composer"    => "Composer of:",
-            _             => "In your library:",
-        };
+    private static string FormatMediaType(string? mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "movies" => "Movies",
+        "tv" => "TV",
+        "music" => "Music",
+        "books" => "Books",
+        "audiobooks" => "Audiobooks",
+        "comics" => "Comics",
+        _ => mediaType ?? "Library",
+    };
 
-        groups.Add((roleHeading, PersonWorks));
-        return groups;
+    private static string BuildCreditMeta(PersonLibraryCreditViewModel credit)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(credit.Year))
+            parts.Add(credit.Year!);
+        if (!string.IsNullOrWhiteSpace(credit.MediaType))
+            parts.Add(FormatMediaType(credit.MediaType));
+        return string.Join(" · ", parts);
+    }
+
+    private static string? BuildCreditSubtitle(PersonLibraryCreditViewModel credit)
+    {
+        var characterNames = credit.Characters
+            .Select(character => character.CharacterName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return characterNames.Count > 0
+            ? $"as {string.Join(", ", characterNames)}"
+            : null;
     }
 }
 

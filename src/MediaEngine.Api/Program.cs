@@ -991,6 +991,7 @@ app.MapProviderCatalogueEndpoints();
 app.MapUISettingsEndpoints();
 app.MapProfileEndpoints();
 app.MapPersonEndpoints();
+app.MapWorkEndpoints();
 app.MapProgressEndpoints();
 app.MapActivityEndpoints();
 app.MapUniverseGraphEndpoints();

@@ -646,10 +646,25 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid personId, CancellationToken ct = default)
         => _api.GetPersonDetailAsync(personId, ct);
 
+    /// <summary>Returns role-aware owned work credits for a person.</summary>
+    public Task<List<PersonLibraryCreditViewModel>> GetPersonLibraryCreditsAsync(
+        Guid personId, CancellationToken ct = default)
+        => _api.GetPersonLibraryCreditsAsync(personId, ct);
+
+    /// <summary>Returns work-scoped portrayed character credits for a person.</summary>
+    public Task<IReadOnlyList<CharacterRoleDto>> GetPersonCharacterRolesAsync(
+        Guid personId, CancellationToken ct = default)
+        => _api.GetPersonCharacterRolesAsync(personId, ct);
+
     /// <summary>Returns all collections linked to works by a person.</summary>
     public Task<List<CollectionViewModel>> GetWorksByPersonAsync(
         Guid personId, CancellationToken ct = default)
         => _api.GetWorksByPersonAsync(personId, ct);
+
+    /// <summary>Returns actor and character credits for a single work.</summary>
+    public Task<List<CollectionGroupPersonViewModel>> GetWorkCastAsync(
+        Guid workId, CancellationToken ct = default)
+        => _api.GetWorkCastAsync(workId, ct);
 
     // ── Parent Collection hierarchy ──────────────────────────────────────────────────
 

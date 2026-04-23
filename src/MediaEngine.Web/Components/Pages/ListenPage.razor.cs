@@ -63,7 +63,6 @@ public partial class ListenPage
     private HashSet<Guid> _dislikedWorkIds = [];
     private bool _loading = true;
     private bool _redirecting;
-    private bool _railOpen;
     private bool _artistLoading;
     private bool _uiStateLoaded;
     private string? _error;
@@ -179,6 +178,9 @@ public partial class ListenPage
         .ToList();
     private bool HasTrackSelection => _selectedTrackIds.Count > 0;
     private int SelectedTrackCount => _selectedTrackIds.Count;
+    private string TrackSelectionStatusText => HasTrackSelection
+        ? $"{SelectedTrackCount} selected"
+        : "Single-click to select, ctrl/shift-click to add more, and use the play icon to start playback.";
 
     private ManagedCollectionViewModel? ActivePlaylistCollection => CollectionId.HasValue
         ? PlaylistCollections.FirstOrDefault(collection => collection.Id == CollectionId.Value)
@@ -589,12 +591,8 @@ public partial class ListenPage
         }
     }
 
-    private void ToggleRail() => _railOpen = !_railOpen;
-    private void CloseRail() => _railOpen = false;
-
     private void NavigateTo(string route)
     {
-        CloseRail();
         CloseTrackContextMenu();
         Nav.NavigateTo(route);
     }

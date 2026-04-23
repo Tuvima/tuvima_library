@@ -3,6 +3,7 @@ using MediaEngine.Web.Components.Collections;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Discovery;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Playback;
@@ -46,7 +47,10 @@ public sealed class UiShellRenderTests : TestContext
         Services.AddScoped<UniverseStateContainer>();
         Services.AddScoped<UIOrchestratorService>();
         Services.AddScoped<CollectionEditorLauncherService>();
+        Services.AddScoped<DiscoveryComposerService>();
         Services.AddScoped<ListenPlaybackService>();
+        Services.AddScoped<MediaReactionService>();
+        Services.AddScoped<MediaEditorLauncherService>();
     }
 
     [Fact]
@@ -161,6 +165,21 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Move 2 Items to Quarantine?", cut.Markup);
             Assert.Equal(2, cut.FindAll(".mud-button-root").Count);
             Assert.Contains("Quarantine", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void ListenPage_RendersPermanentRailWithoutDrawerControls()
+    {
+        var cut = RenderComponent<ListenPage>(parameters => parameters
+            .Add(page => page.Section, "songs"));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(cut.FindAll(".listen-rail"));
+            Assert.Empty(cut.FindAll(".listen-topbar__menu"));
+            Assert.Empty(cut.FindAll(".listen-rail__close"));
+            Assert.Contains("Listen", cut.Markup);
         });
     }
 

@@ -4,7 +4,7 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<div class="discovery-card @ShapeClass @PresentationClass @(_expanded ? "is-expanded" : "")"
+<div class="discovery-card @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @(_expanded ? "is-expanded" : "")"
      @ref="_cardRef"
      style="--discovery-accent: @Item.AccentColor;"
      tabindex="0"
@@ -16,28 +16,25 @@
                 <div class="discovery-card-stack" aria-hidden="true">
                     @for (var index = 0; index < PreviewImages.Count; index++)
                     {
-                        <img src="@PreviewImages[index]"
-                             alt=""
-                             class="discovery-card-stack-image"
-                             style="@GetStackStyle(index)" />
+                        <img src="@PreviewImages[index]" alt="" class="discovery-card-stack-image" style="@GetStackStyle(index)" />
                     }
                 </div>
             }
             else if (!string.IsNullOrWhiteSpace(CardImageUrl))
             {
-                <img src="@CardImageUrl" alt="@Item.Title" class="discovery-card-image" loading="lazy" />
+                <img src="@CardImageUrl" alt="@Item.Title" class="discovery-card-image @TileImageFitClass" loading="lazy" />
             }
             else
             {
                 <div class="discovery-card-fallback">
-                    <MudIcon Icon="@FallbackIcon" Style="font-size: 44px; color: rgba(255,255,255,0.18);" />
+                    <MudIcon Icon="@FallbackIcon" Style="font-size:44px;color:rgba(255,255,255,.18);" />
                     <span>@Item.Title</span>
                 </div>
             }
 
-            <div class="discovery-card-gradient"></div>
+            <div class="discovery-card-gradient @(ShowTileLogo ? "is-banner-gradient" : "is-cover-gradient")"></div>
 
-            @if (!ShowPreviewStack && !string.IsNullOrWhiteSpace(Item.LogoUrl))
+            @if (ShowTileLogo)
             {
                 <img src="@Item.LogoUrl" alt="@Item.Title" class="discovery-card-logo" />
             }
@@ -53,7 +50,7 @@
             @if (Item.ProgressPct is > 0)
             {
                 <div class="discovery-card-progress">
-                    <div class="discovery-card-progress-fill" style="width: @($"{Math.Min(100, Item.ProgressPct.Value):F0}%");"></div>
+                    <div class="discovery-card-progress-fill" style="width:@($"{Math.Min(100, Item.ProgressPct.Value):F0}%");"></div>
                 </div>
             }
 
@@ -66,33 +63,26 @@
             </button>
         </div>
 
-        <div class="discovery-card-hover-panel">
-            <div class="discovery-card-hover-art @(UseFallbackCoverLayout ? "is-cover-focus" : null) @(ShowHoverPoster ? "is-with-poster" : null) @(string.IsNullOrWhiteSpace(HoverBackdropUrl) ? "is-empty" : null)">
-                @if (!string.IsNullOrWhiteSpace(HoverBackdropUrl))
+        <div class="discovery-card-hover-panel @HoverLayoutClass @SurfaceClass">
+            <div class="discovery-card-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)">
+                @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
                 {
-                    <img src="@HoverBackdropUrl" alt="" class="discovery-card-hover-backdrop-image" loading="lazy" @onerror="HandleHoverBackdropError" />
+                    <img src="@ActiveHoverImageUrl"
+                         alt="@Item.Title"
+                         class="discovery-card-hover-image @HoverImageFitClass"
+                         loading="lazy"
+                         @onerror="HandleHoverImageError" />
                 }
                 else
-                {
-                    <div class="discovery-card-hover-backdrop-fallback"></div>
-                }
-
-                @if (ShowHoverPoster)
-                {
-                    <div class="discovery-card-hover-poster-shell">
-                        <img src="@HoverPosterUrl" alt="@Item.Title" class="discovery-card-hover-poster" loading="lazy" />
-                    </div>
-                }
-
-                @if (!string.IsNullOrWhiteSpace(Item.LogoUrl))
-                {
-                    <img src="@Item.LogoUrl" alt="@Item.Title" class="discovery-card-hover-logo" />
-                }
-                else if (!ShowHoverPoster && string.IsNullOrWhiteSpace(HoverBackdropUrl))
                 {
                     <div class="discovery-card-hover-fallback">
                         <MudIcon Icon="@FallbackIcon" />
                     </div>
+                }
+
+                @if (ShowHoverLogo)
+                {
+                    <img src="@Item.LogoUrl" alt="@Item.Title" class="discovery-card-hover-logo" />
                 }
             </div>
 
@@ -172,19 +162,19 @@
                     </div>
                 }
 
-                @if (GenreChips.Count > 0)
+                @if (DisplayChips.Count > 0)
                 {
                     <div class="discovery-card-hover-chips">
-                        @foreach (var chip in GenreChips)
+                        @foreach (var chip in DisplayChips)
                         {
                             <span class="discovery-card-chip">@chip</span>
                         }
                     </div>
                 }
 
-                @if (!string.IsNullOrWhiteSpace(Item.Description))
+                @if (!string.IsNullOrWhiteSpace(DisplaySummary))
                 {
-                    <p class="discovery-card-hover-description">@Item.Description</p>
+                    <p class="discovery-card-hover-description">@DisplaySummary</p>
                 }
             </div>
         </div>
@@ -205,7 +195,7 @@
     private bool _expanded;
     private bool _hoverRegistered;
     private bool _lastExpandedState;
-    private int _hoverBackdropIndex;
+    private int _hoverImageIndex;
     private ElementReference _cardRef;
 
     private string ShapeClass => Item.Shape switch
@@ -227,72 +217,72 @@
         _ => "is-default",
     };
 
-    private bool ShowPreviewStack =>
-        (Item.Presentation == DiscoveryCardPresentation.MovieSeries && PreviewImages.Count > 0)
-        || (string.IsNullOrWhiteSpace(CardImageUrl) && PreviewImages.Count > 0);
+    private string HoverLayoutClass => Item.HoverLayout == DiscoveryHoverLayout.BannerPopover ? "is-banner-popover" : "is-art-popover";
 
-    private string CardImageUrl => Item.Presentation switch
+    private string SurfaceClass => Item.SurfaceKind switch
     {
-        DiscoveryCardPresentation.Album or DiscoveryCardPresentation.Artist => Item.CoverUrl ?? Item.BackgroundUrl ?? Item.BannerUrl ?? string.Empty,
-        _ when Item.Shape == DiscoveryCardShape.Landscape => Item.BackgroundUrl ?? Item.BannerUrl ?? Item.CoverUrl ?? string.Empty,
-        _ => Item.CoverUrl ?? Item.BackgroundUrl ?? Item.BannerUrl ?? string.Empty,
+        DiscoverySurfaceKind.BannerLandscape => "is-banner-surface",
+        DiscoverySurfaceKind.CoverSquare => "is-cover-square",
+        DiscoverySurfaceKind.ArtistPhotoSquare => "is-artist-photo-square",
+        _ => "is-cover-portrait",
     };
 
-    private string? WideBackdropUrl => FirstNonBlank(
-        Item.BackgroundUrl,
-        Item.BannerUrl);
+    private bool ShowPreviewStack => string.IsNullOrWhiteSpace(CardImageUrl) && PreviewImages.Count > 0;
 
-    private string? BaseHoverPosterUrl => FirstNonBlank(
+    private string CardImageUrl => FirstNonBlank(
+        Item.TileImageUrl,
         Item.CoverUrl,
-        CardImageUrl,
-        PreviewImages.FirstOrDefault());
+        Item.PreviewImageUrl,
+        Item.BackgroundUrl,
+        Item.BannerUrl,
+        Item.HeroUrl,
+        PreviewImages.FirstOrDefault()) ?? string.Empty;
 
-    private IReadOnlyList<string> HoverBackdropCandidates =>
-        (UseFallbackCoverLayout
-            ? new[]
-            {
-                Item.HeroUrl,
-            }
-            : new[]
-            {
-                WideBackdropUrl,
-                Item.HeroUrl,
-                CardImageUrl,
-                PreviewImages.FirstOrDefault(),
-            })
+    private IReadOnlyList<string> HoverImageCandidates => new[]
+        {
+            Item.HoverImageUrl,
+            Item.TileImageUrl,
+            Item.PreviewImageUrl,
+            Item.CoverUrl,
+            Item.BackgroundUrl,
+            Item.BannerUrl,
+            Item.HeroUrl,
+            PreviewImages.FirstOrDefault(),
+        }
         .Where(value => !string.IsNullOrWhiteSpace(value))
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .Cast<string>()
         .ToList();
 
-    private string? HoverBackdropUrl => HoverBackdropCandidates.Skip(_hoverBackdropIndex).FirstOrDefault();
+    private string? ActiveHoverImageUrl => HoverImageCandidates.Skip(_hoverImageIndex).FirstOrDefault();
 
-    private string? HoverPosterUrl => BaseHoverPosterUrl ?? HoverBackdropUrl;
+    private bool ShowTileLogo => Item.SurfaceKind == DiscoverySurfaceKind.BannerLandscape && !ShowPreviewStack && !string.IsNullOrWhiteSpace(Item.LogoUrl);
 
-    private bool UseFallbackCoverLayout =>
-        string.IsNullOrWhiteSpace(WideBackdropUrl)
-        && !string.IsNullOrWhiteSpace(BaseHoverPosterUrl);
+    private bool ShowHoverLogo => Item.HoverLayout == DiscoveryHoverLayout.BannerPopover && !string.IsNullOrWhiteSpace(Item.LogoUrl);
 
-    private bool ShowHoverPoster => UseFallbackCoverLayout;
+    private IReadOnlyList<string> PreviewImages => Item.PreviewImages
+        .Where(image => !string.IsNullOrWhiteSpace(image))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(3)
+        .ToList();
 
-    private IReadOnlyList<string> PreviewImages =>
-        Item.PreviewImages
-            .Where(image => !string.IsNullOrWhiteSpace(image))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(3)
-            .ToList();
+    private IReadOnlyList<string> DisplayChips => (Item.VibeTags.Count > 0 ? Item.VibeTags : Item.Genres)
+        .Where(chip => !string.IsNullOrWhiteSpace(chip))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(3)
+        .ToList();
 
-    private IReadOnlyList<string> GenreChips =>
-        Item.Genres
-            .Where(genre => !string.IsNullOrWhiteSpace(genre))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(3)
-            .ToList();
+    private string? DisplaySummary => Item.Tldr ?? Item.Description;
+
+    private string TileImageFitClass => Item.SurfaceKind == DiscoverySurfaceKind.BannerLandscape
+        ? "is-fill"
+        : Item.Shape == DiscoveryCardShape.Landscape ? "is-contained" : "is-fill";
+
+    private string HoverImageFitClass => Item.HoverLayout == DiscoveryHoverLayout.BannerPopover ? "is-fill" : "is-contained";
 
     private string PrimaryIcon => Item.MediaKind switch
     {
-        "Movie" or "TV" => Icons.Material.Filled.PlayArrow,
-        "Music" or "Audiobook" => Icons.Material.Filled.PlayArrow,
+        "Movie" or "TV" or "Music" or "Audiobook" => Icons.Material.Filled.PlayArrow,
         _ => Icons.Material.Filled.AutoStories,
     };
 
@@ -341,14 +331,15 @@
         get
         {
             if (string.IsNullOrWhiteSpace(Item.MetaText))
+            {
                 return string.Empty;
+            }
 
-            var parts = Item.MetaText
-                .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .ToList();
-
+            var parts = Item.MetaText.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
             if (parts.Count > 0 && string.Equals(parts[0], MediaKindLabel, StringComparison.OrdinalIgnoreCase))
+            {
                 parts.RemoveAt(0);
+            }
 
             return string.Join(" / ", parts);
         }
@@ -356,10 +347,7 @@
 
     private bool ShowMetaRow => !string.IsNullOrWhiteSpace(MediaKindIcon) || !string.IsNullOrWhiteSpace(HoverMetaDisplay);
 
-    protected override void OnParametersSet()
-    {
-        _hoverBackdropIndex = 0;
-    }
+    protected override void OnParametersSet() => _hoverImageIndex = 0;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -372,7 +360,6 @@
         if (_expanded != _lastExpandedState)
         {
             _lastExpandedState = _expanded;
-
             if (_expanded)
             {
                 await JS.InvokeVoidAsync("positionDiscoveryCardHover", _cardRef);
@@ -407,7 +394,9 @@
     private async Task OpenAddToCollectionAsync()
     {
         if (Item.WorkId is null)
+        {
             return;
+        }
 
         var parameters = new DialogParameters
         {
@@ -415,14 +404,7 @@
             { nameof(AddToCollectionDialog.WorkTitle), Item.Title }
         };
 
-        var options = new DialogOptions
-        {
-            MaxWidth = MaxWidth.Medium,
-            FullWidth = false,
-            BackdropClick = true,
-            CloseButton = true
-        };
-
+        var options = new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = false, BackdropClick = true, CloseButton = true };
         var dialog = await DialogService.ShowAsync<AddToCollectionDialog>("Add to collection", parameters, options);
         await dialog.Result;
         _expanded = false;
@@ -444,32 +426,31 @@
     {
         DiscoveryCardShape.Landscape => index switch
         {
-            0 => "left: 28%; top: 56%; width: 30%; transform: translate(-50%, -50%) rotate(-8deg); z-index: 1;",
-            1 => "left: 50%; top: 48%; width: 34%; transform: translate(-50%, -50%) rotate(0deg); z-index: 3;",
-            _ => "left: 72%; top: 56%; width: 30%; transform: translate(-50%, -50%) rotate(8deg); z-index: 2;",
+            0 => "left:28%;top:56%;width:30%;transform:translate(-50%,-50%) rotate(-8deg);z-index:1;",
+            1 => "left:50%;top:48%;width:34%;transform:translate(-50%,-50%) rotate(0deg);z-index:3;",
+            _ => "left:72%;top:56%;width:30%;transform:translate(-50%,-50%) rotate(8deg);z-index:2;",
         },
         DiscoveryCardShape.Square => index switch
         {
-            0 => "left: 34%; top: 58%; width: 38%; transform: translate(-50%, -50%) rotate(-10deg); z-index: 1;",
-            1 => "left: 52%; top: 48%; width: 44%; transform: translate(-50%, -50%) rotate(0deg); z-index: 3;",
-            _ => "left: 70%; top: 58%; width: 38%; transform: translate(-50%, -50%) rotate(10deg); z-index: 2;",
+            0 => "left:34%;top:58%;width:38%;transform:translate(-50%,-50%) rotate(-10deg);z-index:1;",
+            1 => "left:52%;top:48%;width:44%;transform:translate(-50%,-50%) rotate(0deg);z-index:3;",
+            _ => "left:70%;top:58%;width:38%;transform:translate(-50%,-50%) rotate(10deg);z-index:2;",
         },
         _ => index switch
         {
-            0 => "left: 36%; top: 60%; width: 54%; transform: translate(-50%, -50%) rotate(-10deg); z-index: 1;",
-            1 => "left: 52%; top: 48%; width: 60%; transform: translate(-50%, -50%) rotate(0deg); z-index: 3;",
-            _ => "left: 68%; top: 60%; width: 54%; transform: translate(-50%, -50%) rotate(10deg); z-index: 2;",
+            0 => "left:36%;top:60%;width:54%;transform:translate(-50%,-50%) rotate(-10deg);z-index:1;",
+            1 => "left:52%;top:48%;width:60%;transform:translate(-50%,-50%) rotate(0deg);z-index:3;",
+            _ => "left:68%;top:60%;width:54%;transform:translate(-50%,-50%) rotate(10deg);z-index:2;",
         },
     };
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    private static string? FirstNonBlank(params string?[] values) => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-    private void HandleHoverBackdropError()
+    private void HandleHoverImageError()
     {
-        if (_hoverBackdropIndex < HoverBackdropCandidates.Count - 1)
+        if (_hoverImageIndex < HoverImageCandidates.Count - 1)
         {
-            _hoverBackdropIndex++;
+            _hoverImageIndex++;
             StateHasChanged();
         }
     }
@@ -477,7 +458,9 @@
     public async ValueTask DisposeAsync()
     {
         if (!_hoverRegistered)
+        {
             return;
+        }
 
         try
         {
@@ -485,605 +468,80 @@
         }
         catch
         {
-            // Ignore teardown issues during circuit disposal.
         }
     }
 }
 
 <style>
-    .discovery-card {
-        --discovery-hover-shift-x: 0px;
-        --discovery-hover-lift: clamp(8px, 1.2vw, 12px);
-        --discovery-hover-clearance: clamp(182px, 20vw, 244px);
-        --discovery-card-media-height: clamp(192px, 18.4vw, 232px);
-        --discovery-hover-panel-width: clamp(320px, 24vw, 380px);
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        color: #f8fafc;
-        outline: none;
-        position: relative;
-        isolation: isolate;
-        overflow: visible;
-        scroll-snap-align: start;
-        z-index: 0;
-        transition: z-index 0.18s ease;
-    }
-
-    .discovery-card.is-portrait {
-        width: calc(var(--discovery-card-media-height) * 2 / 3);
-        --discovery-hover-panel-width: clamp(320px, 25vw, 366px);
-    }
-
-    .discovery-card.is-landscape {
-        width: calc(var(--discovery-card-media-height) * 16 / 9);
-        --discovery-hover-panel-width: clamp(348px, 27vw, 430px);
-    }
-
-    .discovery-card.is-square {
-        width: var(--discovery-card-media-height);
-        --discovery-hover-panel-width: clamp(320px, 25vw, 372px);
-    }
-
-    .discovery-card-frame {
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        overflow: visible;
-    }
-
-    .discovery-card:hover,
-    .discovery-card:focus-within,
-    .discovery-card.is-expanded {
-        z-index: 24;
-    }
-
-    .discovery-card-media {
-        position: relative;
-        overflow: hidden;
-        height: var(--discovery-card-media-height);
-        border-radius: var(--app-radius-md);
-        background:
-            radial-gradient(circle at top left, color-mix(in srgb, var(--discovery-accent) 28%, transparent) 0%, transparent 55%),
-            linear-gradient(180deg, rgba(16, 21, 36, 0.94) 0%, rgba(7, 10, 18, 0.96) 100%);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 18px 44px rgba(0, 0, 0, 0.26);
-        cursor: pointer;
-        z-index: 1;
-        transform-origin: center top;
-        transition: transform 0.2s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-    }
-
-    .discovery-card:hover .discovery-card-media,
-    .discovery-card:focus-within .discovery-card-media,
-    .discovery-card.is-expanded .discovery-card-media {
-        transform: translateY(calc(-1 * var(--discovery-hover-lift))) scale(1.01);
-        border-color: color-mix(in srgb, var(--discovery-accent) 42%, rgba(255, 255, 255, 0.16));
-        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.3);
-    }
-
-    .discovery-card-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-        transition: transform 0.45s ease;
-    }
-
-    .discovery-card.is-tv-series .discovery-card-image,
-    .discovery-card.is-artist .discovery-card-image {
-        object-position: center top;
-    }
-
-    .discovery-card:hover .discovery-card-image,
-    .discovery-card:focus-within .discovery-card-image,
-    .discovery-card.is-expanded .discovery-card-image {
-        transform: scale(1.04);
-    }
-
-    .discovery-card-stack {
-        position: absolute;
-        inset: 0;
-    }
-
-    .discovery-card-stack-image {
-        position: absolute;
-        aspect-ratio: 2 / 3;
-        border-radius: var(--app-radius-md);
-        object-fit: cover;
-        box-shadow: 0 20px 36px rgba(0, 0, 0, 0.34);
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        opacity: 0.98;
-    }
-
-    .discovery-card.is-movie-series .discovery-card-stack-image {
-        border-radius: var(--app-radius-md);
-    }
-
-    .discovery-card-fallback {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        padding: 18px;
-        text-align: center;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.92rem;
-        font-weight: 700;
-        color: rgba(248, 250, 252, 0.72);
-    }
-
-    .discovery-card-gradient {
-        position: absolute;
-        inset: 0;
-        background:
-            linear-gradient(180deg, rgba(0, 0, 0, 0.02) 0%, rgba(2, 6, 16, 0.18) 42%, rgba(2, 6, 16, 0.88) 100%),
-            linear-gradient(180deg, transparent 0%, color-mix(in srgb, var(--discovery-accent) 18%, transparent) 100%);
-        pointer-events: none;
-    }
-
-    .discovery-card-logo {
-        position: absolute;
-        left: 14px;
-        bottom: 18px;
-        width: min(calc(100% - 28px), 170px);
-        max-height: 54px;
-        object-fit: contain;
-        object-position: left bottom;
-        filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.42));
-        z-index: 2;
-    }
-
-    .discovery-card-badge {
-        position: absolute;
-        top: 14px;
-        left: 14px;
-        width: 36px;
-        height: 36px;
-        border-radius: var(--app-radius-md);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(2, 6, 16, 0.74);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        color: rgba(248, 250, 252, 0.94);
-        z-index: 2;
-        backdrop-filter: blur(12px);
-    }
-
-    .discovery-card-progress {
-        position: absolute;
-        left: 14px;
-        right: 14px;
-        bottom: 12px;
-        height: 4px;
-        border-radius: var(--app-radius-md);
-        background: rgba(255, 255, 255, 0.16);
-        overflow: hidden;
-        z-index: 2;
-    }
-
-    .discovery-card-progress-fill {
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, var(--discovery-accent) 0%, rgba(255, 255, 255, 0.92) 100%);
-    }
-
-    .discovery-card-touch-toggle {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        width: 38px;
-        height: 38px;
-        border: none;
-        border-radius: var(--app-radius-md);
-        background: rgba(2, 6, 16, 0.62);
-        color: rgba(248, 250, 252, 0.94);
-        display: none;
-        align-items: center;
-        justify-content: center;
-        z-index: 3;
-    }
-
-    .discovery-card-hover-panel {
-        position: absolute;
-        left: 0;
-        right: auto;
-        top: 0;
-        width: min(84vw, var(--discovery-hover-panel-width));
-        min-width: 100%;
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-        z-index: 4;
-        transform: translate(var(--discovery-hover-shift-x), 12px) scale(0.982);
-        transform-origin: left top;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: var(--app-radius-md);
-        background: linear-gradient(180deg, rgba(17, 20, 29, 0.96) 0%, rgba(7, 10, 18, 0.995) 100%);
-        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.42);
-        overflow: hidden;
-        backdrop-filter: blur(24px) saturate(142%);
-        transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
-    }
-
-    .discovery-card:hover .discovery-card-hover-panel,
-    .discovery-card:focus-within .discovery-card-hover-panel,
-    .discovery-card.is-expanded .discovery-card-hover-panel {
-        opacity: 1;
-        visibility: visible;
-        pointer-events: auto;
-        transform: translate(var(--discovery-hover-shift-x), calc(-1 * var(--discovery-hover-lift)));
-        transition-delay: 0s;
-    }
-
-    .discovery-card-hover-art {
-        position: relative;
-        aspect-ratio: 16 / 8.8;
-        min-height: 142px;
-        overflow: hidden;
-    }
-
-    .discovery-card-hover-art::before {
-        content: "";
-        position: absolute;
-        inset: 0;
-        background:
-            radial-gradient(circle at top right, color-mix(in srgb, var(--discovery-accent) 18%, transparent) 0%, transparent 34%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 22%);
-        z-index: 1;
-        pointer-events: none;
-    }
-
-    .discovery-card-hover-art::after {
-        content: "";
-        position: absolute;
-        inset: auto 0 0 0;
-        height: 62%;
-        background: linear-gradient(180deg, rgba(5, 8, 14, 0) 0%, rgba(5, 8, 14, 0.92) 100%);
-        z-index: 3;
-        pointer-events: none;
-    }
-
-    .discovery-card-hover-backdrop-image,
-    .discovery-card-hover-backdrop-fallback {
-        position: absolute;
-        inset: 0;
-    }
-
-    .discovery-card-hover-backdrop-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-        object-position: center center;
-        transform: scale(1.02);
-        filter: saturate(108%) brightness(0.92);
-    }
-
-    .discovery-card-hover-backdrop-fallback {
-        background-position: center center;
-        background-size: cover;
-        background-repeat: no-repeat;
-        background: linear-gradient(135deg, rgba(12,16,26,0.98) 0%, rgba(6,8,14,1) 100%);
-    }
-
-    .discovery-card-hover-poster-shell {
-        position: absolute;
-        left: 14px;
-        top: 14px;
-        bottom: 14px;
-        aspect-ratio: 2 / 3;
-        width: auto;
-        overflow: hidden;
-        border-radius: var(--app-radius-md);
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        box-shadow: 0 18px 28px rgba(0, 0, 0, 0.32);
-        z-index: 2;
-        background: rgba(7, 10, 18, 0.84);
-        backdrop-filter: blur(10px);
-    }
-
-    .discovery-card-hover-art.is-cover-focus::after {
-        inset: 0;
-        height: auto;
-        background:
-            linear-gradient(90deg, rgba(5, 8, 14, 0.16) 0%, rgba(5, 8, 14, 0.06) 28%, rgba(5, 8, 14, 0.54) 70%, rgba(5, 8, 14, 0.84) 100%),
-            linear-gradient(180deg, rgba(5, 8, 14, 0.08) 0%, rgba(5, 8, 14, 0.12) 44%, rgba(5, 8, 14, 0.74) 100%);
-    }
-
-    .discovery-card-hover-art.is-cover-focus .discovery-card-hover-backdrop-image {
-        transform: scale(1);
-        object-position: center top;
-        filter: saturate(106%) brightness(0.84);
-    }
-
-    .discovery-card-hover-art.is-cover-focus .discovery-card-hover-poster-shell {
-        left: 16px;
-        top: 14px;
-        bottom: 14px;
-        width: clamp(92px, 28%, 122px);
-        aspect-ratio: 2 / 3;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(9, 12, 20, 0.42);
-        border-color: rgba(255, 255, 255, 0.18);
-        box-shadow: 0 20px 32px rgba(0, 0, 0, 0.38);
-    }
-
-    .discovery-card-hover-poster {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-
-    .discovery-card-hover-art.is-cover-focus .discovery-card-hover-poster {
-        object-fit: contain;
-        padding: 4px;
-    }
-
-    .discovery-card-hover-art.is-empty {
-        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .discovery-card-hover-logo {
-        position: absolute;
-        left: 14px;
-        bottom: 14px;
-        width: min(calc(100% - 36px), 220px);
-        max-height: 54px;
-        object-fit: contain;
-        object-position: left bottom;
-        filter: drop-shadow(0 10px 20px rgba(0, 0, 0, 0.42));
-        z-index: 4;
-    }
-
-    .discovery-card-hover-art.is-with-poster .discovery-card-hover-logo {
-        left: 122px;
-        width: min(calc(100% - 136px), 200px);
-    }
-
-    .discovery-card-hover-art.is-cover-focus .discovery-card-hover-logo {
-        left: 148px;
-        bottom: 18px;
-        width: min(calc(100% - 166px), 214px);
-    }
-
-    .discovery-card-hover-fallback {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: rgba(255, 255, 255, 0.2);
-        z-index: 2;
-    }
-
-    .discovery-card-hover-fallback .mud-icon-root {
-        font-size: 68px;
-    }
-
-    .discovery-card-hover-body {
-        padding: 12px 14px 14px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .discovery-card-hover-actions {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    }
-
-    .discovery-card-hover-actions-left {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .discovery-card-icon-button {
-        width: 36px;
-        height: 36px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: var(--app-radius-md);
-        background: rgba(255, 255, 255, 0.04);
-        color: rgba(248, 250, 252, 0.94);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
-    }
-
-    .discovery-card-icon-button:hover {
-        transform: translateY(-1px);
-        border-color: rgba(255, 255, 255, 0.24);
-        background: rgba(255, 255, 255, 0.08);
-    }
-
-    .discovery-card-icon-button-primary {
-        background: color-mix(in srgb, var(--discovery-accent) 22%, rgba(255, 255, 255, 0.06));
-        border-color: color-mix(in srgb, var(--discovery-accent) 44%, rgba(255, 255, 255, 0.16));
-    }
-
-    .discovery-card-hover-heading {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .discovery-card-hover-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1rem;
-        font-weight: 800;
-        line-height: 1.25;
-        color: rgba(248, 250, 252, 0.98);
-    }
-
-    .discovery-card-hover-subtitle {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.8rem;
-        font-weight: 600;
-        line-height: 1.45;
-        color: rgba(203, 213, 225, 0.78);
-    }
-
-    .discovery-card-hover-status {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.78rem;
-        font-weight: 700;
-        color: color-mix(in srgb, var(--discovery-accent) 78%, white 12%);
-    }
-
-    .discovery-card-hover-meta-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .discovery-card-meta-icon {
-        width: 30px;
-        height: 30px;
-        border-radius: var(--app-radius-md);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        color: rgba(248, 250, 252, 0.9);
-    }
-
-    .discovery-card-hover-meta {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        color: rgba(226, 232, 240, 0.78);
-    }
-
-    .discovery-card-hover-context-list {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-    }
-
-    .discovery-card-hover-context {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.78rem;
-        line-height: 1.45;
-        color: rgba(226, 232, 240, 0.76);
-    }
-
-    .discovery-card-hover-chips {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 2px;
-    }
-
-    .discovery-card-chip {
-        display: inline-flex;
-        align-items: center;
-        padding: 5px 10px;
-        border-radius: var(--app-radius-md);
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.72rem;
-        color: rgba(248, 250, 252, 0.84);
-    }
-
-    .discovery-card-hover-description {
-        margin: 2px 0 0;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.78rem;
-        line-height: 1.5;
-        color: rgba(226, 232, 240, 0.72);
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        overflow: hidden;
-    }
-
-    .discovery-card-caption {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        padding: 0 2px;
-        transition: opacity 0.18s ease, transform 0.18s ease;
-    }
-
-    .discovery-card:hover .discovery-card-caption,
-    .discovery-card:focus-within .discovery-card-caption,
-    .discovery-card.is-expanded .discovery-card-caption {
-        opacity: 0;
-        transform: translateY(-12px);
-        pointer-events: none;
-    }
-
-    .discovery-card-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.94rem;
-        font-weight: 700;
-        line-height: 1.25;
-        color: rgba(248, 250, 252, 0.96);
-    }
-
-    .discovery-card-subtitle {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.82rem;
-        line-height: 1.45;
-        color: rgba(148, 163, 184, 0.84);
-    }
-
-    .discovery-visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-    }
-
-    @@media (hover: none) {
-        .discovery-card-touch-toggle {
-            display: inline-flex;
-        }
-    }
-
-    @@media (max-width: 640px) {
-        .discovery-card {
-            --discovery-card-media-height: clamp(170px, 47vw, 204px);
-            --discovery-hover-panel-width: min(92vw, 360px);
-            --discovery-hover-clearance: clamp(188px, 28vw, 232px);
-        }
-
-        .discovery-card-hover-poster-shell {
-            left: 12px;
-            top: 12px;
-            bottom: 12px;
-        }
-
-        .discovery-card-hover-art.is-with-poster .discovery-card-hover-logo {
-            left: 110px;
-            width: min(calc(100% - 122px), 182px);
-        }
-
-        .discovery-card-hover-art.is-cover-focus .discovery-card-hover-logo {
-            left: 16px;
-            width: min(calc(100% - 32px), 208px);
-        }
+    .discovery-card { --discovery-hover-shift-x:0px; --discovery-hover-shift-y:0px; --discovery-hover-lift:clamp(8px,1.2vw,12px); --discovery-hover-clearance:clamp(204px,22vw,276px); --discovery-card-media-height:clamp(192px,18.4vw,232px); --discovery-hover-panel-width:clamp(320px,24vw,380px); display:flex; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; isolation:isolate; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index .18s ease; }
+    .discovery-card.is-portrait { width:calc(var(--discovery-card-media-height) * 2 / 3); --discovery-hover-panel-width:clamp(240px,18vw,300px); --discovery-hover-clearance:clamp(286px,32vw,420px); }
+    .discovery-card.is-landscape { width:calc(var(--discovery-card-media-height) * 16 / 9); --discovery-hover-panel-width:clamp(348px,27vw,430px); }
+    .discovery-card.is-square { width:var(--discovery-card-media-height); --discovery-hover-panel-width:clamp(260px,19vw,312px); --discovery-hover-clearance:clamp(254px,28vw,356px); }
+    .discovery-card-frame { position:relative; display:flex; flex-direction:column; overflow:visible; }
+    .discovery-card:hover, .discovery-card:focus-within, .discovery-card.is-expanded { z-index:24; }
+    .discovery-card-media { position:relative; overflow:hidden; height:var(--discovery-card-media-height); border-radius:var(--app-radius-md); background:radial-gradient(circle at top left,color-mix(in srgb,var(--discovery-accent) 28%,transparent) 0%,transparent 55%),linear-gradient(180deg,rgba(16,21,36,.94) 0%,rgba(7,10,18,.96) 100%); border:1px solid rgba(255,255,255,.08); box-shadow:0 18px 44px rgba(0,0,0,.26); cursor:pointer; z-index:1; transform-origin:center top; transition:transform .2s ease,border-color .18s ease,box-shadow .18s ease; }
+    .discovery-card:hover .discovery-card-media, .discovery-card:focus-within .discovery-card-media, .discovery-card.is-expanded .discovery-card-media { transform:translateY(calc(-1 * var(--discovery-hover-lift))) scale(1.01); border-color:color-mix(in srgb,var(--discovery-accent) 42%,rgba(255,255,255,.16)); box-shadow:0 18px 40px rgba(0,0,0,.3); }
+    .discovery-card-image { width:100%; height:100%; display:block; transition:transform .45s ease; }
+    .discovery-card-image.is-fill { object-fit:cover; }
+    .discovery-card-image.is-contained { object-fit:contain; padding:14px; background:radial-gradient(circle at top left,color-mix(in srgb,var(--discovery-accent) 16%,transparent) 0%,transparent 54%),linear-gradient(180deg,rgba(12,16,26,.92) 0%,rgba(5,8,14,.96) 100%); }
+    .discovery-card:hover .discovery-card-image, .discovery-card:focus-within .discovery-card-image, .discovery-card.is-expanded .discovery-card-image { transform:scale(1.04); }
+    .discovery-card-stack { position:absolute; inset:0; }
+    .discovery-card-stack-image { position:absolute; aspect-ratio:2 / 3; border-radius:var(--app-radius-md); object-fit:cover; box-shadow:0 20px 36px rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.14); opacity:.98; }
+    .discovery-card-fallback, .discovery-card-hover-fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+    .discovery-card-fallback { flex-direction:column; gap:12px; padding:18px; text-align:center; font-family:'Montserrat',sans-serif; font-size:.92rem; font-weight:700; color:rgba(248,250,252,.72); }
+    .discovery-card-hover-fallback { color:rgba(255,255,255,.2); }
+    .discovery-card-hover-fallback .mud-icon-root { font-size:68px; }
+    .discovery-card-gradient { position:absolute; inset:0; pointer-events:none; }
+    .discovery-card-gradient.is-banner-gradient { background:linear-gradient(180deg,rgba(0,0,0,.02) 0%,rgba(2,6,16,.18) 42%,rgba(2,6,16,.88) 100%),linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--discovery-accent) 18%,transparent) 100%); }
+    .discovery-card-gradient.is-cover-gradient { background:linear-gradient(180deg,rgba(255,255,255,.02) 0%,rgba(255,255,255,0) 34%,rgba(2,6,16,.42) 100%),linear-gradient(180deg,transparent 0%,color-mix(in srgb,var(--discovery-accent) 12%,transparent) 100%); }
+    .discovery-card-logo, .discovery-card-hover-logo { object-fit:contain; object-position:left bottom; filter:drop-shadow(0 8px 18px rgba(0,0,0,.42)); z-index:2; }
+    .discovery-card-logo { position:absolute; left:14px; bottom:18px; width:min(calc(100% - 28px),170px); max-height:54px; }
+    .discovery-card-hover-logo { position:absolute; left:14px; bottom:14px; width:min(calc(100% - 28px),220px); max-height:54px; }
+    .discovery-card-badge { position:absolute; top:14px; left:14px; width:36px; height:36px; border-radius:var(--app-radius-md); display:inline-flex; align-items:center; justify-content:center; background:rgba(2,6,16,.74); border:1px solid rgba(255,255,255,.1); color:rgba(248,250,252,.94); z-index:2; backdrop-filter:blur(12px); }
+    .discovery-card-progress { position:absolute; left:14px; right:14px; bottom:12px; height:4px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.16); overflow:hidden; z-index:2; }
+    .discovery-card-progress-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--discovery-accent) 0%,rgba(255,255,255,.92) 100%); }
+    .discovery-card-touch-toggle { position:absolute; top:12px; right:12px; width:38px; height:38px; border:none; border-radius:var(--app-radius-md); background:rgba(2,6,16,.62); color:rgba(248,250,252,.94); display:none; align-items:center; justify-content:center; z-index:3; }
+    .discovery-card-hover-panel { position:absolute; left:0; top:0; width:min(84vw,var(--discovery-hover-panel-width)); min-width:100%; opacity:0; visibility:hidden; pointer-events:none; z-index:4; transform:translate(var(--discovery-hover-shift-x),calc(12px + var(--discovery-hover-shift-y))) scale(.982); transform-origin:left top; border:1px solid rgba(255,255,255,.08); border-radius:var(--app-radius-md); background:linear-gradient(180deg,rgba(17,20,29,.96) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 24px 48px rgba(0,0,0,.42); overflow:hidden; backdrop-filter:blur(24px) saturate(142%); transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s; }
+    .discovery-card:hover .discovery-card-hover-panel, .discovery-card:focus-within .discovery-card-hover-panel, .discovery-card.is-expanded .discovery-card-hover-panel { opacity:1; visibility:visible; pointer-events:auto; transform:translate(var(--discovery-hover-shift-x),calc((-1 * var(--discovery-hover-lift)) + var(--discovery-hover-shift-y))); transition-delay:0s; }
+    .discovery-card-hover-art { position:relative; overflow:hidden; background:radial-gradient(circle at top right,color-mix(in srgb,var(--discovery-accent) 18%,transparent) 0%,transparent 40%),linear-gradient(180deg,rgba(10,14,24,.94) 0%,rgba(5,8,14,.98) 100%); }
+    .discovery-card-hover-panel.is-banner-popover .discovery-card-hover-art { aspect-ratio:16 / 9; min-height:160px; }
+    .discovery-card-hover-panel.is-banner-popover .discovery-card-hover-art::after { content:""; position:absolute; inset:auto 0 0 0; height:64%; background:linear-gradient(180deg,rgba(5,8,14,0) 0%,rgba(5,8,14,.92) 100%); }
+    .discovery-card-hover-panel.is-art-popover .discovery-card-hover-art { padding:16px 16px 0; }
+    .discovery-card-hover-panel.is-art-popover.is-cover-portrait .discovery-card-hover-art { aspect-ratio:2 / 3; }
+    .discovery-card-hover-panel.is-art-popover.is-cover-square .discovery-card-hover-art, .discovery-card-hover-panel.is-art-popover.is-artist-photo-square .discovery-card-hover-art { aspect-ratio:1 / 1; }
+    .discovery-card-hover-art.is-empty { min-height:168px; }
+    .discovery-card-hover-image { width:100%; height:100%; display:block; object-position:center center; }
+    .discovery-card-hover-image.is-fill { object-fit:cover; }
+    .discovery-card-hover-image.is-contained { object-fit:contain; }
+    .discovery-card-hover-body { padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px; }
+    .discovery-card-hover-actions, .discovery-card-hover-meta-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .discovery-card-hover-actions-left, .discovery-card-hover-chips { display:flex; align-items:center; gap:10px; }
+    .discovery-card-hover-chips { flex-wrap:wrap; margin-top:2px; gap:8px; }
+    .discovery-card-icon-button { width:36px; height:36px; border:1px solid rgba(255,255,255,.14); border-radius:var(--app-radius-md); background:rgba(255,255,255,.04); color:rgba(248,250,252,.94); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
+    .discovery-card-icon-button:hover { transform:translateY(-1px); border-color:rgba(255,255,255,.24); background:rgba(255,255,255,.08); }
+    .discovery-card-icon-button-primary { background:color-mix(in srgb,var(--discovery-accent) 22%,rgba(255,255,255,.06)); border-color:color-mix(in srgb,var(--discovery-accent) 44%,rgba(255,255,255,.16)); }
+    .discovery-card-hover-heading, .discovery-card-caption, .discovery-card-hover-context-list { display:flex; flex-direction:column; gap:4px; }
+    .discovery-card-hover-context-list { gap:6px; }
+    .discovery-card-hover-title, .discovery-card-title { font-family:'Montserrat',sans-serif; font-weight:800; line-height:1.25; color:rgba(248,250,252,.98); }
+    .discovery-card-hover-title { font-size:1rem; }
+    .discovery-card-title { font-size:.94rem; }
+    .discovery-card-hover-subtitle, .discovery-card-subtitle, .discovery-card-hover-context, .discovery-card-hover-description, .discovery-card-hover-status, .discovery-card-hover-meta, .discovery-card-chip { font-family:'Montserrat',sans-serif; }
+    .discovery-card-hover-subtitle { font-size:.8rem; font-weight:600; line-height:1.45; color:rgba(203,213,225,.78); }
+    .discovery-card-subtitle { font-size:.82rem; line-height:1.45; color:rgba(148,163,184,.84); }
+    .discovery-card-hover-status { font-size:.78rem; font-weight:700; color:color-mix(in srgb,var(--discovery-accent) 78%,white 12%); }
+    .discovery-card-meta-icon { width:30px; height:30px; border-radius:var(--app-radius-md); display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); color:rgba(248,250,252,.9); }
+    .discovery-card-hover-meta { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(226,232,240,.78); flex:1; }
+    .discovery-card-hover-context { font-size:.78rem; line-height:1.45; color:rgba(226,232,240,.76); }
+    .discovery-card-chip { padding:5px 10px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-size:.72rem; color:rgba(248,250,252,.84); }
+    .discovery-card-hover-description { margin:2px 0 0; font-size:.78rem; line-height:1.5; color:rgba(226,232,240,.72); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3; overflow:hidden; }
+    .discovery-card-caption { padding:0 2px; transition:opacity .18s ease,transform .18s ease; }
+    .discovery-card:hover .discovery-card-caption, .discovery-card:focus-within .discovery-card-caption, .discovery-card.is-expanded .discovery-card-caption { opacity:0; transform:translateY(-12px); pointer-events:none; }
+    .discovery-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @@media (hover:none) { .discovery-card-touch-toggle { display:inline-flex; } }
+    @@media (max-width:640px) {
+        .discovery-card { --discovery-card-media-height:clamp(170px,47vw,204px); --discovery-hover-panel-width:min(92vw,360px); }
+        .discovery-card.is-portrait { --discovery-hover-clearance:clamp(268px,56vw,392px); }
+        .discovery-card.is-square { --discovery-hover-clearance:clamp(232px,48vw,328px); }
+        .discovery-card-hover-panel.is-art-popover .discovery-card-hover-art { padding:12px 12px 0; }
     }
 </style>

@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
+using MediaEngine.Api.Models;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -15,11 +16,19 @@ public static class PersonEndpoints
         group.MapGet("/{id:guid}", async (
             Guid id,
             IPersonRepository personRepo,
+            IEntityAssetRepository assetRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
                 return Results.NotFound($"Person '{id}' not found.");
+
+            var groupMembers = await PersonCreditQueries.GetGroupMembersAsync(id, person.IsGroup, db, ct);
+            var memberOfGroups = await PersonCreditQueries.GetGroupMembersAsync(id, false, db, ct);
+            var preferredBanner = await assetRepo.GetPreferredAsync(id.ToString(), "Banner", ct);
+            var preferredBackground = await assetRepo.GetPreferredAsync(id.ToString(), "Background", ct);
+            var preferredLogo = await assetRepo.GetPreferredAsync(id.ToString(), "Logo", ct);
 
             return Results.Ok(new
             {
@@ -38,6 +47,12 @@ public static class PersonEndpoints
                 has_local_headshot = !string.IsNullOrEmpty(person.LocalHeadshotPath)
                                     && File.Exists(person.LocalHeadshotPath),
                 is_pseudonym    = person.IsPseudonym,
+                is_group        = person.IsGroup,
+                group_members   = person.IsGroup ? groupMembers : [],
+                member_of_groups = person.IsGroup ? [] : memberOfGroups,
+                banner_url      = preferredBanner is null ? null : $"/stream/artwork/{preferredBanner.Id}",
+                background_url  = preferredBackground is null ? null : $"/stream/artwork/{preferredBackground.Id}",
+                logo_url        = preferredLogo is null ? null : $"/stream/artwork/{preferredLogo.Id}",
                 created_at      = person.CreatedAt,
                 enriched_at     = person.EnrichedAt,
             });
@@ -319,6 +334,24 @@ public static class PersonEndpoints
             return Results.Ok(persons);
         });
 
+        // GET /persons/{id}/library-credits — role-aware owned work credits for a person.
+        group.MapGet("/{id:guid}/library-credits", async (
+            Guid id,
+            IPersonRepository personRepo,
+            IDatabaseConnection db,
+            CancellationToken ct) =>
+        {
+            var person = await personRepo.FindByIdAsync(id, ct);
+            if (person is null)
+                return Results.NotFound($"Person '{id}' not found.");
+
+            var credits = await PersonCreditQueries.GetLibraryCreditsAsync(id, db, ct);
+            return Results.Ok(credits);
+        })
+        .WithName("GetPersonLibraryCredits")
+        .WithSummary("Owned work credits for a person, grouped client-side by role and media type.")
+        .Produces<List<PersonLibraryCreditDto>>(StatusCodes.Status200OK);
+
         // GET /persons/{id}/works — all collections containing works by this person.
         group.MapGet("/{id:guid}/works", async (
             Guid id,
@@ -501,6 +534,7 @@ public static class PersonEndpoints
                     has_local_headshot = !string.IsNullOrEmpty(p.LocalHeadshotPath)
                                          && File.Exists(p.LocalHeadshotPath),
                     is_pseudonym       = p.IsPseudonym,
+                    is_group           = p.IsGroup,
                     biography          = p.Biography,
                     occupation         = p.Occupation,
                 })

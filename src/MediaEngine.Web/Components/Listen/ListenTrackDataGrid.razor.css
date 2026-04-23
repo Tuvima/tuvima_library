@@ -5,10 +5,13 @@
 
 .listen-track-grid ::deep .mud-table-container {
     max-height: min(68vh, 780px);
+    overflow-x: auto;
 }
 
 .listen-track-grid ::deep table {
-    table-layout: fixed;
+    width: max-content;
+    min-width: 100%;
+    table-layout: auto;
 }
 
 .listen-track-grid ::deep thead th {
@@ -30,6 +33,10 @@
 .listen-track-grid ::deep .mud-table-cell,
 .listen-track-grid ::deep .column-header {
     padding: 0.72rem 0.9rem;
+}
+
+.listen-track-grid ::deep th {
+    position: relative;
 }
 
 .listen-track-grid ::deep tr.listen-track-grid__row {

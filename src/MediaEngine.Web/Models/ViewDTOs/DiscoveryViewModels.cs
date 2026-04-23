@@ -19,13 +19,30 @@ public enum DiscoveryCardPresentation
     Artist,
 }
 
+public enum DiscoverySurfaceKind
+{
+    BannerLandscape,
+    CoverPortrait,
+    CoverSquare,
+    ArtistPhotoSquare,
+}
+
+public enum DiscoveryHoverLayout
+{
+    ArtOnlyPopover,
+    BannerPopover,
+}
+
 public sealed class DiscoveryHeroViewModel
 {
     public string Eyebrow { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
     public string? Description { get; init; }
+    public string? Tldr { get; init; }
+    public IReadOnlyList<string> VibeTags { get; init; } = [];
     public string? BackgroundImageUrl { get; init; }
+    public string? HeroBackgroundImageUrl { get; init; }
     public string? BannerImageUrl { get; init; }
     public string? PreviewImageUrl { get; init; }
     public string? LogoUrl { get; init; }
@@ -33,6 +50,8 @@ public sealed class DiscoveryHeroViewModel
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public double? ProgressPct { get; init; }
+    public Guid? RepresentativeEntityId { get; init; }
+    public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.BannerLandscape;
     public string PrimaryActionLabel { get; init; } = "Open";
     public string PrimaryNavigationUrl { get; init; } = "/";
     public string SecondaryActionLabel { get; init; } = "Details";
@@ -56,10 +75,19 @@ public sealed class DiscoveryCardViewModel
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public IReadOnlyList<string> ContextLines { get; init; } = [];
+    public string? Tldr { get; init; }
+    public IReadOnlyList<string> VibeTags { get; init; } = [];
     public string MediaKind { get; init; } = string.Empty;
     public string AccentColor { get; init; } = "#60A5FA";
     public DiscoveryCardShape Shape { get; init; } = DiscoveryCardShape.Portrait;
     public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
+    public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;
+    public DiscoveryHoverLayout HoverLayout { get; init; } = DiscoveryHoverLayout.ArtOnlyPopover;
+    public string? TileImageUrl { get; init; }
+    public string? HoverImageUrl { get; init; }
+    public string? HeroBackgroundImageUrl { get; init; }
+    public string? PreviewImageUrl { get; init; }
+    public Guid? RepresentativeEntityId { get; init; }
     public string NavigationUrl { get; init; } = "/";
     public string? PrimaryNavigationUrl { get; init; }
     public string? DetailsNavigationUrl { get; init; }

@@ -1059,8 +1059,10 @@
             @* â”€â”€ Person: delegate to PersonBiographyDrawer â”€â”€ *@
             <PersonBiographyDrawer Person="@Person"
                                    Aliases="@_aliases"
-                                   PersonWorks="@_personWorks"
+                                   PersonCredits="@_personCredits"
                                    PersonCharacterRoles="@_personCharacterRoles"
+                                   GroupMembers="@_personDetail?.GroupMembers"
+                                   MemberOfGroups="@_personDetail?.MemberOfGroups"
                                    OnPersonAliasClicked="@OnPersonAliasClicked" />
 
             @* Old person sections removed â€” all person content is now in PersonBiographyDrawer *@
@@ -1268,7 +1270,8 @@
     private bool _hasSearched;
     private List<RegistryItemViewModel> _searchResults = [];
     private PersonAliasesResponseDto? _aliases;
-    private List<CollectionViewModel>? _personWorks;
+    private PersonDetailViewModel? _personDetail;
+    private List<PersonLibraryCreditViewModel>? _personCredits;
     private RegistryItemViewModel? _pendingMatch;
     private string _selectedMediaType = "";
     private string _searchMediaType = "";
@@ -1395,7 +1398,8 @@
         _detailsTab = 0;
         _searchResults = [];
         _aliases = null;
-        _personWorks = null;
+        _personDetail = null;
+        _personCredits = null;
         _pendingMatch = null;
         _pendingRetailMatch = null;
         _searching = false;
@@ -1501,11 +1505,13 @@
         {
             var aliasTask = ApiClient.GetPersonAliasesAsync(Person.Id);
             var rolesTask = ApiClient.GetPersonCharacterRolesAsync(Person.Id);
-            var worksTask = ApiClient.GetWorksByPersonAsync(Person.Id);
-            await Task.WhenAll(aliasTask, rolesTask, worksTask);
+            var detailTask = ApiClient.GetPersonDetailAsync(Person.Id);
+            var creditsTask = ApiClient.GetPersonLibraryCreditsAsync(Person.Id);
+            await Task.WhenAll(aliasTask, rolesTask, detailTask, creditsTask);
             _aliases = await aliasTask;
             _personCharacterRoles = await rolesTask;
-            _personWorks = await worksTask;
+            _personDetail = await detailTask;
+            _personCredits = await creditsTask;
         }
         else if (Universe is not null && !string.IsNullOrWhiteSpace(Universe.FictionalUniverseQid))
         {

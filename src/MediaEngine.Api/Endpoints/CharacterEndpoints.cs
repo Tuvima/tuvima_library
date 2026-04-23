@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -75,34 +76,15 @@ public static class CharacterEndpoints
         // Returns all character roles for a person, with portraits and universe info.
         group.MapGet("/persons/{personId:guid}/character-roles", async (
             Guid personId,
-            ICharacterPortraitRepository portraitRepo,
-            IFictionalEntityRepository entityRepo,
+            IPersonRepository personRepo,
+            IDatabaseConnection db,
             CancellationToken ct) =>
         {
-            var portraits = await portraitRepo.GetByPersonAsync(personId, ct);
+            var person = await personRepo.FindByIdAsync(personId, ct);
+            if (person is null)
+                return Results.NotFound($"Person '{personId}' not found.");
 
-            var result = new List<object>(portraits.Count);
-            foreach (var p in portraits)
-            {
-                var entity = await entityRepo.FindByIdAsync(p.FictionalEntityId, ct);
-                if (entity is null) continue;
-
-                // Get first work link for display context.
-                var workLinks = await entityRepo.GetWorkLinksAsync(p.FictionalEntityId, ct);
-                var firstWork = workLinks.FirstOrDefault();
-
-                result.Add(new
-                {
-                    fictional_entity_id = p.FictionalEntityId,
-                    character_name      = entity.Label,
-                    portrait_url        = p.ImageUrl,
-                    work_title          = firstWork.WorkLabel,
-                    is_default          = p.IsDefault,
-                    universe_qid        = entity.FictionalUniverseQid,
-                    universe_label      = entity.FictionalUniverseLabel,
-                });
-            }
-
+            var result = await PersonCreditQueries.GetCharacterRolesAsync(personId, db, ct);
             return Results.Ok(result);
         });
 

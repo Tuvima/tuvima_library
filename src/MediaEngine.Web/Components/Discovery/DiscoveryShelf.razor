@@ -3,7 +3,7 @@
 
 @if (Shelf.Items.Count > 0)
 {
-    <section class="discovery-shelf">
+    <section class="discovery-shelf @RowClass">
         <div class="discovery-shelf-header">
             <div class="discovery-shelf-copy">
                 <h2 class="discovery-shelf-title">@Shelf.Title</h2>
@@ -54,6 +54,14 @@
     private ElementReference _scrollRef;
     private bool _atStart = true;
     private bool _atEnd;
+
+    private string RowClass => Shelf.Items.FirstOrDefault()?.Shape switch
+    {
+        DiscoveryCardShape.Landscape => "is-landscape-row",
+        DiscoveryCardShape.Square => "is-square-row",
+        DiscoveryCardShape.Portrait => "is-portrait-row",
+        _ => string.Empty,
+    };
 
     protected override void OnParametersSet()
     {
@@ -165,6 +173,18 @@
         padding: calc(var(--discovery-hover-lift) + 8px) 2px calc(var(--discovery-hover-clearance) + 24px);
         scrollbar-width: none;
         -ms-overflow-style: none;
+    }
+
+    .discovery-shelf.is-landscape-row .discovery-shelf-scroll {
+        --discovery-hover-clearance: clamp(214px, 22vw, 286px);
+    }
+
+    .discovery-shelf.is-square-row .discovery-shelf-scroll {
+        --discovery-hover-clearance: clamp(250px, 28vw, 360px);
+    }
+
+    .discovery-shelf.is-portrait-row .discovery-shelf-scroll {
+        --discovery-hover-clearance: clamp(292px, 34vw, 428px);
     }
 
     .discovery-shelf-scroll::-webkit-scrollbar {

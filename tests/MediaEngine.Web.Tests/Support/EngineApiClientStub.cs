@@ -1,4 +1,5 @@
 using System.Reflection;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 
@@ -54,6 +55,20 @@ internal class EngineApiClientStub : DispatchProxy
                     "#C9922E",
                     "Administrator",
                     DateTimeOffset.UtcNow),
+            });
+
+        _handlers[nameof(IEngineApiClient.GetTasteProfileAsync)] =
+            _ => Task.FromResult<TasteProfile?>(new TasteProfile
+            {
+                UserId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
+                Summary = "Test profile built from a mixed library.",
+                MediaTypeMix = new Dictionary<string, double>
+                {
+                    ["Books"] = 0.45,
+                    ["Movies"] = 0.25,
+                    ["Music"] = 0.30,
+                },
+                LastUpdatedAt = DateTimeOffset.UtcNow,
             });
 
         _handlers[nameof(IEngineApiClient.GetReviewCountAsync)] =

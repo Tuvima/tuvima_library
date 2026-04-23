@@ -37,20 +37,12 @@ else if (!string.IsNullOrWhiteSpace(_error))
 else
 {
     <div class="listen-page">
-        @if (_railOpen)
-        {
-            <button type="button" class="listen-page__backdrop" @onclick="CloseRail" aria-label="Close navigation"></button>
-        }
-
-        <aside class="listen-rail @(_railOpen ? "is-open" : null)">
+        <aside class="listen-rail">
             <div class="listen-rail__header">
                 <div>
                     <div class="listen-kicker">Library</div>
                     <h2>Listen</h2>
                 </div>
-                <button type="button" class="listen-icon-button listen-rail__close" @onclick="CloseRail">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
-                </button>
             </div>
 
             @if (IsMusicMode)
@@ -144,12 +136,6 @@ else
         <main class="listen-content">
             <header class="listen-topbar">
                 <div class="listen-topbar__identity">
-                    <button type="button"
-                            class="listen-icon-button listen-topbar__menu"
-                            @onclick="ToggleRail"
-                            aria-label="Open library navigation">
-                        <MudIcon Icon="@Icons.Material.Outlined.Menu" Style="font-size: 18px;" />
-                    </button>
                     <div>
                         <div class="listen-kicker">Library</div>
                         <h1>Listen</h1>
@@ -353,7 +339,7 @@ else
                         </div>
                     </div>
                     <div class="listen-track-toolbar">
-                        <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Single-click to select, ctrl/shift-click to add more, double-click or use the play icon to start playback.")</div>
+                        <div class="listen-track-toolbar__status">@TrackSelectionStatusText</div>
                         <div class="listen-track-toolbar__actions">
                             <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
@@ -625,7 +611,7 @@ else
                     else
                     {
                         <div class="listen-track-toolbar">
-                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Single-click to select, ctrl/shift-click to add more, double-click or use the play icon to start playback.")</div>
+                            <div class="listen-track-toolbar__status">@TrackSelectionStatusText</div>
                             <div class="listen-track-toolbar__actions">
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>
@@ -764,7 +750,7 @@ else
                     else
                     {
                         <div class="listen-track-toolbar">
-                            <div class="listen-track-toolbar__status">@(HasTrackSelection ? $"{SelectedTrackCount} selected" : "Single-click to select, ctrl/shift-click to add more, double-click or use the play icon to start playback.")</div>
+                            <div class="listen-track-toolbar__status">@TrackSelectionStatusText</div>
                             <div class="listen-track-toolbar__actions">
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="PlaySelectedTracksAsync" disabled="@(!HasTrackSelection)">Play</button>
                                 <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => QueueSelectedTracksAsync(true))" disabled="@(!HasTrackSelection)">Play next</button>

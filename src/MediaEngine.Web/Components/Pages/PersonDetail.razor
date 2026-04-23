@@ -1,4 +1,6 @@
 @page "/person/{Id:guid}"
+@using System.Linq
+@using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
@@ -18,148 +20,461 @@ else if (_person is null)
 }
 else
 {
-    <MudButton Variant="Variant.Text"
-               Color="Color.Default"
-               StartIcon="@Icons.Material.Filled.ArrowBack"
-               OnClick="@(() => Nav.NavigateTo("/"))"
-               Class="person-detail-back mb-3">
-        Home
-    </MudButton>
+    <div class="person-page">
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Default"
+                   StartIcon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@(() => Nav.NavigateTo("/"))"
+                   Class="person-detail-back">
+            Home
+        </MudButton>
 
-    <div class="person-detail-header">
-        <div class="person-detail-avatar-wrap">
-            @if (!string.IsNullOrEmpty(_person.LocalHeadshotUrl))
-            {
-                <img src="@_person.LocalHeadshotUrl" alt="@_person.Name" class="person-detail-avatar" />
-            }
-            else if (!string.IsNullOrEmpty(_person.HeadshotUrl))
-            {
-                <img src="@_person.HeadshotUrl" alt="@_person.Name" class="person-detail-avatar" />
-            }
-            else
-            {
-                <div class="person-detail-avatar person-detail-avatar-initials">
-                    @_person.Initials
+        <section class="person-hero" style="@HeroBackgroundStyle">
+            <div class="person-hero__overlay"></div>
+            <div class="person-hero__content">
+                <div class="person-hero__identity">
+                    <div class="person-detail-avatar-wrap">
+                        @if (!string.IsNullOrEmpty(_person.LocalHeadshotUrl))
+                        {
+                            <img src="@_person.LocalHeadshotUrl" alt="@_person.Name" class="person-detail-avatar" />
+                        }
+                        else if (!string.IsNullOrEmpty(_person.HeadshotUrl))
+                        {
+                            <img src="@_person.HeadshotUrl" alt="@_person.Name" class="person-detail-avatar" />
+                        }
+                        else
+                        {
+                            <div class="person-detail-avatar person-detail-avatar-initials">
+                                @_person.Initials
+                            </div>
+                        }
+                    </div>
+
+                    <div class="person-hero__copy">
+                        @if (!string.IsNullOrEmpty(_person.Occupation))
+                        {
+                            <span class="person-detail-occupation">@_person.Occupation</span>
+                        }
+
+                        <h1 class="person-detail-name">@_person.Name</h1>
+
+                        @if (OrderedRoleLabels.Count > 0)
+                        {
+                            <div class="person-hero__role-chips">
+                                @foreach (var role in OrderedRoleLabels)
+                                {
+                                    <span class="person-hero__role-chip">@role</span>
+                                }
+                            </div>
+                        }
+
+                        @if (_person.HasSocialLinks)
+                        {
+                            <div class="person-detail-social">
+                                @if (!string.IsNullOrEmpty(_person.Instagram))
+                                {
+                                    <a href="@SocialUriHelper.GetSocialUri("instagram", _person.Instagram, DeviceContext.DeviceClass)"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="person-detail-social-link"
+                                       title="Instagram">
+                                        <MudIcon Icon="@Icons.Custom.Brands.Instagram" />
+                                    </a>
+                                }
+                                @if (!string.IsNullOrEmpty(_person.Twitter))
+                                {
+                                    <a href="@SocialUriHelper.GetSocialUri("twitter", _person.Twitter, DeviceContext.DeviceClass)"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="person-detail-social-link"
+                                       title="X / Twitter">
+                                        <MudIcon Icon="@Icons.Custom.Brands.Twitter" />
+                                    </a>
+                                }
+                                @if (!string.IsNullOrEmpty(_person.TikTok))
+                                {
+                                    <a href="@SocialUriHelper.GetSocialUri("tiktok", _person.TikTok, DeviceContext.DeviceClass)"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="person-detail-social-link"
+                                       title="TikTok">
+                                        <MudIcon Icon="@Icons.Material.Filled.MusicNote" />
+                                    </a>
+                                }
+                                @if (!string.IsNullOrEmpty(_person.Mastodon))
+                                {
+                                    <a href="@SocialUriHelper.GetSocialUri("mastodon", _person.Mastodon, DeviceContext.DeviceClass)"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="person-detail-social-link"
+                                       title="Mastodon">
+                                        <MudIcon Icon="@Icons.Material.Filled.Forum" />
+                                    </a>
+                                }
+                                @if (!string.IsNullOrEmpty(_person.Website))
+                                {
+                                    <a href="@SocialUriHelper.GetSocialUri("website", _person.Website, DeviceContext.DeviceClass)"
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       class="person-detail-social-link"
+                                       title="Website">
+                                        <MudIcon Icon="@Icons.Material.Filled.Language" />
+                                    </a>
+                                }
+                            </div>
+                        }
+                    </div>
                 </div>
-            }
-        </div>
 
-        <div class="person-detail-name-col">
-            @if (!string.IsNullOrEmpty(_person.Occupation))
-            {
-                <span class="person-detail-occupation">@_person.Occupation</span>
-            }
-            <h1 class="person-detail-name">@_person.Name</h1>
-            <span class="person-detail-role">@_person.RoleLabel</span>
+                @if (!string.IsNullOrWhiteSpace(_person.LogoUrl))
+                {
+                    <div class="person-hero__logo">
+                        <img src="@_person.LogoUrl" alt="@($"{_person.Name} logo")" />
+                    </div>
+                }
+            </div>
+        </section>
 
-            @if (_person.HasSocialLinks)
-            {
-                <div class="person-detail-social">
-                    @if (!string.IsNullOrEmpty(_person.Instagram))
+        @if (!string.IsNullOrEmpty(_person.Biography))
+        {
+            <section class="person-section">
+                <h2 class="person-detail-section-title">Biography</h2>
+                <p class="person-detail-bio">@(_showFullBio ? _person.Biography : Truncate(_person.Biography, 500))</p>
+                @if (_person.Biography.Length > 500)
+                {
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Warning"
+                               Class="person-detail-expand-btn"
+                               OnClick="@(() => _showFullBio = !_showFullBio)">
+                        @(_showFullBio ? "Show less" : "Show more")
+                    </MudButton>
+                }
+            </section>
+        }
+
+        @if (_person.GroupMembers.Count > 0 || _person.MemberOfGroups.Count > 0)
+        {
+            <section class="person-section person-section--links">
+                @if (_person.GroupMembers.Count > 0)
+                {
+                    <div class="person-link-group">
+                        <h2 class="person-detail-section-title">Members</h2>
+                        <div class="person-link-list">
+                            @foreach (var member in _person.GroupMembers)
+                            {
+                                <MudButton ButtonType="ButtonType.Button"
+                                           Class="person-link-pill"
+                                           Variant="Variant.Text"
+                                           Color="Color.Default"
+                                           OnClick="@(() => OpenPerson(member.Id))">
+                                    @member.Name
+                                </MudButton>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (_person.MemberOfGroups.Count > 0)
+                {
+                    <div class="person-link-group">
+                        <h2 class="person-detail-section-title">Member Of</h2>
+                        <div class="person-link-list">
+                            @foreach (var group in _person.MemberOfGroups)
+                            {
+                                <MudButton ButtonType="ButtonType.Button"
+                                           Class="person-link-pill"
+                                           Variant="Variant.Text"
+                                           Color="Color.Default"
+                                           OnClick="@(() => OpenPerson(group.Id))">
+                                    @group.Name
+                                </MudButton>
+                            }
+                        </div>
+                    </div>
+                }
+            </section>
+        }
+
+        @if (_creditGroups.Count > 0)
+        {
+            <section class="person-section">
+                <h2 class="person-detail-section-title">In Your Library</h2>
+
+                <div class="person-credit-groups">
+                    @foreach (var group in _creditGroups)
                     {
-                        <a href="@SocialUriHelper.GetSocialUri("instagram", _person.Instagram, DeviceContext.DeviceClass)"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="person-detail-social-link"
-                           title="Instagram">
-                            <MudIcon Icon="@Icons.Custom.Brands.Instagram" />
-                        </a>
-                    }
-                    @if (!string.IsNullOrEmpty(_person.Twitter))
-                    {
-                        <a href="@SocialUriHelper.GetSocialUri("twitter", _person.Twitter, DeviceContext.DeviceClass)"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="person-detail-social-link"
-                           title="X / Twitter">
-                            <MudIcon Icon="@Icons.Custom.Brands.Twitter" />
-                        </a>
-                    }
-                    @if (!string.IsNullOrEmpty(_person.TikTok))
-                    {
-                        <a href="@SocialUriHelper.GetSocialUri("tiktok", _person.TikTok, DeviceContext.DeviceClass)"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="person-detail-social-link"
-                           title="TikTok">
-                            <MudIcon Icon="@Icons.Material.Filled.MusicNote" />
-                        </a>
-                    }
-                    @if (!string.IsNullOrEmpty(_person.Mastodon))
-                    {
-                        <a href="@SocialUriHelper.GetSocialUri("mastodon", _person.Mastodon, DeviceContext.DeviceClass)"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="person-detail-social-link"
-                           title="Mastodon">
-                            <MudIcon Icon="@Icons.Material.Filled.Forum" />
-                        </a>
-                    }
-                    @if (!string.IsNullOrEmpty(_person.Website))
-                    {
-                        <a href="@SocialUriHelper.GetSocialUri("website", _person.Website, DeviceContext.DeviceClass)"
-                           target="_blank"
-                           rel="noopener noreferrer"
-                           class="person-detail-social-link"
-                           title="Website">
-                            <MudIcon Icon="@Icons.Material.Filled.Language" />
-                        </a>
+                        <div class="person-credit-group">
+                            <div class="person-credit-group__header">
+                                <h3>@group.Key</h3>
+                                <span>@group.Count() item@(group.Count() == 1 ? "" : "s")</span>
+                            </div>
+
+                            <div class="person-credit-grid">
+                                @foreach (var credit in group)
+                                {
+                                    <MudButton ButtonType="ButtonType.Button"
+                                               Class="person-credit-card"
+                                               Variant="Variant.Text"
+                                               Color="Color.Default"
+                                               OnClick="@(() => OpenCredit(credit))">
+                                        <div class="person-credit-card__art">
+                                            @if (!string.IsNullOrWhiteSpace(credit.CoverUrl))
+                                            {
+                                                <img src="@credit.CoverUrl" alt="@credit.Title" />
+                                            }
+                                            else
+                                            {
+                                                <div class="person-credit-card__art-placeholder">
+                                                    <MudIcon Icon="@GetCreditIcon(credit)" Style="font-size: 28px;" />
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <div class="person-credit-card__body">
+                                            <div class="person-credit-card__title">@credit.Title</div>
+                                            <div class="person-credit-card__meta">@BuildCreditMeta(credit)</div>
+                                            @if (!string.IsNullOrWhiteSpace(BuildCreditSubtitle(credit)))
+                                            {
+                                                <div class="person-credit-card__subtitle">@BuildCreditSubtitle(credit)</div>
+                                            }
+                                        </div>
+                                    </MudButton>
+                                }
+                            </div>
+                        </div>
                     }
                 </div>
-            }
-        </div>
+            </section>
+        }
+
+        @if (_characterGroups.Count > 0)
+        {
+            <section class="person-section">
+                <h2 class="person-detail-section-title">Portrayed Characters</h2>
+
+                <div class="person-character-groups">
+                    @foreach (var group in _characterGroups)
+                    {
+                        <div class="person-character-group">
+                            <div class="person-character-group__header">@group.Key</div>
+                            <div class="person-character-grid">
+                                @foreach (var role in group)
+                                {
+                                    <MudButton ButtonType="ButtonType.Button"
+                                               Class="person-character-card"
+                                               Variant="Variant.Text"
+                                               Color="Color.Default"
+                                               OnClick="@(() => OpenCharacterRole(role))">
+                                        <div class="person-character-card__portrait">
+                                            @if (!string.IsNullOrWhiteSpace(role.PortraitUrl))
+                                            {
+                                                <img src="@role.PortraitUrl" alt="@role.CharacterName" />
+                                            }
+                                            else
+                                            {
+                                                <div class="person-character-card__portrait-placeholder">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Person" Style="font-size: 24px;" />
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <div class="person-character-card__body">
+                                            <div class="person-character-card__name">@role.CharacterName</div>
+                                            <div class="person-character-card__work">@role.WorkTitle</div>
+                                            @if (!string.IsNullOrWhiteSpace(role.MediaType))
+                                            {
+                                                <div class="person-character-card__meta">@FormatMediaType(role.MediaType)</div>
+                                            }
+                                        </div>
+                                    </MudButton>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </section>
+        }
     </div>
-
-    @if (!string.IsNullOrEmpty(_person.Biography))
-    {
-        <div class="person-detail-bio-section">
-            <h3 class="person-detail-section-title">Biography</h3>
-            <p class="person-detail-bio">@(_showFullBio ? _person.Biography : Truncate(_person.Biography, 500))</p>
-            @if (_person.Biography.Length > 500)
-            {
-                <MudButton Variant="Variant.Text"
-                           Color="Color.Warning"
-                           Class="person-detail-expand-btn"
-                           OnClick="@(() => _showFullBio = !_showFullBio)">
-                    @(_showFullBio ? "Show less" : "Show more")
-                </MudButton>
-            }
-        </div>
-    }
-
-    @if (_works.Count > 0)
-    {
-        <div class="person-detail-works-section">
-            <PosterSwimlane Title="@($"Works by {_person.Name}")"
-                            Items="@_works.SelectMany(h => h.Works.Select(w => PosterItemViewModel.FromWork(w, h.CoverUrl, h.DominantHexColor))).ToList()"
-                            OnItemSelected="@(item => Nav.NavigateTo(item.NavigationUrl))" />
-        </div>
-    }
 }
 
 @code {
     [Parameter] public Guid Id { get; set; }
 
     private bool _loading = true;
-    private PersonDetailViewModel? _person;
-    private List<CollectionViewModel> _works = [];
     private bool _showFullBio;
+    private PersonDetailViewModel? _person;
+    private List<PersonLibraryCreditViewModel> _credits = [];
+    private List<IGrouping<string, PersonLibraryCreditViewModel>> _creditGroups = [];
+    private List<IGrouping<string, CharacterRoleDto>> _characterGroups = [];
+
+    private string HeroBackgroundStyle =>
+        _person?.HeaderArtUrl is { Length: > 0 } headerArt
+            ? $"background-image: linear-gradient(135deg, rgba(10, 12, 18, 0.92), rgba(10, 12, 18, 0.78)), url('{headerArt}');"
+            : "background: linear-gradient(140deg, rgba(12, 14, 20, 0.98), rgba(18, 23, 31, 0.92));";
+
+    private IReadOnlyList<string> OrderedRoleLabels => _person?.RoleLabels
+        .OrderBy(RolePriority)
+        .ThenBy(label => label, StringComparer.OrdinalIgnoreCase)
+        .ToList()
+        ?? [];
 
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
         _showFullBio = false;
+        _creditGroups = [];
+        _characterGroups = [];
 
         var personTask = Orchestrator.GetPersonDetailAsync(Id);
-        var worksTask = Orchestrator.GetWorksByPersonAsync(Id);
+        var creditTask = Orchestrator.GetPersonLibraryCreditsAsync(Id);
+        var characterTask = Orchestrator.GetPersonCharacterRolesAsync(Id);
 
-        await Task.WhenAll(personTask, worksTask);
+        await Task.WhenAll(personTask, creditTask, characterTask);
 
         _person = personTask.Result;
-        _works = worksTask.Result;
+        _credits = creditTask.Result;
+
+        var characterRoles = characterTask.Result.ToList();
+
+        _creditGroups = _credits
+            .GroupBy(credit => $"{FormatRole(credit.Role)} / {FormatMediaType(credit.MediaType)}")
+            .OrderBy(group => GroupPriority(group.FirstOrDefault()?.Role, group.FirstOrDefault()?.MediaType))
+            .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        _characterGroups = characterRoles
+            .GroupBy(role => role.UniverseLabel ?? "Library")
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
         _loading = false;
     }
 
+    private void OpenPerson(Guid personId) => Nav.NavigateTo($"/person/{personId}");
+
+    private void OpenCredit(PersonLibraryCreditViewModel credit)
+    {
+        if (credit.MediaType?.Equals("Movies", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            Nav.NavigateTo($"/watch/movie/{credit.WorkId}");
+            return;
+        }
+
+        if (credit.CollectionId.HasValue)
+        {
+            Nav.NavigateTo($"/collection/{credit.CollectionId.Value}");
+        }
+    }
+
+    private void OpenCharacterRole(CharacterRoleDto role)
+    {
+        if (role.MediaType?.Equals("Movies", StringComparison.OrdinalIgnoreCase) == true && role.WorkId.HasValue)
+        {
+            Nav.NavigateTo($"/watch/movie/{role.WorkId.Value}");
+            return;
+        }
+
+        if (role.CollectionId.HasValue)
+        {
+            Nav.NavigateTo($"/collection/{role.CollectionId.Value}");
+        }
+    }
+
+    private static string BuildCreditMeta(PersonLibraryCreditViewModel credit)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(credit.Year))
+        {
+            parts.Add(credit.Year!);
+        }
+
+        if (!string.IsNullOrWhiteSpace(credit.MediaType))
+        {
+            parts.Add(FormatMediaType(credit.MediaType));
+        }
+
+        return string.Join(" / ", parts);
+    }
+
+    private static string? BuildCreditSubtitle(PersonLibraryCreditViewModel credit)
+    {
+        var characterNames = credit.Characters
+            .Select(character => character.CharacterName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return characterNames.Count > 0
+            ? $"as {string.Join(", ", characterNames)}"
+            : null;
+    }
+
+    private static string GetCreditIcon(PersonLibraryCreditViewModel credit) => credit.MediaType?.ToLowerInvariant() switch
+    {
+        "movies" => Icons.Material.Outlined.LocalMovies,
+        "tv" => Icons.Material.Outlined.LiveTv,
+        "music" => Icons.Material.Outlined.Album,
+        "books" => Icons.Material.Outlined.MenuBook,
+        "audiobooks" => Icons.Material.Outlined.Headphones,
+        "comics" => Icons.Material.Outlined.AutoStories,
+        _ => Icons.Material.Outlined.Collections,
+    };
+
+    private static string FormatRole(string? role) => role?.ToLowerInvariant() switch
+    {
+        "actor" => "Actor",
+        "voice actor" => "Voice Actor",
+        "director" => "Director",
+        "artist" => "Artist",
+        "performer" => "Performer",
+        "author" => "Author",
+        "narrator" => "Narrator",
+        "illustrator" => "Illustrator",
+        "composer" => "Composer",
+        _ => role ?? "Credit",
+    };
+
+    private static string FormatMediaType(string? mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "movies" => "Movies",
+        "tv" => "TV",
+        "music" => "Music",
+        "books" => "Books",
+        "audiobooks" => "Audiobooks",
+        "comics" => "Comics",
+        _ => mediaType ?? "Library",
+    };
+
+    private static int GroupPriority(string? role, string? mediaType)
+        => RolePriority(FormatRole(role)) * 10 + MediaTypePriority(mediaType);
+
+    private static int RolePriority(string? roleLabel) => roleLabel?.ToLowerInvariant() switch
+    {
+        "actor" => 0,
+        "director" => 1,
+        "author" => 2,
+        "narrator" => 3,
+        "artist" => 4,
+        "performer" => 5,
+        "composer" => 6,
+        "illustrator" => 7,
+        "voice actor" => 8,
+        _ => 9,
+    };
+
+    private static int MediaTypePriority(string? mediaType) => mediaType?.ToLowerInvariant() switch
+    {
+        "movies" => 0,
+        "tv" => 1,
+        "music" => 2,
+        "books" => 3,
+        "audiobooks" => 4,
+        "comics" => 5,
+        _ => 6,
+    };
+
     private static string Truncate(string text, int maxLength) =>
-        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
+        text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "...";
 }

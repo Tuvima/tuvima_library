@@ -1,3 +1,4 @@
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
@@ -31,6 +32,7 @@ public sealed class DiscoveryComposerService
         var groups = await groupsTask;
         var musicAlbumGroups = await musicAlbumGroupsTask;
         var musicArtistGroups = await musicArtistGroupsTask;
+        var tasteProfile = await LoadActiveTasteProfileAsync(ct);
         var previewImages = await LoadCollectionPreviewImagesAsync(
             groups
                 .OrderByDescending(group => group.WorkCount)
@@ -39,7 +41,7 @@ public sealed class DiscoveryComposerService
                 .Take(18),
             ct);
 
-        return ComposeHome(works, journey, groups, previewImages, musicAlbumGroups, musicArtistGroups);
+        return ComposeHome(works, journey, groups, previewImages, musicAlbumGroups, musicArtistGroups, tasteProfile);
     }
 
     public async Task<DiscoveryPageViewModel> BuildReadAsync(CancellationToken ct = default)
@@ -117,10 +119,12 @@ public sealed class DiscoveryComposerService
         IReadOnlyList<ContentGroupViewModel> groups,
         IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages = null,
         IReadOnlyList<ContentGroupViewModel>? musicAlbumGroups = null,
-        IReadOnlyList<ContentGroupViewModel>? musicArtistGroups = null)
+        IReadOnlyList<ContentGroupViewModel>? musicArtistGroups = null,
+        TasteProfile? tasteProfile = null)
     {
         var orderedWorks = works.OrderByDescending(GetHomeSortTimestamp).ThenByDescending(work => ParseYear(work.Year)).ToList();
         var progressLookup = BuildProgressLookup(journey);
+        var workLookup = works.ToDictionary(work => work.Id);
         var catalog = orderedWorks
             .Where(work => !SuppressIndividualOnHome(work))
             .Select(work => ToWorkCard(work, progressLookup.GetValueOrDefault(work.Id)))
@@ -138,30 +142,15 @@ public sealed class DiscoveryComposerService
             .GroupBy(group => group.CollectionId)
             .ToDictionary(group => group.Key, group => group.First());
 
-        var continueCards = BuildHomeContinueCards(journey, groupLookup, groupPreviewImages);
-        var freshArrivalCards = BuildHomeFreshArrivalCards(orderedWorks, groupLookup, groupPreviewImages);
+        var continueCards = RankHomeCards(
+            BuildHomeContinueCards(journey, workLookup, groupLookup, groupPreviewImages),
+            tasteProfile);
+        var freshArrivalCards = RankHomeCards(
+            BuildHomeFreshArrivalCards(orderedWorks, groupLookup, groupPreviewImages),
+            tasteProfile);
 
         var shelves = new List<DiscoveryShelfViewModel>();
-
-        if (continueCards.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "Continue",
-                Subtitle = "Personalized from your recent activity",
-                Items = TakeShelfItems(continueCards, 12),
-            });
-        }
-
-        if (freshArrivalCards.Count > 0)
-        {
-            shelves.Add(new DiscoveryShelfViewModel
-            {
-                Title = "New Episodes & Fresh Arrivals",
-                Subtitle = "Grouped by the shows and albums that just changed",
-                Items = TakeShelfItems(freshArrivalCards, 12),
-            });
-        }
+        shelves.AddRange(BuildHomeSurfaceShelves(continueCards, freshArrivalCards, tasteProfile));
 
         shelves.AddRange(BuildHomeCollectionShelves(groups, orderedMusicAlbumGroups, orderedMusicArtistGroups, groupPreviewImages));
 
@@ -178,7 +167,7 @@ public sealed class DiscoveryComposerService
         {
             Key = "home",
             AccentColor = "#1CE783",
-            Hero = BuildHomeHero(continueCards, freshArrivalCards, groups, orderedMusicAlbumGroups, groupPreviewImages, "#1CE783"),
+            Hero = BuildHomeHero(continueCards, freshArrivalCards, groups, orderedMusicAlbumGroups, groupPreviewImages, "#1CE783", tasteProfile),
             Hubs = [],
             Shelves = shelves,
             Catalog = catalog,
@@ -239,7 +228,7 @@ public sealed class DiscoveryComposerService
             {
                 Title = "Continue reading",
                 Subtitle = "Books and comics already in motion",
-                Items = TakeShelfItems(readJourney.Select(ToJourneyCard), 10),
+                Items = TakeShelfItems(readJourney.Select(item => ToJourneyCard(item)), 10),
             });
         }
 
@@ -435,7 +424,7 @@ public sealed class DiscoveryComposerService
             {
                 Title = "Continue listening",
                 Subtitle = "Resume music and audiobooks already in progress",
-                Items = TakeShelfItems(listenJourney.Select(ToJourneyCard), 10),
+                Items = TakeShelfItems(listenJourney.Select(item => ToJourneyCard(item)), 10),
             });
         }
 
@@ -538,7 +527,7 @@ public sealed class DiscoveryComposerService
             title: "Recently Played",
             subtitle: "Pick up albums and tracks from your latest listening sessions",
             seeAllRoute: ListenNavigation.SongsRoute,
-            items: orderedJourney.Select(ToJourneyCard));
+            items: orderedJourney.Select(item => ToJourneyCard(item)));
 
         AddHomeCollectionShelf(
             shelves,
@@ -653,23 +642,21 @@ public sealed class DiscoveryComposerService
         IReadOnlyList<ContentGroupViewModel> contentGroups,
         IReadOnlyList<ContentGroupViewModel> musicAlbumGroups,
         IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages,
-        string accentColor)
+        string accentColor,
+        TasteProfile? tasteProfile)
     {
-        var continueHero = continueCards
-            .OrderByDescending(card => card.SortTimestamp)
-            .FirstOrDefault();
+        var continueHero = continueCards.FirstOrDefault();
         if (continueHero is not null)
             return ToHeroFromCard(continueHero, "Continue with your library", accentColor);
 
-        var freshHero = freshArrivalCards
-            .OrderByDescending(card => card.SortTimestamp)
-            .FirstOrDefault();
+        var freshHero = freshArrivalCards.FirstOrDefault();
         if (freshHero is not null)
             return ToHeroFromCard(freshHero, "Fresh in your library", accentColor);
 
         var featuredGroup = contentGroups
             .Concat(musicAlbumGroups)
-            .OrderByDescending(group => group.WorkCount)
+            .OrderByDescending(group => GroupTasteScore(group, tasteProfile))
+            .ThenByDescending(group => group.WorkCount)
             .ThenByDescending(group => group.CreatedAt)
             .FirstOrDefault();
         if (featuredGroup is null)
@@ -685,8 +672,84 @@ public sealed class DiscoveryComposerService
         return ToHeroFromCard(featuredCard, "Featured collection", accentColor);
     }
 
+    private static IReadOnlyList<DiscoveryShelfViewModel> BuildHomeSurfaceShelves(
+        IReadOnlyList<DiscoveryCardViewModel> continueCards,
+        IReadOnlyList<DiscoveryCardViewModel> freshArrivalCards,
+        TasteProfile? tasteProfile)
+    {
+        var bannerWatchContinue = TakeShelfItems(
+            continueCards.Where(IsBannerWatchCard),
+            12);
+        var bannerWatchFresh = TakeShelfItems(
+            freshArrivalCards.Where(IsBannerWatchCard),
+            12);
+        var watchPosters = TakeShelfItems(
+            MergeHomeCards(
+                continueCards.Where(IsPosterWatchCard),
+                freshArrivalCards.Where(IsPosterWatchCard)),
+            12);
+        var readContinue = TakeShelfItems(
+            continueCards.Where(card => card.MediaKind is "Book" or "Comic"),
+            12);
+        var readFresh = TakeShelfItems(
+            freshArrivalCards.Where(card => card.MediaKind is "Book" or "Comic"),
+            12);
+        var audiobookContinue = TakeShelfItems(
+            continueCards.Where(card => card.MediaKind == "Audiobook"),
+            12);
+        var audiobookFresh = TakeShelfItems(
+            freshArrivalCards.Where(card => card.MediaKind == "Audiobook"),
+            12);
+        var musicContinue = TakeShelfItems(
+            continueCards.Where(card => card.MediaKind == "Music"),
+            12);
+        var musicFresh = TakeShelfItems(
+            freshArrivalCards.Where(card => card.MediaKind == "Music"),
+            12);
+
+        var groupedShelves = new List<(double Score, IReadOnlyList<DiscoveryShelfViewModel> Shelves)>
+        {
+            (
+                ScoreHomeFamily("watch", bannerWatchContinue.Concat(bannerWatchFresh), tasteProfile) + 40,
+                BuildShelfGroup(
+                    CreateShelf("Continue Watching", BuildHomeSubtitle("Continue where you left off with banner-backed movies and shows", "watch", tasteProfile), bannerWatchContinue),
+                    CreateShelf("Fresh to Watch", BuildHomeSubtitle("Recently added watch titles with banner art up front", "watch", tasteProfile), bannerWatchFresh))
+            ),
+            (
+                ScoreHomeFamily("watch", watchPosters, tasteProfile) + 34,
+                BuildShelfGroup(
+                    CreateShelf("Watch Posters", BuildHomeSubtitle("Poster-led movies and shows without banner art", "watch", tasteProfile), watchPosters))
+            ),
+            (
+                ScoreHomeFamily("read", readContinue.Concat(readFresh), tasteProfile) + 30,
+                BuildShelfGroup(
+                    CreateShelf("Continue Reading", BuildHomeSubtitle("Books and comics currently in motion", "read", tasteProfile), readContinue),
+                    CreateShelf("Fresh Reads", BuildHomeSubtitle("Recently added books and comics ready to open", "read", tasteProfile), readFresh))
+            ),
+            (
+                ScoreHomeFamily("audiobook", audiobookContinue.Concat(audiobookFresh), tasteProfile) + 24,
+                BuildShelfGroup(
+                    CreateShelf("Continue Audiobooks", BuildHomeSubtitle("Pick back up with audiobooks already underway", "audiobook", tasteProfile), audiobookContinue),
+                    CreateShelf("Fresh Audiobooks", BuildHomeSubtitle("New audiobooks added to your library", "audiobook", tasteProfile), audiobookFresh))
+            ),
+            (
+                ScoreHomeFamily("music", musicContinue.Concat(musicFresh), tasteProfile) + 20,
+                BuildShelfGroup(
+                    CreateShelf("Continue Listening", BuildHomeSubtitle("Album-first listening from your recent sessions", "music", tasteProfile), musicContinue),
+                    CreateShelf("Fresh Music", BuildHomeSubtitle("New albums and tracks surfaced from your library", "music", tasteProfile), musicFresh))
+            ),
+        };
+
+        return groupedShelves
+            .Where(group => group.Shelves.Count > 0)
+            .OrderByDescending(group => group.Score)
+            .SelectMany(group => group.Shelves)
+            .ToList();
+    }
+
     private static IReadOnlyList<DiscoveryCardViewModel> BuildHomeContinueCards(
         IReadOnlyList<JourneyItemViewModel> journey,
+        IReadOnlyDictionary<Guid, WorkViewModel> workLookup,
         IReadOnlyDictionary<Guid, ContentGroupViewModel> groupLookup,
         IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages)
     {
@@ -696,7 +759,9 @@ public sealed class DiscoveryComposerService
             journey
                 .Where(item => !SuppressIndividualOnHome(item))
                 .OrderByDescending(item => item.LastAccessed)
-                .Select(ToJourneyCard));
+                .Select(item => ToHomeJourneyCard(
+                    item,
+                    workLookup.GetValueOrDefault(item.WorkId))));
 
         foreach (var groupedJourney in journey
                      .Where(SuppressIndividualOnHome)
@@ -710,9 +775,15 @@ public sealed class DiscoveryComposerService
 
             cards.Add(GetBucket(latest.MediaType) switch
             {
-                DiscoveryBucket.Tv => CreateTvContinueCard(groupLookup.GetValueOrDefault(groupedJourney.Key), groupedJourney.ToList(), groupPreviewImages),
-                DiscoveryBucket.Music => CreateMusicContinueCard(groupedJourney.ToList()),
-                _ => ToJourneyCard(latest),
+                DiscoveryBucket.Tv => CreateTvContinueCard(
+                    groupLookup.GetValueOrDefault(groupedJourney.Key),
+                    groupedJourney.ToList(),
+                    groupPreviewImages,
+                    workLookup.GetValueOrDefault(latest.WorkId)),
+                DiscoveryBucket.Music => CreateMusicContinueCard(
+                    groupedJourney.ToList(),
+                    workLookup.GetValueOrDefault(latest.WorkId)),
+                _ => ToHomeJourneyCard(latest, workLookup.GetValueOrDefault(latest.WorkId)),
             });
         }
 
@@ -732,7 +803,7 @@ public sealed class DiscoveryComposerService
             works
                 .Where(work => !SuppressIndividualOnHome(work))
                 .OrderByDescending(GetHomeSortTimestamp)
-                .Select(work => ToWorkCard(work)));
+                .Select(ToHomeWorkCard));
 
         foreach (var groupedWorks in works
                      .Where(SuppressIndividualOnHome)
@@ -748,7 +819,7 @@ public sealed class DiscoveryComposerService
             {
                 DiscoveryBucket.Tv => CreateTvFreshArrivalCard(groupLookup.GetValueOrDefault(groupedWorks.Key), groupedWorks.ToList(), groupPreviewImages),
                 DiscoveryBucket.Music => CreateMusicFreshArrivalCard(groupedWorks.ToList()),
-                _ => ToWorkCard(latest),
+                _ => ToHomeWorkCard(latest),
             });
         }
 
@@ -760,7 +831,8 @@ public sealed class DiscoveryComposerService
     private static DiscoveryCardViewModel CreateTvContinueCard(
         ContentGroupViewModel? group,
         IReadOnlyList<JourneyItemViewModel> items,
-        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages)
+        IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages,
+        WorkViewModel? representativeWork)
     {
         var latest = items
             .OrderByDescending(item => item.LastAccessed)
@@ -768,6 +840,15 @@ public sealed class DiscoveryComposerService
         var title = group?.DisplayName ?? latest.CollectionDisplayName ?? latest.Series ?? latest.Title;
         var detailsUrl = BuildJourneyDetailsUrl(latest);
         var primaryUrl = MediaNavigation.ForJourney(latest);
+        var shape = HomeShapeForBucket(DiscoveryBucket.Tv, group?.BannerUrl ?? latest.BannerUrl);
+        var surface = ResolveDiscoverySurface(
+            DiscoveryBucket.Tv,
+            shape,
+            DiscoveryCardPresentation.TvSeries,
+            group?.CoverUrl ?? latest.CoverUrl,
+            group?.BackgroundUrl ?? latest.BackgroundUrl,
+            group?.BannerUrl ?? latest.BannerUrl,
+            group?.HeroUrl ?? latest.HeroUrl);
 
         return new DiscoveryCardViewModel
         {
@@ -776,6 +857,7 @@ public sealed class DiscoveryComposerService
             Title = title,
             Subtitle = group?.Network ?? group?.Creator ?? latest.Author,
             Description = TrimTo(group?.Description ?? latest.Description ?? group?.Tagline, 150),
+            Tldr = TrimTo(representativeWork?.Tldr, 120),
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
             BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
@@ -785,10 +867,18 @@ public sealed class DiscoveryComposerService
             StatusText = BuildContinueStatus(latest, DiscoveryBucket.Tv),
             MetaText = JoinPartsSafe(group?.Year, group is not null ? CountLabel(group) : $"{items.Count} episodes"),
             ContextLines = BuildContextLines(group?.Network, group?.Creator, group?.Director, group?.Writer),
+            VibeTags = BuildVibeTags(representativeWork),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
             AccentColor = group?.MediaTypeColor ?? AccentForBucket(DiscoveryBucket.Tv),
-            Shape = DiscoveryCardShape.Landscape,
+            Shape = shape,
             Presentation = DiscoveryCardPresentation.TvSeries,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
+            RepresentativeEntityId = representativeWork?.Id ?? latest.WorkId,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = primaryUrl,
             DetailsNavigationUrl = detailsUrl,
@@ -802,13 +892,23 @@ public sealed class DiscoveryComposerService
         };
     }
 
-    private static DiscoveryCardViewModel CreateMusicContinueCard(IReadOnlyList<JourneyItemViewModel> items)
+    private static DiscoveryCardViewModel CreateMusicContinueCard(
+        IReadOnlyList<JourneyItemViewModel> items,
+        WorkViewModel? representativeWork)
     {
         var latest = items
             .OrderByDescending(item => item.LastAccessed)
             .First();
         var detailsUrl = BuildJourneyDetailsUrl(latest);
         var title = latest.CollectionDisplayName ?? latest.Series ?? latest.Title;
+        var surface = ResolveDiscoverySurface(
+            DiscoveryBucket.Music,
+            DiscoveryCardShape.Square,
+            DiscoveryCardPresentation.Album,
+            latest.CoverUrl,
+            latest.BackgroundUrl,
+            latest.BannerUrl,
+            latest.HeroUrl);
 
         return new DiscoveryCardViewModel
         {
@@ -817,6 +917,7 @@ public sealed class DiscoveryComposerService
             Title = title,
             Subtitle = latest.Author,
             Description = TrimTo(latest.Description, 150),
+            Tldr = TrimTo(representativeWork?.Tldr, 120),
             CoverUrl = latest.CoverUrl,
             BackgroundUrl = latest.BackgroundUrl,
             BannerUrl = latest.BannerUrl,
@@ -825,10 +926,18 @@ public sealed class DiscoveryComposerService
             StatusText = BuildContinueStatus(latest, DiscoveryBucket.Music),
             MetaText = JoinPartsSafe($"{items.Count} tracks", latest.TrackNumber is not null ? $"Track {latest.TrackNumber}" : null),
             ContextLines = BuildContextLines(latest.Author),
+            VibeTags = BuildVibeTags(representativeWork),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
             AccentColor = AccentForBucket(DiscoveryBucket.Music),
             Shape = DiscoveryCardShape.Square,
             Presentation = DiscoveryCardPresentation.Album,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
+            RepresentativeEntityId = representativeWork?.Id ?? latest.WorkId,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = detailsUrl,
             DetailsNavigationUrl = detailsUrl,
@@ -852,6 +961,15 @@ public sealed class DiscoveryComposerService
             .First();
         var detailsUrl = BuildWorkDetailsUrl(latest);
         var title = group?.DisplayName ?? latest.ShowName ?? latest.Series ?? latest.Title;
+        var shape = HomeShapeForBucket(DiscoveryBucket.Tv, group?.BannerUrl ?? latest.BannerUrl);
+        var surface = ResolveDiscoverySurface(
+            DiscoveryBucket.Tv,
+            shape,
+            DiscoveryCardPresentation.TvSeries,
+            group?.CoverUrl ?? latest.CoverUrl,
+            group?.BackgroundUrl ?? latest.BackgroundUrl,
+            group?.BannerUrl ?? latest.BannerUrl,
+            group?.HeroUrl ?? latest.HeroUrl);
 
         return new DiscoveryCardViewModel
         {
@@ -860,6 +978,7 @@ public sealed class DiscoveryComposerService
             Title = title,
             Subtitle = group?.Network ?? group?.Creator,
             Description = TrimTo(group?.Description ?? latest.Description ?? group?.Tagline, 150),
+            Tldr = TrimTo(latest.Tldr, 120),
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
             BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
@@ -869,10 +988,18 @@ public sealed class DiscoveryComposerService
             StatusText = Pluralize(items.Count, "new episode"),
             MetaText = JoinPartsSafe(group?.Year, group is not null ? CountLabel(group) : $"{items.Count} episodes"),
             ContextLines = BuildContextLines(group?.Network, group?.Creator),
+            VibeTags = BuildVibeTags(latest),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
             AccentColor = group?.MediaTypeColor ?? AccentForBucket(DiscoveryBucket.Tv),
-            Shape = DiscoveryCardShape.Landscape,
+            Shape = shape,
             Presentation = DiscoveryCardPresentation.TvSeries,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
+            RepresentativeEntityId = latest.Id,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = detailsUrl,
             DetailsNavigationUrl = detailsUrl,
@@ -892,6 +1019,14 @@ public sealed class DiscoveryComposerService
             .First();
         var detailsUrl = BuildWorkDetailsUrl(latest);
         var title = latest.Album ?? latest.Title;
+        var surface = ResolveDiscoverySurface(
+            DiscoveryBucket.Music,
+            DiscoveryCardShape.Square,
+            DiscoveryCardPresentation.Album,
+            latest.CoverUrl,
+            latest.BackgroundUrl,
+            latest.BannerUrl,
+            latest.HeroUrl);
 
         return new DiscoveryCardViewModel
         {
@@ -900,6 +1035,7 @@ public sealed class DiscoveryComposerService
             Title = title,
             Subtitle = latest.Artist ?? latest.Author,
             Description = TrimTo(latest.Description, 150),
+            Tldr = TrimTo(latest.Tldr, 120),
             CoverUrl = latest.CoverUrl,
             BackgroundUrl = latest.BackgroundUrl,
             BannerUrl = latest.BannerUrl,
@@ -908,10 +1044,18 @@ public sealed class DiscoveryComposerService
             StatusText = Pluralize(items.Count, "new track"),
             MetaText = JoinPartsSafe(latest.Year, "Album"),
             ContextLines = BuildContextLines(latest.Artist ?? latest.Author),
+            VibeTags = BuildVibeTags(latest),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
             AccentColor = AccentForBucket(DiscoveryBucket.Music),
             Shape = DiscoveryCardShape.Square,
             Presentation = DiscoveryCardPresentation.Album,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
+            RepresentativeEntityId = latest.Id,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = detailsUrl,
             DetailsNavigationUrl = detailsUrl,
@@ -929,26 +1073,31 @@ public sealed class DiscoveryComposerService
         string eyebrow,
         string accentColor)
     {
-        var backdrop = card.HeroUrl ?? card.BackgroundUrl ?? card.BannerUrl ?? card.CoverUrl;
+        var backdrop = card.HeroBackgroundImageUrl ?? card.HeroUrl ?? card.BackgroundUrl ?? card.BannerUrl ?? card.CoverUrl;
 
         return new DiscoveryHeroViewModel
         {
-        Eyebrow = eyebrow,
-        Title = card.Title,
-        Subtitle = card.Subtitle,
-        Description = TrimTo(card.Description, 240),
-        BackgroundImageUrl = backdrop,
-        BannerImageUrl = card.BannerUrl,
-        PreviewImageUrl = card.CoverUrl ?? card.BackgroundUrl ?? card.HeroUrl,
-        LogoUrl = card.LogoUrl,
-        AccentColor = accentColor,
-        StatusText = card.StatusText,
-        MetaText = card.MetaText,
-        ProgressPct = card.ProgressPct,
-        PrimaryActionLabel = card.PrimaryActionLabel,
-        PrimaryNavigationUrl = card.PrimaryNavigationUrl ?? card.NavigationUrl,
-        SecondaryActionLabel = "Details",
-        SecondaryNavigationUrl = card.DetailsNavigationUrl ?? card.NavigationUrl,
+            Eyebrow = eyebrow,
+            Title = card.Title,
+            Subtitle = card.Subtitle,
+            Description = TrimTo(card.Description, 240),
+            Tldr = TrimTo(card.Tldr, 140),
+            VibeTags = card.VibeTags,
+            BackgroundImageUrl = backdrop,
+            HeroBackgroundImageUrl = backdrop,
+            BannerImageUrl = card.BannerUrl,
+            PreviewImageUrl = card.PreviewImageUrl ?? card.CoverUrl ?? card.BackgroundUrl ?? card.HeroUrl,
+            LogoUrl = card.LogoUrl,
+            AccentColor = accentColor,
+            StatusText = card.StatusText,
+            MetaText = card.MetaText,
+            ProgressPct = card.ProgressPct,
+            RepresentativeEntityId = card.RepresentativeEntityId ?? card.WorkId ?? card.CollectionId,
+            SurfaceKind = card.SurfaceKind,
+            PrimaryActionLabel = card.PrimaryActionLabel,
+            PrimaryNavigationUrl = card.PrimaryNavigationUrl ?? card.NavigationUrl,
+            SecondaryActionLabel = "Details",
+            SecondaryNavigationUrl = card.DetailsNavigationUrl ?? card.NavigationUrl,
         };
     }
 
@@ -1134,6 +1283,308 @@ public sealed class DiscoveryComposerService
         });
     }
 
+    private static DiscoveryCardShape HomeShapeForBucket(DiscoveryBucket bucket, string? bannerUrl) => bucket switch
+    {
+        DiscoveryBucket.Movie or DiscoveryBucket.Tv when !string.IsNullOrWhiteSpace(bannerUrl) => DiscoveryCardShape.Landscape,
+        DiscoveryBucket.Movie or DiscoveryBucket.Tv => DiscoveryCardShape.Portrait,
+        DiscoveryBucket.Music => DiscoveryCardShape.Square,
+        _ => DiscoveryCardShape.Portrait,
+    };
+
+    private static DiscoverySurfaceSelection ResolveDiscoverySurface(
+        DiscoveryBucket bucket,
+        DiscoveryCardShape shape,
+        DiscoveryCardPresentation presentation,
+        string? coverUrl,
+        string? backgroundUrl,
+        string? bannerUrl,
+        string? heroUrl,
+        string? artistPhotoUrl = null)
+    {
+        var artistImageUrl = FirstNonBlank(artistPhotoUrl, coverUrl, backgroundUrl, heroUrl, bannerUrl);
+        if (presentation == DiscoveryCardPresentation.Artist && !string.IsNullOrWhiteSpace(artistImageUrl))
+        {
+            var previewImageUrl = FirstNonBlank(coverUrl, backgroundUrl, heroUrl, bannerUrl, artistImageUrl);
+            return new DiscoverySurfaceSelection(
+                DiscoverySurfaceKind.ArtistPhotoSquare,
+                DiscoveryHoverLayout.ArtOnlyPopover,
+                TileImageUrl: artistImageUrl,
+                HoverImageUrl: artistImageUrl,
+                HeroBackgroundImageUrl: artistImageUrl,
+                PreviewImageUrl: previewImageUrl);
+        }
+
+        if (bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv
+            && shape == DiscoveryCardShape.Landscape
+            && !string.IsNullOrWhiteSpace(bannerUrl))
+        {
+            var bannerImageUrl = FirstNonBlank(bannerUrl, backgroundUrl, heroUrl, coverUrl);
+            return new DiscoverySurfaceSelection(
+                DiscoverySurfaceKind.BannerLandscape,
+                DiscoveryHoverLayout.BannerPopover,
+                TileImageUrl: bannerImageUrl,
+                HoverImageUrl: bannerImageUrl,
+                HeroBackgroundImageUrl: FirstNonBlank(bannerUrl, heroUrl, backgroundUrl, coverUrl),
+                PreviewImageUrl: FirstNonBlank(coverUrl, backgroundUrl, heroUrl, bannerUrl));
+        }
+
+        var coverImageUrl = FirstNonBlank(coverUrl, backgroundUrl, heroUrl, bannerUrl, artistPhotoUrl);
+        var surfaceKind = shape == DiscoveryCardShape.Square
+            ? DiscoverySurfaceKind.CoverSquare
+            : DiscoverySurfaceKind.CoverPortrait;
+
+        return new DiscoverySurfaceSelection(
+            surfaceKind,
+            DiscoveryHoverLayout.ArtOnlyPopover,
+            TileImageUrl: coverImageUrl,
+            HoverImageUrl: coverImageUrl,
+            HeroBackgroundImageUrl: coverImageUrl,
+            PreviewImageUrl: coverImageUrl);
+    }
+
+    private static IReadOnlyList<string> BuildVibeTags(WorkViewModel? work)
+    {
+        if (work is null)
+        {
+            return [];
+        }
+
+        return work.Vibes
+            .Concat(work.Moods)
+            .Concat(work.Themes)
+            .Where(tag => !string.IsNullOrWhiteSpace(tag))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+    }
+
+    private static IReadOnlyList<DiscoveryCardViewModel> RankHomeCards(
+        IEnumerable<DiscoveryCardViewModel> cards,
+        TasteProfile? tasteProfile)
+    {
+        return cards
+            .GroupBy(GetCardIdentity)
+            .Select(group => group
+                .OrderByDescending(card => card.SortTimestamp)
+                .ThenByDescending(card => card.SortYear)
+                .First())
+            .OrderByDescending(card => card.SortTimestamp.UtcDateTime.Date)
+            .ThenByDescending(card => CardTasteScore(card, tasteProfile))
+            .ThenByDescending(card => card.SortTimestamp)
+            .ThenByDescending(card => card.SortYear)
+            .ToList();
+    }
+
+    private static bool IsBannerWatchCard(DiscoveryCardViewModel card) =>
+        IsWatchKind(card.MediaKind)
+        && card.SurfaceKind == DiscoverySurfaceKind.BannerLandscape
+        && card.Shape == DiscoveryCardShape.Landscape;
+
+    private static bool IsPosterWatchCard(DiscoveryCardViewModel card) =>
+        IsWatchKind(card.MediaKind)
+        && card.SurfaceKind == DiscoverySurfaceKind.CoverPortrait
+        && card.Shape == DiscoveryCardShape.Portrait;
+
+    private static IReadOnlyList<DiscoveryCardViewModel> MergeHomeCards(
+        IEnumerable<DiscoveryCardViewModel> primaryCards,
+        IEnumerable<DiscoveryCardViewModel> secondaryCards)
+    {
+        return primaryCards
+            .Concat(secondaryCards)
+            .GroupBy(GetCardIdentity)
+            .Select(group => group
+                .OrderByDescending(card => card.SortTimestamp)
+                .ThenByDescending(card => card.SortYear)
+                .First())
+            .OrderByDescending(card => card.SortTimestamp)
+            .ThenByDescending(card => card.SortYear)
+            .ToList();
+    }
+
+    private static IReadOnlyList<DiscoveryShelfViewModel> BuildShelfGroup(params DiscoveryShelfViewModel?[] shelves) =>
+        shelves
+            .Where(shelf => shelf is not null)
+            .Cast<DiscoveryShelfViewModel>()
+            .ToList();
+
+    private static DiscoveryShelfViewModel? CreateShelf(
+        string title,
+        string subtitle,
+        IReadOnlyList<DiscoveryCardViewModel> items,
+        string? seeAllRoute = null)
+    {
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        return new DiscoveryShelfViewModel
+        {
+            Title = title,
+            Subtitle = subtitle,
+            Items = items,
+            SeeAllRoute = seeAllRoute,
+        };
+    }
+
+    private static double ScoreHomeFamily(
+        string familyKey,
+        IEnumerable<DiscoveryCardViewModel> cards,
+        TasteProfile? tasteProfile)
+    {
+        var familyCards = cards.ToList();
+        if (familyCards.Count == 0)
+        {
+            return double.NegativeInfinity;
+        }
+
+        var mediaPreference = FamilyTasteScore(familyKey, tasteProfile);
+        var cardPreference = familyCards.Average(card => CardTasteScore(card, tasteProfile));
+        var recencyScore = familyCards
+            .Select(card => Math.Max(0, 30 - (DateTimeOffset.UtcNow - card.SortTimestamp).TotalDays))
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return (mediaPreference * 12d) + (cardPreference * 4d) + recencyScore + Math.Min(familyCards.Count, 12);
+    }
+
+    private static string BuildHomeSubtitle(
+        string fallback,
+        string familyKey,
+        TasteProfile? tasteProfile)
+    {
+        var tasteSuffix = BuildTasteShelfHint(familyKey, tasteProfile);
+        return string.IsNullOrWhiteSpace(tasteSuffix)
+            ? fallback
+            : $"{fallback} {tasteSuffix}";
+    }
+
+    private static string? BuildTasteShelfHint(string familyKey, TasteProfile? tasteProfile)
+    {
+        if (tasteProfile is null)
+        {
+            return null;
+        }
+
+        var topMood = tasteProfile.MoodPreferences
+            .OrderByDescending(entry => entry.Value)
+            .Select(entry => entry.Key)
+            .FirstOrDefault(key => !string.IsNullOrWhiteSpace(key));
+        var topGenre = tasteProfile.GenreDistribution
+            .OrderByDescending(entry => entry.Value)
+            .Select(entry => entry.Key)
+            .FirstOrDefault(key => !string.IsNullOrWhiteSpace(key));
+        if (!string.IsNullOrWhiteSpace(topMood) && !string.IsNullOrWhiteSpace(topGenre))
+        {
+            return $"Because you like {topMood} {topGenre} stories.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(topGenre))
+        {
+            return $"Because you like {topGenre} picks.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(topMood))
+        {
+            return $"Because you like {topMood} moods.";
+        }
+
+        var summary = TrimTo(tasteProfile.Summary, 84);
+        return string.IsNullOrWhiteSpace(summary)
+            ? null
+            : $"Because you like {summary.Trim().TrimEnd('.')}.";        
+    }
+
+    private static double GroupTasteScore(ContentGroupViewModel group, TasteProfile? tasteProfile) =>
+        MediaTypeTasteScore(tasteProfile, NormalizeDisplayKind(group.PrimaryMediaType))
+        + Math.Min(group.WorkCount, 24) / 12d;
+
+    private static double FamilyTasteScore(string familyKey, TasteProfile? tasteProfile) => familyKey switch
+    {
+        "watch" => Math.Max(
+            MediaTypeTasteScore(tasteProfile, "Movie"),
+            MediaTypeTasteScore(tasteProfile, "TV")),
+        "read" => Math.Max(
+            MediaTypeTasteScore(tasteProfile, "Book"),
+            MediaTypeTasteScore(tasteProfile, "Comic")),
+        "audiobook" => MediaTypeTasteScore(tasteProfile, "Audiobook"),
+        "music" => MediaTypeTasteScore(tasteProfile, "Music"),
+        _ => 0,
+    };
+
+    private static double CardTasteScore(DiscoveryCardViewModel card, TasteProfile? tasteProfile)
+    {
+        if (tasteProfile is null)
+        {
+            return 0;
+        }
+
+        var mediaScore = MediaTypeTasteScore(tasteProfile, card.MediaKind);
+        var genreScore = card.Genres
+            .Select(genre => PreferenceScore(tasteProfile.GenreDistribution, genre))
+            .DefaultIfEmpty(0)
+            .Max();
+        var moodScore = card.VibeTags
+            .Select(tag => PreferenceScore(tasteProfile.MoodPreferences, tag))
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return (mediaScore * 2d) + genreScore + moodScore;
+    }
+
+    private static double MediaTypeTasteScore(TasteProfile? tasteProfile, string? mediaKind)
+    {
+        if (tasteProfile is null || string.IsNullOrWhiteSpace(mediaKind))
+        {
+            return 0;
+        }
+
+        var normalizedMediaKind = NormalizeTasteKey(mediaKind);
+        return tasteProfile.MediaTypeMix
+            .Where(entry => NormalizeTasteKey(entry.Key) == normalizedMediaKind)
+            .Select(entry => entry.Value)
+            .DefaultIfEmpty(0)
+            .Max();
+    }
+
+    private static double PreferenceScore(IReadOnlyDictionary<string, double> preferences, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 0;
+        }
+
+        var normalizedValue = NormalizeTasteKey(value);
+        return preferences
+            .Where(entry => NormalizeTasteKey(entry.Key) == normalizedValue)
+            .Select(entry => entry.Value)
+            .DefaultIfEmpty(0)
+            .Max();
+    }
+
+    private static string NormalizeTasteKey(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        normalized = normalized switch
+        {
+            "books" => "book",
+            "movies" => "movie",
+            "audiobooks" => "audiobook",
+            "comics" => "comic",
+            _ => normalized,
+        };
+
+        return new string(normalized
+            .Where(character => char.IsLetterOrDigit(character) || char.IsWhiteSpace(character))
+            .ToArray());
+    }
+
+    private static Guid GetCardIdentity(DiscoveryCardViewModel card) =>
+        card.CollectionId
+        ?? card.WorkId
+        ?? card.RepresentativeEntityId
+        ?? card.Id;
+
     private static int GetAffinityScore(
         IEnumerable<JourneyItemViewModel> journey,
         Func<DiscoveryBucket, bool> matches)
@@ -1155,15 +1606,26 @@ public sealed class DiscoveryComposerService
         var activeJourney = journey.OrderByDescending(item => item.LastAccessed).FirstOrDefault();
         if (activeJourney is not null)
         {
+            var shape = ShapeForBucket(GetBucket(activeJourney.MediaType));
+            var surface = ResolveDiscoverySurface(
+                GetBucket(activeJourney.MediaType),
+                shape,
+                DiscoveryCardPresentation.Default,
+                activeJourney.CoverUrl,
+                activeJourney.BackgroundUrl,
+                activeJourney.BannerUrl,
+                activeJourney.HeroUrl);
+
             return new DiscoveryHeroViewModel
             {
                 Eyebrow = journeyEyebrow,
                 Title = activeJourney.Title,
                 Subtitle = activeJourney.CollectionDisplayName ?? activeJourney.Author,
                 Description = TrimTo(activeJourney.Description, 240),
-                BackgroundImageUrl = activeJourney.HeroUrl ?? activeJourney.BackgroundUrl ?? activeJourney.BannerUrl ?? activeJourney.CoverUrl,
+                BackgroundImageUrl = surface.HeroBackgroundImageUrl,
+                HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
                 BannerImageUrl = activeJourney.BannerUrl,
-                PreviewImageUrl = activeJourney.CoverUrl ?? activeJourney.BackgroundUrl ?? activeJourney.HeroUrl,
+                PreviewImageUrl = surface.PreviewImageUrl,
                 LogoUrl = activeJourney.LogoUrl,
                 AccentColor = accentColor,
                 StatusText = activeJourney.ProgressPct > 0 ? activeJourney.ActionLabel : null,
@@ -1172,6 +1634,8 @@ public sealed class DiscoveryComposerService
                     activeJourney.Series,
                     activeJourney.ProgressDisplay),
                 ProgressPct = activeJourney.ProgressPct,
+                RepresentativeEntityId = activeJourney.WorkId,
+                SurfaceKind = surface.SurfaceKind,
                 PrimaryActionLabel = activeJourney.ActionVerb,
                 PrimaryNavigationUrl = MediaNavigation.ForJourney(activeJourney),
                 SecondaryActionLabel = "Details",
@@ -1195,18 +1659,31 @@ public sealed class DiscoveryComposerService
         if (featuredGroup is not null)
         {
             var previewImages = GetPreviewImages(groupPreviewImages, featuredGroup.CollectionId);
+            var groupShape = OverrideShapeForGroup(featuredGroup, "home");
+            var groupSurface = ResolveDiscoverySurface(
+                GetBucket(featuredGroup.PrimaryMediaType),
+                groupShape,
+                DiscoveryCardPresentation.Default,
+                featuredGroup.CoverUrl ?? featuredGroup.ArtistPhotoUrl,
+                featuredGroup.BackgroundUrl ?? featuredGroup.ArtistPhotoUrl,
+                featuredGroup.BannerUrl,
+                featuredGroup.HeroUrl,
+                featuredGroup.ArtistPhotoUrl);
             return new DiscoveryHeroViewModel
             {
                 Eyebrow = groupEyebrow,
                 Title = featuredGroup.DisplayName,
                 Subtitle = featuredGroup.Creator ?? featuredGroup.Network,
                 Description = BuildGroupDescriptionSafe(featuredGroup),
-                BackgroundImageUrl = featuredGroup.HeroUrl ?? featuredGroup.BackgroundUrl ?? featuredGroup.BannerUrl ?? featuredGroup.ArtistPhotoUrl ?? featuredGroup.CoverUrl,
+                BackgroundImageUrl = groupSurface.HeroBackgroundImageUrl,
+                HeroBackgroundImageUrl = groupSurface.HeroBackgroundImageUrl,
                 BannerImageUrl = featuredGroup.BannerUrl,
-                PreviewImageUrl = featuredGroup.CoverUrl ?? featuredGroup.ArtistPhotoUrl ?? featuredGroup.HeroUrl ?? previewImages.FirstOrDefault(),
+                PreviewImageUrl = groupSurface.PreviewImageUrl ?? previewImages.FirstOrDefault(),
                 LogoUrl = featuredGroup.LogoUrl,
                 AccentColor = accentColor,
                 MetaText = JoinPartsSafe(featuredGroup.PrimaryMediaType, featuredGroup.Year, featuredGroup.WorkCount.ToString()),
+                RepresentativeEntityId = featuredGroup.CollectionId,
+                SurfaceKind = groupSurface.SurfaceKind,
                 PrimaryActionLabel = "Explore collection",
                 PrimaryNavigationUrl = MediaNavigation.ForContentGroup(featuredGroup),
                 SecondaryActionLabel = "Details",
@@ -1224,15 +1701,27 @@ public sealed class DiscoveryComposerService
         double? progressPct = null)
     {
         var bucket = GetBucket(work.MediaType);
+        var shape = ShapeForBucket(bucket);
+        var surface = ResolveDiscoverySurface(
+            bucket,
+            shape,
+            DiscoveryCardPresentation.Default,
+            work.CoverUrl,
+            work.BackgroundUrl,
+            work.BannerUrl,
+            work.HeroUrl);
         return new DiscoveryHeroViewModel
         {
             Eyebrow = eyebrow,
             Title = work.Title,
             Subtitle = work.Author,
             Description = TrimTo(work.Description, 240),
-            BackgroundImageUrl = work.HeroUrl ?? work.BackgroundUrl ?? work.BannerUrl ?? work.CoverUrl,
+            Tldr = TrimTo(work.Tldr, 140),
+            VibeTags = BuildVibeTags(work),
+            BackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             BannerImageUrl = work.BannerUrl,
-            PreviewImageUrl = work.CoverUrl ?? work.BackgroundUrl ?? work.HeroUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
             LogoUrl = work.LogoUrl,
             AccentColor = accentColor,
             MetaText = JoinPartsSafe(
@@ -1240,6 +1729,8 @@ public sealed class DiscoveryComposerService
                 work.Year,
                 work.Genres.FirstOrDefault()),
             ProgressPct = progressPct,
+            RepresentativeEntityId = work.Id,
+            SurfaceKind = surface.SurfaceKind,
             PrimaryActionLabel = progressPct is > 0 ? ContinueLabel(bucket) : "Open",
             PrimaryNavigationUrl = MediaNavigation.ForWork(work),
             SecondaryActionLabel = "Details",
@@ -1247,9 +1738,22 @@ public sealed class DiscoveryComposerService
         };
     }
 
-    private static DiscoveryCardViewModel ToJourneyCard(JourneyItemViewModel item)
+    private static DiscoveryCardViewModel ToJourneyCard(
+        JourneyItemViewModel item,
+        WorkViewModel? representativeWork = null,
+        DiscoveryCardShape? shapeOverride = null)
     {
         var bucket = GetBucket(item.MediaType);
+        var shape = shapeOverride ?? ShapeForBucket(bucket);
+        var surface = ResolveDiscoverySurface(
+            bucket,
+            shape,
+            DiscoveryCardPresentation.Default,
+            item.CoverUrl,
+            item.BackgroundUrl,
+            item.BannerUrl,
+            item.HeroUrl);
+
         return new DiscoveryCardViewModel
         {
             Id = item.WorkId,
@@ -1258,6 +1762,7 @@ public sealed class DiscoveryComposerService
             Title = item.Title,
             Subtitle = item.Author,
             Description = TrimTo(item.Description, 150),
+            Tldr = TrimTo(representativeWork?.Tldr, 120),
             CoverUrl = item.CoverUrl,
             BackgroundUrl = item.BackgroundUrl,
             BannerUrl = item.BannerUrl,
@@ -1269,9 +1774,17 @@ public sealed class DiscoveryComposerService
                 item.Series,
                 item.ProgressDisplay),
             ContextLines = BuildContextLines(item.Author, item.Narrator),
+            VibeTags = BuildVibeTags(representativeWork),
             MediaKind = NormalizeDisplayKind(item.MediaType),
             AccentColor = AccentForBucket(bucket),
-            Shape = ShapeForBucket(bucket),
+            Shape = shape,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
+            RepresentativeEntityId = representativeWork?.Id ?? item.WorkId,
             NavigationUrl = BuildJourneyDetailsUrl(item),
             PrimaryNavigationUrl = MediaNavigation.ForJourney(item),
             DetailsNavigationUrl = BuildJourneyDetailsUrl(item),
@@ -1284,9 +1797,22 @@ public sealed class DiscoveryComposerService
         };
     }
 
-    private static DiscoveryCardViewModel ToWorkCard(WorkViewModel work, double? progressPct = null)
+    private static DiscoveryCardViewModel ToWorkCard(
+        WorkViewModel work,
+        double? progressPct = null,
+        DiscoveryCardShape? shapeOverride = null)
     {
         var bucket = GetBucket(work.MediaType);
+        var shape = shapeOverride ?? ShapeForBucket(bucket);
+        var surface = ResolveDiscoverySurface(
+            bucket,
+            shape,
+            DiscoveryCardPresentation.Default,
+            work.CoverUrl,
+            work.BackgroundUrl,
+            work.BannerUrl,
+            work.HeroUrl);
+
         return new DiscoveryCardViewModel
         {
             Id = work.Id,
@@ -1295,6 +1821,7 @@ public sealed class DiscoveryComposerService
             Title = work.Title,
             Subtitle = work.Author,
             Description = TrimTo(work.Description, 150),
+            Tldr = TrimTo(work.Tldr, 120),
             CoverUrl = work.CoverUrl,
             BackgroundUrl = work.BackgroundUrl,
             BannerUrl = work.BannerUrl,
@@ -1305,9 +1832,17 @@ public sealed class DiscoveryComposerService
                 work.Year,
                 work.Genres.FirstOrDefault()),
             ContextLines = BuildContextLines(work.Author, work.Director, work.Network ?? work.Artist),
+            VibeTags = BuildVibeTags(work),
             MediaKind = NormalizeDisplayKind(work.MediaType),
             AccentColor = AccentForBucket(bucket),
-            Shape = ShapeForBucket(bucket),
+            Shape = shape,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
+            RepresentativeEntityId = work.Id,
             NavigationUrl = BuildWorkDetailsUrl(work),
             PrimaryNavigationUrl = MediaNavigation.ForWork(work),
             DetailsNavigationUrl = BuildWorkDetailsUrl(work),
@@ -1320,6 +1855,14 @@ public sealed class DiscoveryComposerService
             SortTimestamp = GetSortTimestamp(work),
         };
     }
+
+    private static DiscoveryCardViewModel ToHomeJourneyCard(
+        JourneyItemViewModel item,
+        WorkViewModel? representativeWork = null)
+        => ToJourneyCard(item, representativeWork, HomeShapeForBucket(GetBucket(item.MediaType), item.BannerUrl));
+
+    private static DiscoveryCardViewModel ToHomeWorkCard(WorkViewModel work)
+        => ToWorkCard(work, shapeOverride: HomeShapeForBucket(GetBucket(work.MediaType), work.BannerUrl));
 
     private static DiscoveryCardViewModel ToCollectionCard(
         ContentGroupViewModel group,
@@ -1346,6 +1889,15 @@ public sealed class DiscoveryComposerService
         var backgroundUrl = prefersArtistImage
             ? group.ArtistPhotoUrl
             : group.BackgroundUrl;
+        var surface = ResolveDiscoverySurface(
+            bucket,
+            shape,
+            presentation,
+            coverUrl,
+            backgroundUrl,
+            group.BannerUrl,
+            group.HeroUrl,
+            group.ArtistPhotoUrl);
 
         return new DiscoveryCardViewModel
         {
@@ -1367,6 +1919,13 @@ public sealed class DiscoveryComposerService
             AccentColor = !string.IsNullOrWhiteSpace(group.MediaTypeColor) ? group.MediaTypeColor : AccentForBucket(bucket),
             Shape = shape,
             Presentation = presentation,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
+            PreviewImageUrl = surface.PreviewImageUrl,
+            RepresentativeEntityId = group.CollectionId,
             NavigationUrl = navigationUrl ?? MediaNavigation.ForContentGroup(group),
             PrimaryNavigationUrl = primaryNavigationUrl ?? navigationUrl ?? MediaNavigation.ForContentGroup(group),
             DetailsNavigationUrl = detailsNavigationUrl ?? navigationUrl ?? MediaNavigation.ForContentGroup(group),
@@ -1571,6 +2130,26 @@ public sealed class DiscoveryComposerService
     private static bool IsListenKind(string? mediaKind) =>
         mediaKind is "Music" or "Audiobook";
 
+    private async Task<TasteProfile?> LoadActiveTasteProfileAsync(CancellationToken ct)
+    {
+        if (_api is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var activeProfile = (await _api.GetProfilesAsync(ct)).FirstOrDefault();
+            return activeProfile is null
+                ? null
+                : await _api.GetTasteProfileAsync(activeProfile.Id, ct);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> LoadCollectionPreviewImagesAsync(
         IEnumerable<ContentGroupViewModel> groups,
         CancellationToken ct)
@@ -1622,7 +2201,11 @@ public sealed class DiscoveryComposerService
             .ToList();
 
     private static bool HasArtwork(DiscoveryCardViewModel card) =>
-        !string.IsNullOrWhiteSpace(card.CoverUrl)
+        !string.IsNullOrWhiteSpace(card.TileImageUrl)
+        || !string.IsNullOrWhiteSpace(card.HoverImageUrl)
+        || !string.IsNullOrWhiteSpace(card.HeroBackgroundImageUrl)
+        || !string.IsNullOrWhiteSpace(card.PreviewImageUrl)
+        || !string.IsNullOrWhiteSpace(card.CoverUrl)
         || !string.IsNullOrWhiteSpace(card.HeroUrl)
         || !string.IsNullOrWhiteSpace(card.BackgroundUrl)
         || !string.IsNullOrWhiteSpace(card.BannerUrl)
@@ -1724,4 +2307,15 @@ public sealed class DiscoveryComposerService
         Tv,
         Music,
     }
+
+    private sealed record DiscoverySurfaceSelection(
+        DiscoverySurfaceKind SurfaceKind,
+        DiscoveryHoverLayout HoverLayout,
+        string? TileImageUrl,
+        string? HoverImageUrl,
+        string? HeroBackgroundImageUrl,
+        string? PreviewImageUrl);
+
+    private static string? FirstNonBlank(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

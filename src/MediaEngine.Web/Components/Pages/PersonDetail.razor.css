@@ -1,17 +1,52 @@
+.person-page {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    padding-bottom: 48px;
+}
+
 .person-detail-back {
     color: rgba(248, 248, 248, 0.60) !important;
-    font-family: 'Montserrat', sans-serif;
+    font-family: "Montserrat", sans-serif;
     font-size: 0.85rem;
     text-transform: none;
     letter-spacing: 0;
+    align-self: flex-start;
 }
 
-.person-detail-header {
+.person-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 30px;
+    min-height: 360px;
+    background-position: center;
+    background-size: cover;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 24px 54px rgba(0, 0, 0, 0.28);
+}
+
+.person-hero__overlay {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(90deg, rgba(8, 11, 18, 0.94) 0%, rgba(8, 11, 18, 0.78) 42%, rgba(8, 11, 18, 0.34) 100%),
+        linear-gradient(180deg, rgba(8, 11, 18, 0.18) 0%, rgba(8, 11, 18, 0.78) 100%);
+}
+
+.person-hero__content {
+    position: relative;
+    z-index: 1;
     display: flex;
-    gap: 32px;
+    justify-content: space-between;
+    gap: 28px;
+    padding: 36px 40px;
+}
+
+.person-hero__identity {
+    display: flex;
     align-items: center;
-    margin-bottom: 40px;
-    padding: 0 48px 0 88px;
+    gap: 28px;
+    min-width: 0;
 }
 
 .person-detail-avatar-wrap {
@@ -19,58 +54,74 @@
 }
 
 .person-detail-avatar {
-    width: 120px;
-    height: 120px;
+    width: 132px;
+    height: 132px;
     border-radius: 50%;
     object-fit: cover;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50);
+    border: 2px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 18px 32px rgba(0, 0, 0, 0.32);
 }
 
 .person-detail-avatar-initials {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(201, 146, 46, 0.15);
-    border: 1px solid rgba(201, 146, 46, 0.25);
+    background: rgba(201, 146, 46, 0.18);
+    border: 1px solid rgba(201, 146, 46, 0.28);
     color: var(--app-accent);
-    font-family: 'Montserrat', sans-serif;
-    font-size: 2rem;
+    font-family: "Montserrat", sans-serif;
+    font-size: 2.1rem;
     font-weight: 700;
 }
 
-.person-detail-name-col {
+.person-hero__copy {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 10px;
     min-width: 0;
 }
 
 .person-detail-occupation {
-    font-family: 'Montserrat', sans-serif;
+    font-family: "Montserrat", sans-serif;
     font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--app-accent);
+    font-weight: 700;
+    color: rgba(233, 190, 104, 0.92);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.12em;
 }
 
 .person-detail-name {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 2.2rem;
-    font-weight: 700;
-    color: rgba(248, 248, 248, 0.95);
-    line-height: 1.15;
     margin: 0;
+    font-family: "Montserrat", sans-serif;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: rgba(248, 248, 248, 0.96);
+    line-height: 1.05;
 }
 
-.person-detail-role {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 0.85rem;
-    color: rgba(248, 248, 248, 0.45);
+.person-hero__role-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.person-hero__role-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(248, 248, 248, 0.78);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
 }
 
 .person-detail-social {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-top: 4px;
 }
@@ -79,9 +130,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: var(--app-radius-md);
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: rgba(248, 248, 248, 0.55);
@@ -90,65 +141,250 @@
 }
 
 .person-detail-social-link:hover {
-    background: rgba(255, 255, 255, 0.10);
-    color: rgba(248, 248, 248, 0.85);
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(248, 248, 248, 0.92);
+}
+
+.person-hero__logo {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    min-width: 140px;
+}
+
+.person-hero__logo img {
+    max-width: 220px;
+    max-height: 92px;
+    object-fit: contain;
+    filter: drop-shadow(0 12px 22px rgba(0, 0, 0, 0.24));
+}
+
+.person-section {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.person-section--links {
+    gap: 20px;
+}
+
+.person-link-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.person-link-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.person-link-pill {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(248, 248, 248, 0.84);
+    border-radius: 999px;
+    padding: 10px 14px;
+    font-size: 0.86rem;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.person-link-pill:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.14);
 }
 
 .person-detail-section-title {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 1rem;
+    margin: 0;
+    font-family: "Montserrat", sans-serif;
+    font-size: 0.92rem;
     font-weight: 700;
-    color: rgba(248, 248, 248, 0.55);
+    color: rgba(248, 248, 248, 0.52);
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin: 0 0 16px 0;
-}
-
-.person-detail-bio-section {
-    padding: 0 48px 0 88px;
-    margin-bottom: 40px;
-    max-width: 760px;
+    letter-spacing: 0.12em;
 }
 
 .person-detail-bio {
-    font-family: 'Montserrat', sans-serif;
-    font-size: 0.92rem;
+    margin: 0;
+    max-width: 860px;
+    font-family: "Montserrat", sans-serif;
+    font-size: 0.96rem;
     font-weight: 300;
-    line-height: 1.65;
-    color: rgba(248, 248, 248, 0.60);
-    margin: 0 0 8px 0;
+    line-height: 1.75;
+    color: rgba(248, 248, 248, 0.66);
     white-space: pre-wrap;
 }
 
 .person-detail-expand-btn {
+    align-self: flex-start;
     padding: 0;
-    font-family: 'Montserrat', sans-serif;
-    font-size: 0.80rem;
+    font-family: "Montserrat", sans-serif;
+    font-size: 0.82rem;
     font-weight: 600;
     text-transform: none;
 }
 
-.person-detail-works-section {
-    margin-bottom: 40px;
+.person-credit-groups,
+.person-character-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
 }
 
-@media (max-width: 768px) {
-    .person-detail-header {
-        padding: 0 20px;
+.person-credit-group,
+.person-character-group {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.person-credit-group__header,
+.person-character-group__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.person-credit-group__header h3,
+.person-character-group__header {
+    margin: 0;
+    font-size: 1.08rem;
+    color: rgba(248, 248, 248, 0.92);
+}
+
+.person-credit-group__header span {
+    color: rgba(248, 248, 248, 0.44);
+    font-size: 0.84rem;
+}
+
+.person-credit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+}
+
+.person-credit-card,
+.person-character-card {
+    display: flex;
+    gap: 14px;
+    width: 100%;
+    text-align: left;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 18px;
+    padding: 14px;
+    color: inherit;
+    cursor: pointer;
+    transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.person-credit-card:hover,
+.person-character-card:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.14);
+}
+
+.person-credit-card__art,
+.person-character-card__portrait {
+    width: 76px;
+    min-width: 76px;
+    height: 104px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.person-character-card__portrait {
+    width: 72px;
+    min-width: 72px;
+    height: 72px;
+    border-radius: 50%;
+}
+
+.person-credit-card__art img,
+.person-character-card__portrait img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.person-credit-card__art-placeholder,
+.person-character-card__portrait-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.22);
+}
+
+.person-credit-card__body,
+.person-character-card__body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    justify-content: center;
+}
+
+.person-credit-card__title,
+.person-character-card__name {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: rgba(248, 248, 248, 0.92);
+}
+
+.person-credit-card__meta,
+.person-character-card__meta {
+    font-size: 0.82rem;
+    color: rgba(248, 248, 248, 0.44);
+}
+
+.person-credit-card__subtitle,
+.person-character-card__work {
+    font-size: 0.86rem;
+    color: rgba(248, 248, 248, 0.68);
+}
+
+.person-character-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+@media (max-width: 960px) {
+    .person-hero__content,
+    .person-hero__identity {
         flex-direction: column;
-        align-items: center;
-        text-align: center;
+        align-items: flex-start;
+    }
+
+    .person-hero__logo {
+        justify-content: flex-start;
+    }
+}
+
+@media (max-width: 680px) {
+    .person-page {
+        gap: 22px;
+    }
+
+    .person-hero__content {
+        padding: 26px 22px;
     }
 
     .person-detail-name {
-        font-size: 1.6rem;
+        font-size: 1.9rem;
     }
 
-    .person-detail-bio-section {
-        padding: 0 20px;
-    }
-
-    .person-detail-social {
-        justify-content: center;
+    .person-credit-grid,
+    .person-character-grid {
+        grid-template-columns: 1fr;
     }
 }

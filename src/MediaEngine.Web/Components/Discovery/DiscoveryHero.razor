@@ -3,7 +3,7 @@
 
 @if (Hero is not null)
 {
-    <section class="discovery-hero-shell" style="--hero-accent: @Hero.AccentColor;">
+    <section class="discovery-hero-shell @HeroSurfaceClass" style="--hero-accent: @Hero.AccentColor;">
         <div class="discovery-hero-backdrop">
             @if (!string.IsNullOrWhiteSpace(ActiveHeroBackdropUrl))
             {
@@ -20,7 +20,7 @@
                     <div class="discovery-hero-eyebrow">@Hero.Eyebrow</div>
                 }
 
-                @if (!string.IsNullOrWhiteSpace(Hero.LogoUrl))
+                @if (!string.IsNullOrWhiteSpace(Hero.LogoUrl) && Hero.SurfaceKind == DiscoverySurfaceKind.BannerLandscape)
                 {
                     <img src="@Hero.LogoUrl" alt="@Hero.Title" class="discovery-hero-logo" />
                 }
@@ -57,9 +57,19 @@
                     </div>
                 }
 
-                @if (!string.IsNullOrWhiteSpace(Hero.Description))
+                @if (DisplayChips.Count > 0)
                 {
-                    <p class="discovery-hero-description">@Hero.Description</p>
+                    <div class="discovery-hero-chips">
+                        @foreach (var chip in DisplayChips)
+                        {
+                            <span class="discovery-hero-chip">@chip</span>
+                        }
+                    </div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(DisplaySummary))
+                {
+                    <p class="discovery-hero-description">@DisplaySummary</p>
                 }
 
                 @if (Hero.ProgressPct is > 0)
@@ -94,7 +104,7 @@
 
             @if (!string.IsNullOrWhiteSpace(Hero.PreviewImageUrl))
             {
-                <div class="discovery-hero-preview">
+                <div class="discovery-hero-preview @PreviewClass">
                     <img src="@Hero.PreviewImageUrl" alt="@Hero.Title" class="discovery-hero-preview-image" />
                 </div>
             }
@@ -107,9 +117,18 @@
 
     private int _heroBackdropIndex;
 
+    private string HeroSurfaceClass => Hero.SurfaceKind == DiscoverySurfaceKind.BannerLandscape ? "is-banner-hero" : "is-cover-hero";
+
+    private string PreviewClass => Hero.SurfaceKind switch
+    {
+        DiscoverySurfaceKind.CoverSquare or DiscoverySurfaceKind.ArtistPhotoSquare => "is-square-preview",
+        _ => "is-portrait-preview",
+    };
+
     private IReadOnlyList<string> HeroBackdropCandidates =>
         new[]
         {
+            Hero.HeroBackgroundImageUrl,
             Hero.BackgroundImageUrl,
             Hero.BannerImageUrl,
             Hero.PreviewImageUrl,
@@ -129,17 +148,24 @@
 
     private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HeroMediaIcon) || !string.IsNullOrWhiteSpace(HeroMetaDisplay);
 
-    protected override void OnParametersSet()
-    {
-        _heroBackdropIndex = 0;
-    }
+    private IReadOnlyList<string> DisplayChips => Hero.VibeTags
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(3)
+        .ToList();
+
+    private string? DisplaySummary => Hero.Tldr ?? Hero.Description;
+
+    protected override void OnParametersSet() => _heroBackdropIndex = 0;
 
     private void OpenPrimary() => Nav.NavigateTo(Hero.PrimaryNavigationUrl);
 
     private void OpenSecondary()
     {
         if (!string.IsNullOrWhiteSpace(Hero.SecondaryNavigationUrl))
+        {
             Nav.NavigateTo(Hero.SecondaryNavigationUrl);
+        }
     }
 
     private void HandleHeroBackdropError()
@@ -154,29 +180,31 @@
     private static string? ExtractLeadingMediaKind(string? metaText)
     {
         if (string.IsNullOrWhiteSpace(metaText))
+        {
             return null;
+        }
 
-        var first = metaText
-            .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault();
-
+        var first = metaText.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
         return ResolveMediaIcon(first) is not null ? first : null;
     }
 
     private static string TrimLeadingMediaKind(string? metaText, string? mediaKind)
     {
         if (string.IsNullOrWhiteSpace(metaText))
+        {
             return string.Empty;
+        }
 
         if (string.IsNullOrWhiteSpace(mediaKind))
+        {
             return metaText;
+        }
 
-        var parts = metaText
-            .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .ToList();
-
+        var parts = metaText.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
         if (parts.Count > 0 && string.Equals(parts[0], mediaKind, StringComparison.OrdinalIgnoreCase))
+        {
             parts.RemoveAt(0);
+        }
 
         return string.Join(" / ", parts);
     }
@@ -194,293 +222,41 @@
 }
 
 <style>
-    .discovery-hero-shell {
-        position: relative;
-        overflow: hidden;
-        border-radius: 0;
-        min-height: clamp(420px, 50vw, 620px);
-        background: #03050a;
-    }
-
-    .discovery-hero-backdrop {
-        position: absolute;
-        inset: 0;
-        background:
-            radial-gradient(circle at center, rgba(14, 18, 28, 0.42) 0%, rgba(3, 5, 10, 0.92) 100%),
-            linear-gradient(135deg, rgba(4, 6, 12, 0.98) 0%, rgba(2, 4, 8, 1) 100%);
-    }
-
-    .discovery-hero-backdrop-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center center;
-        display: block;
-        transform: scale(1.02);
-    }
-
-    .discovery-hero-overlay {
-        position: absolute;
-        inset: 0;
-        background:
-            linear-gradient(180deg, rgba(3, 5, 10, 0.16) 0%, rgba(3, 5, 10, 0.34) 18%, rgba(3, 5, 10, 0.72) 72%, rgba(3, 5, 10, 0.985) 100%),
-            linear-gradient(90deg, rgba(3, 5, 10, 0.98) 0%, rgba(3, 5, 10, 0.88) 30%, rgba(3, 5, 10, 0.34) 60%, rgba(3, 5, 10, 0.86) 100%);
-        z-index: 0;
-        pointer-events: none;
-    }
-
-    .discovery-hero-texture {
-        position: absolute;
-        inset: 0;
-        background:
-            radial-gradient(circle at top right, color-mix(in srgb, var(--hero-accent) 8%, transparent) 0%, transparent 34%),
-            linear-gradient(180deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 24%);
-        mix-blend-mode: screen;
-        opacity: 0.18;
-        z-index: 0;
-        pointer-events: none;
-    }
-
-    .discovery-hero-content {
-        position: relative;
-        z-index: 1;
-        min-height: inherit;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-        align-items: center;
-        gap: clamp(28px, 3vw, 44px);
-        padding: clamp(22px, 3vw, 34px) clamp(28px, 4vw, 48px) clamp(28px, 4vw, 44px);
-    }
-
-    .discovery-hero-copy {
-        max-width: min(720px, 100%);
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-        padding: 0;
-    }
-
-    .discovery-hero-eyebrow {
-        display: inline-flex;
-        width: fit-content;
-        align-items: center;
-        padding: 7px 12px;
-        border-radius: var(--app-radius-md);
-        background: color-mix(in srgb, var(--hero-accent) 18%, rgba(255, 255, 255, 0.02));
-        border: 1px solid color-mix(in srgb, var(--hero-accent) 36%, rgba(255, 255, 255, 0.12));
-        font-family: 'Montserrat', sans-serif;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: rgba(226, 232, 240, 0.94);
-    }
-
-    .discovery-hero-logo {
-        width: min(100%, 460px);
-        max-height: 180px;
-        object-fit: contain;
-        object-position: left center;
-        display: block;
-        filter: drop-shadow(0 16px 34px rgba(0, 0, 0, 0.42));
-    }
-
-    .discovery-hero-title {
-        margin: 0;
-        font-family: Georgia, 'Times New Roman', serif;
-        font-size: clamp(2.8rem, 6vw, 5.8rem);
-        font-weight: 700;
-        line-height: 0.93;
-        letter-spacing: -0.04em;
-        color: rgba(248, 250, 252, 0.98);
-        text-wrap: balance;
-    }
-
-    .discovery-hero-subtitle {
-        font-family: 'Montserrat', sans-serif;
-        font-size: clamp(1rem, 1.6vw, 1.2rem);
-        font-weight: 600;
-        color: rgba(226, 232, 240, 0.9);
-    }
-
-    .discovery-hero-status {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: color-mix(in srgb, var(--hero-accent) 82%, white 10%);
-    }
-
-    .discovery-hero-meta-row {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .discovery-hero-kind {
-        width: 34px;
-        height: 34px;
-        border-radius: 12px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(255, 255, 255, 0.07);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        color: rgba(248, 250, 252, 0.92);
-        backdrop-filter: blur(12px);
-    }
-
-    .discovery-hero-meta {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.16em;
-        text-transform: uppercase;
-        color: rgba(226, 232, 240, 0.82);
-    }
-
-    .discovery-hero-description {
-        margin: 0;
-        max-width: 680px;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1rem;
-        line-height: 1.68;
-        color: rgba(226, 232, 240, 0.86);
-        text-shadow: 0 2px 14px rgba(0, 0, 0, 0.26);
-    }
-
-    .discovery-hero-progress {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        max-width: 320px;
-        margin-top: 4px;
-    }
-
-    .discovery-hero-progress-label {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 10px;
-        font-weight: 800;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: rgba(148, 163, 184, 0.92);
-    }
-
-    .discovery-hero-progress-bar {
-        height: 6px;
-        overflow: hidden;
-        border-radius: var(--app-radius-md);
-        background: rgba(255, 255, 255, 0.14);
-    }
-
-    .discovery-hero-progress-fill {
-        height: 100%;
-        border-radius: inherit;
-        background: linear-gradient(90deg, var(--hero-accent) 0%, rgba(255, 255, 255, 0.92) 100%);
-    }
-
-    .discovery-hero-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 8px;
-    }
-
-    .discovery-hero-btn {
-        min-height: 48px;
-        border-radius: var(--app-radius-md);
-        padding: 0 20px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.8rem;
-        font-weight: 800;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        cursor: pointer;
-        transition: transform 0.18s ease, opacity 0.18s ease;
-    }
-
-    .discovery-hero-btn:hover {
-        transform: translateY(-1px);
-    }
-
-    .discovery-hero-btn-primary {
-        background: linear-gradient(135deg, var(--hero-accent) 0%, rgba(255,255,255,0.92) 100%);
-        color: #051018;
-    }
-
-    .discovery-hero-btn-secondary {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(248, 250, 252, 0.96);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .discovery-hero-preview {
-        align-self: center;
-        justify-self: end;
-        width: min(100%, 292px);
-        aspect-ratio: 2 / 3;
-        overflow: hidden;
-        border-radius: var(--app-radius-md);
-        box-shadow: 0 26px 52px rgba(0, 0, 0, 0.44);
-        background: rgba(0, 0, 0, 0.2);
-    }
-
-    .discovery-hero-preview-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-
-    .discovery-visually-hidden {
-        position: absolute;
-        width: 1px;
-        height: 1px;
-        padding: 0;
-        margin: -1px;
-        overflow: hidden;
-        clip: rect(0, 0, 0, 0);
-        white-space: nowrap;
-        border: 0;
-    }
-
-    @@media (max-width: 960px) {
-        .discovery-hero-content {
-            grid-template-columns: 1fr;
-            align-items: end;
-            padding-top: 24px;
-        }
-
-        .discovery-hero-preview {
-            width: min(52vw, 260px);
-            justify-self: start;
-        }
-    }
-
-    @@media (max-width: 640px) {
-        .discovery-hero-shell {
-            min-height: 0;
-        }
-
-        .discovery-hero-content {
-            padding: 24px 22px 24px;
-        }
-
-        .discovery-hero-copy {
-            gap: 12px;
-        }
-
-        .discovery-hero-logo {
-            width: min(100%, 320px);
-            max-height: 120px;
-        }
-
-        .discovery-hero-preview {
-            width: min(50vw, 210px);
-            border-radius: var(--app-radius-md);
-        }
-    }
+    .discovery-hero-shell { position:relative; overflow:hidden; border-radius:0; min-height:clamp(420px,50vw,620px); background:#03050a; }
+    .discovery-hero-backdrop, .discovery-hero-overlay, .discovery-hero-texture { position:absolute; inset:0; }
+    .discovery-hero-backdrop { background:radial-gradient(circle at center,rgba(14,18,28,.42) 0%,rgba(3,5,10,.92) 100%),linear-gradient(135deg,rgba(4,6,12,.98) 0%,rgba(2,4,8,1) 100%); }
+    .discovery-hero-backdrop-image { width:100%; height:100%; display:block; }
+    .discovery-hero-shell.is-banner-hero .discovery-hero-backdrop-image { object-fit:cover; object-position:center center; transform:scale(1.02); }
+    .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(48vw,560px); max-width:100%; margin-left:auto; object-fit:contain; object-position:right center; opacity:.62; padding:24px 28px 24px 0; }
+    .discovery-hero-overlay { background:linear-gradient(180deg,rgba(3,5,10,.16) 0%,rgba(3,5,10,.34) 18%,rgba(3,5,10,.72) 72%,rgba(3,5,10,.985) 100%),linear-gradient(90deg,rgba(3,5,10,.98) 0%,rgba(3,5,10,.9) 34%,rgba(3,5,10,.42) 60%,rgba(3,5,10,.88) 100%); pointer-events:none; }
+    .discovery-hero-texture { background:radial-gradient(circle at top right,color-mix(in srgb,var(--hero-accent) 8%,transparent) 0%,transparent 34%),linear-gradient(180deg,rgba(255,255,255,.02) 0%,rgba(255,255,255,0) 24%); mix-blend-mode:screen; opacity:.18; pointer-events:none; }
+    .discovery-hero-content { position:relative; z-index:1; min-height:inherit; display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,320px); align-items:center; gap:clamp(28px,3vw,44px); padding:clamp(22px,3vw,34px) clamp(28px,4vw,48px) clamp(28px,4vw,44px); }
+    .discovery-hero-copy { max-width:min(720px,100%); display:flex; flex-direction:column; gap:14px; }
+    .discovery-hero-eyebrow, .discovery-hero-meta, .discovery-hero-progress-label, .discovery-hero-btn { font-family:'Montserrat',sans-serif; text-transform:uppercase; }
+    .discovery-hero-eyebrow { display:inline-flex; width:fit-content; align-items:center; padding:7px 12px; border-radius:var(--app-radius-md); background:color-mix(in srgb,var(--hero-accent) 18%,rgba(255,255,255,.02)); border:1px solid color-mix(in srgb,var(--hero-accent) 36%,rgba(255,255,255,.12)); font-size:10px; font-weight:800; letter-spacing:.18em; color:rgba(226,232,240,.94); }
+    .discovery-hero-logo { width:min(100%,460px); max-height:180px; object-fit:contain; object-position:left center; display:block; filter:drop-shadow(0 16px 34px rgba(0,0,0,.42)); }
+    .discovery-hero-title { margin:0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(2.8rem,6vw,5.4rem); font-weight:700; line-height:.93; letter-spacing:-.04em; color:rgba(248,250,252,.98); text-wrap:balance; }
+    .discovery-hero-subtitle { font-family:'Montserrat',sans-serif; font-size:clamp(1rem,1.6vw,1.2rem); font-weight:600; color:rgba(226,232,240,.9); }
+    .discovery-hero-status { font-family:'Montserrat',sans-serif; font-size:.88rem; font-weight:700; color:color-mix(in srgb,var(--hero-accent) 82%,white 10%); }
+    .discovery-hero-meta-row, .discovery-hero-chips, .discovery-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
+    .discovery-hero-kind { width:34px; height:34px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); color:rgba(248,250,252,.92); backdrop-filter:blur(12px); }
+    .discovery-hero-meta { font-size:.78rem; font-weight:700; letter-spacing:.16em; color:rgba(226,232,240,.82); }
+    .discovery-hero-chip { display:inline-flex; align-items:center; padding:6px 10px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-family:'Montserrat',sans-serif; font-size:.74rem; color:rgba(248,250,252,.88); }
+    .discovery-hero-description { margin:0; max-width:680px; font-family:'Montserrat',sans-serif; font-size:1rem; line-height:1.68; color:rgba(226,232,240,.86); text-shadow:0 2px 14px rgba(0,0,0,.26); }
+    .discovery-hero-progress { display:flex; flex-direction:column; gap:8px; max-width:320px; margin-top:4px; }
+    .discovery-hero-progress-label { font-size:10px; font-weight:800; letter-spacing:.18em; color:rgba(148,163,184,.92); }
+    .discovery-hero-progress-bar { height:6px; overflow:hidden; border-radius:var(--app-radius-md); background:rgba(255,255,255,.14); }
+    .discovery-hero-progress-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--hero-accent) 0%,rgba(255,255,255,.92) 100%); }
+    .discovery-hero-actions { gap:12px; margin-top:8px; }
+    .discovery-hero-btn { min-height:48px; border-radius:var(--app-radius-md); padding:0 20px; display:inline-flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:800; letter-spacing:.08em; cursor:pointer; transition:transform .18s ease,opacity .18s ease; }
+    .discovery-hero-btn:hover { transform:translateY(-1px); }
+    .discovery-hero-btn-primary { background:linear-gradient(135deg,var(--hero-accent) 0%,rgba(255,255,255,.92) 100%); color:#051018; }
+    .discovery-hero-btn-secondary { background:rgba(255,255,255,.08); color:rgba(248,250,252,.96); border:1px solid rgba(255,255,255,.1); }
+    .discovery-hero-preview { align-self:center; justify-self:end; width:min(100%,292px); overflow:hidden; border-radius:var(--app-radius-md); box-shadow:0 26px 52px rgba(0,0,0,.44); background:rgba(0,0,0,.2); }
+    .discovery-hero-preview.is-portrait-preview { aspect-ratio:2 / 3; }
+    .discovery-hero-preview.is-square-preview { aspect-ratio:1 / 1; }
+    .discovery-hero-preview-image { width:100%; height:100%; object-fit:cover; display:block; }
+    .discovery-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @@media (max-width:960px) { .discovery-hero-content { grid-template-columns:1fr; align-items:end; padding-top:24px; } .discovery-hero-preview { width:min(52vw,260px); justify-self:start; } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(68vw,420px); padding-right:12px; } }
+    @@media (max-width:640px) { .discovery-hero-shell { min-height:0; } .discovery-hero-content { padding:24px 22px; } .discovery-hero-logo { width:min(100%,320px); max-height:120px; } .discovery-hero-preview { width:min(50vw,210px); } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(76vw,340px); } }
 </style>

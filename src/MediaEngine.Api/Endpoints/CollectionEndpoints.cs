@@ -603,14 +603,14 @@ public static class CollectionEndpoints
             // cast_member array (P161) and resolve each entry to a Person
             // record so the Dashboard can open the people drawer on click.
             // Capped at 10 entries to match the design.
-            var topCast = new List<CollectionGroupPersonDto>();
+            var topCast = new List<CastCreditDto>();
             bool hasCast = (isTv || string.Equals(primaryMediaType, "Movies", StringComparison.OrdinalIgnoreCase))
                            && rootParentWorkId.HasValue;
             if (hasCast)
             {
-                topCast = await BuildCharacterAwareCastAsync(
-                    rootWorkQid,
+                topCast = await CastCreditQueries.BuildForCollectionRootAsync(
                     rootParentWorkId!.Value,
+                    rootWorkQid,
                     canonicalArrayRepo,
                     personRepo,
                     db,
@@ -2444,125 +2444,6 @@ public static class CollectionEndpoints
         return summary;
     }
 
-    private static async Task<List<CollectionGroupPersonDto>> BuildCharacterAwareCastAsync(
-        string? rootWorkQid,
-        Guid rootParentWorkId,
-        ICanonicalValueArrayRepository canonicalArrayRepo,
-        IPersonRepository personRepo,
-        IDatabaseConnection db,
-        CancellationToken ct)
-    {
-        if (!string.IsNullOrWhiteSpace(rootWorkQid))
-        {
-            using var conn = db.CreateConnection();
-            var rows = (await conn.QueryAsync<CharacterCastRow>(
-                """
-                SELECT fe.id                AS CharacterId,
-                       fe.label             AS CharacterName,
-                       fe.wikidata_qid      AS CharacterQid,
-                       fe.image_url         AS CharacterImageUrl,
-                       p.id                 AS ActorPersonId,
-                       p.name               AS ActorName,
-                       p.wikidata_qid       AS ActorQid,
-                       p.headshot_url       AS ActorHeadshotUrl,
-                       p.local_headshot_path AS ActorLocalHeadshotPath,
-                       cp.image_url         AS PortraitImageUrl,
-                       cp.local_image_path  AS PortraitLocalImagePath,
-                       cp.is_default        AS PortraitIsDefault
-                FROM fictional_entities fe
-                INNER JOIN fictional_entity_work_links fewl
-                    ON fewl.entity_id = fe.id
-                LEFT JOIN character_performer_links cpl
-                    ON cpl.fictional_entity_id = fe.id
-                   AND (cpl.work_qid = @workQid OR cpl.work_qid IS NULL)
-                LEFT JOIN persons p
-                    ON p.id = cpl.person_id
-                LEFT JOIN character_portraits cp
-                    ON cp.fictional_entity_id = fe.id
-                   AND cp.person_id = p.id
-                WHERE fewl.work_qid = @workQid
-                  AND fe.entity_sub_type = 'Character'
-                ORDER BY fe.label, p.name, cp.is_default DESC
-                """,
-                new { workQid = rootWorkQid })).ToList();
-
-            var cast = rows
-                .Where(row => row.ActorPersonId.HasValue && !string.IsNullOrWhiteSpace(row.ActorName))
-                .GroupBy(row => new
-                {
-                    row.ActorPersonId,
-                    row.ActorName,
-                    row.ActorQid,
-                    row.CharacterId,
-                    row.CharacterName,
-                    row.CharacterQid,
-                })
-                .Select(group =>
-                {
-                    var preferred = group
-                        .OrderByDescending(row => row.PortraitIsDefault)
-                        .ThenByDescending(row => !string.IsNullOrWhiteSpace(row.PortraitImageUrl))
-                        .First();
-
-                    var headshotUrl = !string.IsNullOrWhiteSpace(preferred.ActorLocalHeadshotPath) && preferred.ActorPersonId.HasValue
-                        ? $"/stream/person/{preferred.ActorPersonId.Value}/headshot-thumb"
-                        : preferred.ActorHeadshotUrl;
-                    var characterImageUrl = preferred.PortraitImageUrl
-                        ?? preferred.CharacterImageUrl;
-
-                    return new CollectionGroupPersonDto
-                    {
-                        PersonId = preferred.ActorPersonId,
-                        Name = preferred.ActorName ?? group.Key.ActorName ?? "Unknown",
-                        ActorPersonId = preferred.ActorPersonId,
-                        ActorName = preferred.ActorName,
-                        WikidataQid = preferred.ActorQid,
-                        HeadshotUrl = headshotUrl,
-                        ActorHeadshotUrl = headshotUrl,
-                        CharacterName = group.Key.CharacterName,
-                        CharacterQid = group.Key.CharacterQid,
-                        CharacterImageUrl = characterImageUrl,
-                    };
-                })
-                .OrderBy(entry => entry.ActorName ?? entry.Name, StringComparer.OrdinalIgnoreCase)
-                .Take(10)
-                .ToList();
-
-            if (cast.Count > 0)
-                return cast;
-        }
-
-        var fallback = new List<CollectionGroupPersonDto>();
-        var castEntries = await canonicalArrayRepo.GetValuesAsync(rootParentWorkId, "cast_member", ct);
-        foreach (var entry in castEntries.OrderBy(e => e.Ordinal).Take(10))
-        {
-            if (string.IsNullOrWhiteSpace(entry.Value))
-                continue;
-
-            Person? person = null;
-            if (!string.IsNullOrWhiteSpace(entry.ValueQid))
-                person = await personRepo.FindByQidAsync(entry.ValueQid, ct);
-            person ??= await personRepo.FindByNameAsync(entry.Value, ct);
-
-            var headshotUrl = !string.IsNullOrEmpty(person?.LocalHeadshotPath)
-                ? $"/stream/person/{person.Id}/headshot-thumb"
-                : person?.HeadshotUrl;
-
-            fallback.Add(new CollectionGroupPersonDto
-            {
-                PersonId = person?.Id,
-                Name = person?.Name ?? entry.Value,
-                ActorPersonId = person?.Id,
-                ActorName = person?.Name ?? entry.Value,
-                WikidataQid = entry.ValueQid ?? person?.WikidataQid,
-                HeadshotUrl = headshotUrl,
-                ActorHeadshotUrl = headshotUrl,
-            });
-        }
-
-        return fallback;
-    }
-
     private static string? NormalizeReleaseDate(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -2895,22 +2776,6 @@ public static class CollectionEndpoints
                 IsOwned     = false,
             });
         }
-    }
-
-    private sealed class CharacterCastRow
-    {
-        public Guid CharacterId { get; init; }
-        public string? CharacterName { get; init; }
-        public string? CharacterQid { get; init; }
-        public string? CharacterImageUrl { get; init; }
-        public Guid? ActorPersonId { get; init; }
-        public string? ActorName { get; init; }
-        public string? ActorQid { get; init; }
-        public string? ActorHeadshotUrl { get; init; }
-        public string? ActorLocalHeadshotPath { get; init; }
-        public string? PortraitImageUrl { get; init; }
-        public string? PortraitLocalImagePath { get; init; }
-        public bool PortraitIsDefault { get; init; }
     }
 
     private static List<CollectionResolvedItemDto> ResolveEntityMetadata(IDatabaseConnection db, IReadOnlyList<Guid> entityIds)

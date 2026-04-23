@@ -92,6 +92,22 @@ public sealed class CollectionGroupDetailViewModel
 }
 
 /// <summary>Lightweight person reference used by cast chips on MediaGroupPage.</summary>
+public sealed class CharacterPortrayalViewModel
+{
+    [JsonPropertyName("fictional_entity_id")]
+    public Guid FictionalEntityId { get; set; }
+
+    [JsonPropertyName("character_name")]
+    public string? CharacterName { get; set; }
+
+    [JsonPropertyName("character_qid")]
+    public string? CharacterQid { get; set; }
+
+    [JsonPropertyName("portrait_url")]
+    public string? PortraitUrl { get; set; }
+}
+
+/// <summary>Lightweight cast credit used by group detail and work-detail pages.</summary>
 public sealed class CollectionGroupPersonViewModel
 {
     [JsonPropertyName("person_id")]
@@ -112,6 +128,10 @@ public sealed class CollectionGroupPersonViewModel
     [JsonPropertyName("headshot_url")]
     public string? HeadshotUrl { get; set; }
 
+    [JsonPropertyName("characters")]
+    public List<CharacterPortrayalViewModel> Characters { get; set; } = [];
+
+    // Compatibility fields still returned by the API for existing clients.
     [JsonPropertyName("actor_headshot_url")]
     public string? ActorHeadshotUrl { get; set; }
 

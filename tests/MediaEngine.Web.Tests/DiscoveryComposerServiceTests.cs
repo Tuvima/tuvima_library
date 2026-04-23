@@ -130,7 +130,7 @@ public sealed class DiscoveryComposerServiceTests
     }
 
     [Fact]
-    public void ComposeHome_GroupsTvAndMusicIntoContainerFirstContinueAndFreshShelves()
+    public void ComposeHome_SplitsHomeRowsBySurfaceAndKeepsContinueHeroFirst()
     {
         var service = new DiscoveryComposerService(null!);
         var tvCollectionId = Guid.Parse("10101010-1010-1010-1010-101010101010");
@@ -176,6 +176,9 @@ public sealed class DiscoveryComposerServiceTests
                     ["show_name"] = "Funny AF with Kevin Hart",
                     ["season_number"] = "2",
                     ["episode_number"] = "4",
+                    ["tldr"] = "A stand-up competition episode with sharp backstage chaos.",
+                    ["vibe"] = "High-energy",
+                    ["mood"] = "Playful",
                     ["description"] = "Episode two description",
                 }),
             CreateWork(
@@ -311,50 +314,101 @@ public sealed class DiscoveryComposerServiceTests
 
         Assert.Equal("Continue with your library", page.Hero?.Eyebrow);
         Assert.Equal("Funny AF with Kevin Hart", page.Hero?.Title);
-        Assert.Equal("/art/episode-hero-2.jpg", page.Hero?.BackgroundImageUrl);
+        Assert.Equal("/art/show-banner.jpg", page.Hero?.BackgroundImageUrl);
         Assert.Equal("/art/show-logo.png", page.Hero?.LogoUrl);
         Assert.Equal("Continue watching", page.Hero?.PrimaryActionLabel);
         Assert.Equal($"/watch/tv/show/{tvCollectionId}/episode/{latestEpisodeId}", page.Hero?.PrimaryNavigationUrl);
         Assert.Equal($"/watch/tv/show/{tvCollectionId}", page.Hero?.SecondaryNavigationUrl);
+        Assert.Equal("A stand-up competition episode with sharp backstage chaos.", page.Hero?.Tldr);
+        Assert.Contains("High-energy", page.Hero?.VibeTags ?? []);
 
         Assert.Collection(
-            page.Shelves.Take(2),
-            shelf => Assert.Equal("Continue", shelf.Title),
-            shelf => Assert.Equal("New Episodes & Fresh Arrivals", shelf.Title));
+            page.Shelves.Take(5),
+            shelf => Assert.Equal("Continue Watching", shelf.Title),
+            shelf => Assert.Equal("Fresh to Watch", shelf.Title),
+            shelf => Assert.Equal("Watch Posters", shelf.Title),
+            shelf => Assert.Equal("Continue Listening", shelf.Title),
+            shelf => Assert.Equal("Fresh Music", shelf.Title));
 
-        var continueShelf = page.Shelves[0];
-        var continueTv = Assert.Single(continueShelf.Items, item => item.Title == "Funny AF with Kevin Hart");
+        var continueWatchShelf = page.Shelves[0];
+        var continueTv = Assert.Single(continueWatchShelf.Items, item => item.Title == "Funny AF with Kevin Hart");
         Assert.Equal(DiscoveryCardPresentation.TvSeries, continueTv.Presentation);
+        Assert.Equal(DiscoveryCardShape.Landscape, continueTv.Shape);
+        Assert.Equal(DiscoverySurfaceKind.BannerLandscape, continueTv.SurfaceKind);
+        Assert.Equal(DiscoveryHoverLayout.BannerPopover, continueTv.HoverLayout);
         Assert.Equal("Continue watching", continueTv.PrimaryActionLabel);
         Assert.Equal($"/watch/tv/show/{tvCollectionId}", continueTv.NavigationUrl);
         Assert.Equal($"/watch/tv/show/{tvCollectionId}/episode/{latestEpisodeId}", continueTv.PrimaryNavigationUrl);
         Assert.Contains("Continue S2:E4", continueTv.StatusText, StringComparison.Ordinal);
+        Assert.Equal("A stand-up competition episode with sharp backstage chaos.", continueTv.Tldr);
+        Assert.Contains("High-energy", continueTv.VibeTags);
 
-        var continueAlbum = Assert.Single(continueShelf.Items, item => item.Title == "The Record");
+        var freshWatchShelf = page.Shelves[1];
+        var freshTv = Assert.Single(freshWatchShelf.Items, item => item.Title == "Funny AF with Kevin Hart");
+        Assert.Equal("2 new episodes", freshTv.StatusText);
+        Assert.Equal("/art/show-logo.png", freshTv.LogoUrl);
+        Assert.Equal("/art/show-banner.jpg", freshTv.TileImageUrl);
+
+        var watchPosterShelf = page.Shelves[2];
+        var continueMovie = Assert.Single(watchPosterShelf.Items, item => item.Title == "Anaconda");
+        Assert.False(continueMovie.IsCollection);
+        Assert.Equal(DiscoveryCardShape.Portrait, continueMovie.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverPortrait, continueMovie.SurfaceKind);
+        Assert.Equal(DiscoveryHoverLayout.ArtOnlyPopover, continueMovie.HoverLayout);
+
+        var continueMusicShelf = page.Shelves[3];
+        var continueAlbum = Assert.Single(continueMusicShelf.Items, item => item.Title == "The Record");
         Assert.Equal(DiscoveryCardPresentation.Album, continueAlbum.Presentation);
         Assert.Equal(DiscoveryCardShape.Square, continueAlbum.Shape);
         Assert.Equal("Continue album", continueAlbum.PrimaryActionLabel);
         Assert.Equal($"/listen/music/albums/{albumCollectionId}", continueAlbum.NavigationUrl);
 
-        var continueMovie = Assert.Single(continueShelf.Items, item => item.Title == "Anaconda");
-        Assert.False(continueMovie.IsCollection);
-
-        var freshShelf = page.Shelves[1];
-        var freshTv = Assert.Single(freshShelf.Items, item => item.Title == "Funny AF with Kevin Hart");
-        Assert.Equal("2 new episodes", freshTv.StatusText);
-        Assert.Equal("/art/show-logo.png", freshTv.LogoUrl);
-        Assert.Equal("/art/show-background.jpg", freshTv.BackgroundUrl);
-
-        var freshAlbum = Assert.Single(freshShelf.Items, item => item.Title == "The Record");
+        var freshMusicShelf = page.Shelves[4];
+        var freshAlbum = Assert.Single(freshMusicShelf.Items, item => item.Title == "The Record");
         Assert.Equal("2 new tracks", freshAlbum.StatusText);
         Assert.Equal(DiscoveryCardShape.Square, freshAlbum.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverSquare, freshAlbum.SurfaceKind);
 
-        Assert.Single(freshShelf.Items, item => item.Title == "Anaconda");
+        Assert.All(
+            page.Shelves.Take(5).Where(shelf => shelf.Items.Count > 0),
+            shelf => Assert.Single(shelf.Items.Select(item => item.Shape).Distinct()));
+
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Pilot");
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Auditions: Chicago");
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Track One");
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Track Two");
         Assert.Contains(page.Catalog, item => item.Title == "Anaconda");
+    }
+
+    [Fact]
+    public void ComposeHome_PopulatesAiFieldsForCoverLedMedia()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var work = CreateWork(
+            id: Guid.Parse("12121212-3434-5656-7878-909090909090"),
+            mediaType: "Books",
+            title: "Project Hail Mary",
+            creator: "Andy Weir",
+            year: "2021",
+            coverUrl: "/art/hail-mary.jpg",
+            canonicalExtras: new Dictionary<string, string>
+            {
+                ["tldr"] = "A lone astronaut tries to save Earth.",
+                ["vibe"] = "Hopeful",
+                ["mood"] = "Tense",
+                ["genre"] = "Science Fiction",
+            });
+
+        var page = service.ComposeHome([work], [], []);
+        var freshReads = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh Reads");
+        var card = Assert.Single(freshReads.Items);
+
+        Assert.Equal("A lone astronaut tries to save Earth.", card.Tldr);
+        Assert.Equal(DiscoveryCardShape.Portrait, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverPortrait, card.SurfaceKind);
+        Assert.Equal(DiscoveryHoverLayout.ArtOnlyPopover, card.HoverLayout);
+        Assert.Contains("Hopeful", card.VibeTags);
+        Assert.Contains("Tense", card.VibeTags);
     }
 
     [Fact]

@@ -103,6 +103,7 @@ public sealed class WorkViewModel
     public string? LogoUrl        => ResolvedLogoUrl ?? Canonical("logo_url") ?? Canonical("logo");
     public string? Description       => Canonical("description");
     public string? DescriptionSource => Canonical("description_source");
+    public string? Tldr              => Canonical("tldr");
     public string? Genre          => Canonical("genre");
     public string? Artist         => Canonical("artist");
     public string? Album          => Canonical("album");
@@ -145,8 +146,13 @@ public sealed class WorkViewModel
     public string? Series         => Canonical("series");
     public string? SeriesPosition => Canonical("series_position");
     public string? Rating         => Canonical("rating");
+    public string? Pace           => Canonical("pace");
+    public string? Audience       => Canonical("audience");
     public string? FictionalUniverseQid => Canonical("fictional_universe_qid");
     public int?    WordCount       => int.TryParse(Canonical("word_count"), out var wc) ? wc : null;
+    public IReadOnlyList<string> Vibes => CanonicalList("vibe");
+    public IReadOnlyList<string> Moods => CanonicalList("mood");
+    public IReadOnlyList<string> Themes => CanonicalList("themes");
 
     public string? ReadingTimeDisplay
     {
@@ -171,6 +177,17 @@ public sealed class WorkViewModel
             return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         return raw;
     }
+
+    private IReadOnlyList<string> CanonicalList(string key) =>
+        CanonicalValues
+            .Where(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(cv =>
+                cv.Value.Contains("|||", StringComparison.Ordinal)
+                    ? cv.Value.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    : [cv.Value])
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 }
 
 /// <summary>A single scored metadata field on a Work or Edition.</summary>

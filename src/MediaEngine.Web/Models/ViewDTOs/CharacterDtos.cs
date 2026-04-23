@@ -45,7 +45,11 @@ public sealed class CharacterRoleDto
     public Guid    FictionalEntityId { get; set; }
     public string? CharacterName     { get; set; }
     public string? PortraitUrl       { get; set; }
+    public Guid?   WorkId            { get; set; }
+    public string? WorkQid           { get; set; }
     public string? WorkTitle         { get; set; }
+    public Guid?   CollectionId      { get; set; }
+    public string? MediaType         { get; set; }
     public bool    IsDefault         { get; set; }
     public string? UniverseQid       { get; set; }
     public string? UniverseLabel     { get; set; }

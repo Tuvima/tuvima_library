@@ -21,12 +21,20 @@ public sealed class PersonDetailViewModel
     public string?  TikTok     { get; init; }
     public string?  Mastodon   { get; init; }
     public string?  Website    { get; init; }
+    public bool     IsGroup    { get; init; }
+    public List<GroupMemberView> GroupMembers { get; init; } = [];
+    public List<GroupMemberView> MemberOfGroups { get; init; } = [];
+    public string?  BannerUrl      { get; init; }
+    public string?  BackgroundUrl  { get; init; }
+    public string?  LogoUrl        { get; init; }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     public string EffectiveHeadshotUrl => LocalHeadshotUrl ?? HeadshotUrl ?? string.Empty;
 
     public bool HasHeadshot => !string.IsNullOrEmpty(LocalHeadshotUrl) || !string.IsNullOrEmpty(HeadshotUrl);
+
+    public string? HeaderArtUrl => BannerUrl ?? BackgroundUrl;
 
     public bool HasSocialLinks =>
         !string.IsNullOrEmpty(Instagram) ||
@@ -55,6 +63,10 @@ public sealed class PersonDetailViewModel
         "author"      => "Author",
         "narrator"    => "Narrator",
         "director"    => "Director",
+        "actor"       => "Actor",
+        "voice actor" => "Voice Actor",
+        "artist"      => "Artist",
+        "performer"   => "Performer",
         "illustrator" => "Illustrator",
         "composer"    => "Composer",
         _             => r,

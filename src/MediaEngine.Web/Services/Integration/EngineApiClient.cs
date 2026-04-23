@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 
@@ -393,6 +394,20 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "DELETE /profiles/{Id} failed", id);
             return false;
+        }
+    }
+
+    public async Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<TasteProfile>($"/profiles/{id}/taste", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /profiles/{Id}/taste failed", id);
+            return null;
         }
     }
 
@@ -2030,6 +2045,12 @@ public sealed class EngineApiClient : IEngineApiClient
                 TikTok           = raw.TikTok,
                 Mastodon         = raw.Mastodon,
                 Website          = raw.Website,
+                IsGroup          = raw.IsGroup,
+                GroupMembers     = raw.GroupMembers?.Select(MapGroupMember).ToList() ?? [],
+                MemberOfGroups   = raw.MemberOfGroups?.Select(MapGroupMember).ToList() ?? [],
+                BannerUrl        = raw.BannerUrl is not null ? AbsoluteUrl(raw.BannerUrl) : null,
+                BackgroundUrl    = raw.BackgroundUrl is not null ? AbsoluteUrl(raw.BackgroundUrl) : null,
+                LogoUrl          = raw.LogoUrl is not null ? AbsoluteUrl(raw.LogoUrl) : null,
             };
         }
         catch (Exception ex)
@@ -2037,6 +2058,25 @@ public sealed class EngineApiClient : IEngineApiClient
             _logger.LogWarning(ex, "GET /persons/{PersonId} failed", personId);
             LastError = ex.Message;
             return null;
+        }
+    }
+
+    public async Task<List<PersonLibraryCreditViewModel>> GetPersonLibraryCreditsAsync(
+        Guid personId, CancellationToken ct = default)
+    {
+        try
+        {
+            var credits = await _http.GetFromJsonAsync<List<PersonLibraryCreditViewModel>>(
+                $"/persons/{personId}/library-credits", ct);
+
+            NormalizePersonLibraryCredits(credits);
+            return credits ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons/{PersonId}/library-credits failed", personId);
+            LastError = ex.Message;
+            return [];
         }
     }
 
@@ -3113,6 +3153,11 @@ public sealed class EngineApiClient : IEngineApiClient
                 cast.ActorHeadshotUrl = AbsoluteUrl(cast.ActorHeadshotUrl);
             if (cast.CharacterImageUrl is not null)
                 cast.CharacterImageUrl = AbsoluteUrl(cast.CharacterImageUrl);
+            foreach (var character in cast.Characters)
+            {
+                if (character.PortraitUrl is not null)
+                    character.PortraitUrl = AbsoluteUrl(character.PortraitUrl);
+            }
         }
 
         foreach (var season in detail.Seasons)
@@ -3142,6 +3187,46 @@ public sealed class EngineApiClient : IEngineApiClient
             work.BannerUrl = AbsoluteUrl(work.BannerUrl);
         if (work.HeroUrl is not null)
             work.HeroUrl = AbsoluteUrl(work.HeroUrl);
+    }
+
+    private void NormalizeCastCredits(List<CollectionGroupPersonViewModel>? castCredits)
+    {
+        if (castCredits is null)
+            return;
+
+        foreach (var cast in castCredits)
+        {
+            if (cast.HeadshotUrl is not null)
+                cast.HeadshotUrl = AbsoluteUrl(cast.HeadshotUrl);
+            if (cast.ActorHeadshotUrl is not null)
+                cast.ActorHeadshotUrl = AbsoluteUrl(cast.ActorHeadshotUrl);
+            if (cast.CharacterImageUrl is not null)
+                cast.CharacterImageUrl = AbsoluteUrl(cast.CharacterImageUrl);
+
+            foreach (var character in cast.Characters)
+            {
+                if (character.PortraitUrl is not null)
+                    character.PortraitUrl = AbsoluteUrl(character.PortraitUrl);
+            }
+        }
+    }
+
+    private void NormalizePersonLibraryCredits(List<PersonLibraryCreditViewModel>? credits)
+    {
+        if (credits is null)
+            return;
+
+        foreach (var credit in credits)
+        {
+            if (credit.CoverUrl is not null)
+                credit.CoverUrl = AbsoluteUrl(credit.CoverUrl);
+
+            foreach (var character in credit.Characters)
+            {
+                if (character.PortraitUrl is not null)
+                    character.PortraitUrl = AbsoluteUrl(character.PortraitUrl);
+            }
+        }
     }
 
     /// <summary>
@@ -3256,6 +3341,9 @@ public sealed class EngineApiClient : IEngineApiClient
         parentCollectionId:   h.ParentCollectionId,
         parentCollectionName: h.ParentCollectionName,
         childCollectionCount: h.ChildCollectionCount);
+
+    private static GroupMemberView MapGroupMember(GroupMemberRaw groupMember) =>
+        new(groupMember.Id, groupMember.Name ?? string.Empty, groupMember.DateRange);
 
     private CollectionViewModel MapParentCollection(ParentCollectionRaw h) => CollectionViewModel.FromParentCollection(
         h.Id,
@@ -3613,8 +3701,19 @@ public sealed class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("tiktok")]             string?         TikTok,
         [property: JsonPropertyName("mastodon")]           string?         Mastodon,
         [property: JsonPropertyName("website")]            string?         Website,
+        [property: JsonPropertyName("is_group")]           bool            IsGroup,
+        [property: JsonPropertyName("group_members")]      List<GroupMemberRaw>? GroupMembers,
+        [property: JsonPropertyName("member_of_groups")]   List<GroupMemberRaw>? MemberOfGroups,
+        [property: JsonPropertyName("banner_url")]         string?         BannerUrl,
+        [property: JsonPropertyName("background_url")]     string?         BackgroundUrl,
+        [property: JsonPropertyName("logo_url")]           string?         LogoUrl,
         [property: JsonPropertyName("created_at")]         DateTimeOffset  CreatedAt,
         [property: JsonPropertyName("enriched_at")]        DateTimeOffset? EnrichedAt);
+
+    private sealed record GroupMemberRaw(
+        [property: JsonPropertyName("id")]         Guid    Id,
+        [property: JsonPropertyName("name")]       string? Name,
+        [property: JsonPropertyName("date_range")] string? DateRange);
 
     // ── GET /ai/profile ───────────────────────────────────────────────────────
 
@@ -4177,8 +4276,12 @@ public sealed class EngineApiClient : IEngineApiClient
             {
                 FictionalEntityId = r.FictionalEntityId,
                 CharacterName     = r.CharacterName,
-                PortraitUrl       = r.PortraitUrl,
+                PortraitUrl       = r.PortraitUrl is not null ? AbsoluteUrl(r.PortraitUrl) : null,
+                WorkId            = r.WorkId,
+                WorkQid           = r.WorkQid,
                 WorkTitle         = r.WorkTitle,
+                CollectionId      = r.CollectionId,
+                MediaType         = r.MediaType,
                 IsDefault         = r.IsDefault,
                 UniverseQid       = r.UniverseQid,
                 UniverseLabel     = r.UniverseLabel,
@@ -4228,6 +4331,24 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /library/assets/{EntityId} failed", entityId);
+            return [];
+        }
+    }
+
+    public async Task<List<CollectionGroupPersonViewModel>> GetWorkCastAsync(Guid workId, CancellationToken ct = default)
+    {
+        try
+        {
+            var cast = await _http.GetFromJsonAsync<List<CollectionGroupPersonViewModel>>(
+                $"/works/{workId}/cast", ct);
+
+            NormalizeCastCredits(cast);
+            return cast ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /works/{WorkId}/cast failed", workId);
+            LastError = ex.Message;
             return [];
         }
     }
@@ -4423,7 +4544,11 @@ public sealed class EngineApiClient : IEngineApiClient
         [JsonPropertyName("fictional_entity_id")] public Guid    FictionalEntityId { get; set; }
         [JsonPropertyName("character_name")]      public string? CharacterName     { get; set; }
         [JsonPropertyName("portrait_url")]        public string? PortraitUrl       { get; set; }
+        [JsonPropertyName("work_id")]             public Guid?   WorkId            { get; set; }
+        [JsonPropertyName("work_qid")]            public string? WorkQid           { get; set; }
         [JsonPropertyName("work_title")]          public string? WorkTitle         { get; set; }
+        [JsonPropertyName("collection_id")]       public Guid?   CollectionId      { get; set; }
+        [JsonPropertyName("media_type")]          public string? MediaType         { get; set; }
         [JsonPropertyName("is_default")]          public bool    IsDefault         { get; set; }
         [JsonPropertyName("universe_qid")]        public string? UniverseQid       { get; set; }
         [JsonPropertyName("universe_label")]      public string? UniverseLabel     { get; set; }

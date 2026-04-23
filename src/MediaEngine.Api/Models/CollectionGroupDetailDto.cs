@@ -90,7 +90,7 @@ public sealed class CollectionGroupDetailDto
     /// on click.
     /// </summary>
     [JsonPropertyName("top_cast")]
-    public List<CollectionGroupPersonDto> TopCast { get; init; } = [];
+    public List<CastCreditDto> TopCast { get; init; } = [];
 
     /// <summary>Child works grouped into seasons. Populated for TV media type only.</summary>
     [JsonPropertyName("seasons")]
@@ -201,45 +201,6 @@ public sealed class CollectionGroupWorkDto
     /// <summary>Stage 3 (universe enrichment) pipeline status for this work's primary asset.</summary>
     [JsonPropertyName("stage3")]
     public LibraryPipelineStageDto? Stage3 { get; init; }
-}
-
-/// <summary>
-/// A lightweight person reference for cast/crew chips on group detail views.
-/// The <see cref="PersonId"/> is null when no local Person record exists for
-/// the name (e.g. Wikidata returned a cast member we haven't reconciled yet);
-/// the Dashboard still renders the chip but click-through is disabled.
-/// </summary>
-public sealed class CollectionGroupPersonDto
-{
-    [JsonPropertyName("person_id")]
-    public Guid? PersonId { get; init; }
-
-    [JsonPropertyName("name")]
-    public required string Name { get; init; }
-
-    [JsonPropertyName("actor_person_id")]
-    public Guid? ActorPersonId { get; init; }
-
-    [JsonPropertyName("actor_name")]
-    public string? ActorName { get; init; }
-
-    [JsonPropertyName("wikidata_qid")]
-    public string? WikidataQid { get; init; }
-
-    [JsonPropertyName("headshot_url")]
-    public string? HeadshotUrl { get; init; }
-
-    [JsonPropertyName("actor_headshot_url")]
-    public string? ActorHeadshotUrl { get; init; }
-
-    [JsonPropertyName("character_name")]
-    public string? CharacterName { get; init; }
-
-    [JsonPropertyName("character_qid")]
-    public string? CharacterQid { get; init; }
-
-    [JsonPropertyName("character_image_url")]
-    public string? CharacterImageUrl { get; init; }
 }
 
 /// <summary>Pipeline stage indicator (state + label) for a single hydration stage.</summary>

@@ -140,26 +140,43 @@ window.positionDiscoveryCardHover = function (cardEl) {
 
         var cardRect = cardEl.getBoundingClientRect();
         var panelWidth = panel.offsetWidth;
+        var panelHeight = panel.offsetHeight;
         var gutter = 12;
-        var shift = 0;
+        var shiftX = 0;
+        var shiftY = 0;
         var panelLeft = cardRect.left;
+        var computedStyle = window.getComputedStyle(cardEl);
+        var hoverLift = parseFloat(computedStyle.getPropertyValue('--discovery-hover-lift')) || 0;
+        var defaultTop = cardRect.top - hoverLift;
 
         if (panelLeft < gutter) {
-            shift = gutter - panelLeft;
+            shiftX = gutter - panelLeft;
         }
 
-        var overflowRight = panelLeft + shift + panelWidth - (window.innerWidth - gutter);
+        var overflowRight = panelLeft + shiftX + panelWidth - (window.innerWidth - gutter);
         if (overflowRight > 0) {
-            shift -= overflowRight;
+            shiftX -= overflowRight;
         }
 
-        cardEl.style.setProperty('--discovery-hover-shift-x', shift + 'px');
+        var overflowBottom = defaultTop + panelHeight - (window.innerHeight - gutter);
+        if (overflowBottom > 0) {
+            shiftY -= overflowBottom;
+        }
+
+        var overflowTop = defaultTop + shiftY - gutter;
+        if (overflowTop < 0) {
+            shiftY += Math.abs(overflowTop);
+        }
+
+        cardEl.style.setProperty('--discovery-hover-shift-x', shiftX + 'px');
+        cardEl.style.setProperty('--discovery-hover-shift-y', shiftY + 'px');
     });
 };
 
 window.clearDiscoveryCardHover = function (cardEl) {
     if (!cardEl) return;
     cardEl.style.setProperty('--discovery-hover-shift-x', '0px');
+    cardEl.style.setProperty('--discovery-hover-shift-y', '0px');
 };
 
 window.registerDiscoveryCardHover = function (cardEl) {

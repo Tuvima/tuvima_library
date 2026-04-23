@@ -120,23 +120,24 @@ else
             </div>
         </section>
 
-        @if (_people.Count > 0)
+        @if (_cast.Count > 0)
         {
             <section class="watch-tv-section">
                 <div class="watch-tv-section__header">
-                    <h2>People</h2>
+                    <h2>Cast</h2>
                 </div>
 
                 <div class="watch-tv-rail watch-tv-rail--cast">
-                    @foreach (var person in _people.Take(12))
+                    @foreach (var cast in _cast.Take(12))
                     {
                         <button type="button"
                                 class="watch-tv-cast-card"
-                                @onclick="@(() => OpenPerson(person.Id))">
+                                @onclick="@(() => OpenPerson(cast.PersonId))"
+                                disabled="@(!cast.PersonId.HasValue)">
                             <div class="watch-tv-cast-card__image">
-                                @if (!string.IsNullOrWhiteSpace(person.LocalHeadshotUrl) || !string.IsNullOrWhiteSpace(person.HeadshotUrl))
+                                @if (!string.IsNullOrWhiteSpace(GetCastImage(cast)))
                                 {
-                                    <img src="@(person.LocalHeadshotUrl ?? person.HeadshotUrl)" alt="@person.Name" />
+                                    <img src="@GetCastImage(cast)" alt="@GetCastName(cast)" />
                                 }
                                 else
                                 {
@@ -145,7 +146,10 @@ else
                                     </div>
                                 }
                             </div>
-                            <div class="watch-tv-cast-card__name">@person.Name</div>
+                            @{
+                                var person = new { Roles = new[] { GetCastRole(cast) } };
+                            }
+                            <div class="watch-tv-cast-card__name">@GetCastName(cast)</div>
                             <div class="watch-tv-cast-card__role">@string.Join(" · ", person.Roles.Take(2))</div>
                         </button>
                     }
@@ -197,7 +201,7 @@ else
     private ProgressStateDto? _progress;
     private Guid? _activeProfileId;
     private WatchlistMembership? _watchlist;
-    private List<PersonViewModel> _people = [];
+    private List<CollectionGroupPersonViewModel> _cast = [];
     private Guid? _collectionId;
     private bool _loading = true;
     private bool _watchlistBusy;
@@ -252,13 +256,13 @@ else
         var movieTask = ApiClient.GetRegistryItemDetailAsync(WorkId);
         var worksTask = Orchestrator.GetLibraryWorksAsync();
         var profileTask = Orchestrator.GetActiveProfileAsync();
-        var peopleTask = Orchestrator.GetPersonsByWorkAsync(WorkId);
+        var castTask = Orchestrator.GetWorkCastAsync(WorkId);
 
-        await Task.WhenAll(movieTask, worksTask, profileTask, peopleTask);
+        await Task.WhenAll(movieTask, worksTask, profileTask, castTask);
 
         _movie = movieTask.Result;
         _activeProfileId = profileTask.Result?.Id;
-        _people = peopleTask.Result;
+        _cast = castTask.Result;
 
         var work = worksTask.Result.FirstOrDefault(item => item.Id == WorkId);
         _collectionId = CollectionId ?? work?.CollectionId;
@@ -334,9 +338,10 @@ else
         Nav.NavigateTo($"/collection/{collection.Id}");
     }
 
-    private void OpenPerson(Guid personId)
+    private void OpenPerson(Guid? personId)
     {
-        Nav.NavigateTo($"/person/{personId}");
+        if (personId.HasValue)
+            Nav.NavigateTo($"/person/{personId.Value}");
     }
 
     private void GoBack()
@@ -365,6 +370,32 @@ else
         }
 
         return queryParts.Count == 0 ? path : $"{path}?{string.Join("&", queryParts)}";
+    }
+
+    private static string? GetCastImage(CollectionGroupPersonViewModel cast) =>
+        cast.Characters.FirstOrDefault()?.PortraitUrl
+        ?? cast.CharacterImageUrl
+        ?? cast.ActorHeadshotUrl
+        ?? cast.HeadshotUrl;
+
+    private static string GetCastName(CollectionGroupPersonViewModel cast) =>
+        cast.ActorName ?? cast.Name;
+
+    private static string GetCastRole(CollectionGroupPersonViewModel cast)
+    {
+        var characterNames = cast.Characters
+            .Select(character => character.CharacterName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Cast<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (characterNames.Count > 0)
+            return $"as {string.Join(", ", characterNames)}";
+
+        return cast.CharacterName is { Length: > 0 } characterName
+            ? $"as {characterName}"
+            : "Cast";
     }
 }
 
