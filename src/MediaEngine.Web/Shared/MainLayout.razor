@@ -25,12 +25,6 @@
 
 <MudLayout Class="app-bg">
     <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="layout-shell__appbar">
-        <MudIconButton Icon="@Icons.Material.Outlined.Menu"
-                       Color="Color.Inherit"
-                       Class="layout-shell__mobile-menu"
-                       aria-label="@(_isMobileDrawerOpen ? L["Nav_CloseNavigation"] : L["Nav_OpenNavigation"])"
-                       OnClick="@ToggleMobileDrawer" />
-
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="layout-shell__left-rail">
             <MudLink Href="/" Underline="Underline.None" Class="layout-shell__brand-link" aria-label="Tuvima Library">
                 <AppLogo Variant="mark" Class="layout-shell__brand-mark" />
@@ -120,56 +114,6 @@
         </MudStack>
     </MudAppBar>
 
-    <MudDrawer @bind-Open="_isMobileDrawerOpen"
-               Anchor="Anchor.Start"
-               Variant="DrawerVariant.Temporary"
-               Overlay="true"
-               Elevation="0"
-               Width="300px"
-               Class="layout-shell__drawer">
-        <MudDrawerHeader Class="layout-shell__drawer-header">
-            <MudLink Href="/" Underline="Underline.None" Class="layout-shell__brand-link" aria-label="Tuvima Library">
-                <AppLogo Variant="mark" Class="layout-shell__brand-mark" />
-                <span class="layout-shell__brand-wordmark">Library</span>
-            </MudLink>
-            <MudSpacer />
-            <MudIconButton Icon="@Icons.Material.Outlined.Close"
-                           aria-label="@L["Nav_CloseNavigation"]"
-                           OnClick="@CloseMobileDrawer" />
-        </MudDrawerHeader>
-
-        <MudNavMenu Class="layout-shell__drawer-nav">
-            @foreach (var link in _navLinks)
-            {
-                <MudNavLink Href="@link.Path"
-                            Match="@link.Match"
-                            Icon="@link.Icon"
-                            ActiveClass="layout-shell__drawer-link--active"
-                            Class="layout-shell__drawer-link">
-                    @L[link.LabelKey]
-                </MudNavLink>
-            }
-
-            <MudDivider Class="my-3" />
-
-            <MudNavLink Href="/settings/review"
-                        Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Outlined.RateReview"
-                        ActiveClass="layout-shell__drawer-link--active"
-                        Class="layout-shell__drawer-link">
-                @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
-            </MudNavLink>
-
-            <MudNavLink Href="/settings"
-                        Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Outlined.Settings"
-                        ActiveClass="layout-shell__drawer-link--active"
-                        Class="layout-shell__drawer-link">
-                @L["Nav_Settings"]
-            </MudNavLink>
-        </MudNavMenu>
-    </MudDrawer>
-
     <MudMainContent Class="main-content-with-topbar">
         <MudContainer MaxWidth="MaxWidth.False" Class="py-6 px-0">
             @Body
@@ -187,7 +131,6 @@
     private string _displayName = "User";
     private string _engineStatusSummary = string.Empty;
     private string _searchTerm = string.Empty;
-    private bool _isMobileDrawerOpen;
     private int _reviewCount;
 
     private readonly record struct ShellNavLink(string Path, string Icon, string LabelKey, NavLinkMatch Match);
@@ -247,14 +190,9 @@
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        _isMobileDrawerOpen = false;
         SyncLocationState();
         InvokeAsync(StateHasChanged);
     }
-
-    private void ToggleMobileDrawer() => _isMobileDrawerOpen = !_isMobileDrawerOpen;
-
-    private void CloseMobileDrawer() => _isMobileDrawerOpen = false;
 
     private Task HandleSearchKeyDown(KeyboardEventArgs args)
     {
@@ -273,13 +211,11 @@
             ? "/search"
             : $"/search?q={Uri.EscapeDataString(trimmedSearch)}";
 
-        _isMobileDrawerOpen = false;
         Nav.NavigateTo(url);
     }
 
     private void OpenReviewQueue()
     {
-        _isMobileDrawerOpen = false;
         Nav.NavigateTo("/settings/review");
     }
 

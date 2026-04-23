@@ -54,6 +54,7 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.Single(cut.FindAll(".mud-appbar"));
             Assert.Equal(4, cut.FindAll(".layout-shell__nav-link").Count);
+            Assert.Empty(cut.FindAll(".layout-shell__mobile-menu"));
             Assert.Contains("Body content", cut.Markup);
             Assert.Contains("Library", cut.Markup);
             Assert.Contains("Search your library", cut.Markup);

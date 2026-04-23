@@ -29,12 +29,15 @@
     gap: 0.72rem;
     color: inherit;
     min-width: 0;
+    flex-shrink: 0;
 }
 
 ::deep .layout-shell__brand-mark {
     display: block;
-    height: 1.8rem;
-    width: 1.8rem;
+    width: 1.18rem;
+    height: 1.18rem;
+    min-width: 1.18rem;
+    min-height: 1.18rem;
     color: #c3922e;
     flex: 0 0 auto;
 }
@@ -42,26 +45,28 @@
 .layout-shell__brand-wordmark {
     color: rgba(244, 244, 233, 0.92);
     font-family: "Montserrat", sans-serif;
-    font-size: 0.92rem;
+    font-size: 0.78rem;
     font-weight: 500;
-    letter-spacing: 0.42em;
+    letter-spacing: 0.34em;
     text-transform: uppercase;
     white-space: nowrap;
+    line-height: 1;
 }
 
 .layout-shell__desktop-nav {
     margin-left: 0.25rem;
+    flex-wrap: nowrap;
 }
 
 ::deep .layout-shell__nav-link {
     min-height: 2.25rem;
-    padding-inline: 0.8rem !important;
+    padding-inline: 0.72rem !important;
     border-radius: 999px;
     color: rgba(231, 237, 233, 0.82) !important;
     font-family: "Montserrat", sans-serif;
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
@@ -77,15 +82,17 @@
 }
 
 .layout-shell__search-shell {
-    flex: 1 1 auto;
+    flex: 0 1 auto;
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     min-width: 0;
     padding-inline: 0.5rem;
+    margin-left: auto;
 }
 
 ::deep .layout-shell__search {
-    width: min(26rem, 100%);
+    width: clamp(11rem, 22vw, 18rem);
+    max-width: 18rem;
     margin: 0;
 }
 
@@ -135,64 +142,21 @@
     color: rgba(226, 232, 240, 0.82);
 }
 
-::deep .layout-shell__drawer .mud-drawer {
-    padding: 1rem;
-    background: rgba(8, 13, 30, 0.98) !important;
-    border-right: 1px solid rgba(148, 163, 184, 0.16);
-}
-
-.layout-shell__drawer-header {
-    gap: 0.75rem;
-    padding: 0 0 1rem;
-}
-
-.layout-shell__drawer-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-}
-
-::deep .layout-shell__drawer-link {
-    border-radius: 0.95rem;
-    color: rgba(226, 232, 240, 0.82) !important;
-    font-weight: 600;
-}
-
-::deep .layout-shell__drawer-link:hover {
-    background: rgba(255, 255, 255, 0.06) !important;
-    color: rgba(248, 250, 252, 0.98) !important;
-}
-
-::deep .layout-shell__drawer-link--active {
-    background: rgba(30, 64, 175, 0.22) !important;
-    color: rgba(248, 250, 252, 0.98) !important;
-}
-
-.layout-shell__mobile-menu {
-    display: none;
-}
-
 @media (max-width: 1100px) {
     ::deep .layout-shell__search {
-        width: min(20rem, 100%);
+        width: clamp(10rem, 20vw, 15rem);
+        max-width: 15rem;
     }
 }
 
 @media (max-width: 860px) {
-    .layout-shell__mobile-menu {
-        display: inline-flex;
-    }
-
     .layout-shell__brand-wordmark {
-        letter-spacing: 0.34em;
-    }
-
-    .layout-shell__desktop-nav {
-        display: none !important;
+        letter-spacing: 0.26em;
     }
 
     ::deep .layout-shell__search {
-        width: min(14rem, 100%);
+        width: clamp(9rem, 18vw, 12rem);
+        max-width: 12rem;
     }
 }
 
@@ -200,18 +164,21 @@
     .layout-shell__appbar {
         padding: 0 0.7rem;
         gap: 0.5rem;
+        overflow-x: auto;
     }
 
     .layout-shell__brand-wordmark {
-        font-size: 0.8rem;
-        letter-spacing: 0.28em;
+        font-size: 0.7rem;
+        letter-spacing: 0.18em;
     }
 
     .layout-shell__search-shell {
         padding-inline: 0;
+        margin-left: 0;
     }
 
     ::deep .layout-shell__search {
-        width: min(11rem, 100%);
+        width: 9rem;
+        max-width: 9rem;
     }
 }
