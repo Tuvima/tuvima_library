@@ -29,17 +29,17 @@
 .layout-shell__brand-link {
     display: flex;
     align-items: center;
-    gap: 0.72rem;
+    gap: 0.5rem;
     color: inherit;
     min-width: 0;
     flex-shrink: 0;
 }
 
 .layout-shell__brand-mark-shell {
-    width: 0.98rem;
-    height: 0.98rem;
-    min-width: 0.98rem;
-    min-height: 0.98rem;
+    width: 1.22rem;
+    height: 1.22rem;
+    min-width: 1.22rem;
+    min-height: 1.22rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -59,14 +59,17 @@
 }
 
 .layout-shell__brand-wordmark {
+    display: inline-flex;
+    align-items: center;
     color: rgba(244, 244, 233, 0.92);
     font-family: "Montserrat", sans-serif;
-    font-size: 0.74rem;
+    font-size: 0.76rem;
     font-weight: 500;
     letter-spacing: 0.3em;
     text-transform: uppercase;
     white-space: nowrap;
     line-height: 1;
+    transform: translateY(0.02rem);
 }
 
 .layout-shell__desktop-nav {
@@ -168,7 +171,7 @@
 
 @media (max-width: 860px) {
     .layout-shell__brand-wordmark {
-        font-size: 0.7rem;
+        font-size: 0.72rem;
         letter-spacing: 0.22em;
     }
 
