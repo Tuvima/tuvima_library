@@ -136,14 +136,13 @@
     private string _searchTerm = string.Empty;
     private int _reviewCount;
 
-    private readonly record struct ShellNavLink(string Path, string Icon, string LabelKey, NavLinkMatch Match);
+    private readonly record struct ShellNavLink(string Path, string LabelKey, NavLinkMatch Match);
 
     private static readonly ShellNavLink[] _navLinks =
     [
-        new("/", Icons.Material.Outlined.Home, "Nav_Home", NavLinkMatch.All),
-        new("/read", Icons.Material.Outlined.AutoStories, "Nav_Read", NavLinkMatch.Prefix),
-        new("/watch", Icons.Material.Outlined.LiveTv, "Nav_Watch", NavLinkMatch.Prefix),
-        new("/listen", Icons.Material.Outlined.Headphones, "Nav_Listen", NavLinkMatch.Prefix),
+        new("/read", "Nav_Read", NavLinkMatch.Prefix),
+        new("/watch", "Nav_Watch", NavLinkMatch.Prefix),
+        new("/listen", "Nav_Listen", NavLinkMatch.Prefix),
     ];
 
     [Inject] private IJSRuntime JS { get; set; } = default!;

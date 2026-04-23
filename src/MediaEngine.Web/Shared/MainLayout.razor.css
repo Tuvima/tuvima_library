@@ -35,10 +35,10 @@
 }
 
 .layout-shell__brand-lockup-shell {
-    width: 6.35rem;
-    height: 1.56rem;
-    min-width: 6.35rem;
-    min-height: 1.56rem;
+    width: 7.6rem;
+    height: 1.88rem;
+    min-width: 7.6rem;
+    min-height: 1.88rem;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -65,13 +65,13 @@
 
 ::deep .layout-shell__nav-link {
     min-height: 2.25rem;
-    padding-inline: 0.72rem !important;
+    padding-inline: 0.64rem !important;
     border-radius: 999px;
     color: rgba(231, 237, 233, 0.82) !important;
     font-family: "Montserrat", sans-serif;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
+    font-size: 0.76rem;
+    font-weight: 300;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
 }
 
@@ -156,10 +156,10 @@
 
 @media (max-width: 860px) {
     .layout-shell__brand-lockup-shell {
-        width: 5.8rem;
-        height: 1.42rem;
-        min-width: 5.8rem;
-        min-height: 1.42rem;
+        width: 6.9rem;
+        height: 1.7rem;
+        min-width: 6.9rem;
+        min-height: 1.7rem;
     }
 
     ::deep .layout-shell__search {
@@ -175,10 +175,10 @@
     }
 
     .layout-shell__brand-lockup-shell {
-        width: 5.2rem;
-        height: 1.28rem;
-        min-width: 5.2rem;
-        min-height: 1.28rem;
+        width: 6rem;
+        height: 1.48rem;
+        min-width: 6rem;
+        min-height: 1.48rem;
     }
 
     .layout-shell__search-shell {
