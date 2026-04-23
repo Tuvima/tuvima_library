@@ -27,7 +27,11 @@
     <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="layout-shell__appbar">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="layout-shell__left-rail">
             <MudLink Href="/" Underline="Underline.None" Class="layout-shell__brand-link" aria-label="Tuvima Library">
-                <AppLogo Variant="mark" Class="layout-shell__brand-mark" />
+                <span class="layout-shell__brand-mark-shell" aria-hidden="true">
+                    <AppLogo Variant="mark"
+                             Class="layout-shell__brand-mark"
+                             Style="width:100%;height:100%;display:block;" />
+                </span>
                 <span class="layout-shell__brand-wordmark">Library</span>
             </MudLink>
 

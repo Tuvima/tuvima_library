@@ -8,6 +8,7 @@
 }
 
 .layout-shell__appbar {
+    flex-wrap: nowrap;
     gap: 0.9rem;
     min-height: var(--app-topbar-height, 64px);
     padding: 0 0.95rem;
@@ -16,11 +17,13 @@
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 12px 30px rgba(4, 10, 9, 0.22);
+    overflow: hidden;
 }
 
 .layout-shell__left-rail {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
 }
 
 .layout-shell__brand-link {
@@ -32,12 +35,25 @@
     flex-shrink: 0;
 }
 
+.layout-shell__brand-mark-shell {
+    width: 0.98rem;
+    height: 0.98rem;
+    min-width: 0.98rem;
+    min-height: 0.98rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    line-height: 0;
+    overflow: hidden;
+}
+
 ::deep .layout-shell__brand-mark {
     display: block;
-    width: 1.18rem;
-    height: 1.18rem;
-    min-width: 1.18rem;
-    min-height: 1.18rem;
+    width: 100%;
+    height: 100%;
+    min-width: 100%;
+    min-height: 100%;
     color: #c3922e;
     flex: 0 0 auto;
 }
@@ -45,15 +61,16 @@
 .layout-shell__brand-wordmark {
     color: rgba(244, 244, 233, 0.92);
     font-family: "Montserrat", sans-serif;
-    font-size: 0.78rem;
+    font-size: 0.74rem;
     font-weight: 500;
-    letter-spacing: 0.34em;
+    letter-spacing: 0.3em;
     text-transform: uppercase;
     white-space: nowrap;
     line-height: 1;
 }
 
 .layout-shell__desktop-nav {
+    min-width: 0;
     margin-left: 0.25rem;
     flex-wrap: nowrap;
 }
@@ -91,8 +108,8 @@
 }
 
 ::deep .layout-shell__search {
-    width: clamp(11rem, 22vw, 18rem);
-    max-width: 18rem;
+    width: clamp(9.5rem, 17vw, 14rem);
+    max-width: 14rem;
     margin: 0;
 }
 
@@ -144,19 +161,20 @@
 
 @media (max-width: 1100px) {
     ::deep .layout-shell__search {
-        width: clamp(10rem, 20vw, 15rem);
-        max-width: 15rem;
+        width: clamp(9rem, 16vw, 12rem);
+        max-width: 12rem;
     }
 }
 
 @media (max-width: 860px) {
     .layout-shell__brand-wordmark {
-        letter-spacing: 0.26em;
+        font-size: 0.7rem;
+        letter-spacing: 0.22em;
     }
 
     ::deep .layout-shell__search {
-        width: clamp(9rem, 18vw, 12rem);
-        max-width: 12rem;
+        width: clamp(8rem, 14vw, 10rem);
+        max-width: 10rem;
     }
 }
 
@@ -164,12 +182,10 @@
     .layout-shell__appbar {
         padding: 0 0.7rem;
         gap: 0.5rem;
-        overflow-x: auto;
     }
 
     .layout-shell__brand-wordmark {
-        font-size: 0.7rem;
-        letter-spacing: 0.18em;
+        display: none;
     }
 
     .layout-shell__search-shell {
@@ -178,7 +194,7 @@
     }
 
     ::deep .layout-shell__search {
-        width: 9rem;
-        max-width: 9rem;
+        width: 7.5rem;
+        max-width: 7.5rem;
     }
 }
