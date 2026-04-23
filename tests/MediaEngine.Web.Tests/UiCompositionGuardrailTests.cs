@@ -11,6 +11,10 @@ public sealed class UiCompositionGuardrailTests
     [
         "src/MediaEngine.Web/Shared/MainLayout.razor",
         "src/MediaEngine.Web/Components/Navigation/CommandPalette.razor",
+        "src/MediaEngine.Web/Components/Pages/SearchPage.razor",
+        "src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor",
+        "src/MediaEngine.Web/Components/Pages/ChronicleExplorer.razor",
+        "src/MediaEngine.Web/Components/Pages/PersonDetail.razor",
         "src/MediaEngine.Web/Components/Pages/Settings.razor",
         "src/MediaEngine.Web/Components/Settings/OverviewTab.razor",
         "src/MediaEngine.Web/Components/Settings/SystemTab.razor",

@@ -31,7 +31,7 @@ public sealed class ThemeService
         {
             LayoutProperties = new LayoutProperties
             {
-                DefaultBorderRadius = "10px",
+                DefaultBorderRadius = "4px",
             },
 
             PaletteDark = new PaletteDark

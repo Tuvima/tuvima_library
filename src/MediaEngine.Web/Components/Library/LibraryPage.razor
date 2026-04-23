@@ -31,7 +31,7 @@
             {
                 <MudTabs ActivePanelIndex="@ActiveVisibleMediaTabIndex"
                          ActivePanelIndexChanged="OnVisibleMediaTabChanged"
-                         Rounded="true"
+                 Rounded="false"
                          Border="false"
                          Elevation="0"
                          Class="vault-tab-bar">
@@ -45,7 +45,7 @@
             {
                 <MudTabs ActivePanelIndex="@ActivePrimaryTabIndex"
                          ActivePanelIndexChanged="OnPrimaryTabChanged"
-                         Rounded="true"
+                 Rounded="false"
                          Border="false"
                          Elevation="0"
                          Class="vault-tab-bar">
@@ -73,7 +73,7 @@
             <div class="vault-subtab-row">
                 <MudTabs ActivePanelIndex="@ActiveSubTabIndex"
                          ActivePanelIndexChanged="OnSubTabChanged"
-                         Rounded="true"
+                     Rounded="false"
                          Border="false"
                          Elevation="0"
                          SliderColor="Color.Secondary"
@@ -2481,7 +2481,7 @@
 
     .vault-view-modes .mud-chip {
         min-height: 2.5rem;
-        border-radius: 999px;
+        border-radius: var(--app-radius-md);
         background: rgba(255, 255, 255, 0.02);
         color: rgba(255, 255, 255, 0.65);
     }
@@ -2754,7 +2754,7 @@
         font-size: 11px;
         color: rgba(255, 255, 255, 0.45);
         padding: 2px 8px;
-        border-radius: 999px;
+        border-radius: var(--app-radius-sm);
         background: rgba(255, 255, 255, 0.04);
     }
     .vault-progress-recent {

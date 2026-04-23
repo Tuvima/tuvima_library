@@ -28,7 +28,7 @@
 
                 <MudTabs ActivePanelIndex="@ActiveBrowseTabIndex"
                          ActivePanelIndexChanged="OnBrowseTabChanged"
-                         Rounded="true"
+                         Rounded="false"
                          Border="false"
                          Elevation="0"
                          Class="browse-shell__tabs">
@@ -1122,7 +1122,7 @@
         flex-direction: column;
         gap: 16px;
         padding: 18px 20px;
-        border-radius: 24px;
+        border-radius: var(--app-radius-md);
         background: rgba(7, 10, 18, 0.84);
         border: 1px solid rgba(255, 255, 255, 0.06);
         box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
@@ -1179,7 +1179,7 @@
 
     .browse-shell__tabs .mud-tab {
         min-height: 2.75rem;
-        border-radius: 999px;
+        border-radius: var(--app-radius-md);
         background: rgba(255, 255, 255, 0.03);
         color: rgba(255, 255, 255, 0.7);
     }
@@ -1191,7 +1191,7 @@
 
     .browse-shell__back,
     .browse-shell__load-more-button {
-        border-radius: 999px;
+        border-radius: var(--app-radius-md);
         font-size: 0.85rem;
         font-weight: 700;
         text-transform: none;
@@ -1213,7 +1213,7 @@
     }
 
     .browse-shell__search .mud-input-outlined {
-        border-radius: 999px;
+        border-radius: var(--app-radius-md);
         background: rgba(255, 255, 255, 0.04);
     }
 
@@ -1239,7 +1239,7 @@
     }
 
     .browse-shell__sort .mud-input-outlined {
-        border-radius: 999px;
+        border-radius: var(--app-radius-md);
         background: rgba(255, 255, 255, 0.04);
     }
 
@@ -1251,7 +1251,7 @@
     .browse-shell__groupings .mud-chip,
     .browse-shell__layout-toggle .mud-chip {
         min-height: 2.5rem;
-        border-radius: 999px;
+        border-radius: var(--app-radius-md);
         background: rgba(255, 255, 255, 0.03);
         color: rgba(255, 255, 255, 0.7);
     }
@@ -1308,7 +1308,7 @@
     @@media (max-width: 900px) {
         .browse-shell__toolbar-panel {
             padding: 16px;
-            border-radius: 20px;
+            border-radius: var(--app-radius-md);
         }
 
         .browse-shell__controls {

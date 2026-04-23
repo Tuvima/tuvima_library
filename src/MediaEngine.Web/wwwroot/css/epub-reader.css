@@ -194,7 +194,7 @@
     color: var(--reader-chrome-text);
     cursor: pointer;
     padding: 8px;
-    border-radius: 8px;
+    border-radius: var(--app-radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -240,7 +240,7 @@
     color: var(--reader-chrome-text);
     cursor: pointer;
     padding: 8px;
-    border-radius: 8px;
+    border-radius: var(--app-radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -369,7 +369,7 @@
     right: 0;
     bottom: 0;
     background: rgba(0, 0, 0, 0.5);
-    z-index: 1300;
+    z-index: var(--app-z-modal-backdrop);
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.3s ease;
@@ -389,7 +389,7 @@
     background: var(--reader-chrome-bg);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    z-index: 1310;
+    z-index: var(--app-z-drawer);
     transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     display: flex;
     flex-direction: column;
@@ -439,7 +439,7 @@
     color: var(--reader-chrome-text-dim);
     cursor: pointer;
     padding: 6px;
-    border-radius: 6px;
+    border-radius: var(--app-radius-md);
     display: flex;
     align-items: center;
     transition: background 0.15s ease;
@@ -512,7 +512,7 @@
 
 .reader-font-chip {
     padding: 6px 14px;
-    border-radius: 20px;
+    border-radius: var(--app-radius-md);
     border: 1px solid var(--reader-chrome-border);
     background: transparent;
     color: var(--reader-chrome-text);
@@ -689,7 +689,7 @@
 .reader-search-input {
     width: 100%;
     padding: 10px 14px;
-    border-radius: 8px;
+    border-radius: var(--app-radius-md);
     border: 1px solid var(--reader-chrome-border);
     background: rgba(255, 255, 255, 0.04);
     color: var(--reader-chrome-text);
@@ -741,12 +741,12 @@
 
 .reader-context-menu {
     position: fixed;
-    z-index: 1400;
+    z-index: var(--app-z-context-menu);
     background: var(--reader-chrome-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--reader-chrome-border);
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     padding: 8px;
     display: flex;
     gap: 4px;
@@ -759,7 +759,7 @@
     color: var(--reader-chrome-text);
     cursor: pointer;
     padding: 8px 12px;
-    border-radius: 8px;
+    border-radius: var(--app-radius-md);
     font-size: 0.8rem;
     font-family: 'Montserrat', sans-serif;
     display: flex;
@@ -808,7 +808,7 @@
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--reader-chrome-border);
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     padding: 16px;
     min-width: 180px;
     transition: opacity 0.3s ease, transform 0.3s ease;

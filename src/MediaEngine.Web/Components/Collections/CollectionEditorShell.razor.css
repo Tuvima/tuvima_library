@@ -6,7 +6,7 @@
     background: linear-gradient(180deg, rgba(27, 27, 32, 0.98), rgba(19, 19, 24, 0.98));
     color: rgba(248, 248, 248, 0.94);
     border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 22px;
+    border-radius: var(--app-radius-md);
     overflow: hidden;
 }
 
@@ -21,7 +21,7 @@
 .collection-editor-icon {
     width: 72px;
     height: 72px;
-    border-radius: 20px;
+    border-radius: var(--app-radius-md);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -66,7 +66,7 @@
 .collection-editor-close {
     width: 34px;
     height: 34px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-md);
     background: rgba(255, 255, 255, 0.05);
 }
 
@@ -85,7 +85,7 @@
 ::deep .collection-editor-tabs .mud-tab {
     min-height: 2.75rem;
     padding: 10px 14px;
-    border-radius: 10px 10px 0 0;
+    border-radius: var(--app-radius-md) var(--app-radius-md) 0 0;
     color: rgba(255, 255, 255, 0.56);
 }
 
@@ -107,7 +107,7 @@
 
 .collection-editor-section {
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
+    border-radius: var(--app-radius-md);
     padding: 18px;
     background: rgba(255, 255, 255, 0.02);
     margin-bottom: 16px;
@@ -196,7 +196,7 @@
     justify-content: center;
     gap: 10px;
     border: 1px dashed rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
+    border-radius: var(--app-radius-md);
     background: rgba(255, 255, 255, 0.02);
     text-align: center;
     padding: 24px;
@@ -224,7 +224,7 @@
     gap: 12px;
     padding: 12px 14px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 14px;
+    border-radius: var(--app-radius-md);
     background: rgba(255, 255, 255, 0.02);
 }
 
@@ -260,7 +260,7 @@
 }
 
 .collection-editor-preview-type {
-    border-radius: 999px;
+    border-radius: var(--app-radius-md);
     padding: 4px 10px;
     font-size: 0.74rem;
     font-weight: 700;
@@ -287,7 +287,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     font-size: 0.9rem;
     text-transform: none;
 }

@@ -4,7 +4,7 @@
     min-height: calc(100vh - 64px);
     padding-bottom: 112px;
     background:
-        radial-gradient(circle at top left, rgba(255, 79, 118, 0.14), transparent 36%),
+        radial-gradient(circle at top left, rgba(201, 146, 46, 0.18), transparent 36%),
         radial-gradient(circle at top right, rgba(59, 130, 246, 0.10), transparent 28%),
         #0f1218;
 }
@@ -41,7 +41,7 @@
     inset: 0;
     border: 0;
     background: rgba(5, 8, 16, 0.6);
-    z-index: 1190;
+    z-index: calc(var(--app-z-drawer) - 10);
 }
 
 .listen-rail {
@@ -106,7 +106,7 @@
     gap: 12px;
     padding: 10px 12px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     background: transparent;
     color: rgba(255, 255, 255, 0.74);
     text-align: left;
@@ -146,7 +146,7 @@
 
 .listen-home__hero {
     overflow: hidden;
-    border-radius: 14px;
+    border-radius: var(--app-radius-md);
     border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -159,6 +159,13 @@
 .listen-topbar {
     align-items: center;
     margin-bottom: 24px;
+}
+
+.listen-topbar > *,
+.listen-section__header > *,
+.listen-detail > *,
+.listen-track-toolbar > * {
+    min-width: 0;
 }
 
 .listen-topbar__identity {
@@ -185,7 +192,7 @@
     align-items: center;
     gap: 6px;
     padding: 6px;
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.05);
     flex-shrink: 0;
@@ -196,7 +203,7 @@
     min-height: 40px;
     padding: 0 18px;
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     background: transparent;
     color: rgba(255, 255, 255, 0.74);
     font-weight: 800;
@@ -204,8 +211,8 @@
 }
 
 .listen-mode-switch__option.is-active {
-    background: linear-gradient(135deg, rgba(255, 65, 108, 0.92), rgba(255, 39, 70, 0.88));
-    color: white;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--app-accent) 92%, white 4%), color-mix(in srgb, var(--app-accent) 70%, rgba(5, 8, 16, 0.18)));
+    color: #10151f;
 }
 
 .listen-button,
@@ -216,7 +223,7 @@
     gap: 8px;
     min-height: 42px;
     padding: 0 18px;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     border: 1px solid transparent;
     cursor: pointer;
     font-weight: 800;
@@ -231,8 +238,8 @@
 }
 
 .listen-button--primary {
-    background: linear-gradient(135deg, #ff416c, #ff2746);
-    color: white;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--app-accent) 92%, white 4%), color-mix(in srgb, var(--app-accent) 70%, rgba(5, 8, 16, 0.18)));
+    color: #10151f;
 }
 
 .listen-button--secondary,
@@ -248,7 +255,7 @@
 .listen-empty,
 .listen-table-shell,
 .listen-card {
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     border: 1px solid rgba(255, 255, 255, 0.06);
     background: rgba(12, 14, 22, 0.78);
 }
@@ -283,7 +290,7 @@
 .listen-filter-select {
     min-height: 42px;
     padding: 0 14px;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.04);
     color: rgba(255, 255, 255, 0.88);
@@ -304,7 +311,7 @@
     align-items: center;
     gap: 8px;
     padding: 0 14px;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.04);
     color: rgba(255, 255, 255, 0.76);
@@ -312,7 +319,7 @@
 }
 
 .listen-filter-toggle input {
-    accent-color: #ff4f76;
+    accent-color: var(--app-accent);
 }
 
 .listen-actions,
@@ -366,7 +373,7 @@
     min-inline-size: var(--listen-album-tile-size, 184px);
     max-inline-size: var(--listen-album-tile-size, 184px);
     border: 0;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     background: transparent;
     box-shadow: none;
     overflow: visible;
@@ -385,7 +392,7 @@
 
 .listen-card__art {
     aspect-ratio: 1 / 1;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -396,7 +403,7 @@
 }
 
 .listen-card__art--album {
-    border-radius: 8px;
+    border-radius: var(--app-radius-md);
     margin-bottom: 0;
     inline-size: 100%;
     min-inline-size: 0;
@@ -408,7 +415,7 @@
 }
 
 .listen-card__art--playlist {
-    background: linear-gradient(135deg, rgba(255, 65, 108, 0.26), rgba(59, 130, 246, 0.18));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--app-accent) 26%, transparent), rgba(59, 130, 246, 0.18));
 }
 
 .listen-card__art--book {
@@ -478,7 +485,7 @@
 .listen-detail__collage {
     width: min(240px, 28vw);
     aspect-ratio: 1 / 1;
-    border-radius: 14px;
+    border-radius: var(--app-radius-md);
     overflow: hidden;
     flex-shrink: 0;
     background: rgba(255, 255, 255, 0.06);
@@ -496,7 +503,7 @@
 }
 
 .listen-detail__collage-tile {
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     overflow: hidden;
     background: rgba(255, 255, 255, 0.06);
 }
@@ -519,7 +526,7 @@
 .listen-detail--album .listen-detail__art,
 .listen-detail--collection .listen-detail__collage {
     width: 180px;
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
 }
 
 .listen-detail--album,
@@ -553,7 +560,7 @@
 .listen-list-item__thumb {
     width: 54px;
     height: 54px;
-    border-radius: 50%;
+    border-radius: var(--app-radius-md);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -585,7 +592,7 @@
 .listen-playlist-dropzone {
     margin: 10px 12px 0;
     padding: 14px;
-    border-radius: 10px;
+    border-radius: var(--app-radius-md);
     border: 1px dashed rgba(255, 255, 255, 0.12);
     background: rgba(255, 255, 255, 0.03);
     color: rgba(255, 255, 255, 0.68);
@@ -616,6 +623,7 @@
     font-size: 0.9rem;
     font-weight: 700;
     color: rgba(255, 255, 255, 0.62);
+    flex: 1 1 260px;
 }
 
 .listen-track-toolbar__actions {
@@ -627,10 +635,10 @@
 
 .listen-context-menu {
     position: fixed;
-    z-index: 1401;
+    z-index: var(--app-z-context-menu);
     min-width: 220px;
     padding: 10px;
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     border: 1px solid rgba(255, 255, 255, 0.1);
     background: rgba(8, 10, 16, 0.98);
     box-shadow: 0 28px 48px rgba(0, 0, 0, 0.48);
@@ -649,7 +657,7 @@
 .listen-context-menu__action {
     width: 100%;
     border: 0;
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     padding: 10px 12px;
     background: transparent;
     color: rgba(255, 255, 255, 0.82);
@@ -666,7 +674,7 @@
     inset: 0;
     border: 0;
     background: transparent;
-    z-index: 1400;
+    z-index: var(--app-z-modal-backdrop);
 }
 
 .listen-table {
@@ -695,7 +703,7 @@
 }
 
 .listen-table__row.is-selected {
-    background: rgba(255, 79, 118, 0.14);
+    background: color-mix(in srgb, var(--app-accent) 22%, transparent);
 }
 
 .listen-table__sort,
@@ -717,7 +725,7 @@
 
 .listen-track-link,
 .listen-inline-link {
-    color: #ff6584;
+    color: var(--app-accent);
     font-weight: 800;
 }
 
@@ -729,7 +737,7 @@
 }
 
 .listen-favorite.is-active {
-    color: #ff4f76;
+    color: var(--app-accent);
 }
 
 .listen-track-title {
@@ -741,7 +749,7 @@
 .listen-track-title__thumb {
     width: 42px;
     height: 42px;
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     overflow: hidden;
     display: flex;
     align-items: center;
@@ -767,7 +775,7 @@
     list-style: none;
     width: 34px;
     height: 34px;
-    border-radius: 8px;
+    border-radius: var(--app-radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -793,7 +801,7 @@
     flex-direction: column;
     gap: 4px;
     padding: 8px;
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     background: rgba(8, 11, 18, 0.98);
     border: 1px solid rgba(255, 255, 255, 0.08);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34);
@@ -803,7 +811,7 @@
 .listen-row-menu__action {
     width: 100%;
     border: 0;
-    border-radius: 8px;
+    border-radius: var(--app-radius-md);
     padding: 9px 12px;
     background: transparent;
     color: rgba(255, 255, 255, 0.82);
@@ -827,7 +835,7 @@
         bottom: 0;
         width: min(320px, calc(100vw - 24px));
         transform: translateX(-108%);
-        z-index: 1200;
+        z-index: var(--app-z-drawer);
         transition: transform 0.2s ease;
     }
 
@@ -842,6 +850,12 @@
 
     .listen-content {
         padding: 20px 18px 22px;
+    }
+}
+
+@media (min-width: 861px) and (max-width: 960px) {
+    .listen-page {
+        grid-template-columns: minmax(220px, 248px) minmax(0, 1fr);
     }
 }
 

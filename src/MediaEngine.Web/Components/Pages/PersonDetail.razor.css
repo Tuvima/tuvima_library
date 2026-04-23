@@ -1,0 +1,154 @@
+.person-detail-back {
+    color: rgba(248, 248, 248, 0.60) !important;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.person-detail-header {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+    margin-bottom: 40px;
+    padding: 0 48px 0 88px;
+}
+
+.person-detail-avatar-wrap {
+    flex-shrink: 0;
+}
+
+.person-detail-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50);
+}
+
+.person-detail-avatar-initials {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(201, 146, 46, 0.15);
+    border: 1px solid rgba(201, 146, 46, 0.25);
+    color: var(--app-accent);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.person-detail-name-col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.person-detail-occupation {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--app-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.person-detail-name {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: rgba(248, 248, 248, 0.95);
+    line-height: 1.15;
+    margin: 0;
+}
+
+.person-detail-role {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    color: rgba(248, 248, 248, 0.45);
+}
+
+.person-detail-social {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.person-detail-social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--app-radius-md);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(248, 248, 248, 0.55);
+    text-decoration: none;
+    transition: background 0.2s, color 0.2s;
+}
+
+.person-detail-social-link:hover {
+    background: rgba(255, 255, 255, 0.10);
+    color: rgba(248, 248, 248, 0.85);
+}
+
+.person-detail-section-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: rgba(248, 248, 248, 0.55);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 16px 0;
+}
+
+.person-detail-bio-section {
+    padding: 0 48px 0 88px;
+    margin-bottom: 40px;
+    max-width: 760px;
+}
+
+.person-detail-bio {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 300;
+    line-height: 1.65;
+    color: rgba(248, 248, 248, 0.60);
+    margin: 0 0 8px 0;
+    white-space: pre-wrap;
+}
+
+.person-detail-expand-btn {
+    padding: 0;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.80rem;
+    font-weight: 600;
+    text-transform: none;
+}
+
+.person-detail-works-section {
+    margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+    .person-detail-header {
+        padding: 0 20px;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .person-detail-name {
+        font-size: 1.6rem;
+    }
+
+    .person-detail-bio-section {
+        padding: 0 20px;
+    }
+
+    .person-detail-social {
+        justify-content: center;
+    }
+}

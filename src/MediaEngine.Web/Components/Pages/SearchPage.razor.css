@@ -1,0 +1,119 @@
+.search-page {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding-left: 16px;
+}
+
+.search-page-header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-top: 1rem;
+}
+
+.search-page-header-icon {
+    font-size: 2.5rem;
+    color: rgba(248, 248, 248, 0.25);
+    margin-bottom: 12px;
+}
+
+.search-page-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: rgba(248, 248, 248, 0.85);
+    margin: 0 0 8px 0;
+}
+
+.search-page-subtitle {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.95rem;
+    color: rgba(248, 248, 248, 0.40);
+    margin: 0;
+}
+
+.search-recent-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(248, 248, 248, 0.60);
+    margin: 0 0 16px 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.search-recent-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.search-recent-link {
+    color: inherit;
+}
+
+.search-recent-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100px;
+    padding: 0;
+    background: transparent;
+}
+
+.search-recent-cover {
+    width: 100px;
+    height: 150px;
+    object-fit: cover;
+    border-radius: var(--app-radius-md);
+}
+
+.search-recent-cover-placeholder {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.search-recent-placeholder-icon {
+    font-size: 28px;
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.search-recent-name {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: rgba(248, 248, 248, 0.70);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    width: 100%;
+}
+
+.search-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.02);
+    color: rgba(248, 248, 248, 0.70);
+    text-align: center;
+}
+
+.search-empty-icon {
+    font-size: 3rem;
+    color: rgba(248, 248, 248, 0.24);
+}
+
+.search-empty-copy {
+    color: rgba(248, 248, 248, 0.54);
+}

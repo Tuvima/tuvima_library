@@ -12,35 +12,48 @@
 <div class="search-page">
     <div class="search-page-header">
         <MudIcon Icon="@Icons.Material.Outlined.Search"
-                 Style="font-size: 2.5rem; color: rgba(248,248,248,0.25); margin-bottom: 12px;" />
+                 Class="search-page-header-icon" />
         <h2 class="search-page-title">@L["Search_Title"]</h2>
         <p class="search-page-subtitle">@L["Search_Subtitle"]</p>
     </div>
 
     @if (State.IsLoaded && VisibleCollections.Count > 0)
     {
-        <div class="search-recent">
+        <section class="search-recent">
             <h3 class="search-recent-title">@L["Search_AllTitles"]</h3>
             <div class="search-recent-grid">
                 @foreach (var collection in VisibleCollections)
                 {
-                    <div class="search-recent-item" @onclick="@(() => Nav.NavigateTo(MediaNavigation.ForCollection(collection)))">
-                        @if (!string.IsNullOrEmpty(collection.CoverUrl))
-                        {
-                            <img src="@collection.CoverUrl" alt="@collection.DisplayName" class="search-recent-cover" loading="lazy" />
-                        }
-                        else
-                        {
-                            <div class="search-recent-cover search-recent-cover-placeholder">
-                                <MudIcon Icon="@Icons.Material.Filled.MenuBook"
-                                         Style="font-size: 28px; color: rgba(255,255,255,0.25);" />
-                            </div>
-                        }
-                        <span class="search-recent-name">@collection.DisplayName</span>
-                    </div>
+                    <MudLink Href="@MediaNavigation.ForCollection(collection)"
+                             Underline="Underline.None"
+                             Class="search-recent-link">
+                        <MudPaper Elevation="0" Class="search-recent-item">
+                            @if (!string.IsNullOrEmpty(collection.CoverUrl))
+                            {
+                                <img src="@collection.CoverUrl" alt="@collection.DisplayName" class="search-recent-cover" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="search-recent-cover search-recent-cover-placeholder">
+                                    <MudIcon Icon="@Icons.Material.Filled.MenuBook" Class="search-recent-placeholder-icon" />
+                                </div>
+                            }
+                            <span class="search-recent-name">@collection.DisplayName</span>
+                        </MudPaper>
+                    </MudLink>
                 }
             </div>
-        </div>
+        </section>
+    }
+    else if (State.IsLoaded)
+    {
+        <MudPaper Elevation="0" Class="search-empty">
+            <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="search-empty-icon" />
+            <MudText Typo="Typo.h6">No titles matched</MudText>
+            <MudText Typo="Typo.body2" Class="search-empty-copy">
+                Try a different search term or return to the library browse page.
+            </MudText>
+        </MudPaper>
     }
 </div>
 
@@ -55,88 +68,3 @@
             .Take(24)
             .ToList();
 }
-
-<style>
-    .search-page {
-        display: flex;
-        flex-direction: column;
-        gap: 2rem;
-        padding-left: 16px;
-    }
-
-    .search-page-header {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        padding-top: 1rem;
-    }
-
-    .search-page-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1.6rem;
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.85);
-        margin: 0 0 8px 0;
-    }
-
-    .search-page-subtitle {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.95rem;
-        color: rgba(248, 248, 248, 0.40);
-        margin: 0;
-    }
-
-    .search-recent-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1rem;
-        font-weight: 600;
-        color: rgba(248, 248, 248, 0.60);
-        margin: 0 0 16px 0;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-    }
-
-    .search-recent-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-    }
-
-    .search-recent-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        width: 100px;
-    }
-
-    .search-recent-cover {
-        width: 100px;
-        height: 150px;
-        object-fit: cover;
-        border-radius: 8px;
-    }
-
-    .search-recent-cover-placeholder {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .search-recent-name {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: rgba(248, 248, 248, 0.70);
-        text-align: center;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        width: 100%;
-    }
-</style>

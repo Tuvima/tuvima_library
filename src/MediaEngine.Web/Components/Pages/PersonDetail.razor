@@ -1,14 +1,13 @@
 @page "/person/{Id:guid}"
-@inject UIOrchestratorService  Orchestrator
-@inject NavigationManager       Nav
-@inject DeviceContextService   DeviceContext
+@inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
+@inject DeviceContextService DeviceContext
 
-<PageTitle>@(_person?.Name ?? "Person") — Tuvima Library</PageTitle>
+<PageTitle>@(_person?.Name ?? "Person") - Tuvima Library</PageTitle>
 
 @if (_loading)
 {
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4"
-                       Style="border-radius: 4px;" />
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" Rounded="false" />
 }
 else if (_person is null)
 {
@@ -19,27 +18,23 @@ else if (_person is null)
 }
 else
 {
-    @* ── Back button ── *@
-    <MudButton Variant="Variant.Text" Color="Color.Default"
+    <MudButton Variant="Variant.Text"
+               Color="Color.Default"
                StartIcon="@Icons.Material.Filled.ArrowBack"
                OnClick="@(() => Nav.NavigateTo("/"))"
                Class="person-detail-back mb-3">
         Home
     </MudButton>
 
-    @* ── Person header ── *@
     <div class="person-detail-header">
-        @* Headshot *@
         <div class="person-detail-avatar-wrap">
             @if (!string.IsNullOrEmpty(_person.LocalHeadshotUrl))
             {
-                <img src="@_person.LocalHeadshotUrl" alt="@_person.Name"
-                     class="person-detail-avatar" />
+                <img src="@_person.LocalHeadshotUrl" alt="@_person.Name" class="person-detail-avatar" />
             }
             else if (!string.IsNullOrEmpty(_person.HeadshotUrl))
             {
-                <img src="@_person.HeadshotUrl" alt="@_person.Name"
-                     class="person-detail-avatar" />
+                <img src="@_person.HeadshotUrl" alt="@_person.Name" class="person-detail-avatar" />
             }
             else
             {
@@ -49,7 +44,6 @@ else
             }
         </div>
 
-        @* Name + meta *@
         <div class="person-detail-name-col">
             @if (!string.IsNullOrEmpty(_person.Occupation))
             {
@@ -58,47 +52,56 @@ else
             <h1 class="person-detail-name">@_person.Name</h1>
             <span class="person-detail-role">@_person.RoleLabel</span>
 
-            @* Social links *@
             @if (_person.HasSocialLinks)
             {
                 <div class="person-detail-social">
                     @if (!string.IsNullOrEmpty(_person.Instagram))
                     {
                         <a href="@SocialUriHelper.GetSocialUri("instagram", _person.Instagram, DeviceContext.DeviceClass)"
-                           target="_blank" rel="noopener noreferrer"
-                           class="person-detail-social-link" title="Instagram">
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="person-detail-social-link"
+                           title="Instagram">
                             <MudIcon Icon="@Icons.Custom.Brands.Instagram" />
                         </a>
                     }
                     @if (!string.IsNullOrEmpty(_person.Twitter))
                     {
                         <a href="@SocialUriHelper.GetSocialUri("twitter", _person.Twitter, DeviceContext.DeviceClass)"
-                           target="_blank" rel="noopener noreferrer"
-                           class="person-detail-social-link" title="X / Twitter">
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="person-detail-social-link"
+                           title="X / Twitter">
                             <MudIcon Icon="@Icons.Custom.Brands.Twitter" />
                         </a>
                     }
                     @if (!string.IsNullOrEmpty(_person.TikTok))
                     {
                         <a href="@SocialUriHelper.GetSocialUri("tiktok", _person.TikTok, DeviceContext.DeviceClass)"
-                           target="_blank" rel="noopener noreferrer"
-                           class="person-detail-social-link" title="TikTok">
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="person-detail-social-link"
+                           title="TikTok">
                             <MudIcon Icon="@Icons.Material.Filled.MusicNote" />
                         </a>
                     }
                     @if (!string.IsNullOrEmpty(_person.Mastodon))
                     {
                         <a href="@SocialUriHelper.GetSocialUri("mastodon", _person.Mastodon, DeviceContext.DeviceClass)"
-                           target="_blank" rel="noopener noreferrer"
-                           class="person-detail-social-link" title="Mastodon">
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="person-detail-social-link"
+                           title="Mastodon">
                             <MudIcon Icon="@Icons.Material.Filled.Forum" />
                         </a>
                     }
                     @if (!string.IsNullOrEmpty(_person.Website))
                     {
                         <a href="@SocialUriHelper.GetSocialUri("website", _person.Website, DeviceContext.DeviceClass)"
-                           target="_blank" rel="noopener noreferrer"
-                           class="person-detail-social-link" title="Website">
+                           target="_blank"
+                           rel="noopener noreferrer"
+                           class="person-detail-social-link"
+                           title="Website">
                             <MudIcon Icon="@Icons.Material.Filled.Language" />
                         </a>
                     }
@@ -107,7 +110,6 @@ else
         </div>
     </div>
 
-    @* ── Biography ── *@
     @if (!string.IsNullOrEmpty(_person.Biography))
     {
         <div class="person-detail-bio-section">
@@ -115,14 +117,16 @@ else
             <p class="person-detail-bio">@(_showFullBio ? _person.Biography : Truncate(_person.Biography, 500))</p>
             @if (_person.Biography.Length > 500)
             {
-                <button class="person-detail-expand-btn" @onclick="@(() => _showFullBio = !_showFullBio)">
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Warning"
+                           Class="person-detail-expand-btn"
+                           OnClick="@(() => _showFullBio = !_showFullBio)">
                     @(_showFullBio ? "Show less" : "Show more")
-                </button>
+                </MudButton>
             }
         </div>
     }
 
-    @* ── Works swimlane ── *@
     @if (_works.Count > 0)
     {
         <div class="person-detail-works-section">
@@ -147,183 +151,15 @@ else
         _showFullBio = false;
 
         var personTask = Orchestrator.GetPersonDetailAsync(Id);
-        var worksTask  = Orchestrator.GetWorksByPersonAsync(Id);
+        var worksTask = Orchestrator.GetWorksByPersonAsync(Id);
 
         await Task.WhenAll(personTask, worksTask);
 
         _person = personTask.Result;
-        _works  = worksTask.Result;
-
+        _works = worksTask.Result;
         _loading = false;
     }
 
     private static string Truncate(string text, int maxLength) =>
         text.Length <= maxLength ? text : text[..maxLength].TrimEnd() + "\u2026";
 }
-
-<style>
-    /* ── Back button ── */
-    .person-detail-back {
-        color: rgba(248, 248, 248, 0.60) !important;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        text-transform: none;
-        letter-spacing: 0;
-    }
-
-    /* ── Person header ── */
-    .person-detail-header {
-        display: flex;
-        gap: 32px;
-        align-items: center;
-        margin-bottom: 40px;
-        padding: 0 48px 0 88px;
-    }
-
-    .person-detail-avatar-wrap {
-        flex-shrink: 0;
-    }
-
-    .person-detail-avatar {
-        width: 120px;
-        height: 120px;
-        border-radius: 50%;
-        object-fit: cover;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.50);
-    }
-
-    .person-detail-avatar-initials {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: rgba(201, 146, 46, 0.15);
-        border: 1px solid rgba(201, 146, 46, 0.25);
-        color: #C9922E;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 2rem;
-        font-weight: 700;
-    }
-
-    .person-detail-name-col {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        min-width: 0;
-    }
-
-    .person-detail-occupation {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.72rem;
-        font-weight: 600;
-        color: #C9922E;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-
-    .person-detail-name {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.95);
-        line-height: 1.15;
-        margin: 0;
-    }
-
-    .person-detail-role {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        color: rgba(248, 248, 248, 0.45);
-    }
-
-    /* ── Social links ── */
-    .person-detail-social {
-        display: flex;
-        gap: 8px;
-        margin-top: 4px;
-    }
-
-    .person-detail-social-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        color: rgba(248, 248, 248, 0.55);
-        text-decoration: none;
-        transition: background 0.2s, color 0.2s;
-    }
-
-    .person-detail-social-link:hover {
-        background: rgba(255, 255, 255, 0.10);
-        color: rgba(248, 248, 248, 0.85);
-    }
-
-    /* ── Section title ── */
-    .person-detail-section-title {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 1rem;
-        font-weight: 700;
-        color: rgba(248, 248, 248, 0.55);
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin: 0 0 16px 0;
-    }
-
-    /* ── Biography ── */
-    .person-detail-bio-section {
-        padding: 0 48px 0 88px;
-        margin-bottom: 40px;
-        max-width: 760px;
-    }
-
-    .person-detail-bio {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.92rem;
-        font-weight: 300;
-        line-height: 1.65;
-        color: rgba(248, 248, 248, 0.60);
-        margin: 0 0 8px 0;
-        white-space: pre-wrap;
-    }
-
-    .person-detail-expand-btn {
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.80rem;
-        font-weight: 600;
-        color: #C9922E;
-        background: none;
-        border: none;
-        padding: 0;
-        cursor: pointer;
-    }
-
-    /* ── Works section ── */
-    .person-detail-works-section {
-        margin-bottom: 40px;
-    }
-
-    /* ── Responsive ── */
-    @@media (max-width: 768px) {
-        .person-detail-header {
-            padding: 0 20px;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
-
-        .person-detail-name {
-            font-size: 1.6rem;
-        }
-
-        .person-detail-bio-section {
-            padding: 0 20px;
-        }
-
-        .person-detail-social {
-            justify-content: center;
-        }
-    }
-</style>

@@ -119,7 +119,7 @@
         position: relative;
         overflow: hidden;
         min-height: 160px;
-        border-radius: 24px;
+        border-radius: var(--app-radius-md);
         border: 1px solid rgba(255, 255, 255, 0.08);
         background:
             radial-gradient(circle at top left, color-mix(in srgb, var(--hub-accent) 35%, transparent) 0%, transparent 54%),
@@ -152,7 +152,7 @@
     .discovery-hub-stack-image {
         position: absolute;
         aspect-ratio: 2 / 3;
-        border-radius: 18px;
+        border-radius: var(--app-radius-md);
         object-fit: cover;
         box-shadow: 0 20px 36px rgba(0, 0, 0, 0.34);
         border: 1px solid rgba(255, 255, 255, 0.14);
@@ -183,7 +183,7 @@
         display: inline-flex;
         align-items: center;
         padding: 5px 9px;
-        border-radius: 999px;
+        border-radius: var(--app-radius-sm);
         background: rgba(2, 6, 16, 0.64);
         border: 1px solid rgba(255, 255, 255, 0.08);
         font-family: 'Montserrat', sans-serif;
@@ -212,6 +212,7 @@
         display: flex;
         justify-content: space-between;
         gap: 12px;
+        min-width: 0;
         font-family: 'Montserrat', sans-serif;
         font-size: 0.74rem;
         font-weight: 700;

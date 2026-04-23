@@ -18,6 +18,8 @@
     --app-font-sans:          "Inter", "Montserrat", "Segoe UI", sans-serif;
     --app-accent:             #EAB308;
     --app-text-primary:       rgba(248, 250, 252, 0.98);
+    --app-text-secondary:     rgba(248, 248, 248, 0.60);
+    --app-text-disabled:      rgba(248, 248, 248, 0.38);
     --app-glass-bg:           rgba(12, 16, 36, 0.80);
     --app-glass-border:       rgba(255, 255, 255, 0.08);
     --app-glass-inner-bg:     rgba(255, 255, 255, 0.02);
@@ -34,10 +36,24 @@
     --app-icon-soft:          rgba(248, 248, 248, 0.55);
     --app-hover-overlay:      rgba(255, 255, 255, 0.05);
     --app-active-overlay:     rgba(234, 179, 8, 0.22);
-    --app-radius-sm:          10px;
-    --app-radius-md:          12px;
-    --app-radius-lg:          16px;
-    --app-radius-xl:          20px;
+    --app-radius-xs:          0;
+    --app-radius-sm:          2px;
+    --app-radius-md:          4px;
+    --app-radius-lg:          4px;
+    --app-surface-elev-1:     rgba(17, 24, 39, 0.94);
+    --app-success:            #81C784;
+    --app-warning:            #FFB74D;
+    --app-error:              #CF6679;
+    --app-info:               #4FC3F7;
+    --app-confidence-high:    #5DCAA5;
+    --app-confidence-medium:  #EF9F27;
+    --app-confidence-low:     #A05050;
+    --app-z-dropdown:         1100;
+    --app-z-drawer:           1200;
+    --app-z-modal-backdrop:   1300;
+    --app-z-modal:            1400;
+    --app-z-context-menu:     1500;
+    --app-z-toast:            1600;
     --app-tab-border:         rgba(255, 255, 255, 0.08);
     --app-tab-text:           rgba(248, 248, 248, 0.56);
     --app-tab-text-hover:     rgba(248, 248, 248, 0.88);
@@ -131,15 +147,61 @@ body {
 
 /* ── Glassmorphic MudToggleGroup overrides ────────────────────────────── */
 .mud-toggle-group {
-    border-radius: 14px !important;
+    border-radius: var(--app-radius-md) !important;
     border-color: var(--app-glass-border) !important;
     background: var(--app-glass-inner-bg) !important;
 }
 
 .mud-toggle-item {
-    border-radius: 12px !important;
+    border-radius: var(--app-radius-md) !important;
     font-size: 0.8rem !important;
     text-transform: none !important;
+}
+
+.mud-button-root,
+.mud-chip,
+.mud-tab,
+.mud-alert,
+.mud-paper,
+.mud-popover,
+.mud-menu,
+.mud-list-item,
+.mud-drawer,
+.mud-dialog,
+.mud-table-container,
+.mud-simple-table,
+.mud-data-grid,
+.mud-input-slot,
+.mud-input-outlined,
+.mud-input-filled-control,
+.mud-select-input,
+.mud-autocomplete,
+.mud-badge,
+.mud-snackbar {
+    border-radius: var(--app-radius-md);
+}
+
+.mud-snackbar-container {
+    z-index: var(--app-z-toast) !important;
+}
+
+.mud-menu,
+.mud-popover {
+    z-index: var(--app-z-dropdown) !important;
+}
+
+.mud-overlay-drawer,
+.mud-drawer {
+    z-index: var(--app-z-drawer) !important;
+}
+
+.mud-overlay-dialog {
+    z-index: var(--app-z-modal-backdrop) !important;
+}
+
+.mud-dialog-container,
+.mud-dialog {
+    z-index: var(--app-z-modal) !important;
 }
 
 /* ── Muted MudBlazor Input Overrides ─────────────────────────────────── */
@@ -196,7 +258,7 @@ body {
     left: 0;
     height: 3px;
     background: rgba(0, 0, 0, 0.28);
-    border-radius: 0 0 0 6px;
+    border-radius: 0;
     transition: width 0.4s ease;
 }
 
@@ -224,7 +286,7 @@ body {
 .st-card {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     padding: 20px 24px;
     margin-bottom: 16px;
 }
@@ -233,7 +295,7 @@ body {
 .st-card--accent {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(201, 146, 46, 0.2);
-    border-radius: 12px;
+    border-radius: var(--app-radius-md);
     padding: 20px 24px;
     margin-bottom: 16px;
 }
@@ -404,52 +466,6 @@ body {
 }
 
 
-/* === mobile-nav-global-overrides ===
- * Placed in app.css (static <head> stylesheet) because <style> tags
- * inside interactive Blazor components are unreliably applied after
- * Blazor hydration in .NET 9 Interactive Server mode.
- */
-
-/* TopBar: always above MudBlazor temporary drawer (appbar+2) and overlay (appbar+1) */
-.top-bar {
-    z-index: calc(var(--mud-zindex-appbar, 1100) + 150) !important;
-}
-
-/* Hide bell/avatar on phones (<=768px) in ALL TopBar variants */
-@media (max-width: 768px) {
-    .top-bar .top-bar-actions {
-        display: none !important;
-    }
-}
-
-/* Force MobileNavDrawer to viewport-fixed positioning.
- * MudBlazor 9 uses position:absolute on temporary drawers.
- * IMPORTANT: Do NOT override left/right -- MudBlazor animates open/close
- * via the left property (left:0 when open, left:-width when closed). */
-.mobile-nav-drawer {
-    position: fixed !important;
-    top: 0 !important;
-    bottom: 0 !important;
-    height: 100dvh !important;
-    z-index: calc(var(--mud-zindex-appbar, 1100) + 200) !important;
-}
-
-/* MudBlazor drawer overlay must also sit above the TopBar so tap-to-close works */
-.mud-overlay.mud-overlay-drawer {
-    z-index: calc(var(--mud-zindex-appbar, 1100) + 190) !important;
-}
-
-/* Force drawer content top-alignment */
-.mobile-nav-drawer .mud-drawer-content {
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: flex-start !important;
-    align-items: stretch !important;
-    height: 100% !important;
-    overflow-y: auto !important;
-    padding-top: 16px !important;
-}
-
 /* ── Mobile overflow safety net ─────────────────────────────────────────── */
 @media (max-width: 768px) {
     .mud-main-content {
@@ -460,7 +476,7 @@ body {
 .mud-dialog.sme-dialog {
     background: #1b1c22 !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 16px !important;
+    border-radius: var(--app-radius-md) !important;
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.4) !important;
     overflow: hidden !important;
 }

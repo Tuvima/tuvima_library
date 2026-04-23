@@ -34,17 +34,18 @@
                 </span>
             </MudLink>
 
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__desktop-nav">
+            <nav class="layout-shell__desktop-nav" aria-label="Primary">
                 @foreach (var link in _navLinks)
                 {
-                    <MudNavLink Href="@link.Path"
-                                Match="@link.Match"
-                                ActiveClass="layout-shell__nav-link--active"
-                                Class="layout-shell__nav-link">
-                        @L[link.LabelKey]
-                    </MudNavLink>
+                    <a href="@link.Path"
+                       class="@GetNavLinkClass(link.Path)"
+                       aria-current="@(IsNavActive(link.Path) ? "page" : null)">
+                        <span class="layout-shell__nav-link-label" style="@NavLabelStyle">
+                            @L[link.LabelKey].Value.ToUpperInvariant()
+                        </span>
+                    </a>
                 }
-            </MudStack>
+            </nav>
         </MudStack>
 
         <div class="layout-shell__search-shell">
@@ -93,7 +94,7 @@
                            Class="layout-shell__avatar-trigger"
                            aria-label="@_displayName">
                     <MudAvatar Size="Size.Medium"
-                               Style="@($"background:{_avatarColor}; color:#081018;")"
+                               Style="@GetAvatarStyle()"
                                Class="layout-shell__avatar">
                         @_avatarInitial
                     </MudAvatar>
@@ -135,14 +136,15 @@
     private string _engineStatusSummary = string.Empty;
     private string _searchTerm = string.Empty;
     private int _reviewCount;
+    private const string NavLabelStyle = "font-family:'Montserrat',sans-serif;font-weight:300;font-size:0.86rem;letter-spacing:0.18em;line-height:1;text-transform:uppercase;";
 
-    private readonly record struct ShellNavLink(string Path, string LabelKey, NavLinkMatch Match);
+    private readonly record struct ShellNavLink(string Path, string LabelKey);
 
     private static readonly ShellNavLink[] _navLinks =
     [
-        new("/read", "Nav_Read", NavLinkMatch.Prefix),
-        new("/watch", "Nav_Watch", NavLinkMatch.Prefix),
-        new("/listen", "Nav_Listen", NavLinkMatch.Prefix),
+        new("/read", "Nav_Read"),
+        new("/watch", "Nav_Watch"),
+        new("/listen", "Nav_Listen"),
     ];
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
@@ -220,6 +222,11 @@
     {
         Nav.NavigateTo("/settings/review");
     }
+
+    private string GetNavLinkClass(string path) =>
+        IsNavActive(path)
+            ? "layout-shell__nav-link layout-shell__nav-link--active"
+            : "layout-shell__nav-link";
 
     private void SyncLocationState()
     {
@@ -356,11 +363,57 @@
             ? L["TopBar_EngineOnline"]
             : L["TopBar_EngineUnavailable"];
 
+    private bool IsNavActive(string path) =>
+        _currentPath.Equals(path, StringComparison.OrdinalIgnoreCase)
+        || _currentPath.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase);
+
     private static string GetAvatarInitial(string displayName)
     {
         var firstLetter = displayName.FirstOrDefault(static c => !char.IsWhiteSpace(c));
         return firstLetter == default
             ? "?"
             : char.ToUpperInvariant(firstLetter).ToString();
+    }
+
+    private string GetAvatarStyle()
+    {
+        var theme = ThemeService.Theme.PaletteDark;
+        var foreground = GetAvatarForeground(_avatarColor, theme.TextPrimary.ToString(), theme.Background.ToString());
+        return $"background:{_avatarColor}; color:{foreground};";
+    }
+
+    private static string GetAvatarForeground(string backgroundHex, string lightForeground, string darkForeground)
+    {
+        if (!TryParseHexColor(backgroundHex, out var r, out var g, out var b))
+        {
+            return lightForeground;
+        }
+
+        var luminance = (0.299 * r) + (0.587 * g) + (0.114 * b);
+        return luminance >= 160 ? darkForeground : lightForeground;
+    }
+
+    private static bool TryParseHexColor(string input, out int red, out int green, out int blue)
+    {
+        red = green = blue = 0;
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return false;
+        }
+
+        var value = input.Trim().TrimStart('#');
+        if (value.Length == 3)
+        {
+            value = string.Concat(value.Select(character => $"{character}{character}"));
+        }
+
+        if (value.Length != 6)
+        {
+            return false;
+        }
+
+        return int.TryParse(value[..2], System.Globalization.NumberStyles.HexNumber, null, out red)
+            && int.TryParse(value.Substring(2, 2), System.Globalization.NumberStyles.HexNumber, null, out green)
+            && int.TryParse(value.Substring(4, 2), System.Globalization.NumberStyles.HexNumber, null, out blue);
     }
 }

@@ -22,12 +22,11 @@
         <div class="discovery-shelf-track">
             @if (Shelf.Items.Count > 1 && !_atStart)
             {
-                <button type="button"
-                        class="discovery-shelf-arrow discovery-shelf-arrow-left"
-                        aria-label="Scroll left"
-                        @onclick="ScrollLeftAsync">
-                    <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" />
-                </button>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft"
+                               Color="Color.Inherit"
+                               Class="discovery-shelf-arrow discovery-shelf-arrow-left"
+                               aria-label="Scroll left"
+                               OnClick="ScrollLeftAsync" />
             }
 
             <div class="discovery-shelf-scroll" @ref="_scrollRef">
@@ -39,12 +38,11 @@
 
             @if (Shelf.Items.Count > 1 && !_atEnd)
             {
-                <button type="button"
-                        class="discovery-shelf-arrow discovery-shelf-arrow-right"
-                        aria-label="Scroll right"
-                        @onclick="ScrollRightAsync">
-                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" />
-                </button>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight"
+                               Color="Color.Inherit"
+                               Class="discovery-shelf-arrow discovery-shelf-arrow-right"
+                               aria-label="Scroll right"
+                               OnClick="ScrollRightAsync" />
             }
         </div>
     </section>
@@ -178,16 +176,14 @@
         top: 0;
         bottom: 0;
         width: 56px;
-        border: none;
         z-index: 3;
         display: flex;
         align-items: center;
         justify-content: center;
         color: rgba(248, 250, 252, 0.92);
-        background: none;
-        cursor: pointer;
         opacity: 0;
         transition: opacity 0.18s ease;
+        border-radius: var(--app-radius-md);
     }
 
     .discovery-shelf-track:hover .discovery-shelf-arrow {

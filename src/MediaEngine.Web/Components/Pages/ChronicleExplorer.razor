@@ -8,7 +8,7 @@
 
 <MudContainer MaxWidth="MaxWidth.False" Class="pa-4">
     @* ── Universe header ── *@
-    <MudText Typo="Typo.h4" Class="mb-2" Style="font-family: Montserrat, sans-serif;">
+    <MudText Typo="Typo.h4" Class="chronicle-explorer-title mb-2">
         @(_graph?.Universe.Label ?? "Loading...")
     </MudText>
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
@@ -70,8 +70,7 @@
         @* Controls row — only shown in Web mode *@
         @if (_activeMode == 0)
         {
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-3"
-                      Style="flex-wrap: wrap;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="chronicle-explorer-controls mb-3">
                 @if (_hasTemporalData)
                 {
                     <div style="max-width: 300px; min-width: 200px; flex: 1;">
@@ -102,7 +101,7 @@
 
                 <MudSelect T="string" Value="@_layout" ValueChanged="OnLayoutChanged"
                            Label="Layout" Variant="Variant.Outlined" Margin="Margin.Dense"
-                           Style="max-width: 160px;">
+                           Class="chronicle-explorer-layout">
                     <MudSelectItem T="string" Value="@("cose")">Force-directed</MudSelectItem>
                     <MudSelectItem T="string" Value="@("concentric")">Concentric</MudSelectItem>
                     <MudSelectItem T="string" Value="@("grid")">Grid</MudSelectItem>
@@ -115,11 +114,11 @@
         <MudGrid>
             <MudItem xs="12" md="@(_activeMode == 0 ? 7 : 8)">
                 <div id="cytoscape-container"
-                     style="width: 100%; height: 600px; background: #111; border-radius: 8px; border: 1px solid #333;">
+                     class="chronicle-explorer-graph">
                 </div>
             </MudItem>
             <MudItem xs="12" md="@(_activeMode == 0 ? 5 : 4)">
-                <MudPaper Class="pa-3" Style="height: 600px; overflow-y: auto; background: #111;">
+                <MudPaper Class="chronicle-explorer-panel pa-3">
                     @if (_activeMode == 0)
                     {
                         @* Mode 1: entity list *@
@@ -138,7 +137,7 @@
                                                  Size="Size.Small" />
                                         <MudText>@entity.Label</MudText>
                                         <MudSpacer />
-                                        <MudText Typo="Typo.caption" Style="color: #888;">
+                                        <MudText Typo="Typo.caption" Class="chronicle-explorer-entity-type">
                                             @entity.Type
                                         </MudText>
                                     </MudStack>
@@ -166,14 +165,14 @@
     else if (_activeMode == 3)
     {
         @* Mode 4: Cast Comparison — full width *@
-        <MudPaper Class="pa-4" Style="background: #111; min-height: 500px;">
+        <MudPaper Class="chronicle-explorer-full-panel pa-4">
             <CastComparison UniverseQid="@Qid" />
         </MudPaper>
     }
     else if (_activeMode == 4)
     {
         @* Mode 5: Adaptation Tree — full width *@
-        <MudPaper Class="pa-4" Style="background: #111; min-height: 500px;">
+        <MudPaper Class="chronicle-explorer-full-panel pa-4">
             <AdaptationTree UniverseQid="@Qid" />
         </MudPaper>
     }
@@ -195,7 +194,7 @@
             <MudText Typo="Typo.body2" Class="mb-3">
                 @(_selectedEntity.Description ?? "No description available.")
             </MudText>
-            <MudText Typo="Typo.caption" Style="color: #888;">
+            <MudText Typo="Typo.caption" Class="chronicle-explorer-qid">
                 QID: @_selectedEntity.Id
             </MudText>
 

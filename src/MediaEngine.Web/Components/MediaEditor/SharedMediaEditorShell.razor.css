@@ -34,7 +34,7 @@
 ::deep .sme-search-targets .mud-tab {
     min-height: 2.5rem;
     padding: 8px 12px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-md);
     color: rgba(255,255,255,0.72);
 }
 
@@ -100,7 +100,7 @@
     min-width: 28px;
     height: 28px;
     padding: 0 8px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     background: rgba(17,19,27,0.44);
     color: rgba(255,255,255,0.88);
 }
@@ -338,7 +338,7 @@
     border: 1px solid rgba(255,255,255,0.1);
     background: rgba(255,255,255,0.03);
     color: rgba(255,255,255,0.72);
-    border-radius: 999px;
+    border-radius: var(--app-radius-md);
     padding: 8px 12px;
     cursor: pointer;
     transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -544,7 +544,7 @@
     min-width: 28px;
     height: 28px;
     padding: 0 8px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     background: rgba(255,255,255,0.08);
     font-size: 0.72rem;
     font-weight: 700;
@@ -674,7 +674,7 @@
 
 .sme-target-chip {
     padding: 8px 12px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-md);
     border: 1px solid rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.72);
 }
@@ -731,7 +731,7 @@
     align-items: center;
     height: 22px;
     padding: 0 8px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     background: rgba(197,58,56,0.12);
     color: rgba(255,255,255,0.86);
     font-size: 0.7rem;
@@ -909,7 +909,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     background: rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.88);
     font-size: 0.78rem;
@@ -957,7 +957,7 @@
 }
 
 .sme-candidate-badge {
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     padding: 4px 8px;
     font-size: 0.76rem;
     border: 1px solid rgba(255,255,255,0.1);
@@ -1086,7 +1086,7 @@
     align-items: center;
     justify-content: center;
     padding: 4px 8px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     border: 1px solid rgba(255,255,255,0.12);
     background: rgba(255,255,255,0.04);
     white-space: nowrap;
@@ -1123,7 +1123,7 @@
 }
 
 .sme-art-slot-count {
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     padding: 4px 8px;
     border: 1px solid rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.66);
@@ -1289,7 +1289,7 @@
     align-items: center;
     justify-content: center;
     padding: 4px 8px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     background: rgba(197,58,56,0.92);
     color: rgba(255,255,255,0.96);
     font-size: 0.68rem;
@@ -1406,7 +1406,7 @@
 .sme-art-lightbox {
     position: fixed;
     inset: 0;
-    z-index: 1400;
+    z-index: var(--app-z-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1421,7 +1421,7 @@
     max-height: 88vh;
     overflow: auto;
     border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 22px;
+    border-radius: var(--app-radius-md);
     background: linear-gradient(180deg, rgba(26,26,31,0.98), rgba(18,18,22,0.98));
     box-shadow: 0 24px 70px rgba(0,0,0,0.45);
     padding: 22px;
@@ -1719,7 +1719,7 @@
     min-width: 28px;
     height: 28px;
     padding: 0 8px;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     background: rgba(255,255,255,0.08);
     color: rgba(255,255,255,0.82);
 }
@@ -1791,7 +1791,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 999px;
+    border-radius: var(--app-radius-sm);
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.04);
     color: rgba(255,255,255,0.68);

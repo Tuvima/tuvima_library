@@ -8,6 +8,8 @@ using MediaEngine.Web.Services.Discovery;
 using MediaEngine.Web.Services.Playback;
 using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage;
+using MediaEngine.Storage.Contracts;
 using Microsoft.AspNetCore.Localization;
 using System.Globalization;
 
@@ -49,10 +51,16 @@ builder.Services.AddMudServices();
 builder.Services.AddSingleton<ThemeService>();
 
 // ── Colour Palette ────────────────────────────────────────────────────────────
-// Initialize the static palette accessor with defaults. In a future phase
-// (Provider Catalogue), this will be replaced by a call to GET /ui/palette
-// so the Engine's config/ui/palette.json drives the Dashboard colours.
-PaletteProvider.Initialize(new PaletteConfiguration());
+// Resolve Dashboard config the same way the Engine does so UI palette tokens
+// stay aligned with config/ui/palette.json in local, service, and Docker runs.
+string configDir = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
+                ?? builder.Configuration["MediaEngine:ConfigDirectory"]
+                ?? "config";
+string manifestPath = builder.Configuration["MediaEngine:ManifestPath"] ?? "legacy_manifest.json";
+IConfigurationLoader configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
+builder.Services.AddSingleton(configLoader);
+
+PaletteProvider.Initialize(configLoader.LoadPalette());
 
 // ── Narration ─────────────────────────────────────────────────────────────────
 // Singleton: config-driven phrase templates for hero subtitles and section headings.

@@ -9,6 +9,9 @@ using MediaEngine.Web.Services.Playback;
 using MediaEngine.Web.Services.Theming;
 using MediaEngine.Web.Shared;
 using MediaEngine.Web.Tests.Support;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
@@ -33,9 +36,11 @@ public sealed class UiShellRenderTests : TestContext
         var apiClient = EngineApiClientStub.CreateDefault();
 
         Services.AddLocalization();
+        Services.AddLogging();
         Services.AddMudServices();
         Services.AddSingleton<IConfiguration>(configuration);
         Services.AddSingleton<IEngineApiClient>(apiClient);
+        Services.AddSingleton<IWebHostEnvironment>(new TestWebHostEnvironment());
         Services.AddSingleton<ThemeService>();
         Services.AddScoped<DeviceContextService>();
         Services.AddScoped<UniverseStateContainer>();
@@ -159,6 +164,65 @@ public sealed class UiShellRenderTests : TestContext
         });
     }
 
+    [Fact]
+    public void SearchPage_RendersMudSearchResultsWithoutRawCards()
+    {
+        var state = Services.GetRequiredService<UniverseStateContainer>();
+        state.SetCollections([
+            CollectionViewModel.FromApiDto(
+                id: Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                universeId: null,
+                createdAt: DateTimeOffset.UtcNow,
+                works:
+                [
+                    new WorkViewModel
+                    {
+                        Id = Guid.Parse("30000000-0000-0000-0000-000000000101"),
+                        CollectionId = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                        MediaType = "Book",
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        CanonicalValues =
+                        [
+                            new CanonicalValueViewModel
+                            {
+                                Key = "title",
+                                Value = "Dune",
+                                LastScoredAt = DateTimeOffset.UtcNow,
+                            },
+                        ],
+                    },
+                ],
+                displayName: "Dune")
+        ]);
+
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo(navigationManager.GetUriWithQueryParameter("q", "dune"));
+
+        var cut = RenderComponent<SearchPage>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Dune", cut.Markup);
+            Assert.NotEmpty(cut.FindAll(".search-recent-grid"));
+            Assert.NotEmpty(cut.FindAll(".mud-paper"));
+            Assert.NotEmpty(cut.FindAll(".mud-link"));
+        });
+    }
+
+    [Fact]
+    public void PersonDetail_RendersNotFoundStateWithMudActions()
+    {
+        var cut = RenderComponent<PersonDetail>(parameters => parameters
+            .Add(page => page.Id, Guid.Parse("40000000-0000-0000-0000-000000000001")));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Person not found.", cut.Markup);
+            Assert.NotEmpty(cut.FindAll(".mud-alert"));
+            Assert.NotEmpty(cut.FindAll(".mud-button-root"));
+        });
+    }
+
     private static LibraryItemViewModel CreateSampleLibraryItem() => new()
     {
         EntityId = Guid.Parse("20000000-0000-0000-0000-000000000001"),
@@ -177,4 +241,14 @@ public sealed class UiShellRenderTests : TestContext
         LibraryVisibility = "visible",
         Confidence = 0.92,
     };
+
+    private sealed class TestWebHostEnvironment : IWebHostEnvironment
+    {
+        public string ApplicationName { get; set; } = "MediaEngine.Web.Tests";
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public string EnvironmentName { get; set; } = "Testing";
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string WebRootPath { get; set; } = AppContext.BaseDirectory;
+    }
 }

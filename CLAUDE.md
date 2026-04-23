@@ -5,7 +5,7 @@
 > It is the single, authoritative source of truth for what Tuvima Library is, how it is built, and how to work on it.
 > It bridges the Product Owner's business goals with the technical team's execution.
 
-> **Architecture details** live in `docs/architecture/*.md`. This file contains summaries — read the relevant detail doc when working on a subsystem.
+> **Companion documents.** [`AGENTS.md`](AGENTS.md) is a concise, developer-first code tour — read it for a fast repository map. `docs/architecture/*.md` holds the deep dives per subsystem. This file is a summary that points out to both.
 
 ---
 
@@ -13,57 +13,47 @@
 
 ### What is Tuvima Library?
 
-#### Name & Vision
+**Tuvima Library** is the product name; **Tuvima** is the company. Code namespaces use `MediaEngine.*` intentionally — decoupled from branding for future resilience. In this repo the two names refer to the same product.
 
-**Tuvima Library** is the product name. **Tuvima** is the company. Code namespaces use `MediaEngine.*` intentionally — decoupled from branding for future resilience.
-
-The project's core philosophy is **Presentation** — the act of bringing something forward and making it whole.
-
-Tuvima Library does not create a library. It **presents** one. The stories already exist on the hard drive, fragmented across formats and folders. The Library's job is to find them, understand them, unify them, and surface the result as something coherent and beautiful — as if it always belonged together.
+The core philosophy is **Presentation** — the act of bringing something forward and making it whole. Tuvima does not create a library. It presents one. The stories already exist on the hard drive, fragmented across formats and folders; the Library's job is to find them, understand them, unify them, and surface the result as something coherent and beautiful.
 
 Every feature exists in service of that word:
 - The **Intelligence Engine** works invisibly so the library is already whole when you look at it.
 - The **Universe** is the act of presentation made structural — the book, film, and audiobook of the same story brought forward as one.
-- The **Cinematic Dashboard** is the presentation layer made visible — the interface where the Engine's understanding reaches the screen.
+- The **Cinematic Dashboard** is the presentation layer made visible.
 
-> **All future sessions must preserve this creative context.** When writing copy, naming features, or explaining the product, the Presentation philosophy should be the frame.
+> **All future sessions must preserve this creative context.** When writing copy, naming features, or explaining the product, the Presentation philosophy is the frame.
 
-#### What it does
+### What it does
 
-**Tuvima Library** is a **unified media intelligence platform** that runs entirely on your own machine — no cloud account, no subscription, no data leaving your home.
+Tuvima is a unified media intelligence platform that runs entirely on the user's machine — no cloud account, no subscription, no data leaving the home. Point it at a hard drive, and it automatically:
 
-Its core job is to bring order to a large, messy media collection spread across folders. You point it at your hard drive, and it automatically:
-
-1. **Watches** your folders for new files — books, audiobooks, comics, TV shows, movies, and music.
-2. **Fingerprints** each file with a unique identifier (like a barcode), so it can track files even if you rename or move them.
-3. **Reads the embedded information** inside each file — title, author, year, cover art, series name — and uses a *Priority Cascade* to determine the most trustworthy version of each piece of information.
-4. **Groups everything into Universes and Series** — intelligent groupings that link all versions of the same story across media types.
-5. **Serves a visual dashboard** in your browser for browsing, searching, and managing the library.
-6. **Broadcasts instant updates** to your dashboard the moment a new file is detected, with no page refresh.
+1. **Watches** folders for new files (books, audiobooks, comics, TV shows, movies, music).
+2. **Fingerprints** each file so it can be tracked across moves and renames.
+3. **Reads embedded metadata** (title, author, year, cover art, series) and applies a Priority Cascade to pick the most trustworthy version of each field.
+4. **Groups files into Universes and Series** that link all versions of the same story across media types.
+5. **Serves a Blazor dashboard** for browsing, search, playback, and management.
+6. **Broadcasts instant updates** to the dashboard via SignalR.
 
 ### The Grouping Model — Universes and Series
 
-Tuvima Library organises media into **Universes** and **Series** — virtual containers that link multiple media forms through shared contextual metadata.
-
 A **Universe** is a creative world — the books, films, audiobooks, comics, and music that belong together because their metadata says so. A **Series** is a sub-grouping within a Universe — a specific sequence or collection of related works.
 
-The matching is automatic. When the Engine discovers that a novel, its film adaptation, and an audiobook share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into the same Universe. You browse by creative world, not by file type.
-
-This can be as simple as grouping books by the same author, or as rich as following a story from an ebook into its movie adaptation, or linking a music soundtrack to the film it accompanies.
+Matching is automatic: when the Engine discovers that a novel, its film adaptation, and an audiobook share the same author, franchise identifiers, or Wikidata Q-identifier, it groups them into the same Universe. Users browse by creative world, not by file type.
 
 > *Example: The "Dune" Universe might contain:*
-> - *The "Dune Novels" Series — Frank Herbert's novels (EPUB ebooks)*
-> - *The "Dune Films" Series — Denis Villeneuve film adaptations (MP4 videos)*
+> - *The "Dune Novels" Series — Frank Herbert's novels (EPUB)*
+> - *The "Dune Films" Series — Denis Villeneuve adaptations (MP4)*
 > - *The audiobook narrations (M4B)*
-> - *The graphic novel adaptations (CBZ comics)*
+> - *The graphic novels (CBZ)*
 >
-> *These are linked not because they share a filename, but because their metadata — author, franchise QID, series identifiers — connects them to the same creative world.*
+> *Linked by shared author, franchise QID, and series identifiers — not shared filename.*
 
-**A Series is not limited to a numbered sequence.** While a Series often represents a book series or film franchise, it is a flexible virtual container for *any* creative grouping — film adaptations of a novel, spin-off works, thematic collections, or cross-media narrative links. What defines a Series is shared contextual metadata, not a shared format or filesystem location.
+A Series is not limited to a numbered sequence. While it often represents a book series or film franchise, it is a flexible virtual container for *any* creative grouping — spin-off works, thematic collections, or cross-media narrative links.
 
-#### Terminology — User-Facing vs Internal
+### Terminology — User-Facing vs Internal
 
-| Level | User-facing name | Internal code name | Example |
+| Level | User-facing | Internal code | Example |
 |---|---|---|---|
 | Entire library | **Library** | Library | Everything you own |
 | Franchise grouping | **Universe** | ParentCollection | Dune, Marvel, Tolkien |
@@ -72,22 +62,20 @@ This can be as simple as grouping books by the same author, or as rich as follow
 | Specific version | **Edition** | Edition | 4K HDR Blu-ray Remux |
 | File on disk | **Media Asset** | MediaAsset | the .mkv file |
 
-> **Rule:** Anything the user sees — UI labels, column headers, tab names, documentation prose — uses the **user-facing name**. Internal code names (ParentCollection, Collection) stay in the domain/engine layer only.
+> **Rule:** Anything the user sees uses the **user-facing name**. Internal code names stay in the domain/engine layer only.
 
 The hierarchy:
 
 ```
-Library   (your entire collection)
-  └── Universe   (franchise/creative world — e.g. "Dune")
-        └── Series   (sub-grouping — e.g. "Dune Novels" or "Dune Films")
-              └── Work   (one title — e.g. "Dune Part One")
-                    └── Edition   (one physical version — e.g. "4K HDR Blu-ray Remux")
-                          └── Media Asset   (one file on disk)
+Library (your entire collection)
+  └── Universe (franchise/creative world — e.g. "Dune")
+        └── Series (sub-grouping — e.g. "Dune Novels")
+              └── Work (one title — e.g. "Dune Part One")
+                    └── Edition (one physical version — e.g. "4K HDR Blu-ray Remux")
+                          └── Media Asset (one file on disk)
 ```
 
-**Universes** are optional. A Series that belongs to no larger franchise sits directly under the Library. When the Engine discovers franchise-level relationships (Wikidata P8345 franchise, P179 series, or shared narrative roots), it can promote a group of related Series under a common Universe.
-
-**Important:** Both Universes and Series are resolved at metadata-scoring time by the Intelligence Engine. They have no presence on the filesystem — files are organised by category and title, not by Universe or Series.
+Universes are optional. A Series that belongs to no larger franchise sits directly under the Library. Both Universes and Series are resolved at metadata-scoring time by the Intelligence Engine — they have no presence on the filesystem.
 
 ### Who is it for?
 
@@ -97,78 +85,96 @@ A single power user who wants complete, private control over a large media colle
 
 ## 2. Technical Stack
 
-> **Note to Claude:** When speaking to the Product Owner, always use the plain-English column, not the technical column.
+> When speaking to the Product Owner, always use the plain-English column.
 
 ### Core Tools
 
 | Plain-English name | Technical name | Purpose |
 |---|---|---|
-| Programming language | C# / .NET 10 | Everything is written in this language |
-| Local database | SQLite | A single file on disk that stores the entire library catalogue |
-| Visual interface library | MudBlazor 9 | Pre-built visual building blocks for the browser dashboard |
-| Real-time intercom | SignalR | Pushes live updates to the dashboard without a page refresh |
-| Book file reader | VersOne.Epub | Reads information embedded inside EPUB book files |
-| Engine API documentation | Swashbuckle | Auto-generates an interactive menu of Engine capabilities at `/swagger` |
-| Structured logging | Serilog | Writes rolling log files for Engine action review |
-| Resilient HTTP calls | Polly (Microsoft.Extensions.Http.Resilience) | Auto-retries failed external API calls with backoff |
-| Wikidata/Wikipedia API client | Tuvima.Wikidata | Unified client for Wikidata reconciliation, entity fetching, Wikipedia summaries, image URLs, and in-memory graph engine |
-| Cron scheduling | Cronos | Runs background tasks at specific times |
+| Programming language | C# / .NET 10 | All Engine and Dashboard code |
+| Local database | SQLite | Single file storing the library catalogue |
 | Data access layer | Dapper | Maps database rows to C# objects |
-| AI text inference | LLamaSharp | Local LLM inference with GBNF grammar constraints |
+| Visual interface library | MudBlazor 9 | Pre-built UI building blocks |
+| Real-time intercom | SignalR | Pushes live updates to the dashboard |
+| Book file reader | VersOne.Epub | Reads EPUB contents |
+| Audio/video tagging | TagLibSharp | Reads/writes ID3, MP4, FLAC, Vorbis tags |
+| Transcoding / FFmpeg wrapper | Xabe.FFmpeg | Video/audio stream inspection and extraction |
+| Image rendering | SkiaSharp | Cover art thumbnails, hero banners |
+| Engine API documentation | Swashbuckle | Interactive API menu at `/swagger` |
+| Structured logging | Serilog | Rolling log files |
+| Resilient HTTP calls | Polly (Microsoft.Extensions.Http.Resilience) | Retries with backoff |
+| Wikidata client | Tuvima.Wikidata | Reconciliation, entity fetching, Wikipedia, in-memory graph |
+| Cron scheduling | Cronos | Background task timing |
+| AI text inference | LLamaSharp | Local LLM with GBNF grammar constraints |
 | AI audio inference | Whisper.net | Local speech-to-text and language detection |
-| Automated quality checks | xUnit + coverlet | Automated tests after every change |
-| Version control | Git + GitHub | Tracks every code change |
+| Automated quality checks | xUnit + coverlet | Tests |
+| Version control | Git + GitHub | Code history |
+
+See `Directory.Packages.props` for the authoritative dependency list.
 
 ### Headless Design — Engine and Dashboard are Separate
 
-**This is a critical architectural decision.** The Engine (intelligence and data) is completely separate from the Dashboard (visual interface). They communicate via HTTP + SignalR.
+The Engine and Dashboard are two independent apps that communicate over HTTP + SignalR.
 
 | Part | Technical project | Role |
 |---|---|---|
-| The Engine | `MediaEngine.Api` | Handles all intelligence, data, and file operations. Exposes an API. |
-| The Dashboard | `MediaEngine.Web` | The browser interface. Asks the Engine for data and displays it. |
+| The Engine | `MediaEngine.Api` | Intelligence, data, file operations, API surface. Main runtime composition root. |
+| The Dashboard | `MediaEngine.Web` | Blazor Server browser interface, client of the Engine |
+| Standalone worker | `MediaEngine.Ingestion` | A worker host that can run the ingestion pipeline on its own; not the main runtime path today |
 
 ### Source Code Layout
 
 | Folder | What it is | Role |
 |---|---|---|
-| `src/MediaEngine.Domain` | The Rulebook | Defines what a Collection, Work, and Edition *are*. Pure business logic. |
-| `src/MediaEngine.Storage` | The Filing Clerk | Reads and writes the SQLite database. |
-| `src/MediaEngine.Intelligence` | The Analyst | Runs the Priority Cascade. Scores metadata Claims. |
-| `src/MediaEngine.Processors` | The Scanner | Opens each file type and extracts embedded information. |
-| `src/MediaEngine.Providers` | The Research Team | Fetches metadata from external sources. |
-| `src/MediaEngine.Ingestion` | The Mail Room | Monitors folders. Queues new files. Manages file organization. |
-| `src/MediaEngine.AI` | The Brain | Local AI inference. Smart Labeling, classification, search, vibe tags. |
-| `src/MediaEngine.Api` | The Reception Desk | The Engine's public interface. HTTP + SignalR. |
-| `src/MediaEngine.Web` | The Showroom | The browser Dashboard. |
-| `tests/` | The Quality Inspector | Automated checks for every module. |
+| `src/MediaEngine.Domain` | The Rulebook | Aggregates, entities, enums, constants, contracts. Pure business language. |
+| `src/MediaEngine.Storage` | The Filing Clerk | SQLite repositories, embedded schema bootstrap, startup migrations, config loading. |
+| `src/MediaEngine.Intelligence` | The Analyst | Priority Cascade, scoring, fuzzy matching, identity strategies. |
+| `src/MediaEngine.Processors` | The Scanner | Reads EPUB, audio, video, comic, and generic files for embedded metadata. |
+| `src/MediaEngine.Providers` | The Research Team | External metadata providers, hydration pipeline workers, reconciliation. |
+| `src/MediaEngine.Ingestion` | The Mail Room | Folder watchers, debounce, hashing, dedup, file organization. |
+| `src/MediaEngine.AI` | The Brain | Local model lifecycle, hardware benchmarking, AI features. |
+| `src/MediaEngine.Identity` | The Front Desk | Profiles, roles, multi-user rules. Small but important. |
+| `src/MediaEngine.Api` | The Reception Desk | Composition root: API endpoints, hosted services, SignalR, health checks. |
+| `src/MediaEngine.Web` | The Showroom | Blazor Server dashboard. |
+| `tests/` | The Quality Inspector | One test project per source project. |
 
 ---
 
 ## 3. Architecture Summary
 
-> **Detailed documentation** lives in `docs/architecture/*.md`. Each summary below links to its detail doc.
-> Read the detail doc when working on that subsystem.
+> **Detail docs** live in `docs/architecture/*.md`. Each subsection below is a short summary — read the linked detail doc when working on a subsystem.
 
 ### 3.1 — Ingestion Pipeline
 **Detail:** [`docs/architecture/ingestion-pipeline.md`](docs/architecture/ingestion-pipeline.md)
 
-You configure Library Folders — each tells the Engine where to look and what media to expect. Watch mode monitors for new files; import mode scans existing collections (indexed in place — no move required). Files go through: Settle → Lock Check → Fingerprint (SHA-256) → Scan (processor reads metadata) → Identify (scoring) → Stage 1 retail match → Move to organized library (if title found) → Stage 2 Wikidata enrichment. **Staging eliminated:** `.data/staging/` is no longer used for active ingestion. Watch folder files move directly to the organized library after Stage 1 retail match provides a title; files that fail to obtain a title remain in the watch folder and appear in the Action Center for review. **Early Vault visibility:** items appear in Vault with `RetailMatched` status (displayed as "Enriching" pill) as soon as Stage 1 produces a title — QID is not required. **Batch gate:** `WikidataBridgeWorker` holds Stage 2 until all Stage 1 jobs for the same ingestion run complete; small batch bypass (≤5 files) skips the gate; timeout fallback triggers after 5 minutes. Config: `pipeline.batch_gate` in `core.json`. Rejected files land in `.data/staging/rejected/`; database tracks all status. Ambiguous media types (MP3, MP4) are classified via AI and heuristic signals. **Work-level deduplication:** `MediaEntityChainFactory` checks for existing Works (by title+author+media type via `IWorkRepository`) before creating new ones — duplicate files create new Editions under the existing Work instead of duplicating it. **Dedup fallback:** When `canonical_values` are not yet populated (race condition during batch ingestion), `WorkRepository.FindByTitleAuthorAsync` falls back to matching raw `metadata_claims` from file processors to prevent duplicate Works. **Filesystem conventions:** Audiobooks get their own top-level folder. TV follows Plex convention (`Show/Season XX/SxxExx - Title`). Music follows Plex convention (`Artist/Album/Track`). The `{Format}` token has been removed from all templates to prevent duplicate subfolder nesting. **TV claim keys:** VideoProcessor emits `series`, `season`, `episode`, and `episode_title` claims alongside `show_name`, `season_number`, `episode_number` for FileOrganizer compatibility. **Leading SxxExx handling:** When a filename starts with `S01E01` (no show name prefix), VideoProcessor infers the show name from the parent folder hierarchy (skipping "Season XX" folders) via `InferShowNameFromPath`. Episode titles are extracted from text following the SxxExx pattern across all TV filename formats. **FileOrganizer fallback chains:** Token lookup falls back from `series` → `show_name`, `season` → `season_number`, `episode` → `episode_number`. **Duplicate file prevention:** FileOrganizer checks file size before creating collision copies — if destination exists with identical size, the move is skipped. **ContentGroup collection creation disabled:** `MediaEntityChainFactory.EnsureContentGroupAsync` is a no-op; Vault container views are now driven by System view collections seeded at startup. **WritebackFailed non-blocking:** The `WritebackFailed` review trigger (tag writeback to file fails) is treated as non-critical — items with only a WritebackFailed review still appear in vault media tabs as Identified (not InReview). They remain visible in the Action Center for manual attention. **Pipeline visibility model:** two user-facing phases — Identification (Stage 1 retail match) and Enrichment (Stage 2 Wikidata + pass 2). `VaultPipelineCircles` shows 2 circles replacing the former 3. **Stage transition logging:** All stage transitions (retail match, review creation, QID resolution) are logged at Information level for pipeline tracing. Config: `config/libraries.json`, `config/disambiguation.json`.
+Configured Library Folders tell the Engine where to look and what media to expect. Files go through Settle → Lock Check → Fingerprint → Scan → Identify → Stage 1 retail match → Move to organised library (if a title is found) → Stage 2 Wikidata enrichment. Items surface in the UI with a `RetailMatched` status as soon as Stage 1 produces a title — a QID is not required. The database tracks every status transition; rejected files land under `.data/staging/rejected/`. Work-level deduplication ensures duplicate files create new Editions under an existing Work instead of creating new Works. Config: `config/libraries.json`, `config/disambiguation.json`.
 
 ### 3.2 — Priority Cascade Engine
 **Detail:** [`docs/architecture/scoring-and-cascade.md`](docs/architecture/scoring-and-cascade.md)
 
-When multiple sources disagree about metadata, the Priority Cascade resolves disputes. Each piece of metadata is a Claim with a source and confidence weight. Four tiers evaluated in order: **Tier A** (user locks always win) → **Tier B** (per-field provider priority from config) → **Tier C** (Wikidata authority) → **Tier D** (highest confidence wins). **Author confidence override in Tier C:** For the `author` field only, when a non-Wikidata claim has strictly higher confidence than the best Wikidata claim, the higher-confidence claim wins. This honours the deliberately reduced P50 author confidence (0.75) so that embedded pen names (0.95) survive the cascade when the safety nets in `ReconciliationAdapter` don't fully re-key the P50 claims. For all other fields, Wikidata wins unconditionally in Tier C. AI improves matching quality (SmartLabeler, QidDisambiguator) but does NOT replace the cascade — Wikidata remains the authority for canonical data. All claims are append-only; history is never lost. **Unknown media type:** When `MediaType.Unknown`, reconciliation is blocked entirely — the item is routed to the review queue for manual classification. AI MediaTypeAdvisor is consulted first; only after LLM classification fails does the item go to review. **Unified retail match scoring:** `RetailMatchScoringService` is the single scorer used by both the automated pipeline (Stage 1 confidence gate) and manual search (Vault detail drawer). Field weights: title 45%, author 35%, year 10%, format 10%, plus cross-field boosts. Missing metadata (no author, no year) scores 0.0 (not neutral 0.5). Placeholder titles ("Unknown", "Untitled", "Track XX") return zero-score and route to review. **Creator field fallback:** `fileAuthor` checks author → artist → director → writer to cover all media types. **Weight redistribution:** When BOTH file and candidate lack author data (common for Movies, TV, Comics), the 35% author weight is redistributed proportionally to title/year/format so scoring is driven entirely by available fields. Composite score is clamped to [0.0, 1.0] and rounded to 4 decimal places to prevent floating-point drift at threshold boundaries. **Multi-author matching:** When full-string author comparison < 0.70, both file and candidate authors are split on "&", "and", "," and matched proportionally (matched/total). **Wikidata author validation:** When the file has an author but the candidate's P50/P175 doesn't match (similarity < 0.3), a -35 penalty is applied. When the candidate has no author properties at all, a -40 penalty applies. Score blending: 85% composite / 15% API score. **Pipeline enforcement:** No retail match = no Wikidata. The text-only Wikidata fallback is removed; `ResolveBridgeAsync` blocks sentinel-only calls (only `_title`/`_author` with no real bridge IDs). **Named confidence bands:** `ConfidenceBand` class in `Domain/Constants` defines five named bands replacing scattered raw thresholds: Exact (≥0.95), Strong (≥0.85), Provisional (≥0.50), Ambiguous (≥0.30), Insufficient (<0.30). **IdentityDecisionService:** Centralises accept/review/retry decisions in `Intelligence/Services` — consults `ConfidenceBand` and `ReviewRootCause` to emit a single outcome instead of scattered threshold comparisons. **IdentityResolutionContext** (Domain/Models) — single evidence bundle per asset passed through the pipeline, replacing multiple loose parameters. **IMediaTypeIdentityStrategy** (Domain/Contracts) — strategy interface with 6 media-type implementations in `Intelligence/Strategies` for media-type-specific identity logic. **ReviewRootCause** (Domain/Enums) — 5 internal root causes (NoTitle, NoRetailMatch, LowConfidence, AmbiguousMatch, MediaTypeUnknown) compressing 15+ legacy trigger strings. **ProviderRole** (Domain/Enums) — Asset/Identifier/Mixed/Canonical taxonomy classifying what each provider contributes. Config: `config/scoring.json`.
+When sources disagree, a four-tier cascade resolves the dispute: **Tier A** (user locks) → **Tier B** (per-field provider priority) → **Tier C** (Wikidata authority) → **Tier D** (highest confidence). AI improves matching quality (SmartLabeler, QidDisambiguator) but Wikidata remains the canonical authority. All claims are append-only; history is never lost. `IdentityDecisionService` (in `Intelligence/Services`) centralises accept/review/retry decisions using a `ConfidenceBand` (Exact / Strong / Provisional / Ambiguous / Insufficient) and a `ReviewRootCause`. Media-type-specific identity logic lives in `Intelligence/Strategies/` as `IMediaTypeIdentityStrategy` implementations. Config: `config/scoring.json`, `config/field_priorities.json`.
 
 ### 3.3 — Security
 **Detail:** [`docs/architecture/security.md`](docs/architecture/security.md)
 
-Every endpoint requires authentication except `/system/status` and localhost (when bypass is enabled). Three roles: Administrator (full access), Curator (browse + metadata), Consumer (browse only). API keys are generated with roles, labeled, and individually revocable. Rate limiting: key generation 5/min, streaming 100/min, general 60/min. Path traversal protection on folder endpoints. SignalR Collection requires auth.
+Every endpoint requires authentication except `/system/status` and localhost (when bypass is enabled). Three roles: Administrator (full), Curator (browse + metadata), Consumer (browse only). API keys are labelled and individually revocable. Rate-limiting policies (`key_generation`, `streaming`, `general`) are configured in `config/core.json`. Path traversal protection guards folder endpoints; the SignalR hub requires auth.
 
 ### 3.4 — Dashboard UI
 **Detail:** [`docs/architecture/dashboard-ui.md`](docs/architecture/dashboard-ui.md)
 
-Dark-mode-only cinematic design with ambient gradient background and film-grain texture. Dual navigation: TopBar (4 variants: desktop/mobile/TV/automotive) + LeftDock (icon-only, desktop). Poster swimlanes with 2:3 cover art cards. Cinematic hero banners (SkiaSharp pre-rendered or CSS fallback). Real-time SignalR updates. Four device profiles (web/mobile/television/automotive) with config-driven constraints. Fixed golden amber accent (#C9922E).
+Dark-mode-only cinematic design with an ambient gradient background. The Dashboard is a set of dedicated surfaces rather than one command page:
+
+- `/` — **LibraryBrowsePage** (home / discovery landing)
+- `/read`, `/read/{Tab}` — ReadPage (books + audiobooks)
+- `/watch`, `/watch/{Tab}`, `/watch/movie/{WorkId}`, `/watch/tv/show/{CollectionId}/...`, `/watch/player/{AssetId}` — Watch surfaces
+- `/listen`, `/listen/music/...`, `/listen/audiobooks`, `/listen/audiobook/{WorkId}` — Listen surfaces
+- `/collections`, `/collection/{Id}` — Collections browse + detail
+- `/book/{Id}`, `/person/{Id}` — detail pages
+- `/universe/{Qid}/explore` — Chronicle Explorer (Cytoscape graph)
+- `/search` — global search
+- `/settings`, `/settings/{Section}` — Settings shell (review queue lives at `/settings/review`)
+
+Real-time SignalR updates push pipeline progress into every surface. Theming is fixed dark with a golden amber accent (`#C9922E`).
 
 ### 3.5 — Brand Assets
 
@@ -176,107 +182,119 @@ Three official SVG logo files. **Never replace logo placements with hand-written
 
 | File | Location | Use when… |
 |---|---|---|
-| `tuvima-logo.svg` | `wwwroot/images/` and `assets/images/` | Full horizontal logo — mark + "TUVIMA" wordmark |
+| `tuvima-logo.svg` | `wwwroot/images/`, `assets/images/` | Full horizontal logo — mark + "TUVIMA" wordmark |
 | `tuvima-icon.svg` | `wwwroot/images/`, `wwwroot/favicon.svg`, `assets/images/` | Square icon mark only — favicon, app icon |
 | `tuvima-hero.svg` | `assets/images/` | Mark + wordmark + subtitle — README hero and marketing |
 
-All SVGs use white + black fills, designed for dark backgrounds. Source files in `C:\Users\shaya\OneDrive\Documents\Projects\Tuvima\Graphics\` (outside repo).
+All SVGs are designed for dark backgrounds. Source files live outside the repo at `C:\Users\shaya\OneDrive\Documents\Projects\Tuvima\Graphics\`.
 
 ### 3.6 — Centralized Data Directory (`.data/`)
 
-All internal data lives under a single `.data/` directory at the library root. This keeps every Engine-managed artefact out of the media tree and in one predictable place.
-
-**Directory layout:**
+All Engine-managed artefacts live under a single `.data/` directory at the library root:
 
 ```
-{LibraryRoot}/
-  .data/
-    database/
-      library.db              ← SQLite database (path set in config: database_path)
-    images/
-      {QID}/
-        cover.jpg
-        hero.jpg
-        cover-thumb.jpg       ← 200px-wide SkiaSharp JPEG (quality 75)
-      _pending/
-        {GUID12}/             ← items awaiting Wikidata resolution
-      people/
-        {QID}/                ← only created when a headshot image actually exists
-          headshot.jpg
-          headshot-thumb.jpg
-    staging/
-      {assetId12}/            ← one subfolder per in-flight asset
-      rejected/               ← explicitly rejected files
+{LibraryRoot}/.data/
+  database/library.db
+  images/
+    {QID}/                 ← cover.jpg, hero.jpg, cover-thumb.jpg
+    _pending/{GUID12}/     ← items awaiting QID
+    people/{QID}/          ← headshot.jpg + thumb (lazy-created)
+  staging/
+    {assetId12}/           ← in-flight assets
+    rejected/              ← explicitly rejected files
 ```
 
-**Cover art streaming:** `StreamEndpoints` `/cover` and `/cover-thumb` endpoints fall back through `cover.jpg` → `poster.jpg` (what `CoverArtWorker` writes via `ImagePathService.GetMediaFilePosterPath`) → `poster-thumb.jpg` when resolving cover art alongside media files. `ImagePathService` (Domain layer, registered as singleton) is the single source of truth for all image paths. When a QID is assigned, `PromoteToQid()` renames the pending directory under `images/`. Migration from `_provisional` to `_pending` is handled automatically. People image directories under `images/people/{QID}/` are created lazily — only when a headshot image actually exists, never eagerly. Thumbnails are 200px-wide SkiaSharp-generated JPEGs (quality 75) served via `/stream/{assetId}/cover-thumb`. Image cleanup runs on media delete (checks QID siblings before removing), and an orphan sweep endpoint (`POST /maintenance/sweep-orphan-images`) validates `images/` directories against the database. User-uploaded images (flagged `user_override` in `image_cache`) are protected from orphan sweeps.
+`ImagePathService` (Domain layer, singleton) is the single source of truth for image paths. Thumbnails are SkiaSharp-generated JPEGs (200px wide, quality 75). User-uploaded images are flagged and protected from orphan sweeps.
 
 ### 3.7 — Hydration Pipeline & Providers
 **Detail:** [`docs/architecture/hydration-and-providers.md`](docs/architecture/hydration-and-providers.md)
 
-Two-stage enrichment runs after ingestion. Cover art from providers is written to `.data/images/` via `ImagePathService`; thumbnails auto-generated on save. **Cover art download fix:** `ImagePathService` is properly injected into `HydrationPipelineService` via DI; an existing-file check prevents redundant downloads. **Stage 1 (RetailIdentification):** retail providers gather cover art, descriptions, ratings, and bridge IDs (ISBN, ASIN, TMDB ID) in waterfall order. Retail providers are a rich data source for matching — descriptions, narrator data via AI extraction, ratings — all used to rank candidates against file metadata. **Retail confidence gate:** after each provider returns, `RetailMatchScoringService` scores the candidate (same scorer used by manual search); below 0.50 = discard, 0.50–0.85 = accept with review flag, ≥0.85 = auto-accept. **No retail = no Wikidata:** the text-only Wikidata fallback is removed; Stage 1 failure routes directly to review. **Stage 2 (WikidataBridge):** Wikidata uses bridge IDs for precise QID resolution and fetches canonical properties — including person properties P50 (author), P57 (director), P58 (screenwriter), P86 (composer), P110 (illustrator), P161 (cast member, capped at 20), and P449 (original broadcaster/network, TV only). Wikipedia descriptions included. Description heading markup (`== Plot ==`) is stripped before storage. Wikidata is the authority for canonical data; retail providers supply matching data. **Adapter slimdown (Tuvima.Wikidata v2.4.1):** the public `ReconciliationAdapter.ResolveAsync` / `ResolveBatchAsync` are now thin pass-throughs to the library's `Stage2Service` sub-service. The hand-rolled `ResolveBridgeAsync` (~370 lines), `ResolveMusicAlbumAsync` (~120 lines), `ResolveByTextAsync`, `AutoDetectStrategy`, batch group-key helpers, and the `BridgeResolutionResult` DTO have been deleted. The library natively groups requests by natural key (one round-trip per unique ISBN / album / text signature), handles edition pivoting via `EditionPivotRule`, and supports a discriminated `IStage2Request` hierarchy (`BridgeStage2Request` / `MusicStage2Request` / `TextStage2Request`) so illegal combinations are not representable. The adapter follows up each successful resolution with a Data Extension call (`ExtendAsync` + `ExtensionToClaims`) to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`, since the library's `Stage2Result` deliberately does not carry property claims. A small inline text-fallback pass mirrors the legacy `ResolveBridgeAsync`'s "if bridge IDs fail, try title+author" behaviour for parity. See `.claude/plans/adapter-slimdown-remediation.md` and the parity baseline at `tests/fixtures/stage2-baseline-v2.json`. **Child entity discovery:** After Stage 2 QID resolution, `DiscoverChildEntitiesAsync` delegates to `_reconciler.Children.GetChildEntitiesAsync(ChildEntityRequest)` with `ChildEntityKind.TvSeasonsAndEpisodes` / `MusicTracks` / `ComicIssues`. The library walks the manifest in a single call (TV: 1 call instead of N+1), exposes typed `ChildEntityRef` fields (`Duration as TimeSpan?`, `ReleaseDate as DateOnly?`, `Creators` map), and handles the reverse-P179 comics traversal via `Direction.Incoming`. Results stored as claims: `season_count`, `episode_count`/`track_count`/`issue_count`, and `child_entities_json` (the adapter re-shapes the library's flat `Children` list back into the nested `{seasons:[{episodes:[]}]}` shape the Vault parser expects). Capped at 20 seasons and 500 total children. Wrapped in try/catch — never fails the main pipeline. **Multi-author reconciliation constraints:** `PropertyConstraint.Values` passes all split authors to the reconciliation API for proportional matching (e.g., "Good Omens" with P50 constraint ["Neil Gaiman", "Terry Pratchett"]). Config: `config/providers/wikidata_reconciliation.json`. **Tuvima.Wikidata v2.4.1 features used:** the v2.0 facade exposes nine focused sub-services — `Reconcile`, `Entities`, `Wikipedia`, `Editions`, `Children`, `Authors`, `Labels`, `Persons`, `Stage2`. The adapter's `Program.cs` registration adds each sub-service as a singleton so callers can inject narrow slices. Specific primitives consumed: `Stage2.ResolveBatchAsync` (replaces `ResolveBridgeAsync` + `ResolveMusicAlbumAsync` + `ResolveByTextAsync`); `Children.GetChildEntitiesAsync(ChildEntityRequest)` with built-in `MaxPrimary`/`MaxTotal` caps and `IncludeCreatorProperties`; `Persons.SearchAsync(PersonSearchRequest)` with role → P106 occupation mapping, year hints, work hints, companion-name hints, and musical-group defaulting; `Authors.ResolveAsync(AuthorResolutionRequest)` for the three pseudonym patterns (Pattern 1: reverse P742 — "Richard Bachman" → Stephen King; Pattern 2: P742 enumeration — Stephen King → ["Richard Bachman"]; Pattern 3: collective pseudonym P527 walk — "James S.A. Corey" → Daniel Abraham + Ty Franck); `Labels.GetAsync` / `GetBatchAsync` with malformed-QID pre-filter; `EntityGraph` for in-memory graph queries (replaces dotNetRDF). The v2.3 P106-on-musical-groups penalty fix is live, so Daft Punk / Radiohead pass at the documented 0.80 `AcceptThreshold` (the 0.5 workaround threshold has been removed). The v2.4.1 multi-author parallelism fix means multi-author book resolutions fan out across the library's bounded `ConcurrencyLimiter`. **CirrusSearch type filter consolidation:** For edition-aware media types (Books, Audiobooks, Music), `GetCirrusTypesForMediaType()` uses the narrow `work_classes` from `edition_pivot` config — only work-level P31 types (e.g. Q571 literary work, Q7725634 written work, Q8261 scholarly article for Books). For non-edition-aware types (Movies, TV, Comics), it reads from `instance_of_classes`. The former `config/cirrus-type-filters.json` has been removed; the edition_pivot work_classes serve the same purpose with authoritative configuration. **Post-resolution P31 validation:** After Stage 2 bridge resolution (ISBN/TMDB/etc. → QID), `PopulateResultsAsync` validates the resolved entity's P31 against `instance_of_classes` and `exclude_classes` for the requested media type. If a book's ISBN resolves to a film entity (P31 = Q11424), the result is rejected and the text fallback retries with CirrusSearch type filtering. P31 is fetched alongside bridge properties in a single batched `ExtendAsync` call (added to `Stage2BridgePCodes`). This prevents cross-media misidentification where ISBNs are shared between a novel and its film adaptation. **Tuvima.Wikidata features used (carried from earlier versions):** CirrusSearch type filtering (`ReconciliationRequest.Types`), concurrent multi-language search (`Languages` parameter), `DiacriticInsensitive` flag and `QueryCleaners` pipeline, `GetEditionsAsync` for audiobook P747 edition discovery, `resolveEntityLabels: true` on `GetEntitiesAsync` for batch display label resolution, `MatchedLabel` for alias/sitelink-aware title emission, `EntityLabel` on `WikidataValue` for pre-resolved companion QID labels, `GetRevisionIdsAsync` for lightweight entity staleness detection. **Standalone Person Reconciliation:** After Stage 2, any person name from file metadata or structured properties that lacks a companion QID is searched independently via `_reconciler.Persons.SearchAsync` (the adapter's `PersonReconciliationService` is now a 175-line thin wrapper, down from 445 lines). The library handles role → occupation mapping, musical-group defaulting (Performer / Artist roles include Q215380 + Q5741069), and notable-work boost. Auto-accepted at ≥0.80 confidence (0.80 for file metadata, 0.75 for AI-extracted). Person freshness check: existing persons enriched within 30 days skip re-fetch; stale persons check `last_revision_id` via `GetRevisionIdsAsync` before full property fetch. **Musical Group Support:** Person reconciliation accepts Q215380 (musical group) and Q5741069 (musical ensemble) alongside Q5 (human) for music-specific roles (Performer, Artist, Composer). P527 (has part) resolves group → members; P463 (member of) resolves individual → groups. Group membership stored in `person_group_members` junction table with optional start/end dates from Wikidata P580/P582 qualifiers. `IsGroup` flag on Person entity determined by P31 at enrichment time. New person roles: Performer, Artist. **Performer role mapping:** The `performer` claim key is mapped to media-type-aware roles: Music → "Performer", Audiobooks → "Narrator", TV/Movies → "Actor". This prevents musicians from being classified as narrators. Two-pass enrichment: Pass 1 (quick, immediate) gets files on Dashboard fast; Pass 2 (universe, background/scheduled) does deep enrichment. Provider response caching eliminates redundant API calls. **Diacritics normalization:** `ConfigDrivenAdapter.ComputeWordOverlap` strips Unicode diacritics (NormalizationForm.FormD decomposition) before word matching, so "Shogun" matches "Shōgun". For TV-specific strategies, `BuildUrl` prefers `ShowName` over `Title` to avoid searching by episode title. **Subtitle stripping:** `ReconciliationAdapter.FetchWorkAsync` strips "; or," subtitle patterns (e.g. "Frankenstein; or, The Modern Prometheus" → "Frankenstein") before Wikidata CirrusSearch. **Edition pivot consolidation:** Edition pivot rules (work vs edition P31 class detection for audiobooks, books, music) are embedded in `config/providers/wikidata_reconciliation.json` under the `edition_pivot` section — the former standalone `config/edition-pivot.json` has been removed. `ReconciliationAdapter.BuildEditionPivotRule` reads from `_config.GetEditionPivotConfiguration()`. Audiobook edition class Q-IDs are resolved from the edition_pivot config via `GetAudiobookEditionClasses()` instead of hardcoded fallbacks. **Universe config consolidation:** The former `config/universe/wikidata.json` (property map, bridge lookup priority, instance_of_classes, search thresholds) was dead configuration — nothing in the codebase loaded the `UniverseConfiguration` model. The property map has been archived to `docs/reference/wikidata-property-map.md` as a Stage 3 planning reference; `instance_of_classes` was a stale subset already consolidated in `wikidata_reconciliation.json`; the `UniverseConfiguration`, `WikidataPropertyConfig`, `BridgeLookupEntry`, and `StructuredSearchThresholds` models have been deleted. **Legacy slots removal:** `config/slots.json` and the `ProviderSlotConfiguration` model have been removed — fully superseded by `config/pipelines.json` and `PipelineConfiguration`. The `LoadSlots()`/`SaveSlots()` methods and `/settings/provider-slots` API endpoints are deleted. `LoadPipelines()` no longer falls back to slots.json. **Audnexus removal:** All Audnexus provider references removed (WellKnownProviders.Audnexus, database seed row, first-run defaults, display name mappings). Config: `config/hydration.json`, `config/providers/*.json`.
-**Ranked Pipeline System:** Stage 1 supports unlimited ranked providers per media type with three execution strategies configured in `config/pipelines.json`: **Waterfall** (first match wins — Movies, TV, Comics), **Cascade** (all run independently, claims merge — Books), **Sequential** (chained, each feeds the next via bridge IDs — Audiobooks, Music). `PipelineConfiguration` in Storage/Models; `ProviderStrategy` enum in Domain/Enums. `HydrationPipelineService` resolves providers by rank and executes per strategy. In Sequential mode, `PriorProviderBridgeIds` on `ProviderLookupRequest` passes bridge IDs from Provider A to Provider B. `PriorityCascadeEngine` Tier B checks `pipelines.json` per-media-type field priorities before global `field_priorities.json`. `MediaTypeFieldRegistry` (Domain/Constants) centralises fields, search display configs, and searchable fields per media type. Settings UI: `ProviderPriorityTab` has strategy picker per media type. API: `GET/PUT /settings/pipelines`.
-**Music Pipeline (Apple API sole provider):** Music now uses Apple API as the sole Stage 1 provider (Waterfall strategy). MusicBrainz is disabled for music (config `enabled: false`). Apple provides: track metadata (title, artist, album, genre, year), high-quality scalable cover art, and Apple Music identifiers (trackId → `apple_music_id`, collectionId → `apple_music_collection_id`, artistId → `apple_artist_id`). Stage 2 bridge resolution uses three-tier fallback: `apple_music_id` → P4857, ISRC → P1243 (if file has it), then CirrusSearch text reconciliation with Q105543609 (musical work/composition — tested against 5 ambiguous songs with 100% accuracy, eliminating false matches against movies/albums with the same title) type filtering. **Album-first lookup:** when a track is matched, the full album is fetched via `/lookup?id={collectionId}&entity=song`, creating the Collection (album) and all Works (tracks) — subsequent tracks from the same album slot in without additional API calls (same pattern as TV series). Sentinel keys `_title` and `_author` in the bridge ID dictionary signal the text reconciliation fallback path.
-**Comics Pipeline (ComicVine):** Comics use ComicVine as the sole Stage 1 provider (Waterfall strategy). Metron is disabled (`enabled: false`). ComicVine provides: issue metadata (title, writer, artist, description, cover art, issue number) via `https://comicvine.gamespot.com/api`. Auth: query-param `api_key`. Config: `config/providers/comicvine.json`, secret in `config/secrets/comicvine.json`. `WellKnownProviders.ComicVine` = `b9000009-0000-4000-8000-000000000014`.
+A durable, two-stage enrichment pipeline runs after ingestion. `identity_jobs` rows (SQLite) replace any in-memory queue. Three pipeline workers poll for jobs:
 
-**Durable Identity Pipeline:** The durable job model has replaced the in-memory `BoundedChannel` queue. Ingestion creates `identity_jobs` rows (SQLite, migration M-080) instead of enqueuing in-memory `HarvestRequest` objects. `SynchronousIdentityPipelineService` implements `IHydrationPipelineService` by running the three workers inline for synchronous callers. Three pipeline workers poll for jobs: `RetailMatchWorker` (Stage 1, leases `Queued` → `RetailMatched`/`RetailNoMatch`), `WikidataBridgeWorker` (Stage 2, leases `RetailMatched` → `QidResolved`/`QidNoMatch`, strict retail gate), `QuickHydrationWorker` (leases `QidResolved` → `Completed`). Every candidate is persisted: `retail_match_candidates` and `wikidata_bridge_candidates` tables store full score breakdowns for the Action Center detail drawer. `EnrichmentService` is a thin dispatcher routing to modular workers: `CoverArtWorker`, `PersonEnrichmentWorker`, `ChildEntityWorker`, `FictionalEntityWorker`, `DescriptionEnrichmentWorker`. **Image enrichment (Fanart.tv):** `ImageEnrichmentService` runs during the Universe Pass and fetches rich imagery — backdrops, logos, banners, and character art — from Fanart.tv via direct HTTP (not ConfigDrivenAdapter) for full control over multi-image array responses. Bridge IDs (tmdb_id, tvdb_id, musicbrainz_id) select the correct Fanart.tv endpoint (/movies, /tv, /music). Images are downloaded with SHA-256 hash dedup via `IImageCacheRepository`, stored to disk via `ImagePathService` (new methods: `GetWorkBackdropPath`, `GetWorkLogoPath`, `GetWorkBannerPath`), and tracked as `EntityAsset` records. Backdrop downloads trigger hero banner regeneration via `IHeroBannerGenerator` (higher quality than cover-derived heroes). Character art is fuzzy-matched (≥0.70 threshold via `IFuzzyMatchingService`) against fictional entity labels linked to the work, with matched images stored as `CharacterPortrait` records. Config: `config/providers/fanart_tv.json` (provider_id: `bc00000c-0000-4000-8000-000000000013`, was previously colliding with AiProvider GUID). `WellKnownProviders.FanartTv` constant added. `BridgeIdKeys.TvdbId` constant added. `IPersonRepository.GetCharacterLinksByWorkAsync` and `IFictionalEntityRepository.GetByWorkQidAsync` added for character art matching queries. Helpers extracted from the monolith: `BridgeIdHelper` (P-code mapping), `StageOutcomeFactory` (review item creation), `TimelineRecorder` (event recording), `BatchProgressService` (counter + SignalR), `PersonReferenceExtractor` (person ref extraction). The legacy `HydrationPipelineService` monolith has been removed. See plan: `.claude/plans/modular-launching-wall.md`. **RetailMatchWorker lookup fields:** `ProviderLookupRequest` is fully populated with all media-specific fields — Narrator, ShowName (with Series fallback), Album, Artist, Director, SeasonNumber, EpisodeNumber, TrackNumber, Series, Genre, Isbn, Asin — so provider URL templates (e.g. ComicVine `{series}`) can resolve correctly across all media types. **Batch gate:** `WikidataBridgeWorker` does not begin polling until all Stage 1 (`RetailMatchWorker`) jobs for the same ingestion run reach a terminal state. Small batch bypass: runs with ≤5 files skip the gate immediately. Timeout fallback: 5-minute maximum wait before Stage 2 proceeds regardless. Config: `pipeline.batch_gate` in `core.json`. **Post-resolution QID dedup (Phase 6):** after `PopulateResultsAsync`, contexts are grouped by `(ResolvedQid, MediaType)`; `FetchAsync` is called once per group and the result distributed to all members, eliminating redundant Wikidata round-trips in batch runs. **Stage2PollMetrics:** strongly-typed telemetry record emitted per `WikidataBridgeWorker` poll cycle (jobs leased, resolved, skipped, errors, elapsed). **qid_resolution_method:** new canonical value (`bridge` / `text` / `album`) recording how the Wikidata match was made — visible in the detail drawer Wikidata tab. **Cover art — Comics scope correction:** ComicVine cover art scope changed to `Self` (issue-level only). **Cover art — TV show poster:** `CoverArtWorker` captures the show-level poster from TMDB and stores it against the series collection, separate from episode stills. **Cover art — streaming fallback chain:** `/cover` and `/cover-thumb` streaming endpoints walk a parent-chain fallback (asset → edition → work → collection) before returning a placeholder. **Batch counter increments:** `IngestionEngine` calls `IncrementCounterAsync` (atomic SQL `UPDATE SET col = col + 1`) for FilesProcessed after identity job creation and FilesFailed after lock-probe or quarantine failures. `BatchCounterColumn` enum in Domain/Enums. **PostPipelineService auto-resolve:** Expanded trigger set includes RetailMatchAmbiguous, WikidataBridgeFailed, and MissingQid alongside the original RetailMatchFailed, AuthorityMatchFailed, ContentMatchFailed, and LowConfidence — prevents stale review items from blocking organization when confidence has improved. **QID-based collection assignment:** `CollectionAssignmentService` runs during QuickHydrationWorker after enrichment populates canonical values. It reads `series_qid` (P179), `franchise_qid` (P8345), and `fictional_universe_qid` (P1434) — most specific first — to find or create a ContentGroup Collection backed by a Wikidata QID. Works are assigned via `AssignWorkToHubAsync` (FK on `works.collection_id`). Idempotent — skips works that already have a collection. Standalone works (no series/franchise/universe in Wikidata) remain at `collection_id = NULL`. This replaces the previous display-time-only grouping with real FK-backed containers for book series, TV shows, music albums (when Wikidata has the relationship), and franchises.
+- **`RetailMatchWorker`** — Stage 1. Retail providers score candidates through `RetailMatchScoringService`. Scores ≥0.85 auto-accept, 0.50–0.85 accept-with-review, below 0.50 routes to review.
+- **`WikidataBridgeWorker`** — Stage 2. Uses retail bridge IDs (ISBN, ASIN, TMDB ID, etc.) to resolve a QID. A batch gate holds Stage 2 until Stage 1 finishes for the run.
+- **`QuickHydrationWorker`** — Populates canonical values, hero images, collection assignment.
+
+`SynchronousIdentityPipelineService` provides an inline implementation for synchronous callers.
+
+Enrichment is modular. `EnrichmentService` dispatches to dedicated workers: `CoverArtWorker`, `PersonEnrichmentWorker`, `ChildEntityWorker`, `FictionalEntityWorker`, `DescriptionEnrichmentWorker`, plus `ImageEnrichmentService` for Fanart.tv imagery. `PostPipelineService` auto-resolves stale review items when confidence improves.
+
+Every retail candidate and Wikidata candidate is persisted (`retail_match_candidates`, `wikidata_bridge_candidates`) so the Review drawer can show full score breakdowns. Provider behaviour is driven by JSON config — adding a REST+JSON provider is a zero-code operation. See [`docs/reference/providers.md`](docs/reference/providers.md).
 
 ### 3.8 — Configuration Architecture
-**Detail:** [`docs/architecture/hydration-and-providers.md`](docs/architecture/hydration-and-providers.md) (provider config section)
 
-All settings live in `config/` directory as individual JSON files grouped by concern. One concern per file. Provider files are self-contained. All Wikidata configuration (reconciliation settings, instance_of_classes, edition pivot rules, data extension properties, child entity discovery) is consolidated in `config/providers/wikidata_reconciliation.json` — no separate universe or edition-pivot config files. All config files committed directly in `config/`. Provider secrets (API keys, passwords) go in `config/secrets/` (gitignored). Adding a new REST+JSON provider is a zero-code operation: drop a config file, restart.
+All settings live in `config/` as individual JSON files grouped by concern. Provider secrets (API keys) go in `config/secrets/` (gitignored).
 
-**Provider Catalogue Centralisation (implemented):** Provider UI metadata (display names, icons, accent colours, supported media types, language strategy) is centralised in provider config JSON files and exposed via `GET /providers/catalogue`. `ProviderCatalogueService` in the Dashboard caches the catalogue at startup. `ProviderAccentMap` provides static fallbacks during boot. See [`docs/reference/providers.md`](docs/reference/providers.md) for the complete provider reference.
+| File / folder | What it controls |
+|---|---|
+| `core.json` | Core paths, rate limits, language preferences, batch gate, maintenance schedules |
+| `libraries.json` | Watch folders, media-type hints, organization templates |
+| `providers/*.json` | One file per provider; includes language strategy |
+| `providers/wikidata_reconciliation.json` | All Wikidata config — reconciliation, edition pivot, data extension, child entity discovery |
+| `ai.json` | Local models, feature toggles, cron schedules |
+| `pipelines.json` | Ranked Stage 1 provider pipelines per media type (Waterfall / Cascade / Sequential) |
+| `scoring.json`, `field_priorities.json` | Metadata priority |
+| `ui/palette.json`, `ui/global.json`, `ui/devices/*`, `ui/profiles/*` | UI theming and device profiles |
+| `writeback.json`, `writeback-fields.json` | Tag write-back rules |
+| `transcoding.json`, `media_types.json`, `narration/phrases.json` | Additional runtime settings |
 
-**Configuration Centralisation (implemented):** All scattered configuration has been consolidated into single sources of truth:
-- **`WellKnownProviders.cs`** (Domain) — all 16 provider GUIDs (Audnexus removed, ComicVine added), replacing ~15 files of copy-pasted literals
-- **`ClaimConfidence.cs`** (Domain) — 22 named constants for the metadata confidence hierarchy (0.70–1.00)
-- **`AppRoles.cs`** (Domain) — authorisation role constants bridging `ProfileRole` enum to string comparisons
-- **`BridgeIdKeys.cs`** (Domain) — 18 external identifier key constants (isbn, tmdb_id, etc., plus 3 Apple Music constants: AppleMusicId, AppleMusicCollectionId, AppleArtistId), replacing 218 raw strings
-- **`MetadataFieldConstants.cs`** (Domain) — extended with 34 single-valued claim key constants (title, author, year, etc.), replacing 500+ raw strings
-- **`SignalREvents.cs`** (Domain) — collection path + 16 event name constants, shared between Engine publishers and Dashboard subscribers
-- **`MediaTypeClassifier.cs`** (Domain/Services) — single classifier replacing 4 divergent format-to-type implementations
-- **`PaletteConfiguration`** (Domain/Models) — ~80 hex colours loaded from `config/ui/palette.json`, enabling seasonal themes
-- **`PaletteProvider`** (Web/Theming) — static accessor for palette colours used by VaultHelpers, RegistryHelpers, ThemeService, UniverseMapper
-- **`ScoringConfiguration`** — now registered as DI singleton; `IngestionEngine`, `OrganizationGate` read thresholds from config instead of hardcoding
-- **`MaintenanceSettings.Schedules`** — all 11 cron expressions (5 background services + hydration pass2 + 5 AI schedules) consolidated into one `schedules` section in `maintenance.json`; the obsolete per-service cron properties (`VibeBatchCron`, `SeriesCheckCron`, `WhisperBakeCron`, `TasteProfileUpdateCron`, `DescriptionIntelligenceCron` on `AiScheduling`, and `Pass2NightlyCron`, `Stage3ScheduleCron` on `HydrationSettings`) have been deleted — all services now read directly from `MaintenanceSettings.Schedules`
-- **`RateLimitingSettings`** — rate limiting parameters (key_generation, streaming, general) moved from hardcoded `Program.cs` to `core.json`
-- **Collection rules** — normalized JSON predicate arrays (`{field, op, value}` objects) stored in the `rule_json` column on collections, evaluated by `CollectionRuleEvaluator`
+Before changing C# for behaviour that looks configurable, check `config/` first.
 
 ### 3.9 — Universe Graph & Chronicle Engine
 **Detail:** [`docs/architecture/universe-graph.md`](docs/architecture/universe-graph.md)
 
-Builds a relationship graph connecting characters, locations, factions, and works across all media. Entities and relationships stored in SQLite; Tuvima.Wikidata.Graph provides in-memory graph queries via EntityGraph. Person infrastructure includes biographical data, social links (Actionable URI Schemes), pseudonym resolution, and character-performer links. **Roles:** Actor, Voice Actor, Performer, Artist, Composer, Author, Director, Narrator. Illustrator and Screenwriter removed. "Cast Member" renamed to "Actor" in database and code. Performer role is assigned from P175 for music items. Band member expansion (P527) disabled — musical groups stored as single Person with `IsGroup = true`. **People tab filters:** All, Authors (Author+Narrator), Directors, Actors (Actor+Voice Actor), Musicians (Artist+Composer+Performer). Chronicle Engine adds temporal qualifiers, Lore Delta detection, era-correct actors, and canon discrepancy detection. Chronicle Explorer page at `/universe/{Qid}/explore` with Cytoscape.js graph visualization.
+Builds a relationship graph connecting characters, locations, factions, and works. Entities and relationships live in SQLite; `Tuvima.Wikidata.Graph` provides in-memory graph queries. Person infrastructure includes biographical data, social links, pseudonym resolution, and character-performer links. Roles: Actor, Voice Actor, Performer, Artist, Composer, Author, Director, Narrator. The Chronicle Engine adds temporal qualifiers, Lore Delta detection, and era-correct actor detection. The Chronicle Explorer at `/universe/{Qid}/explore` visualises the graph with Cytoscape.js.
 
 ### 3.10 — Local AI Intelligence Layer
 **Detail:** [`docs/architecture/ai-integration.md`](docs/architecture/ai-integration.md)
 
-AI is a core function, not an add-on. Three model roles: text_fast (1B, on-demand), text_quality (3B, batch), audio (Whisper, transcription). 16 features across 7 categories: Ingestion (Smart Labeling, Media Type Classification, Batch Manifest), Alignment (QID Disambiguation, Series Alignment), Enrichment (Vibe Tags, TL;DR, Audio Similarity), Syncing (Immersive Bake, Subtitle Sync), Personalization (Taste Profiling, "Why" Factor), Discovery (Intent Search), Advanced (URL Paste). GBNF grammar constraints force valid JSON output. AI improves matching; Priority Cascade determines canonical values. **Genre vs Vibe distinction:** genres (from Wikidata/retail) describe *what something is*; vibes (AI-generated, 25–30 per media type) describe *how it feels*. Intent Search combines both for natural language discovery ("something scary set in space" → genre:horror + vibe:tense). Config: `config/ai.json`.
+AI is a core function, not an add-on. Model roles: **text_fast** (on-demand, small), **text_quality** (batch, larger), **audio** (Whisper transcription + language detection), and **text_cjk** (loaded when the user has CJK languages in their preferences). Features span Ingestion (Smart Labeling, Media Type Classification), Alignment (QID Disambiguation, Series Alignment), Enrichment (Vibe Tags, TL;DR, Audio Similarity), Syncing (Immersive Bake, Subtitle Sync), Personalization (Taste Profiling, "Why" Factor), and Discovery (Intent Search). GBNF grammar constraints force valid JSON output. AI improves matching; the Priority Cascade determines canonical values. Config: `config/ai.json`.
 
-### 3.11 — Settings Architecture & Screen Hierarchy
-**Detail:** [`docs/architecture/settings-and-vault.md`](docs/architecture/settings-and-vault.md)
+### 3.11 — Settings
 
-Settings are organised by what the user is thinking about. Three design rules: breaks things → config file only; set once → First-Run Wizard; actively managed → GUI. Five groups: **Preferences** (Profile, Playback), **Providers** (Connections, Priority per media type, Wikidata Stage 2/3 config), **Intelligence** (Models, AI Features, Vibe Vocabulary, Schedule), **Library** (Folders), **Server** (Status, Security, Users, Activity, Maintenance, Setup). 16 settings screens + 5-step wizard + Vault page.
+Settings at `/settings/{Section}` is the Dashboard's operational command centre. It's a two-row tab shell: a primary group-tabs row and a secondary section-tabs row. `SettingsNav` resolves routes and filters visibility by role. Current sections:
 
-### 3.12 — Library Vault (`/vault`)
-**Detail:** [`docs/architecture/settings-and-vault.md`](docs/architecture/settings-and-vault.md)
+| Group | Sections |
+|---|---|
+| **Overview** | Overview, Review |
+| **Preferences** | Profile, Playback |
+| **Library** | Folders |
+| **Providers** | Providers, Wikidata |
+| **Intelligence** | Models, Features, Vocabulary, Schedule |
+| **Server** | System, Security, Users, Activity, Maintenance, Setup |
 
-The command centre for managing everything in the library. **Two-row tab navigation:** Row 1 contains the top-level groups: Media | People | Universes | Action Center (right-aligned). Row 2 is context-aware: Media shows New/Movies/TV/Music/Books/Audiobooks/Comics; People shows All/Authors/Directors/Actors/Musicians; Universes shows All (stub). **Action Center is a tab** (right-aligned in Row 1), amber-colored when items exist, neutral when empty. Navigating to `/vault` routes directly to Action Center when it has items. **Per-media-type tab layout:** New, Movies, TV, Music, Books, Audiobooks, Comics under the Media group. Each media type gets its own tab with metadata-focused columns (no pipeline/status — those live in the detail drawer only). Tab badges show item counts. No sidebar — full-width content area. Collection management has moved to the dedicated Collections page (`/collections`). **View modes per tab:** Each media tab supports a flat list view (all individual items) and a container view (shows, albums, series). Default view modes: Movies=flat, TV=shows, Music=artists, Books=flat, Audiobooks=flat, Comics=series. View mode switcher in toolbar. Music has three modes: By Artist (artist→album accordion→tracks), By Album (album containers), All Songs (flat). View mode preferences saved via `GET/PUT /settings/ui/vault-preferences` (`VaultPreferencesSettings` in Storage/Models). **Container data:** Containers are driven by System view collections (seeded at startup). Clicking a container navigates to `MediaGroupPage.razor` (URL change, back button). Container columns defined in `VaultColumnDefinitions.GetColumnsByTab(tabId, viewMode)` with V3 container column sets using `ColumnRenderType.ContainerCell`. **Action Center** (`VaultActionCenter.razor`): shows "X Items Require Review" (Needs Review + Quarantined + Waiting for Provider). **Registry CTE fix:** `review_data` CTE aggregates at work level (through `media_assets → editions → works` join chain) so reviews match regardless of which asset they target. Status CASE prioritises `InReview` before `Identified`/`Confirmed` to prevent review items from being hidden. Checkboxes for bulk selection with "Delete Selected" bar. No Edit button — title click opens detail drawer. No retry button. Amber-themed for warnings, rose-themed when quarantined items exist. **New tab:** shows recently added items across all media types (last 30 days) with Type badge, Added date, Parent Context (show/series/album), Specs column, and Size column. **Contextual toolbar** per tab: view mode switcher, search, per-tab filter dropdown (quality for movies, format for books, etc.), sort, and column picker trigger. No group-by dropdown. Back button appears during drill-down. **Configurable columns** per media type via `VaultColumnDefinitions.GetColumnsByTab(tabId)` with column picker (toggle/reorder, saved to localStorage). Column sets are metadata-focused: Movies (Director, Year, Specs, Size), TV (Show, Season, Episode, Quality), Music (Artist, Album, Bitrate, Size), Books (Author, Series, Year, Format), Audiobooks (Author, Narrator, Length, Format), Comics (Writer, Series, Year, Format). Specs and Size are separate sortable columns; Size sorts on raw bytes. **Column headers are pinned** — table header is sticky, body scrolls. **Column sorting:** clickable column headers toggle ascending/descending. **Title click opens detail drawer.** No Edit button in rows. **Delete sends items to quarantine** (soft delete). **Multiple authors** are split on "and", "&", and "," and rendered as separate clickable links. `ColumnRenderType.ClickableText` reuses this pattern for any text column (e.g. Artist in Music tab). **TV tab** is always by-show, sorted by recently updated. **Batch selection** with Shift+click range, Ctrl+click individual, floating action bar (Delete, Sync Now). **Drill-down:** Container rows navigate to `MediaGroupPage.razor` with cover art header, metadata, and season/album accordion. TV: season accordion with episodes (titles resolved from `episode_title` canonical value with `title` fallback). Music artists: album accordion with tracks. Other types: flat list. Child rows open detail drawer on title click. **Owned/unowned toggle** in MediaGroupPage header: shows unowned items (episodes/tracks not in library) in gray. Enabled by default, saved to vault preferences. **Music album grid** view with cover art cards and size slider. **Mobile:** tab bar scrolls horizontally. **Detail drawer** slides in from right with pinned header (cover, title, status, Universe link), scrollable collapsible sections (Pipeline with File/Retail/Wikidata tabs, History, Assets), and pinned action bar (Purge). Pipeline section includes inline resolution panels for both Retail and Wikidata stages. **Provisional status** for items the engine couldn't match — file metadata is the authority, user corrections improve future Identify runs. **30-day refresh cycle** re-runs enrichment. **Sync writeback** (on by default) writes resolved metadata back to file tags. **People tab:** always Wikidata-sourced. List shows photo, name, primary role (color-coded), media count, associated types. Sub-tabs: All, Authors (Author+Narrator), Directors, Actors (Actor+Voice Actor), Musicians (Artist+Composer+Performer). Detail drawer: Library Presence, Linked Identities, Members/Member of, Character Roles, Assets. **Universes tab:** franchise-level groupings, always Wikidata-sourced. List shows name+description, Series count, media breakdown, people count. Detail drawer: health score, characters, content, people, assets. **Shared Assets section** across all tabs: five uniform asset types (Cover Art, Headshot, Banner, Logo, Backdrop). Live SignalR updates throughout.
-**Detail drawer restructured:** Pipeline section now uses three tabs (File / Retail / Wikidata) instead of the old stage panel. File tab shows current resolved metadata + collapsed original file metadata. Retail tab shows match status with always-visible search. Wikidata tab shows QID status with always-visible search. History moved to its own drawer section. `StageGate` supports a `Running` state with pulse animation.
+Navigation is URL-driven: `/settings/review` deep-links straight into the review queue.
+
+### 3.12 — Review Queue (inside Settings)
+
+The Review Queue is the Engine's safety net for uncertain matches. It lives at `/settings/review` and is rendered by `LibraryPage` (in `Components/Library/`) with `ReviewOnly="true"`. `/review` is a 301 redirect to the Settings route.
+
+The queue surfaces items that need human attention: failed retail matches, ambiguous Wikidata candidates, low-confidence matches, missing titles, and items that fell through during enrichment. The detail drawer shows current file metadata, retail candidates, Wikidata candidates, and pipeline history across three tabs (File / Retail / Wikidata). Actions include accepting a candidate, running a manual search, purging the item, or deferring. `PostPipelineService` auto-resolves queue items when a later enrichment pass pushes confidence above threshold.
+
+> **Historical note:** An earlier `/vault` page concept combined browsing, management, and review into one 9-tab surface. That page has been **deprecated**. Browsing now lives on the media surfaces (`/`, `/read`, `/watch`, `/listen`, `/collections`) and review lives inside Settings. References to a "Library Vault" in older documentation, `.agent/` files, or memory entries are stale.
 
 ### 3.13 — Universal Parameterized Collection System
 **Detail:** [`docs/architecture/collections.md`](docs/architecture/collections.md)
 
-Every collection is a **collection** — a parameterized query container with normalized filter predicates stored as JSON arrays of `{field, op, value}` objects. Six collection types as presentation hints: **ContentGroup** (drillable containers — albums, TV shows, book series), **Smart** (auto-generated from library data — by genre, vibe, author, director, narrator, decade, plus Recently Added, Highest Rated, Unrated), **System** (per-user, pre-created — Reading List, Watchlist, Currently Watching, Listening Queue, Favorites), **Mix** (AI-generated per-user — Continue, Heavy Rotation, Discovery Queue, New For You, Because You Liked, Taste Mix, On Repeat, Rediscover), **Playlist** (user-created, materialized), **Custom** (user-created query-resolved collections via collection builder). **Hybrid resolution:** query-resolved collections (Smart, Custom) evaluate predicates against the data store at display time; materialized collections (ContentGroup, System, Playlist, Mix) track membership explicitly in `collection_works`. **ContentGroup collection creation disabled:** `MediaEntityChainFactory.EnsureContentGroupAsync` is now a no-op. **System view collections** (21 collections, seeded at startup) drive all Vault container views. System view collections have `resolution = "query"`, a `group_by_field`, and are evaluated at display time via `CollectionRuleEvaluator`. Full list: Recently Added, All Movies, TV by Show, All TV, Music by Artist, Music by Album, All Songs, All Books, Books by Series, Books by Author, All Audiobooks, Audiobooks by Series, Audiobooks by Author, Audiobooks by Narrator, All Comics, Comics by Series, Comics by Writer, Movies by Director, Movies by Genre, TV by Genre, Music by Genre. **ContentGroup collection assignment:** `CollectionAssignmentService` (called by `QuickHydrationWorker` after enrichment) reads Wikidata relationship properties from canonical values — priority: series_qid (P179) > franchise_qid (P8345) > fictional_universe_qid (P1434) — and creates or finds a ContentGroup collection for the parent entity, assigning the work via `collection_id` FK. Canonical values are keyed by MediaAsset entity ID (not Work ID). **Collection seeding guard:** When deciding whether to seed Smart/Mix/Playlist collections, auto-generated collection types (System, ContentGroup, Universe) are excluded from the count. New Engine action: `GET /collections/system-views?mediaType=&groupField=` — resolves system collections and returns grouped results. **Collection placements:** `collection_placements` table maps collections to UI locations (home, media lanes, vault, collections page) with display limits and position — location is a display constraint, not hardcoded logic. **Collections page (`/collections`):** dedicated page for browsing, creating, and managing all collection types — replaces the former Vault Collections tab and the former "Collections" name. Collection builder (Apple Music Smart Playlist-inspired) with field+operator+value filter rows, ALL/ANY match mode, nested groups, live preview via `POST /collections/preview`, limits, and sort controls. **Rule evaluation:** `CollectionRuleEvaluator` (Storage) translates predicates to SQL with operator support for eq, neq, contains, gt, lt, between, in, like. Fields span identity (title, author, genre, series), Wikidata (QID, director, composer), engagement (rating, play count, completion), temporal (added, published, last played), file (size, duration, quality), and AI (vibe, TL;DR, taste match). **Engine actions:** `GET /collections/resolve/{id}`, `POST /collections/preview`, `GET /collections/by-location/{location}`, `GET /collections/field-values/{field}`, `GET /collections/system-views`, full CRUD (`POST/PUT/DELETE /collections`), `GET/PUT /collections/{id}/placements`. Migration M-070: collection columns (resolution, rule_json, rule_hash, group_by_field, match_mode, sort_field, sort_direction, live_updating) + `collection_placements` table + backfill. **"Add to..." interaction** unchanged: primary action adds to default list for media type, heart icon toggles Favorites, secondary action opens picker. Collection artwork auto-composed from items; SkiaSharp auto-generates banners; user can upload overrides. **Group-level 30-day refresh:** when any work in a TV series or music album triggers a stale refresh, all sibling works in the same collection are included in the batch for consistency. My Library page (`/my-library`) for personal lists and playlist CRUD. Home page surfaces personalised mixes. Media lane pages surface smart collections filtered by media type.
+Every collection is a parameterised query container. Normalised filter predicates are stored as JSON arrays of `{field, op, value}` objects in the `rule_json` column; `CollectionRuleEvaluator` (Storage) translates predicates to SQL. Six collection types as presentation hints:
+
+- **ContentGroup** — drillable containers (albums, TV shows, book series)
+- **Smart** — auto-generated from library data (by genre, author, director, decade, etc.)
+- **System** — per-user, pre-created (Reading List, Watchlist, Favorites, etc.)
+- **Mix** — AI-generated per-user (Continue, Heavy Rotation, Discovery Queue, etc.)
+- **Playlist** — user-created, materialised
+- **Custom** — user-created, query-resolved via the collection builder
+
+Resolution is hybrid: query-resolved collections evaluate predicates at display time; materialised collections track membership in `collection_works`. System view collections (seeded at startup) drive container views for media types. `CollectionAssignmentService` (called by `QuickHydrationWorker`) reads Wikidata series / franchise / universe QIDs and assigns works to a ContentGroup collection via the `collection_id` FK. `collection_placements` maps collections to UI locations. The Collections page at `/collections` lets the user browse, create, and manage all collection types.
 
 ### 3.14 — Localization & Multi-Language Support
 
-Six language concerns, addressed in phases: (1) UI language, (2) metadata display language, (3) content language, (4) provider query language, (5) AI working language, (6) search language. **Phase 1 (implemented):** `CoreConfiguration.Language` is now a structured `LanguagePreferences` object with `Display` (UI), `Metadata` (provider queries), `Additional` (accepted content languages), and `AcceptAny` (default true — accepts files in any language). Backward compatible: deserialises from both `"language": "en"` (legacy) and `"language": { "display": "en", ... }` (new). `LanguageMismatch` review trigger is now **informational** (amber banner in Vault) — does NOT block Stage 2 Wikidata enrichment. `ReconciliationAdapter.ReconcileMultiLanguageAsync` searches Wikidata in both the file's detected language and the metadata language, deduplicating by QID. `ProviderLookupRequest.FileLanguage` propagates file language through the hydration pipeline. Settings UI: ProfileTab has Language Preferences section (display language, metadata language, additional languages, accept-any toggle) wired to `GET/PUT /settings/server-general`. **Phase 2 (implemented):** `original_title` metadata field — when file language differs from metadata language, `ReconciliationAdapter.FetchWorkAsync` fetches the Wikidata label in the file's language and emits it as `original_title`. Display-language title is primary; original-language title shown as smaller subtitle in VaultMediaTable. FTS5 full-text search index with 6 columns (`entity_id` UNINDEXED, `title`, `original_title`, `alternate_titles`, `author`, `description`) using `unicode61` tokenizer — migration M-061. `SearchIndexRepository` rewritten for the expanded schema. `ISearchIndexRepository.UpsertByEntityIdAsync` extended with `originalTitle`, `alternateTitles`, `description` parameters. **Phase 3 (implemented):** English remains the AI working language. `IntentSearchParser` detects non-English display language and prepends a translation hint to the LLM prompt for cross-language keyword extraction. Whisper audio model default changed from `"language": "en"` to `"language": "auto"` for automatic language detection. `DescriptionIntelligenceService` and `VibeTagger` documented to note descriptions may arrive in non-English languages. **Phase 4 (implemented):** Full UI localization via standard Blazor `IStringLocalizer<SharedStrings>` pattern. ~465 keys extracted from 35 .razor files across Navigation, Vault, Settings, and Pages. `SharedStrings.resx` (English) + `SharedStrings.fr.resx` (French) + `SharedStrings.de.resx` (German) + `SharedStrings.es.resx` (Spanish). `_Imports.razor` includes `Microsoft.Extensions.Localization` and `MediaEngine.Web.Resources`. Culture synced from `CoreConfiguration.Language.Display` on circuit start via `MainLayout.SyncCultureAsync()` — checks server display language against current UI culture, redirects to `/culture/set` cookie endpoint if mismatched. ProfileTab triggers culture redirect on display language change. English fallback for untranslated strings. **Phase 5 (implemented):** CJK support via `trigram` FTS5 tokenizer (migration M-062) — replaces `unicode61`, handles CJK characters that lack word boundaries. Short queries (&lt;3 chars) fall back to LIKE scan. Wikidata aliases emitted as `alternate_title` claims at 0.85 confidence in `ReconciliationAdapter.FetchWorkAsync` — romanized titles (e.g. "Sen to Chihiro no Kamikakushi") are indexed for search. Qwen 2.5 3B Instruct added as `text_cjk` model role (`AiModelRole.TextCjk`) — auto-downloads only when user has CJK languages in preferences (ja/ko/zh/zh-TW). Available on High and Medium hardware tiers. **Phase 6 (implemented):** Per-provider `language_strategy` config field with three modes: `source` (always English — Google Books, Open Library, MusicBrainz, ComicVine), `localized` (user's metadata language — TMDB, Apple API), `both` (query twice, merge — Wikidata). `LanguageStrategy` enum in Domain. `ProviderConfiguration.LanguageStrategyRaw` JSON field parsed to enum. `ConfigDrivenAdapter` resolves effective language before URL building; "both" mode retries in English on empty results and tags claims with `SourceLanguage = "en"`. `ProviderClaim` extended with optional `SourceLanguage` parameter. Silent English fallback — no user-facing error. ProviderPriorityTab drawer has Language Strategy dropdown per provider. SetupTab shows language strategy label per configured provider. All 8 provider config files updated with defaults. Localization keys in all 4 .resx files. Full plan at `.claude/plans/wild-wondering-tide.md`.
+Six language concerns addressed across six phases (all implemented): UI language, metadata display language, content language, provider query language, AI working language, search language. `CoreConfiguration.Language` is a structured `LanguagePreferences` object (Display / Metadata / Additional / AcceptAny). UI localisation uses `IStringLocalizer<SharedStrings>` with .resx files for English, French, German, Spanish. Wikidata searches run in both the file's detected language and the metadata language, deduplicating by QID. FTS5 search uses a `trigram` tokenizer for CJK support. Provider adapters support per-provider `language_strategy` (`source` / `localized` / `both`). See [`docs/guides/language-setup.md`](docs/guides/language-setup.md).
 
 ### 3.15 — Target State Features
 **Detail:** [`docs/architecture/target-state.md`](docs/architecture/target-state.md)
 
-**Not yet implemented:** Playback (EPUB Reader, Comic Viewer, Audiobook Player, Video Player with HLS), Authentication & Multi-User (profiles, PIN/password, parental controls, User Preferences API — column/view preferences stored per-user in database), Transcoding Pipeline (FFmpeg, Shadow Transcoder), Music Domain Model (MusicBrainz, MusicProcessor), Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), Browse & Discovery Pages (UniverseDetail, WorkDetail, PersonDetail, Statistics).
+Not yet implemented: full Authentication & Multi-User (profiles, PIN/password, parental controls), a full Transcoding Pipeline (Shadow Transcoder), a deeper Music Domain Model (MusicBrainz, richer `MusicProcessor`), full Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), and advanced Browse & Discovery pages (UniverseDetail, WorkDetail, Statistics).
 
 ### 3.16 — Supported Library Types
 
@@ -383,18 +401,11 @@ Never guess silently. If Claude is unsure about an approach, it must say so:
 
 ### 4.6 — Model Adherence & Delegation
 
-This project uses a two-tier model strategy to balance quality with speed:
+This project uses a two-tier model strategy to balance quality with speed.
 
-**Opus** handles:
-- Planning, architectural decisions, and task decomposition
-- Code review and quality assurance
-- Resolving ambiguity or scope questions escalated by Sonnet agents
-- Writing and updating project documentation (`CLAUDE.md`, `MEMORY.md`, `.agent/` files)
+**Opus** handles planning, architectural decisions, task decomposition, code review, resolving ambiguity escalated by Sonnet agents, and project documentation (`CLAUDE.md`, `AGENTS.md`, `MEMORY.md`, `.agent/`).
 
-**Sonnet** handles:
-- Implementation and coding tasks delegated by Opus
-- File modifications with clear, scoped instructions
-- Build verification (`dotnet build`) after each unit of work
+**Sonnet** handles implementation and coding tasks delegated by Opus, file modifications with clear scoped instructions, and build verification (`dotnet build`) after each unit of work.
 
 **Delegation rules:**
 1. When a task involves both planning and coding, Opus must break down the work first, then dispatch coding subtasks to Sonnet agents with clear, scoped instructions — including all necessary context (file paths, exact changes, integration points, verification steps).
@@ -425,40 +436,14 @@ This project uses a two-tier model strategy to balance quality with speed:
 | Commons Clause | Block | Restricts commercial use |
 | Proprietary | Block | Incompatible |
 
-**Current approved tools:**
+**Current approved tools (selected):** Microsoft.Data.Sqlite (MIT), MudBlazor 9 (MIT), VersOne.Epub (MIT), TagLibSharp (LGPL-2.1), Xabe.FFmpeg (MIT), SkiaSharp (MIT), Swashbuckle (MIT), xUnit 2 (Apache 2.0), coverlet (MIT), Serilog (Apache 2.0), Polly / Microsoft.Extensions.Http.Resilience (MIT), Dapper (Apache 2.0), LLamaSharp (MIT), Whisper.net (MIT), Cronos (MIT), FuzzySharp (MIT), Cytoscape.js (MIT, vendored), Tuvima.Wikidata (MIT), MkDocs (BSD-2-Clause), Material for MkDocs (MIT).
 
-| Tool | License |
-|---|---|
-| Microsoft.Data.Sqlite | MIT |
-| Microsoft.Extensions.* | MIT |
-| Microsoft.AspNetCore.* | MIT |
-| Microsoft.AspNetCore.SignalR.Client | MIT |
-| MudBlazor 9 | MIT |
-| VersOne.Epub | MIT |
-| Swashbuckle.AspNetCore | MIT |
-| xUnit 2 | Apache 2.0 |
-| coverlet | MIT |
-| Microsoft.Extensions.Http | MIT |
-| TagLibSharp | LGPL-2.1 |
-| SkiaSharp + NativeAssets.Linux | MIT |
-| Cytoscape.js | MIT (vendored) |
-| FuzzySharp | MIT |
-| Tuvima.Wikidata | MIT |
-| Tuvima.Wikidata.AspNetCore | MIT |
-| Serilog.AspNetCore | Apache 2.0 |
-| Serilog.Sinks.File | Apache 2.0 |
-| Microsoft.Extensions.Http.Resilience | MIT |
-| Cronos | MIT |
-| Dapper | Apache 2.0 |
-| LLamaSharp + Backend.Cpu | MIT |
-| Whisper.net + Runtime | MIT |
-| MkDocs | BSD-2-Clause |
-| Material for MkDocs | MIT |
+See `Directory.Packages.props` for the authoritative dependency list.
 
 ### 5.2 — Mandatory Workflow
 
 **Step 1 — Read before touching anything**
-Read `CLAUDE.md`, `README.md`, and every file relevant to the task. Never assume current state.
+Read `CLAUDE.md`, `AGENTS.md`, `README.md`, and every file relevant to the task. Never assume current state.
 
 **Step 2 — Present the plan and wait for sign-off**
 Use the plan format in §4.3 (including Plain English Summary). Do not code until approved.
@@ -478,6 +463,7 @@ taskkill //F //IM dotnet.exe
 |---|---|
 | `README.md` | Feature changes install/config/usage |
 | `CLAUDE.md` §3 or `docs/architecture/*.md` | Architecture changes |
+| `AGENTS.md` | Repository map / startup / high-level code tour changes |
 | `CLAUDE.md` §5.1 | New dependency approved |
 | `MEMORY.md` | New architectural decision |
 | `docs/**/*.md` | Feature, config, API, schema, or UI changes |
@@ -495,29 +481,20 @@ git push
 
 ### 5.3 — Cross-Agent Synchronization
 
-> **Two AI assistants work on this repository.** `CLAUDE.md` is the canonical source of truth. The `.agent/` directory contains supplementary files read by **Antigravity (Gemini)**. Both must stay in sync.
+Two AI assistants work on this repository:
+- **Claude Code** — reads `CLAUDE.md` (this file) as its canonical source of truth.
+- **Antigravity (Gemini)** — reads files under `.agent/`.
+- Both should be able to start from `AGENTS.md` for a quick code tour.
 
-**Sync mapping — `docs/architecture/` → `.agent/` files:**
+`CLAUDE.md` is the canonical source. The `.agent/` directory contains supplementary files that must stay in sync. `.agent/SYNC-MAP.md` contains the reverse mapping from `.agent/` files to `CLAUDE.md` sections.
 
-| Architecture doc | `.agent/` file(s) |
-|---|---|
-| `ingestion-pipeline.md` | `features/INGESTION-PIPELINE.md` |
-| `scoring-and-cascade.md` | `features/METADATA-MANAGEMENT.md`, `skills/METADATA-SCORING.md` |
-| `security.md` | `features/API-SECURITY.md`, `features/ROLE-ACCESS-MODEL.md` |
-| `dashboard-ui.md` | `features/LIBRARY-DASHBOARD.md`, `skills/DASHBOARD-UI.md` |
-| `hydration-and-providers.md` | `features/METADATA-MANAGEMENT.md`, `features/METADATA-PRIORITY.md` |
-| `universe-graph.md` | `features/METADATA-MANAGEMENT.md` |
-| `settings-and-vault.md` | `features/SETTINGS-OVERVIEW.md` |
-| `ai-integration.md` | (new — create matching `.agent/` file) |
-| `collections.md` | `features/COLLECTION-SYSTEM.md` |
-
-After updating any architecture doc, update the corresponding `.agent/` file(s). The `.agent/SYNC-MAP.md` file contains the reverse mapping.
+> **Known drift (as of 2026-04-22):** The `.agent/` files reference a "Library Vault" page concept and section numbers that no longer align with this CLAUDE.md. The Vault has been **deprecated** (see §3.12). When updating `.agent/` files in a future sync, reconcile them with the current surface-per-concern layout — `LibraryBrowsePage`, `ReadPage`, `WatchPage`, `ListenPage`, `Collections`, and Settings (with the review queue at `/settings/review`).
 
 ### 5.4 — Documentation Upkeep (Diátaxis)
 
-> **All project documentation follows the [Diátaxis framework](https://diataxis.fr/).** The `docs/` directory is organised into four categories: **Tutorials** (learning-oriented), **How-to Guides** (task-oriented), **Reference** (information-oriented), and **Explanation** (understanding-oriented). The landing page is `docs/index.md`.
+> **All project documentation follows the [Diátaxis framework](https://diataxis.fr/).** The `docs/` directory is organised into Tutorials, How-to Guides, Reference, and Explanation. The landing page is `docs/index.md`.
 
-**Documentation must be updated when:**
+Documentation must be updated when:
 
 | Trigger | What to update |
 |---|---|
@@ -526,20 +503,19 @@ After updating any architecture doc, update the corresponding `.agent/` file(s).
 | New API endpoint added | `docs/reference/api-endpoints.md` |
 | New database table or column | `docs/reference/database-schema.md` |
 | New file format supported | `docs/reference/media-types.md` |
-| New provider added | `docs/reference/configuration.md` (provider section) + `docs/guides/configuring-providers.md` |
-| New processor added | `docs/reference/media-types.md` + `docs/guides/writing-a-processor.md` (if pattern changes) |
+| New provider added | `docs/reference/configuration.md` + `docs/reference/providers.md` + `docs/guides/configuring-providers.md` |
+| New processor added | `docs/reference/media-types.md` + `docs/guides/writing-a-processor.md` |
 | Terminology change | `docs/reference/glossary.md` |
-| Architecture change | `docs/architecture/*.md` (existing) + corresponding Explanation page |
-| New UI screen or Settings tab | `docs/explanation/how-the-vault-works.md` or relevant Explanation page |
+| Architecture change | `docs/architecture/*.md` + corresponding Explanation page |
+| New UI surface or Settings section | relevant Explanation page |
 
-**Rules:**
+Rules:
 1. Documentation updates are part of Step 4 in the Mandatory Workflow (§5.2). They are not optional.
 2. User-facing docs use plain English per §4.1 vocabulary rules. Developer docs may use technical terms.
-3. The `docs/index.md` landing page must be updated when new pages are added.
-4. Cross-link between related docs: Explanation pages link to Architecture deep-dives. How-to Guides link to relevant Reference pages.
-5. Every new Explanation page must be linked from `docs/index.md`.
-6. Every published docs page must include front matter with `title`, `summary`, `audience`, `category`, and `product_area`. Use `status: target-state` for future-facing pages.
-7. `.codex/` is a gitignored, derived local context layer. Regenerate it with `scripts/docs/refresh-codex-context.ps1`; never edit it by hand or treat it as canonical.
+3. Cross-link between related docs: Explanation pages link to Architecture deep-dives; How-to Guides link to Reference pages.
+4. Every new Explanation page must be linked from `docs/index.md`.
+5. Every published docs page must include front matter with `title`, `summary`, `audience`, `category`, and `product_area`. Use `status: target-state` for future-facing pages.
+6. `.codex/` is a gitignored, derived local context layer. Regenerate it with `scripts/docs/refresh-codex-context.ps1`; never edit it by hand.
 
 ---
 
@@ -547,136 +523,98 @@ After updating any architecture doc, update the corresponding `.agent/` file(s).
 
 All Dashboard code in `src/MediaEngine.Web/` follows the **Feature-Sliced** pattern. Every new piece of UI code must go into the correct slice.
 
-```
-src/MediaEngine.Web/
-│
-├── Services/
-│   ├── Integration/          ← ALL communication with the Engine lives here
-│   │   ├── ILibraryApiClient.cs         Contract for HTTP calls to the Engine
-│   │   ├── LibraryApiClient.cs          Implementation: makes HTTP calls, maps raw JSON
-│   │   ├── UniverseStateContainer.cs   Per-session cache: collections, universe view, progress
-│   │   ├── UIOrchestratorService.cs    Orchestrator: bridges HTTP + SignalR + state cache
-│   │   ├── UniverseMapper.cs           Maps Engine data → flat Dashboard view model
-│   │   └── IntercomEvents.cs           SignalR event shapes
-│   │
-│   ├── Playback/             ← (TARGET STATE) Playback session management
-│   │   └── PlaybackStateService.cs     Active session management, progress sync
-│   │
-│   └── Theming/              ← ALL visual configuration lives here
-│       ├── ThemeService.cs             Dark-mode-only theme, colour palette, corner radii
-│       └── DeviceContextService.cs     Per-circuit device class + resolved UI settings
-│
-├── Components/
-│   ├── Universe/             ← Universe/Series-related visual components
-│   │   ├── CollectionHero.razor               Cinematic hero: blurred cover art + vignette + badges
-│   │   ├── CompactHero.razor           Shared spotlight strip (Portrait/Landscape/Square) used by Read/Watch/Listen
-│   │   ├── TrackRow.razor              Spotify-style compact row for Listen's "All Songs" view
-│   │   ├── MetadataChips.razor          Multi-valued fields as MudChip elements
-│   │   ├── PosterCard.razor            Poster art tile: cover, title, badges
-│   │   ├── PosterSwimlane.razor        Horizontal scrolling row of PosterCards
-│   │   └── ProgressIndicator.razor     Reusable progress card
-│   │
-│   ├── Bento/                ← Legacy grid wrappers
-│   │   ├── BentoGrid.razor             Legacy CSS grid container
-│   │   └── BentoItem.razor             Legacy glassmorphic tile wrapper
-│   │
-│   ├── Navigation/           ← Navigation and search components
-│   │   ├── CommandPalette.razor        Ctrl+K global search
-│   │   ├── TopBar.razor                Horizontal top bar (4 variants)
-│   │   ├── LeftDock.razor              Icon-only left dock (desktop)
-│   │   ├── MobileNavDrawer.razor       Slide-out drawer (mobile)
-│   │   └── AppLogo.razor               Inline SVG wordmark logo
-│   │
-│   ├── Vault/                ← Library Vault page — see docs/architecture/settings-and-vault.md
-│   │   ├── VaultPage.razor              Main page: 9-tab layout, Action Center, full-width content
-│   │   ├── VaultActionCenter.razor      Collapsible conflict banner (replaces alert badges + stats bar)
-│   │   ├── VaultToolbar.razor           Contextual search, per-tab filter/sort, column picker (no group-by)
-│   │   ├── VaultConfigurableTable.razor  Shared data-driven table with TypeBadge + drill-down; title click opens drawer, no Edit button in ManageActions
-│   │   ├── VaultColumnDefinitions.cs    V2 column configs per tab + GetColumnsByTab dispatcher
-│   │   ├── VaultPeopleTable.razor       People tab (restyled, consistent formatting)
-│   │   ├── VaultUniversesTable.razor    Universes tab (restyled, consistent formatting)
-│   │   ├── VaultColumnPicker.razor      Column toggle + drag reorder panel
-│   │   ├── VaultBatchBar.razor          Floating batch action bar (Delete, Sync)
-│   │   ├── MediaGroupPage.razor         Hierarchical sub-page (TV show, album, series)
-│   │   ├── VaultMusicGrid.razor         Album card grid view for Music
-│   │   ├── VaultDeleteConfirm.razor     Delete confirmation
-│   │   ├── PersonBiographyDrawer.razor  People tab detail drawer (biography, presence, assets)
-│   │   ├── StageGate.razor              Pipeline stage indicator
-│   │   ├── ConfidenceBar.razor          5-segment confidence indicator
-│   │   ├── StatusPill.razor             Status badge
-│   │   ├── VaultHelpers.cs              Sort/utility functions
-│   │
-│   ├── Settings/             ← Settings tabs (5 groups) — see docs/architecture/settings-and-vault.md
-│   │   ├── SettingsSidebar.razor        Sidebar navigation
-│   │   ├── ProfileTab.razor             [Preferences] Profile
-│   │   ├── PlaybackTab.razor            [Preferences] Playback (TARGET STATE)
-│   │   ├── ProvidersTab.razor           [Providers] Connections + priority + Wikidata
-│   │   ├── ProviderEditPanel.razor      Reusable provider editing
-│   │   ├── ModelsTab.razor              [Intelligence] AI models
-│   │   ├── AiFeaturesTab.razor          [Intelligence] AI feature toggles
-│   │   ├── VibeVocabularyTab.razor      [Intelligence] Vibe tag lists
-│   │   ├── AiScheduleTab.razor          [Intelligence] Cron schedule
-│   │   ├── LibrariesTab.razor           [Library] Library Folders
-│   │   ├── StatusTab.razor              [Server] Status dashboard
-│   │   ├── SecurityTab.razor            [Server] API Keys + security
-│   │   ├── UsersTab.razor               [Server] User profiles (TARGET STATE)
-│   │   ├── ActivityTab.razor            [Server] Activity log
-│   │   ├── MaintenanceTab.razor         [Server] Maintenance
-│   │   ├── SetupTab.razor               [Server] Re-run wizard
-│   │   └── FirstRunWizard.razor         5-step guided setup
-│   │
-│   ├── Playback/             ← (TARGET STATE) In-browser media players
-│   │   ├── EpubReader.razor, ComicViewer.razor, AudioPlayer.razor, VideoPlayer.razor
-│   │
-│   ├── Collections/                 ← Collection browsing, creation, and management
-│   │   ├── CollectionsPage.razor              Collections page (/collections): browse/create/manage all collections (renamed from "Collections")
-│   │   ├── CollectionBuilder.razor            Smart Playlist-style filter builder for custom collections
-│   │   ├── CollectionCard.razor               Collection tile for swimlanes and grids
-│   │   ├── CollectionDetail.razor             Collection detail page (shared by all collection types)
-│   │   └── AddToPicker.razor           "Add to..." list/playlist picker overlay
-│   │
-│   └── Pages/                ← Full-page views (routed)
-│       ├── Home.razor                  Personalised dashboard: mixes + system list shortcuts
-│       ├── MediaLanePage.razor         Content-type lanes: /books, /video, /music, etc.
-│       ├── ReadPage.razor              Browse page /read — Kindle-inspired, Portrait spotlight, green accent
-│       ├── WatchPage.razor             Browse page /watch — Netflix-inspired, Landscape spotlight, blue accent
-│       ├── ListenPage.razor            Browse page /listen — Spotify-inspired, Square spotlight, purple accent, TrackRow all-songs view
-│       ├── MyLibrary.razor             Personal space: system lists + playlists + creation
-│       ├── Vault.razor                 Library Vault: unified management (9 tabs)
-│       ├── Settings.razor              Unified settings: 16 screens in 5 groups
-│       ├── Collections.razor                  Collections page: /collections — browse/create/manage all collections (renamed from "Collections")
-│       ├── ChronicleExplorer.razor     Universe graph explorer
-│       ├── UniverseDetail.razor         (TARGET STATE) Universe detail
-│       ├── WorkDetail.razor            (TARGET STATE) Work detail
-│       ├── PersonDetail.razor          (TARGET STATE) Person detail
-│       ├── Statistics.razor            (TARGET STATE) Library stats
-│       ├── Login.razor                 (TARGET STATE) Profile login
-│       └── NotFound.razor              404 page
-│
-├── Models/ViewDTOs/          ← Data shapes used ONLY by the Dashboard
-│
-└── Shared/                   ← Top-level layout shell
-    ├── MainLayout.razor                App chrome: TopBar + LeftDock + MobileNavDrawer
-    ├── NavMenu.razor                   Deprecated stub
-    └── _Imports.razor                  Namespace imports
-```
+### 6.1 — Services (`src/MediaEngine.Web/Services/`)
 
-**Rules for adding new code:**
+Non-UI logic the Dashboard needs, organised by concern.
+
+| Subfolder | Key files | Purpose |
+|---|---|---|
+| `Discovery/` | `DiscoveryComposerService.cs` | Builds the home-page discovery feed |
+| `Editing/` | `MediaEditorLauncherService.cs`, `CollectionEditorLauncherService.cs`, `*Models.cs` | Editor open/close state and DTOs |
+| `Integration/` | `EngineApiClient.cs` + `IEngineApiClient.cs`, `UIOrchestratorService.cs`, `UniverseStateContainer.cs`, `UniverseMapper.cs`, `ProviderCatalogueService.cs`, `IntercomEvents.cs` | All HTTP + SignalR communication with the Engine |
+| `Narration/` | `PhraseTemplateService.cs` + interface | Narrated-copy phrase templates |
+| `Navigation/` | `MediaNavigation.cs`, `ListenNavigation.cs` | Route-building helpers |
+| `Playback/` | `ListenPlaybackService.cs`, `ReadingProgressService.cs`, `ReaderSettingsService.cs`, `MediaReactionService.cs`, `WatchlistService.cs` | Playback session state |
+| `Theming/` | `ThemeService.cs`, `DeviceContextService.cs`, `PaletteProvider.cs`, `SocialUriHelper.cs` | Dark-mode theme, device cascade, palette, Actionable-URI helpers |
+
+### 6.2 — Components (`src/MediaEngine.Web/Components/`)
+
+Reusable visual components, organised by feature slice.
+
+| Subfolder | What lives here |
+|---|---|
+| `Bento/` | `BentoGrid`, `BentoItem` — legacy glass-tile wrappers |
+| `Browse/` | `MediaBrowseShell`, `MediaBrowseHero` — shared shell used by Read / Watch / Listen |
+| `Collections/` | `CollectionsPage`, `CollectionEditorShell` |
+| `Discovery/` | `DiscoveryHero`, `DiscoveryShelf`, `DiscoveryCard`, `DiscoveryHubStrip`, `AddToCollectionDialog` |
+| `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
+| `Library/` | Review-queue surface: `LibraryPage` (used in review mode inside Settings), `LibraryActionCenter`, `LibraryOverviewPanel`, `LibraryDetailDrawer`, `LibraryEditorPanel`, `LibraryConfigurableTable`, `LibraryColumnDefinitions`, `LibraryPipelineCircles`, `StageGate`, `StatusPill`, `ConfidenceBar`, `PersonBiographyDrawer`, `MediaGroupPage`, `LibraryMediaGrid`, `LibraryMusicGrid`, `LibraryPeopleTable`, `LibraryUniversesTable`, `LibraryBatchBar`, `LibraryDeleteConfirm`, `LibraryColumnPicker`, `LibraryTimeline`, `LibraryMobileDetail`, `LibraryAddMediaDrawer`, `LibraryCollectionDrawer`, `LibraryUniverse*` panels, `LibraryToolbar`, `SearchResultCard`, `DrawerSection` |
+| `Listen/` | `ListenNowPlayingBar`, `ListenTrackDataGrid` |
+| `MediaEditor/` | `SharedMediaEditorShell`, `SharedMediaBatchConfirmDialog` |
+| `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |
+| `Pages/` | All routed pages — see 6.4 |
+| `Playback/` | Reader controls: `ReaderTopBar`, `ReaderBottomBar`, `ReaderTocDrawer`, `ReaderBookmarksPanel`, `ReaderHighlightsPanel`, `ReaderSettingsPanel`, `ReaderStatsOverlay`, `ReaderSearchPanel`, `ReaderContextMenu` |
+| `Registry/` | Internal building blocks used by Library + Universe: `RegistryInspector`, `RegistryCard`, `RegistryGrid`, `Inspector*Section` panels, `RegistryActionsBar`, `RegistryBulkBar`, `RegistryBatchList`, `RegistryFilterBar`, `RegistryHelpers`, `ProvisionalFormPanel`, `ActivityItemCard`, `ReportProblemDialog` |
+| `Settings/` | Settings shell tabs — see §3.11 for the section list. Includes `OverviewTab`, `ProfileTab`, `PlaybackTab`, `LibrariesTab`, `ProviderPriorityTab`, `WikidataConfigTab`, `ModelsTab`, `AiFeaturesTab`, `VibeVocabularyTab`, `AiScheduleTab`, `SystemTab`, `SecurityTab`, `ApiKeysTab`, `UsersTab`, `ActivityTab`, `MaintenanceTab`, `SetupTab`, `GeneralTab`, `ServerGeneralTab`, `StatusDashboardTab`, `ConnectivityTab`, `UniverseSettingsTab`, `ProviderCard`, `WikidataConnectionPanel`, `CuratorsDrawer`, `MetadataEditDialog`, `MediaItemEditor`, `CollectionEditCoverCompare`, `FolderBrowserDialog`, `SettingsPlaceholder` |
+| `Shared/` | `AppIcon`, `AppIconRegistry`, `AppPageHeader`, `AppSurfaceCard`, `FuzzySearchField` — cross-cutting primitives |
+| `Universe/` | Hero, swimlane, and card components: `CollectionHero`, `CompactHero`, `HeroCarousel`, `PosterSwimlane`, `SwimlaneSection`, `LandscapeCard`, `SquareCard`, `WideCard`, `WorkCard`, `LibraryCard`, `PersonCard`, `PersonSwimlaneHeader`, `TrackRow`, `MetadataChips`, `ProgressIndicator`, `AmbientBackground`, `GlobalBackground`, `GreetingBar`, `AdaptationTree` + node, `FamilyTreeView`, `AlphabeticalGrid`, `CastComparison`, `BookDetailContent`, `CollectionShell`, `CollectionToolbar`, `LaneFilterBar`, `ManualEntryForm`, `MediaSearchPanel`, `MissingUniverseChip`, `PathFinderPanel`, `PendingFilesAlert`, `UniverseGuide` |
+| `Watch/` | `TvBrowsePage`, `WatchPlaybackSpecs`, `WatchTvStyles` |
+
+### 6.3 — Other top-level folders under `src/MediaEngine.Web/`
+
+| Folder | Purpose |
+|---|---|
+| `Models/ViewDTOs/` | Data shapes used ONLY by the Dashboard (`ProviderAccentMap.cs` sits at `Models/` root) |
+| `Resources/` | `SharedStrings.resx` (+ `.fr` / `.de` / `.es`) plus generated `SharedStrings.cs` |
+| `Shared/` | Blazor app-host layout wrappers: `MainLayout`, `NavMenu`, `PopupLayout`, `ReaderLayout`, `DateFormatHelper`, `_Imports` |
+| `wwwroot/` | Static assets: images, CSS, JS (`cytoscape-interop.js`, `epub-reader.js`, `cover-popup.js`, `app.js`) |
+
+### 6.4 — Routed Pages (`Components/Pages/`)
+
+| Route | Page | Purpose |
+|---|---|---|
+| `/` | `LibraryBrowsePage.razor` | Home — discovery landing |
+| `/home-legacy` | `Home.razor` | Legacy home (retained for reference) |
+| `/read`, `/read/{Tab}` | `ReadPage.razor` | Books + audiobooks browse |
+| `/read/{AssetId:guid}` | `EpubReader.razor` | In-browser EPUB reader |
+| `/watch`, `/watch/{Tab}` | `WatchPage.razor` | Movies + TV browse |
+| `/watch/movie/{WorkId:guid}` | `WatchMoviePage.razor` | Movie detail |
+| `/watch/tv/show/{CollectionId:guid}` | `WatchTvShowPage.razor` | TV show detail |
+| `/watch/tv/show/{CollectionId:guid}/episode/{WorkId:guid}` | `WatchTvEpisodePage.razor` | TV episode detail |
+| `/watch/player/{AssetId:guid}` | `WatchPlayerPage.razor` | Video player |
+| `/listen`, `/listen/music`, `/listen/music/{Section}`, `/listen/music/albums/{CollectionId:guid}`, `/listen/music/artists/{ArtistKey}`, `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}`, `/listen/audiobooks`, `/listen/audiobook/{WorkId:guid}` | `ListenPage.razor` | Music + audiobooks browse |
+| `/listen/player-popup` | `ListenPlayerPopupPage.razor` | Detached listen window |
+| `/collections` | `Collections.razor` | Browse / create / manage collections |
+| `/collection/{Id:guid}` | `CollectionDetail.razor` | Collection detail |
+| `/book/{Id:guid}` | `BookDetail.razor` | Book detail |
+| `/person/{Id:guid}` | `PersonDetail.razor` | Person detail |
+| `/universe/{Qid}/explore` | `ChronicleExplorer.razor` | Universe graph explorer |
+| `/search` | `SearchPage.razor` | Global search |
+| `/settings`, `/settings/{Section}` | `Settings.razor` | Settings shell (review queue at `/settings/review`) |
+| `/preferences` | `Preferences.razor` | User preferences shortcut |
+| `/server-settings` | `ServerSettings.razor` | Server controls shortcut |
+| `/review` | `Registry.razor` | 301 redirect → `/settings/review` |
+| `/provider-tester`, `/tester` | `ProviderTester.razor`, `EnrichmentTester.razor` | Dev-only testers |
+| `/not-found`, `/Error` | `NotFound.razor`, `Error.razor` | Error pages |
+
+### 6.5 — Rules for adding new code
 
 | New code type | Where it goes |
 |---|---|
-| Engine call | `Services/Integration/LibraryApiClient.cs` + interface |
+| Engine HTTP call | `Services/Integration/EngineApiClient.cs` + `IEngineApiClient` |
 | Dashboard data shape | `Models/ViewDTOs/` |
-| Reusable visual component | `Components/<FeatureName>/` |
-| Full page | `Components/Pages/` |
-| Vault sub-component | `Components/Vault/` |
-| Collection browsing/builder component | `Components/Collections/` |
-| Settings tab | `Components/Settings/{GroupName}Tab.razor` |
-| Media player | `Components/Playback/` |
-| Playback service | `Services/Playback/` |
-| Layout wrapper | `Shared/` |
-| Theme setting | `Services/Theming/ThemeService.cs` |
-| Device feature flag | `Services/Theming/DeviceContextService.cs` |
+| Reusable visual component | `Components/<FeatureSlice>/` |
+| Full routable page | `Components/Pages/` |
+| Settings section | `Components/Settings/<Name>Tab.razor` + register in `SettingsNav` |
+| Review-queue surface component | `Components/Library/` |
+| Inspector / cards reused by Library or Universe | `Components/Registry/` |
+| Media-player component | `Components/Playback/` |
+| Media-playback session service | `Services/Playback/` |
+| Route-building helper | `Services/Navigation/` |
+| Editor launcher or state | `Services/Editing/` |
+| Theme or device setting | `Services/Theming/` |
+| Cross-cutting primitive | `Components/Shared/` |
+| Blazor host layout wrapper | `Shared/` |
 
 ---
 
@@ -687,5 +625,5 @@ src/MediaEngine.Web/
 | Product Owner | Shaya |
 | Repository | [github.com/shyfaruqi/tuvima-library](https://github.com/shyfaruqi/tuvima-library) |
 | License | AGPLv3 |
-| Engine base URL (local dev) | `http://localhost:61495` |
-| Dashboard URL (local dev) | `http://localhost:5016` |
+| Engine base URL (local dev) | `http://localhost:61495` (HTTPS on `61494`) |
+| Dashboard URL (local dev) | `http://localhost:5016` (HTTPS on `7062`) |

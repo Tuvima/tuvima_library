@@ -1,0 +1,35 @@
+.chronicle-explorer-title {
+    font-family: 'Montserrat', sans-serif;
+}
+
+.chronicle-explorer-controls {
+    flex-wrap: wrap;
+}
+
+.chronicle-explorer-layout {
+    max-width: 160px;
+}
+
+.chronicle-explorer-graph {
+    width: 100%;
+    height: 600px;
+    background: rgba(17, 17, 17, 0.94);
+    border-radius: var(--app-radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chronicle-explorer-panel {
+    height: 600px;
+    overflow-y: auto;
+    background: rgba(17, 17, 17, 0.94);
+}
+
+.chronicle-explorer-full-panel {
+    background: rgba(17, 17, 17, 0.94);
+    min-height: 500px;
+}
+
+.chronicle-explorer-entity-type,
+.chronicle-explorer-qid {
+    color: rgba(248, 248, 248, 0.52);
+}

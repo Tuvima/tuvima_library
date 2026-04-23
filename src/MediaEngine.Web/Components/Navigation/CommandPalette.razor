@@ -15,7 +15,7 @@
 
     <MudPaper Class="command-palette mud-elevation-24"
               Style="position: fixed; top: 15vh; left: 50%; transform: translateX(-50%);
-                     width: min(640px, 90vw); z-index: 1400; overflow: visible;">
+                     width: min(640px, 90vw); z-index: var(--app-z-modal); overflow: visible;">
 
         <MudAutocomplete T="PaletteItem"
                          @ref="_autocomplete"
@@ -162,7 +162,7 @@
 
 <style>
     .command-palette {
-        border-radius: 18px !important;
+        border-radius: var(--app-radius-md) !important;
         border: 1px solid rgba(96, 165, 250, 0.22);
         background: rgba(15, 23, 42, 0.96) !important;
         backdrop-filter: blur(20px);
