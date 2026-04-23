@@ -674,8 +674,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
     {
         client.Timeout = reconcilerOptions.Timeout;
         client.DefaultRequestHeaders.UserAgent.ParseAdd(reconcilerOptions.UserAgent);
-    })
-    .AddStandardResilienceHandler();
+    });
 
     builder.Services.AddSingleton(sp =>
     {
@@ -684,14 +683,16 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
         return new Tuvima.Wikidata.WikidataReconciler(httpClient, reconcilerOptions);
     });
 
-    // Sub-service registrations — Tuvima.Wikidata v2.4.1 exposes nine focused
+    // Sub-service registrations — Tuvima.Wikidata v2.5.0 exposes nine focused
     // sub-services on the facade. Registering each as a singleton allows the
     // adapter slimdown phases to inject narrow slices (Stage2Service,
     // PersonsService, AuthorsService, ChildrenService, LabelsService) instead
     // of the full reconciler. We do this manually rather than calling
-    // AddWikidataReconciliation() because we need the Polly resilience handler
-    // on our own named HttpClient (line above) — the AspNetCore extension
-    // registers its own client without it.
+    // AddWikidataReconciliation() so the Engine owns the exact named client
+    // and option wiring in one place. v2.5.0 now applies retries/backoff and
+    // real outbound concurrency inside the library's shared request sender, so
+    // we intentionally do not stack AddStandardResilienceHandler() on this
+    // library-only HttpClient.
     builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Reconcile);
     builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Entities);
     builder.Services.AddSingleton(sp => sp.GetRequiredService<Tuvima.Wikidata.WikidataReconciler>().Wikipedia);

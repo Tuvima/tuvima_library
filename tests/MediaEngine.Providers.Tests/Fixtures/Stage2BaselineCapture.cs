@@ -52,8 +52,8 @@ public sealed class Stage2BaselineCapture : IDisposable
     ///   • Edition pivot (audiobook → work, book ISBN → work)
     ///   • Music album resolution
     ///   • Text reconciliation fallback
-    ///   • Pseudonym Pattern 1 (Richard Bachman) — currently fails
-    ///   • Pseudonym Pattern 3 (James S.A. Corey) — currently partial
+    ///   • Pseudonym Pattern 1 (Richard Bachman)
+    ///   • Pseudonym Pattern 3 (James S.A. Corey)
     ///   • Multi-author (Good Omens — Gaiman & Pratchett)
     /// </summary>
     private static IReadOnlyList<WikidataResolveRequest> BuildRequests() =>
@@ -105,7 +105,7 @@ public sealed class Stage2BaselineCapture : IDisposable
             Author = "James S.A. Corey",
         },
 
-        // ── Pattern 1 reverse pen name (currently fails on `main`) ───────
+        // ── Pattern 1 reverse pen name ────────────────────────────────────
         new()
         {
             CorrelationKey = "book-bachman-rage-text",

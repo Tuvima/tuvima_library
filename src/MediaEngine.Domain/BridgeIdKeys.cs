@@ -28,7 +28,7 @@ public static class BridgeIdKeys
     public const string AppleMusicCollectionId = "apple_music_collection_id";
     public const string AppleArtistId = "apple_artist_id";
 
-    // ── Pseudonym detection (Tuvima.Wikidata v2.4 patterns) ─────────────
+    // ── Pseudonym detection (Tuvima.Wikidata patterns) ──────────────────
     // Set on the work's claim list when ReconciliationAdapter detects a pen
     // name relationship. AuthorRealNameQid fires for Pattern 1 (reverse P742
     // — "Richard Bachman" → Stephen King's QID); AuthorPseudonym fires for

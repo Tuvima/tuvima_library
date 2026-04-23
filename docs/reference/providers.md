@@ -149,7 +149,7 @@ Bridge IDs are external platform identifiers that the Wikidata Reconciliation ad
 
 ### Stage 2 Resolution Flow Per Bridge ID
 
-The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v2.4.1's `Stage2Service` sub-service. The hand-rolled bridge / music / text resolution helpers were deleted in the adapter slimdown (see `.claude/plans/adapter-slimdown-remediation.md`).
+The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v2.5.0's `Stage2Service` sub-service. The hand-rolled bridge / music / text resolution helpers were deleted in the adapter slimdown (see `.claude/plans/adapter-slimdown-remediation.md`).
 
 1. **Discriminated request build:** The adapter wraps each `WikidataResolveRequest` in one of `BridgeStage2Request`, `MusicStage2Request`, or `TextStage2Request` and passes it to `_reconciler.Stage2.ResolveBatchAsync`. The library natively groups requests by natural key (one round-trip per unique ISBN / album / text signature).
 2. **Direct lookup:** For `BridgeStage2Request`, the library searches Wikidata using `haswbstatement:{P-code}={value}` (e.g. `haswbstatement:P212=978-0441013593`).
