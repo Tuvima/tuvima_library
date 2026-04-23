@@ -8,21 +8,34 @@
     <div class="vault-batch-bar">
         <span class="vault-batch-count">@SelectedCount selected</span>
 
-        <button class="vault-batch-btn vault-batch-btn--edit" @onclick="() => OnEdit.InvokeAsync()">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Warning"
+                   Class="vault-batch-btn vault-batch-btn--edit"
+                   OnClick="() => OnEdit.InvokeAsync()">
             Edit (@SelectedCount)
-        </button>
+        </MudButton>
 
-        <button class="vault-batch-btn vault-batch-btn--delete" @onclick="() => OnDelete.InvokeAsync()">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Error"
+                   Class="vault-batch-btn vault-batch-btn--delete"
+                   OnClick="() => OnDelete.InvokeAsync()">
             Delete
-        </button>
+        </MudButton>
 
-        <button class="vault-batch-btn vault-batch-btn--sync" @onclick="() => OnSyncNow.InvokeAsync()">
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Info"
+                   Class="vault-batch-btn vault-batch-btn--sync"
+                   OnClick="() => OnSyncNow.InvokeAsync()">
             Sync Now
-        </button>
+        </MudButton>
 
-        <button class="vault-batch-btn vault-batch-btn--clear" @onclick="() => OnClearSelection.InvokeAsync()">
-            ✕ Clear
-        </button>
+        <MudButton Variant="Variant.Text"
+                   Color="Color.Inherit"
+                   Class="vault-batch-btn vault-batch-btn--clear"
+                   StartIcon="@Icons.Material.Outlined.Close"
+                   OnClick="() => OnClearSelection.InvokeAsync()">
+            Clear
+        </MudButton>
     </div>
 }
 
@@ -55,7 +68,7 @@
 
     @@keyframes vault-batch-slide-up {
         from { transform: translateX(-50%) translateY(20px); opacity: 0; }
-        to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+        to   { transform: translateX(-50%) translateY(0); opacity: 1; }
     }
 
     .vault-batch-count {
@@ -72,53 +85,26 @@
         letter-spacing: 0.05em;
         border-radius: 8px;
         padding: 8px 16px;
-        cursor: pointer;
-        transition: background 0.15s, color 0.15s;
         white-space: nowrap;
         line-height: 1;
     }
 
     .vault-batch-btn--edit {
-        background: rgba(201, 146, 46, 0.15);
         color: #C9922E;
-        border: 1px solid rgba(201, 146, 46, 0.2);
-    }
-
-    .vault-batch-btn--edit:hover {
-        background: rgba(201, 146, 46, 0.25);
     }
 
     .vault-batch-btn--delete {
-        background: rgba(226, 75, 74, 0.15);
         color: #E24B4A;
-        border: 1px solid rgba(226, 75, 74, 0.2);
-    }
-
-    .vault-batch-btn--delete:hover {
-        background: rgba(226, 75, 74, 0.25);
     }
 
     .vault-batch-btn--sync {
-        background: rgba(96, 165, 250, 0.15);
         color: #60A5FA;
-        border: 1px solid rgba(96, 165, 250, 0.2);
-    }
-
-    .vault-batch-btn--sync:hover {
-        background: rgba(96, 165, 250, 0.25);
     }
 
     .vault-batch-btn--clear {
-        background: transparent;
         color: rgba(255, 255, 255, 0.4);
-        border: none;
     }
 
-    .vault-batch-btn--clear:hover {
-        color: rgba(255, 255, 255, 1);
-    }
-
-    /* ── Mobile ── */
     @@media (max-width: 768px) {
         .vault-batch-bar {
             bottom: 12px;
@@ -132,7 +118,7 @@
 
         @@keyframes vault-batch-slide-up {
             from { transform: translateY(20px); opacity: 0; }
-            to   { transform: translateY(0);    opacity: 1; }
+            to   { transform: translateY(0); opacity: 1; }
         }
 
         .vault-batch-count {
@@ -157,4 +143,3 @@
         }
     }
 </style>
-

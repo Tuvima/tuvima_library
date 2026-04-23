@@ -3,7 +3,7 @@
 
 <div class="vault-status-pill">
     <div class="vault-status-badge" style="color: @_color; background: @_bgColor; border-color: @_borderColor; @(Status == LibraryStatus.Unowned ? "opacity: 0.5;" : "")">
-        <AppIcon Name="@_icon" Size="0.7rem" />
+        <MudIcon Icon="@_icon" Size="Size.Small" Style="font-size: 0.7rem;" />
         <span>@_label</span>
     </div>
     @if (Status == LibraryStatus.Quarantined && QuarantineDays.HasValue)
@@ -54,14 +54,14 @@
 
     private string _icon => Status switch
     {
-        LibraryStatus.Verified => AppIcons.Review,
-        LibraryStatus.Provisional => AppIcons.Info,
-        LibraryStatus.NeedsReview => AppIcons.Warning,
-        LibraryStatus.Quarantined => AppIcons.Close,
-        LibraryStatus.WaitingForProvider => AppIcons.Pending,
-        LibraryStatus.RetailMatched => AppIcons.Pending,
-        LibraryStatus.Unowned => AppIcons.Shopping,
-        _ => AppIcons.Info,
+        LibraryStatus.Verified => Icons.Material.Outlined.CheckCircle,
+        LibraryStatus.Provisional => Icons.Material.Outlined.Info,
+        LibraryStatus.NeedsReview => Icons.Material.Outlined.WarningAmber,
+        LibraryStatus.Quarantined => Icons.Material.Outlined.Block,
+        LibraryStatus.WaitingForProvider => Icons.Material.Outlined.Schedule,
+        LibraryStatus.RetailMatched => Icons.Material.Outlined.AutoAwesome,
+        LibraryStatus.Unowned => Icons.Material.Outlined.ShoppingBag,
+        _ => Icons.Material.Outlined.Info,
     };
 
     private string _label => Status switch

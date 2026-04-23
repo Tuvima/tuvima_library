@@ -6,10 +6,34 @@
     min-width: 0;
 }
 
+.settings-shell-header {
+    padding: 1.5rem;
+    border: 1px solid var(--app-border-subtle, rgba(148, 163, 184, 0.18));
+    border-radius: 1.5rem;
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.82)),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%);
+    box-shadow: var(--app-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.24));
+}
+
+.settings-shell-hero {
+    gap: 1.5rem;
+}
+
+.settings-shell-copy {
+    min-width: 0;
+}
+
+.settings-shell-title-row {
+    flex-wrap: wrap;
+}
+
+.settings-shell-subtitle {
+    max-width: 48rem;
+    color: var(--app-text-soft, rgba(226, 232, 240, 0.78));
+}
+
 .settings-shell-role {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
     min-width: 9rem;
     padding: 0.9rem 1rem;
     border-radius: 1rem;
@@ -20,31 +44,24 @@
 
 .settings-shell-role-label,
 .settings-shell-stat-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
     color: var(--app-text-muted, rgba(148, 163, 184, 0.78));
 }
 
 .settings-shell-role-value,
 .settings-shell-stat-value {
     color: var(--app-text-primary, rgba(248, 250, 252, 0.98));
-    font-weight: 800;
-    letter-spacing: -0.03em;
-}
-
-.settings-shell-role-value {
-    font-size: 1rem;
 }
 
 .settings-shell-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-    gap: 0.85rem;
+    margin: 0;
+}
+
+.settings-shell-stat-link {
+    display: block;
 }
 
 .settings-shell-stat {
+    height: 100%;
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
@@ -52,7 +69,6 @@
     border-radius: 1rem;
     border: 1px solid var(--app-border-subtle, rgba(148, 163, 184, 0.18));
     background: rgba(15, 23, 42, 0.38);
-    text-decoration: none;
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
@@ -66,8 +82,44 @@
     background: rgba(30, 41, 59, 0.78);
 }
 
-.settings-shell-stat-value {
-    font-size: 1.18rem;
+.settings-shell-tabs {
+    border-radius: 1.2rem;
+    background: rgba(8, 15, 28, 0.45);
+}
+
+::deep .settings-shell-tabs .mud-tabs-toolbar {
+    padding: 0.55rem;
+}
+
+::deep .settings-shell-tabs .mud-tab {
+    border-radius: 0.95rem;
+    min-height: 3rem;
+}
+
+::deep .settings-shell-tabs .mud-tabs-panels {
+    display: none;
+}
+
+::deep .settings-shell-tabs--primary .mud-tab {
+    background: rgba(15, 23, 42, 0.36);
+    border: 1px solid transparent;
+}
+
+::deep .settings-shell-tabs--primary .mud-tab.mud-tab-active {
+    background: rgba(30, 64, 175, 0.22);
+    border-color: rgba(59, 130, 246, 0.38);
+    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.14);
+}
+
+::deep .settings-shell-tabs--secondary .mud-tab {
+    min-height: 2.65rem;
+    background: rgba(15, 23, 42, 0.22);
+    border: 1px solid transparent;
+}
+
+::deep .settings-shell-tabs--secondary .mud-tab.mud-tab-active {
+    background: rgba(51, 65, 85, 0.78);
+    border-color: rgba(148, 163, 184, 0.22);
 }
 
 .settings-shell-panel {
@@ -77,98 +129,6 @@
     background: linear-gradient(180deg, rgba(8, 15, 28, 0.94), rgba(5, 11, 22, 0.98));
     box-shadow: var(--app-shadow-lg, 0 22px 48px rgba(15, 23, 42, 0.24));
     overflow: hidden;
-}
-
-::deep .settings-shell-header .app-page-header__actions {
-    display: flex;
-    justify-content: flex-end;
-    align-items: stretch;
-}
-
-::deep .settings-shell-primary-tabs,
-::deep .settings-shell-secondary-tabs {
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-
-::deep .settings-shell-primary-tabs::-webkit-scrollbar,
-::deep .settings-shell-secondary-tabs::-webkit-scrollbar {
-    display: none;
-}
-
-::deep .settings-shell-primary-tabs.app-tabs {
-    gap: 0.75rem;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-
-::deep .settings-shell-primary-tabs .app-tabs__item {
-    padding: 0.9rem 1rem;
-    border-radius: 1rem;
-    border: 1px solid transparent;
-    background: rgba(15, 23, 42, 0.36);
-}
-
-::deep .settings-shell-primary-tabs .app-tabs__item::after {
-    display: none;
-}
-
-::deep .settings-shell-primary-tabs .app-tabs__item:hover,
-::deep .settings-shell-primary-tabs .app-tabs__item:focus-visible {
-    border-color: rgba(148, 163, 184, 0.22);
-    background: rgba(30, 41, 59, 0.76);
-}
-
-::deep .settings-shell-primary-tabs .app-tabs__item.is-active {
-    border-color: rgba(59, 130, 246, 0.38);
-    background: rgba(30, 64, 175, 0.22);
-    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.14);
-}
-
-::deep .settings-shell-primary-tabs .app-tabs__label {
-    font-size: 0.86rem;
-}
-
-::deep .settings-shell-primary-tabs .app-tabs__badge {
-    background: rgba(59, 130, 246, 0.16);
-    color: rgba(219, 234, 254, 0.98);
-}
-
-::deep .settings-shell-secondary-tabs.app-tabs {
-    gap: 0.75rem;
-    padding-bottom: 0;
-    border-bottom: none;
-}
-
-::deep .settings-shell-secondary-tabs .app-tabs__item {
-    padding: 0.65rem 0.9rem;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    background: rgba(15, 23, 42, 0.22);
-}
-
-::deep .settings-shell-secondary-tabs .app-tabs__item::after {
-    display: none;
-}
-
-::deep .settings-shell-secondary-tabs .app-tabs__item:hover,
-::deep .settings-shell-secondary-tabs .app-tabs__item:focus-visible {
-    border-color: rgba(148, 163, 184, 0.18);
-    background: rgba(30, 41, 59, 0.62);
-}
-
-::deep .settings-shell-secondary-tabs .app-tabs__item.is-active {
-    border-color: rgba(148, 163, 184, 0.22);
-    background: rgba(51, 65, 85, 0.78);
-}
-
-::deep .settings-shell-secondary-tabs .app-tabs__label {
-    font-size: 0.77rem;
-    letter-spacing: 0.08em;
-}
-
-::deep .settings-shell-secondary-tabs .app-tabs__badge {
-    background: rgba(148, 163, 184, 0.14);
 }
 
 ::deep .settings-shell-panel .st-page {
@@ -198,8 +158,13 @@
 }
 
 @media (max-width: 900px) {
-    .settings-shell-stats {
-        grid-template-columns: 1fr;
+    .settings-shell-hero {
+        flex-direction: column;
+    }
+
+    .settings-shell-role {
+        min-width: 0;
+        width: 100%;
     }
 }
 
@@ -208,17 +173,13 @@
         gap: 1.1rem;
     }
 
+    .settings-shell-header,
     .settings-shell-panel {
         border-radius: 1.2rem;
     }
 
-    ::deep .settings-shell-header .app-page-header__actions {
-        justify-content: stretch;
-    }
-
-    .settings-shell-role {
-        min-width: 0;
-        width: 100%;
+    .settings-shell-header {
+        padding: 1.1rem;
     }
 
     ::deep .settings-shell-panel .st-page,

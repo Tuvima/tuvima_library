@@ -36,17 +36,8 @@
                          Style="font-size: 1.1rem;">
             <ItemTemplate Context="item">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="py-1">
-                    @if (AppIconRegistry.TryResolve(item.Icon, out _))
-                    {
-                        <AppIcon Name="@item.Icon"
-                                 Size="1.05rem"
-                                 Style="@($"color: {item.Color}; min-width: 20px;")" />
-                    }
-                    else
-                    {
-                        <MudIcon Icon="@item.Icon"
-                                 Style="@($"color: {item.Color}; font-size: 20px; min-width: 20px;")" />
-                    }
+                    <MudIcon Icon="@item.Icon"
+                             Style="@($"color: {item.Color}; font-size: 20px; min-width: 20px;")" />
                     <div>
                         <MudText Typo="Typo.body2">@item.Label</MudText>
                         @if (!string.IsNullOrEmpty(item.Subtitle))
@@ -73,8 +64,8 @@
 
     private PaletteItem[] StaticItems =>
     [
-        new(L["CmdPalette_Library"],  "/",         AppIcons.Collections, "#60A5FA", null),
-        new(L["CmdPalette_Settings"], "/settings", AppIcons.Settings,    "#94A3B8", L["CmdPalette_SettingsSubtitle"]),
+        new(L["CmdPalette_Library"],  "/",         Icons.Material.Outlined.CollectionsBookmark, "#60A5FA", null),
+        new(L["CmdPalette_Settings"], "/settings", Icons.Material.Outlined.Settings,            "#94A3B8", L["CmdPalette_SettingsSubtitle"]),
     ];
 
     // ── Search ────────────────────────────────────────────────────────────────
@@ -136,11 +127,11 @@
     private static string MediaIcon(string mediaType) =>
         UniverseMapper.ClassifyBucketPublic(mediaType) switch
         {
-            MediaTypeBucket.Book   => AppIcons.Read,
-            MediaTypeBucket.Video  => AppIcons.Watch,
-            MediaTypeBucket.Comic  => "fa:book-open",
-            MediaTypeBucket.Audio  => AppIcons.Listen,
-            _                     => AppIcons.Library,
+            MediaTypeBucket.Book  => Icons.Material.Outlined.AutoStories,
+            MediaTypeBucket.Video => Icons.Material.Outlined.LiveTv,
+            MediaTypeBucket.Comic => Icons.Material.Outlined.MenuBook,
+            MediaTypeBucket.Audio => Icons.Material.Outlined.Headphones,
+            _                    => Icons.Material.Outlined.CollectionsBookmark,
         };
 
     private static string MediaColor(string mediaType) =>

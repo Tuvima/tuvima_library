@@ -1,7 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
-using MediaEngine.Web.Components.Navigation;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
@@ -126,32 +125,12 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ArtworkScope);
     protected bool SupportsCanonicalSearch => QuickSearchTargets.Count > 0;
     protected string? CanonicalSearchUnavailableReason => GetCanonicalSearchUnavailableReason();
-    protected IReadOnlyList<AppNavItem> TabItems =>
-        Tabs.Select(tab => new AppNavItem
-        {
-            Key = tab.Id,
-            Label = tab.Label,
-            Disabled = IsTabDisabled(tab.Id)
-        }).ToList();
     protected IReadOnlyList<MediaEditorScopeDto> ScopeOptions =>
         (_editorContext?.Scopes ?? [])
             .OrderBy(scope => scope.Order)
             .ToList();
-    protected IReadOnlyList<AppNavItem> QuickSearchTargetItems =>
-        QuickSearchTargets
-            .Select(target => new AppNavItem { Key = target.Key, Label = target.Label })
-            .ToList();
-    protected IReadOnlyList<AppNavItem> ArtworkSlotItems =>
-        ArtworkSlots
-            .Select(slot => new AppNavItem
-            {
-                Key = slot.AssetType,
-                Label = slot.Label,
-                Icon = slot.Icon,
-                Description = slot.MetaLabel,
-                Badge = FormatCountBadge(GetArtworkGalleryItems(slot.AssetType).Count)
-            })
-            .ToList();
+    protected int ActiveTabIndex => GetSelectedIndex(Tabs.Select(tab => tab.Id), _activeTab);
+    protected int CanonicalTargetIndex => GetSelectedIndex(QuickSearchTargets.Select(target => target.Key), _canonicalTargetGroup);
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
@@ -1042,20 +1021,20 @@ public partial class SharedMediaEditorShell
 
     protected void SelectArtworkSlot(string assetType) => ApplyArtworkSlotSelection(assetType);
 
-    protected Task SelectTabAsync(string tabId)
+    protected Task OnTabChanged(int index)
     {
-        return SelectTabInternalAsync(tabId);
+        if (index < 0 || index >= Tabs.Count)
+            return Task.CompletedTask;
+
+        return SelectTabInternalAsync(Tabs[index].Id);
     }
 
-    protected Task SetCanonicalTargetGroupAsync(string targetGroup)
+    protected Task OnCanonicalTargetChanged(int index)
     {
-        SetCanonicalTargetGroup(targetGroup);
-        return Task.CompletedTask;
-    }
+        if (index < 0 || index >= QuickSearchTargets.Count)
+            return Task.CompletedTask;
 
-    protected Task SelectArtworkSlotAsync(string assetType)
-    {
-        ApplyArtworkSlotSelection(assetType);
+        SetCanonicalTargetGroup(QuickSearchTargets[index].Key);
         return Task.CompletedTask;
     }
 
@@ -2546,8 +2525,31 @@ public partial class SharedMediaEditorShell
 
     protected string GetArtworkSlotMeta(ArtworkSlotDefinition slot) => slot.MetaLabel;
 
+    protected string GetArtworkSlotCount(ArtworkSlotDefinition slot) =>
+        FormatCountBadge(GetArtworkGalleryItems(slot.AssetType).Count) ?? "0";
+
+    protected Task OnSelectedMediaTypeChanged(string value)
+    {
+        _selectedMediaType = value;
+        return Task.CompletedTask;
+    }
+
     protected string FormatUniverseStatus(string? status) =>
         string.IsNullOrWhiteSpace(status)
             ? "Pending"
             : status.Replace("_", " ");
+
+    private static int GetSelectedIndex(IEnumerable<string?> keys, string? activeKey)
+    {
+        var index = 0;
+        foreach (var key in keys)
+        {
+            if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
+                return index;
+
+            index++;
+        }
+
+        return 0;
+    }
 }

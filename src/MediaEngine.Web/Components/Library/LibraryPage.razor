@@ -29,39 +29,60 @@
         <div class="vault-tab-row">
             @if (HidePrimaryTabsForPreset)
             {
-                <AppTabs Items="VisibleMediaTabItems"
-                         ActiveKey="@_activeTab"
-                         AriaLabel="Library tabs"
-                         OnSelect="SwitchTab"
-                         Class="vault-tab-bar" />
+                <MudTabs ActivePanelIndex="@ActiveVisibleMediaTabIndex"
+                         ActivePanelIndexChanged="OnVisibleMediaTabChanged"
+                         Rounded="true"
+                         Border="false"
+                         Elevation="0"
+                         Class="vault-tab-bar">
+                    @foreach (var tab in VisibleMediaTabsForDisplay)
+                    {
+                        <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" />
+                    }
+                </MudTabs>
             }
             else
             {
-                <AppTabs Items="PrimaryTabItems"
-                         ActiveKey="@_primaryTab"
-                         AriaLabel="Library sections"
-                         OnSelect="SwitchPrimaryTab"
-                         Class="vault-tab-bar" />
+                <MudTabs ActivePanelIndex="@ActivePrimaryTabIndex"
+                         ActivePanelIndexChanged="OnPrimaryTabChanged"
+                         Rounded="true"
+                         Border="false"
+                         Elevation="0"
+                         Class="vault-tab-bar">
+                    @foreach (var tab in PrimaryTabsForDisplay)
+                    {
+                        <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" />
+                    }
+                </MudTabs>
             }
-            <button class="vault-add-btn" @onclick="() => _addMediaOpen = true">
-                <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
-                <span>@L["Vault_AddMedia"]</span>
-            </button>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => _addMediaOpen = true)"
+                       Class="vault-add-btn">
+                @L["Vault_AddMedia"]
+            </MudButton>
         </div>
 
         @* â”€â”€ 3. SUB-TAB ROW (context-aware, only when not action_center) â”€â”€ *@
         @if (!HidePrimaryTabsForPreset
             && _primaryTab != "action_center"
             && _primaryTab != "overview"
-            && TryGetVisibleSubTabs(_primaryTab, out var subs))
+            && ActiveSubTabs.Count > 0)
         {
             <div class="vault-subtab-row">
-                <AppTabs Items="BuildTabItems(subs)"
-                         ActiveKey="@_activeTab"
-                         Variant="secondary"
-                         AriaLabel="@($"{_primaryTab} subtabs")"
-                         OnSelect="SwitchTab"
-                         Class="vault-tab-bar vault-tab-bar--sub" />
+                <MudTabs ActivePanelIndex="@ActiveSubTabIndex"
+                         ActivePanelIndexChanged="OnSubTabChanged"
+                         Rounded="true"
+                         Border="false"
+                         Elevation="0"
+                         SliderColor="Color.Secondary"
+                         Class="vault-tab-bar vault-tab-bar--sub">
+                    @foreach (var tab in ActiveSubTabs)
+                    {
+                        <MudTabPanel Text="@tab.Label" Icon="@tab.Icon" />
+                    }
+                </MudTabs>
             </div>
         }
 
@@ -145,17 +166,57 @@
     @if (!ReviewOnly)
     {
     <div class="vault-toolbar-row">
-        <LibraryToolbar ActiveTab="@_activeTab"
-                      TabId="@_activeTab"
-                      SearchText="@_searchText"
-                      PosterSize="@_posterSize"
-                      ViewMode="@_viewMode"
-                      ViewModeChanged="OnViewModeChanged"
-                      SearchTextChanged="OnSearchChanged"
-                      PosterSizeChanged="OnPosterSizeChanged"
-                      ShowBackButton="@(_activeGroupId.HasValue)"
-                      OnBack="NavigateBackFromGroup"
-                      OnColumnPickerRequested="() => _showColumnPicker = true" />
+        @if (_activeGroupId.HasValue)
+        {
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Outlined.ArrowBack"
+                       OnClick="NavigateBackFromGroup"
+                       Class="vault-back-btn">
+                Back
+            </MudButton>
+        }
+
+        <MudTextField T="string"
+                      Value="@_searchText"
+                      ValueChanged="@((string? value) => _searchText = value ?? string.Empty)"
+                      Placeholder="@L["VaultToolbar_SearchPlaceholder"]"
+                      Variant="Variant.Outlined"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                      Immediate="true"
+                      DebounceInterval="300"
+                      OnDebounceIntervalElapsed="OnSearchChanged"
+                      Class="vault-search-field" />
+
+        @{
+            var viewModes = GetToolbarViewModeOptions();
+        }
+        @if (viewModes.Count > 1)
+        {
+            <MudChipSet T="string"
+                        SelectedValue="@_viewMode"
+                        SelectedValueChanged="OnViewModeChanged"
+                        Class="vault-view-modes">
+                @foreach (var mode in viewModes)
+                {
+                    <MudChip T="string"
+                             Value="@mode.Value"
+                             Icon="@mode.Icon"
+                             Variant="Variant.Text">
+                        @mode.Label
+                    </MudChip>
+                }
+            </MudChipSet>
+        }
+
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Inherit"
+                   StartIcon="@Icons.Material.Outlined.Tune"
+                   OnClick="() => _showColumnPicker = true"
+                   Class="vault-customize-btn">
+            Customize
+        </MudButton>
     </div>
     }
 
@@ -244,9 +305,12 @@
                 @if (_hasMore)
                 {
                     <div class="vault-load-more">
-                        <button class="vault-load-more-btn" @onclick="LoadMore">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Inherit"
+                                   OnClick="LoadMore"
+                                   Class="vault-load-more-btn">
                             @L["Vault_LoadMore"]
-                        </button>
+                        </MudButton>
                     </div>
                 }
             }
@@ -513,50 +577,73 @@
             .Where(tab => AllowedMediaTabs.Contains(tab.Id))
             .ToArray();
 
-    private IReadOnlyList<(string Id, string Label, string Icon)> PrimaryTabsForDisplay => _primaryTabs;
-    private IReadOnlyList<AppNavItem> VisibleMediaTabItems => BuildTabItems(VisibleMediaTabs);
-    private IReadOnlyList<AppNavItem> PrimaryTabItems
+    private IReadOnlyList<LibraryTabDescriptor> VisibleMediaTabsForDisplay => BuildTabDescriptors(VisibleMediaTabs);
+    private IReadOnlyList<LibraryTabDescriptor> PrimaryTabsForDisplay
     {
         get
         {
-            var items = BuildTabItems(PrimaryTabsForDisplay).ToList();
+            var items = BuildTabDescriptors(_primaryTabs).ToList();
             if (_actionCenterTotal > 0)
             {
-                items.Add(new AppNavItem
-                {
-                    Key = "action_center",
-                    Label = "Action Center",
-                    Icon = Icons.Material.Outlined.Warning,
-                    Badge = FormatTabBadge(_actionCenterTotal),
-                    Attention = true
-                });
+                items.Add(new LibraryTabDescriptor(
+                    "action_center",
+                    FormatTabLabel("Action Center", _actionCenterTotal),
+                    Icons.Material.Outlined.Warning));
             }
 
             return items;
         }
     }
 
+    private IReadOnlyList<LibraryTabDescriptor> ActiveSubTabs =>
+        TryGetVisibleSubTabs(_primaryTab, out var tabs)
+            ? BuildTabDescriptors(tabs)
+            : [];
+
+    private int ActiveVisibleMediaTabIndex => GetSelectedIndex(VisibleMediaTabsForDisplay.Select(tab => tab.Id), _activeTab);
+    private int ActivePrimaryTabIndex => GetSelectedIndex(PrimaryTabsForDisplay.Select(tab => tab.Id), _primaryTab);
+    private int ActiveSubTabIndex => GetSelectedIndex(ActiveSubTabs.Select(tab => tab.Id), _activeTab);
+
     // â”€â”€ Tab helpers â”€â”€
 
     private static readonly string[] _mediaTabIds = ["new", "movies", "tv", "music", "books", "audiobooks", "comics"];
 
-    private IReadOnlyList<AppNavItem> BuildTabItems(IEnumerable<(string Id, string Label, string Icon)> tabs) =>
-        tabs.Select(tab => new AppNavItem
-        {
-            Key = tab.Id,
-            Label = tab.Label,
-            Icon = tab.Icon,
-            Badge = FormatTabBadge(GetTabBadgeCount(tab.Id))
-        }).ToList();
+    private IReadOnlyList<LibraryTabDescriptor> BuildTabDescriptors(IEnumerable<(string Id, string Label, string Icon)> tabs) =>
+        tabs.Select(tab => new LibraryTabDescriptor(
+            tab.Id,
+            FormatTabLabel(tab.Label, GetTabBadgeCount(tab.Id)),
+            tab.Icon)).ToList();
 
     private static string? FormatTabBadge(int count) =>
         count > 0
             ? (count >= 1000 ? $"{count / 1000.0:0.#}k" : count.ToString())
             : null;
 
+    private static string FormatTabLabel(string label, int count) =>
+        FormatTabBadge(count) is { } badge ? $"{label} ({badge})" : label;
+
+    private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)
+    {
+        var index = 0;
+        foreach (var key in keys)
+        {
+            if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+
+            index++;
+        }
+
+        return 0;
+    }
+
     private static bool IsMediaTab(string tabId) => _mediaTabIds.Contains(tabId);
 
     private bool IsAllowedMediaTab(string tabId) => AllowedMediaTabs.Contains(tabId);
+
+    private sealed record LibraryTabDescriptor(string Id, string Label, string Icon);
+    private sealed record ToolbarViewModeOption(string Label, string Value, string Icon);
 
     private static string? GetMediaTypeForTab(string tabId) => tabId switch
     {
@@ -607,6 +694,39 @@
             _ => normalized,
         };
     }
+
+    private List<ToolbarViewModeOption> GetToolbarViewModeOptions() => _activeTab switch
+    {
+        "movies" =>
+        [
+            new("All Movies", "all", Icons.Material.Outlined.GridView),
+            new("By Series", "series", Icons.Material.Outlined.AccountTree)
+        ],
+        "tv" =>
+        [
+            new("By Show", "shows", Icons.Material.Outlined.LiveTv)
+        ],
+        "music" =>
+        [
+            new("Albums", "albums", Icons.Material.Outlined.Album),
+            new("Artists", "artists", Icons.Material.Outlined.Person),
+            new("Tracks", "tracks", Icons.Material.Outlined.QueueMusic)
+        ],
+        "books" =>
+        [
+            new("All Books", "all", Icons.Material.Outlined.MenuBook)
+        ],
+        "audiobooks" =>
+        [
+            new("All Audiobooks", "all", Icons.Material.Outlined.Headphones)
+        ],
+        "comics" =>
+        [
+            new("By Series", "series", Icons.Material.Outlined.CollectionsBookmark),
+            new("All Issues", "all", Icons.Material.Outlined.AutoStories)
+        ],
+        _ => [],
+    };
 
     /// <summary>Returns the default view mode for a given tab (from saved preferences or built-in defaults).</summary>
     private string GetDefaultViewMode(string tabId)
@@ -1139,6 +1259,36 @@
     }
 
     // â”€â”€ Tab switching â”€â”€
+
+    private async Task OnVisibleMediaTabChanged(int index)
+    {
+        if (index < 0 || index >= VisibleMediaTabsForDisplay.Count)
+        {
+            return;
+        }
+
+        await SwitchTab(VisibleMediaTabsForDisplay[index].Id);
+    }
+
+    private async Task OnPrimaryTabChanged(int index)
+    {
+        if (index < 0 || index >= PrimaryTabsForDisplay.Count)
+        {
+            return;
+        }
+
+        await SwitchPrimaryTab(PrimaryTabsForDisplay[index].Id);
+    }
+
+    private async Task OnSubTabChanged(int index)
+    {
+        if (index < 0 || index >= ActiveSubTabs.Count)
+        {
+            return;
+        }
+
+        await SwitchTab(ActiveSubTabs[index].Id);
+    }
 
     private async Task SwitchPrimaryTab(string primaryId)
     {
@@ -2193,36 +2343,28 @@
 
     /* â”€â”€ Tab bar â”€â”€ */
     .vault-tab-bar {
-        display: flex;
         flex: 1;
         min-width: 0;
     }
 
-    .vault-tab-bar::-webkit-scrollbar {
+    .vault-tab-bar .mud-tabs-toolbar {
+        padding: 0.2rem 0;
+    }
+
+    .vault-tab-bar .mud-tabs-panels {
         display: none;
     }
 
-    .vault-tab {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        border-radius: 8px;
-        background: transparent;
-        border: none;
-        color: rgba(255, 255, 255, 0.35);
-        font-size: 12px;
+    .vault-tab-bar .mud-tab {
+        min-height: 2.65rem;
+        border-radius: 12px;
+        color: rgba(255, 255, 255, 0.42);
+        font-size: 0.78rem;
         font-weight: 700;
-        cursor: pointer;
-        transition: all 0.15s;
         white-space: nowrap;
     }
 
-    .vault-tab:hover {
-        color: rgba(255, 255, 255, 0.6);
-    }
-
-    .vault-tab--active {
+    .vault-tab-bar .mud-tab.mud-tab-active {
         background: rgba(255, 255, 255, 0.06);
         color: #fff;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -2237,6 +2379,12 @@
 
     .vault-tab-bar--sub {
         flex: unset;
+    }
+
+    .vault-tab-bar--sub .mud-tab {
+        min-height: 2.35rem;
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.6);
     }
 
     .vault-tab--sub {
@@ -2292,31 +2440,67 @@
         padding: 16px 24px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         flex-shrink: 0;
+        flex-wrap: wrap;
+    }
+
+    .vault-back-btn,
+    .vault-customize-btn {
+        border-radius: 12px;
+        text-transform: none;
+        white-space: nowrap;
+    }
+
+    .vault-search-field {
+        flex: 1 1 260px;
+        max-width: 340px;
+        margin: 0;
+    }
+
+    .vault-search-field .mud-input-control {
+        margin: 0;
+    }
+
+    .vault-search-field .mud-input-outlined {
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .vault-search-field .mud-input-adornment {
+        color: rgba(255, 255, 255, 0.35);
+    }
+
+    .vault-view-modes {
+        display: flex;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .vault-view-modes .mud-chip-set {
+        gap: 6px;
+    }
+
+    .vault-view-modes .mud-chip {
+        min-height: 2.5rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.02);
+        color: rgba(255, 255, 255, 0.65);
+    }
+
+    .vault-view-modes .mud-chip.mud-chip-selected {
+        background: rgba(96, 165, 250, 0.12);
+        color: rgba(96, 165, 250, 0.92);
     }
 
     /* â”€â”€ Add button â”€â”€ */
     .vault-add-btn {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 20px;
-        background: rgba(96, 165, 250, 0.85);
-        border: none;
         border-radius: 12px;
-        color: #fff;
         font-size: 12px;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        cursor: pointer;
-        transition: background 0.15s;
         box-shadow: 0 4px 12px rgba(96, 165, 250, 0.2);
         white-space: nowrap;
         flex-shrink: 0;
-    }
-
-    .vault-add-btn:hover {
-        background: rgba(96, 165, 250, 1);
     }
 
     /* â”€â”€ Body (full-width content) â”€â”€ */
@@ -2373,6 +2557,10 @@
 
         .vault-toolbar-row {
             padding: 12px 16px;
+        }
+
+        .vault-search-field {
+            max-width: 260px;
         }
 
         .vault-content {
@@ -2436,6 +2624,16 @@
             flex-wrap: wrap;
         }
 
+        .vault-search-field {
+            flex-basis: 100%;
+            max-width: none;
+            order: -1;
+        }
+
+        .vault-view-modes {
+            flex: 1 1 100%;
+        }
+
         .vault-body {
             flex-direction: column;
         }
@@ -2453,6 +2651,12 @@
     @@media (max-width: 480px) {
         .vault-title {
             font-size: 20px;
+        }
+
+        .vault-back-btn,
+        .vault-customize-btn {
+            min-width: 0;
+            padding-inline: 0.8rem;
         }
 
         .vault-tab {

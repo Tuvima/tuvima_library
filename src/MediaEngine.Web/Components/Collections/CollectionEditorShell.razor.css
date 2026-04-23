@@ -63,16 +63,6 @@
     max-width: 700px;
 }
 
-.collection-editor-close,
-.collection-editor-tab,
-.collection-editor-btn {
-    appearance: none;
-    border: none;
-    background: none;
-    color: inherit;
-    cursor: pointer;
-}
-
 .collection-editor-close {
     width: 34px;
     height: 34px;
@@ -81,20 +71,27 @@
 }
 
 .collection-editor-tabs {
-    display: flex;
-    gap: 6px;
     padding: 14px 24px 0;
 }
 
-.collection-editor-tab {
+::deep .collection-editor-tabs .mud-tabs-toolbar {
+    padding: 0;
+}
+
+::deep .collection-editor-tabs .mud-tabs-panels {
+    display: none;
+}
+
+::deep .collection-editor-tabs .mud-tab {
+    min-height: 2.75rem;
     padding: 10px 14px;
     border-radius: 10px 10px 0 0;
     color: rgba(255, 255, 255, 0.56);
 }
 
-.collection-editor-tab--active {
+::deep .collection-editor-tabs .mud-tab.mud-tab-active {
     color: rgba(255, 255, 255, 0.96);
-    border-bottom: 2px solid #c53a38;
+    box-shadow: inset 0 -2px 0 #c53a38;
 }
 
 .collection-editor-body {
@@ -290,9 +287,9 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px 14px;
     border-radius: 10px;
     font-size: 0.9rem;
+    text-transform: none;
 }
 
 .collection-editor-btn--ghost {

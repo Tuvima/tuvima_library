@@ -12,66 +12,69 @@
 else
 {
     <div class="vut-table-wrap">
-        <table class="vut-table">
-            <thead>
-                <tr class="vut-thead-row">
-                    <th class="vut-th" style="width: 4%;"></th>
-                    <th class="vut-th" style="width: 42%;">@L["VaultUniverses_ColUniverse"]</th>
-                    <th class="vut-th vut-th--center vut-col-series" style="width: 13%;">@L["VaultUniverses_ColSeries"]</th>
-                    <th class="vut-th" style="width: 25%;">@L["VaultUniverses_ColMediaAssets"]</th>
-                    <th class="vut-th vut-th--center vut-col-people" style="width: 12%;">@L["VaultUniverses_ColPeople"]</th>
-                    <th class="vut-th" style="width: 8%;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var u in Universes)
-                {
-                    <tr class="vut-row" @onclick="() => OnRowClicked.InvokeAsync(u.Id)">
-                        <td class="vut-td" style="width: 4%;"></td>
-                        <td class="vut-td">
-                            <div class="vut-name-cell">
-                                <div class="vut-icon-box">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Public"
-                                             Style="font-size: 16px; color: rgba(167,139,250,0.7);" />
-                                </div>
-                                <div style="min-width: 0; flex: 1;">
-                                    <span class="vut-name">@u.DisplayName</span>
-                                    @if (!string.IsNullOrWhiteSpace(u.Description))
-                                    {
-                                        <span class="vut-description">@u.Description</span>
-                                    }
-                                </div>
-                            </div>
-                        </td>
-                        <td class="vut-td vut-td--center vut-col-series">
-                            <span class="vut-count">@(u.IsParentCollection ? u.ChildCollectionCount : u.WorkCount)</span>
-                        </td>
-                        <td class="vut-td">
-                            @if (!string.IsNullOrWhiteSpace(u.MediaTypes))
-                            {
-                                <span class="vut-media-text">@u.MediaTypes</span>
-                            }
-                            else
-                            {
-                                <span class="vut-media-text vut-media-text--empty">—</span>
-                            }
-                        </td>
-                        <td class="vut-td vut-td--center vut-col-people">
-                            @if (PeopleCount is not null && PeopleCount.TryGetValue(u.Id, out var pc) && pc > 0)
-                            {
-                                <span class="vut-count">@pc</span>
-                            }
-                            else
-                            {
-                                <span class="vut-count vut-count--muted">—</span>
-                            }
-                        </td>
-                        <td class="vut-td vut-td--right">
-                        </td>
-                    </tr>
+        <MudTable T="CollectionViewModel"
+                  Items="Universes"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="false"
+                  Elevation="0"
+                  OnRowClick="HandleRowClick"
+                  RowStyleFunc="@((item, index) => "cursor: pointer;")"
+                  Class="vut-table">
+            <HeaderContent>
+                <MudTh Class="vut-th" Style="width: 4%;"></MudTh>
+                <MudTh Class="vut-th" Style="width: 42%;">@L["VaultUniverses_ColUniverse"]</MudTh>
+                <MudTh Class="vut-th vut-th--center vut-col-series" Style="width: 13%;">@L["VaultUniverses_ColSeries"]</MudTh>
+                <MudTh Class="vut-th" Style="width: 25%;">@L["VaultUniverses_ColMediaAssets"]</MudTh>
+                <MudTh Class="vut-th vut-th--center vut-col-people" Style="width: 12%;">@L["VaultUniverses_ColPeople"]</MudTh>
+                <MudTh Class="vut-th" Style="width: 8%;"></MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                @{
+                    var u = context;
                 }
-            </tbody>
-        </table>
+                <MudTd Class="vut-td" Style="width: 4%;"></MudTd>
+                <MudTd Class="vut-td">
+                        <div class="vut-name-cell">
+                            <div class="vut-icon-box">
+                                <MudIcon Icon="@Icons.Material.Outlined.Public"
+                                         Style="font-size: 16px; color: rgba(167,139,250,0.7);" />
+                            </div>
+                            <div style="min-width: 0; flex: 1;">
+                                <span class="vut-name">@u.DisplayName</span>
+                                @if (!string.IsNullOrWhiteSpace(u.Description))
+                                {
+                                    <span class="vut-description">@u.Description</span>
+                                }
+                            </div>
+                        </div>
+                </MudTd>
+                <MudTd Class="vut-td vut-td--center vut-col-series">
+                        <span class="vut-count">@(u.IsParentCollection ? u.ChildCollectionCount : u.WorkCount)</span>
+                </MudTd>
+                <MudTd Class="vut-td">
+                        @if (!string.IsNullOrWhiteSpace(u.MediaTypes))
+                        {
+                            <span class="vut-media-text">@u.MediaTypes</span>
+                        }
+                        else
+                        {
+                            <span class="vut-media-text vut-media-text--empty">-</span>
+                        }
+                </MudTd>
+                <MudTd Class="vut-td vut-td--center vut-col-people">
+                        @if (PeopleCount is not null && PeopleCount.TryGetValue(u.Id, out var pc) && pc > 0)
+                        {
+                            <span class="vut-count">@pc</span>
+                        }
+                        else
+                        {
+                            <span class="vut-count vut-count--muted">-</span>
+                        }
+                </MudTd>
+                <MudTd Class="vut-td vut-td--right"></MudTd>
+            </RowTemplate>
+        </MudTable>
     </div>
 
     @if (Loading)
@@ -87,12 +90,13 @@ else
     [Parameter] public List<CollectionViewModel> Universes { get; set; } = [];
     [Parameter] public bool Loading { get; set; }
     [Parameter] public EventCallback<Guid> OnRowClicked { get; set; }
-    /// <summary>Optional map of Collection ID → people count. When null, the People column shows "—".</summary>
     [Parameter] public Dictionary<Guid, int>? PeopleCount { get; set; }
+
+    private Task HandleRowClick(TableRowClickEventArgs<CollectionViewModel> args) =>
+        args.Item is null ? Task.CompletedTask : OnRowClicked.InvokeAsync(args.Item.Id);
 }
 
 <style>
-    /* ── Container ── */
     .vut-table-wrap {
         background: rgba(17, 20, 25, 0.4);
         border: 1px solid rgba(255, 255, 255, 0.03);
@@ -102,14 +106,14 @@ else
     }
 
     .vut-table {
-        width: 100%;
-        border-collapse: collapse;
-        text-align: left;
-        table-layout: fixed;
+        background: transparent;
     }
 
-    /* ── Header ── */
-    .vut-thead-row {
+    ::deep .vut-table .mud-table-container {
+        background: transparent;
+    }
+
+    ::deep .vut-table .mud-table-head {
         border-bottom: 1px solid rgba(255, 255, 255, 0.04);
         background: rgba(15, 23, 42, 0.5);
         position: sticky;
@@ -126,18 +130,23 @@ else
         color: rgba(255, 255, 255, 0.3);
     }
 
-    .vut-th--center { text-align: center; }
+    .vut-th--center {
+        text-align: center;
+    }
 
-    /* ── Body rows ── */
     .vut-row {
         border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         transition: background 0.15s ease;
         cursor: pointer;
     }
 
-    .vut-row:last-child { border-bottom: none; }
+    .vut-row:last-child {
+        border-bottom: none;
+    }
 
-    .vut-row:hover { background: rgba(255, 255, 255, 0.02); }
+    .vut-row:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
 
     .vut-td {
         padding: 10px 12px;
@@ -145,17 +154,20 @@ else
         overflow: hidden;
     }
 
-    .vut-td--center { text-align: center; }
-    .vut-td--right  { text-align: right; }
+    .vut-td--center {
+        text-align: center;
+    }
 
-    /* ── Name cell ── */
+    .vut-td--right {
+        text-align: right;
+    }
+
     .vut-name-cell {
         display: flex;
         align-items: center;
         gap: 10px;
     }
 
-    /* ── Icon box ── */
     .vut-icon-box {
         width: 34px;
         height: 34px;
@@ -168,7 +180,6 @@ else
         flex-shrink: 0;
     }
 
-    /* ── Text ── */
     .vut-name {
         font-size: 12px;
         font-weight: 700;
@@ -180,7 +191,9 @@ else
         transition: color 0.15s;
     }
 
-    .vut-row:hover .vut-name { color: #A78BFA; }
+    .vut-row:hover .vut-name {
+        color: #A78BFA;
+    }
 
     .vut-description {
         font-size: 10px;
@@ -214,7 +227,6 @@ else
         color: rgba(255, 255, 255, 0.2);
     }
 
-    /* ── Loading / empty ── */
     .vut-empty {
         display: flex;
         flex-direction: column;
@@ -232,7 +244,9 @@ else
 
     @@media (max-width: 768px) {
         .vut-col-series,
-        .vut-col-people { display: none; }
+        .vut-col-people {
+            display: none;
+        }
 
         .vut-td {
             padding: 6px 12px;

@@ -38,14 +38,18 @@
 
         @* ── Section 1: CONFIGURATION ── *@
         <div class="collection-section">
-            <button class="collection-section-header" @onclick="ToggleConfigSection">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       FullWidth="true"
+                       Class="collection-section-header"
+                       OnClick="ToggleConfigSection">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <MudIcon Icon="@Icons.Material.Outlined.Settings" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
                     <span class="collection-section-title">@L["VaultCollection_SectionConfiguration"]</span>
                 </div>
                 <MudIcon Icon="@(_configOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
                          Style="font-size:16px;color:rgba(255,255,255,0.35);" />
-            </button>
+            </MudButton>
 
             @if (_configOpen)
             {
@@ -150,14 +154,18 @@
 
         @* ── Section 2: ITEMS PREVIEW ── *@
         <div class="collection-section">
-            <button class="collection-section-header" @onclick="ToggleItemsSection">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       FullWidth="true"
+                       Class="collection-section-header"
+                       OnClick="ToggleItemsSection">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <MudIcon Icon="@Icons.Material.Outlined.List" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
                     <span class="collection-section-title">@L["VaultCollection_SectionItemsPreview"]</span>
                 </div>
                 <MudIcon Icon="@(_itemsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
                          Style="font-size:16px;color:rgba(255,255,255,0.35);" />
-            </button>
+            </MudButton>
 
             @if (_itemsOpen)
             {
@@ -204,14 +212,18 @@
 
         @* ── Section 3: ASSETS ── *@
         <div class="collection-section">
-            <button class="collection-section-header" @onclick="ToggleAssetsSection">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       FullWidth="true"
+                       Class="collection-section-header"
+                       OnClick="ToggleAssetsSection">
                 <div style="display:flex;align-items:center;gap:12px;">
                     <MudIcon Icon="@Icons.Material.Outlined.Image" Style="font-size:16px;color:rgba(255,255,255,0.5);" />
                     <span class="collection-section-title">@L["VaultCollection_SectionAssets"]</span>
                 </div>
                 <MudIcon Icon="@(_assetsOpen ? Icons.Material.Outlined.ExpandMore : Icons.Material.Outlined.ChevronRight)"
                          Style="font-size:16px;color:rgba(255,255,255,0.35);" />
-            </button>
+            </MudButton>
 
             @if (_assetsOpen)
             {
@@ -238,14 +250,20 @@
         @if (Collection.CollectionType == "Smart")
         {
             <div style="display:flex;gap:8px;">
-                <button class="collection-action-btn collection-action-btn--outlined" style="flex:1;"
-                        @onclick="ToggleEnabled">
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Inherit"
+                           Class="collection-action-btn collection-action-btn--outlined"
+                           Style="flex:1;"
+                           OnClick="ToggleEnabled">
                     @(Collection.IsEnabled ? L["VaultCollection_ActionDisable"] : L["VaultCollection_ActionEnable"])
-                </button>
-                <button class="collection-action-btn collection-action-btn--filled" style="flex:1;"
-                        @onclick="ToggleFeatured">
+                </MudButton>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Warning"
+                           Class="collection-action-btn collection-action-btn--filled"
+                           Style="flex:1;"
+                           OnClick="ToggleFeatured">
                     @(Collection.IsFeatured ? L["VaultCollection_ActionUnfeature"] : L["VaultCollection_ActionFeature"])
-                </button>
+                </MudButton>
             </div>
         }
         else if (Collection.CollectionType == "System")
@@ -258,10 +276,13 @@
         }
         else if (Collection.CollectionType == "Mix")
         {
-            <button class="collection-action-btn collection-action-btn--outlined" style="width:100%;"
-                    @onclick="ToggleEnabled">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Inherit"
+                       Class="collection-action-btn collection-action-btn--outlined"
+                       Style="width:100%;"
+                       OnClick="ToggleEnabled">
                 @(Collection.IsEnabled ? L["VaultCollection_ActionDisable"] : L["VaultCollection_ActionEnable"])
-            </button>
+            </MudButton>
         }
         else if (Collection.CollectionType == "Playlist")
         {
@@ -420,10 +441,10 @@
         justify-content: space-between;
         padding: 20px;
         background: transparent;
-        border: none;
         cursor: pointer;
         color: white;
         transition: background 0.15s ease;
+        text-transform: none;
     }
 
     .collection-section-header:hover {
@@ -497,7 +518,6 @@
         letter-spacing: 0.08em;
         padding: 10px 20px;
         border-radius: 6px;
-        cursor: pointer;
         transition: opacity 0.15s ease;
     }
 
@@ -506,14 +526,10 @@
     }
 
     .collection-action-btn--outlined {
-        background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.2);
         color: rgba(255, 255, 255, 0.7);
     }
 
     .collection-action-btn--filled {
-        background: #C9922E;
-        border: 1px solid #C9922E;
         color: #0d0f12;
     }
 </style>

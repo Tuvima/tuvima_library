@@ -10,6 +10,40 @@
     padding: 6px 42px 0;
 }
 
+::deep .sme-tabs .mud-tabs-toolbar,
+::deep .sme-search-targets .mud-tabs-toolbar {
+    padding: 0;
+}
+
+::deep .sme-tabs .mud-tabs-panels,
+::deep .sme-search-targets .mud-tabs-panels {
+    display: none;
+}
+
+::deep .sme-tabs .mud-tab {
+    min-height: 2.75rem;
+    padding: 0 12px 12px;
+    color: rgba(255,255,255,0.72);
+}
+
+::deep .sme-tabs .mud-tab.mud-tab-active {
+    color: rgba(255,255,255,0.96);
+    box-shadow: inset 0 -2px 0 rgba(197,58,56,0.8);
+}
+
+::deep .sme-search-targets .mud-tab {
+    min-height: 2.5rem;
+    padding: 8px 12px;
+    border-radius: 999px;
+    color: rgba(255,255,255,0.72);
+}
+
+::deep .sme-search-targets .mud-tab.mud-tab-active {
+    color: rgba(255,255,255,0.96);
+    background: rgba(197,58,56,0.14);
+    box-shadow: inset 0 0 0 1px rgba(197,58,56,0.3);
+}
+
 ::deep .sme-artwork-rail {
     min-width: 0;
     gap: 10px;
@@ -216,6 +250,10 @@
     flex-wrap: wrap;
 }
 
+.sme-review-select {
+    min-width: 190px;
+}
+
 .sme-review-title {
     font-weight: 700;
 }
@@ -232,8 +270,8 @@
 .sme-footer-btn,
 .sme-upload-btn {
     border-radius: 10px;
-    padding: 10px 14px;
     font-size: 0.9rem;
+    text-transform: none;
 }
 
 .sme-scope-switcher {
@@ -627,6 +665,13 @@
     margin-bottom: 10px;
 }
 
+.sme-artwork-rail {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
 .sme-target-chip {
     padding: 8px 12px;
     border-radius: 999px;
@@ -923,11 +968,12 @@
 }
 
 .sme-suggested-field {
-    display: flex;
-    gap: 8px;
-    align-items: start;
     font-size: 0.88rem;
     margin-bottom: 8px;
+}
+
+::deep .sme-suggested-field .mud-checkbox-label {
+    color: rgba(255,255,255,0.88);
 }
 
 .sme-fallback-actions {
@@ -1683,12 +1729,13 @@
     grid-template-columns: auto minmax(0, 1fr) auto auto;
     align-items: center;
     gap: 10px;
-    padding: 10px 12px;
     border-radius: 16px;
     border: 1px solid rgba(255,255,255,0.08);
     background: rgba(255,255,255,0.03);
     color: rgba(255,255,255,0.74);
     text-align: left;
+    justify-content: flex-start;
+    text-transform: none;
     transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
 

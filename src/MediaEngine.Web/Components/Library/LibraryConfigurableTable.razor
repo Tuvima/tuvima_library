@@ -26,11 +26,14 @@ else
                         @{
                             var groupAllSelected = group.Items.Count > 0 && group.Items.All(i => SelectedItems.Contains(i.EntityId));
                         }
-                        <input type="checkbox"
-                               class="vct-checkbox"
-                               checked="@groupAllSelected"
-                               @onclick:stopPropagation="true"
-                               @onchange="() => ToggleGroupSelection(group.Items)" />
+                        <span @onclick:stopPropagation="true">
+                            <MudCheckBox T="bool"
+                                         Value="@groupAllSelected"
+                                         ValueChanged="@(_ => ToggleGroupSelection(group.Items))"
+                                         Color="Color.Primary"
+                                         Dense="true"
+                                         Class="vct-checkbox" />
+                        </span>
                         <span class="vmt-group-label">@group.Label</span>
                         <div class="vmt-group-line"></div>
                         <span class="vmt-group-count">@group.Items.Count items</span>
@@ -294,10 +297,23 @@ else
             await OnFavoriteToggled.InvokeAsync(entityId);
     }
 
+    private async Task ToggleSingleItemAsync(LibraryItemViewModel item)
+    {
+        var updated = new HashSet<Guid>(SelectedItems);
+
+        if (updated.Contains(item.EntityId))
+            updated.Remove(item.EntityId);
+        else
+            updated.Add(item.EntityId);
+
+        SelectedItems = new HashSet<Guid>(updated);
+        await SelectedItemsChanged.InvokeAsync(new HashSet<Guid>(SelectedItems));
+    }
+
     private RenderFragment RenderTable(List<LibraryItemViewModel> items) => __builder =>
     {
         var cols = ActiveColumns;
-        <table class="vmt-table">
+        <MudSimpleTable Dense="true" Hover="true" Class="vmt-table">
             <thead>
                 <tr class="vmt-thead-row">
                     @foreach (var col in cols)
@@ -313,15 +329,19 @@ else
                         <th class="vmt-th @alignClass" style="width: @col.Width; @paddingStyle @paddingRightStyle">
                             @if (col.RenderType == ColumnRenderType.Checkbox)
                             {
-                                <input type="checkbox"
-                                       class="vct-checkbox"
-                                       checked="@IsAllSelected(items)"
-                                       @onchange="() => ToggleSelectAll(items)" />
+                                <MudCheckBox T="bool"
+                                             Value="@IsAllSelected(items)"
+                                             ValueChanged="@(_ => ToggleSelectAll(items))"
+                                             Color="Color.Primary"
+                                             Dense="true"
+                                             Class="vct-checkbox" />
                             }
                             else if (col.Sortable && col.SortKey is not null)
                             {
-                                <button class="vmt-sort-header @(col.RenderType == ColumnRenderType.FavoriteToggle ? "vmt-sort-header--icon" : null)" @onclick:stopPropagation="true"
-                                        @onclick="() => RequestSort(col.SortKey!)">
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Inherit"
+                                           Class="@($"vmt-sort-header {(col.RenderType == ColumnRenderType.FavoriteToggle ? "vmt-sort-header--icon" : string.Empty)}")"
+                                           OnClick="() => RequestSort(col.SortKey!)">
                                     @if (col.RenderType == ColumnRenderType.FavoriteToggle)
                                     {
                                         <MudIcon Icon="@Icons.Material.Outlined.StarBorder" Style="font-size: 14px;" />
@@ -340,7 +360,7 @@ else
                                         <MudIcon Icon="@Icons.Material.Filled.UnfoldMore"
                                                  Style="font-size: 12px; margin-left: 4px; opacity: 0.25;" />
                                     }
-                                </button>
+                                </MudButton>
                             }
                             else
                             {
@@ -384,11 +404,14 @@ else
                                 @switch (col.RenderType)
                                 {
                                     case ColumnRenderType.Checkbox:
-                                        <input type="checkbox"
-                                               class="vct-checkbox"
-                                               checked="@isSelected"
-                                               @onclick:stopPropagation="true"
-                                               @onclick="(e) => ToggleItem(item, items, e)" />
+                                        <span @onclick:stopPropagation="true">
+                                            <MudCheckBox T="bool"
+                                                         Value="@isSelected"
+                                                         ValueChanged="@(_ => ToggleSingleItemAsync(item))"
+                                                         Color="Color.Primary"
+                                                         Dense="true"
+                                                         Class="vct-checkbox" />
+                                        </span>
                                         break;
 
                                     case ColumnRenderType.MediaCell:
@@ -452,10 +475,14 @@ else
                                                         {
                                                             <span class="vmt-creator-sep">, </span>
                                                         }
-                                                        <button class="vmt-creator-link" @onclick:stopPropagation="true"
-                                                                @onclick="() => OnAuthorClicked.InvokeAsync(creator.Trim())">
-                                                            @creator.Trim().ToUpperInvariant()
-                                                        </button>
+                                                        <span @onclick:stopPropagation="true">
+                                                            <MudButton Variant="Variant.Text"
+                                                                       Color="Color.Inherit"
+                                                                       Class="vmt-creator-link"
+                                                                       OnClick="() => OnAuthorClicked.InvokeAsync(creator.Trim())">
+                                                                @creator.Trim().ToUpperInvariant()
+                                                            </MudButton>
+                                                        </span>
                                                     }
                                                 }
                                                 @if (item.LibraryDisplayStatus == LibraryStatus.NeedsReview && !string.IsNullOrEmpty(item.ReviewTrigger))
@@ -531,15 +558,13 @@ else
                                         break;
 
                                     case ColumnRenderType.FavoriteToggle:
-                                        <button type="button"
-                                                class="vmt-favorite-button @(item.IsFavorite ? "is-active" : null)"
-                                                title="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"
-                                                aria-label="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"
-                                                @onclick:stopPropagation="true"
-                                                @onclick="() => HandleFavoriteToggleAsync(item.EntityId)">
-                                            <MudIcon Icon="@(item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
-                                                     Style="font-size: 18px;" />
-                                        </button>
+                                        <span @onclick:stopPropagation="true">
+                                            <MudIconButton Icon="@(item.IsFavorite ? Icons.Material.Filled.Star : Icons.Material.Outlined.StarBorder)"
+                                                           Color="Color.Inherit"
+                                                           Class="@($"vmt-favorite-button {(item.IsFavorite ? "is-active" : string.Empty)}")"
+                                                           aria-label="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"
+                                                           OnClick="() => HandleFavoriteToggleAsync(item.EntityId)" />
+                                        </span>
                                         break;
 
                                     case ColumnRenderType.ClickableText:
@@ -554,10 +579,14 @@ else
                                                 {
                                                     <span class="vmt-creator-sep">, </span>
                                                 }
-                                                <button class="vmt-creator-link" @onclick:stopPropagation="true"
-                                                        @onclick="() => OnAuthorClicked.InvokeAsync(part)">
-                                                    @part.ToUpperInvariant()
-                                                </button>
+                                                <span @onclick:stopPropagation="true">
+                                                    <MudButton Variant="Variant.Text"
+                                                               Color="Color.Inherit"
+                                                               Class="vmt-creator-link"
+                                                               OnClick="() => OnAuthorClicked.InvokeAsync(part)">
+                                                        @part.ToUpperInvariant()
+                                                    </MudButton>
+                                                </span>
                                             }
                                         }
                                         else
@@ -610,10 +639,14 @@ else
                                         break;
 
                                     case ColumnRenderType.ManageActions:
-                                        <div class="vmt-manage-actions" @onclick:stopPropagation="true">
-                                            <button class="vmt-manage-btn vmt-manage-btn--delete" title="Delete" @onclick="() => OnDeleteClicked.InvokeAsync(item.EntityId)">
-                                                <MudIcon Icon="@Icons.Material.Outlined.Delete" Style="font-size: 14px;" />
-                                            </button>
+                                        <div class="vmt-manage-actions">
+                                            <span @onclick:stopPropagation="true">
+                                                <MudIconButton Icon="@Icons.Material.Outlined.Delete"
+                                                               Color="Color.Error"
+                                                               Class="vmt-manage-btn vmt-manage-btn--delete"
+                                                               aria-label="Delete"
+                                                               OnClick="() => OnDeleteClicked.InvokeAsync(item.EntityId)" />
+                                            </span>
                                         </div>
                                         break;
 
@@ -667,7 +700,7 @@ else
                     </tr>
                 }
             </tbody>
-        </table>
+        </MudSimpleTable>
     };
 
     // â”€â”€ Grouping â”€â”€

@@ -73,16 +73,22 @@
 
                 <div class="vamd-type-picker">
                     <p class="vamd-type-label">Confirm media type:</p>
-                    <div class="vamd-type-grid">
+                    <MudToggleGroup T="string"
+                                    Value="_selectedMediaType"
+                                    ValueChanged="OnSelectedMediaTypeChanged"
+                                    SelectionMode="SelectionMode.SingleSelection"
+                                    Delimiters="true"
+                                    CheckMark="false"
+                                    Color="Color.Primary"
+                                    Class="vamd-type-grid">
                         @foreach (var mt in _mediaTypes)
                         {
-                            <button class="vamd-type-btn @(_selectedMediaType == mt ? "vamd-type-btn--active" : "")"
-                                    @onclick="() => _selectedMediaType = mt">
+                            <MudToggleItem T="string" Value="@mt" Class="vamd-type-btn">
                                 <MudIcon Icon="@GetIcon(mt)" Style="font-size: 18px;" />
                                 <span>@mt</span>
-                            </button>
+                            </MudToggleItem>
                         }
-                    </div>
+                    </MudToggleGroup>
                 </div>
 
                 @if (!string.IsNullOrEmpty(_errorMessage))
@@ -94,9 +100,11 @@
                 }
 
                 <div class="vamd-actions">
-                    <button class="vamd-upload-btn"
-                            @onclick="UploadFile"
-                            disabled="@(string.IsNullOrEmpty(_selectedMediaType) || _uploading)">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Class="vamd-upload-btn"
+                               OnClick="UploadFile"
+                               Disabled="@(string.IsNullOrEmpty(_selectedMediaType) || _uploading)">
                         @if (_uploading)
                         {
                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: white;" />
@@ -107,8 +115,13 @@
                             <MudIcon Icon="@Icons.Material.Outlined.Upload" Style="font-size: 16px;" />
                             <span>Add to Library</span>
                         }
-                    </button>
-                    <button class="vamd-cancel-btn" @onclick="ClearSelection">Cancel</button>
+                    </MudButton>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Class="vamd-cancel-btn"
+                               OnClick="ClearSelection">
+                        Cancel
+                    </MudButton>
                 </div>
             </div>
         }
@@ -201,6 +214,12 @@
         _selectedFile      = null;
         _selectedMediaType = "";
         _errorMessage      = "";
+    }
+
+    private Task OnSelectedMediaTypeChanged(string value)
+    {
+        _selectedMediaType = value;
+        return Task.CompletedTask;
     }
 
     private static string FormatSize(long bytes) => bytes switch
@@ -427,7 +446,7 @@
 
     .vamd-type-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 8px;
     }
 
@@ -436,24 +455,22 @@
         flex-direction: column;
         align-items: center;
         gap: 5px;
-        padding: 10px 6px;
         border-radius: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: rgba(255, 255, 255, 0.02);
         color: rgba(255, 255, 255, 0.4);
         font-size: 10px;
         font-weight: 700;
-        cursor: pointer;
+        min-height: 72px;
         transition: all 0.15s;
     }
 
-    .vamd-type-btn:hover {
+    ::deep .vamd-type-btn:hover,
+    ::deep .vamd-type-btn:focus-visible {
         border-color: rgba(96, 165, 250, 0.3);
         background: rgba(96, 165, 250, 0.06);
         color: rgba(255, 255, 255, 0.7);
     }
 
-    .vamd-type-btn--active {
+    ::deep .vamd-type-btn.mud-selected {
         border-color: #60A5FA;
         background: rgba(96, 165, 250, 0.15);
         color: #60A5FA;
@@ -482,16 +499,13 @@
         align-items: center;
         justify-content: center;
         gap: 8px;
-        padding: 12px 20px;
         border-radius: 12px;
-        border: none;
         background: #60A5FA;
         color: white;
         font-size: 12px;
         font-weight: 800;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        cursor: pointer;
         transition: all 0.15s;
     }
 
@@ -505,14 +519,12 @@
     }
 
     .vamd-cancel-btn {
-        padding: 12px 20px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
         background: transparent;
         color: rgba(255, 255, 255, 0.4);
         font-size: 12px;
         font-weight: 700;
-        cursor: pointer;
+        text-transform: none;
         transition: all 0.15s;
     }
 

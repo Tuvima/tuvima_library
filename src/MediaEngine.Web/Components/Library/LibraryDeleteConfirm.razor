@@ -8,8 +8,20 @@
             <p class="vdc-desc">@(Count > 1 ? $"This will move {Count} items to quarantine. They will be hidden from your library but can be reviewed or restored from the Action Center." : "This will move the item to quarantine. It will be hidden from your library but can be reviewed or restored from the Action Center.")</p>
         </div>
         <div class="vdc-actions">
-            <button class="vdc-delete-btn" @onclick="OnConfirm">Quarantine</button>
-            <button class="vdc-cancel-btn" @onclick="OnCancel">Cancel</button>
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Error"
+                       FullWidth="true"
+                       Class="vdc-delete-btn"
+                       OnClick="OnConfirm">
+                Quarantine
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Inherit"
+                       FullWidth="true"
+                       Class="vdc-cancel-btn"
+                       OnClick="OnCancel">
+                Cancel
+            </MudButton>
         </div>
     </div>
 </div>
@@ -89,37 +101,19 @@
     }
 
     .vdc-delete-btn {
-        width: 100%;
         padding: 12px;
         border-radius: 12px;
-        border: none;
-        background: rgba(226, 75, 74, 0.85);
         color: #fff;
         font-size: 14px;
         font-weight: 800;
-        cursor: pointer;
-        transition: background 0.15s;
         box-shadow: 0 4px 12px rgba(226, 75, 74, 0.2);
     }
 
-    .vdc-delete-btn:hover {
-        background: rgba(226, 75, 74, 1);
-    }
-
     .vdc-cancel-btn {
-        width: 100%;
         padding: 12px;
         border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        background: transparent;
         color: rgba(255, 255, 255, 0.4);
         font-size: 14px;
         font-weight: 700;
-        cursor: pointer;
-        transition: background 0.15s;
-    }
-
-    .vdc-cancel-btn:hover {
-        background: rgba(255, 255, 255, 0.04);
     }
 </style>

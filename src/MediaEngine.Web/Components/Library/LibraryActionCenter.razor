@@ -13,12 +13,13 @@
                     @TotalCount @(TotalCount == 1 ? "Item Requires" : "Items Require") Review
                 </span>
             </div>
-            <button class="vac-toggle @(HasQuarantined ? "vac-toggle--severe" : "vac-toggle--warn")"
-                    @onclick="ToggleExpanded">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       Class="@($"vac-toggle {(HasQuarantined ? "vac-toggle--severe" : "vac-toggle--warn")}")"
+                       EndIcon="@(IsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
+                       OnClick="ToggleExpanded">
                 @(IsExpanded ? "HIDE" : "REVIEW ITEMS")
-                <MudIcon Icon="@(IsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
-                         Size="Size.Small" />
-            </button>
+            </MudButton>
         </div>
 
         @if (IsExpanded && ConflictItems is { Count: > 0 })
@@ -38,11 +39,13 @@
                         var isChecked = group.Items.All(i => _selectedIds.Contains(i.EntityId));
                         <div class="vac-row @(isChecked ? "vac-row--selected" : "")">
                             <div class="vac-row-left">
-                                <input type="checkbox"
-                                       class="vac-checkbox"
-                                       checked="@isChecked"
-                                       @onclick:stopPropagation="true"
-                                       @onchange="() => ToggleGroupSelection(group)" />
+                                <MudCheckBox T="bool"
+                                             Value="@isChecked"
+                                             ValueChanged="@(value => ToggleGroupSelection(group))"
+                                             Color="Color.Primary"
+                                             Dense="true"
+                                             Class="vac-checkbox"
+                                             @onclick:stopPropagation="true" />
                                 <div class="vac-severity-dot @(isQuarantined ? "vac-dot--severe" : "vac-dot--warn")" />
                                 <div class="vac-row-info">
                                     <span class="vac-row-title">@displayTitle</span>
@@ -53,13 +56,22 @@
                                 <span class="vac-status-badge @(isQuarantined ? "vac-badge--quarantine" : "vac-badge--warning")">
                                     @(isQuarantined ? "QUARANTINED" : (isContainer ? $"{group.Items.Count} ITEMS" : "NEEDS REVIEW"))
                                 </span>
-                                <button class="vac-action-btn" title="Edit" @onclick="() => OnItemEditClicked.InvokeAsync(first.EntityId)" @onclick:stopPropagation>
-                                    <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
-                                </button>
-                                <button class="vac-action-btn vac-action-btn--danger" title="Delete"
-                                        @onclick="() => DeleteGroup(group)" @onclick:stopPropagation>
-                                    <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
-                                </button>
+                                <span @onclick:stopPropagation="true">
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Edit"
+                                                   Size="Size.Small"
+                                                   aria-label="Edit"
+                                                   Color="Color.Inherit"
+                                                   Class="vac-action-btn"
+                                                   OnClick="() => OnItemEditClicked.InvokeAsync(first.EntityId)" />
+                                </span>
+                                <span @onclick:stopPropagation="true">
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Delete"
+                                                   Size="Size.Small"
+                                                   aria-label="Delete"
+                                                   Color="Color.Error"
+                                                   Class="vac-action-btn vac-action-btn--danger"
+                                                   OnClick="() => DeleteGroup(group)" />
+                                </span>
                             </div>
                         </div>
                     }
@@ -69,10 +81,13 @@
                 {
                     <div class="vac-bulk-bar">
                         <span class="vac-bulk-count">@_selectedIds.Count selected</span>
-                        <button class="vac-bulk-delete" @onclick="OnBulkDelete">
-                            <MudIcon Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" />
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Outlined.Delete"
+                                   Class="vac-bulk-delete"
+                                   OnClick="OnBulkDelete">
                             Delete Selected
-                        </button>
+                        </MudButton>
                     </div>
                 }
             </div>
@@ -250,13 +265,7 @@
         font-weight: 900;
         text-transform: uppercase;
         letter-spacing: 0.15em;
-        padding: 4px 12px;
         border-radius: 4px;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
         transition: all 0.2s ease;
     }
 
@@ -398,14 +407,8 @@
     }
 
     .vac-action-btn {
-        padding: 4px;
         border-radius: 4px;
-        border: none;
-        background: transparent;
         color: rgba(255, 255, 255, 0.3);
-        cursor: pointer;
-        display: flex;
-        align-items: center;
         transition: all 0.15s ease;
     }
 
@@ -420,11 +423,11 @@
     }
 
     .vac-checkbox {
-        width: 14px;
-        height: 14px;
-        accent-color: rgba(96, 165, 250, 0.8);
-        cursor: pointer;
         flex-shrink: 0;
+    }
+
+    ::deep .vac-checkbox .mud-checkbox-span {
+        padding: 0;
     }
 
     .vac-row--selected {
@@ -448,17 +451,12 @@
     }
 
     .vac-bulk-delete {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 5px 12px;
         border-radius: 6px;
-        border: 1px solid rgba(244, 63, 94, 0.3);
         background: rgba(244, 63, 94, 0.08);
         color: rgba(244, 63, 94, 0.9);
         font-size: 11px;
         font-weight: 700;
-        cursor: pointer;
+        text-transform: none;
         transition: all 0.15s;
     }
 

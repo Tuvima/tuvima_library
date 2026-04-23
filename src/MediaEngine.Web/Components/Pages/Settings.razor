@@ -13,56 +13,85 @@
 <PageTitle>@BrowserTitle</PageTitle>
 
 <div class="settings-shell">
-    <AppPageHeader Eyebrow="Settings"
-                   Title="@GetHeroTitle()"
-                   Subtitle="@GetSectionDescription(_activeSection)"
-                   StatusText="@GetStatusLabel()"
-                   StatusTone="@GetStatusTone()"
-                   Class="settings-shell-header">
-        <Actions>
-            <div class="settings-shell-role">
-                <span class="settings-shell-role-label">Role</span>
-                <span class="settings-shell-role-value">@_currentRole</span>
-            </div>
-        </Actions>
+    <MudPaper Elevation="0" Class="settings-shell-header">
+        <MudStack Spacing="3">
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Start" Class="settings-shell-hero">
+                <MudStack Spacing="1" Class="settings-shell-copy">
+                    <MudText Typo="Typo.overline">Settings</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="settings-shell-title-row">
+                        <MudText Typo="Typo.h3">@GetHeroTitle()</MudText>
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Outlined"
+                                 Color="@GetStatusColor()">
+                            @GetStatusLabel()
+                        </MudChip>
+                    </MudStack>
+                    <MudText Typo="Typo.body1" Class="settings-shell-subtitle">
+                        @GetSectionDescription(_activeSection)
+                    </MudText>
+                </MudStack>
 
-        <Stats>
-            <div class="settings-shell-stats">
-                <a href="/settings/review" class="settings-shell-stat settings-shell-stat--interactive">
-                    <span class="settings-shell-stat-label">Pending review</span>
-                    <span class="settings-shell-stat-value">@_reviewCount</span>
-                </a>
-                <div class="settings-shell-stat">
-                    <span class="settings-shell-stat-label">Current area</span>
-                    <span class="settings-shell-stat-value">@CurrentGroup.Label</span>
-                </div>
-                <div class="settings-shell-stat">
-                    <span class="settings-shell-stat-label">Version</span>
-                    <span class="settings-shell-stat-value">@(_systemStatus?.Version ?? "Unavailable")</span>
-                </div>
-            </div>
-        </Stats>
+                <MudPaper Elevation="0" Class="settings-shell-role">
+                    <MudText Typo="Typo.overline" Class="settings-shell-role-label">Role</MudText>
+                    <MudText Typo="Typo.subtitle2" Class="settings-shell-role-value">@_currentRole</MudText>
+                </MudPaper>
+            </MudStack>
 
-        <ChildContent>
-            <AppTabs Items="PrimaryTabItems"
-                     ActiveKey="@CurrentGroup.Key"
-                     AriaLabel="Settings sections"
-                     UseTabRoles="false"
-                     Class="settings-shell-primary-tabs" />
+            <MudGrid Class="settings-shell-stats">
+                <MudItem xs="12" md="4">
+                    <MudLink Href="/settings/review" Underline="Underline.None" Class="settings-shell-stat-link">
+                        <MudPaper Elevation="0" Class="settings-shell-stat settings-shell-stat--interactive">
+                            <MudText Typo="Typo.overline" Class="settings-shell-stat-label">Pending review</MudText>
+                            <MudText Typo="Typo.h6" Class="settings-shell-stat-value">@_reviewCount</MudText>
+                        </MudPaper>
+                    </MudLink>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="settings-shell-stat">
+                        <MudText Typo="Typo.overline" Class="settings-shell-stat-label">Current area</MudText>
+                        <MudText Typo="Typo.h6" Class="settings-shell-stat-value">@CurrentGroup.Label</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="settings-shell-stat">
+                        <MudText Typo="Typo.overline" Class="settings-shell-stat-label">Version</MudText>
+                        <MudText Typo="Typo.h6" Class="settings-shell-stat-value">@(_systemStatus?.Version ?? "Unavailable")</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudTabs ActivePanelIndex="@ActiveGroupIndex"
+                     ActivePanelIndexChanged="@OnPrimaryTabChanged"
+                     Rounded="true"
+                     Border="false"
+                     Elevation="0"
+                     Class="settings-shell-tabs settings-shell-tabs--primary">
+                @foreach (var group in VisibleGroups)
+                {
+                    <MudTabPanel Text="@FormatGroupLabel(group)" Icon="@group.Icon" />
+                }
+            </MudTabs>
 
             @if (CurrentGroupItems.Count > 1)
             {
-                <AppTabs Items="SecondaryTabItems"
-                         ActiveKey="@_activeSection.ToString()"
-                         Variant="secondary"
-                         AriaLabel="@($"{CurrentGroup.Label} pages")"
-                         UseTabRoles="false"
-                         Class="settings-shell-secondary-tabs" />
+                <MudTabs ActivePanelIndex="@ActiveSectionIndex"
+                         ActivePanelIndexChanged="@OnSecondaryTabChanged"
+                         Rounded="true"
+                         Border="false"
+                         Elevation="0"
+                         SliderColor="Color.Secondary"
+                         Class="settings-shell-tabs settings-shell-tabs--secondary">
+                    @foreach (var item in CurrentGroupItems)
+                    {
+                        <MudTabPanel Text="@FormatItemLabel(item)" Icon="@item.Icon" />
+                    }
+                </MudTabs>
             }
-        </ChildContent>
-    </AppPageHeader>
+        </MudStack>
+    </MudPaper>
 
-    <section class="settings-shell-panel">
+    <MudPaper Elevation="0" Class="settings-shell-panel">
         @switch (_activeSection)
         {
             case SettingsSection.Overview:
@@ -120,7 +149,7 @@
                 <SetupTab />
                 break;
         }
-    </section>
+    </MudPaper>
 </div>
 
 <CuratorsDrawer Open="@_drawerOpen"
@@ -147,28 +176,8 @@
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
     private IReadOnlyList<SettingsItemDef> CurrentGroupItems => SettingsNav.FilteredItems(CurrentGroup, _currentRole);
     private string BrowserTitle => $"{GetHeroTitle()} - Tuvima Library";
-    private IReadOnlyList<AppNavItem> PrimaryTabItems =>
-        VisibleGroups
-            .Select(group => new AppNavItem
-            {
-                Key = group.Key,
-                Label = group.Label,
-                Icon = group.Icon,
-                Href = SettingsNav.RouteFor(group.DefaultSection),
-                Badge = FormatBadge(GetBadgeCount(SettingsNav.GetItem(group.DefaultSection)))
-            })
-            .ToList();
-
-    private IReadOnlyList<AppNavItem> SecondaryTabItems =>
-        CurrentGroupItems
-            .Select(item => new AppNavItem
-            {
-                Key = item.Value.ToString(),
-                Label = item.Label,
-                Href = SettingsNav.RouteFor(item.Value),
-                Badge = FormatBadge(GetBadgeCount(item))
-            })
-            .ToList();
+    private int ActiveGroupIndex => Math.Max(0, VisibleGroups.ToList().FindIndex(group => string.Equals(group.Key, CurrentGroup.Key, StringComparison.OrdinalIgnoreCase)));
+    private int ActiveSectionIndex => Math.Max(0, CurrentGroupItems.ToList().FindIndex(item => item.Value == _activeSection));
 
     protected override async Task OnInitializedAsync()
     {
@@ -229,8 +238,6 @@
         _shellStateLoading = false;
     }
 
-    private static string? FormatBadge(int count) => count > 0 ? count.ToString() : null;
-
     private void ResolveSectionAndNormalize()
     {
         var resolution = SettingsNav.ResolveRoute(Section, _currentRole);
@@ -249,7 +256,9 @@
     {
         var relative = path.Split('?', '#')[0].Trim();
         if (string.IsNullOrWhiteSpace(relative))
+        {
             return "/";
+        }
 
         return "/" + relative.Trim('/').TrimEnd('/');
     }
@@ -258,6 +267,29 @@
     {
         _reviewCount = Orchestrator.ReviewCount;
         InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnPrimaryTabChanged(int index)
+    {
+        if (index < 0 || index >= VisibleGroups.Count)
+        {
+            return;
+        }
+
+        var targetGroup = VisibleGroups[index];
+        Nav.NavigateTo(SettingsNav.RouteFor(targetGroup.DefaultSection));
+        await Task.CompletedTask;
+    }
+
+    private async Task OnSecondaryTabChanged(int index)
+    {
+        if (index < 0 || index >= CurrentGroupItems.Count)
+        {
+            return;
+        }
+
+        Nav.NavigateTo(SettingsNav.RouteFor(CurrentGroupItems[index].Value));
+        await Task.CompletedTask;
     }
 
     private async Task OnDrawerOpenChanged(bool open)
@@ -277,6 +309,18 @@
             ? _reviewCount
             : 0;
 
+    private string FormatGroupLabel(SettingsGroupDef group)
+    {
+        var badgeCount = GetBadgeCount(SettingsNav.GetItem(group.DefaultSection));
+        return badgeCount > 0 ? $"{group.Label} ({badgeCount})" : group.Label;
+    }
+
+    private string FormatItemLabel(SettingsItemDef item)
+    {
+        var badgeCount = GetBadgeCount(item);
+        return badgeCount > 0 ? $"{item.Label} ({badgeCount})" : item.Label;
+    }
+
     private string GetHeroTitle() =>
         _activeSection == SettingsSection.Overview
             ? "Settings"
@@ -285,17 +329,22 @@
     private string GetStatusLabel()
     {
         if (_shellStateLoading)
+        {
             return "Checking engine";
+        }
 
         return _systemStatus?.IsHealthy == true ? "Engine online" : "Engine unavailable";
     }
 
-    private string GetStatusTone() =>
-        _shellStateLoading
-            ? "neutral"
-            : _systemStatus?.IsHealthy == true
-                ? "healthy"
-                : "warning";
+    private Color GetStatusColor()
+    {
+        if (_shellStateLoading)
+        {
+            return Color.Default;
+        }
+
+        return _systemStatus?.IsHealthy == true ? Color.Success : Color.Warning;
+    }
 
     private static string GetSectionDescription(SettingsSection section) => section switch
     {

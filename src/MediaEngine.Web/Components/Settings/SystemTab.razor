@@ -12,10 +12,15 @@
     {
         <div class="settings-system-grid">
             <div class="settings-system-cell">
-                <AppSurfaceCard Eyebrow="Health"
-                                Title="Runtime status"
-                                Description="Current server reachability and the version reported by the engine."
-                                Class="settings-system-card">
+                <MudPaper Elevation="0" Class="settings-system-card">
+                    <div class="settings-system-card-header">
+                        <MudText Typo="Typo.overline" Class="settings-system-eyebrow">Health</MudText>
+                        <MudText Typo="Typo.h6">Runtime status</MudText>
+                        <MudText Typo="Typo.body2" Class="settings-system-description">
+                            Current server reachability and the version reported by the engine.
+                        </MudText>
+                    </div>
+
                     <div class="settings-system-metric-row">
                         <div class="settings-system-metric">
                             <span class="settings-system-metric-label">Engine</span>
@@ -32,35 +37,49 @@
                             <span class="settings-system-metric-value">@(_serverGeneral?.DisplayLanguage ?? _status?.Language ?? "en")</span>
                         </div>
                     </div>
-                </AppSurfaceCard>
+                </MudPaper>
             </div>
 
             <div class="settings-system-cell">
-                <AppSurfaceCard Eyebrow="Connectivity"
-                                Title="Dashboard target"
-                                Description="The dashboard checks this engine endpoint for availability before system actions run."
-                                Class="settings-system-card">
+                <MudPaper Elevation="0" Class="settings-system-card">
+                    <div class="settings-system-card-header">
+                        <MudText Typo="Typo.overline" Class="settings-system-eyebrow">Connectivity</MudText>
+                        <MudText Typo="Typo.h6">Dashboard target</MudText>
+                        <MudText Typo="Typo.body2" Class="settings-system-description">
+                            The dashboard checks this engine endpoint for availability before system actions run.
+                        </MudText>
+                    </div>
+
                     <code class="settings-system-endpoint">@_engineBaseUrl</code>
 
                     @if (_status?.IsHealthy != true)
                     {
-                        <div class="settings-system-warning">
-                            <AppIcon Name="@AppIcons.Warning" Class="settings-system-warning-icon" />
-                            <span>The engine did not respond to the latest health probe. Save and maintenance actions may fail until it is reachable again.</span>
-                        </div>
+                        <MudAlert Dense="true"
+                                  Severity="Severity.Warning"
+                                  Variant="Variant.Outlined"
+                                  Icon="@Icons.Material.Outlined.WarningAmber"
+                                  Class="settings-system-warning">
+                            The engine did not respond to the latest health probe. Save and maintenance actions may fail until it is reachable again.
+                        </MudAlert>
                     }
-                </AppSurfaceCard>
+                </MudPaper>
             </div>
         </div>
     }
 
-    <AppSurfaceCard Eyebrow="Configuration"
-                    Title="Server identity and regional defaults"
-                    Description="Regional behavior, language preferences, and default date or time formatting for the engine."
-                    Class="settings-system-shell"
-                    BodyClassName="settings-system-shell-body">
-        <ServerGeneralTab />
-    </AppSurfaceCard>
+    <MudPaper Elevation="0" Class="settings-system-shell">
+        <div class="settings-system-card-header">
+            <MudText Typo="Typo.overline" Class="settings-system-eyebrow">Configuration</MudText>
+            <MudText Typo="Typo.h6">Server identity and regional defaults</MudText>
+            <MudText Typo="Typo.body2" Class="settings-system-description">
+                Regional behavior, language preferences, and default date or time formatting for the engine.
+            </MudText>
+        </div>
+
+        <div class="settings-system-shell-body">
+            <ServerGeneralTab />
+        </div>
+    </MudPaper>
 </div>
 
 @code {

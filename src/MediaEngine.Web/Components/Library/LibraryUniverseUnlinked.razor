@@ -23,38 +23,45 @@ else
         <span class="vuu-count">@_unlinked.Count works without universe data in Wikidata</span>
     </div>
 
-    <table class="vuu-table">
-        <thead>
-            <tr class="vuu-thead-row">
-                <th class="vuu-th" style="width: auto;">Title</th>
-                <th class="vuu-th" style="width: 100px;">Type</th>
-                <th class="vuu-th" style="width: 120px;">QID</th>
-                <th class="vuu-th" style="width: 200px;">Why Unlinked</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var item in _unlinked)
-            {
-                <tr class="vuu-row">
-                    <td class="vuu-td">
-                        <span class="vuu-title">@item.Title</span>
-                    </td>
-                    <td class="vuu-td">
-                        <span class="vuu-type" style="color: @LibraryHelpers.GetMediaTypeColor(item.MediaType);">
-                            @LibraryHelpers.FormatMediaType(item.MediaType)
-                        </span>
-                    </td>
-                    <td class="vuu-td">
-                        <a href="https://www.wikidata.org/wiki/@item.WikidataQid" target="_blank" rel="noopener"
-                           class="vuu-qid">@item.WikidataQid</a>
-                    </td>
-                    <td class="vuu-td">
-                        <span class="vuu-reason">No P179/P8345/P1434</span>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <div class="vuu-table-wrap">
+        <MudTable T="UnlinkedWorkViewModel"
+                  Items="_unlinked"
+                  Dense="true"
+                  Hover="true"
+                  Bordered="false"
+                  Elevation="0"
+                  Class="vuu-table">
+            <HeaderContent>
+                <MudTh Class="vuu-th" Style="width: auto;">Title</MudTh>
+                <MudTh Class="vuu-th" Style="width: 100px;">Type</MudTh>
+                <MudTh Class="vuu-th" Style="width: 120px;">QID</MudTh>
+                <MudTh Class="vuu-th" Style="width: 200px;">Why Unlinked</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                @{
+                    var item = context;
+                }
+                <MudTd Class="vuu-td">
+                    <span class="vuu-title">@item.Title</span>
+                </MudTd>
+                <MudTd Class="vuu-td">
+                    <span class="vuu-type" style="color: @LibraryHelpers.GetMediaTypeColor(item.MediaType);">
+                        @LibraryHelpers.FormatMediaType(item.MediaType)
+                    </span>
+                </MudTd>
+                <MudTd Class="vuu-td">
+                    <MudLink Href="@($"https://www.wikidata.org/wiki/{item.WikidataQid}")"
+                             Target="_blank"
+                             Class="vuu-qid">
+                        @item.WikidataQid
+                    </MudLink>
+                </MudTd>
+                <MudTd Class="vuu-td">
+                    <span class="vuu-reason">No P179/P8345/P1434</span>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    </div>
 }
 
 @code {
@@ -70,28 +77,91 @@ else
 }
 
 <style>
-    .vuu-loading, .vuu-empty {
-        display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;
+    .vuu-loading,
+    .vuu-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 300px;
     }
-    .vuu-header { margin-bottom: 12px; }
-    .vuu-count { font-size: 0.8rem; color: rgba(255,255,255,0.3); }
-    .vuu-table { width: 100%; border-collapse: collapse; }
-    .vuu-thead-row { border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .vuu-th {
-        padding: 8px 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
-        letter-spacing: 0.05em; color: rgba(255,255,255,0.3); text-align: left;
-    }
-    .vuu-row {
-        border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.15s;
-    }
-    .vuu-row:hover { background: rgba(255,255,255,0.03); }
-    .vuu-td { padding: 10px 12px; font-size: 0.85rem; }
-    .vuu-title { color: rgba(255,255,255,0.8); }
-    .vuu-type { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-    .vuu-qid {
-        font-size: 0.75rem; color: rgba(92,159,202,0.7); text-decoration: none; font-family: monospace;
-    }
-    .vuu-qid:hover { color: rgba(92,159,202,1); }
-    .vuu-reason { font-size: 0.75rem; color: rgba(255,255,255,0.25); }
-</style>
 
+    .vuu-header {
+        margin-bottom: 12px;
+    }
+
+    .vuu-count {
+        font-size: 0.8rem;
+        color: rgba(255,255,255,0.3);
+    }
+
+    .vuu-table-wrap {
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 12px;
+        overflow: hidden;
+        background: rgba(17,20,25,0.32);
+    }
+
+    .vuu-table {
+        background: transparent;
+    }
+
+    ::deep .vuu-table .mud-table-container {
+        background: transparent;
+    }
+
+    ::deep .vuu-table .mud-table-head {
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        background: rgba(15,23,42,0.45);
+    }
+
+    .vuu-th {
+        padding: 8px 12px;
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: rgba(255,255,255,0.3);
+        text-align: left;
+    }
+
+    .vuu-row {
+        border-bottom: 1px solid rgba(255,255,255,0.03);
+        transition: background 0.15s;
+    }
+
+    .vuu-row:hover {
+        background: rgba(255,255,255,0.03);
+    }
+
+    .vuu-td {
+        padding: 10px 12px;
+        font-size: 0.85rem;
+    }
+
+    .vuu-title {
+        color: rgba(255,255,255,0.8);
+    }
+
+    .vuu-type {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .vuu-qid {
+        font-size: 0.75rem;
+        color: rgba(92,159,202,0.7);
+        text-decoration: none;
+        font-family: monospace;
+    }
+
+    .vuu-qid:hover {
+        color: rgba(92,159,202,1);
+    }
+
+    .vuu-reason {
+        font-size: 0.75rem;
+        color: rgba(255,255,255,0.25);
+    }
+</style>

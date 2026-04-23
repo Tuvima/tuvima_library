@@ -58,9 +58,11 @@
                     }
                 </div>
 
-                <button class="sme-close" @onclick="HandleClose">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
-                </button>
+                <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                               Size="Size.Small"
+                               Color="Color.Inherit"
+                               Class="sme-close"
+                               OnClick="HandleClose" />
             </div>
 
             @if (Request.Mode == SharedMediaEditorMode.Review)
@@ -73,35 +75,51 @@
                     @if (CanReclassifyMediaType)
                     {
                         <div class="sme-review-reclassify">
-                            <select class="sme-text-input" @bind="_selectedMediaType">
+                            <MudSelect T="string"
+                                       Value="_selectedMediaType"
+                                       ValueChanged="OnSelectedMediaTypeChanged"
+                                       Variant="Variant.Outlined"
+                                       Dense="true"
+                                       Class="sme-review-select">
                                 @foreach (var mediaType in ReclassifyMediaTypes)
                                 {
-                                    <option value="@mediaType">@mediaType</option>
+                                    <MudSelectItem T="string" Value="@mediaType">@mediaType</MudSelectItem>
                                 }
-                            </select>
-                            <button class="sme-review-action"
-                                    disabled="@_reclassifying"
-                                    @onclick="ReclassifyMediaTypeAsync">
+                            </MudSelect>
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       Class="sme-review-action"
+                                       Disabled="@_reclassifying"
+                                       OnClick="ReclassifyMediaTypeAsync">
                                 @(_reclassifying ? "Updating..." : "Change type")
-                            </button>
+                            </MudButton>
                         </div>
                     }
                     @if (!string.IsNullOrWhiteSpace(_canonicalTargetGroup))
                     {
-                        <button class="sme-review-action" @onclick="@(() => _activeTab = "links")">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Class="sme-review-action"
+                                   OnClick="@(() => _activeTab = "links")">
                             Find @GetCanonicalTargetLabel(_canonicalTargetGroup)
-                        </button>
+                        </MudButton>
                     }
                 </div>
             }
 
             <div class="sme-workspace">
                 <div class="sme-main-pane">
-                    <AppTabs Items="TabItems"
-                             ActiveKey="@_activeTab"
-                             AriaLabel="Editor sections"
-                             OnSelect="SelectTabAsync"
-                             Class="sme-tabs" />
+                    <MudTabs ActivePanelIndex="@ActiveTabIndex"
+                             ActivePanelIndexChanged="OnTabChanged"
+                             Rounded="true"
+                             Border="false"
+                             Elevation="0"
+                             Class="sme-tabs">
+                        @foreach (var tab in Tabs)
+                        {
+                            <MudTabPanel Text="@tab.Label" Disabled="@IsTabDisabled(tab.Id)" />
+                        }
+                    </MudTabs>
 
                     @if (IsSingleItem)
                     {
@@ -122,21 +140,30 @@
                                         <div class="sme-delete-confirm">
                                             <div class="sme-delete-confirm-text">@GetDeleteConfirmationText()</div>
                                             <div class="sme-delete-confirm-actions">
-                                                <button class="sme-inline-btn sme-inline-btn--danger"
-                                                        disabled="@_quarantining"
-                                                        @onclick="QuarantineCurrentSelectionAsync">
+                                                <MudButton Variant="Variant.Filled"
+                                                           Color="Color.Error"
+                                                           Class="sme-inline-btn sme-inline-btn--danger"
+                                                           Disabled="@_quarantining"
+                                                           OnClick="QuarantineCurrentSelectionAsync">
                                                     @(_quarantining ? "Quarantining..." : "Quarantine")
-                                                </button>
-                                                <button class="sme-inline-btn" @onclick="ToggleQuarantineConfirmAsync">Cancel</button>
+                                                </MudButton>
+                                                <MudButton Variant="Variant.Text"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-inline-btn"
+                                                           OnClick="ToggleQuarantineConfirmAsync">
+                                                    Cancel
+                                                </MudButton>
                                             </div>
                                         </div>
                                     }
                                     else
                                     {
-                                        <button class="sme-inline-btn sme-inline-btn--danger"
-                                                @onclick="ToggleQuarantineConfirmAsync">
+                                        <MudButton Variant="Variant.Filled"
+                                                   Color="Color.Error"
+                                                   Class="sme-inline-btn sme-inline-btn--danger"
+                                                   OnClick="ToggleQuarantineConfirmAsync">
                                             Delete
-                                        </button>
+                                        </MudButton>
                                     }
                                 </div>
                             }
@@ -186,20 +213,28 @@
                                             <div class="sme-field-control">
                                                 @if (field.InputKind == "textarea")
                                                 {
-                                                    <textarea class="sme-textarea @(isLocked ? "sme-textarea--locked" : string.Empty)"
-                                                              placeholder="@GetPlaceholder(field)"
-                                                              value="@GetEditableValue(field.Key)"
-                                                              disabled="@isLocked"
-                                                              @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))"></textarea>
+                                                    <MudTextField T="string"
+                                                                  Value="@GetEditableValue(field.Key)"
+                                                                  ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                                  Placeholder="@GetPlaceholder(field)"
+                                                                  Disabled="@isLocked"
+                                                                  Variant="Variant.Outlined"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true"
+                                                                  Lines="4"
+                                                                  Class="@($"sme-textarea {(isLocked ? "sme-textarea--locked" : string.Empty)}")" />
                                                 }
                                                 else
                                                 {
-                                                    <input class="sme-text-input @(isLocked ? "sme-text-input--locked" : string.Empty)"
-                                                           type="text"
-                                                           placeholder="@GetPlaceholder(field)"
-                                                           value="@GetEditableValue(field.Key)"
-                                                           disabled="@isLocked"
-                                                           @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))" />
+                                                    <MudTextField T="string"
+                                                                  Value="@GetEditableValue(field.Key)"
+                                                                  ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                                  Placeholder="@GetPlaceholder(field)"
+                                                                  Disabled="@isLocked"
+                                                                  Variant="Variant.Outlined"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true"
+                                                                  Class="@($"sme-text-input {(isLocked ? "sme-text-input--locked" : string.Empty)}")" />
                                                 }
                                                 @if (isLocked)
                                                 {
@@ -223,11 +258,14 @@
                                                 <span class="sme-field-chip">Alias</span>
                                             </label>
                                             <div class="sme-field-control">
-                                                <input class="sme-text-input"
-                                                       type="text"
-                                                       placeholder="@GetDisplayOverrideHint(key)"
-                                                       value="@GetEditableValue(key)"
-                                                       @oninput="@((ChangeEventArgs args) => OnFieldInput(key, args.Value?.ToString()))" />
+                                                <MudTextField T="string"
+                                                              Value="@GetEditableValue(key)"
+                                                              ValueChanged="@((string? value) => OnFieldInput(key, value))"
+                                                              Placeholder="@GetDisplayOverrideHint(key)"
+                                                              Variant="Variant.Outlined"
+                                                              Margin="Margin.Dense"
+                                                              Immediate="true"
+                                                              Class="sme-text-input" />
                                                 <div class="sme-field-hint">@GetDisplayOverrideHint(key)</div>
                                             </div>
                                         </div>
@@ -260,18 +298,22 @@
                                             </label>
                                             <div class="sme-field-control">
                                                 <div class="sme-membership-input-row">
-                                                    <input class="sme-text-input"
-                                                           type="text"
-                                                           placeholder="@GetPlaceholder(field)"
-                                                           value="@GetEditableValue(field.Key)"
-                                                           @oninput="@(async (ChangeEventArgs args) => await OnMembershipFieldInputAsync(field.Key, args.Value?.ToString()))" />
+                                                    <MudTextField T="string"
+                                                                  Value="@GetEditableValue(field.Key)"
+                                                                  ValueChanged="@(async (string? value) => await OnMembershipFieldInputAsync(field.Key, value))"
+                                                                  Placeholder="@GetPlaceholder(field)"
+                                                                  Variant="Variant.Outlined"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true"
+                                                                  Class="sme-text-input" />
                                                     @if (CanSearchRetailMembership(field.Key))
                                                     {
-                                                        <button type="button"
-                                                                class="sme-inline-btn"
-                                                                @onclick="@(() => SearchRetailMembershipAsync(field.Key))">
+                                                        <MudButton Variant="Variant.Outlined"
+                                                                   Color="Color.Inherit"
+                                                                   Class="sme-inline-btn"
+                                                                   OnClick="@(() => SearchRetailMembershipAsync(field.Key))">
                                                             Search
-                                                        </button>
+                                                        </MudButton>
                                                     }
                                                 </div>
 
@@ -280,9 +322,11 @@
                                                     <div class="sme-membership-suggestions">
                                                         @foreach (var suggestion in GetMembershipSuggestions(field.Key))
                                                         {
-                                                            <button type="button"
-                                                                    class="sme-membership-suggestion"
-                                                                    @onclick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
+                                                            <MudButton Variant="Variant.Outlined"
+                                                                       Color="Color.Inherit"
+                                                                       FullWidth="true"
+                                                                       Class="sme-membership-suggestion"
+                                                                       OnClick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
                                                                 <span class="sme-membership-suggestion-label">@suggestion.Label</span>
                                                                 @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
                                                                 {
@@ -292,7 +336,7 @@
                                                                 {
                                                                     <span class="sme-membership-suggestion-subtitle">@GetMembershipSuggestionMeta(suggestion)</span>
                                                                 }
-                                                            </button>
+                                                            </MudButton>
                                                         }
                                                     </div>
                                                 }
@@ -321,16 +365,18 @@
                         {
                             <section class="sme-group">
                                 <div class="sme-group-title">@ContentTabLabel</div>
-                                <button type="button"
-                                        class="sme-content-root @(IsContentNodeSelected(NavigatorRootNode) ? "is-active" : string.Empty)"
-                                        @onclick="@(() => SelectNavigatorNodeAsync(NavigatorRootNode.EntityId))">
+                                <MudButton Variant="Variant.Outlined"
+                                           Color="Color.Inherit"
+                                           FullWidth="true"
+                                           Class="@($"sme-content-root {(IsContentNodeSelected(NavigatorRootNode) ? "is-active" : string.Empty)}")"
+                                           OnClick="@(() => SelectNavigatorNodeAsync(NavigatorRootNode.EntityId))">
                                     <span class="sme-content-root-label">@NavigatorRootNode.Label</span>
                                     <span class="sme-content-root-title">@NavigatorRootNode.Title</span>
                                     @if (!string.IsNullOrWhiteSpace(NavigatorRootNode.Subtitle))
                                     {
                                         <span class="sme-content-root-subtitle">@NavigatorRootNode.Subtitle</span>
                                     }
-                                </button>
+                                </MudButton>
 
                                 @if (string.Equals(_activeTab, "episodes", StringComparison.OrdinalIgnoreCase))
                                 {
@@ -348,9 +394,11 @@
                                             <div class="sme-content-list">
                                                 @foreach (var episode in episodes)
                                                 {
-                                                    <button type="button"
-                                                            class="sme-content-item @(IsContentNodeSelected(episode) ? "is-active" : string.Empty)"
-                                                            @onclick="@(() => SelectNavigatorNodeAsync(episode.EntityId))">
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Inherit"
+                                                               FullWidth="true"
+                                                               Class="@($"sme-content-item {(IsContentNodeSelected(episode) ? "is-active" : string.Empty)}")"
+                                                               OnClick="@(() => SelectNavigatorNodeAsync(episode.EntityId))">
                                                         <span class="sme-content-item-copy">
                                                             <span class="sme-content-item-title">@episode.Title</span>
                                                             @if (!string.IsNullOrWhiteSpace(episode.Subtitle))
@@ -362,7 +410,7 @@
                                                         {
                                                             <span class="sme-content-item-badge">@episode.OrdinalLabel</span>
                                                         }
-                                                    </button>
+                                                    </MudButton>
                                                 }
                                             </div>
                                         </div>
@@ -373,9 +421,11 @@
                                     <div class="sme-content-list">
                                         @foreach (var track in ContentRootChildren)
                                         {
-                                            <button type="button"
-                                                    class="sme-content-item @(IsContentNodeSelected(track) ? "is-active" : string.Empty)"
-                                                    @onclick="@(() => SelectNavigatorNodeAsync(track.EntityId))">
+                                            <MudButton Variant="Variant.Outlined"
+                                                       Color="Color.Inherit"
+                                                       FullWidth="true"
+                                                       Class="@($"sme-content-item {(IsContentNodeSelected(track) ? "is-active" : string.Empty)}")"
+                                                       OnClick="@(() => SelectNavigatorNodeAsync(track.EntityId))">
                                                 <span class="sme-content-item-copy">
                                                     <span class="sme-content-item-title">@track.Title</span>
                                                     @if (!string.IsNullOrWhiteSpace(track.Subtitle))
@@ -387,7 +437,7 @@
                                                 {
                                                     <span class="sme-content-item-badge">@track.OrdinalLabel</span>
                                                 }
-                                            </button>
+                                            </MudButton>
                                         }
                                     </div>
                                 }
@@ -411,7 +461,12 @@
                                 @if (!string.IsNullOrWhiteSpace(GetUniverseExploreUrl()))
                                 {
                                     <div class="sme-file-actions">
-                                        <a class="sme-inline-btn" href="@GetUniverseExploreUrl()">Open graph</a>
+                                        <MudButton Variant="Variant.Outlined"
+                                                   Color="Color.Inherit"
+                                                   Class="sme-inline-btn"
+                                                   Href="@GetUniverseExploreUrl()">
+                                            Open graph
+                                        </MudButton>
                                     </div>
                                 }
                             </section>
@@ -423,23 +478,34 @@
                             {
                                 <section class="sme-group">
                                     <div class="sme-group-title">Canonical Search</div>
-                                    <AppTabs Items="QuickSearchTargetItems"
-                                             ActiveKey="@_canonicalTargetGroup"
-                                             Variant="secondary"
-                                             AriaLabel="Canonical search targets"
-                                             OnSelect="SetCanonicalTargetGroupAsync"
-                                             Class="sme-search-targets" />
+                                    <MudTabs ActivePanelIndex="@CanonicalTargetIndex"
+                                             ActivePanelIndexChanged="OnCanonicalTargetChanged"
+                                             Rounded="true"
+                                             Border="false"
+                                             Elevation="0"
+                                             Class="sme-search-targets">
+                                        @foreach (var target in QuickSearchTargets)
+                                        {
+                                            <MudTabPanel Text="@target.Label" />
+                                        }
+                                    </MudTabs>
 
                                     <div class="sme-search-row">
-                                        <input class="sme-text-input"
-                                               placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
-                                               value="@_canonicalSearchQuery"
-                                               @oninput="HandleCanonicalQueryInput" />
-                                        <button class="sme-inline-btn sme-inline-btn--primary"
-                                                disabled="@_searchingCanonical"
-                                                @onclick="SearchCanonicalAsync">
+                                        <MudTextField T="string"
+                                                      Value="@_canonicalSearchQuery"
+                                                      ValueChanged="@((string? value) => _canonicalSearchQuery = value ?? string.Empty)"
+                                                      Placeholder="@($"Find {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()}")"
+                                                      Variant="Variant.Outlined"
+                                                      Margin="Margin.Dense"
+                                                      Immediate="true"
+                                                      Class="sme-text-input" />
+                                        <MudButton Variant="Variant.Filled"
+                                                   Color="Color.Primary"
+                                                   Class="sme-inline-btn sme-inline-btn--primary"
+                                                   Disabled="@_searchingCanonical"
+                                                   OnClick="SearchCanonicalAsync">
                                             @(_searchingCanonical ? "Searching..." : "Quick Search")
-                                        </button>
+                                        </MudButton>
                                     </div>
                                 </section>
 
@@ -464,10 +530,14 @@
                                         @if (_canonicalSearchResponse.LinkedCandidates.Count > 0)
                                         {
                                             <div class="sme-result-section-label">Linked results</div>
-                                            @foreach (var candidate in _canonicalSearchResponse.LinkedCandidates)
-                                            {
-                                                <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
-                                                    <button class="sme-candidate-summary" @onclick="@(() => SelectCandidate(candidate))">
+                                                @foreach (var candidate in _canonicalSearchResponse.LinkedCandidates)
+                                                {
+                                                    <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Inherit"
+                                                               FullWidth="true"
+                                                               Class="sme-candidate-summary"
+                                                               OnClick="@(() => SelectCandidate(candidate))">
                                                         <div class="sme-candidate-copy">
                                                             <div class="sme-candidate-title">@candidate.Label</div>
                                                             @if (!string.IsNullOrWhiteSpace(candidate.Description))
@@ -477,15 +547,17 @@
                                                             <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
                                                         </div>
                                                         <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.LinkState : "Suggestion")</span>
-                                                    </button>
+                                                    </MudButton>
                                                     @if (IsCandidateSelected(GetCandidateId(candidate)))
                                                     {
                                                         @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
-                                                        <button class="sme-inline-btn sme-inline-btn--primary"
-                                                                disabled="@(!candidate.IsApplicable)"
-                                                                @onclick="@(() => ApplyLinkedCandidateAsync(candidate))">
+                                                        <MudButton Variant="Variant.Filled"
+                                                                   Color="Color.Primary"
+                                                                   Class="sme-inline-btn sme-inline-btn--primary"
+                                                                   Disabled="@(!candidate.IsApplicable)"
+                                                                   OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
                                                             Apply linked candidate
-                                                        </button>
+                                                        </MudButton>
                                                     }
                                                 </div>
                                             }
@@ -494,25 +566,31 @@
                                         @if (_canonicalSearchResponse.RetailCandidates.Count > 0)
                                         {
                                             <div class="sme-result-section-label">Provider results</div>
-                                            @foreach (var candidate in _canonicalSearchResponse.RetailCandidates)
-                                            {
-                                                <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
-                                                    <button class="sme-candidate-summary" @onclick="@(() => SelectCandidate(candidate))">
+                                                @foreach (var candidate in _canonicalSearchResponse.RetailCandidates)
+                                                {
+                                                    <div class="sme-candidate @(IsCandidateSelected(GetCandidateId(candidate)) ? "sme-candidate--selected" : "")">
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Inherit"
+                                                               FullWidth="true"
+                                                               Class="sme-candidate-summary"
+                                                               OnClick="@(() => SelectCandidate(candidate))">
                                                         <div class="sme-candidate-copy">
                                                             <div class="sme-candidate-title">@candidate.Title</div>
                                                             <div class="sme-candidate-description">@BuildRetailCandidateSubtitle(candidate)</div>
                                                             <div class="sme-candidate-meta">@candidate.LinkStatusLabel</div>
                                                         </div>
                                                         <span class="sme-candidate-badge">@(candidate.IsApplicable ? candidate.ProviderName : "Suggestion")</span>
-                                                    </button>
+                                                    </MudButton>
                                                     @if (IsCandidateSelected(GetCandidateId(candidate)))
                                                     {
                                                         @RenderSuggestedFields(GetCandidateId(candidate), candidate.SuggestedFields)
-                                                        <button class="sme-inline-btn sme-inline-btn--primary"
-                                                                disabled="@(!candidate.IsApplicable)"
-                                                                @onclick="@(() => ApplyRetailCandidateAsync(candidate))">
+                                                        <MudButton Variant="Variant.Filled"
+                                                                   Color="Color.Primary"
+                                                                   Class="sme-inline-btn sme-inline-btn--primary"
+                                                                   Disabled="@(!candidate.IsApplicable)"
+                                                                   OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
                                                             Apply provider candidate
-                                                        </button>
+                                                        </MudButton>
                                                     }
                                                 </div>
                                             }
@@ -547,18 +625,26 @@
                                         <div class="sme-field-control">
                                             @if (field.InputKind == "textarea")
                                             {
-                                                <textarea class="sme-textarea"
-                                                          placeholder="@GetPlaceholder(field)"
-                                                          value="@GetEditableValue(field.Key)"
-                                                          @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))"></textarea>
+                                                <MudTextField T="string"
+                                                              Value="@GetEditableValue(field.Key)"
+                                                              ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                              Placeholder="@GetPlaceholder(field)"
+                                                              Variant="Variant.Outlined"
+                                                              Margin="Margin.Dense"
+                                                              Immediate="true"
+                                                              Lines="4"
+                                                              Class="sme-textarea" />
                                             }
                                             else
                                             {
-                                                <input class="sme-text-input"
-                                                       type="text"
-                                                       placeholder="@GetPlaceholder(field)"
-                                                       value="@GetEditableValue(field.Key)"
-                                                       @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))" />
+                                                <MudTextField T="string"
+                                                              Value="@GetEditableValue(field.Key)"
+                                                              ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                              Placeholder="@GetPlaceholder(field)"
+                                                              Variant="Variant.Outlined"
+                                                              Margin="Margin.Dense"
+                                                              Immediate="true"
+                                                              Class="sme-text-input" />
                                             }
                                         </div>
                                     </div>
@@ -574,12 +660,27 @@
                         @if (IsSingleItem)
                         {
                             <section class="sme-artwork-workspace">
-                                <AppSelectorNav Items="ArtworkSlotItems"
-                                                ActiveKey="@SelectedArtworkSlot?.AssetType"
-                                                AriaLabel="Artwork types"
-                                                OnSelect="SelectArtworkSlotAsync"
-                                                Variant="button-list"
-                                                Class="sme-artwork-rail" />
+                                <div class="sme-artwork-rail" role="tablist" aria-label="Artwork types">
+                                    @foreach (var slotItem in ArtworkSlots)
+                                    {
+                                        var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
+                                        <MudButton Variant="Variant.Text"
+                                                   Color="Color.Inherit"
+                                                   Class="@($"sme-artwork-rail-item {(isSelectedSlot ? "sme-artwork-rail-item--active" : string.Empty)}")"
+                                                   OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
+                                            <span class="sme-artwork-rail-icon">
+                                                <MudIcon Icon="@slotItem.Icon" Style="font-size: 18px;" />
+                                            </span>
+                                            <span class="sme-artwork-rail-copy">
+                                                <span class="sme-artwork-rail-label">@slotItem.Label</span>
+                                                <span class="sme-artwork-rail-meta">@slotItem.MetaLabel</span>
+                                            </span>
+                                            <span class="sme-artwork-rail-badge">
+                                                <span class="sme-artwork-rail-count">@GetArtworkSlotCount(slotItem)</span>
+                                            </span>
+                                        </MudButton>
+                                    }
+                                </div>
 
                                 <div class="sme-artwork-main">
                                     @if (ArtworkSlots.Count == 0)
@@ -592,7 +693,12 @@
                                                 <div class="sme-artwork-readonly-actions">
                                                     @foreach (var scope in GetArtworkReadOnlySwitchTargets())
                                                     {
-                                                        <button type="button" class="sme-inline-btn" @onclick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">Open @scope.Label</button>
+                                                        <MudButton Variant="Variant.Outlined"
+                                                                   Color="Color.Inherit"
+                                                                   Class="sme-inline-btn"
+                                                                   OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
+                                                            Open @scope.Label
+                                                        </MudButton>
                                                     }
                                                 </div>
                                             }
@@ -611,17 +717,18 @@
                                                  @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
                                             <div class="sme-artwork-gallery sme-artwork-gallery--@slot.PreviewClass">
                                                 <div class="sme-artwork-add-entry">
-                                                    <button type="button"
-                                                            class="sme-artwork-gallery-add @(IsArtworkAddMenuOpen(slot.AssetType) ? "sme-artwork-gallery-add--open" : "")"
-                                                            title="@slot.UploadHelp"
-                                                            @onclick="@(() => ToggleArtworkAddMenu(slot.AssetType))">
+                                                    <MudButton Variant="Variant.Outlined"
+                                                               Color="Color.Inherit"
+                                                               Class="@($"sme-artwork-gallery-add {(IsArtworkAddMenuOpen(slot.AssetType) ? "sme-artwork-gallery-add--open" : string.Empty)}")"
+                                                               aria-label="@slot.UploadHelp"
+                                                               OnClick="@(() => ToggleArtworkAddMenu(slot.AssetType))">
                                                         <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
                                                             <div class="sme-cover-fallback sme-art-slot-placeholder sme-artwork-add-stage-copy">
                                                                 <span class="sme-art-add-symbol">+</span>
                                                                 <span class="sme-artwork-add-copy">Add @slot.Label</span>
                                                             </div>
                                                         </div>
-                                                    </button>
+                                                    </MudButton>
 
                                                     @if (IsArtworkAddMenuOpen(slot.AssetType))
                                                     {
@@ -634,12 +741,13 @@
                                                                                accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
                                                                 </span>
                                                             </label>
-                                                            <button type="button"
-                                                                    class="sme-art-slot-action sme-art-slot-action--ghost"
-                                                                    disabled="@_artworkUrlSubmitting"
-                                                                    @onclick="@(() => OpenArtworkUrlInput(slot.AssetType))">
+                                                            <MudButton Variant="Variant.Outlined"
+                                                                       Color="Color.Inherit"
+                                                                       Class="sme-art-slot-action sme-art-slot-action--ghost"
+                                                                       Disabled="@_artworkUrlSubmitting"
+                                                                       OnClick="@(() => OpenArtworkUrlInput(slot.AssetType))">
                                                                 Enter URL
-                                                            </button>
+                                                            </MudButton>
                                                         </div>
                                                     }
                                                 </div>
@@ -647,7 +755,11 @@
                                                 @foreach (var item in rowItems)
                                                 {
                                                     <div class="sme-artwork-gallery-card">
-                                                        <button type="button" class="sme-artwork-gallery-tile @(item.IsPreferred ? "sme-artwork-gallery-tile--preferred" : "") @(item.IsPending ? "sme-artwork-gallery-tile--pending" : "") @(IsFocusedArtworkVariant(item.Key) ? "sme-artwork-gallery-tile--focused" : "")" title="@BuildArtworkVariantHoverLabel(slot, item)" @onclick="@(() => HandleArtworkVariantClickAsync(slot, item))">
+                                                        <MudButton Variant="Variant.Outlined"
+                                                                   Color="Color.Inherit"
+                                                                   Class="@($"sme-artwork-gallery-tile {(item.IsPreferred ? "sme-artwork-gallery-tile--preferred" : string.Empty)} {(item.IsPending ? "sme-artwork-gallery-tile--pending" : string.Empty)} {(IsFocusedArtworkVariant(item.Key) ? "sme-artwork-gallery-tile--focused" : string.Empty)}")"
+                                                                   aria-label="@BuildArtworkVariantHoverLabel(slot, item)"
+                                                                   OnClick="@(() => HandleArtworkVariantClickAsync(slot, item))">
                                                             <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
                                                                 @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                                                                 {
@@ -670,18 +782,16 @@
                                                                     </span>
                                                                 }
                                                             </div>
-                                                        </button>
+                                                        </MudButton>
 
                                                         <div class="sme-artwork-gallery-popout">
                                                             @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                                                             {
-                                                                <button type="button"
-                                                                        class="sme-artwork-gallery-icon-button"
-                                                                        aria-label="View full size"
-                                                                        title="View full size"
-                                                                        @onclick="@(() => OpenArtworkZoom(slot, item))">
-                                                                    <MudIcon Icon="@Icons.Material.Outlined.ZoomIn" Style="font-size: 18px;" />
-                                                                </button>
+                                                                <MudIconButton Icon="@Icons.Material.Outlined.ZoomIn"
+                                                                               Size="Size.Small"
+                                                                               Class="sme-artwork-gallery-icon-button"
+                                                                               aria-label="View full size"
+                                                                               OnClick="@(() => OpenArtworkZoom(slot, item))" />
                                                             }
                                                         </div>
                                                     </div>
@@ -691,10 +801,18 @@
                                             @if (_showArtworkUrlInput && string.Equals(slot.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase))
                                             {
                                                 <div class="sme-artwork-import-url-row">
-                                                    <input class="sme-text-input" type="url" placeholder="Paste an image URL" value="@_artworkUrlInput" @oninput="HandleArtworkUrlInput" />
+                                                    <MudTextField T="string"
+                                                                  Value="@_artworkUrlInput"
+                                                                  ValueChanged="@((string? value) => _artworkUrlInput = value ?? string.Empty)"
+                                                                  Placeholder="Paste an image URL"
+                                                                  InputType="InputType.Url"
+                                                                  Variant="Variant.Outlined"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true"
+                                                                  Class="sme-text-input" />
                                                     <div class="sme-artwork-import-url-actions">
-                                                        <button type="button" class="sme-inline-btn" @onclick="ToggleArtworkUrlInput">Cancel</button>
-                                                        <button type="button" class="sme-inline-btn sme-inline-btn--primary" disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" @onclick="ApplyArtworkUrlAsync">Add</button>
+                                                        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="ToggleArtworkUrlInput">Cancel</MudButton>
+                                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="sme-inline-btn sme-inline-btn--primary" Disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" OnClick="ApplyArtworkUrlAsync">Add</MudButton>
                                                     </div>
                                                 </div>
                                             }
@@ -703,10 +821,10 @@
                                             {
                                                 <div class="sme-artwork-import-status">
                                                     <span>@GetPendingArtworkFileName(slot.AssetType)</span>
-                                                    <button type="button" class="sme-inline-btn" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</button>
+                                                    <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</MudButton>
                                                     @if (HasArtworkUploadError(slot.AssetType))
                                                     {
-                                                        <button type="button" class="sme-inline-btn" @onclick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</button>
+                                                        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</MudButton>
                                                     }
                                                 </div>
                                             }
@@ -721,11 +839,11 @@
                                                 <div class="sme-artwork-selection-actions">
                                                     @if (focusedItem.IsPending)
                                                     {
-                                                        <button type="button" class="sme-inline-btn" @onclick="@(() => ClearArtworkSelection(slot.AssetType))">Cancel Pending</button>
+                                                        <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Cancel Pending</MudButton>
                                                     }
                                                     else if (focusedItem.CanDelete && focusedItem.VariantId != Guid.Empty)
                                                     {
-                                                        <button type="button" class="sme-inline-btn sme-inline-btn--danger" @onclick="@(() => DeleteArtworkVariantAsync(focusedItem.VariantId))">Delete</button>
+                                                        <MudButton Variant="Variant.Filled" Color="Color.Error" Class="sme-inline-btn sme-inline-btn--danger" OnClick="@(() => DeleteArtworkVariantAsync(focusedItem.VariantId))">Delete</MudButton>
                                                     }
                                                 </div>
                                             }
@@ -750,9 +868,11 @@
                             {
                                 <div class="sme-art-lightbox" @onclick="CloseArtworkZoom">
                                     <div class="sme-art-lightbox-panel" @onclick:stopPropagation="true">
-                                        <button type="button" class="sme-art-lightbox-close" @onclick="CloseArtworkZoom">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
-                                        </button>
+                                        <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                                                       Size="Size.Small"
+                                                       Class="sme-art-lightbox-close"
+                                                       Color="Color.Inherit"
+                                                       OnClick="CloseArtworkZoom" />
                                         <div class="sme-art-lightbox-copy">
                                             <div class="sme-art-lightbox-title">@ZoomArtworkSlot.Label</div>
                                             <div class="sme-art-lightbox-text">@BuildArtworkVariantSummary(ZoomArtworkSlot, ZoomArtworkVariant)</div>
@@ -800,18 +920,26 @@
                                             <div class="sme-field-control">
                                                 @if (field.InputKind == "textarea")
                                                 {
-                                                    <textarea class="sme-textarea"
-                                                              placeholder="@GetPlaceholder(field)"
-                                                              value="@GetEditableValue(field.Key)"
-                                                              @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))"></textarea>
+                                                    <MudTextField T="string"
+                                                                  Value="@GetEditableValue(field.Key)"
+                                                                  ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                                  Placeholder="@GetPlaceholder(field)"
+                                                                  Variant="Variant.Outlined"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true"
+                                                                  Lines="4"
+                                                                  Class="sme-textarea" />
                                                 }
                                                 else
                                                 {
-                                                    <input class="sme-text-input"
-                                                           type="text"
-                                                           placeholder="@GetPlaceholder(field)"
-                                                           value="@GetEditableValue(field.Key)"
-                                                           @oninput="@((ChangeEventArgs args) => OnFieldInput(field.Key, args.Value?.ToString()))" />
+                                                    <MudTextField T="string"
+                                                                  Value="@GetEditableValue(field.Key)"
+                                                                  ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                                  Placeholder="@GetPlaceholder(field)"
+                                                                  Variant="Variant.Outlined"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true"
+                                                                  Class="sme-text-input" />
                                                 }
                                             </div>
                                         </div>
@@ -888,32 +1016,58 @@
                 @if (_confirmDiscard)
                 {
                     <div class="sme-discard-warning">Discard unsaved changes?</div>
-                    <button class="sme-footer-btn sme-footer-btn--ghost" @onclick="@(() => _confirmDiscard = false)">Keep Editing</button>
-                    <button class="sme-footer-btn sme-footer-btn--danger" @onclick="DiscardAndClose">Discard</button>
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Class="sme-footer-btn sme-footer-btn--ghost"
+                               OnClick="@(() => _confirmDiscard = false)">
+                        Keep Editing
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Error"
+                               Class="sme-footer-btn sme-footer-btn--danger"
+                               OnClick="DiscardAndClose">
+                        Discard
+                    </MudButton>
                 }
                 else
                 {
-                    <button class="sme-footer-btn sme-footer-btn--ghost" @onclick="HandleClose">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Class="sme-footer-btn sme-footer-btn--ghost"
+                               OnClick="HandleClose">
                         @(IsDirty ? "Cancel" : "Close")
-                    </button>
+                    </MudButton>
                     <div class="sme-footer-spacer"></div>
                     @if (_pendingMembershipPreview is not null)
                     {
                         <div class="sme-footer-note">@_pendingMembershipPreview.Message</div>
-                        <button class="sme-footer-btn sme-footer-btn--ghost" @onclick="@(() => _pendingMembershipPreview = null)">Keep Editing</button>
-                        <button class="sme-footer-btn sme-footer-btn--primary" @onclick="ConfirmMembershipMoveAsync" disabled="@_saving">
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Inherit"
+                                   Class="sme-footer-btn sme-footer-btn--ghost"
+                                   OnClick="@(() => _pendingMembershipPreview = null)">
+                            Keep Editing
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Class="sme-footer-btn sme-footer-btn--primary"
+                                   OnClick="ConfirmMembershipMoveAsync"
+                                   Disabled="@_saving">
                             Save and Move
-                        </button>
+                        </MudButton>
                     }
                     else if (IsDirty)
                     {
-                        <button class="sme-footer-btn sme-footer-btn--primary" @onclick="SaveAsync" disabled="@_saving">
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Class="sme-footer-btn sme-footer-btn--primary"
+                                   OnClick="SaveAsync"
+                                   Disabled="@_saving">
                             @if (_saving)
                             {
                                 <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                             }
                             @(IsBatchMode ? $"Apply ({Request.EntityIds.Count})" : "Save")
-                        </button>
+                        </MudButton>
                     }
                 }
             </div>
@@ -928,12 +1082,14 @@
             <div class="sme-suggested-title">Optional fields</div>
             @foreach (var field in fields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
             {
-                <label class="sme-suggested-field">
-                    <input type="checkbox"
-                           checked="@IsSuggestedFieldSelected(candidateId, field.Key)"
-                           @onchange="@((ChangeEventArgs args) => ToggleSuggestedField(candidateId, field.Key, args.Value))" />
-                    <span>@field.Key: @field.Value</span>
-                </label>
+                <MudCheckBox T="bool"
+                             Value="@IsSuggestedFieldSelected(candidateId, field.Key)"
+                             ValueChanged="@((bool value) => ToggleSuggestedField(candidateId, field.Key, value))"
+                             Color="Color.Primary"
+                             Dense="true"
+                             Class="sme-suggested-field">
+                    @field.Key: @field.Value
+                </MudCheckBox>
             }
         }
     </div>;

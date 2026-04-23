@@ -7,20 +7,26 @@
     <div class="vcp-overlay" @onclick="OnClose">
         <div class="vcp-panel" @onclick:stopPropagation="true">
 
-            @* ── Header ── *@
             <div class="vcp-header">
                 <span>Columns</span>
-                <button class="vcp-close-btn" @onclick="OnClose" aria-label="Close">✕</button>
+                <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                               Size="Size.Small"
+                               Class="vcp-close-btn"
+                               Color="Color.Inherit"
+                               OnClick="OnClose"
+                               aria-label="Close" />
             </div>
 
-            @* ── Column list ── *@
             <div class="vcp-list">
                 @for (var i = 0; i < _orderedKeys.Count; i++)
                 {
                     var index = i;
                     var key = _orderedKeys[index];
                     var col = _columnMap.GetValueOrDefault(key);
-                    if (col is null) continue;
+                    if (col is null)
+                    {
+                        continue;
+                    }
 
                     var isVisible = _visibleSet.Contains(key);
                     var isDragging = _dragIndex == index;
@@ -34,27 +40,29 @@
                          @ondragover="() => OnDragOver(index)"
                          @ondrop:preventDefault="true"
                          @ondrop="() => OnDrop(index)">
-
-                        @* Drag handle *@
                         <span class="vcp-drag-handle" title="Drag to reorder">
                             <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Style="font-size: 16px;" />
                         </span>
 
-                        @* Label *@
                         <span class="vcp-label">@col.Label</span>
 
-                        @* Toggle *@
-                        <input type="checkbox"
-                               class="vcp-toggle"
-                               checked="@isVisible"
-                               @onchange="() => ToggleColumn(key)" />
+                        <MudCheckBox T="bool"
+                                     Value="@isVisible"
+                                     ValueChanged="@(_ => ToggleColumn(key))"
+                                     Class="vcp-toggle"
+                                     Dense="true"
+                                     Color="Color.Primary" />
                     </div>
                 }
             </div>
 
-            @* ── Footer ── *@
             <div class="vcp-footer">
-                <button class="vcp-reset-btn" @onclick="ResetDefaults">Reset to Defaults</button>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Inherit"
+                           Class="vcp-reset-btn"
+                           OnClick="ResetDefaults">
+                    Reset to Defaults
+                </MudButton>
             </div>
 
         </div>
@@ -68,7 +76,6 @@
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public string ViewKey { get; set; } = "all";
 
-    // Internal state
     private List<string> _orderedKeys = [];
     private HashSet<string> _visibleSet = [];
     private Dictionary<string, LibraryColumnDef> _columnMap = [];
@@ -83,20 +90,16 @@
 
         if (!_initialized && AllColumns.Count > 0)
         {
-            // Build map for quick lookup (exclude checkbox — always visible, not shown)
             _columnMap = AllColumns
                 .Where(c => c.Key != "checkbox")
                 .ToDictionary(c => c.Key, c => c);
 
-            // Initialize order from AllColumns definition
             _orderedKeys = _columnMap.Keys.ToList();
 
-            // Initialize visible set from VisibleKeys parameter (excluding checkbox)
             _visibleSet = VisibleKeys
                 .Where(k => k != "checkbox" && _columnMap.ContainsKey(k))
                 .ToHashSet();
 
-            // If nothing visible yet, fall back to defaults
             if (_visibleSet.Count == 0)
             {
                 _visibleSet = _columnMap.Values
@@ -108,8 +111,6 @@
             _initialized = true;
         }
     }
-
-    // ── localStorage persistence ─────────────────────────────────────────────
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -123,15 +124,19 @@
                     var keys = System.Text.Json.JsonSerializer.Deserialize<List<string>>(stored);
                     if (keys is { Count: > 0 })
                     {
-                        // Restore order from stored keys (excluding checkbox, restricted to known columns)
                         var knownKeys = new HashSet<string>(_columnMap.Keys);
                         var restoredOrder = keys
                             .Where(k => k != "checkbox" && knownKeys.Contains(k))
                             .ToList();
-                        // Append any new columns not in stored list (at the end)
-                        foreach (var k in _columnMap.Keys)
-                            if (!restoredOrder.Contains(k))
-                                restoredOrder.Add(k);
+
+                        foreach (var key in _columnMap.Keys)
+                        {
+                            if (!restoredOrder.Contains(key))
+                            {
+                                restoredOrder.Add(key);
+                            }
+                        }
+
                         _orderedKeys = restoredOrder;
 
                         _visibleSet = keys
@@ -142,7 +147,10 @@
                         StateHasChanged();
                     }
                 }
-                catch { /* ignore corrupt localStorage */ }
+                catch
+                {
+                    // Ignore corrupt local storage values.
+                }
             }
         }
     }
@@ -152,8 +160,6 @@
         var json = System.Text.Json.JsonSerializer.Serialize(GetVisibleKeys());
         await JS.InvokeVoidAsync("localStorage.setItem", $"vault-columns-{ViewKey}", json);
     }
-
-    // ── Drag & Drop ──────────────────────────────────────────────────────────
 
     private void OnDragStart(int index)
     {
@@ -192,27 +198,24 @@
         await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
     }
 
-    // ── Toggle ───────────────────────────────────────────────────────────────
-
     private async Task ToggleColumn(string key)
     {
         if (_visibleSet.Contains(key))
+        {
             _visibleSet.Remove(key);
+        }
         else
+        {
             _visibleSet.Add(key);
+        }
 
         await SaveToLocalStorage();
         await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
     }
 
-    // ── Reset ────────────────────────────────────────────────────────────────
-
     private async Task ResetDefaults()
     {
-        // Restore original order from AllColumns
         _orderedKeys = _columnMap.Keys.ToList();
-
-        // Restore default visibility
         _visibleSet = _columnMap.Values
             .Where(c => c.DefaultVisible)
             .Select(c => c.Key)
@@ -222,9 +225,6 @@
         await VisibleKeysChanged.InvokeAsync(GetVisibleKeys());
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
-
-    /// <summary>Returns the current visible key list in ordered sequence, prepending "checkbox".</summary>
     private List<string> GetVisibleKeys()
     {
         var result = new List<string> { "checkbox" };
@@ -234,7 +234,6 @@
 }
 
 <style>
-    /* ── Overlay ── */
     .vcp-overlay {
         position: fixed;
         inset: 0;
@@ -242,7 +241,6 @@
         z-index: 1300;
     }
 
-    /* ── Panel ── */
     .vcp-panel {
         position: absolute;
         right: 0;
@@ -262,13 +260,13 @@
             transform: translateX(100%);
             opacity: 0;
         }
+
         to {
             transform: translateX(0);
             opacity: 1;
         }
     }
 
-    /* ── Header ── */
     .vcp-header {
         display: flex;
         align-items: center;
@@ -282,11 +280,7 @@
     }
 
     .vcp-close-btn {
-        background: none;
-        border: none;
         color: rgba(255, 255, 255, 0.35);
-        font-size: 14px;
-        cursor: pointer;
         padding: 4px 6px;
         border-radius: 4px;
         line-height: 1;
@@ -298,7 +292,6 @@
         background: rgba(255, 255, 255, 0.06);
     }
 
-    /* ── List ── */
     .vcp-list {
         flex: 1;
         overflow-y: auto;
@@ -319,7 +312,6 @@
         border-radius: 2px;
     }
 
-    /* ── Row ── */
     .vcp-row {
         display: flex;
         align-items: center;
@@ -345,7 +337,6 @@
         border-bottom: 1px solid rgba(96, 165, 250, 0.4);
     }
 
-    /* ── Drag handle ── */
     .vcp-drag-handle {
         display: flex;
         align-items: center;
@@ -363,7 +354,6 @@
         cursor: grabbing;
     }
 
-    /* ── Label ── */
     .vcp-label {
         flex: 1;
         font-size: 12px;
@@ -372,16 +362,11 @@
         letter-spacing: 0.01em;
     }
 
-    /* ── Toggle ── */
     .vcp-toggle {
         flex-shrink: 0;
-        width: 14px;
-        height: 14px;
-        cursor: pointer;
-        accent-color: #60A5FA;
+        margin-right: -6px;
     }
 
-    /* ── Footer ── */
     .vcp-footer {
         padding: 16px;
         border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -389,14 +374,11 @@
     }
 
     .vcp-reset-btn {
-        background: none;
-        border: none;
         color: rgba(255, 255, 255, 0.35);
         font-size: 11px;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
-        cursor: pointer;
         padding: 6px 0;
         transition: color 0.15s;
     }
@@ -405,7 +387,6 @@
         color: rgba(255, 255, 255, 0.9);
     }
 
-    /* ── Mobile ── */
     @@media (max-width: 768px) {
         .vcp-panel {
             top: 0;
@@ -418,4 +399,3 @@
         }
     }
 </style>
-

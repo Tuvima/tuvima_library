@@ -14,15 +14,24 @@
     </div>
 
     <div class="collections-tab-row">
-        <AppTabs Items="TabItems"
-                 ActiveKey="@_activeTab"
-                 AriaLabel="Collection filters"
-                 OnSelect="SwitchTab"
-                 Class="collections-tab-bar" />
-        <button class="collections-add-btn" @onclick="OpenBuilder">
-            <MudIcon Icon="@Icons.Material.Filled.Add" Style="font-size: 16px;" />
-            <span>New Collection</span>
-        </button>
+        <MudTabs ActivePanelIndex="@ActiveTabIndex"
+                 ActivePanelIndexChanged="OnTabChanged"
+                 Rounded="true"
+                 Border="false"
+                 Elevation="0"
+                 Class="collections-tab-bar">
+            @foreach (var tab in _tabs)
+            {
+                <MudTabPanel Text="@FormatTabLabel(tab)" Icon="@tab.Icon" />
+            }
+        </MudTabs>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Warning"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenBuilder"
+                   Class="collections-add-btn">
+            New Collection
+        </MudButton>
     </div>
 
     <div class="collections-toolbar">
@@ -49,7 +58,7 @@
         </MudSelect>
     </div>
 
-    <div class="collections-table-wrap">
+    <MudPaper Elevation="0" Class="collections-table-wrap">
         @if (_loading)
         {
             <div class="collections-loading">
@@ -68,78 +77,116 @@
         }
         else
         {
-            <table class="collections-table">
-                <thead>
-                    <tr>
-                        <th style="width: 44px;"></th>
-                        <th style="width: 42%; text-align: left;">Name</th>
-                        <th style="width: 14%; text-align: left;">Type</th>
-                        <th style="width: 12%; text-align: center;">Access</th>
-                        <th style="width: 10%; text-align: center;">Items</th>
-                        <th style="width: 12%; text-align: center;">Status</th>
-                        <th style="width: 80px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var collection in _filteredCollections)
-                    {
-                        <tr class="collections-row @(collection.CanEdit ? null : "collections-row--readonly")"
-                            @onclick="() => OnCollectionClicked(collection)">
-                            <td style="text-align: center;">
-                                <MudIcon Icon="@GetTypeIcon(collection.CollectionType)"
-                                         Size="Size.Small"
-                                         Style="@($"color: {GetTypeColor(collection.CollectionType)}; opacity: 0.85;")" />
-                            </td>
-                            <td>
+            <MudTable Items="@_filteredCollections"
+                      Dense="true"
+                      Hover="true"
+                      Breakpoint="Breakpoint.Md"
+                      Class="collections-table">
+                <HeaderContent>
+                    <MudTh Style="width: 44px;"></MudTh>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Type</MudTh>
+                    <MudTh Style="text-align: center;">Access</MudTh>
+                    <MudTh Style="text-align: center;">Items</MudTh>
+                    <MudTh Style="text-align: center;">Status</MudTh>
+                    <MudTh Style="width: 80px;"></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="Icon" Style="text-align: center;">
+                        <MudIcon Icon="@GetTypeIcon(context.CollectionType)"
+                                 Size="Size.Small"
+                                 Style="@($"color: {GetTypeColor(context.CollectionType)}; opacity: 0.85;")" />
+                    </MudTd>
+                    <MudTd DataLabel="Name">
+                        @if (context.CanEdit)
+                        {
+                            <MudButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       Class="collections-name-action"
+                                       OnClick="@(() => OnCollectionClicked(context))">
                                 <div class="collections-name-cell">
-                                    @if (!string.IsNullOrWhiteSpace(collection.CoverUrl))
+                                    @if (!string.IsNullOrWhiteSpace(context.CoverUrl))
                                     {
-                                        <img src="@collection.CoverUrl" class="collections-thumb" alt="" />
+                                        <img src="@context.CoverUrl" class="collections-thumb" alt="" />
                                     }
                                     else
                                     {
                                         <div class="collections-thumb-placeholder">
-                                            <MudIcon Icon="@GetTypeIcon(collection.CollectionType)" Size="Size.Small" />
+                                            <MudIcon Icon="@GetTypeIcon(context.CollectionType)" Size="Size.Small" />
                                         </div>
                                     }
                                     <div class="collections-name-text">
-                                        <span class="collections-name">@collection.Name</span>
-                                        @if (!string.IsNullOrWhiteSpace(collection.Description))
+                                        <span class="collections-name">@context.Name</span>
+                                        @if (!string.IsNullOrWhiteSpace(context.Description))
                                         {
-                                            <span class="collections-desc">@collection.Description</span>
+                                            <span class="collections-desc">@context.Description</span>
                                         }
                                     </div>
                                 </div>
-                            </td>
-                            <td>
-                                <span class="collections-type-chip" style="@($"background: {GetTypeColor(collection.CollectionType)}22; color: {GetTypeColor(collection.CollectionType)};")">
-                                    @GetTypeLabel(collection.CollectionType)
-                                </span>
-                            </td>
-                            <td style="text-align: center;">
-                                <span class="collections-type-chip" style="@($"background: {GetVisibilityColor(collection)}22; color: {GetVisibilityColor(collection)};")">
-                                    @GetVisibilityLabel(collection)
-                                </span>
-                            </td>
-                            <td style="text-align: center;">
-                                <span class="collections-muted">@collection.ItemCount</span>
-                            </td>
-                            <td style="text-align: center;">
-                                <span class="collections-status-pill collections-status-@collection.Status.ToLowerInvariant()">@collection.Status</span>
-                            </td>
-                            <td style="text-align: center;">
-                                <MudIconButton Icon="@(collection.CanEdit ? Icons.Material.Outlined.Edit : Icons.Material.Outlined.Visibility)"
-                                               Size="Size.Small"
-                                               Disabled="@(!collection.CanEdit)"
-                                               OnClick="@(() => OnEditCollection(collection))"
-                                               aria-label="Edit collection" />
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <div class="collections-name-cell">
+                                @if (!string.IsNullOrWhiteSpace(context.CoverUrl))
+                                {
+                                    <img src="@context.CoverUrl" class="collections-thumb" alt="" />
+                                }
+                                else
+                                {
+                                    <div class="collections-thumb-placeholder">
+                                        <MudIcon Icon="@GetTypeIcon(context.CollectionType)" Size="Size.Small" />
+                                    </div>
+                                }
+                                <div class="collections-name-text">
+                                    <span class="collections-name">@context.Name</span>
+                                    @if (!string.IsNullOrWhiteSpace(context.Description))
+                                    {
+                                        <span class="collections-desc">@context.Description</span>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="Type">
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Outlined"
+                                 Class="collections-chip"
+                                 Style="@($"background: {GetTypeColor(context.CollectionType)}22; color: {GetTypeColor(context.CollectionType)}; border-color: {GetTypeColor(context.CollectionType)}55;")">
+                            @GetTypeLabel(context.CollectionType)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Access" Style="text-align: center;">
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Outlined"
+                                 Class="collections-chip"
+                                 Style="@($"background: {GetVisibilityColor(context)}22; color: {GetVisibilityColor(context)}; border-color: {GetVisibilityColor(context)}55;")">
+                            @GetVisibilityLabel(context)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Items" Style="text-align: center;">
+                        <span class="collections-muted">@context.ItemCount</span>
+                    </MudTd>
+                    <MudTd DataLabel="Status" Style="text-align: center;">
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Class="@GetStatusClass(context.Status)">
+                            @context.Status
+                        </MudChip>
+                    </MudTd>
+                    <MudTd DataLabel="Actions" Style="text-align: center;">
+                        <MudIconButton Icon="@(context.CanEdit ? Icons.Material.Outlined.Edit : Icons.Material.Outlined.Visibility)"
+                                       Size="Size.Small"
+                                       Disabled="@(!context.CanEdit)"
+                                       OnClick="@(() => OnEditCollection(context))"
+                                       aria-label="Edit collection" />
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
         }
-    </div>
+    </MudPaper>
 
 </div>
 
@@ -152,17 +199,10 @@
     private ProfileViewModel? _activeProfile;
     private List<CollectionListItemViewModel> _allCollections = [];
     private List<CollectionListItemViewModel> _filteredCollections = [];
-    private IReadOnlyList<AppNavItem> TabItems =>
-        _tabs.Select(tab => new AppNavItem
-        {
-            Key = tab.Id,
-            Label = tab.Label,
-            Icon = tab.Icon,
-            Badge = tab.Count > 0 ? tab.Count.ToString() : null
-        }).ToList();
-
     private bool CanManageSharedCollections =>
         _activeProfile?.Role is "Administrator" or "Curator";
+
+    private int ActiveTabIndex => GetSelectedIndex(_tabs.Select(tab => tab.Id), _activeTab);
 
     protected override async Task OnInitializedAsync()
     {
@@ -223,6 +263,17 @@
     {
         _activeTab = tabId;
         ApplyFilters();
+    }
+
+    private Task OnTabChanged(int index)
+    {
+        if (index < 0 || index >= _tabs.Count)
+        {
+            return Task.CompletedTask;
+        }
+
+        SwitchTab(_tabs[index].Id);
+        return Task.CompletedTask;
     }
 
     private void ApplyFilters()
@@ -338,6 +389,28 @@
 
     private static string GetVisibilityColor(CollectionListItemViewModel collection) =>
         collection.IsShared ? "#60A5FA" : "#A78BFA";
+
+    private static string GetStatusClass(string status) =>
+        $"collections-status-pill collections-status-{status.ToLowerInvariant()}";
+
+    private static string FormatTabLabel(CollectionManagementTab tab) =>
+        tab.Count > 0 ? $"{tab.Label} ({tab.Count})" : tab.Label;
+
+    private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)
+    {
+        var index = 0;
+        foreach (var key in keys)
+        {
+            if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+
+            index++;
+        }
+
+        return 0;
+    }
 }
 
 <style>
@@ -381,58 +454,40 @@
     }
 
     .collections-tab-bar {
-        display: flex;
-        gap: 6px;
-        overflow-x: auto;
-        scrollbar-width: none;
+        flex: 1;
+        min-width: 0;
     }
 
-    .collections-tab {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.06);
+    .collections-tab-bar .mud-tabs-toolbar {
+        padding: 0.3rem;
+    }
+
+    .collections-tab-bar .mud-tabs-panels {
+        display: none;
+    }
+
+    .collections-tab-bar .mud-tab {
+        border-radius: 999px;
+        min-height: 2.75rem;
         background: rgba(255, 255, 255, 0.02);
         color: rgba(248, 248, 248, 0.7);
-        padding: 10px 14px;
-        border-radius: 999px;
-        cursor: pointer;
-        font-family: 'Montserrat', sans-serif;
-        font-size: 0.85rem;
-        white-space: nowrap;
     }
 
-    .collections-tab--active {
+    .collections-tab-bar .mud-tab.mud-tab-active {
         background: rgba(96, 165, 250, 0.16);
-        border-color: rgba(96, 165, 250, 0.45);
         color: rgba(248, 248, 248, 0.95);
-    }
-
-    .collections-tab-badge {
-        background: rgba(255, 255, 255, 0.12);
-        border-radius: 999px;
-        padding: 2px 8px;
-        font-size: 0.72rem;
     }
 
     .collections-add-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid rgba(234, 179, 8, 0.45);
-        background: rgba(234, 179, 8, 0.12);
-        color: rgba(248, 248, 248, 0.95);
-        padding: 10px 14px;
         border-radius: 999px;
-        cursor: pointer;
         font-family: 'Montserrat', sans-serif;
         font-size: 0.85rem;
+        text-transform: none;
     }
 
     .collections-table-wrap {
         border: 1px solid rgba(255, 255, 255, 0.06);
         border-radius: 18px;
-        overflow: hidden;
         background: rgba(7, 11, 19, 0.88);
     }
 
@@ -449,11 +504,10 @@
     }
 
     .collections-table {
-        width: 100%;
-        border-collapse: collapse;
+        background: transparent;
     }
 
-    .collections-table th {
+    .collections-table .mud-table-head th {
         background: rgba(255, 255, 255, 0.03);
         color: rgba(248, 248, 248, 0.55);
         font-family: 'Montserrat', sans-serif;
@@ -464,24 +518,27 @@
         padding: 14px 12px;
     }
 
-    .collections-row {
-        cursor: pointer;
+    .collections-table .mud-table-row {
         border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .collections-row:hover {
+    .collections-table .mud-table-row:hover {
         background: rgba(255, 255, 255, 0.02);
     }
 
-    .collections-row--readonly {
-        cursor: default;
-    }
-
-    .collections-row td {
+    .collections-table .mud-table-cell {
         padding: 14px 12px;
         color: rgba(248, 248, 248, 0.86);
         font-family: 'Montserrat', sans-serif;
         font-size: 0.9rem;
+    }
+
+    .collections-name-action {
+        padding: 0;
+        min-width: 0;
+        justify-content: flex-start;
+        text-transform: none;
+        color: inherit;
     }
 
     .collections-name-cell {
@@ -527,31 +584,27 @@
         white-space: nowrap;
     }
 
-    .collections-type-chip,
+    .collections-chip,
     .collections-status-pill {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
         border-radius: 999px;
-        padding: 6px 10px;
         font-size: 0.75rem;
         font-weight: 700;
         letter-spacing: 0.02em;
     }
 
     .collections-status-active {
-        background: rgba(93, 202, 165, 0.18);
-        color: #5DCAA5;
+        background: rgba(93, 202, 165, 0.18) !important;
+        color: #5DCAA5 !important;
     }
 
     .collections-status-disabled {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(248, 248, 248, 0.55);
+        background: rgba(255, 255, 255, 0.08) !important;
+        color: rgba(248, 248, 248, 0.55) !important;
     }
 
     .collections-status-empty {
-        background: rgba(239, 159, 39, 0.14);
-        color: #EF9F27;
+        background: rgba(239, 159, 39, 0.14) !important;
+        color: #EF9F27 !important;
     }
 
     .collections-muted {
@@ -565,12 +618,8 @@
             align-items: stretch;
         }
 
-        .collections-table-wrap {
-            overflow-x: auto;
-        }
-
-        .collections-table {
-            min-width: 860px;
+        .collections-name-action {
+            width: 100%;
         }
     }
 </style>

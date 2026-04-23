@@ -8,9 +8,11 @@
 <div class="vep-panel">
     @* â”€â”€ Header â”€â”€ *@
     <div class="vep-header">
-        <button class="vep-close" @onclick="OnClose">
-            <MudIcon Icon="@Icons.Material.Filled.Close" Style="font-size: 18px;" />
-        </button>
+        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                       Size="Size.Small"
+                       Color="Color.Inherit"
+                       Class="vep-close"
+                       OnClick="OnClose" />
 
         @if (IsSingleItem)
         {
@@ -68,11 +70,17 @@
     </div>
 
     @* â”€â”€ Tabs â”€â”€ *@
-    <AppTabs Items="EditorTabs"
-             ActiveKey="@_activeTab"
-             AriaLabel="Editor sections"
-             OnSelect="OnTabSelected"
-             Class="vep-tabs" />
+    <MudTabs ActivePanelIndex="@ActiveTabIndex"
+             ActivePanelIndexChanged="OnTabChanged"
+             Rounded="true"
+             Border="false"
+             Elevation="0"
+             Class="vep-tabs">
+        @foreach (var tab in EditorTabs)
+        {
+            <MudTabPanel Text="@tab.Label" Disabled="@tab.Disabled" />
+        }
+    </MudTabs>
 
     @* â”€â”€ Tab content â”€â”€ *@
     <div class="vep-body">
@@ -153,19 +161,28 @@
 
             case "actions":
                 <div class="vep-actions">
-                    <button class="vep-action-btn" @onclick="OnReidentify">
-                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 16px;" />
-                        <span>Re-identify @(IsSingleItem ? "" : $"({Items.Count})")</span>
-                    </button>
-                    <button class="vep-action-btn" @onclick="OnRefresh">
-                        <MudIcon Icon="@Icons.Material.Outlined.Refresh" Style="font-size: 16px;" />
-                        <span>Refresh Enrichment @(IsSingleItem ? "" : $"({Items.Count})")</span>
-                    </button>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Outlined.Search"
+                               Class="vep-action-btn"
+                               OnClick="OnReidentify">
+                        Re-identify @(IsSingleItem ? "" : $"({Items.Count})")
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Outlined.Refresh"
+                               Class="vep-action-btn"
+                               OnClick="OnRefresh">
+                        Refresh Enrichment @(IsSingleItem ? "" : $"({Items.Count})")
+                    </MudButton>
                     <div class="vep-actions-divider"></div>
-                    <button class="vep-action-btn vep-action-btn--danger" @onclick="OnPurgeClicked">
-                        <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Style="font-size: 16px;" />
-                        <span>Purge @(IsSingleItem ? "Record" : $"{Items.Count} Records")</span>
-                    </button>
+                    <MudButton Variant="Variant.Outlined"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Outlined.DeleteForever"
+                               Class="vep-action-btn vep-action-btn--danger"
+                               OnClick="OnPurgeClicked">
+                        Purge @(IsSingleItem ? "Record" : $"{Items.Count} Records")
+                    </MudButton>
                 </div>
                 break;
         }
@@ -175,22 +192,36 @@
     <div class="vep-footer">
         @if (IsSingleItem && _editedValues.Count == 0)
         {
-            <button class="vep-footer-btn vep-footer-btn--danger" @onclick="OnPurgeClicked">Purge</button>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Error"
+                       Class="vep-footer-btn vep-footer-btn--danger"
+                       OnClick="OnPurgeClicked">
+                Purge
+            </MudButton>
         }
         else if (_editedValues.Count > 0)
         {
-            <button class="vep-footer-btn vep-footer-btn--secondary" @onclick="CancelEdits">Cancel</button>
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       Class="vep-footer-btn vep-footer-btn--secondary"
+                       OnClick="CancelEdits">
+                Cancel
+            </MudButton>
         }
         <div style="flex: 1;"></div>
         @if (_editedValues.Count > 0)
         {
-            <button class="vep-footer-btn vep-footer-btn--primary" @onclick="ApplyEdits" disabled="@_applying">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Class="vep-footer-btn vep-footer-btn--primary"
+                       OnClick="ApplyEdits"
+                       Disabled="@_applying">
                 @if (_applying)
                 {
                     <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                 }
                 Apply @(IsSingleItem ? "" : $"({Items.Count})")
-            </button>
+            </MudButton>
         }
     </div>
 </div>
@@ -211,23 +242,25 @@
     private LibraryItemViewModel SingleItem => Items[0];
 
     private List<EditorFieldDef> _editorFields = [];
-    private IReadOnlyList<AppNavItem> EditorTabs
+    private IReadOnlyList<(string Id, string Label, bool Disabled)> EditorTabs
     {
         get
         {
-            var items = new List<AppNavItem>
+            var items = new List<(string Id, string Label, bool Disabled)>
             {
-                new() { Key = "details", Label = "Details" }
+                ("details", "Details", false)
             };
 
             if (IsSingleItem)
-                items.Add(new AppNavItem { Key = "pipeline", Label = "Pipeline" });
+                items.Add(("pipeline", "Pipeline", false));
 
-            items.Add(new AppNavItem { Key = "artwork", Label = "Artwork" });
-            items.Add(new AppNavItem { Key = "actions", Label = "Actions", Icon = Icons.Material.Outlined.ElectricBolt });
+            items.Add(("artwork", "Artwork", false));
+            items.Add(("actions", "Actions", false));
             return items;
         }
     }
+
+    private int ActiveTabIndex => GetSelectedIndex(EditorTabs.Select(tab => tab.Id), _activeTab);
 
     protected override void OnParametersSet()
     {
@@ -236,9 +269,12 @@
         _activeTab = "details";
     }
 
-    private Task OnTabSelected(string tabId)
+    private Task OnTabChanged(int index)
     {
-        _activeTab = tabId;
+        if (index < 0 || index >= EditorTabs.Count)
+            return Task.CompletedTask;
+
+        _activeTab = EditorTabs[index].Id;
         return Task.CompletedTask;
     }
 
@@ -390,6 +426,20 @@
     {
         await OnPurge.InvokeAsync(Items.Select(i => i.EntityId).ToList());
     }
+
+    private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)
+    {
+        var index = 0;
+        foreach (var key in keys)
+        {
+            if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
+                return index;
+
+            index++;
+        }
+
+        return 0;
+    }
 }
 
 <style>
@@ -411,15 +461,12 @@
         position: absolute;
         top: 12px;
         right: 12px;
-        background: none;
-        border: none;
         color: rgba(255, 255, 255, 0.3);
-        cursor: pointer;
-        padding: 4px;
         border-radius: 4px;
     }
 
-    .vep-close:hover {
+    .vep-close:hover,
+    .vep-close:focus-visible {
         color: rgba(255, 255, 255, 0.6);
         background: rgba(255, 255, 255, 0.05);
     }
@@ -522,27 +569,24 @@
         padding: 0 20px;
     }
 
-    .vep-tab {
-        background: none;
-        border: none;
-        border-bottom: 2px solid transparent;
+    ::deep .vep-tabs .mud-tabs-toolbar {
+        padding: 0;
+    }
+
+    ::deep .vep-tabs .mud-tabs-panels {
+        display: none;
+    }
+
+    ::deep .vep-tabs .mud-tab {
+        min-height: 2.75rem;
+        padding: 10px 14px;
         color: rgba(255, 255, 255, 0.4);
         font-size: 0.8rem;
-        padding: 10px 14px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        transition: color 0.15s, border-color 0.15s;
     }
 
-    .vep-tab:hover {
-        color: rgba(255, 255, 255, 0.6);
-    }
-
-    .vep-tab--active {
+    ::deep .vep-tabs .mud-tab.mud-tab-active {
         color: rgba(255, 255, 255, 0.85);
-        border-bottom-color: #C9922E;
+        box-shadow: inset 0 -2px 0 #C9922E;
     }
 
     .vep-body {
@@ -625,29 +669,23 @@
     }
 
     .vep-action-btn {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 8px;
         color: rgba(255, 255, 255, 0.7);
         font-size: 0.85rem;
-        cursor: pointer;
-        transition: background 0.15s;
+        justify-content: flex-start;
+        text-transform: none;
     }
 
-    .vep-action-btn:hover {
+    .vep-action-btn:hover,
+    .vep-action-btn:focus-visible {
         background: rgba(255, 255, 255, 0.06);
     }
 
     .vep-action-btn--danger {
         color: rgba(226, 75, 74, 0.8);
-        border-color: rgba(226, 75, 74, 0.15);
     }
 
-    .vep-action-btn--danger:hover {
+    .vep-action-btn--danger:hover,
+    .vep-action-btn--danger:focus-visible {
         background: rgba(226, 75, 74, 0.06);
     }
 
@@ -666,15 +704,10 @@
     }
 
     .vep-footer-btn {
-        padding: 8px 16px;
         border-radius: 8px;
         font-size: 0.85rem;
         font-weight: 500;
-        cursor: pointer;
-        border: none;
-        display: flex;
-        align-items: center;
-        gap: 6px;
+        text-transform: none;
     }
 
     .vep-footer-btn--primary {
@@ -682,7 +715,8 @@
         color: #fff;
     }
 
-    .vep-footer-btn--primary:hover {
+    .vep-footer-btn--primary:hover,
+    .vep-footer-btn--primary:focus-visible {
         background: #B8841F;
     }
 
@@ -696,7 +730,8 @@
         color: rgba(255, 255, 255, 0.6);
     }
 
-    .vep-footer-btn--secondary:hover {
+    .vep-footer-btn--secondary:hover,
+    .vep-footer-btn--secondary:focus-visible {
         background: rgba(255, 255, 255, 0.10);
     }
 
@@ -705,7 +740,8 @@
         color: rgba(226, 75, 74, 0.8);
     }
 
-    .vep-footer-btn--danger:hover {
+    .vep-footer-btn--danger:hover,
+    .vep-footer-btn--danger:focus-visible {
         background: rgba(226, 75, 74, 0.15);
     }
 </style>

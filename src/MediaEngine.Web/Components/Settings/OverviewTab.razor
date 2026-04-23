@@ -17,10 +17,15 @@
     {
         <div class="settings-overview-grid">
             <div class="settings-overview-cell">
-                <AppSurfaceCard Eyebrow="System"
-                                Title="Heartbeat"
-                                Description="Live status from the engine, grounded in the same health checks the dashboard uses."
-                                Class="settings-overview-card">
+                <MudPaper Elevation="0" Class="settings-overview-card">
+                    <div class="settings-overview-card-header">
+                        <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">System</MudText>
+                        <MudText Typo="Typo.h6">Heartbeat</MudText>
+                        <MudText Typo="Typo.body2" Class="settings-overview-description">
+                            Live status from the engine, grounded in the same health checks the dashboard uses.
+                        </MudText>
+                    </div>
+
                     <div class="settings-overview-metrics">
                         <div class="settings-overview-metric">
                             <span class="settings-overview-metric-label">Status</span>
@@ -37,14 +42,19 @@
                             <span class="settings-overview-metric-value">@(_serverGeneral?.DisplayLanguage ?? _systemStatus?.Language ?? "en")</span>
                         </div>
                     </div>
-                </AppSurfaceCard>
+                </MudPaper>
             </div>
 
             <div class="settings-overview-cell">
-                <AppSurfaceCard Eyebrow="Deep Enrichment"
-                                Title="Stage 3 coverage"
-                                Description="Universe assignment and deferred enrichment coverage across the current library."
-                                Class="settings-overview-card">
+                <MudPaper Elevation="0" Class="settings-overview-card">
+                    <div class="settings-overview-card-header">
+                        <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Deep Enrichment</MudText>
+                        <MudText Typo="Typo.h6">Stage 3 coverage</MudText>
+                        <MudText Typo="Typo.body2" Class="settings-overview-description">
+                            Universe assignment and deferred enrichment coverage across the current library.
+                        </MudText>
+                    </div>
+
                     <div class="settings-overview-metrics">
                         <div class="settings-overview-metric">
                             <span class="settings-overview-metric-label">Stage 3 ready</span>
@@ -59,41 +69,63 @@
                             <span class="settings-overview-metric-value">@(_overview is null ? "0" : _overview.ArtPending.ToString("N0"))</span>
                         </div>
                     </div>
-                </AppSurfaceCard>
+                </MudPaper>
             </div>
 
             <div class="settings-overview-cell">
-                <AppSurfaceCard Eyebrow="Quick Links"
-                                Title="Continue work"
-                                Description="Jump straight to the parts of settings that usually need attention first."
-                                Class="settings-overview-card">
-                    <div class="settings-overview-actions">
-                        <a href="/settings/review" class="settings-overview-action settings-overview-action--primary">
-                            <AppIcon Name="@AppIcons.Review" Class="settings-overview-action-icon" />
-                            <span>Review @ReviewCount</span>
-                        </a>
-                        <a href="/settings/providers" class="settings-overview-action">
-                            <AppIcon Name="@AppIcons.Providers" Class="settings-overview-action-icon" />
-                            <span>Providers</span>
-                        </a>
-                        <a href="/settings/system" class="settings-overview-action">
-                            <AppIcon Name="@AppIcons.Server" Class="settings-overview-action-icon" />
-                            <span>System</span>
-                        </a>
-                        <a href="/settings/folders" class="settings-overview-action">
-                            <AppIcon Name="@AppIcons.Library" Class="settings-overview-action-icon" />
-                            <span>Folders</span>
-                        </a>
+                <MudPaper Elevation="0" Class="settings-overview-card">
+                    <div class="settings-overview-card-header">
+                        <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Quick Links</MudText>
+                        <MudText Typo="Typo.h6">Continue work</MudText>
+                        <MudText Typo="Typo.body2" Class="settings-overview-description">
+                            Jump straight to the parts of settings that usually need attention first.
+                        </MudText>
                     </div>
-                </AppSurfaceCard>
+
+                    <div class="settings-overview-actions">
+                        <MudButton Href="/settings/review"
+                                   Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Outlined.RateReview"
+                                   Class="settings-overview-action settings-overview-action--primary">
+                            Review @ReviewCount
+                        </MudButton>
+                        <MudButton Href="/settings/providers"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Inherit"
+                                   StartIcon="@Icons.Material.Outlined.Collections"
+                                   Class="settings-overview-action">
+                            Providers
+                        </MudButton>
+                        <MudButton Href="/settings/system"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Inherit"
+                                   StartIcon="@Icons.Material.Outlined.Dns"
+                                   Class="settings-overview-action">
+                            System
+                        </MudButton>
+                        <MudButton Href="/settings/folders"
+                                   Variant="Variant.Outlined"
+                                   Color="Color.Inherit"
+                                   StartIcon="@Icons.Material.Outlined.FolderOpen"
+                                   Class="settings-overview-action">
+                            Folders
+                        </MudButton>
+                    </div>
+                </MudPaper>
             </div>
         </div>
 
         <div class="settings-overview-cell settings-overview-cell--full">
-            <AppSurfaceCard Eyebrow="Coming Next"
-                            Title="Overview will keep growing"
-                            Description="Additional statistics will land here as more trustworthy live metrics are wired through the engine. Until then, this page stays focused on the signals the app can verify today."
-                            Class="settings-overview-card" />
+            <MudPaper Elevation="0" Class="settings-overview-card">
+                <div class="settings-overview-card-header">
+                    <MudText Typo="Typo.overline" Class="settings-overview-eyebrow">Coming Next</MudText>
+                    <MudText Typo="Typo.h6">Overview will keep growing</MudText>
+                    <MudText Typo="Typo.body2" Class="settings-overview-description">
+                        Additional statistics will land here as more trustworthy live metrics are wired through the engine. Until then, this page stays focused on the signals the app can verify today.
+                    </MudText>
+                </div>
+            </MudPaper>
         </div>
     }
 </div>

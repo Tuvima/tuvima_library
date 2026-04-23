@@ -19,12 +19,15 @@ else
         var isExpanded = _expanded.GetValueOrDefault(category.Key, category.IsDefaultExpanded);
 
         <div class="vacc-section">
-            <button class="vacc-section-header" @onclick="() => ToggleSection(category.Key)">
+            <MudButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       Class="vacc-section-header"
+                       OnClick="() => ToggleSection(category.Key)">
                 <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
                          Style="font-size: 16px; opacity: 0.4;" />
                 <span class="vacc-section-label">@category.Label</span>
                 <span class="vacc-section-count">@category.Items.Count</span>
-            </button>
+            </MudButton>
 
             @if (isExpanded)
             {
@@ -34,11 +37,13 @@ else
                         var isSelected = _selectedIds.Contains(item.EntityId);
                         <div class="vacc-row @(isSelected ? "vacc-row--selected" : "")"
                              @onclick="() => OnItemClicked.InvokeAsync(item.EntityId)">
-                            <input type="checkbox"
-                                   class="vacc-checkbox"
-                                   checked="@isSelected"
-                                   @onclick:stopPropagation="true"
-                                   @onchange="() => ToggleSelection(item.EntityId)" />
+                            <MudCheckBox T="bool"
+                                         Value="@isSelected"
+                                         ValueChanged="@(value => ToggleSelection(item.EntityId))"
+                                         Color="Color.Primary"
+                                         Dense="true"
+                                         Class="vacc-checkbox"
+                                         @onclick:stopPropagation="true" />
                             <div class="vacc-row-cover">
                                 @if (!string.IsNullOrEmpty(item.CoverUrl))
                                 {
@@ -65,12 +70,18 @@ else
     {
         <div class="vacc-bulk-bar">
             <span class="vacc-bulk-count">@_selectedIds.Count selected</span>
-            <button class="vacc-bulk-btn vacc-bulk-btn--delete" @onclick="OnBulkDeleteClicked">
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Error"
+                       Class="vacc-bulk-btn vacc-bulk-btn--delete"
+                       OnClick="OnBulkDeleteClicked">
                 Delete Selected
-            </button>
-            <button class="vacc-bulk-btn vacc-bulk-btn--retry" @onclick="OnBulkRetryClicked">
+            </MudButton>
+            <MudButton Variant="Variant.Outlined"
+                       Color="Color.Info"
+                       Class="vacc-bulk-btn vacc-bulk-btn--retry"
+                       OnClick="OnBulkRetryClicked">
                 Retry Selected
-            </button>
+            </MudButton>
         </div>
     }
 }
@@ -165,9 +176,9 @@ else
     .vacc-section { margin-bottom: 4px; }
     .vacc-section-header {
         display: flex; align-items: center; gap: 8px; width: 100%; padding: 10px 12px;
-        background: rgba(255,255,255,0.02); border: none; border-radius: 8px;
+        background: rgba(255,255,255,0.02); border-radius: 8px;
         color: rgba(255,255,255,0.7); font-size: 0.85rem; font-weight: 600;
-        cursor: pointer; transition: background 0.15s;
+        text-transform: none; transition: background 0.15s;
     }
     .vacc-section-header:hover { background: rgba(255,255,255,0.04); }
     .vacc-section-label { flex: 1; text-align: left; }
@@ -185,9 +196,7 @@ else
     .vacc-row--selected {
         border-left-color: rgba(201,146,46,0.7); background: rgba(201,146,46,0.04);
     }
-    .vacc-checkbox {
-        accent-color: #C9922E; width: 14px; height: 14px; cursor: pointer;
-    }
+    ::deep .vacc-checkbox .mud-checkbox-span { padding: 0; }
     .vacc-row-cover {
         width: 28px; height: 28px; border-radius: 4px; overflow: hidden;
         background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center;
@@ -214,7 +223,7 @@ else
     .vacc-bulk-count { font-size: 0.8rem; font-weight: 700; color: rgba(255,255,255,0.8); }
     .vacc-bulk-btn {
         font-size: 0.75rem; font-weight: 700; text-transform: uppercase; padding: 6px 14px;
-        border-radius: 6px; cursor: pointer; border: none;
+        border-radius: 6px;
     }
     .vacc-bulk-btn--delete {
         background: rgba(226,75,74,0.12); color: rgba(226,75,74,0.8);

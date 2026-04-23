@@ -1,14 +1,18 @@
 @namespace MediaEngine.Web.Components.Library
 
 <div class="drawer-section @(_hasProblem ? "drawer-section--problem" : "")">
-    <button class="drawer-section-header" @onclick="Toggle">
+    <MudButton Variant="Variant.Text"
+               Color="Color.Inherit"
+               Class="drawer-section-header"
+               FullWidth="true"
+               OnClick="Toggle">
         <div class="drawer-section-header-left">
-            <MudIcon Icon="@Icon" Style="@($"font-size: 16px; color: {(_hasProblem ? "#EF9F27" : "rgba(255,255,255,0.35)")};")"/>
+            <MudIcon Icon="@Icon" Style="@($"font-size: 16px; color: {(_hasProblem ? "#EF9F27" : "rgba(255,255,255,0.35)")};")" />
             <span class="drawer-section-title @(_hasProblem ? "drawer-section-title--problem" : "")">@Title</span>
         </div>
         <MudIcon Icon="@(_isOpen ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
                  Style="font-size: 16px; color: rgba(255,255,255,0.2);" />
-    </button>
+    </MudButton>
     @if (_isOpen)
     {
         <div class="drawer-section-body">
@@ -51,12 +55,13 @@
         justify-content: space-between;
         padding: 20px 24px;
         background: none;
-        border: none;
         border-left: 4px solid transparent;
         cursor: pointer;
         transition: background 0.15s ease;
         text-align: left;
         color: inherit;
+        text-transform: none;
+        line-height: 1;
     }
 
     .drawer-section-header:hover {
@@ -91,4 +96,3 @@
         to { opacity: 1; transform: translateY(0); }
     }
 </style>
-

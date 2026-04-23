@@ -26,60 +26,93 @@
                     <div class="browse-shell__title-text">@CurrentTab.Label</div>
                 </div>
 
-                <AppTabs Items="BrowseTabItems"
-                         ActiveKey="@_activeTabId"
-                         AriaLabel="Browse sections"
-                         OnSelect="OnBrowseTabSelected"
-                         Class="browse-shell__tabs" />
+                <MudTabs ActivePanelIndex="@ActiveBrowseTabIndex"
+                         ActivePanelIndexChanged="OnBrowseTabChanged"
+                         Rounded="true"
+                         Border="false"
+                         Elevation="0"
+                         Class="browse-shell__tabs">
+                    @foreach (var tab in Preset.Tabs)
+                    {
+                        <MudTabPanel Text="@tab.Label" />
+                    }
+                </MudTabs>
             </div>
 
             <div class="browse-shell__toolbar">
                 @if (_isGroupDrilldown)
                 {
-                    <button type="button" class="browse-shell__back" @onclick="NavigateBackFromGroup">
-                        <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Style="font-size: 18px;" />
-                        <span>Back to @CurrentTab.Label</span>
-                    </button>
+                    <MudButton Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Outlined.ArrowBack"
+                               OnClick="NavigateBackFromGroup"
+                               Class="browse-shell__back">
+                        Back to @CurrentTab.Label
+                    </MudButton>
                 }
                 else
                 {
                     @if (CurrentTab.GroupingOptions.Count > 1)
                     {
-                        <AppTabs Items="GroupingTabItems"
-                                 ActiveKey="@_grouping"
-                                 Variant="secondary"
-                                 AriaLabel="Grouping options"
-                                 OnSelect="OnGroupingSelected"
-                                 Class="browse-shell__groupings" />
+                        <MudChipSet T="string"
+                                    SelectedValue="@_grouping"
+                                    SelectedValueChanged="OnGroupingChanged"
+                                    Class="browse-shell__groupings">
+                            @foreach (var option in CurrentTab.GroupingOptions)
+                            {
+                                <MudChip T="string"
+                                         Value="@option.Value"
+                                         Icon="@option.Icon"
+                                         Variant="Variant.Text">
+                                    @option.Label
+                                </MudChip>
+                            }
+                        </MudChipSet>
                     }
 
-                    <div class="browse-shell__search">
-                        <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px;" />
-                        <input type="text"
-                               value="@_searchText"
-                               placeholder="Search your library"
-                               @oninput="OnSearchInput" />
-                    </div>
+                    <MudTextField T="string"
+                                  @bind-Value="_searchText"
+                                  Placeholder="Search your library"
+                                  Variant="Variant.Outlined"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Outlined.Search"
+                                  Immediate="true"
+                                  DebounceInterval="250"
+                                  OnDebounceIntervalElapsed="OnSearchChanged"
+                                  Class="browse-shell__search" />
 
                     <div class="browse-shell__controls">
-                        <label class="browse-shell__select-wrap">
-                            <span>Sort</span>
-                            <select value="@_sortBy" @onchange="OnSortChanged">
-                                @foreach (var option in GetSortOptions())
-                                {
-                                    <option value="@option.Value">@option.Label</option>
-                                }
-                            </select>
-                        </label>
+                        <MudSelect T="string"
+                                   Value="_sortBy"
+                                   ValueChanged="OnSortChanged"
+                                   Label="Sort"
+                                   Variant="Variant.Outlined"
+                                   Dense="true"
+                                   Class="browse-shell__sort">
+                            @foreach (var option in GetSortOptions())
+                            {
+                                <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+                            }
+                        </MudSelect>
 
                         @if (SupportsLayoutToggle)
                         {
-                            <AppTabs Items="LayoutTabItems"
-                                     ActiveKey="@_layout.ToString()"
-                                     Variant="secondary"
-                                     AriaLabel="Layout options"
-                                     OnSelect="OnLayoutSelected"
-                                     Class="browse-shell__layout-toggle" />
+                            <MudChipSet T="string"
+                                        SelectedValue="@_layout.ToString()"
+                                        SelectedValueChanged="OnLayoutChanged"
+                                        Class="browse-shell__layout-toggle">
+                                <MudChip T="string"
+                                         Value="@LibraryLayoutMode.Card.ToString()"
+                                         Icon="@Icons.Material.Outlined.GridView"
+                                         Variant="Variant.Text">
+                                    Cards
+                                </MudChip>
+                                <MudChip T="string"
+                                         Value="@LibraryLayoutMode.List.ToString()"
+                                         Icon="@Icons.Material.Outlined.ViewList"
+                                         Variant="Variant.Text">
+                                    List
+                                </MudChip>
+                            </MudChipSet>
                         }
                     </div>
                 }
@@ -141,9 +174,12 @@
     @if (_hasMore && !_isGroupDrilldown && !IsContainerGrouping)
     {
         <div class="browse-shell__load-more">
-            <button type="button" class="browse-shell__load-more-button" @onclick="LoadMoreAsync">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="LoadMoreAsync"
+                       Class="browse-shell__load-more-button">
                 Load more
-            </button>
+            </MudButton>
         </div>
     }
 </div>
@@ -179,42 +215,29 @@
     private string? _activeArtistName;
     private List<Guid>? _artistAlbumCollectionIds;
 
-    private System.Timers.Timer? _searchDebounceTimer;
-    private IReadOnlyList<AppNavItem> BrowseTabItems =>
-        Preset.Tabs
-            .Select(tab => new AppNavItem { Key = tab.Id, Label = tab.Label })
-            .ToList();
-
-    private IReadOnlyList<AppNavItem> GroupingTabItems =>
-        CurrentTab.GroupingOptions
-            .Select(option => new AppNavItem
-            {
-                Key = option.Value,
-                Label = option.Label,
-                Icon = option.Icon
-            })
-            .ToList();
-
-    private IReadOnlyList<AppNavItem> LayoutTabItems =>
-    [
-        new() { Key = LibraryLayoutMode.Card.ToString(), Label = "Cards", Icon = Icons.Material.Outlined.GridView },
-        new() { Key = LibraryLayoutMode.List.ToString(), Label = "List", Icon = Icons.Material.Outlined.ViewList }
-    ];
-
     private BrowseTabPreset CurrentTab =>
         Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
         ?? Preset.Tabs[0];
 
+    private int ActiveBrowseTabIndex => GetSelectedIndex(Preset.Tabs.Select(tab => tab.Id), _activeTabId);
     private bool _isGroupDrilldown => _activeGroupId.HasValue && !string.IsNullOrWhiteSpace(_activeGroupType);
     private bool IsContainerGrouping => _grouping is "series" or "shows" or "albums" or "artists";
     private bool UseListLayout => _layout == LibraryLayoutMode.List || _grouping == "tracks";
     private bool SupportsLayoutToggle => _grouping != "tracks";
 
-    private Task OnBrowseTabSelected(string tabId) => SwitchTabAsync(tabId);
+    private async Task OnBrowseTabChanged(int index)
+    {
+        if (index < 0 || index >= Preset.Tabs.Count)
+        {
+            return;
+        }
 
-    private Task OnGroupingSelected(string grouping) => SwitchGroupingAsync(grouping);
+        await SwitchTabAsync(Preset.Tabs[index].Id);
+    }
 
-    private Task OnLayoutSelected(string layout)
+    private Task OnGroupingChanged(string grouping) => SwitchGroupingAsync(grouping);
+
+    private Task OnLayoutChanged(string layout)
     {
         var mode = string.Equals(layout, LibraryLayoutMode.List.ToString(), StringComparison.OrdinalIgnoreCase)
             ? LibraryLayoutMode.List
@@ -700,30 +723,15 @@
         await NavigateAndReloadAsync(reloadData: false);
     }
 
-    private void OnSearchInput(ChangeEventArgs args)
+    private async Task OnSearchChanged(string _)
     {
-        _searchDebounceTimer?.Stop();
-        _searchDebounceTimer?.Dispose();
-
-        var value = args.Value?.ToString() ?? string.Empty;
-        _searchDebounceTimer = new System.Timers.Timer(250);
-        _searchDebounceTimer.AutoReset = false;
-        _searchDebounceTimer.Elapsed += async (_, _) =>
-        {
-            _searchDebounceTimer?.Stop();
-            await InvokeAsync(async () =>
-            {
-                _searchText = value;
-                ClearActiveGroupState();
-                await NavigateAndReloadAsync(reloadData: true, replace: true);
-            });
-        };
-        _searchDebounceTimer.Start();
+        ClearActiveGroupState();
+        await NavigateAndReloadAsync(reloadData: true, replace: true);
     }
 
-    private async Task OnSortChanged(ChangeEventArgs args)
+    private async Task OnSortChanged(string value)
     {
-        _sortBy = args.Value?.ToString() ?? ResolveSort(null);
+        _sortBy = value;
         await NavigateAndReloadAsync();
     }
 
@@ -1077,8 +1085,22 @@
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
-        _searchDebounceTimer?.Stop();
-        _searchDebounceTimer?.Dispose();
+    }
+
+    private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)
+    {
+        var index = 0;
+        foreach (var key in keys)
+        {
+            if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+
+            index++;
+        }
+
+        return 0;
     }
 }
 
@@ -1143,54 +1165,60 @@
         min-width: 0;
     }
 
-    .browse-shell__back,
-    .browse-shell__load-more-button {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 42px;
-        padding: 0 16px;
-        border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
-        color: rgba(255, 255, 255, 0.68);
-        font-size: 0.85rem;
-        font-weight: 700;
-        cursor: pointer;
-        transition: all 0.16s ease;
+    .browse-shell__tabs {
+        flex: 1;
     }
 
-    .browse-shell__back:hover,
-    .browse-shell__load-more-button:hover {
+    .browse-shell__tabs .mud-tabs-toolbar {
+        padding: 0.3rem;
+    }
+
+    .browse-shell__tabs .mud-tabs-panels {
+        display: none;
+    }
+
+    .browse-shell__tabs .mud-tab {
+        min-height: 2.75rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .browse-shell__tabs .mud-tab.mud-tab-active {
+        background: rgba(96, 165, 250, 0.16);
         color: #fff;
-        border-color: rgba(255, 255, 255, 0.16);
-        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .browse-shell__back,
+    .browse-shell__load-more-button {
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: none;
+        white-space: nowrap;
+    }
+
+    .browse-shell__back {
+        border-color: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.82);
     }
 
     .browse-shell__search {
-        display: flex;
-        align-items: center;
-        gap: 10px;
         min-width: min(100%, 320px);
-        padding: 0 14px;
-        min-height: 46px;
+        margin: 0;
+    }
+
+    .browse-shell__search .mud-input-control {
+        margin: 0;
+    }
+
+    .browse-shell__search .mud-input-outlined {
         border-radius: 999px;
         background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .browse-shell__search .mud-input-adornment {
         color: rgba(255, 255, 255, 0.42);
-    }
-
-    .browse-shell__search input {
-        flex: 1;
-        background: transparent;
-        border: 0;
-        color: rgba(255, 255, 255, 0.9);
-        outline: none;
-        font-size: 0.9rem;
-    }
-
-    .browse-shell__search input::placeholder {
-        color: rgba(255, 255, 255, 0.3);
     }
 
     .browse-shell__controls {
@@ -1201,31 +1229,37 @@
         margin-left: auto;
     }
 
-    .browse-shell__select-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        min-height: 46px;
-        padding: 0 14px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.62);
-        font-size: 0.78rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+    .browse-shell__sort {
+        min-width: 160px;
+        margin: 0;
     }
 
-    .browse-shell__select-wrap select {
-        background: transparent;
-        border: 0;
-        color: rgba(255, 255, 255, 0.92);
-        outline: none;
-        font-size: 0.86rem;
-        text-transform: none;
-        letter-spacing: normal;
-        font-weight: 700;
+    .browse-shell__sort .mud-input-control {
+        margin: 0;
+    }
+
+    .browse-shell__sort .mud-input-outlined {
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .browse-shell__groupings .mud-chip-set,
+    .browse-shell__layout-toggle .mud-chip-set {
+        gap: 8px;
+    }
+
+    .browse-shell__groupings .mud-chip,
+    .browse-shell__layout-toggle .mud-chip {
+        min-height: 2.5rem;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .browse-shell__groupings .mud-chip.mud-chip-selected,
+    .browse-shell__layout-toggle .mud-chip.mud-chip-selected {
+        background: rgba(96, 165, 250, 0.16);
+        color: #fff;
     }
 
     .browse-shell__grid {

@@ -18,23 +18,33 @@
         else if (state.IsMultiple && !isEdited)
         {
             <div class="vef-input-wrap">
-                <input type="text" class="vef-input vef-input--multiple"
-                       placeholder="Multiple Values"
-                       @onfocus="() => StartEdit(field.Key, string.Empty)"
-                       readonly />
+                <MudTextField T="string"
+                              Value="@string.Empty"
+                              Placeholder="Multiple Values"
+                              ReadOnly="true"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Class="vef-input vef-input--multiple"
+                              @onfocus="() => StartEdit(field.Key, string.Empty)" />
             </div>
         }
         else
         {
             <div class="vef-input-wrap">
-                <input type="text" class="vef-input"
-                       value="@(isEdited ? EditedValues[field.Key] : state.DisplayValue ?? "")"
-                       @oninput="(e) => OnFieldInput(field.Key, e.Value?.ToString() ?? string.Empty)" />
+                <MudTextField T="string"
+                              Value="@(isEdited ? EditedValues[field.Key] : state.DisplayValue ?? string.Empty)"
+                              ValueChanged="@(value => OnFieldInput(field.Key, value))"
+                              Immediate="true"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Class="vef-input" />
                 @if (isEdited)
                 {
-                    <button class="vef-reset-btn" title="Reset" @onclick="() => ResetField(field.Key)">
-                        <MudIcon Icon="@Icons.Material.Outlined.Undo" Style="font-size: 14px;" />
-                    </button>
+                    <MudIconButton Icon="@Icons.Material.Outlined.Undo"
+                                   Size="Size.Small"
+                                   aria-label="Reset"
+                                   Class="vef-reset-btn"
+                                   OnClick="() => ResetField(field.Key)" />
                 }
             </div>
         }
@@ -146,38 +156,39 @@
 
     .vef-input {
         flex: 1;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 6px;
-        padding: 6px 10px;
-        font-size: 0.85rem;
-        color: rgba(255, 255, 255, 0.85);
-        outline: none;
-        transition: border-color 0.15s;
     }
 
-    .vef-input:focus {
+    ::deep .vef-input .mud-input-control {
+        margin-top: 0;
+    }
+
+    ::deep .vef-input .mud-input-outlined-border {
+        border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    ::deep .vef-input .mud-input-slot {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.85);
+    }
+
+    ::deep .vef-input.mud-input-root-outlined:hover .mud-input-outlined-border,
+    ::deep .vef-input.mud-input-root-outlined.mud-input-focused .mud-input-outlined-border {
         border-color: rgba(201, 146, 46, 0.5);
     }
 
-    .vef-input--multiple {
+    ::deep .vef-input--multiple .mud-input-slot {
         color: rgba(255, 255, 255, 0.3);
         font-style: italic;
         cursor: pointer;
     }
 
     .vef-reset-btn {
-        background: none;
-        border: none;
         color: rgba(255, 255, 255, 0.3);
-        cursor: pointer;
-        padding: 4px;
         border-radius: 4px;
-        display: flex;
-        align-items: center;
     }
 
-    .vef-reset-btn:hover {
+    .vef-reset-btn:hover,
+    .vef-reset-btn:focus-visible {
         color: rgba(255, 255, 255, 0.6);
         background: rgba(255, 255, 255, 0.05);
     }

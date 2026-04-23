@@ -206,12 +206,17 @@
                 </div>
 
                 @* Tab switcher *@
-                <AppTabs Items="DetailTabs"
-                         ActiveKey="@_detailsTab.ToString()"
-                         Variant="secondary"
-                         AriaLabel="Metadata views"
-                         OnSelect="OnDetailsTabSelected"
-                         Class="vdd-details-tabs" />
+                <MudTabs ActivePanelIndex="@_detailsTab"
+                         ActivePanelIndexChanged="OnDetailsTabChanged"
+                         Rounded="true"
+                         Border="false"
+                         Elevation="0"
+                         Class="vdd-details-tabs">
+                    @foreach (var tab in DetailTabs)
+                    {
+                        <MudTabPanel Text="@tab.Label" />
+                    }
+                </MudTabs>
 
                 @if (_detailsTab == 0)
                 {
@@ -306,36 +311,29 @@
                                     @* Media type row *@
                                     <div class="vdd-search-type-row">
                                         <span class="vdd-search-type-label">Type:</span>
-                                        <div class="vdd-dropdown-wrap">
-                                            <button class="vdd-dropdown-btn" @onclick="() => _showMediaTypeDropdown = !_showMediaTypeDropdown">
-                                                @_searchMediaType <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
-                                            </button>
-                                            @if (_showMediaTypeDropdown)
+                                        <MudSelect T="string"
+                                                   Value="@_searchMediaType"
+                                                   ValueChanged="SetRetailMediaType"
+                                                   Variant="Variant.Outlined"
+                                                   Dense="true"
+                                                   Class="vdd-search-select">
+                                            @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
                                             {
-                                                <div class="vdd-dropdown-menu">
-                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
-                                                    {
-                                                        <div class="vdd-dropdown-item" @onclick="() => SetRetailMediaType(mt)">@mt</div>
-                                                    }
-                                                </div>
+                                                <MudSelectItem T="string" Value="@mt">@mt</MudSelectItem>
                                             }
-                                        </div>
+                                        </MudSelect>
                                         <span class="vdd-search-type-label">Quick Search:</span>
-                                        <div class="vdd-dropdown-wrap">
-                                            <button class="vdd-dropdown-btn" @onclick="() => _showCanonicalTargetDropdown = !_showCanonicalTargetDropdown">
-                                                @GetCanonicalTargetDisplayLabel(_canonicalTargetGroup)
-                                                <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
-                                            </button>
-                                            @if (_showCanonicalTargetDropdown)
+                                        <MudSelect T="string"
+                                                   Value="@_canonicalTargetGroup"
+                                                   ValueChanged="SetCanonicalTargetGroup"
+                                                   Variant="Variant.Outlined"
+                                                   Dense="true"
+                                                   Class="vdd-search-select">
+                                            @foreach (var target in GetCanonicalTargetOptions(_searchMediaType))
                                             {
-                                                <div class="vdd-dropdown-menu">
-                                                    @foreach (var target in GetCanonicalTargetOptions(_searchMediaType))
-                                                    {
-                                                        <div class="vdd-dropdown-item" @onclick="() => SetCanonicalTargetGroup(target.Key)">@target.Label</div>
-                                                    }
-                                                </div>
+                                                <MudSelectItem T="string" Value="@target.Key">@target.Label</MudSelectItem>
                                             }
-                                        </div>
+                                        </MudSelect>
                                     </div>
 
                                     @* Main search row *@
@@ -344,51 +342,52 @@
                                             <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
 
                                             @* Primary field selector *@
-                                            <div class="vdd-dropdown-wrap">
-                                                <button class="vdd-primary-field-btn" @onclick="() => _showPrimaryDropdown = !_showPrimaryDropdown">
-                                                    @FormatClaimKey(_primarySearchField)
-                                                    <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 12px;" />
-                                                </button>
-                                                @if (_showPrimaryDropdown)
+                                            <MudSelect T="string"
+                                                       Value="@_primarySearchField"
+                                                       ValueChanged="SetPrimaryField"
+                                                       Variant="Variant.Outlined"
+                                                       Dense="true"
+                                                       Class="vdd-primary-field-btn">
+                                                @foreach (var f in GetSearchableFieldsForCurrentType())
                                                 {
-                                                    <div class="vdd-dropdown-menu">
-                                                        @foreach (var f in GetSearchableFieldsForCurrentType())
-                                                        {
-                                                            <div class="vdd-dropdown-item" @onclick="() => SetPrimaryField(f.FieldKey)">@f.DisplayLabel</div>
-                                                        }
-                                                    </div>
+                                                    <MudSelectItem T="string" Value="@f.FieldKey">@f.DisplayLabel</MudSelectItem>
                                                 }
-                                            </div>
+                                            </MudSelect>
 
-                                            <input type="text" class="vdd-search-primary-input"
-                                                   placeholder="@($"Search {FormatClaimKey(_primarySearchField).ToLower()}...")"
-                                                   @bind="_primarySearchValue" @bind:event="oninput"
-                                                   @onkeydown="OnRetailSearchKeyDown" />
+                                            <MudTextField T="string"
+                                                          @bind-Value="_primarySearchValue"
+                                                          Placeholder="@($"Search {FormatClaimKey(_primarySearchField).ToLower()}...")"
+                                                          Variant="Variant.Outlined"
+                                                          Margin="Margin.Dense"
+                                                          Immediate="true"
+                                                          Class="vdd-search-primary-input"
+                                                          OnKeyDown="OnRetailSearchKeyDown" />
 
                                             @* Add Filter button *@
-                                            <div class="vdd-dropdown-wrap">
-                                                <button class="vdd-add-filter-btn" @onclick="() => _showFilterDropdown = !_showFilterDropdown">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Add" Style="font-size: 14px;" />
-                                                    Add Filter
-                                                </button>
-                                                @if (_showFilterDropdown)
+                                            <MudMenu Variant="Variant.Outlined"
+                                                     Color="Color.Inherit"
+                                                     StartIcon="@Icons.Material.Outlined.Add"
+                                                     Label="Add Filter"
+                                                     Class="vdd-add-filter-btn">
+                                                @foreach (var f in GetSearchableFieldsForCurrentType())
                                                 {
-                                                    <div class="vdd-dropdown-menu">
-                                                        @foreach (var f in GetSearchableFieldsForCurrentType())
-                                                        {
-                                                            if (f.FieldKey == _primarySearchField) continue;
-                                                            if (_searchFilters.Any(sf => sf.FieldKey == f.FieldKey)) continue;
-                                                            <div class="vdd-dropdown-item" @onclick="() => AddSearchFilter(f.FieldKey)">@f.DisplayLabel</div>
-                                                        }
-                                                    </div>
+                                                    if (f.FieldKey == _primarySearchField || _searchFilters.Any(sf => sf.FieldKey == f.FieldKey))
+                                                    {
+                                                        continue;
+                                                    }
+
+                                                    <MudMenuItem OnClick="() => AddSearchFilter(f.FieldKey)">@f.DisplayLabel</MudMenuItem>
                                                 }
-                                            </div>
+                                            </MudMenu>
                                         </div>
 
-                                        <button class="vdd-search-execute-btn" @onclick="RunRetailSearch"
-                                                disabled="@(!HasAnySearchFieldValue())">
+                                        <MudButton Variant="Variant.Filled"
+                                                   Color="Color.Primary"
+                                                   Class="vdd-search-execute-btn"
+                                                   OnClick="RunRetailSearch"
+                                                   Disabled="@(!HasAnySearchFieldValue())">
                                             Quick Search
-                                        </button>
+                                        </MudButton>
                                     </div>
 
                                     @* Filter pills *@
@@ -401,14 +400,20 @@
                                                 var filter = _searchFilters[idx];
                                                 <div class="vdd-filter-pill">
                                                     <span class="vdd-filter-pill-label">@FormatClaimKey(filter.FieldKey):</span>
-                                                    <input type="text" class="vdd-filter-pill-input"
-                                                           value="@_searchFilters[idx].Value"
-                                                           placeholder="..."
-                                                           @oninput="(e) => UpdateFilter(idx, e.Value?.ToString())"
-                                                           @onkeydown="OnRetailSearchKeyDown" />
-                                                    <button class="vdd-filter-pill-remove" @onclick="() => RemoveFilter(idx)">
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 14px;" />
-                                                    </button>
+                                                    <MudTextField T="string"
+                                                                  Value="@_searchFilters[idx].Value"
+                                                                  ValueChanged="@(value => UpdateFilter(idx, value))"
+                                                                  Placeholder="..."
+                                                                  Variant="Variant.Text"
+                                                                  Margin="Margin.Dense"
+                                                                  Immediate="true"
+                                                                  Class="vdd-filter-pill-input"
+                                                                  OnKeyDown="OnRetailSearchKeyDown" />
+                                                    <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                                                                   Size="Size.Small"
+                                                                   Class="vdd-filter-pill-remove"
+                                                                   Color="Color.Inherit"
+                                                                   OnClick="() => RemoveFilter(idx)" />
                                                 </div>
                                             }
                                         </div>
@@ -438,11 +443,11 @@
                                     @if (_canonicalSearchResponse is not null)
                                     {
                                         <div class="vdd-fallback-actions">
-                                            <button class="vdd-cancel-match-btn" @onclick="KeepCurrentCanonicalValue">Keep current canonical value</button>
-                                            <button class="vdd-confirm-match-btn" @onclick="SaveCurrentDraftAsPreferenceAsync">Save as preference only</button>
+                                            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="vdd-cancel-match-btn" OnClick="KeepCurrentCanonicalValue">Keep current canonical value</MudButton>
+                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn" OnClick="SaveCurrentDraftAsPreferenceAsync">Save as preference only</MudButton>
                                             @if (_canonicalSearchResponse.CanApplyUnlinkedCanonical)
                                             {
-                                                <button class="vdd-confirm-match-btn" @onclick="ApplyCurrentDraftAsUnlinkedCanonicalAsync">Apply as unlinked canonical value</button>
+                                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn" OnClick="ApplyCurrentDraftAsUnlinkedCanonicalAsync">Apply as unlinked canonical value</MudButton>
                                             }
                                         </div>
                                         @if (_canonicalSearchResponse.MissingRequiredFields.Count > 0)
@@ -583,24 +588,28 @@
                                                             <div class="vdd-suggested-field-list">
                                                                 @foreach (var kv in result.SuggestedFields)
                                                                 {
-                                                                    <label class="vdd-suggested-field-item">
-                                                                        <input type="checkbox"
-                                                                               checked="@IsSuggestedFieldSelected(result.CandidateId, kv.Key)"
-                                                                               @onchange="(e) => SetSuggestedFieldSelected(result.CandidateId, kv.Key, IsChecked(e.Value))"
-                                                                               @onclick:stopPropagation="true" />
-                                                                        <span>@FormatClaimKey(kv.Key): @kv.Value</span>
-                                                                    </label>
+                                                                    <MudCheckBox T="bool"
+                                                                                 Value="@IsSuggestedFieldSelected(result.CandidateId, kv.Key)"
+                                                                                 ValueChanged="@(value => SetSuggestedFieldSelected(result.CandidateId, kv.Key, value))"
+                                                                                 Color="Color.Primary"
+                                                                                 Dense="true"
+                                                                                 Class="vdd-suggested-field-checkbox"
+                                                                                 @onclick:stopPropagation="true">
+                                                                        @FormatClaimKey(kv.Key): @kv.Value
+                                                                    </MudCheckBox>
                                                                 }
                                                             </div>
                                                         </div>
                                                     }
                                                     @if (!_confirmingRetailMatch)
                                                     {
-                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                                @onclick="() => _confirmingRetailMatch = true"
-                                                                disabled="@(!result.IsApplicable)">
-                                                            Apply Canonical Choice
-                                                        </button>
+                                                        <span @onclick:stopPropagation="true">
+                                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn"
+                                                                       OnClick="() => _confirmingRetailMatch = true"
+                                                                       Disabled="@(!result.IsApplicable)">
+                                                                Apply Canonical Choice
+                                                            </MudButton>
+                                                        </span>
                                                     }
                                                     else
                                                     {
@@ -613,8 +622,8 @@
                                                                 </span>
                                                             }
                                                             <span class="vdd-confirm-prompt">Apply this canonical provider result?</span>
-                                                            <button class="vdd-confirm-match-btn" @onclick="() => ConfirmRetailMatch(result)">Yes</button>
-                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingRetailMatch = false">Cancel</button>
+                                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn" OnClick="() => ConfirmRetailMatch(result)">Yes</MudButton>
+                                                            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="vdd-cancel-match-btn" OnClick="() => _confirmingRetailMatch = false">Cancel</MudButton>
                                                         </div>
                                                     }
                                                 </div>
@@ -671,48 +680,46 @@
                                 <div class="vdd-search-bar-wrap" style="margin-top: 4px;">
                                     <div class="vdd-search-type-row">
                                         <span class="vdd-search-type-label">Type:</span>
-                                        <div class="vdd-dropdown-wrap">
-                                            <button class="vdd-dropdown-btn" @onclick="() => _showWikiMediaTypeDropdown = !_showWikiMediaTypeDropdown">
-                                                @_searchMediaType <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
-                                            </button>
-                                            @if (_showWikiMediaTypeDropdown)
+                                        <MudSelect T="string"
+                                                   Value="@_searchMediaType"
+                                                   ValueChanged="SetWikiMediaType"
+                                                   Variant="Variant.Outlined"
+                                                   Dense="true"
+                                                   Class="vdd-search-select">
+                                            @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
                                             {
-                                                <div class="vdd-dropdown-menu">
-                                                    @foreach (var mt in new[] { "Books", "Audiobooks", "Movies", "TV", "Music", "Comics" })
-                                                    {
-                                                        <div class="vdd-dropdown-item" @onclick="() => SetWikiMediaType(mt)">@mt</div>
-                                                    }
-                                                </div>
+                                                <MudSelectItem T="string" Value="@mt">@mt</MudSelectItem>
                                             }
-                                        </div>
+                                        </MudSelect>
                                         <span class="vdd-search-type-label">Quick Search:</span>
-                                        <div class="vdd-dropdown-wrap">
-                                            <button class="vdd-dropdown-btn" @onclick="() => _showCanonicalTargetDropdown = !_showCanonicalTargetDropdown">
-                                                @GetCanonicalTargetDisplayLabel(_canonicalTargetGroup)
-                                                <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" Style="font-size: 14px;" />
-                                            </button>
-                                            @if (_showCanonicalTargetDropdown)
+                                        <MudSelect T="string"
+                                                   Value="@_canonicalTargetGroup"
+                                                   ValueChanged="SetCanonicalTargetGroup"
+                                                   Variant="Variant.Outlined"
+                                                   Dense="true"
+                                                   Class="vdd-search-select">
+                                            @foreach (var target in GetCanonicalTargetOptions(_searchMediaType))
                                             {
-                                                <div class="vdd-dropdown-menu">
-                                                    @foreach (var target in GetCanonicalTargetOptions(_searchMediaType))
-                                                    {
-                                                        <div class="vdd-dropdown-item" @onclick="() => SetCanonicalTargetGroup(target.Key)">@target.Label</div>
-                                                    }
-                                                </div>
+                                                <MudSelectItem T="string" Value="@target.Key">@target.Label</MudSelectItem>
                                             }
-                                        </div>
+                                        </MudSelect>
                                     </div>
                                     <div class="vdd-search-main-row">
                                         <div class="vdd-search-input-group">
                                             <MudIcon Icon="@Icons.Material.Outlined.Search" Style="font-size: 18px; color: rgba(255,255,255,0.35);" />
-                                            <input type="text" class="vdd-search-primary-input"
-                                                   placeholder="@(hasWikidata ? "Search for a different canonical entity..." : "Search by name or enter a QID...")"
-                                                   @bind="_wikidataSearchQuery" @bind:event="oninput" @onkeydown="OnWikidataSearchKeyDown" />
+                                            <MudTextField T="string"
+                                                          @bind-Value="_wikidataSearchQuery"
+                                                          Placeholder="@(hasWikidata ? "Search for a different canonical entity..." : "Search by name or enter a QID...")"
+                                                          Variant="Variant.Outlined"
+                                                          Margin="Margin.Dense"
+                                                          Immediate="true"
+                                                          Class="vdd-search-primary-input"
+                                                          OnKeyDown="OnWikidataSearchKeyDown" />
                                         </div>
-                                        <button class="vdd-search-execute-btn" @onclick="RunWikidataSearch"
-                                                disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery))">
+                                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-search-execute-btn" OnClick="RunWikidataSearch"
+                                                   Disabled="@(string.IsNullOrWhiteSpace(_wikidataSearchQuery))">
                                             Quick Search
-                                        </button>
+                                        </MudButton>
                                     </div>
                                 </div>
                                 @if (hasWikidata && !string.IsNullOrWhiteSpace(_wikidataSearchQuery))
@@ -738,11 +745,11 @@
                                     @if (_canonicalSearchResponse is not null)
                                     {
                                         <div class="vdd-fallback-actions">
-                                            <button class="vdd-cancel-match-btn" @onclick="KeepCurrentCanonicalValue">Keep current canonical value</button>
-                                            <button class="vdd-confirm-match-btn" @onclick="SaveCurrentDraftAsPreferenceAsync">Save as preference only</button>
+                                            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="vdd-cancel-match-btn" OnClick="KeepCurrentCanonicalValue">Keep current canonical value</MudButton>
+                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn" OnClick="SaveCurrentDraftAsPreferenceAsync">Save as preference only</MudButton>
                                             @if (_canonicalSearchResponse.CanApplyUnlinkedCanonical)
                                             {
-                                                <button class="vdd-confirm-match-btn" @onclick="ApplyCurrentDraftAsUnlinkedCanonicalAsync">Apply as unlinked canonical value</button>
+                                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn" OnClick="ApplyCurrentDraftAsUnlinkedCanonicalAsync">Apply as unlinked canonical value</MudButton>
                                             }
                                         </div>
                                         @if (_canonicalSearchResponse.MissingRequiredFields.Count > 0)
@@ -872,24 +879,28 @@
                                                             <div class="vdd-suggested-field-list">
                                                                 @foreach (var kv in result.SuggestedFields)
                                                                 {
-                                                                    <label class="vdd-suggested-field-item">
-                                                                        <input type="checkbox"
-                                                                               checked="@IsSuggestedFieldSelected(result.CandidateId, kv.Key)"
-                                                                               @onchange="(e) => SetSuggestedFieldSelected(result.CandidateId, kv.Key, IsChecked(e.Value))"
-                                                                               @onclick:stopPropagation="true" />
-                                                                        <span>@FormatClaimKey(kv.Key): @kv.Value</span>
-                                                                    </label>
+                                                                    <MudCheckBox T="bool"
+                                                                                 Value="@IsSuggestedFieldSelected(result.CandidateId, kv.Key)"
+                                                                                 ValueChanged="@(value => SetSuggestedFieldSelected(result.CandidateId, kv.Key, value))"
+                                                                                 Color="Color.Primary"
+                                                                                 Dense="true"
+                                                                                 Class="vdd-suggested-field-checkbox"
+                                                                                 @onclick:stopPropagation="true">
+                                                                        @FormatClaimKey(kv.Key): @kv.Value
+                                                                    </MudCheckBox>
                                                                 }
                                                             </div>
                                                         </div>
                                                     }
                                                     @if (!_confirmingWikidataMatch)
                                                     {
-                                                        <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true"
-                                                                @onclick="() => _confirmingWikidataMatch = true"
-                                                                disabled="@(!result.IsApplicable)">
-                                                            Apply Canonical Choice
-                                                        </button>
+                                                        <span @onclick:stopPropagation="true">
+                                                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn"
+                                                                       OnClick="() => _confirmingWikidataMatch = true"
+                                                                       Disabled="@(!result.IsApplicable)">
+                                                                Apply Canonical Choice
+                                                            </MudButton>
+                                                        </span>
                                                     }
                                                     else
                                                     {
@@ -902,12 +913,14 @@
                                                                 </span>
                                                             }
                                                             <span class="vdd-confirm-prompt">Apply this linked canonical result?</span>
-                                                            <button class="vdd-confirm-match-btn" @onclick:stopPropagation="true" @onclick="() => ConfirmWikidataMatch(result)">
-                                                                Yes
-                                                            </button>
-                                                            <button class="vdd-cancel-match-btn" @onclick="() => _confirmingWikidataMatch = false">
+                                                            <span @onclick:stopPropagation="true">
+                                                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-confirm-match-btn" OnClick="() => ConfirmWikidataMatch(result)">
+                                                                    Yes
+                                                                </MudButton>
+                                                            </span>
+                                                            <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="vdd-cancel-match-btn" OnClick="() => _confirmingWikidataMatch = false">
                                                                 Cancel
-                                                            </button>
+                                                            </MudButton>
                                                         </div>
                                                     }
                                                 </div>
@@ -1198,14 +1211,14 @@
 
             @* Trigger enrichment + open explorer actions *@
             <div class="vdd-universe-actions">
-                <button class="vdd-action-btn vdd-action-btn--primary" @onclick="OpenUniverseExplorer">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="vdd-action-btn vdd-action-btn--primary" OnClick="OpenUniverseExplorer">
                     <MudIcon Icon="@Icons.Material.Outlined.Collections" Style="font-size: 15px;" />
                     @L["VaultDetail_OpenExplorer"]
-                </button>
-                <button class="vdd-action-btn" @onclick="TriggerEnrichment">
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Inherit" Class="vdd-action-btn" OnClick="TriggerEnrichment">
                     <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" Style="font-size: 15px;" />
                     @L["VaultDetail_TriggerEnrichment"]
-                </button>
+                </MudButton>
             </div>
         }
     </div>
@@ -1218,20 +1231,20 @@
             {
                 <div class="vdd-purge-confirm-row">
                     <span class="vdd-purge-confirm-text">@L["VaultDetail_ConfirmPurge"]</span>
-                    <button class="vdd-purge-btn vdd-purge-btn--confirm" @onclick="HandlePurge">
+                    <MudButton Variant="Variant.Filled" Color="Color.Error" Class="vdd-purge-btn vdd-purge-btn--confirm" OnClick="HandlePurge">
                         <span>Yes, Purge</span>
-                    </button>
-                    <button class="vdd-purge-cancel-btn" @onclick="() => _confirmPurge = false">
+                    </MudButton>
+                    <MudButton Variant="Variant.Text" Color="Color.Inherit" Class="vdd-purge-cancel-btn" OnClick="() => _confirmPurge = false">
                         <span>Cancel</span>
-                    </button>
+                    </MudButton>
                 </div>
             }
             else
             {
-                <button class="vdd-purge-btn" @onclick="HandlePurge">
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" Class="vdd-purge-btn" OnClick="HandlePurge">
                     <MudIcon Icon="@Icons.Material.Outlined.DeleteForever" Style="font-size: 16px;" />
                     <span>@L["VaultDetail_ActionPurgeRecord"]</span>
-                </button>
+                </MudButton>
             }
         </div>
     }
@@ -1349,10 +1362,10 @@
     }
 
     private int ActiveTab => _selectedStage;  // 0=Retail, 1=Wikidata, 2=Enrichment
-    private IReadOnlyList<AppNavItem> DetailTabs =>
+    private IReadOnlyList<(string Id, string Label)> DetailTabs =>
     [
-        new() { Key = "0", Label = "Current Metadata" },
-        new() { Key = "1", Label = "Original Metadata" }
+        ("0", "Current Metadata"),
+        ("1", "Original Metadata")
     ];
 
     private int GetPreferredStage()
@@ -1369,9 +1382,9 @@
         return 2;
     }
 
-    private Task OnDetailsTabSelected(string tabId)
+    private Task OnDetailsTabChanged(int index)
     {
-        _detailsTab = string.Equals(tabId, "1", StringComparison.Ordinal) ? 1 : 0;
+        _detailsTab = index == 1 ? 1 : 0;
         return Task.CompletedTask;
     }
 
@@ -4667,27 +4680,30 @@
         margin-bottom: 10px;
     }
 
-    .vdd-details-tab {
-        background: transparent;
-        border: none;
+    ::deep .vdd-details-tabs .mud-tabs-toolbar {
+        padding: 0;
+    }
+
+    ::deep .vdd-details-tabs .mud-tabs-panels {
+        display: none;
+    }
+
+    ::deep .vdd-details-tabs .mud-tab {
         color: rgba(255, 255, 255, 0.5);
         padding: 8px 12px;
         font-size: 11px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.4px;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        transition: color 0.15s, border-color 0.15s;
     }
 
-    .vdd-details-tab:hover {
+    ::deep .vdd-details-tabs .mud-tab:hover {
         color: rgba(255, 255, 255, 0.85);
     }
 
-    .vdd-details-tab--active {
+    ::deep .vdd-details-tabs .mud-tab.mud-tab-active {
         color: #C9922E;
-        border-bottom-color: #C9922E;
+        box-shadow: inset 0 -2px 0 #C9922E;
     }
 </style>
 

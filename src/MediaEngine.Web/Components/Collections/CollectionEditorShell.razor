@@ -21,16 +21,24 @@
                     <div class="collection-editor-subtitle">@HeaderSubtitle</div>
                 </div>
 
-                <button class="collection-editor-close" @onclick="Cancel">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Style="font-size: 18px;" />
-                </button>
+                <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                               Size="Size.Small"
+                               Color="Color.Inherit"
+                               Class="collection-editor-close"
+                               OnClick="Cancel" />
             </div>
 
-            <AppTabs Items="TabItems"
-                     ActiveKey="@_activeTab"
-                     AriaLabel="Collection editor sections"
-                     OnSelect="OnTabSelected"
-                     Class="collection-editor-tabs" />
+            <MudTabs ActivePanelIndex="@ActiveTabIndex"
+                     ActivePanelIndexChanged="OnTabChanged"
+                     Rounded="true"
+                     Border="false"
+                     Elevation="0"
+                     Class="collection-editor-tabs">
+                @foreach (var tab in Tabs)
+                {
+                    <MudTabPanel Text="@tab.Label" />
+                }
+            </MudTabs>
 
             <div class="collection-editor-body">
                 @switch (_activeTab)
@@ -54,20 +62,24 @@
                 <div class="collection-editor-footer-copy">@FooterSummary</div>
 
                 <div class="collection-editor-footer-actions">
-                    <button class="collection-editor-btn collection-editor-btn--ghost"
-                            @onclick="Cancel"
-                            disabled="@_saving">
+                    <MudButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Class="collection-editor-btn collection-editor-btn--ghost"
+                               OnClick="Cancel"
+                               Disabled="@_saving">
                         Cancel
-                    </button>
-                    <button class="collection-editor-btn collection-editor-btn--primary"
-                            @onclick="SaveCollection"
-                            disabled="@_saving">
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Class="collection-editor-btn collection-editor-btn--primary"
+                               OnClick="SaveCollection"
+                               Disabled="@_saving">
                         @if (_saving)
                         {
                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Style="color: inherit; width: 14px; height: 14px;" />
                         }
                         @(EditingCollection is null ? "Create Collection" : "Save")
-                    </button>
+                    </MudButton>
                 </div>
             </div>
         </div>
@@ -113,14 +125,14 @@
             ? "Create a saved collection using either live rules or manual membership."
             : "Update the collection settings, rules, and saved items without leaving the collections page.";
 
+    private int ActiveTabIndex => GetSelectedIndex(Tabs.Select(tab => tab.Id), _activeTab);
+
     private string FooterSummary =>
         SupportsManualItems
             ? $"{_manualItems.Count} item(s) staged for this collection."
             : _previewResult is null
                 ? "Rule-based collection. Add at least one rule value to preview matching items."
                 : $"{_previewResult.Count} item(s) currently match these rules.";
-    private IReadOnlyList<AppNavItem> TabItems =>
-        Tabs.Select(tab => new AppNavItem { Key = tab.Id, Label = tab.Label }).ToList();
 
     private List<WorkViewModel> FilteredLibraryItems =>
         _libraryItems
@@ -176,9 +188,14 @@
             await EnsureManualCollectionContextAsync();
     }
 
-    private Task OnTabSelected(string tabId)
+    private Task OnTabChanged(int index)
     {
-        _activeTab = tabId;
+        if (index < 0 || index >= Tabs.Length)
+        {
+            return Task.CompletedTask;
+        }
+
+        _activeTab = Tabs[index].Id;
         return Task.CompletedTask;
     }
 
@@ -573,6 +590,22 @@
         "decade" => [new("eq", "is")],
         _ => [new("eq", "is"), new("neq", "is not"), new("contains", "contains")],
     };
+
+    private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)
+    {
+        var index = 0;
+        foreach (var key in keys)
+        {
+            if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+
+            index++;
+        }
+
+        return 0;
+    }
 
     private RenderFragment RenderDetailsTab() => @<div class="collection-editor-pane">
         <section class="collection-editor-section">

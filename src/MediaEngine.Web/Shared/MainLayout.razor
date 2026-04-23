@@ -8,9 +8,9 @@
 @inject IStringLocalizer<SharedStrings> L
 @implements IDisposable
 
-@using MediaEngine.Web.Resources
-@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Components.Listen
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Resources
 @using Microsoft.Extensions.Localization
 
 <MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
@@ -24,11 +24,165 @@
 }
 
 <MudLayout Class="app-bg">
-    <TopBar ReviewCount="@_reviewCount"
-            AvatarColor="@_avatarColor"
-            AvatarInitial="@_avatarInitial"
-            DisplayName="@_displayName"
-            EngineStatusSummary="@_engineStatusSummary" />
+    <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="layout-shell__appbar">
+        <MudIconButton Icon="@Icons.Material.Outlined.Menu"
+                       Color="Color.Inherit"
+                       Class="layout-shell__mobile-menu"
+                       aria-label="@(_isMobileDrawerOpen ? L["Nav_CloseNavigation"] : L["Nav_OpenNavigation"])"
+                       OnClick="@ToggleMobileDrawer" />
+
+        <MudLink Href="/" Underline="Underline.None" Class="layout-shell__logo-link" aria-label="Tuvima Library">
+            <AppLogo Class="layout-shell__logo" />
+        </MudLink>
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="layout-shell__desktop-nav">
+            @foreach (var link in _navLinks)
+            {
+                <MudNavLink Href="@link.Path"
+                            Match="@link.Match"
+                            Icon="@link.Icon"
+                            ActiveClass="layout-shell__nav-link--active"
+                            Class="layout-shell__nav-link">
+                    @L[link.LabelKey]
+                </MudNavLink>
+            }
+        </MudStack>
+
+        <MudSpacer />
+
+        <MudChip T="string"
+                 Size="Size.Small"
+                 Variant="Variant.Outlined"
+                 Color="@GetEngineStatusColor()"
+                 Icon="@GetEngineStatusIcon()"
+                 Class="layout-shell__status-chip">
+            @GetEngineStatusLabel()
+        </MudChip>
+
+        <MudTextField T="string"
+                      @bind-Value="_searchTerm"
+                      Placeholder="@L["Nav_SearchPlaceholder"]"
+                      aria-label="@L["Nav_SearchPlaceholder"]"
+                      Variant="Variant.Outlined"
+                      Margin="Margin.Dense"
+                      Immediate="true"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                      OnKeyDown="@HandleSearchKeyDown"
+                      Class="layout-shell__search" />
+
+        <MudIconButton Icon="@Icons.Material.Outlined.ArrowForward"
+                       Color="Color.Inherit"
+                       Class="layout-shell__search-submit"
+                       aria-label="@L["Nav_Search"]"
+                       OnClick="@HandleSearchSubmit" />
+
+        <MudMenu AnchorOrigin="Origin.BottomRight"
+                 TransformOrigin="Origin.TopRight"
+                 Class="layout-shell__profile-menu">
+            <ActivatorContent>
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Inherit"
+                           Class="layout-shell__profile-trigger">
+                    @if (_reviewCount > 0)
+                    {
+                        <MudBadge Overlap="true"
+                                  Dot="true"
+                                  Color="Color.Warning"
+                                  Class="layout-shell__profile-badge">
+                            <MudAvatar Size="Size.Medium"
+                                       Style="@($"background:{_avatarColor}; color:#081018;")"
+                                       Class="layout-shell__avatar">
+                                @_avatarInitial
+                            </MudAvatar>
+                        </MudBadge>
+                    }
+                    else
+                    {
+                        <MudAvatar Size="Size.Medium"
+                                   Style="@($"background:{_avatarColor}; color:#081018;")"
+                                   Class="layout-shell__avatar">
+                            @_avatarInitial
+                        </MudAvatar>
+                    }
+                    <MudText Typo="Typo.subtitle2" Class="layout-shell__profile-name">@_displayName</MudText>
+                    @if (_reviewCount > 0)
+                    {
+                        <MudChip T="string"
+                                 Size="Size.Small"
+                                 Variant="Variant.Filled"
+                                 Color="Color.Warning"
+                                 Class="layout-shell__profile-review-count">
+                            @_reviewCount
+                        </MudChip>
+                    }
+                </MudButton>
+            </ActivatorContent>
+
+            <ChildContent>
+                <MudText Typo="Typo.overline" Class="px-4 pt-3">@L["TopBar_SignedInAs"]</MudText>
+                <MudText Typo="Typo.subtitle2" Class="px-4 pb-3">@_displayName</MudText>
+                <MudDivider />
+                <MudMenuItem Href="/settings/review" Icon="@Icons.Material.Outlined.RateReview">
+                    @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
+                </MudMenuItem>
+                <MudMenuItem Href="/settings" Icon="@Icons.Material.Outlined.Settings">
+                    @L["Nav_Settings"]
+                </MudMenuItem>
+                <MudDivider />
+                <MudText Typo="Typo.caption" Class="px-4 py-3 layout-shell__menu-status">@_engineStatusSummary</MudText>
+            </ChildContent>
+        </MudMenu>
+    </MudAppBar>
+
+    <MudDrawer @bind-Open="_isMobileDrawerOpen"
+               Anchor="Anchor.Start"
+               Variant="DrawerVariant.Temporary"
+               Overlay="true"
+               Elevation="0"
+               Width="300px"
+               Class="layout-shell__drawer">
+        <MudDrawerHeader Class="layout-shell__drawer-header">
+            <MudLink Href="/" Underline="Underline.None" Class="layout-shell__logo-link" aria-label="Tuvima Library">
+                <AppLogo Class="layout-shell__logo" />
+            </MudLink>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Outlined.Close"
+                           aria-label="@L["Nav_CloseNavigation"]"
+                           OnClick="@CloseMobileDrawer" />
+        </MudDrawerHeader>
+
+        <MudNavMenu Class="layout-shell__drawer-nav">
+            @foreach (var link in _navLinks)
+            {
+                <MudNavLink Href="@link.Path"
+                            Match="@link.Match"
+                            Icon="@link.Icon"
+                            ActiveClass="layout-shell__drawer-link--active"
+                            Class="layout-shell__drawer-link">
+                    @L[link.LabelKey]
+                </MudNavLink>
+            }
+
+            <MudDivider Class="my-3" />
+
+            <MudNavLink Href="/settings/review"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Outlined.RateReview"
+                        ActiveClass="layout-shell__drawer-link--active"
+                        Class="layout-shell__drawer-link">
+                @(_reviewCount > 0 ? L["Nav_VaultPending", _reviewCount] : L["Nav_ReviewQueue"])
+            </MudNavLink>
+
+            <MudNavLink Href="/settings"
+                        Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Outlined.Settings"
+                        ActiveClass="layout-shell__drawer-link--active"
+                        Class="layout-shell__drawer-link">
+                @L["Nav_Settings"]
+            </MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
 
     <MudMainContent Class="main-content-with-topbar">
         <MudContainer MaxWidth="MaxWidth.False" Class="py-6 px-0">
@@ -41,16 +195,31 @@
 
 @code {
     private CommandPalette? _palette;
-
     private string _avatarColor = "#C9922E";
     private string _avatarInitial = "?";
+    private string _currentPath = "/";
     private string _displayName = "User";
-    private int _reviewCount;
     private string _engineStatusSummary = string.Empty;
+    private string _searchTerm = string.Empty;
+    private bool _isMobileDrawerOpen;
+    private int _reviewCount;
+
+    private readonly record struct ShellNavLink(string Path, string Icon, string LabelKey, NavLinkMatch Match);
+
+    private static readonly ShellNavLink[] _navLinks =
+    [
+        new("/read", Icons.Material.Outlined.AutoStories, "Nav_Read", NavLinkMatch.Prefix),
+        new("/watch", Icons.Material.Outlined.LiveTv, "Nav_Watch", NavLinkMatch.Prefix),
+        new("/listen", Icons.Material.Outlined.Headphones, "Nav_Listen", NavLinkMatch.Prefix),
+    ];
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     protected override void OnInitialized()
     {
         DeviceContext.OnChanged += OnDeviceContextChanged;
+        Nav.LocationChanged += OnLocationChanged;
+        SyncLocationState();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -87,6 +256,57 @@
     private void OnDeviceContextChanged()
     {
         InvokeAsync(StateHasChanged);
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        _isMobileDrawerOpen = false;
+        SyncLocationState();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ToggleMobileDrawer() => _isMobileDrawerOpen = !_isMobileDrawerOpen;
+
+    private void CloseMobileDrawer() => _isMobileDrawerOpen = false;
+
+    private Task HandleSearchKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Enter", StringComparison.OrdinalIgnoreCase))
+        {
+            HandleSearchSubmit();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void HandleSearchSubmit()
+    {
+        var trimmedSearch = _searchTerm.Trim();
+        var url = string.IsNullOrWhiteSpace(trimmedSearch)
+            ? "/search"
+            : $"/search?q={Uri.EscapeDataString(trimmedSearch)}";
+
+        _isMobileDrawerOpen = false;
+        Nav.NavigateTo(url);
+    }
+
+    private void SyncLocationState()
+    {
+        var relativePath = Nav.ToBaseRelativePath(Nav.Uri);
+        var trimmedPath = relativePath.Split('?', '#')[0].Trim('/');
+        _currentPath = string.IsNullOrWhiteSpace(trimmedPath)
+            ? "/"
+            : $"/{trimmedPath}";
+
+        if (!_currentPath.Equals("/search", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        _searchTerm = query.TryGetValue("q", out var searchTerm)
+            ? searchTerm.ToString()
+            : string.Empty;
     }
 
     private async Task SyncCultureAsync()
@@ -173,11 +393,10 @@
     public void Dispose()
     {
         DeviceContext.OnChanged -= OnDeviceContextChanged;
+        Nav.LocationChanged -= OnLocationChanged;
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
         Orchestrator.OnProfileChanged -= OnProfileChanged;
     }
-
-    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private string BuildEngineStatusSummary(SystemStatusViewModel? status)
     {
@@ -188,8 +407,23 @@
             ? L["TopBar_LiveUpdatesConnected"]
             : L["TopBar_LiveUpdatesOffline"];
 
-        return $"{engineLabel} · {liveUpdatesLabel}";
+        return $"{engineLabel} - {liveUpdatesLabel}";
     }
+
+    private Color GetEngineStatusColor() =>
+        _engineStatusSummary.Contains(L["TopBar_EngineOnline"].Value, StringComparison.OrdinalIgnoreCase)
+            ? Color.Success
+            : Color.Warning;
+
+    private string GetEngineStatusIcon() =>
+        _engineStatusSummary.Contains(L["TopBar_EngineOnline"].Value, StringComparison.OrdinalIgnoreCase)
+            ? Icons.Material.Filled.CheckCircle
+            : Icons.Material.Filled.ErrorOutline;
+
+    private string GetEngineStatusLabel() =>
+        _engineStatusSummary.Contains(L["TopBar_EngineOnline"].Value, StringComparison.OrdinalIgnoreCase)
+            ? L["TopBar_EngineOnline"]
+            : L["TopBar_EngineUnavailable"];
 
     private static string GetAvatarInitial(string displayName)
     {

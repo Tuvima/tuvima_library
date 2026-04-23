@@ -4,13 +4,24 @@
     <DialogContent>
         <div class="smb-shell">
             <div class="smb-title">Are you sure you want to edit information for multiple items?</div>
-            <label class="smb-check">
-                <input type="checkbox" />
-                <span>Don't ask again</span>
-            </label>
+            <MudCheckBox T="bool"
+                         @bind-Value="_dontAskAgain"
+                         Label="Don't ask again"
+                         Color="Color.Primary"
+                         Class="smb-check" />
             <div class="smb-actions">
-                <button class="smb-btn smb-btn--primary" @onclick="Confirm">Edit Items</button>
-                <button class="smb-btn smb-btn--secondary" @onclick="Cancel">Cancel</button>
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Class="smb-btn smb-btn--primary"
+                           OnClick="Confirm">
+                    Edit Items
+                </MudButton>
+                <MudButton Variant="Variant.Text"
+                           Color="Color.Inherit"
+                           Class="smb-btn smb-btn--secondary"
+                           OnClick="Cancel">
+                    Cancel
+                </MudButton>
             </div>
         </div>
     </DialogContent>
@@ -18,6 +29,7 @@
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    private bool _dontAskAgain;
 
     private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
     private void Cancel() => MudDialog.Cancel();
@@ -45,18 +57,9 @@
         max-width: 460px;
     }
 
-    .smb-check {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
+    ::deep .smb-check .mud-checkbox-label {
         color: rgba(255,255,255,0.86);
         font-size: 0.95rem;
-    }
-
-    .smb-check input {
-        width: 18px;
-        height: 18px;
-        accent-color: #ff445d;
     }
 
     .smb-actions {
@@ -67,14 +70,13 @@
     }
 
     .smb-btn {
-        border: none;
         border-radius: 8px;
         height: 40px;
         min-width: 0;
         flex: 1;
         font-size: 0.95rem;
         font-weight: 700;
-        cursor: pointer;
+        text-transform: none;
         transition: transform 0.12s ease, opacity 0.12s ease;
     }
 
