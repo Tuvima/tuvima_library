@@ -397,6 +397,23 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    // ── GET /api/v1/display/home ─────────────────────────────────────────────
+
+    public async Task<DisplayPageViewModel?> GetDisplayHomeAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            var page = await _http.GetFromJsonAsync<DisplayPageViewModel>("/api/v1/display/home", ct);
+            return NormalizeDisplayPage(page);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /api/v1/display/home failed");
+            return null;
+        }
+    }
+
     public async Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default)
     {
         try
@@ -3244,6 +3261,34 @@ public sealed class EngineApiClient : IEngineApiClient
             }
         }
     }
+
+    private DisplayPageViewModel? NormalizeDisplayPage(DisplayPageViewModel? page)
+    {
+        if (page is null)
+            return null;
+
+        return page with
+        {
+            Hero = page.Hero is null ? null : page.Hero with { Artwork = NormalizeDisplayArtwork(page.Hero.Artwork) },
+            Shelves = page.Shelves
+                .Select(shelf => shelf with { Items = shelf.Items.Select(NormalizeDisplayCard).ToList() })
+                .ToList(),
+            Catalog = page.Catalog.Select(NormalizeDisplayCard).ToList(),
+        };
+    }
+
+    private DisplayCardViewModel NormalizeDisplayCard(DisplayCardViewModel card) =>
+        card with { Artwork = NormalizeDisplayArtwork(card.Artwork) };
+
+    private DisplayArtworkViewModel NormalizeDisplayArtwork(DisplayArtworkViewModel artwork) =>
+        artwork with
+        {
+            CoverUrl = artwork.CoverUrl is null ? null : AbsoluteUrl(artwork.CoverUrl),
+            SquareUrl = artwork.SquareUrl is null ? null : AbsoluteUrl(artwork.SquareUrl),
+            BannerUrl = artwork.BannerUrl is null ? null : AbsoluteUrl(artwork.BannerUrl),
+            BackgroundUrl = artwork.BackgroundUrl is null ? null : AbsoluteUrl(artwork.BackgroundUrl),
+            LogoUrl = artwork.LogoUrl is null ? null : AbsoluteUrl(artwork.LogoUrl),
+        };
 
     /// <summary>
     /// Converts relative /stream/… paths stored in canonical values to absolute

@@ -20,6 +20,15 @@ public sealed class DiscoveryComposerService
 
     public async Task<DiscoveryPageViewModel> BuildHomeAsync(CancellationToken ct = default)
     {
+        if (_api is not null)
+        {
+            var displayPage = await _api.GetDisplayHomeAsync(ct);
+            if (displayPage is not null)
+            {
+                return FromDisplayPage(displayPage);
+            }
+        }
+
         var worksTask = _api.GetLibraryWorksAsync(ct);
         var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
         var groupsTask = _api.GetContentGroupsAsync(ct);
@@ -45,6 +54,122 @@ public sealed class DiscoveryComposerService
             ct);
 
         return ComposeHome(works, journey, groups, previewImages, musicAlbumGroups, musicArtistGroups, tvShowGroups, tasteProfile);
+    }
+
+    private static DiscoveryPageViewModel FromDisplayPage(DisplayPageViewModel page)
+    {
+        var shelves = page.Shelves
+            .Select(shelf => new DiscoveryShelfViewModel
+            {
+                Title = shelf.Title,
+                Subtitle = shelf.Subtitle,
+                Items = shelf.Items.Select(FromDisplayCard).ToList(),
+                SeeAllRoute = shelf.SeeAllRoute,
+            })
+            .ToList();
+
+        return new DiscoveryPageViewModel
+        {
+            Key = page.Key,
+            AccentColor = "#1CE783",
+            Hero = page.Hero is null ? null : new DiscoveryHeroViewModel
+            {
+                Eyebrow = page.Hero.Eyebrow ?? "From your library",
+                Title = page.Hero.Title,
+                Subtitle = page.Hero.Subtitle,
+                BackgroundImageUrl = page.Hero.Artwork.BackgroundUrl ?? page.Hero.Artwork.BannerUrl,
+                HeroBackgroundImageUrl = page.Hero.Artwork.BackgroundUrl ?? page.Hero.Artwork.BannerUrl,
+                BannerImageUrl = page.Hero.Artwork.BannerUrl,
+                PreviewImageUrl = page.Hero.Artwork.CoverUrl ?? page.Hero.Artwork.SquareUrl,
+                LogoUrl = page.Hero.Artwork.LogoUrl,
+                AccentColor = page.Hero.Artwork.AccentColor ?? "#1CE783",
+                ProgressPct = page.Hero.Progress?.Percent,
+                PrimaryActionLabel = page.Hero.Actions.FirstOrDefault()?.Label ?? "Open",
+                PrimaryNavigationUrl = page.Hero.Actions.FirstOrDefault()?.WebUrl ?? "/",
+                SecondaryActionLabel = "Details",
+                SecondaryNavigationUrl = page.Hero.Actions.Skip(1).FirstOrDefault()?.WebUrl,
+            },
+            Shelves = shelves,
+            Catalog = page.Catalog.Select(FromDisplayCard).ToList(),
+            EmptyTitle = "Your home screen is waiting for its first story",
+            EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own.",
+        };
+    }
+
+    private static DiscoveryCardViewModel FromDisplayCard(DisplayCardViewModel card)
+    {
+        var shape = card.PreferredShape switch
+        {
+            "landscape" => DiscoveryCardShape.Landscape,
+            "square" => DiscoveryCardShape.Square,
+            _ => DiscoveryCardShape.Portrait,
+        };
+
+        var presentation = card.Presentation switch
+        {
+            "tvSeries" => DiscoveryCardPresentation.TvSeries,
+            "movieSeries" => DiscoveryCardPresentation.MovieSeries,
+            "bookSeries" => DiscoveryCardPresentation.BookSeries,
+            "comicSeries" => DiscoveryCardPresentation.ComicSeries,
+            "audiobookSeries" => DiscoveryCardPresentation.AudiobookSeries,
+            "album" => DiscoveryCardPresentation.Album,
+            "artist" => DiscoveryCardPresentation.Artist,
+            _ => DiscoveryCardPresentation.Default,
+        };
+
+        var surface = DiscoveryArtworkResolver.Resolve(
+            GetBucket(card.MediaType),
+            presentation,
+            [
+                new ArtworkVariant(ArtworkRole.Background, card.Artwork.BackgroundUrl, card.Artwork.BackgroundWidthPx, card.Artwork.BackgroundHeightPx),
+                new ArtworkVariant(ArtworkRole.Banner, card.Artwork.BannerUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
+                new ArtworkVariant(ArtworkRole.Square, card.Artwork.SquareUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
+                new ArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
+            ]);
+
+        return new DiscoveryCardViewModel
+        {
+            Id = card.Id,
+            WorkId = card.WorkId,
+            CollectionId = card.CollectionId,
+            Title = card.Title,
+            Subtitle = card.Subtitle,
+            CoverUrl = card.Artwork.CoverUrl,
+            BackgroundUrl = card.Artwork.BackgroundUrl,
+            BannerUrl = card.Artwork.BannerUrl,
+            LogoUrl = card.Artwork.LogoUrl,
+            MetaText = string.Join(" / ", card.Facts),
+            HoverFacts = card.Facts,
+            MediaKind = card.MediaType,
+            AccentColor = card.Artwork.AccentColor ?? AccentForBucket(GetBucket(card.MediaType)),
+            Shape = shape,
+            Presentation = presentation,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileTextMode = string.Equals(card.TileTextMode, "coverOnly", StringComparison.OrdinalIgnoreCase)
+                ? DiscoveryTileTextMode.CoverOnly
+                : DiscoveryTileTextMode.Caption,
+            PreviewPlacement = string.Equals(card.PreviewPlacement, "bottom", StringComparison.OrdinalIgnoreCase)
+                ? DiscoveryPreviewPlacement.Bottom
+                : DiscoveryPreviewPlacement.Smart,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
+            HeroBackgroundImageUrl = card.Artwork.BackgroundUrl,
+            PreviewImageUrl = card.Artwork.CoverUrl ?? card.Artwork.SquareUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
+            NavigationUrl = card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl ?? "/",
+            DetailsNavigationUrl = card.Actions.Skip(1).FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl
+                ?? card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl
+                ?? "/",
+            PrimaryNavigationUrl = card.Progress?.ResumeAction?.WebUrl
+                ?? card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl,
+            PrimaryActionLabel = card.Actions.FirstOrDefault()?.Label ?? "Open",
+            ProgressPct = card.Progress?.Percent,
+            Creator = card.Subtitle,
+            SortTimestamp = card.SortTimestamp,
+            IsCollection = card.Flags.IsCollection,
+        };
     }
 
     public async Task<DiscoveryPageViewModel> BuildReadAsync(CancellationToken ct = default)

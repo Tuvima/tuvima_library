@@ -39,6 +39,18 @@ public enum DiscoveryImageFitMode
     Contain,
 }
 
+public enum DiscoveryTileTextMode
+{
+    Caption,
+    CoverOnly,
+}
+
+public enum DiscoveryPreviewPlacement
+{
+    Smart,
+    Bottom,
+}
+
 public sealed class DiscoveryHeroViewModel
 {
     public string Eyebrow { get; init; } = string.Empty;
@@ -83,6 +95,7 @@ public sealed class DiscoveryCardViewModel
     public string? StatusText { get; init; }
     public string? MetaText { get; init; }
     public IReadOnlyList<string> ContextLines { get; init; } = [];
+    public IReadOnlyList<string> HoverFacts { get; init; } = [];
     public string? Tldr { get; init; }
     public IReadOnlyList<string> VibeTags { get; init; } = [];
     public string MediaKind { get; init; } = string.Empty;
@@ -91,6 +104,8 @@ public sealed class DiscoveryCardViewModel
     public DiscoveryCardPresentation Presentation { get; init; } = DiscoveryCardPresentation.Default;
     public DiscoverySurfaceKind SurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;
     public DiscoveryHoverLayout HoverLayout { get; init; } = DiscoveryHoverLayout.ArtOnlyPopover;
+    public DiscoveryTileTextMode TileTextMode { get; init; } = DiscoveryTileTextMode.Caption;
+    public DiscoveryPreviewPlacement PreviewPlacement { get; init; } = DiscoveryPreviewPlacement.Smart;
     public string? TileImageUrl { get; init; }
     public string? HoverImageUrl { get; init; }
     public string? HeroBackgroundImageUrl { get; init; }

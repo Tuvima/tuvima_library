@@ -271,6 +271,7 @@ builder.Services.AddSingleton<IProcessorRegistry>(sp =>
 });
 
 builder.Services.AddSingleton<IByteStreamer, ByteStreamer>();
+builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayComposerService>();
 
 // ── Intelligence ──────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IScoringStrategy, ExactMatchStrategy>();
@@ -991,6 +992,7 @@ app.MapPersonEndpoints();
 app.MapWorkEndpoints();
 app.MapProgressEndpoints();
 app.MapActivityEndpoints();
+app.MapDisplayEndpoints();
 app.MapUniverseGraphEndpoints();
 app.MapCharacterEndpoints();
 app.MapCanonEndpoints();

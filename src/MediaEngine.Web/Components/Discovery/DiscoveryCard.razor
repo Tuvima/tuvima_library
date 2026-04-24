@@ -4,7 +4,7 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<div class="discovery-card @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @(_expanded ? "is-expanded" : "")"
+<div class="discovery-card @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass @(_expanded ? "is-expanded" : "")"
      @ref="_cardRef"
      style="--discovery-accent: @Item.AccentColor;"
      tabindex="0"
@@ -63,7 +63,7 @@
             </button>
         </div>
 
-        <div class="discovery-card-hover-panel @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass"
+        <div class="discovery-card-hover-panel @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass @HoverPlacementClass"
              style="@HoverPanelStyle">
             <div class="discovery-card-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
                  @onclick="OpenDetails"
@@ -118,18 +118,28 @@
 
                 <div class="discovery-card-hover-heading">
                     <div class="discovery-card-hover-title">@Item.Title</div>
-                    @if (!string.IsNullOrWhiteSpace(DisplaySubtitle))
+                    @if (!UseCompactHover && !string.IsNullOrWhiteSpace(DisplaySubtitle))
                     {
                         <div class="discovery-card-hover-subtitle">@DisplaySubtitle</div>
                     }
                 </div>
 
-                @if (!string.IsNullOrWhiteSpace(Item.StatusText))
+                @if (UseCompactHover)
+                {
+                    <div class="discovery-card-hover-facts">
+                        @foreach (var fact in CompactHoverFacts)
+                        {
+                            <span class="discovery-card-hover-fact">@fact</span>
+                        }
+                    </div>
+                }
+
+                @if (!UseCompactHover && !string.IsNullOrWhiteSpace(Item.StatusText))
                 {
                     <div class="discovery-card-hover-status">@Item.StatusText</div>
                 }
 
-                @if (ShowMetaRow)
+                @if (!UseCompactHover && ShowMetaRow)
                 {
                     <div class="discovery-card-hover-meta-row">
                         @if (!string.IsNullOrWhiteSpace(MediaKindIcon))
@@ -147,7 +157,7 @@
                     </div>
                 }
 
-                @if (ShowHoverContextLines)
+                @if (!UseCompactHover && ShowHoverContextLines)
                 {
                     <div class="discovery-card-hover-context-list">
                         @foreach (var line in Item.ContextLines)
@@ -157,7 +167,7 @@
                     </div>
                 }
 
-                @if (DisplayChips.Count > 0)
+                @if (!UseCompactHover && DisplayChips.Count > 0)
                 {
                     <div class="discovery-card-hover-chips">
                         @foreach (var chip in DisplayChips)
@@ -167,7 +177,7 @@
                     </div>
                 }
 
-                @if (ShowHoverDescription)
+                @if (!UseCompactHover && ShowHoverDescription)
                 {
                     <p class="discovery-card-hover-description">@DisplaySummary</p>
                 }
@@ -175,13 +185,16 @@
         </div>
     </div>
 
-    <div class="discovery-card-caption">
-        <div class="discovery-card-title">@Item.Title</div>
-        @if (!string.IsNullOrWhiteSpace(Item.Subtitle))
-        {
-            <div class="discovery-card-subtitle">@Item.Subtitle</div>
-        }
-    </div>
+    @if (ShowCaption)
+    {
+        <div class="discovery-card-caption">
+            <div class="discovery-card-title">@Item.Title</div>
+            @if (!string.IsNullOrWhiteSpace(Item.Subtitle))
+            {
+                <div class="discovery-card-subtitle">@Item.Subtitle</div>
+            }
+        </div>
+    }
 </div>
 
 @code {
@@ -213,6 +226,8 @@
     };
 
     private string HoverLayoutClass => Item.HoverLayout == DiscoveryHoverLayout.BannerPopover ? "is-banner-popover" : "is-art-popover";
+
+    private string HoverPlacementClass => Item.PreviewPlacement == DiscoveryPreviewPlacement.Bottom ? "is-placement-bottom" : "is-placement-smart";
 
     private string SurfaceClass => Item.SurfaceKind switch
     {
@@ -266,6 +281,16 @@
     private bool ShowHoverContextLines => Item.HoverLayout == DiscoveryHoverLayout.BannerPopover && Item.ContextLines.Count > 0;
 
     private bool ShowHoverDescription => Item.HoverLayout == DiscoveryHoverLayout.BannerPopover && !string.IsNullOrWhiteSpace(DisplaySummary);
+
+    private bool ShowCaption => Item.TileTextMode != DiscoveryTileTextMode.CoverOnly;
+
+    private IReadOnlyList<string> CompactHoverFacts => Item.HoverFacts
+        .Where(fact => !string.IsNullOrWhiteSpace(fact))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .Take(4)
+        .ToList();
+
+    private bool UseCompactHover => CompactHoverFacts.Count > 0;
 
     private string HoverPanelWidth => Item.Shape switch
     {
@@ -519,13 +544,16 @@
     .discovery-card-hover-title, .discovery-card-title { font-family:'Montserrat',sans-serif; font-weight:800; line-height:1.25; color:rgba(248,250,252,.98); }
     .discovery-card-hover-title { font-size:.98rem; }
     .discovery-card-title { font-size:.94rem; }
-    .discovery-card-hover-subtitle, .discovery-card-subtitle, .discovery-card-hover-context, .discovery-card-hover-description, .discovery-card-hover-status, .discovery-card-hover-meta, .discovery-card-chip { font-family:'Montserrat',sans-serif; }
+    .discovery-card-hover-subtitle, .discovery-card-subtitle, .discovery-card-hover-context, .discovery-card-hover-description, .discovery-card-hover-status, .discovery-card-hover-meta, .discovery-card-chip, .discovery-card-hover-fact { font-family:'Montserrat',sans-serif; }
     .discovery-card-hover-subtitle { font-size:.8rem; font-weight:600; line-height:1.45; color:rgba(203,213,225,.78); }
     .discovery-card-subtitle { font-size:.82rem; line-height:1.45; color:rgba(148,163,184,.84); }
     .discovery-card-hover-status { font-size:.78rem; font-weight:700; color:color-mix(in srgb,var(--discovery-accent) 78%,white 12%); }
     .discovery-card-meta-icon { width:30px; height:30px; border-radius:var(--app-radius-md); display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); color:rgba(248,250,252,.9); }
     .discovery-card-hover-meta { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:rgba(226,232,240,.78); flex:1; }
     .discovery-card-hover-context { font-size:.78rem; line-height:1.45; color:rgba(226,232,240,.76); }
+    .discovery-card-hover-facts { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
+    .discovery-card-hover-fact { font-size:.76rem; line-height:1.25; font-weight:700; color:rgba(226,232,240,.82); }
+    .discovery-card-hover-fact:not(:last-child)::after { content:""; display:inline-block; width:4px; height:4px; margin-left:7px; vertical-align:middle; border-radius:50%; background:rgba(226,232,240,.36); }
     .discovery-card-chip { padding:5px 10px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-size:.72rem; color:rgba(248,250,252,.84); }
     .discovery-card-hover-description { margin:0; font-size:.76rem; line-height:1.42; color:rgba(226,232,240,.72); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
     .discovery-card-caption { padding:0 2px; transition:opacity .18s ease,transform .18s ease; }
