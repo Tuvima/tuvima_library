@@ -112,6 +112,7 @@ public sealed class EngineApiClientLibraryWorksTests
                 "display_name": "Funny AF with Kevin Hart",
                 "primary_media_type": "TV",
                 "work_count": 6,
+                "distinct_title_count": 4,
                 "cover_url": "/stream/cover",
                 "background_url": "/stream/background",
                 "banner_url": "/stream/banner",
@@ -163,6 +164,7 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("Netflix", group.Network);
         Assert.Equal("2026", group.Year);
         Assert.Equal(2, group.SeasonCount);
+        Assert.Equal(4, group.DistinctTitleCount);
     }
 
     [Fact]

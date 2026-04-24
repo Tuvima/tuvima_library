@@ -1287,7 +1287,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Franchises and sequels presented as stacked movie cards",
             seeAllRoute: "/watch/movies",
             items: contentGroups
-                .Where(ShouldDisplayCollectionGroup)
+                .Where(ShouldDisplaySeriesGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Movie)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1301,7 +1301,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Reading sequences collected from the books you own",
             seeAllRoute: "/read/books",
             items: contentGroups
-                .Where(ShouldDisplayCollectionGroup)
+                .Where(ShouldDisplaySeriesGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Book)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1315,7 +1315,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Issue runs and comic arcs grouped for quick browsing",
             seeAllRoute: "/read/comics",
             items: contentGroups
-                .Where(ShouldDisplayCollectionGroup)
+                .Where(ShouldDisplaySeriesGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Comic)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1350,7 +1350,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Series-aware audiobook browsing without recommendations",
             seeAllRoute: "/listen/audiobooks",
             items: contentGroups
-                .Where(ShouldDisplayCollectionGroup)
+                .Where(ShouldDisplaySeriesGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Audiobook)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1403,6 +1403,16 @@ public sealed class DiscoveryComposerService
         group.WorkCount > 1
         || group.SeasonCount is > 1
         || group.AlbumCount is > 1;
+
+    private static bool ShouldDisplaySeriesGroup(ContentGroupViewModel group)
+    {
+        if (group.SeasonCount is > 1 || group.AlbumCount is > 1)
+        {
+            return true;
+        }
+
+        return (group.DistinctTitleCount ?? group.WorkCount) > 1;
+    }
 
     private static DiscoveryCardShape HomeShapeForBucket(
         DiscoveryBucket bucket,

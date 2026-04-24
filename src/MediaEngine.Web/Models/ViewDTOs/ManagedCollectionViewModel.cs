@@ -24,6 +24,9 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("work_count")]
     public int WorkCount { get; set; }
 
+    [JsonPropertyName("distinct_title_count")]
+    public int? DistinctTitleCount { get; set; }
+
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; set; }
 

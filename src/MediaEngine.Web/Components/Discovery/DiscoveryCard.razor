@@ -10,7 +10,7 @@
      tabindex="0"
      @onkeydown="HandleKeyDown">
     <div class="discovery-card-frame">
-        <div class="discovery-card-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenCard">
+        <div class="discovery-card-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenDetails">
             @if (ShowPreviewStack)
             {
                 <div class="discovery-card-stack" aria-hidden="true">
@@ -65,7 +65,9 @@
 
         <div class="discovery-card-hover-panel @ShapeClass @PresentationClass @HoverLayoutClass @SurfaceClass"
              style="@HoverPanelStyle">
-            <div class="discovery-card-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)">
+            <div class="discovery-card-hover-art @(string.IsNullOrWhiteSpace(ActiveHoverImageUrl) ? "is-empty" : null)"
+                 @onclick="OpenDetails"
+                 @onclick:stopPropagation="true">
                 @if (!string.IsNullOrWhiteSpace(ActiveHoverImageUrl))
                 {
                     <img src="@ActiveHoverImageUrl"
@@ -112,14 +114,6 @@
                         }
                     </div>
 
-                    <button type="button"
-                            class="discovery-card-icon-button"
-                            aria-label="Details"
-                            title="Details"
-                            @onclick="OpenDetails"
-                            @onclick:stopPropagation="true">
-                        <MudIcon Icon="@Icons.Material.Outlined.Info" />
-                    </button>
                 </div>
 
                 <div class="discovery-card-hover-heading">
@@ -277,7 +271,7 @@
     {
         DiscoveryCardShape.Landscape => "clamp(360px, 28vw, 440px)",
         DiscoveryCardShape.Square => "clamp(248px, 18vw, 292px)",
-        _ => "clamp(220px, 16vw, 260px)",
+        _ => "clamp(430px, 40vw, 560px)",
     };
 
     private string HoverPanelStyle => $"--discovery-accent: {Item.AccentColor}; --discovery-hover-panel-width: {HoverPanelWidth};";
@@ -376,8 +370,7 @@
 
     private void OpenCard()
     {
-        _expanded = false;
-        Nav.NavigateTo(Item.NavigationUrl);
+        OpenDetails();
     }
 
     private void OpenDetails()
@@ -409,7 +402,7 @@
     {
         if (args.Key is "Enter" or " ")
         {
-            OpenCard();
+            OpenDetails();
         }
         else if (args.Key == "Escape")
         {
@@ -469,7 +462,7 @@
 
 <style>
     .discovery-card { --discovery-hover-lift:clamp(8px,1.2vw,12px); --discovery-card-media-height:clamp(192px,18.4vw,232px); --discovery-card-media-aspect:2 / 3; --discovery-hover-panel-width:clamp(320px,24vw,380px); display:flex; flex:0 0 auto; flex-direction:column; gap:12px; color:#f8fafc; outline:none; position:relative; overflow:visible; scroll-snap-align:start; z-index:0; transition:z-index .18s ease; }
-    .discovery-card.is-portrait { width:calc(var(--discovery-card-media-height) * 2 / 3); --discovery-card-media-aspect:2 / 3; --discovery-hover-panel-width:clamp(220px,16vw,260px); --discovery-hover-clearance:clamp(286px,32vw,420px); }
+    .discovery-card.is-portrait { width:calc(var(--discovery-card-media-height) * 2 / 3); --discovery-card-media-aspect:2 / 3; --discovery-hover-panel-width:clamp(430px,40vw,560px); --discovery-hover-clearance:clamp(286px,32vw,420px); }
     .discovery-card.is-landscape { width:calc(var(--discovery-card-media-height) * 16 / 9); --discovery-card-media-aspect:16 / 9; --discovery-hover-panel-width:clamp(360px,28vw,440px); }
     .discovery-card.is-square { width:var(--discovery-card-media-height); --discovery-card-media-aspect:1 / 1; --discovery-hover-panel-width:clamp(248px,18vw,292px); --discovery-hover-clearance:clamp(254px,28vw,356px); }
     .discovery-card-frame { position:relative; display:flex; flex-direction:column; overflow:visible; width:100%; }
@@ -480,7 +473,7 @@
     .discovery-card:hover .discovery-card-media.has-artwork-surface, .discovery-card:focus-within .discovery-card-media.has-artwork-surface, .discovery-card.is-expanded .discovery-card-media.has-artwork-surface, .discovery-card.is-hover-active .discovery-card-media.has-artwork-surface { border-color:transparent; }
     .discovery-card-image { width:100%; height:100%; display:block; transition:transform .45s ease; }
     .discovery-card-image.is-fill { object-fit:cover; }
-    .discovery-card-image.is-contained { object-fit:contain; padding:14px; background:radial-gradient(circle at top left,color-mix(in srgb,var(--discovery-accent) 16%,transparent) 0%,transparent 54%),linear-gradient(180deg,rgba(12,16,26,.92) 0%,rgba(5,8,14,.96) 100%); }
+    .discovery-card-image.is-contained { object-fit:contain; padding:0; background:transparent; }
     .discovery-card:hover .discovery-card-image, .discovery-card:focus-within .discovery-card-image, .discovery-card.is-expanded .discovery-card-image, .discovery-card.is-hover-active .discovery-card-image { transform:scale(1.04); }
     .discovery-card-stack { position:absolute; inset:0; }
     .discovery-card-stack-image { position:absolute; aspect-ratio:2 / 3; border-radius:var(--app-radius-md); object-fit:cover; box-shadow:0 20px 36px rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.14); opacity:.98; }
@@ -499,18 +492,22 @@
     .discovery-card-progress-fill { height:100%; border-radius:inherit; background:linear-gradient(90deg,var(--discovery-accent) 0%,rgba(255,255,255,.92) 100%); }
     .discovery-card-touch-toggle { position:absolute; top:12px; right:12px; width:38px; height:38px; border:none; border-radius:var(--app-radius-md); background:rgba(2,6,16,.62); color:rgba(248,250,252,.94); display:none; align-items:center; justify-content:center; z-index:3; }
     .discovery-card-hover-panel { position:fixed; left:-9999px; top:-9999px; width:min(84vw,var(--discovery-hover-panel-width, 360px)); max-width:440px; max-height:min(70vh,560px); opacity:0; visibility:hidden; pointer-events:none; z-index:4001; transform:translateY(12px) scale(.982); transform-origin:left top; border:1px solid rgba(255,255,255,.08); border-radius:var(--app-radius-md); background:linear-gradient(180deg,rgba(17,20,29,.96) 0%,rgba(7,10,18,.995) 100%); box-shadow:0 24px 48px rgba(0,0,0,.42); overflow:hidden; backdrop-filter:blur(24px) saturate(142%); transition:opacity .18s ease,transform .18s ease,visibility 0s linear .18s; }
+    .discovery-card-hover-panel.is-art-popover.is-portrait { display:grid; grid-template-columns:minmax(150px,38%) minmax(220px,1fr); align-items:stretch; max-width:560px; }
     .discovery-card-hover-panel.is-visible { opacity:1; visibility:visible; pointer-events:auto; transform:translateY(0) scale(1); transition-delay:0s; }
     .discovery-card-hover-art { position:relative; overflow:hidden; background:radial-gradient(circle at top right,color-mix(in srgb,var(--discovery-accent) 18%,transparent) 0%,transparent 40%),linear-gradient(180deg,rgba(10,14,24,.94) 0%,rgba(5,8,14,.98) 100%); }
+    .discovery-card-hover-panel.is-art-popover .discovery-card-hover-art { cursor:pointer; }
     .discovery-card-hover-panel.is-banner-popover .discovery-card-hover-art { aspect-ratio:16 / 9; min-height:150px; max-height:min(38vh,248px); }
     .discovery-card-hover-panel.is-banner-popover .discovery-card-hover-art::after { content:""; position:absolute; inset:auto 0 0 0; height:64%; background:linear-gradient(180deg,rgba(5,8,14,0) 0%,rgba(5,8,14,.92) 100%); }
     .discovery-card-hover-panel.is-art-popover .discovery-card-hover-art { padding:0; }
     .discovery-card-hover-panel.is-art-popover.is-cover-portrait .discovery-card-hover-art { aspect-ratio:2 / 3; max-height:min(42vh,390px); }
+    .discovery-card-hover-panel.is-art-popover.is-portrait .discovery-card-hover-art { width:100%; max-height:min(62vh,420px); }
     .discovery-card-hover-panel.is-art-popover.is-cover-square .discovery-card-hover-art, .discovery-card-hover-panel.is-art-popover.is-artist-photo-square .discovery-card-hover-art { aspect-ratio:1 / 1; max-height:min(36vh,292px); }
     .discovery-card-hover-art.is-empty { min-height:168px; }
     .discovery-card-hover-image { width:100%; height:100%; display:block; object-position:center center; }
     .discovery-card-hover-image.is-fill { object-fit:cover; }
     .discovery-card-hover-image.is-contained { object-fit:contain; }
     .discovery-card-hover-body { padding:10px 12px 12px; display:flex; flex-direction:column; gap:7px; }
+    .discovery-card-hover-panel.is-art-popover.is-portrait .discovery-card-hover-body { justify-content:center; min-width:0; }
     .discovery-card-hover-actions, .discovery-card-hover-meta-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .discovery-card-hover-actions-left, .discovery-card-hover-chips { display:flex; align-items:center; gap:10px; }
     .discovery-card-hover-chips { flex-wrap:wrap; margin-top:2px; gap:8px; }
@@ -539,6 +536,7 @@
         .discovery-card { --discovery-card-media-height:clamp(170px,47vw,204px); --discovery-hover-panel-width:min(92vw,360px); }
         .discovery-card.is-portrait { --discovery-hover-clearance:clamp(268px,56vw,392px); }
         .discovery-card.is-square { --discovery-hover-clearance:clamp(232px,48vw,328px); }
+        .discovery-card-hover-panel.is-art-popover.is-portrait { display:block; width:min(92vw,292px); max-width:292px; }
         .discovery-card-hover-panel.is-art-popover .discovery-card-hover-art { padding:0; }
     }
 </style>

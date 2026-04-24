@@ -148,8 +148,22 @@ window.positionDiscoveryCardHover = function (cardEl) {
         var gutter = 12;
         var computedStyle = window.getComputedStyle(cardEl);
         var hoverLift = parseFloat(computedStyle.getPropertyValue('--discovery-hover-lift')) || 0;
+        var isSideBySidePortrait = panel.classList.contains('is-art-popover')
+            && panel.classList.contains('is-portrait')
+            && window.innerWidth > 700;
         var panelLeft = cardRect.left;
         var panelTop = cardRect.top - hoverLift;
+
+        if (isSideBySidePortrait) {
+            var rightCandidate = cardRect.right + gutter;
+            var leftCandidate = cardRect.left - panelWidth - gutter;
+
+            if (rightCandidate + panelWidth <= window.innerWidth - gutter) {
+                panelLeft = rightCandidate;
+            } else if (leftCandidate >= gutter) {
+                panelLeft = leftCandidate;
+            }
+        }
 
         if (panelLeft < gutter) {
             panelLeft = gutter;

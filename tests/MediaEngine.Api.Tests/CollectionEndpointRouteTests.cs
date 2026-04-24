@@ -14,6 +14,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("cv_logo_present", source, StringComparison.Ordinal);
         Assert.Contains("THEN '/stream/' || g.first_asset_id || '/logo' END AS logo_url", source, StringComparison.Ordinal);
         Assert.Contains("cover_width_px", source, StringComparison.Ordinal);
+        Assert.Contains("DistinctTitleCount = CountDistinctWorkTitles(h.Works)", source, StringComparison.Ordinal);
         Assert.Contains("Description      = row.Description", source, StringComparison.Ordinal);
         Assert.Contains("Tagline          = row.Tagline", source, StringComparison.Ordinal);
         Assert.Contains("Network          = row.Network", source, StringComparison.Ordinal);

@@ -1311,6 +1311,7 @@ public static class CollectionEndpoints
                     WikidataQid      = h.WikidataQid,
                     PrimaryMediaType = primaryMediaType,
                     WorkCount        = h.Works.Count,
+                    DistinctTitleCount = CountDistinctWorkTitles(h.Works),
                     CoverUrl         = cover,
                     BackgroundUrl    = background,
                     BannerUrl        = banner,
@@ -1824,6 +1825,7 @@ public static class CollectionEndpoints
                         WikidataQid      = null,
                         PrimaryMediaType = primaryMediaType,
                         WorkCount        = row.WorkCount,
+                        DistinctTitleCount = row.WorkCount,
                         CoverUrl         = row.CoverUrl,
                         BackgroundUrl    = row.BackgroundUrl,
                         BannerUrl        = row.BannerUrl,
@@ -3146,6 +3148,11 @@ public static class CollectionEndpoints
                     WikidataQid = preferred.WikidataQid,
                     PrimaryMediaType = preferred.PrimaryMediaType,
                     WorkCount = group.Items.Max(item => item.WorkCount),
+                    DistinctTitleCount = group.Items
+                        .Where(item => item.DistinctTitleCount.HasValue)
+                        .Select(item => item.DistinctTitleCount!.Value)
+                        .DefaultIfEmpty(group.Items.Max(item => item.WorkCount))
+                        .Max(),
                     CoverUrl = preferred.CoverUrl,
                     BackgroundUrl = preferred.BackgroundUrl,
                     BannerUrl = preferred.BannerUrl,
@@ -3185,6 +3192,24 @@ public static class CollectionEndpoints
     private static bool IsMusicAlbumSystemView(string? mediaType, string? groupField)
         => string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
            && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
+
+    private static int CountDistinctWorkTitles(IEnumerable<Work> works)
+    {
+        var titles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var work in works)
+        {
+            var dto = WorkDto.FromDomain(work);
+            var title = GetCanonical(dto, "title") ?? GetCanonical(dto, "original_title");
+            titles.Add(NormalizeDistinctTitle(title) ?? work.Id.ToString("N"));
+        }
+
+        return titles.Count;
+    }
+
+    private static string? NormalizeDistinctTitle(string? value)
+        => string.IsNullOrWhiteSpace(value)
+            ? null
+            : string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
     private static string BuildSystemViewGroupIdentity(ContentGroupDto group, string? mediaType, string? groupField)
     {

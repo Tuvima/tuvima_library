@@ -234,6 +234,9 @@ public sealed class ContentGroupDto
     [JsonPropertyName("work_count")]
     public int WorkCount { get; init; }
 
+    [JsonPropertyName("distinct_title_count")]
+    public int? DistinctTitleCount { get; init; }
+
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 

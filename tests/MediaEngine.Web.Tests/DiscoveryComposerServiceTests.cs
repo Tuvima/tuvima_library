@@ -646,6 +646,30 @@ public sealed class DiscoveryComposerServiceTests
     }
 
     [Fact]
+    public void ComposeHome_HidesAudiobookSeriesWhenGroupOnlyHasOneDistinctTitle()
+    {
+        var service = new DiscoveryComposerService(null!);
+
+        var groups = new[]
+        {
+            new ContentGroupViewModel
+            {
+                CollectionId = Guid.Parse("eeeeeeee-2222-3333-4444-555555555555"),
+                DisplayName = "Dune",
+                PrimaryMediaType = "Audiobooks",
+                WorkCount = 2,
+                DistinctTitleCount = 1,
+                CoverUrl = "/art/dune.jpg",
+                CreatedAt = DateTimeOffset.UtcNow,
+            }
+        };
+
+        var page = service.ComposeHome([], [], groups);
+
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Title == "Audiobook Series");
+    }
+
+    [Fact]
     public void ComposeHome_UsesCollectionPreviewImagesWhenGroupArtIsMissing()
     {
         var service = new DiscoveryComposerService(null!);
