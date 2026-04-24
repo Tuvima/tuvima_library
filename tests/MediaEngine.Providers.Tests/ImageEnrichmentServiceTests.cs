@@ -238,7 +238,6 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             new StubPersonRepository(),
             new StubProviderConfigurationRepository(),
             _configLoader,
-            new StubHeroBannerGenerator(),
             _imageCache,
             _imagePaths,
             _assetPaths,
@@ -418,12 +417,6 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task ReassignAllLinksAsync(Guid fromPersonId, Guid toPersonId, CancellationToken ct = default) => Task.CompletedTask;
         public Task<bool> IsPseudonymOrAliasAsync(Guid personId, CancellationToken ct = default) => Task.FromResult(false);
         public Task LinkGroupMemberAsync(Guid groupId, Guid memberId, CancellationToken ct = default) => Task.CompletedTask;
-    }
-
-    private sealed class StubHeroBannerGenerator : IHeroBannerGenerator
-    {
-        public Task<HeroBannerResult> GenerateAsync(string coverImagePath, string outputDirectory, CancellationToken ct = default)
-            => Task.FromResult(new HeroBannerResult(Path.Combine(outputDirectory, "hero.jpg"), "#000000", true));
     }
 
     private sealed class StubAssetExportService : IAssetExportService

@@ -4,14 +4,14 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers.Helpers;
 using Microsoft.Extensions.Logging;
-using SkiaSharp;
 
 namespace MediaEngine.Providers.Workers;
 
 /// <summary>
 /// Downloads cover art from provider URLs, computes perceptual hashes for dedup,
-/// generates 200px thumbnails and cinematic hero banners.
+/// and stamps measured artwork metadata plus display renditions.
 ///
 /// Extracted from <c>HydrationPipelineService.PersistCoverFromUrlAsync</c>.
 /// </summary>
@@ -22,7 +22,6 @@ public sealed class CoverArtWorker
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly IWorkRepository _workRepo;
     private readonly IImageCacheRepository _imageCache;
-    private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IHttpClientFactory _httpFactory;
     private readonly AssetPathService _assetPaths;
     private readonly IAssetExportService? _assetExportService;
@@ -34,7 +33,6 @@ public sealed class CoverArtWorker
         ICanonicalValueRepository canonicalRepo,
         IWorkRepository workRepo,
         IImageCacheRepository imageCache,
-        IHeroBannerGenerator heroGenerator,
         IHttpClientFactory httpFactory,
         AssetPathService assetPaths,
         ILogger<CoverArtWorker> logger,
@@ -47,7 +45,6 @@ public sealed class CoverArtWorker
         _canonicalRepo = canonicalRepo;
         _workRepo = workRepo;
         _imageCache = imageCache;
-        _heroGenerator = heroGenerator;
         _httpFactory = httpFactory;
         _assetPaths = assetPaths;
         _assetExportService = assetExportService;
@@ -56,8 +53,8 @@ public sealed class CoverArtWorker
     }
 
     /// <summary>
-    /// Downloads cover art from the provider URL stored in canonicals,
-    /// generates thumbnail and hero banner.
+    /// Downloads cover art from the provider URL stored in canonicals
+    /// and persists measured artwork metadata plus renditions.
     /// </summary>
     public async Task DownloadAndPersistAsync(Guid entityId, string? wikidataQid, CancellationToken ct)
     {
@@ -122,7 +119,6 @@ public sealed class CoverArtWorker
         // the asset has no resolvable file path (e.g. pre-organize states or
         // entities that aren't backed by a file).
         string coverPath;
-        string imageDir;
 
         // Look up the asset's current file path. The lookup is cheap (single
         // row by id) and is the gate that decides "per-file" vs "legacy".
@@ -131,7 +127,6 @@ public sealed class CoverArtWorker
         var coverVariantId = existingCoverVariant?.Id ?? Guid.NewGuid();
         var coverExtension = InferImageExtension(coverUrl, "CoverArt");
         coverPath = _assetPaths.GetCentralAssetPath("Work", ownerEntityId, "CoverArt", coverVariantId, coverExtension);
-        imageDir = Path.GetDirectoryName(coverPath) ?? ".";
         AssetPathService.EnsureDirectory(coverPath);
 
         // Skip if cover already exists
@@ -147,13 +142,11 @@ public sealed class CoverArtWorker
             await _canonicalRepo.UpsertBatchAsync(
                 BuildCoverCanonicals(
                     ownerEntityId,
-                    existingVariant?.Id,
-                    InferCoverSource(canonicals, coverUrl),
-                    heroState: "pending"),
+                    existingVariant,
+                    InferCoverSource(canonicals, coverUrl)),
                 ct);
             if (existingVariant is not null && _assetExportService is not null)
                 await _assetExportService.ReconcileArtworkAsync(existingVariant.EntityId, existingVariant.EntityType, existingVariant.AssetTypeValue, ct);
-            await GenerateHeroBannerAsync(ownerEntityId, coverPath, imageDir, ct);
 
             var titleForSkip = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value
@@ -228,19 +221,12 @@ public sealed class CoverArtWorker
             }
         }
 
-        // Generate hero banner
-        await GenerateHeroBannerAsync(ownerEntityId, coverPath, imageDir, ct);
-
-        var thumbPath = _assetPaths.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg");
-        GenerateThumbnail(coverPath, thumbPath);
-
         var coverVariant = await EnsureCoverVariantAsync(ownerEntityId, coverVariantId, coverUrl, coverPath, "provider", ct);
         await _canonicalRepo.UpsertBatchAsync(
             BuildCoverCanonicals(
                 ownerEntityId,
-                coverVariant?.Id,
-                "provider",
-                heroState: "pending"),
+                coverVariant,
+                "provider"),
             ct);
         if (coverVariant is not null && _assetExportService is not null)
             await _assetExportService.ReconcileArtworkAsync(coverVariant.EntityId, coverVariant.EntityType, coverVariant.AssetTypeValue, ct);
@@ -293,87 +279,6 @@ public sealed class CoverArtWorker
         return "existing";
     }
 
-    private async Task GenerateHeroBannerAsync(
-        Guid entityId, string coverPath, string outputDir, CancellationToken ct)
-    {
-        try
-        {
-            var heroPath = _assetPaths.GetCentralDerivedPath("Work", entityId, "hero", "hero.jpg");
-            var heroOutputDir = Path.GetDirectoryName(heroPath) ?? outputDir;
-            Directory.CreateDirectory(heroOutputDir);
-            var heroResult = await _heroGenerator.GenerateAsync(coverPath, heroOutputDir, ct);
-
-            var heroCanonicals = new List<CanonicalValue>();
-            if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
-            {
-                heroCanonicals.Add(new CanonicalValue
-                {
-                    EntityId = entityId,
-                    Key = "dominant_color",
-                    Value = heroResult.DominantHexColor,
-                    LastScoredAt = DateTimeOffset.UtcNow,
-                });
-            }
-            heroCanonicals.Add(new CanonicalValue
-            {
-                EntityId = entityId,
-                Key = "hero",
-                Value = $"/stream/{entityId}/hero",
-                LastScoredAt = DateTimeOffset.UtcNow,
-            });
-            heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
-                entityId,
-                coverState: "present",
-                coverSource: null,
-                heroState: "present",
-                lastScoredAt: DateTimeOffset.UtcNow,
-                settled: true));
-            await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            await _canonicalRepo.UpsertBatchAsync(
-                ArtworkCanonicalHelper.CreateFlags(
-                    entityId,
-                    coverState: "present",
-                    coverSource: null,
-                    heroState: "missing",
-                    lastScoredAt: DateTimeOffset.UtcNow,
-                    settled: true),
-                ct);
-            _logger.LogWarning(ex, "Hero banner generation failed for entity {EntityId}", entityId);
-        }
-    }
-
-    private static void GenerateThumbnail(string coverPath, string thumbPath)
-    {
-        try
-        {
-            using var inputStream = File.OpenRead(coverPath);
-            using var bitmap = SKBitmap.Decode(inputStream);
-            if (bitmap is null) return;
-
-            var targetWidth = 200;
-            var targetHeight = (int)(bitmap.Height * (200.0 / bitmap.Width));
-            using var resized = bitmap.Resize(
-                new SKImageInfo(targetWidth, targetHeight),
-                new SKSamplingOptions(SKFilterMode.Linear));
-            if (resized is null) return;
-
-            using var image = SKImage.FromBitmap(resized);
-            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 75);
-
-            ImagePathService.EnsureDirectory(thumbPath);
-            using var output = File.OpenWrite(thumbPath);
-            data.SaveTo(output);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Non-critical: thumbnail generation failure doesn't affect the main cover art.
-            _ = ex;
-        }
-    }
-
     private async Task<EntityAsset?> EnsureCoverVariantAsync(
         Guid entityId,
         Guid variantId,
@@ -410,6 +315,7 @@ public sealed class CoverArtWorker
         variant.IsUserOverride = false;
         variant.IsLocallyExported = false;
         variant.IsPreferredExported = false;
+        ArtworkVariantHelper.StampMetadataAndRenditions(variant, _assetPaths);
 
         await _entityAssetRepo.UpsertAsync(variant, ct);
         await _entityAssetRepo.SetPreferredAsync(variant.Id, ct);
@@ -443,28 +349,24 @@ public sealed class CoverArtWorker
 
     private static IReadOnlyList<CanonicalValue> BuildCoverCanonicals(
         Guid entityId,
-        Guid? preferredVariantId,
-        string? coverSource,
-        string heroState)
+        EntityAsset? preferredVariant,
+        string? coverSource)
     {
         var values = new List<CanonicalValue>();
 
-        if (preferredVariantId.HasValue)
+        if (preferredVariant is not null)
         {
-            values.Add(new CanonicalValue
-            {
-                EntityId = entityId,
-                Key = MetadataFieldConstants.CoverUrl,
-                Value = $"/stream/artwork/{preferredVariantId.Value}",
-                LastScoredAt = DateTimeOffset.UtcNow,
-            });
+            values.AddRange(ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(
+                entityId,
+                preferredVariant,
+                DateTimeOffset.UtcNow));
         }
 
         values.AddRange(ArtworkCanonicalHelper.CreateFlags(
             entityId,
             coverState: "present",
             coverSource: coverSource,
-            heroState: heroState,
+            heroState: "missing",
             lastScoredAt: DateTimeOffset.UtcNow,
             settled: true));
 

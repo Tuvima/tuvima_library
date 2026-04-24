@@ -213,13 +213,6 @@ public static class LibraryEndpoints
                         canonicalValues["cover"] = $"/stream/{row.AssetId}/cover";
                     }
 
-                    if (!canonicalValues.ContainsKey("hero")
-                        && !canonicalValues.ContainsKey("hero_url")
-                        && HasPresentArtwork(assetValues, rootValues, "hero_state"))
-                    {
-                        canonicalValues["hero"] = $"/stream/{row.AssetId}/hero";
-                    }
-
                     if (!canonicalValues.ContainsKey("background")
                         && !canonicalValues.ContainsKey("background_url")
                         && HasPresentArtwork(assetValues, rootValues, "background_state"))
@@ -244,7 +237,6 @@ public static class LibraryEndpoints
                     var coverUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "cover_state", "cover");
                     var backgroundUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "background_state", "background");
                     var bannerUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "banner_state", "banner");
-                    var heroUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "hero_state", "hero");
                     var logoUrl = ResolveArtworkUrl(canonicalValues, assetValues, rootValues, row.AssetId, "logo_state", "logo");
 
                     return new LibraryWorkListItemDto
@@ -261,7 +253,7 @@ public static class LibraryEndpoints
                         CoverUrl = coverUrl,
                         BackgroundUrl = backgroundUrl,
                         BannerUrl = bannerUrl,
-                        HeroUrl = heroUrl,
+                        HeroUrl = null,
                         LogoUrl = logoUrl,
                         CanonicalValues = canonicalValues,
                     };

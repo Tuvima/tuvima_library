@@ -27,7 +27,7 @@ public sealed class LibraryEndpointRouteTests
         Assert.Contains("CoverUrl = coverUrl", source, StringComparison.Ordinal);
         Assert.Contains("BackgroundUrl = backgroundUrl", source, StringComparison.Ordinal);
         Assert.Contains("BannerUrl = bannerUrl", source, StringComparison.Ordinal);
-        Assert.Contains("HeroUrl = heroUrl", source, StringComparison.Ordinal);
+        Assert.Contains("HeroUrl = null", source, StringComparison.Ordinal);
         Assert.Contains("LogoUrl = logoUrl", source, StringComparison.Ordinal);
     }
 

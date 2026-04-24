@@ -82,8 +82,8 @@ public static class ProgressEndpoints
             var filterCollection = Guid.TryParse(collectionId, out var parsedCollectionId);
             var conn      = db.Open();
 
-            // Phase 4 — lineage-aware reads. Self-scope fields (title, series_position,
-            // hero) read from the asset row; parent-scope fields (author, cover, narrator,
+            // Phase 4 — lineage-aware reads. Self-scope fields (title, series_position)
+            // read from the asset row; parent-scope fields (author, cover, narrator,
             // series, description) read from the topmost Work row, walked via parent_work_id.
             // No fallback — the writer routes each claim to exactly one target.
             const string baseSelect = """
@@ -105,8 +105,7 @@ public static class ProgressEndpoints
                     cv_narrator_w.value   AS narrator,
                     cv_series_w.value     AS series,
                     cv_series_pos_a.value AS series_position,
-                    cv_desc_w.value       AS description,
-                    cv_hero_a.value       AS hero_url
+                    cv_desc_w.value       AS description
                 FROM user_states us
                 JOIN media_assets ma ON ma.id = us.asset_id
                 JOIN editions e      ON e.id  = ma.edition_id
@@ -119,8 +118,6 @@ public static class ProgressEndpoints
                     ON cv_title_a.entity_id = ma.id AND cv_title_a.key = 'title'
                 LEFT JOIN canonical_values cv_series_pos_a
                     ON cv_series_pos_a.entity_id = ma.id AND cv_series_pos_a.key = 'series_position'
-                LEFT JOIN canonical_values cv_hero_a
-                    ON cv_hero_a.entity_id = ma.id AND cv_hero_a.key = 'hero'
                 -- Parent-scope (topmost Work)
                 LEFT JOIN canonical_values cv_author_w
                     ON cv_author_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
@@ -192,7 +189,7 @@ public static class ProgressEndpoints
                     Series:            reader.IsDBNull(15) ? null : reader.GetString(15),
                     SeriesPosition:    reader.IsDBNull(16) ? null : reader.GetString(16),
                     Description:       reader.IsDBNull(17) ? null : reader.GetString(17),
-                    HeroUrl:           reader.IsDBNull(18) ? null : reader.GetString(18)));
+                    HeroUrl:           null));
             }
 
             return Results.Ok(results);

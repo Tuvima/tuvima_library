@@ -33,4 +33,12 @@ public interface IEntityAssetRepository
     /// <summary>Get the preferred asset of a given type for an entity.</summary>
     Task<EntityAsset?> GetPreferredAsync(
         string entityId, string assetType, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get all preferred assets for a set of entities.
+    /// Returned rows are limited to preferred variants only.
+    /// </summary>
+    Task<IReadOnlyList<EntityAsset>> GetPreferredByEntitiesAsync(
+        IReadOnlyCollection<string> entityIds,
+        CancellationToken ct = default);
 }

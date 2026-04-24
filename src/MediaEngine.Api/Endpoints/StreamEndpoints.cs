@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
 
@@ -85,6 +86,7 @@ public static class StreamEndpoints
 
         group.MapGet("/artwork/{variantId:guid}", async (
             Guid variantId,
+            string? size,
             IEntityAssetRepository entityAssetRepo,
             IHttpClientFactory httpFactory,
             CancellationToken ct) =>
@@ -93,10 +95,11 @@ public static class StreamEndpoints
             if (variant is null)
                 return Results.NotFound($"Artwork variant '{variantId}' not found.");
 
-            if (!string.IsNullOrWhiteSpace(variant.LocalImagePath) && File.Exists(variant.LocalImagePath))
+            var renditionPath = ResolveArtworkPath(variant, size);
+            if (!string.IsNullOrWhiteSpace(renditionPath) && File.Exists(renditionPath))
             {
-                var bytes = await File.ReadAllBytesAsync(variant.LocalImagePath, ct);
-                return Results.File(bytes, GetImageMimeType(variant.LocalImagePath), Path.GetFileName(variant.LocalImagePath));
+                var bytes = await File.ReadAllBytesAsync(renditionPath, ct);
+                return Results.File(bytes, GetImageMimeType(renditionPath), Path.GetFileName(renditionPath));
             }
 
             if (!string.IsNullOrWhiteSpace(variant.ImageUrl)
@@ -166,7 +169,6 @@ public static class StreamEndpoints
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
             IEntityAssetRepository entityAssetRepo,
-            AssetPathService assetPathService,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
@@ -175,20 +177,14 @@ public static class StreamEndpoints
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct);
-            var centralThumbPath = assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg");
-            if (File.Exists(centralThumbPath))
+            var thumbPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, "s");
+            if (!string.IsNullOrWhiteSpace(thumbPath) && File.Exists(thumbPath))
             {
-                var thumbBytes = await File.ReadAllBytesAsync(centralThumbPath, ct);
-                return Results.File(thumbBytes, GetImageMimeType(centralThumbPath), Path.GetFileName(centralThumbPath));
-            }
-
-            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
-            {
-                var variantBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
+                var variantBytes = await File.ReadAllBytesAsync(thumbPath, ct);
                 return Results.File(
                     variantBytes,
-                    GetImageMimeType(preferredVariant.LocalImagePath),
-                    Path.GetFileName(preferredVariant.LocalImagePath));
+                    GetImageMimeType(thumbPath),
+                    Path.GetFileName(thumbPath));
             }
 
             return Results.NotFound("No cover art found for this asset.");
@@ -200,44 +196,6 @@ public static class StreamEndpoints
         .RequireAnyRole();
         // NOTE: No rate limit — thumbnails are loaded in bulk on Home/category pages.
         // The 100/min streaming cap was causing 429s on page reloads with many swimlanes.
-
-        group.MapGet("/{assetId:guid}/hero", async (
-            Guid assetId,
-            IMediaAssetRepository assetRepo,
-            IWorkRepository workRepo,
-            AssetPathService assetPathService,
-            CancellationToken ct) =>
-        {
-            var requestedEntityId = assetId;
-            var asset = await assetRepo.FindByIdAsync(assetId, ct);
-            var resolvedAssetId = assetId;
-
-            if (asset is null)
-            {
-                asset = await assetRepo.FindFirstByWorkIdAsync(assetId, ct);
-                if (asset is not null)
-                    resolvedAssetId = asset.Id;
-            }
-
-            if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
-
-            var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(resolvedAssetId, workRepo, ct, requestedEntityId);
-            var centralHeroPath = assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg");
-            if (File.Exists(centralHeroPath))
-            {
-                var heroBytes = await File.ReadAllBytesAsync(centralHeroPath, ct);
-                return Results.File(heroBytes, GetImageMimeType(centralHeroPath), Path.GetFileName(centralHeroPath));
-            }
-
-            return Results.NotFound("No hero banner found for this asset.");
-        })
-        .WithName("GetAssetHero")
-        .WithSummary("Serve the centrally-managed derived hero banner for a media asset.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
-        .RequireAnyRole()
-        .RequireRateLimiting("streaming");
 
         group.MapGet("/{assetId:guid}/banner", async (
             Guid assetId,
@@ -252,10 +210,11 @@ public static class StreamEndpoints
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Banner", ct);
-            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            var bannerPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
+            if (!string.IsNullOrWhiteSpace(bannerPath) && File.Exists(bannerPath))
             {
-                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+                var preferredBytes = await File.ReadAllBytesAsync(bannerPath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(bannerPath), Path.GetFileName(bannerPath));
             }
 
             return Results.NotFound("No banner artwork found for this asset.");
@@ -279,10 +238,11 @@ public static class StreamEndpoints
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "SquareArt", ct);
-            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            var squarePath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
+            if (!string.IsNullOrWhiteSpace(squarePath) && File.Exists(squarePath))
             {
-                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+                var preferredBytes = await File.ReadAllBytesAsync(squarePath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(squarePath), Path.GetFileName(squarePath));
             }
 
             return Results.NotFound("No square artwork found for this asset.");
@@ -306,10 +266,11 @@ public static class StreamEndpoints
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Background", ct);
-            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            var backgroundPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
+            if (!string.IsNullOrWhiteSpace(backgroundPath) && File.Exists(backgroundPath))
             {
-                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+                var preferredBytes = await File.ReadAllBytesAsync(backgroundPath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(backgroundPath), Path.GetFileName(backgroundPath));
             }
 
             return Results.NotFound("No background artwork found for this asset.");
@@ -333,10 +294,11 @@ public static class StreamEndpoints
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Logo", ct);
-            if (!string.IsNullOrWhiteSpace(preferredVariant?.LocalImagePath) && File.Exists(preferredVariant.LocalImagePath))
+            var logoPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
+            if (!string.IsNullOrWhiteSpace(logoPath) && File.Exists(logoPath))
             {
-                var preferredBytes = await File.ReadAllBytesAsync(preferredVariant.LocalImagePath, ct);
-                return Results.File(preferredBytes, GetImageMimeType(preferredVariant.LocalImagePath), Path.GetFileName(preferredVariant.LocalImagePath));
+                var preferredBytes = await File.ReadAllBytesAsync(logoPath, ct);
+                return Results.File(preferredBytes, GetImageMimeType(logoPath), Path.GetFileName(logoPath));
             }
 
             return Results.NotFound("No logo artwork found for this asset.");
@@ -359,6 +321,14 @@ public static class StreamEndpoints
         var lineage = await workRepo.GetLineageByAssetAsync(assetId, ct);
         return lineage?.TargetForParentScope ?? fallbackOwnerEntityId ?? assetId;
     }
+
+    private static string? ResolveArtworkPath(EntityAsset asset, string? size) => (size ?? string.Empty).Trim().ToLowerInvariant() switch
+    {
+        "s" => asset.LocalImagePathSmall ?? asset.LocalImagePath,
+        "m" => asset.LocalImagePathMedium ?? asset.LocalImagePath,
+        "l" => asset.LocalImagePathLarge ?? asset.LocalImagePath,
+        _ => asset.LocalImagePath,
+    };
 
     private static string GetImageMimeType(string path) =>
         string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)

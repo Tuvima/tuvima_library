@@ -138,7 +138,6 @@ public partial class SharedMediaEditorShell
     protected Guid CurrentEntityId => ActiveScope?.FieldEntityId ?? EditorContextEntityId;
     protected bool IsDirty => _editedValues.Count > 0 || _pendingArtworkFiles.Count > 0;
     protected bool IsArtworkBusy => _artworkUrlSubmitting || _artworkApplyingKeys.Count > 0;
-    protected bool HasGeneratedHeroArtwork => !string.IsNullOrWhiteSpace(GetGeneratedHeroUrl());
     protected string ArtworkTabExplanation => GetArtworkTabExplanation();
     protected bool HasSeriesNavigator => false;
     protected bool ShowLegacyScopeSwitcher => false;
@@ -860,25 +859,16 @@ public partial class SharedMediaEditorShell
 
     protected string? GetArtworkPreviewUrl(string assetType)
     {
-        if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return GetGeneratedHeroUrl();
-
         if (_pendingArtworkPreviewUrls.TryGetValue(BuildScopedArtworkKey(ArtworkScope?.ScopeId, assetType), out var pendingPreview))
             return pendingPreview;
 
         return GetPreferredArtworkVariant(assetType)?.ImageUrl;
     }
 
-    protected int GetArtworkAssetCount(string assetType) =>
-        string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase)
-            ? (string.IsNullOrWhiteSpace(GetGeneratedHeroUrl()) ? 0 : 1)
-            : GetArtworkVariants(assetType).Count;
+    protected int GetArtworkAssetCount(string assetType) => GetArtworkVariants(assetType).Count;
 
     protected string GetArtworkSourceLabel(string assetType)
     {
-        if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return string.IsNullOrWhiteSpace(GetGeneratedHeroUrl()) ? "No generated hero banner yet." : "Generated from preferred artwork.";
-
         if (HasPendingArtwork(assetType))
             return $"Pending upload: {GetPendingArtworkFileName(assetType)}";
 
@@ -940,19 +930,6 @@ public partial class SharedMediaEditorShell
         return _artworkStates.TryGetValue(BuildScopeStateKey(ArtworkScope.FieldEntityId, ArtworkScope.ScopeId), out var artwork)
             ? artwork
             : _artwork;
-    }
-
-    private string? GetGeneratedHeroUrl()
-    {
-        if (ArtworkScope is null)
-            return _detail?.HeroUrl;
-
-        if (ActiveScope is not null && string.Equals(ArtworkScope.ScopeId, ActiveScope.ScopeId, StringComparison.OrdinalIgnoreCase))
-            return _detail?.HeroUrl;
-
-        return _scopeStates.TryGetValue(BuildScopeStateKey(ArtworkScope.FieldEntityId, ArtworkScope.ScopeId), out var state)
-            ? state.Detail?.HeroUrl
-            : null;
     }
 
     protected IReadOnlyList<ArtworkVariantDto> GetArtworkVariants(string assetType) =>
@@ -2484,9 +2461,6 @@ public partial class SharedMediaEditorShell
 
     private string? GetHeaderArtworkPreviewUrl(string assetType)
     {
-        if (string.Equals(assetType, "Hero", StringComparison.OrdinalIgnoreCase))
-            return _detail?.HeroUrl;
-
         return _artwork?.Slots.FirstOrDefault(slot =>
             string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Variants
             .OrderByDescending(variant => variant.IsPreferred)

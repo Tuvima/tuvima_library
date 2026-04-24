@@ -70,7 +70,6 @@ public sealed class DurablePipelineTests : IDisposable
 
     private readonly StubFileWatcher _watcher = new();
     private readonly StubEventPublisher _publisher = new();
-    private readonly StubHeroBannerGenerator _heroGenerator = new();
     private readonly StubRecursiveIdentity _recursiveIdentity = new();
     private readonly StubReconciliation _reconciliation = new();
     private readonly StubFileOrganizer _organizer = new();
@@ -391,7 +390,6 @@ public sealed class DurablePipelineTests : IDisposable
                 _canonicalRepo,
                 workRepoLocal,
                 new ImageCacheRepository(_dbFactory.Connection),
-                _heroGenerator,
                 new NoOpHttpClientFactory(),
                 new AssetPathService(Path.Combine(Path.GetTempPath(), "tuvima-ingestion-tests")),
                 NullLogger<CoverArtWorker>.Instance),
@@ -581,7 +579,6 @@ public sealed class DurablePipelineTests : IDisposable
             _reviewRepo,
             _activityRepo,
             _reconciliation,
-            _heroGenerator,
             new OrganizationGate(new ScoringConfiguration()),
             _ingestionLog,
             new StubSmartLabeler(),

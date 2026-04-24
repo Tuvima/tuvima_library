@@ -16,6 +16,7 @@ using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Processors.Contracts;
 
 namespace MediaEngine.Ingestion;
@@ -93,9 +94,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
     // Reconciliation — cleans orphaned DB records before the initial scan.
     private readonly IReconciliationService _reconciliation;
 
-    // Hero banner generation — creates cinematic hero.jpg from cover art.
-    private readonly IHeroBannerGenerator _heroGenerator;
-
     // Centralized organization gate — single source of truth for promotion eligibility.
     private readonly IOrganizationGate _gate;
 
@@ -160,7 +158,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         IReviewQueueRepository     reviewRepo,
         ISystemActivityRepository  activityRepo,
         IReconciliationService     reconciliation,
-        IHeroBannerGenerator       heroGenerator,
         IOrganizationGate          gate,
         IIngestionLogRepository    ingestionLog,
         ISmartLabeler             smartLabeler,
@@ -193,7 +190,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _reviewRepo       = reviewRepo;
         _activityRepo     = activityRepo;
         _reconciliation   = reconciliation;
-        _heroGenerator    = heroGenerator;
         _gate             = gate;
         _ingestionLog     = ingestionLog;
         _smartLabeler      = smartLabeler;
@@ -1205,7 +1201,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 assetId,
                 coverState: "present",
                 coverSource: "embedded",
-                heroState: "pending",
+                heroState: "missing",
                 lastScoredAt: scored.ScoredAt,
                 settled: true));
         }
@@ -1215,7 +1211,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                 assetId,
                 coverState: "pending",
                 coverSource: null,
-                heroState: "pending",
+                heroState: "missing",
                 lastScoredAt: scored.ScoredAt,
                 settled: false));
         }
@@ -1530,9 +1526,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                     await File.WriteAllBytesAsync(coverPath, result.CoverImage, ct).ConfigureAwait(false);
 
-                    var thumbPath = _assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg");
-                    GenerateThumbnail(coverPath, thumbPath);
-
                     var storedAsset = existingEmbedded ?? new EntityAsset
                     {
                         Id = coverVariantId,
@@ -1552,21 +1545,21 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     storedAsset.IsUserOverride = false;
                     storedAsset.IsLocallyExported = false;
                     storedAsset.IsPreferredExported = false;
+                    ArtworkVariantHelper.StampMetadataAndRenditions(storedAsset, _assetPathService);
 
                     await _entityAssetRepo.UpsertAsync(storedAsset, ct).ConfigureAwait(false);
                     await _entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct).ConfigureAwait(false);
                     await _canonicalRepo.UpsertBatchAsync(
                         [
-                            ArtworkCanonicalHelper.Create(
+                            .. ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(
                                 ownerEntityId,
-                                MetadataFieldConstants.CoverUrl,
-                                $"/stream/artwork/{storedAsset.Id}",
+                                storedAsset,
                                 DateTimeOffset.UtcNow),
                             .. ArtworkCanonicalHelper.CreateFlags(
                                 ownerEntityId,
                                 coverState: "present",
                                 coverSource: "embedded",
-                                heroState: "pending",
+                                heroState: "missing",
                                 lastScoredAt: DateTimeOffset.UtcNow,
                                 settled: true),
                         ],
@@ -1690,19 +1683,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             : !string.Equals(currentPath, candidate.Path, StringComparison.Ordinal) ? "staging"
             : null;
 
-        // Build hero URL if hero was generated for this asset.
-        bool heroExists = false;
-        if (_assetPathService is not null)
-        {
-            var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, ct).ConfigureAwait(false);
-            heroExists = File.Exists(_assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
-        }
-        if (!heroExists && fileIsInLibrary)
-        {
-            heroExists = File.Exists(Path.Combine(Path.GetDirectoryName(currentPath) ?? "", "hero.jpg"));
-        }
-        string? heroUrl = heroExists ? $"/stream/{assetId}/hero" : null;
-
         // Build per-field provenance so the Dashboard can show exactly
         // how each metadata field was matched and which source won.
         var fieldProvenance = scored.FieldScores
@@ -1741,7 +1721,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             description   = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Description, string.Empty) ?? string.Empty,
             entity_id     = assetId.ToString(),
             organized_to  = organizedTo,
-            hero_url      = heroUrl,
             cover_url     = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
             match_method  = matchMethod,
             field_sources = fieldProvenance,
@@ -2410,7 +2389,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         if (!string.IsNullOrEmpty(editionFolder) && Directory.Exists(editionFolder))
         {
             SafeDeleteFile(Path.Combine(editionFolder, "cover.jpg"));
-            SafeDeleteFile(Path.Combine(editionFolder, "hero.jpg"));
             TryDeleteEmptyDirectory(editionFolder);
         }
 
@@ -2980,38 +2958,6 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogDebug(ex, "Initial batch snapshot publish failed for {BatchId}", batchId);
-        }
-    }
-
-    /// <summary>
-    /// Generates a 200px-wide JPEG thumbnail from an existing cover.jpg.
-    /// Best-effort — never throws; ingestion continues if thumbnail generation fails.
-    /// </summary>
-    private static void GenerateThumbnail(string coverPath, string thumbPath)
-    {
-        try
-        {
-            using var inputStream = File.OpenRead(coverPath);
-            using var bitmap = SkiaSharp.SKBitmap.Decode(inputStream);
-            if (bitmap is null) return;
-
-            var targetWidth  = 200;
-            var targetHeight = (int)(bitmap.Height * (200.0 / bitmap.Width));
-            using var resized = bitmap.Resize(
-                new SkiaSharp.SKImageInfo(targetWidth, targetHeight),
-                new SkiaSharp.SKSamplingOptions(SkiaSharp.SKFilterMode.Linear));
-            if (resized is null) return;
-
-            using var image = SkiaSharp.SKImage.FromBitmap(resized);
-            using var data  = image.Encode(SkiaSharp.SKEncodedImageFormat.Jpeg, 75);
-
-            AssetPathService.EnsureDirectory(thumbPath);
-            using var output = File.OpenWrite(thumbPath);
-            data.SaveTo(output);
-        }
-        catch
-        {
-            // Thumbnail generation is best-effort — don't fail ingestion.
         }
     }
 

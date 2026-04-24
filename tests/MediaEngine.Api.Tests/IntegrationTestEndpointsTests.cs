@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Collections;
 using MediaEngine.Api.DevSupport;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
@@ -29,12 +30,9 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         AssetPathService.EnsureDirectory(coverPath);
         File.WriteAllBytes(coverPath, [1, 2, 3]);
 
-        var preferredPaths = new Dictionary<Guid, string>
-        {
-            [ownerEntityId] = coverPath,
-        };
+        var preferredRecord = CreatePreferredArtworkRecord(coverPath);
 
-        var result = InvokeHasCentralPreferredArtwork(ownerEntityId, preferredPaths, assetPaths, "Work", "CoverArt");
+        var result = InvokeHasCentralPreferredArtwork(ownerEntityId, preferredRecord, assetPaths, "Work", "CoverArt");
 
         Assert.True(result);
         Assert.False(Directory.Exists(Path.Combine(_tempRoot, ".data", "images")));
@@ -49,12 +47,9 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(legacyPath)!);
         File.WriteAllBytes(legacyPath, [4, 5, 6]);
 
-        var preferredPaths = new Dictionary<Guid, string>
-        {
-            [ownerEntityId] = legacyPath,
-        };
+        var preferredRecord = CreatePreferredArtworkRecord(legacyPath);
 
-        var result = InvokeHasCentralPreferredArtwork(ownerEntityId, preferredPaths, assetPaths, "Work", "CoverArt");
+        var result = InvokeHasCentralPreferredArtwork(ownerEntityId, preferredRecord, assetPaths, "Work", "CoverArt");
 
         Assert.False(result);
     }
@@ -95,17 +90,19 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         SetProperty(check, "LocationMatchesExpectation", true);
         SetProperty(check, "RequiresStoredArtwork", true);
         SetProperty(check, "HasStoredCover", false);
-        SetProperty(check, "HasStoredCoverThumb", true);
-        SetProperty(check, "HasStoredHero", true);
+        SetProperty(check, "HasStoredCoverSmall", true);
+        SetProperty(check, "HasStoredCoverMedium", true);
+        SetProperty(check, "HasStoredCoverLarge", true);
+        SetProperty(check, "HasStoredPalette", true);
 
         var result = InvokeDescribeFileSystemCheck(check);
 
-        Assert.Equal("Stored artwork set is incomplete in the central asset store", result);
+        Assert.Equal("Stored artwork renditions or palette metadata are incomplete in the central asset store", result);
     }
 
     private static bool InvokeHasCentralPreferredArtwork(
         Guid ownerEntityId,
-        IReadOnlyDictionary<Guid, string> preferredPaths,
+        object preferredRecord,
         AssetPathService assetPaths,
         string ownerKind,
         string assetType)
@@ -116,8 +113,29 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
 
         Assert.NotNull(method);
 
-        var result = method!.Invoke(null, [ownerEntityId, preferredPaths, assetPaths, ownerKind, assetType]);
+        var dictionaryType = typeof(Dictionary<,>).MakeGenericType(typeof(Guid), preferredRecord.GetType());
+        var dictionary = (IDictionary)Activator.CreateInstance(dictionaryType)!;
+        dictionary.Add(ownerEntityId, preferredRecord);
+
+        var result = method!.Invoke(null, [ownerEntityId, dictionary, assetPaths, ownerKind, assetType]);
         return Assert.IsType<bool>(result);
+    }
+
+    private static object CreatePreferredArtworkRecord(
+        string localImagePath,
+        string? localImagePathSmall = null,
+        string? localImagePathMedium = null,
+        string? localImagePathLarge = null,
+        string? primaryHex = "#112233",
+        string? secondaryHex = "#223344",
+        string? accentHex = "#334455")
+    {
+        var type = typeof(IntegrationTestEndpoints).GetNestedType(
+            "PreferredArtworkRecord",
+            BindingFlags.NonPublic);
+
+        Assert.NotNull(type);
+        return Activator.CreateInstance(type!, [localImagePath, localImagePathSmall, localImagePathMedium, localImagePathLarge, primaryHex, secondaryHex, accentHex])!;
     }
 
     private static bool InvokeShouldRequireSidecarArtwork(LibraryStoragePolicy policy)

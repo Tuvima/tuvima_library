@@ -33,6 +33,12 @@ public enum DiscoveryHoverLayout
     BannerPopover,
 }
 
+public enum DiscoveryImageFitMode
+{
+    Fill,
+    Contain,
+}
+
 public sealed class DiscoveryHeroViewModel
 {
     public string Eyebrow { get; init; } = string.Empty;
@@ -45,6 +51,8 @@ public sealed class DiscoveryHeroViewModel
     public string? HeroBackgroundImageUrl { get; init; }
     public string? BannerImageUrl { get; init; }
     public string? PreviewImageUrl { get; init; }
+    public DiscoveryImageFitMode TileImageFitMode { get; init; } = DiscoveryImageFitMode.Fill;
+    public DiscoveryImageFitMode HoverImageFitMode { get; init; } = DiscoveryImageFitMode.Contain;
     public string? LogoUrl { get; init; }
     public string AccentColor { get; init; } = "#C9922E";
     public string? StatusText { get; init; }
@@ -87,6 +95,8 @@ public sealed class DiscoveryCardViewModel
     public string? HoverImageUrl { get; init; }
     public string? HeroBackgroundImageUrl { get; init; }
     public string? PreviewImageUrl { get; init; }
+    public DiscoveryImageFitMode TileImageFitMode { get; init; } = DiscoveryImageFitMode.Fill;
+    public DiscoveryImageFitMode HoverImageFitMode { get; init; } = DiscoveryImageFitMode.Contain;
     public Guid? RepresentativeEntityId { get; init; }
     public string NavigationUrl { get; init; } = "/";
     public string? PrimaryNavigationUrl { get; init; }

@@ -105,7 +105,7 @@
             @if (!string.IsNullOrWhiteSpace(Hero.PreviewImageUrl))
             {
                 <div class="discovery-hero-preview @PreviewClass">
-                    <img src="@Hero.PreviewImageUrl" alt="@Hero.Title" class="discovery-hero-preview-image" />
+                    <img src="@Hero.PreviewImageUrl" alt="@Hero.Title" class="discovery-hero-preview-image @PreviewImageFitClass" />
                 </div>
             }
         </div>
@@ -124,6 +124,10 @@
         DiscoverySurfaceKind.CoverSquare or DiscoverySurfaceKind.ArtistPhotoSquare => "is-square-preview",
         _ => "is-portrait-preview",
     };
+
+    private string PreviewImageFitClass => Hero.TileImageFitMode == DiscoveryImageFitMode.Contain
+        ? "is-contained"
+        : "is-fill";
 
     private IReadOnlyList<string> HeroBackdropCandidates =>
         new[]
@@ -255,7 +259,9 @@
     .discovery-hero-preview { align-self:center; justify-self:end; width:min(100%,292px); overflow:hidden; border-radius:var(--app-radius-md); box-shadow:0 26px 52px rgba(0,0,0,.44); background:rgba(0,0,0,.2); }
     .discovery-hero-preview.is-portrait-preview { aspect-ratio:2 / 3; }
     .discovery-hero-preview.is-square-preview { aspect-ratio:1 / 1; }
-    .discovery-hero-preview-image { width:100%; height:100%; object-fit:cover; display:block; }
+    .discovery-hero-preview-image { width:100%; height:100%; display:block; }
+    .discovery-hero-preview-image.is-fill { object-fit:cover; }
+    .discovery-hero-preview-image.is-contained { object-fit:contain; background:linear-gradient(180deg,rgba(12,16,26,.92) 0%,rgba(5,8,14,.96) 100%); }
     .discovery-visually-hidden { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     @@media (max-width:960px) { .discovery-hero-content { grid-template-columns:1fr; align-items:end; padding-top:24px; } .discovery-hero-preview { width:min(52vw,260px); justify-self:start; } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(68vw,420px); padding-right:12px; } }
     @@media (max-width:640px) { .discovery-hero-shell { min-height:0; } .discovery-hero-content { padding:24px 22px; } .discovery-hero-logo { width:min(100%,320px); max-height:120px; } .discovery-hero-preview { width:min(50vw,210px); } .discovery-hero-shell.is-cover-hero .discovery-hero-backdrop-image { width:min(76vw,340px); } }

@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Discovery;
 
@@ -312,7 +313,7 @@ public sealed class DiscoveryComposerServiceTests
 
         Assert.Equal("Continue with your library", page.Hero?.Eyebrow);
         Assert.Equal("Funny AF with Kevin Hart", page.Hero?.Title);
-        Assert.Equal("/art/show-banner.jpg", page.Hero?.BackgroundImageUrl);
+        Assert.Equal("/art/show-background.jpg", page.Hero?.BackgroundImageUrl);
         Assert.Equal("/art/show-logo.png", page.Hero?.LogoUrl);
         Assert.Equal("Continue watching", page.Hero?.PrimaryActionLabel);
         Assert.Equal($"/watch/tv/show/{tvCollectionId}/episode/{latestEpisodeId}", page.Hero?.PrimaryNavigationUrl);
@@ -345,7 +346,7 @@ public sealed class DiscoveryComposerServiceTests
         var freshTv = Assert.Single(freshWatchShelf.Items, item => item.Title == "Funny AF with Kevin Hart");
         Assert.Equal("2 new episodes", freshTv.StatusText);
         Assert.Equal("/art/show-logo.png", freshTv.LogoUrl);
-        Assert.Equal("/art/show-banner.jpg", freshTv.TileImageUrl);
+        Assert.Equal("/art/show-background.jpg", freshTv.TileImageUrl);
 
         var watchPosterShelf = page.Shelves[2];
         var continueMovie = Assert.Single(watchPosterShelf.Items, item => item.Title == "Anaconda");
@@ -442,7 +443,11 @@ public sealed class DiscoveryComposerServiceTests
             title: "Project Hail Mary",
             creator: "Andy Weir",
             year: "2021",
-            coverUrl: "/art/hail-mary-square.jpg");
+            coverUrl: "/art/hail-mary-square.jpg",
+            canonicalExtras: new Dictionary<string, string>
+            {
+                ["cover_aspect_class"] = ArtworkAspectClasses.Square,
+            });
 
         var page = service.ComposeHome([audiobook], [], []);
         var freshAudiobooks = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh Audiobooks");

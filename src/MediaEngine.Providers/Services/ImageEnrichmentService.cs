@@ -8,6 +8,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -30,7 +31,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private readonly IPersonRepository _personRepo;
     private readonly IProviderConfigurationRepository _providerConfigRepo;
     private readonly IConfigurationLoader _configLoader;
-    private readonly IHeroBannerGenerator _heroGenerator;
     private readonly IImageCacheRepository _imageCache;
     private readonly ImagePathService _imagePaths;
     private readonly AssetPathService _assetPaths;
@@ -97,7 +97,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         IPersonRepository personRepo,
         IProviderConfigurationRepository providerConfigRepo,
         IConfigurationLoader configLoader,
-        IHeroBannerGenerator heroGenerator,
         IImageCacheRepository imageCache,
         ImagePathService imagePaths,
         AssetPathService assetPaths,
@@ -115,7 +114,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(providerConfigRepo);
         ArgumentNullException.ThrowIfNull(configLoader);
-        ArgumentNullException.ThrowIfNull(heroGenerator);
         ArgumentNullException.ThrowIfNull(imageCache);
         ArgumentNullException.ThrowIfNull(imagePaths);
         ArgumentNullException.ThrowIfNull(httpFactory);
@@ -131,7 +129,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         _personRepo          = personRepo;
         _providerConfigRepo  = providerConfigRepo;
         _configLoader        = configLoader;
-        _heroGenerator       = heroGenerator;
         _imageCache          = imageCache;
         _imagePaths          = imagePaths;
         _assetPaths          = assetPaths;
@@ -205,12 +202,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         if (json is null) return;
 
         // ── Step 4: Parse response and download work-level assets ──
-        string? backgroundPath = null;
         if (FieldMappings.TryGetValue(resolvedMediaType, out var mappings))
         {
             foreach (var mapping in mappings)
             {
-                var localPath = await ProcessImageArrayAsync(
+                await ProcessImageArrayAsync(
                     json,
                     mapping.JsonFields,
                     mapping.Type,
@@ -218,9 +214,6 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                     workQid,
                     mapping.UpdatePreferred,
                     ct);
-
-                if (mapping.Type == AssetType.Background && localPath is not null)
-                    backgroundPath = localPath;
             }
         }
 
@@ -249,13 +242,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 ct);
         }
 
-        // ── Step 5: Regenerate hero from the higher-resolution background art ──
-        if (backgroundPath is not null && File.Exists(backgroundPath))
-        {
-            await RegenerateHeroFromBackgroundAsync(context.CanonicalEntityId, workQid, backgroundPath, ct);
-        }
-
-        // ── Steps 6–7: Character art matching ──
+        // ── Steps 5–6: Character art matching ──
         if (CharacterArtFields.TryGetValue(resolvedMediaType, out var charField))
         {
             await MatchCharacterArtAsync(json, charField, assetId, workQid, ct);
@@ -571,6 +558,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 InferVariantExtension(assetType, imageUrl));
 
             await PersistImageAsync(bytes, variant.LocalImagePath, imageUrl, ct);
+            ArtworkVariantHelper.StampMetadataAndRenditions(variant, _assetPaths);
             await _assetRepo.UpsertAsync(variant, ct);
             existingVariants.Add(variant);
 
@@ -601,7 +589,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             return null;
 
         await _assetRepo.SetPreferredAsync(preferredVariant.Id, ct);
-        await UpsertPreferredArtworkCanonicalAsync(ownerEntityId, assetType, preferredVariant.Id, ct);
+        await UpsertPreferredArtworkCanonicalAsync(ownerEntityId, preferredVariant, ct);
         if (_assetExportService is not null)
             await _assetExportService.ReconcileArtworkAsync(
                 preferredVariant.EntityId,
@@ -612,106 +600,17 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         return preferredVariant.LocalImagePath;
     }
 
-    /// <summary>
-    /// Regenerates the hero banner from a high-res background image,
-    /// which produces better results than the cover-art-derived hero.
-    /// </summary>
-    private async Task RegenerateHeroFromBackgroundAsync(
-        Guid assetId, string workQid, string backgroundPath, CancellationToken ct)
-    {
-        try
-        {
-            var heroPath = _assetPaths.GetCentralDerivedPath("Work", assetId, "hero", "hero.jpg");
-            var imageDir = Path.GetDirectoryName(heroPath);
-            if (string.IsNullOrWhiteSpace(imageDir))
-                return;
-
-            Directory.CreateDirectory(imageDir);
-            var heroResult = await _heroGenerator.GenerateAsync(backgroundPath, imageDir, ct);
-
-            var heroCanonicals = new List<CanonicalValue>
-            {
-                new()
-                {
-                    EntityId     = assetId,
-                    Key          = "hero",
-                    Value        = $"/stream/{assetId}/hero",
-                    LastScoredAt = DateTimeOffset.UtcNow,
-                },
-            };
-            heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
-                assetId,
-                coverState: "present",
-                coverSource: null,
-                heroState: "present",
-                lastScoredAt: DateTimeOffset.UtcNow,
-                settled: true));
-
-            if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
-            {
-                heroCanonicals.Add(new CanonicalValue
-                {
-                    EntityId     = assetId,
-                    Key          = "dominant_color",
-                    Value        = heroResult.DominantHexColor,
-                    LastScoredAt = DateTimeOffset.UtcNow,
-                });
-            }
-
-            await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct);
-
-            _logger.LogInformation(
-                "[IMAGE-ENRICH] Hero banner regenerated from background art for {WorkQid}", workQid);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            await _canonicalRepo.UpsertBatchAsync(
-                ArtworkCanonicalHelper.CreateFlags(
-                    assetId,
-                    coverState: "present",
-                    coverSource: null,
-                    heroState: "missing",
-                    lastScoredAt: DateTimeOffset.UtcNow,
-                    settled: true),
-                ct);
-            _logger.LogWarning(ex, "[IMAGE-ENRICH] Hero regeneration from background art failed for {WorkQid}", workQid);
-        }
-    }
-
     private async Task UpsertPreferredArtworkCanonicalAsync(
         Guid assetId,
-        AssetType assetType,
-        Guid preferredVariantId,
+        EntityAsset preferredVariant,
         CancellationToken ct)
     {
-        var canonicalKey = assetType switch
-        {
-            AssetType.CoverArt => "cover_url",
-            AssetType.Background => "background",
-            AssetType.Banner => "banner",
-            AssetType.Logo => "logo",
-            AssetType.DiscArt => "disc",
-            AssetType.ClearArt => "clearart",
-            AssetType.SquareArt => "square",
-            AssetType.SeasonPoster => "season_poster",
-            AssetType.SeasonThumb => "season_thumb",
-            AssetType.EpisodeStill => "episode_still",
-            _ => null,
-        };
-
-        if (canonicalKey is null)
-            return;
-
         await _canonicalRepo.UpsertBatchAsync(
-        [
-            new CanonicalValue
-            {
-                EntityId = assetId,
-                Key = canonicalKey,
-                Value = $"/stream/artwork/{preferredVariantId}",
-                LastScoredAt = DateTimeOffset.UtcNow,
-            },
-        ], ct);
+            ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(
+                assetId,
+                preferredVariant,
+                DateTimeOffset.UtcNow),
+            ct);
     }
 
     private static string InferVariantExtension(AssetType assetType, string imageUrl)

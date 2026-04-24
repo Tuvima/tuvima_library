@@ -39,11 +39,41 @@ public sealed class EntityAsset
     /// <summary>Local filesystem path to the downloaded image.</summary>
     public string? LocalImagePath { get; set; }
 
+    /// <summary>Small shelf/thumbnail rendition path (typically 320px long edge).</summary>
+    public string? LocalImagePathSmall { get; set; }
+
+    /// <summary>Medium library/hover rendition path (typically 960px long edge).</summary>
+    public string? LocalImagePathMedium { get; set; }
+
+    /// <summary>Large zoom/detail rendition path (original or capped to 2160px long edge).</summary>
+    public string? LocalImagePathLarge { get; set; }
+
     /// <summary>
     /// Which provider supplied this asset.
     /// Example: <c>"fanart_tv"</c>, <c>"wikidata"</c>, <c>"tmdb"</c>, <c>"user_upload"</c>.
     /// </summary>
     public string? SourceProvider { get; set; }
+
+    /// <summary>Measured pixel width of the source artwork.</summary>
+    public int? WidthPx { get; set; }
+
+    /// <summary>Measured pixel height of the source artwork.</summary>
+    public int? HeightPx { get; set; }
+
+    /// <summary>
+    /// Normalized aspect classification for UI surface selection.
+    /// One of Portrait, Square, LandscapeWide, BannerStrip, or UnsupportedRect.
+    /// </summary>
+    public string AspectClass { get; set; } = ArtworkAspectClasses.UnsupportedRect;
+
+    /// <summary>Primary extracted palette hex used for generated gradients.</summary>
+    public string? PrimaryHex { get; set; }
+
+    /// <summary>Secondary extracted palette hex used for generated gradients.</summary>
+    public string? SecondaryHex { get; set; }
+
+    /// <summary>Accent extracted palette hex used for generated gradients.</summary>
+    public string? AccentHex { get; set; }
 
     /// <summary>Broad classification for the asset record.</summary>
     public string AssetClassValue { get; set; } = "Artwork";

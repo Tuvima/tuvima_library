@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -848,15 +849,22 @@ public sealed class DiscoveryComposerService
             DiscoveryBucket.Tv,
             group?.BannerUrl ?? latest.BannerUrl,
             group?.BackgroundUrl ?? latest.BackgroundUrl,
-            group?.HeroUrl ?? latest.HeroUrl);
+            representativeWork?.CoverAspectClass,
+            representativeWork?.SquareAspectClass,
+            representativeWork?.BackgroundAspectClass,
+            representativeWork?.BannerAspectClass);
         var surface = ResolveDiscoverySurface(
             DiscoveryBucket.Tv,
             shape,
             DiscoveryCardPresentation.TvSeries,
             group?.CoverUrl ?? latest.CoverUrl,
+            representativeWork?.SquareUrl,
             group?.BackgroundUrl ?? latest.BackgroundUrl,
             group?.BannerUrl ?? latest.BannerUrl,
-            group?.HeroUrl ?? latest.HeroUrl);
+            coverAspectClass: representativeWork?.CoverAspectClass,
+            squareAspectClass: representativeWork?.SquareAspectClass,
+            backgroundAspectClass: representativeWork?.BackgroundAspectClass,
+            bannerAspectClass: representativeWork?.BannerAspectClass);
 
         return new DiscoveryCardViewModel
         {
@@ -869,15 +877,15 @@ public sealed class DiscoveryComposerService
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
             BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
-            HeroUrl = group?.HeroUrl ?? latest.HeroUrl,
+            HeroUrl = null,
             LogoUrl = group?.LogoUrl ?? latest.LogoUrl,
             PreviewImages = latest.CollectionId.HasValue ? GetPreviewImages(groupPreviewImages, latest.CollectionId.Value) : [],
             StatusText = BuildContinueStatus(latest, DiscoveryBucket.Tv),
             MetaText = JoinPartsSafe(group?.Year, group is not null ? CountLabel(group) : $"{items.Count} episodes"),
-            ContextLines = BuildContextLines(group?.Network, group?.Creator, group?.Director, group?.Writer),
+            ContextLines = BuildContextLines(group?.Network, group?.Creator, group?.Writer),
             VibeTags = BuildVibeTags(representativeWork),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
-            AccentColor = group?.MediaTypeColor ?? AccentForBucket(DiscoveryBucket.Tv),
+            AccentColor = representativeWork?.ArtworkAccentHex ?? group?.MediaTypeColor ?? AccentForBucket(DiscoveryBucket.Tv),
             Shape = shape,
             Presentation = DiscoveryCardPresentation.TvSeries,
             SurfaceKind = surface.SurfaceKind,
@@ -886,6 +894,8 @@ public sealed class DiscoveryComposerService
             HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             PreviewImageUrl = surface.PreviewImageUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             RepresentativeEntityId = representativeWork?.Id ?? latest.WorkId,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = primaryUrl,
@@ -914,9 +924,13 @@ public sealed class DiscoveryComposerService
             DiscoveryCardShape.Square,
             DiscoveryCardPresentation.Album,
             latest.CoverUrl,
+            representativeWork?.SquareUrl,
             latest.BackgroundUrl,
             latest.BannerUrl,
-            latest.HeroUrl);
+            coverAspectClass: representativeWork?.CoverAspectClass,
+            squareAspectClass: representativeWork?.SquareAspectClass,
+            backgroundAspectClass: representativeWork?.BackgroundAspectClass,
+            bannerAspectClass: representativeWork?.BannerAspectClass);
 
         return new DiscoveryCardViewModel
         {
@@ -929,14 +943,14 @@ public sealed class DiscoveryComposerService
             CoverUrl = latest.CoverUrl,
             BackgroundUrl = latest.BackgroundUrl,
             BannerUrl = latest.BannerUrl,
-            HeroUrl = latest.HeroUrl,
+            HeroUrl = null,
             LogoUrl = latest.LogoUrl,
             StatusText = BuildContinueStatus(latest, DiscoveryBucket.Music),
             MetaText = JoinPartsSafe($"{items.Count} tracks", latest.TrackNumber is not null ? $"Track {latest.TrackNumber}" : null),
             ContextLines = BuildContextLines(latest.Author),
             VibeTags = BuildVibeTags(representativeWork),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
-            AccentColor = AccentForBucket(DiscoveryBucket.Music),
+            AccentColor = representativeWork?.ArtworkAccentHex ?? AccentForBucket(DiscoveryBucket.Music),
             Shape = DiscoveryCardShape.Square,
             Presentation = DiscoveryCardPresentation.Album,
             SurfaceKind = surface.SurfaceKind,
@@ -945,6 +959,8 @@ public sealed class DiscoveryComposerService
             HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             PreviewImageUrl = surface.PreviewImageUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             RepresentativeEntityId = representativeWork?.Id ?? latest.WorkId,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = detailsUrl,
@@ -973,15 +989,22 @@ public sealed class DiscoveryComposerService
             DiscoveryBucket.Tv,
             group?.BannerUrl ?? latest.BannerUrl,
             group?.BackgroundUrl ?? latest.BackgroundUrl,
-            group?.HeroUrl ?? latest.HeroUrl);
+            latest.CoverAspectClass,
+            latest.SquareAspectClass,
+            latest.BackgroundAspectClass,
+            latest.BannerAspectClass);
         var surface = ResolveDiscoverySurface(
             DiscoveryBucket.Tv,
             shape,
             DiscoveryCardPresentation.TvSeries,
             group?.CoverUrl ?? latest.CoverUrl,
+            latest.SquareUrl,
             group?.BackgroundUrl ?? latest.BackgroundUrl,
             group?.BannerUrl ?? latest.BannerUrl,
-            group?.HeroUrl ?? latest.HeroUrl);
+            coverAspectClass: latest.CoverAspectClass,
+            squareAspectClass: latest.SquareAspectClass,
+            backgroundAspectClass: latest.BackgroundAspectClass,
+            bannerAspectClass: latest.BannerAspectClass);
 
         return new DiscoveryCardViewModel
         {
@@ -994,7 +1017,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = group?.CoverUrl ?? latest.CoverUrl,
             BackgroundUrl = group?.BackgroundUrl ?? latest.BackgroundUrl,
             BannerUrl = group?.BannerUrl ?? latest.BannerUrl,
-            HeroUrl = group?.HeroUrl ?? latest.HeroUrl,
+            HeroUrl = null,
             LogoUrl = group?.LogoUrl ?? latest.LogoUrl,
             PreviewImages = latest.CollectionId.HasValue ? GetPreviewImages(groupPreviewImages, latest.CollectionId.Value) : [],
             StatusText = Pluralize(items.Count, "new episode"),
@@ -1002,7 +1025,7 @@ public sealed class DiscoveryComposerService
             ContextLines = BuildContextLines(group?.Network, group?.Creator),
             VibeTags = BuildVibeTags(latest),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
-            AccentColor = group?.MediaTypeColor ?? AccentForBucket(DiscoveryBucket.Tv),
+            AccentColor = latest.ArtworkAccentHex ?? group?.MediaTypeColor ?? AccentForBucket(DiscoveryBucket.Tv),
             Shape = shape,
             Presentation = DiscoveryCardPresentation.TvSeries,
             SurfaceKind = surface.SurfaceKind,
@@ -1011,6 +1034,8 @@ public sealed class DiscoveryComposerService
             HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             PreviewImageUrl = surface.PreviewImageUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             RepresentativeEntityId = latest.Id,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = detailsUrl,
@@ -1036,9 +1061,13 @@ public sealed class DiscoveryComposerService
             DiscoveryCardShape.Square,
             DiscoveryCardPresentation.Album,
             latest.CoverUrl,
+            latest.SquareUrl,
             latest.BackgroundUrl,
             latest.BannerUrl,
-            latest.HeroUrl);
+            coverAspectClass: latest.CoverAspectClass,
+            squareAspectClass: latest.SquareAspectClass,
+            backgroundAspectClass: latest.BackgroundAspectClass,
+            bannerAspectClass: latest.BannerAspectClass);
 
         return new DiscoveryCardViewModel
         {
@@ -1051,14 +1080,14 @@ public sealed class DiscoveryComposerService
             CoverUrl = latest.CoverUrl,
             BackgroundUrl = latest.BackgroundUrl,
             BannerUrl = latest.BannerUrl,
-            HeroUrl = latest.HeroUrl,
+            HeroUrl = null,
             LogoUrl = latest.LogoUrl,
             StatusText = Pluralize(items.Count, "new track"),
             MetaText = JoinPartsSafe(latest.Year, "Album"),
             ContextLines = BuildContextLines(latest.Artist ?? latest.Author),
             VibeTags = BuildVibeTags(latest),
             MediaKind = NormalizeDisplayKind(latest.MediaType),
-            AccentColor = AccentForBucket(DiscoveryBucket.Music),
+            AccentColor = latest.ArtworkAccentHex ?? AccentForBucket(DiscoveryBucket.Music),
             Shape = DiscoveryCardShape.Square,
             Presentation = DiscoveryCardPresentation.Album,
             SurfaceKind = surface.SurfaceKind,
@@ -1067,6 +1096,8 @@ public sealed class DiscoveryComposerService
             HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             PreviewImageUrl = surface.PreviewImageUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             RepresentativeEntityId = latest.Id,
             NavigationUrl = detailsUrl,
             PrimaryNavigationUrl = detailsUrl,
@@ -1085,7 +1116,7 @@ public sealed class DiscoveryComposerService
         string eyebrow,
         string accentColor)
     {
-        var backdrop = card.HeroBackgroundImageUrl ?? card.HeroUrl ?? card.BackgroundUrl ?? card.BannerUrl ?? card.CoverUrl;
+        var backdrop = card.HeroBackgroundImageUrl ?? card.BackgroundUrl ?? card.BannerUrl;
 
         return new DiscoveryHeroViewModel
         {
@@ -1098,9 +1129,11 @@ public sealed class DiscoveryComposerService
             BackgroundImageUrl = backdrop,
             HeroBackgroundImageUrl = backdrop,
             BannerImageUrl = card.BannerUrl,
-            PreviewImageUrl = card.PreviewImageUrl ?? card.CoverUrl ?? card.BackgroundUrl ?? card.HeroUrl,
+            PreviewImageUrl = card.PreviewImageUrl ?? card.CoverUrl ?? card.TileImageUrl,
+            TileImageFitMode = card.TileImageFitMode,
+            HoverImageFitMode = card.HoverImageFitMode,
             LogoUrl = card.LogoUrl,
-            AccentColor = accentColor,
+            AccentColor = string.IsNullOrWhiteSpace(card.AccentColor) ? accentColor : card.AccentColor,
             StatusText = card.StatusText,
             MetaText = card.MetaText,
             ProgressPct = card.ProgressPct,
@@ -1300,10 +1333,31 @@ public sealed class DiscoveryComposerService
         });
     }
 
-    private static bool HasLandscapeArt(string? bannerUrl, string? backgroundUrl, string? heroUrl) =>
-        !string.IsNullOrWhiteSpace(bannerUrl)
-        || !string.IsNullOrWhiteSpace(backgroundUrl)
-        || !string.IsNullOrWhiteSpace(heroUrl);
+    private static bool HasWideArtwork(
+        string? backgroundUrl,
+        string? bannerUrl,
+        string? backgroundAspectClass = null,
+        string? bannerAspectClass = null)
+    {
+        if (!string.IsNullOrWhiteSpace(backgroundUrl))
+        {
+            return string.IsNullOrWhiteSpace(backgroundAspectClass)
+                || string.Equals(backgroundAspectClass, ArtworkAspectClasses.LandscapeWide, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(backgroundAspectClass, ArtworkAspectClasses.BannerStrip, StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!string.IsNullOrWhiteSpace(bannerUrl))
+        {
+            return string.IsNullOrWhiteSpace(bannerAspectClass)
+                || string.Equals(bannerAspectClass, ArtworkAspectClasses.LandscapeWide, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(bannerAspectClass, ArtworkAspectClasses.BannerStrip, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    private static bool IsSquareArtwork(string? aspectClass) =>
+        string.Equals(aspectClass, ArtworkAspectClasses.Square, StringComparison.OrdinalIgnoreCase);
 
     private static bool ShouldDisplayCollectionGroup(ContentGroupViewModel group) =>
         group.WorkCount > 1
@@ -1314,52 +1368,67 @@ public sealed class DiscoveryComposerService
         DiscoveryBucket bucket,
         string? bannerUrl,
         string? backgroundUrl = null,
-        string? heroUrl = null) => bucket switch
-    {
-        DiscoveryBucket.Movie or DiscoveryBucket.Tv when HasLandscapeArt(bannerUrl, backgroundUrl, heroUrl) => DiscoveryCardShape.Landscape,
-        DiscoveryBucket.Movie or DiscoveryBucket.Tv => DiscoveryCardShape.Portrait,
-        DiscoveryBucket.Music or DiscoveryBucket.Audiobook => DiscoveryCardShape.Square,
-        _ => DiscoveryCardShape.Portrait,
-    };
+        string? coverAspectClass = null,
+        string? squareAspectClass = null,
+        string? backgroundAspectClass = null,
+        string? bannerAspectClass = null) =>
+        ResolveShapeForArtwork(
+            bucket,
+            backgroundUrl,
+            bannerUrl,
+            coverAspectClass,
+            squareAspectClass,
+            backgroundAspectClass,
+            bannerAspectClass);
 
     private static DiscoverySurfaceSelection ResolveDiscoverySurface(
         DiscoveryBucket bucket,
         DiscoveryCardShape shape,
         DiscoveryCardPresentation presentation,
         string? coverUrl,
+        string? squareUrl,
         string? backgroundUrl,
         string? bannerUrl,
-        string? heroUrl,
-        string? artistPhotoUrl = null)
+        string? artistPhotoUrl = null,
+        string? coverAspectClass = null,
+        string? squareAspectClass = null,
+        string? backgroundAspectClass = null,
+        string? bannerAspectClass = null)
     {
-        var artistImageUrl = FirstNonBlank(artistPhotoUrl, coverUrl, backgroundUrl, heroUrl, bannerUrl);
+        var artistImageUrl = FirstNonBlank(artistPhotoUrl, squareUrl, coverUrl, backgroundUrl, bannerUrl);
         if (presentation == DiscoveryCardPresentation.Artist && !string.IsNullOrWhiteSpace(artistImageUrl))
         {
-            var previewImageUrl = FirstNonBlank(coverUrl, backgroundUrl, heroUrl, bannerUrl, artistImageUrl);
+            var previewImageUrl = FirstNonBlank(squareUrl, coverUrl, backgroundUrl, bannerUrl, artistImageUrl);
             return new DiscoverySurfaceSelection(
                 DiscoverySurfaceKind.ArtistPhotoSquare,
                 DiscoveryHoverLayout.ArtOnlyPopover,
                 TileImageUrl: artistImageUrl,
                 HoverImageUrl: artistImageUrl,
                 HeroBackgroundImageUrl: artistImageUrl,
-                PreviewImageUrl: previewImageUrl);
+                PreviewImageUrl: previewImageUrl,
+                TileImageFitMode: DiscoveryImageFitMode.Fill,
+                HoverImageFitMode: DiscoveryImageFitMode.Contain);
         }
 
         if (bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv
             && shape == DiscoveryCardShape.Landscape
-            && HasLandscapeArt(bannerUrl, backgroundUrl, heroUrl))
+            && HasWideArtwork(backgroundUrl, bannerUrl, backgroundAspectClass, bannerAspectClass))
         {
-            var bannerImageUrl = FirstNonBlank(bannerUrl, backgroundUrl, heroUrl, coverUrl);
+            var wideImageUrl = FirstNonBlank(backgroundUrl, bannerUrl, coverUrl);
             return new DiscoverySurfaceSelection(
                 DiscoverySurfaceKind.BannerLandscape,
                 DiscoveryHoverLayout.BannerPopover,
-                TileImageUrl: bannerImageUrl,
-                HoverImageUrl: bannerImageUrl,
-                HeroBackgroundImageUrl: FirstNonBlank(bannerUrl, heroUrl, backgroundUrl, coverUrl),
-                PreviewImageUrl: FirstNonBlank(coverUrl, backgroundUrl, heroUrl, bannerUrl));
+                TileImageUrl: wideImageUrl,
+                HoverImageUrl: wideImageUrl,
+                HeroBackgroundImageUrl: FirstNonBlank(backgroundUrl, bannerUrl),
+                PreviewImageUrl: FirstNonBlank(coverUrl, squareUrl, backgroundUrl, bannerUrl),
+                TileImageFitMode: DiscoveryImageFitMode.Contain,
+                HoverImageFitMode: DiscoveryImageFitMode.Contain);
         }
 
-        var coverImageUrl = FirstNonBlank(coverUrl, backgroundUrl, heroUrl, bannerUrl, artistPhotoUrl);
+        var coverImageUrl = shape == DiscoveryCardShape.Square
+            ? FirstNonBlank(squareUrl, coverUrl, artistPhotoUrl, backgroundUrl, bannerUrl)
+            : FirstNonBlank(coverUrl, squareUrl, artistPhotoUrl, backgroundUrl, bannerUrl);
         var surfaceKind = shape == DiscoveryCardShape.Square
             ? DiscoverySurfaceKind.CoverSquare
             : DiscoverySurfaceKind.CoverPortrait;
@@ -1370,7 +1439,9 @@ public sealed class DiscoveryComposerService
             TileImageUrl: coverImageUrl,
             HoverImageUrl: coverImageUrl,
             HeroBackgroundImageUrl: coverImageUrl,
-            PreviewImageUrl: coverImageUrl);
+            PreviewImageUrl: coverImageUrl,
+            TileImageFitMode: DiscoveryImageFitMode.Fill,
+            HoverImageFitMode: DiscoveryImageFitMode.Contain);
     }
 
     private static IReadOnlyList<string> BuildVibeTags(WorkViewModel? work)
@@ -1634,44 +1705,12 @@ public sealed class DiscoveryComposerService
         string workEyebrow,
         string groupEyebrow)
     {
+        var workLookup = works.ToDictionary(work => work.Id);
         var activeJourney = journey.OrderByDescending(item => item.LastAccessed).FirstOrDefault();
         if (activeJourney is not null)
         {
-            var shape = ShapeForBucket(GetBucket(activeJourney.MediaType));
-            var surface = ResolveDiscoverySurface(
-                GetBucket(activeJourney.MediaType),
-                shape,
-                DiscoveryCardPresentation.Default,
-                activeJourney.CoverUrl,
-                activeJourney.BackgroundUrl,
-                activeJourney.BannerUrl,
-                activeJourney.HeroUrl);
-
-            return new DiscoveryHeroViewModel
-            {
-                Eyebrow = journeyEyebrow,
-                Title = activeJourney.Title,
-                Subtitle = activeJourney.CollectionDisplayName ?? activeJourney.Author,
-                Description = TrimTo(activeJourney.Description, 240),
-                BackgroundImageUrl = surface.HeroBackgroundImageUrl,
-                HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
-                BannerImageUrl = activeJourney.BannerUrl,
-                PreviewImageUrl = surface.PreviewImageUrl,
-                LogoUrl = activeJourney.LogoUrl,
-                AccentColor = accentColor,
-                StatusText = activeJourney.ProgressPct > 0 ? activeJourney.ActionLabel : null,
-                MetaText = JoinPartsSafe(
-                    NormalizeDisplayKind(activeJourney.MediaType),
-                    activeJourney.Series,
-                    activeJourney.ProgressDisplay),
-                ProgressPct = activeJourney.ProgressPct,
-                RepresentativeEntityId = activeJourney.WorkId,
-                SurfaceKind = surface.SurfaceKind,
-                PrimaryActionLabel = activeJourney.ActionVerb,
-                PrimaryNavigationUrl = MediaNavigation.ForJourney(activeJourney),
-                SecondaryActionLabel = "Details",
-                SecondaryNavigationUrl = BuildJourneyDetailsUrl(activeJourney),
-            };
+            var journeyCard = ToJourneyCard(activeJourney, workLookup.GetValueOrDefault(activeJourney.WorkId));
+            return ToHeroFromCard(journeyCard, journeyEyebrow, accentColor);
         }
 
         var newestWork = works.OrderByDescending(GetSortTimestamp).FirstOrDefault();
@@ -1690,36 +1729,16 @@ public sealed class DiscoveryComposerService
         if (featuredGroup is not null)
         {
             var previewImages = GetPreviewImages(groupPreviewImages, featuredGroup.CollectionId);
-            var groupShape = OverrideShapeForGroup(featuredGroup, "home");
-            var groupSurface = ResolveDiscoverySurface(
-                GetBucket(featuredGroup.PrimaryMediaType),
-                groupShape,
+            var featuredCard = ToCollectionCard(
+                featuredGroup,
+                OverrideShapeForGroup(featuredGroup, "home"),
                 DiscoveryCardPresentation.Default,
-                featuredGroup.CoverUrl ?? featuredGroup.ArtistPhotoUrl,
-                featuredGroup.BackgroundUrl ?? featuredGroup.ArtistPhotoUrl,
-                featuredGroup.BannerUrl,
-                featuredGroup.HeroUrl,
-                featuredGroup.ArtistPhotoUrl);
-            return new DiscoveryHeroViewModel
-            {
-                Eyebrow = groupEyebrow,
-                Title = featuredGroup.DisplayName,
-                Subtitle = featuredGroup.Creator ?? featuredGroup.Network,
-                Description = BuildGroupDescriptionSafe(featuredGroup),
-                BackgroundImageUrl = groupSurface.HeroBackgroundImageUrl,
-                HeroBackgroundImageUrl = groupSurface.HeroBackgroundImageUrl,
-                BannerImageUrl = featuredGroup.BannerUrl,
-                PreviewImageUrl = groupSurface.PreviewImageUrl ?? previewImages.FirstOrDefault(),
-                LogoUrl = featuredGroup.LogoUrl,
-                AccentColor = accentColor,
-                MetaText = JoinPartsSafe(featuredGroup.PrimaryMediaType, featuredGroup.Year, featuredGroup.WorkCount.ToString()),
-                RepresentativeEntityId = featuredGroup.CollectionId,
-                SurfaceKind = groupSurface.SurfaceKind,
-                PrimaryActionLabel = "Explore collection",
-                PrimaryNavigationUrl = MediaNavigation.ForContentGroup(featuredGroup),
-                SecondaryActionLabel = "Details",
-                SecondaryNavigationUrl = MediaNavigation.ForContentGroup(featuredGroup),
-            };
+                previewImages,
+                navigationUrl: MediaNavigation.ForContentGroup(featuredGroup),
+                detailsNavigationUrl: MediaNavigation.ForContentGroup(featuredGroup),
+                primaryActionLabel: "Explore collection",
+                primaryNavigationUrl: MediaNavigation.ForContentGroup(featuredGroup));
+            return ToHeroFromCard(featuredCard, groupEyebrow, accentColor);
         }
 
         return null;
@@ -1729,45 +1748,11 @@ public sealed class DiscoveryComposerService
         WorkViewModel work,
         string accentColor,
         string eyebrow,
-        double? progressPct = null)
-    {
-        var bucket = GetBucket(work.MediaType);
-        var shape = ShapeForBucket(bucket);
-        var surface = ResolveDiscoverySurface(
-            bucket,
-            shape,
-            DiscoveryCardPresentation.Default,
-            work.CoverUrl,
-            work.BackgroundUrl,
-            work.BannerUrl,
-            work.HeroUrl);
-        return new DiscoveryHeroViewModel
-        {
-            Eyebrow = eyebrow,
-            Title = work.Title,
-            Subtitle = work.Author,
-            Description = TrimTo(work.Description, 240),
-            Tldr = TrimTo(work.Tldr, 140),
-            VibeTags = BuildVibeTags(work),
-            BackgroundImageUrl = surface.HeroBackgroundImageUrl,
-            HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
-            BannerImageUrl = work.BannerUrl,
-            PreviewImageUrl = surface.PreviewImageUrl,
-            LogoUrl = work.LogoUrl,
-            AccentColor = accentColor,
-            MetaText = JoinPartsSafe(
-                NormalizeDisplayKind(work.MediaType),
-                work.Year,
-                work.Genres.FirstOrDefault()),
-            ProgressPct = progressPct,
-            RepresentativeEntityId = work.Id,
-            SurfaceKind = surface.SurfaceKind,
-            PrimaryActionLabel = progressPct is > 0 ? ContinueLabel(bucket) : "Open",
-            PrimaryNavigationUrl = MediaNavigation.ForWork(work),
-            SecondaryActionLabel = "Details",
-            SecondaryNavigationUrl = BuildWorkDetailsUrl(work),
-        };
-    }
+        double? progressPct = null) =>
+        ToHeroFromCard(
+            ToWorkCard(work, progressPct),
+            eyebrow,
+            work.ArtworkAccentHex ?? accentColor);
 
     private static DiscoveryCardViewModel ToJourneyCard(
         JourneyItemViewModel item,
@@ -1775,15 +1760,26 @@ public sealed class DiscoveryComposerService
         DiscoveryCardShape? shapeOverride = null)
     {
         var bucket = GetBucket(item.MediaType);
-        var shape = shapeOverride ?? ShapeForBucket(bucket);
+        var shape = shapeOverride ?? ResolveShapeForArtwork(
+            bucket,
+            item.BackgroundUrl,
+            item.BannerUrl,
+            representativeWork?.CoverAspectClass,
+            representativeWork?.SquareAspectClass,
+            representativeWork?.BackgroundAspectClass,
+            representativeWork?.BannerAspectClass);
         var surface = ResolveDiscoverySurface(
             bucket,
             shape,
             DiscoveryCardPresentation.Default,
             item.CoverUrl,
+            representativeWork?.SquareUrl,
             item.BackgroundUrl,
             item.BannerUrl,
-            item.HeroUrl);
+            coverAspectClass: representativeWork?.CoverAspectClass,
+            squareAspectClass: representativeWork?.SquareAspectClass,
+            backgroundAspectClass: representativeWork?.BackgroundAspectClass,
+            bannerAspectClass: representativeWork?.BannerAspectClass);
 
         return new DiscoveryCardViewModel
         {
@@ -1797,7 +1793,7 @@ public sealed class DiscoveryComposerService
             CoverUrl = item.CoverUrl,
             BackgroundUrl = item.BackgroundUrl,
             BannerUrl = item.BannerUrl,
-            HeroUrl = item.HeroUrl,
+            HeroUrl = null,
             LogoUrl = item.LogoUrl,
             StatusText = item.ProgressPct > 0 ? item.ActionLabel : null,
             MetaText = JoinPartsSafe(
@@ -1807,7 +1803,7 @@ public sealed class DiscoveryComposerService
             ContextLines = BuildContextLines(item.Author, item.Narrator),
             VibeTags = BuildVibeTags(representativeWork),
             MediaKind = NormalizeDisplayKind(item.MediaType),
-            AccentColor = AccentForBucket(bucket),
+            AccentColor = representativeWork?.ArtworkAccentHex ?? AccentForBucket(bucket),
             Shape = shape,
             SurfaceKind = surface.SurfaceKind,
             HoverLayout = surface.HoverLayout,
@@ -1815,6 +1811,8 @@ public sealed class DiscoveryComposerService
             HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             PreviewImageUrl = surface.PreviewImageUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             RepresentativeEntityId = representativeWork?.Id ?? item.WorkId,
             NavigationUrl = BuildJourneyDetailsUrl(item),
             PrimaryNavigationUrl = MediaNavigation.ForJourney(item),
@@ -1834,15 +1832,26 @@ public sealed class DiscoveryComposerService
         DiscoveryCardShape? shapeOverride = null)
     {
         var bucket = GetBucket(work.MediaType);
-        var shape = shapeOverride ?? ShapeForBucket(bucket);
+        var shape = shapeOverride ?? ResolveShapeForArtwork(
+            bucket,
+            work.BackgroundUrl,
+            work.BannerUrl,
+            work.CoverAspectClass,
+            work.SquareAspectClass,
+            work.BackgroundAspectClass,
+            work.BannerAspectClass);
         var surface = ResolveDiscoverySurface(
             bucket,
             shape,
             DiscoveryCardPresentation.Default,
             work.CoverUrl,
+            work.SquareUrl,
             work.BackgroundUrl,
             work.BannerUrl,
-            work.HeroUrl);
+            coverAspectClass: work.CoverAspectClass,
+            squareAspectClass: work.SquareAspectClass,
+            backgroundAspectClass: work.BackgroundAspectClass,
+            bannerAspectClass: work.BannerAspectClass);
 
         return new DiscoveryCardViewModel
         {
@@ -1856,16 +1865,19 @@ public sealed class DiscoveryComposerService
             CoverUrl = work.CoverUrl,
             BackgroundUrl = work.BackgroundUrl,
             BannerUrl = work.BannerUrl,
-            HeroUrl = work.HeroUrl,
+            HeroUrl = null,
             LogoUrl = work.LogoUrl,
             MetaText = JoinPartsSafe(
                 NormalizeDisplayKind(work.MediaType),
                 work.Year,
                 work.Genres.FirstOrDefault()),
-            ContextLines = BuildContextLines(work.Author, work.Director, work.Network ?? work.Artist),
+            ContextLines = BuildContextLines(
+                work.Author,
+                string.Equals(work.MediaType, "TV", StringComparison.OrdinalIgnoreCase) ? work.Network : work.Director,
+                work.Network ?? work.Artist),
             VibeTags = BuildVibeTags(work),
             MediaKind = NormalizeDisplayKind(work.MediaType),
-            AccentColor = AccentForBucket(bucket),
+            AccentColor = work.ArtworkAccentHex ?? AccentForBucket(bucket),
             Shape = shape,
             SurfaceKind = surface.SurfaceKind,
             HoverLayout = surface.HoverLayout,
@@ -1873,6 +1885,8 @@ public sealed class DiscoveryComposerService
             HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             PreviewImageUrl = surface.PreviewImageUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             RepresentativeEntityId = work.Id,
             NavigationUrl = BuildWorkDetailsUrl(work),
             PrimaryNavigationUrl = MediaNavigation.ForWork(work),
@@ -1893,12 +1907,26 @@ public sealed class DiscoveryComposerService
         => ToJourneyCard(
             item,
             representativeWork,
-            HomeShapeForBucket(GetBucket(item.MediaType), item.BannerUrl, item.BackgroundUrl, item.HeroUrl));
+            HomeShapeForBucket(
+                GetBucket(item.MediaType),
+                item.BannerUrl,
+                item.BackgroundUrl,
+                representativeWork?.CoverAspectClass,
+                representativeWork?.SquareAspectClass,
+                representativeWork?.BackgroundAspectClass,
+                representativeWork?.BannerAspectClass));
 
     private static DiscoveryCardViewModel ToHomeWorkCard(WorkViewModel work)
         => ToWorkCard(
             work,
-            shapeOverride: HomeShapeForBucket(GetBucket(work.MediaType), work.BannerUrl, work.BackgroundUrl, work.HeroUrl));
+            shapeOverride: HomeShapeForBucket(
+                GetBucket(work.MediaType),
+                work.BannerUrl,
+                work.BackgroundUrl,
+                work.CoverAspectClass,
+                work.SquareAspectClass,
+                work.BackgroundAspectClass,
+                work.BannerAspectClass));
 
     private static DiscoveryCardViewModel ToCollectionCard(
         ContentGroupViewModel group,
@@ -1930,9 +1958,9 @@ public sealed class DiscoveryComposerService
             shape,
             presentation,
             coverUrl,
+            null,
             backgroundUrl,
             group.BannerUrl,
-            group.HeroUrl,
             group.ArtistPhotoUrl);
 
         return new DiscoveryCardViewModel
@@ -1945,12 +1973,12 @@ public sealed class DiscoveryComposerService
             CoverUrl = coverUrl,
             BackgroundUrl = backgroundUrl,
             BannerUrl = group.BannerUrl,
-            HeroUrl = group.HeroUrl,
+            HeroUrl = null,
             LogoUrl = group.LogoUrl,
             PreviewImages = previewImages ?? [],
             StatusText = statusText,
             MetaText = JoinPartsSafe(group.Year, CountLabel(group)),
-            ContextLines = BuildContextLines(group.Network, group.Creator, group.Director, group.Writer),
+            ContextLines = BuildContextLines(group.Network, group.Creator, group.Writer),
             MediaKind = NormalizeDisplayKind(group.PrimaryMediaType),
             AccentColor = !string.IsNullOrWhiteSpace(group.MediaTypeColor) ? group.MediaTypeColor : AccentForBucket(bucket),
             Shape = shape,
@@ -1961,6 +1989,8 @@ public sealed class DiscoveryComposerService
             HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = surface.HeroBackgroundImageUrl,
             PreviewImageUrl = surface.PreviewImageUrl,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             RepresentativeEntityId = group.CollectionId,
             NavigationUrl = navigationUrl ?? MediaNavigation.ForContentGroup(group),
             PrimaryNavigationUrl = primaryNavigationUrl ?? navigationUrl ?? MediaNavigation.ForContentGroup(group),
@@ -2058,16 +2088,36 @@ public sealed class DiscoveryComposerService
         return pageKey switch
         {
             "listen" when bucket == DiscoveryBucket.Music => DiscoveryCardShape.Square,
-            "watch" => DiscoveryCardShape.Landscape,
-            "home" when bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv => DiscoveryCardShape.Landscape,
+            "watch" when bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv
+                => HasWideArtwork(group.BackgroundUrl, group.BannerUrl) ? DiscoveryCardShape.Landscape : DiscoveryCardShape.Portrait,
+            "home" when bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv
+                => HasWideArtwork(group.BackgroundUrl, group.BannerUrl) ? DiscoveryCardShape.Landscape : DiscoveryCardShape.Portrait,
             _ => ShapeForBucket(bucket),
         };
     }
 
-    private static DiscoveryCardShape ShapeForBucket(DiscoveryBucket bucket) => bucket switch
+    private static DiscoveryCardShape ShapeForBucket(DiscoveryBucket bucket) =>
+        ResolveShapeForArtwork(bucket, null, null, null, null, null, null);
+
+    private static DiscoveryCardShape ResolveShapeForArtwork(
+        DiscoveryBucket bucket,
+        string? backgroundUrl,
+        string? bannerUrl,
+        string? coverAspectClass,
+        string? squareAspectClass,
+        string? backgroundAspectClass,
+        string? bannerAspectClass) => bucket switch
     {
-        DiscoveryBucket.Movie or DiscoveryBucket.Tv => DiscoveryCardShape.Landscape,
-        DiscoveryBucket.Music or DiscoveryBucket.Audiobook => DiscoveryCardShape.Square,
+        DiscoveryBucket.Movie or DiscoveryBucket.Tv when HasWideArtwork(backgroundUrl, bannerUrl, backgroundAspectClass, bannerAspectClass)
+            => DiscoveryCardShape.Landscape,
+        DiscoveryBucket.Movie or DiscoveryBucket.Tv
+            => DiscoveryCardShape.Portrait,
+        DiscoveryBucket.Music
+            => DiscoveryCardShape.Square,
+        DiscoveryBucket.Audiobook when IsSquareArtwork(squareAspectClass) || IsSquareArtwork(coverAspectClass)
+            => DiscoveryCardShape.Square,
+        DiscoveryBucket.Audiobook
+            => DiscoveryCardShape.Portrait,
         _ => DiscoveryCardShape.Portrait,
     };
 
@@ -2242,7 +2292,6 @@ public sealed class DiscoveryComposerService
         || !string.IsNullOrWhiteSpace(card.HeroBackgroundImageUrl)
         || !string.IsNullOrWhiteSpace(card.PreviewImageUrl)
         || !string.IsNullOrWhiteSpace(card.CoverUrl)
-        || !string.IsNullOrWhiteSpace(card.HeroUrl)
         || !string.IsNullOrWhiteSpace(card.BackgroundUrl)
         || !string.IsNullOrWhiteSpace(card.BannerUrl)
         || !string.IsNullOrWhiteSpace(card.LogoUrl)
@@ -2350,7 +2399,9 @@ public sealed class DiscoveryComposerService
         string? TileImageUrl,
         string? HoverImageUrl,
         string? HeroBackgroundImageUrl,
-        string? PreviewImageUrl);
+        string? PreviewImageUrl,
+        DiscoveryImageFitMode TileImageFitMode,
+        DiscoveryImageFitMode HoverImageFitMode);
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));

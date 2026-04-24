@@ -52,6 +52,9 @@ public static class MetadataFieldConstants
     public const string CoverSource     = "cover_source";
     public const string HeroState       = "hero_state";
     public const string ArtworkSettledAt = "artwork_settled_at";
+    public const string ArtworkPrimaryHex = "artwork_primary_hex";
+    public const string ArtworkSecondaryHex = "artwork_secondary_hex";
+    public const string ArtworkAccentHex = "artwork_accent_hex";
     public const string ShowName        = "show_name";
     public const string EpisodeTitle    = "episode_title";
     public const string Network         = "network";

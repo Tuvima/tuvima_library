@@ -124,11 +124,14 @@ public static class IntegrationTestEndpoints
         public bool RequiresSidecarArtwork { get; set; }
         public bool HasPoster { get; set; }
         public bool HasPosterThumb { get; set; }
-        public bool HasHero { get; set; }
+        public bool HasLegacyHeroSidecar { get; set; }
         public bool RequiresStoredArtwork { get; set; }
         public bool HasStoredCover { get; set; }
-        public bool HasStoredCoverThumb { get; set; }
-        public bool HasStoredHero { get; set; }
+        public bool HasStoredCoverSmall { get; set; }
+        public bool HasStoredCoverMedium { get; set; }
+        public bool HasStoredCoverLarge { get; set; }
+        public bool HasStoredPalette { get; set; }
+        public bool HasStoredLegacyHero { get; set; }
         public bool HasStoredBackground { get; set; }
         public bool HasStoredLogo { get; set; }
         public bool HasStoredBanner { get; set; }
@@ -143,8 +146,10 @@ public static class IntegrationTestEndpoints
             FileExists
             && LocationMatchesExpectation
             && (!RequiresTemplateMatch || PathMatchesTemplate)
-            && (!RequiresSidecarArtwork || (HasPoster && HasPosterThumb && HasHero))
-            && (!RequiresStoredArtwork || (HasStoredCover && HasStoredCoverThumb && HasStoredHero));
+            && (!RequiresSidecarArtwork || (HasPoster && HasPosterThumb))
+            && (!RequiresStoredArtwork || (HasStoredCover && HasStoredCoverSmall && HasStoredCoverMedium && HasStoredCoverLarge && HasStoredPalette))
+            && !HasLegacyHeroSidecar
+            && !HasStoredLegacyHero;
     }
 
     /// <summary>Checks that watch/source folders were drained after ingestion.</summary>
@@ -217,6 +222,15 @@ public static class IntegrationTestEndpoints
             || HasSeasonThumb
             || HasEpisodeStill;
     }
+
+    private sealed record PreferredArtworkRecord(
+        string LocalImagePath,
+        string? LocalImagePathSmall,
+        string? LocalImagePathMedium,
+        string? LocalImagePathLarge,
+        string? PrimaryHex,
+        string? SecondaryHex,
+        string? AccentHex);
 
     private sealed record WorkHierarchyNode(Guid WorkId, Guid? ParentWorkId);
 
@@ -631,25 +645,46 @@ public static class IntegrationTestEndpoints
 
         // Wipe library root
         string? libraryRoot = options.Value.LibraryRoot;
+        if (!string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            var assetPathService = new AssetPathService(libraryRoot);
+            WipeDirectoryContents(assetPathService.LegacyImagesRoot);
+            WipeDirectoryContents(assetPathService.AssetsRoot);
+        }
+
         if (!string.IsNullOrWhiteSpace(libraryRoot) && Directory.Exists(libraryRoot))
-            WipeDirectoryContents(libraryRoot);
+            WipeDirectoryContentsExcept(libraryRoot, ".data");
 
         // Wipe each library source path (typed folders first, then General).
         // Skip the General/root watch folder — wiping it destroys the typed subfolders.
         var libConfig = configLoader.LoadLibraries();
         foreach (var lib in libConfig.Libraries)
         {
-            if (!string.IsNullOrWhiteSpace(lib.SourcePath) && Directory.Exists(lib.SourcePath))
+            var sourcePaths = lib.SourcePaths?.Where(path => !string.IsNullOrWhiteSpace(path)).ToList()
+                              ?? new List<string>();
+            if (sourcePaths.Count == 0 && !string.IsNullOrWhiteSpace(lib.SourcePath))
+            {
+                sourcePaths.Add(lib.SourcePath);
+            }
+
+            foreach (var sourcePath in sourcePaths)
             {
                 // Only wipe files, not subdirectories, for the General (root) folder
                 // to avoid destroying the typed watch subfolders.
                 bool isGeneral = lib.Category.Equals("General", StringComparison.OrdinalIgnoreCase);
                 if (isGeneral)
-                    WipeFilesOnly(lib.SourcePath);
+                    WipeFilesOnly(sourcePath);
                 else
-                    WipeDirectoryContents(lib.SourcePath);
-                logger.LogInformation("[Wipe] Cleared {Category} source: {Path}", lib.Category, lib.SourcePath);
+                    WipeDirectoryContents(sourcePath);
+                logger.LogInformation("[Wipe] Cleared {Category} source: {Path}", lib.Category, sourcePath);
             }
+        }
+
+        var watchDirectory = options.Value.WatchDirectory;
+        if (!string.IsNullOrWhiteSpace(watchDirectory) && Directory.Exists(watchDirectory))
+        {
+            WipeDirectoryContents(watchDirectory);
+            logger.LogInformation("[Wipe] Cleared legacy watch folder: {Path}", watchDirectory);
         }
 
         // Wipe database — DELETE rows instead of dropping tables to avoid breaking
@@ -672,34 +707,38 @@ public static class IntegrationTestEndpoints
                     SELECT name FROM sqlite_master
                     WHERE type='table'
                       AND name NOT LIKE 'sqlite_%'
-                      AND name NOT IN ('schema_version','provider_registry','provider_config','profiles','api_keys')
                     """;
                 using var reader = listCmd.ExecuteReader();
                 while (reader.Read()) tables.Add(reader.GetString(0));
             }
 
-            int deleted = 0;
             foreach (string table in tables)
             {
-                using var deleteCmd = conn.CreateCommand();
-                deleteCmd.CommandText = $"DELETE FROM [{table}];";
-                try { deleted += deleteCmd.ExecuteNonQuery(); }
-                catch (Exception ex) { logger.LogWarning("[Wipe] DELETE FROM [{Table}] failed: {Msg}", table, ex.Message); }
+                using var dropCmd = conn.CreateCommand();
+                dropCmd.CommandText = $"DROP TABLE IF EXISTS [{table}];";
+                dropCmd.ExecuteNonQuery();
             }
 
             // Rebuild FTS5 virtual tables — DELETE FROM leaves them in a corrupt state.
-            try
+            using (var ftsCmd = conn.CreateCommand())
             {
-                using var rebuildCmd = conn.CreateCommand();
-                rebuildCmd.CommandText = "INSERT INTO search_index(search_index) VALUES('rebuild');";
-                rebuildCmd.ExecuteNonQuery();
+                ftsCmd.CommandText = "DROP TABLE IF EXISTS search_index;";
+                ftsCmd.ExecuteNonQuery();
             }
-            catch (Exception ex) { logger.LogWarning("[Wipe] FTS5 rebuild failed: {Msg}", ex.Message); }
 
             // Re-enable FK checks.
             using (var fkOn = conn.CreateCommand()) { fkOn.CommandText = "PRAGMA foreign_keys = ON;"; fkOn.ExecuteNonQuery(); }
 
-            logger.LogInformation("[Wipe] Database wiped: {Deleted} rows deleted from {Tables} tables, schema preserved", deleted, tables.Count);
+            using (var vacuumCmd = conn.CreateCommand())
+            {
+                vacuumCmd.CommandText = "VACUUM;";
+                vacuumCmd.ExecuteNonQuery();
+            }
+
+            db.InitializeSchema();
+            db.RunStartupChecks();
+
+            logger.LogInformation("[Wipe] Database wiped: dropped {Tables} tables and reinitialized schema", tables.Count);
         }
         finally { db.ReleaseWriteLock(); }
     }
@@ -1142,7 +1181,7 @@ public static class IntegrationTestEndpoints
         var assetPathService = new AssetPathService(options.Value.LibraryRoot);
         var assetIds = await LoadWorkAssetIdsAsync(db);
         var assetCanonicals = await LoadCanonicalValueMapsAsync(db, assetIds.Values);
-        var preferredCoverPaths = await LoadPreferredArtworkPathsAsync(db, "CoverArt");
+        var preferredCoverArtwork = await LoadPreferredArtworkRecordsAsync(db, "CoverArt");
         var assetIdsByPath = await LoadAssetIdsByPathAsync(db);
         var optionalArtworkStates = await LoadOptionalArtworkStatesAsync(db);
         var workHierarchy = await LoadWorkHierarchyAsync(db);
@@ -1207,6 +1246,9 @@ public static class IntegrationTestEndpoints
                     check.PathMatchesTemplate = !expectLibraryPlacement || check.InStagingRoot;
                 }
 
+                if (check.FileExists)
+                    check.HasLegacyHeroSidecar = File.Exists(Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "hero.jpg"));
+
                 if (check.FileExists && expectLibraryPlacement && expectedCoverArt)
                 {
                     check.RequiresStoredArtwork = true;
@@ -1216,8 +1258,8 @@ public static class IntegrationTestEndpoints
                         check.RequiresSidecarArtwork = true;
                         check.HasPoster = HasAnySidecarPoster(filePath);
                         check.HasPosterThumb = HasAnySidecarPosterThumb(filePath);
-                        check.HasHero = File.Exists(Path.Combine(Path.GetDirectoryName(filePath) ?? string.Empty, "hero.jpg"));
                     }
+
                 }
             }
 
@@ -1227,12 +1269,15 @@ public static class IntegrationTestEndpoints
                 var ownerEntityId = ResolveArtworkOwnerEntityId(item.EntityId, workHierarchy);
                 check.HasStoredCover = HasCentralPreferredArtwork(
                     ownerEntityId,
-                    preferredCoverPaths,
+                    preferredCoverArtwork,
                     assetPathService,
                     "Work",
                     "CoverArt");
-                check.HasStoredCoverThumb = File.Exists(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "thumb", "cover-thumb.jpg"));
-                check.HasStoredHero = File.Exists(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
+                check.HasStoredCoverSmall = HasCentralArtworkRendition(ownerEntityId, preferredCoverArtwork, assetPathService, size: "s");
+                check.HasStoredCoverMedium = HasCentralArtworkRendition(ownerEntityId, preferredCoverArtwork, assetPathService, size: "m");
+                check.HasStoredCoverLarge = HasCentralArtworkRendition(ownerEntityId, preferredCoverArtwork, assetPathService, size: "l");
+                check.HasStoredPalette = HasArtworkPalette(preferredCoverArtwork, ownerEntityId);
+                check.HasStoredLegacyHero = File.Exists(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
 
                 if (assetCanonicals.TryGetValue(assetId, out var fanartMetadata))
                     check.HasFanartBridgeId = HasFanartBridgeId(fanartMetadata);
@@ -2104,11 +2149,11 @@ public static class IntegrationTestEndpoints
                 foreach (var check in failingChecks)
                 {
                     string sidecars = check.RequiresSidecarArtwork
-                        ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(check.HasHero)}"
-                        : "n/a";
-                string stored = check.RequiresStoredArtwork
-                    ? $"{BoolMark(check.HasStoredCover)}/{BoolMark(check.HasStoredCoverThumb)}/{BoolMark(check.HasStoredHero)}"
-                    : "n/a";
+                        ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(!check.HasLegacyHeroSidecar)}"
+                        : $"n/a/{BoolMark(!check.HasLegacyHeroSidecar)}";
+                    string stored = check.RequiresStoredArtwork
+                        ? $"{BoolMark(check.HasStoredCover)}/{BoolMark(check.HasStoredCoverSmall)}/{BoolMark(check.HasStoredCoverMedium)}/{BoolMark(check.HasStoredCoverLarge)}/{BoolMark(check.HasStoredPalette)}/{BoolMark(!check.HasStoredLegacyHero)}"
+                        : $"n/a/{BoolMark(!check.HasStoredLegacyHero)}";
 
                     sb.AppendLine($"<tr><td>{Esc(check.Title)}</td><td>{Esc(check.MediaType)}</td><td>{Esc(check.Status)}</td>" +
                         $"<td class=\"mono\">{Esc(check.ExpectedLocation)}{(!string.IsNullOrWhiteSpace(check.ExpectedRelativePath) ? "<br>" + Esc(check.ExpectedRelativePath) : "")}</td>" +
@@ -2120,7 +2165,7 @@ public static class IntegrationTestEndpoints
 
             sb.AppendLine($"<details{(failingChecks.Count == 0 ? " open" : "")}><summary style=\"cursor:pointer;color:#8B9DC3;font-weight:600\">All filesystem checks ({report.FileSystemChecks.Count})</summary>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Result</th><th>Expected</th><th>Actual</th><th>Template</th><th>Sidecars</th><th>Stored Core</th><th>Optional Stored Art (BG/LO/BA/DI/CL/SP/ST/EP)</th></tr>");
+            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Result</th><th>Expected</th><th>Actual</th><th>Template</th><th>Sidecars (P/T/NoHero)</th><th>Stored Core (O/S/M/L/Pal/NoHero)</th><th>Optional Stored Art (BG/LO/BA/DI/CL/SP/ST/EP)</th></tr>");
             foreach (var check in report.FileSystemChecks.OrderBy(f => f.MediaType).ThenBy(f => f.Title))
             {
                 string result = check.Pass
@@ -2131,11 +2176,11 @@ public static class IntegrationTestEndpoints
                     $"{BoolMark(check.HasStoredDiscArt)}/{BoolMark(check.HasStoredClearArt)}/" +
                     $"{BoolMark(check.HasStoredSeasonPoster)}/{BoolMark(check.HasStoredSeasonThumb)}/{BoolMark(check.HasStoredEpisodeStill)}";
                 string sidecars = check.RequiresSidecarArtwork
-                    ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(check.HasHero)}"
-                    : "n/a";
+                    ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(!check.HasLegacyHeroSidecar)}"
+                    : $"n/a/{BoolMark(!check.HasLegacyHeroSidecar)}";
                 string storedCore = check.RequiresStoredArtwork
-                    ? $"{BoolMark(check.HasStoredCover)}/{BoolMark(check.HasStoredCoverThumb)}/{BoolMark(check.HasStoredHero)}"
-                    : "n/a";
+                    ? $"{BoolMark(check.HasStoredCover)}/{BoolMark(check.HasStoredCoverSmall)}/{BoolMark(check.HasStoredCoverMedium)}/{BoolMark(check.HasStoredCoverLarge)}/{BoolMark(check.HasStoredPalette)}/{BoolMark(!check.HasStoredLegacyHero)}"
+                    : $"n/a/{BoolMark(!check.HasStoredLegacyHero)}";
                 string templateState = check.RequiresTemplateMatch
                     ? BoolMark(check.PathMatchesTemplate)
                     : "n/a";
@@ -2473,14 +2518,28 @@ public static class IntegrationTestEndpoints
         return maps;
     }
 
-    private static async Task<Dictionary<Guid, string>> LoadPreferredArtworkPathsAsync(
+    private static async Task<Dictionary<Guid, PreferredArtworkRecord>> LoadPreferredArtworkRecordsAsync(
         IDatabaseConnection db,
         string assetType)
     {
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<(string EntityId, string LocalImagePath)>("""
+        var columns = (await conn.QueryAsync<string>("SELECT name FROM pragma_table_info('entity_assets');"))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (columns.Count == 0)
+        {
+            return [];
+        }
+
+        var rows = await conn.QueryAsync<(string EntityId, string LocalImagePath, string? LocalImagePathSmall, string? LocalImagePathMedium, string? LocalImagePathLarge, string? PrimaryHex, string? SecondaryHex, string? AccentHex)>($"""
             SELECT entity_id        AS EntityId,
-                   local_image_path AS LocalImagePath
+                   local_image_path AS LocalImagePath,
+                   {ResolveEntityAssetColumnSql(columns, "LocalImagePathSmall", "local_image_path_s", "local_image_path_small")},
+                   {ResolveEntityAssetColumnSql(columns, "LocalImagePathMedium", "local_image_path_m", "local_image_path_medium")},
+                   {ResolveEntityAssetColumnSql(columns, "LocalImagePathLarge", "local_image_path_l", "local_image_path_large")},
+                   {ResolveEntityAssetColumnSql(columns, "PrimaryHex", "primary_hex")},
+                   {ResolveEntityAssetColumnSql(columns, "SecondaryHex", "secondary_hex")},
+                   {ResolveEntityAssetColumnSql(columns, "AccentHex", "accent_hex")}
             FROM entity_assets
             WHERE asset_type = @assetType
               AND is_preferred = 1
@@ -2492,8 +2551,26 @@ public static class IntegrationTestEndpoints
             .Where(row => Guid.TryParse(row.EntityId, out _))
             .ToDictionary(
                 row => Guid.Parse(row.EntityId),
-                row => row.LocalImagePath,
+                row => new PreferredArtworkRecord(
+                    row.LocalImagePath,
+                    row.LocalImagePathSmall,
+                    row.LocalImagePathMedium,
+                    row.LocalImagePathLarge,
+                    row.PrimaryHex,
+                    row.SecondaryHex,
+                    row.AccentHex),
                 EqualityComparer<Guid>.Default);
+    }
+
+    private static string ResolveEntityAssetColumnSql(
+        IReadOnlySet<string> columns,
+        string alias,
+        params string[] candidates)
+    {
+        var match = candidates.FirstOrDefault(columns.Contains);
+        return match is null
+            ? $"NULL AS {alias}"
+            : $"{match} AS {alias}";
     }
 
     private static Guid ResolveArtworkOwnerEntityId(
@@ -2515,20 +2592,57 @@ public static class IntegrationTestEndpoints
 
     private static bool HasCentralPreferredArtwork(
         Guid ownerEntityId,
-        IReadOnlyDictionary<Guid, string> preferredArtworkPaths,
+        IReadOnlyDictionary<Guid, PreferredArtworkRecord> preferredArtworkRecords,
         AssetPathService assetPathService,
         string ownerKind,
         string assetType)
     {
-        if (!preferredArtworkPaths.TryGetValue(ownerEntityId, out var localImagePath)
-            || string.IsNullOrWhiteSpace(localImagePath)
-            || !File.Exists(localImagePath))
+        if (!preferredArtworkRecords.TryGetValue(ownerEntityId, out var artwork)
+            || string.IsNullOrWhiteSpace(artwork.LocalImagePath)
+            || !File.Exists(artwork.LocalImagePath))
         {
             return false;
         }
 
         var artworkDirectory = GetCentralArtworkDirectory(assetPathService, ownerKind, ownerEntityId, assetType);
-        return localImagePath.StartsWith(artworkDirectory, StringComparison.OrdinalIgnoreCase);
+        return artwork.LocalImagePath.StartsWith(artworkDirectory, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasCentralArtworkRendition(
+        Guid ownerEntityId,
+        IReadOnlyDictionary<Guid, PreferredArtworkRecord> preferredArtworkRecords,
+        AssetPathService assetPathService,
+        string size)
+    {
+        if (!preferredArtworkRecords.TryGetValue(ownerEntityId, out var artwork))
+            return false;
+
+        var renditionPath = size switch
+        {
+            "s" => artwork.LocalImagePathSmall,
+            "m" => artwork.LocalImagePathMedium,
+            "l" => artwork.LocalImagePathLarge,
+            _ => null,
+        };
+
+        if (string.IsNullOrWhiteSpace(renditionPath) || !File.Exists(renditionPath))
+        {
+            return false;
+        }
+
+        return renditionPath.StartsWith(assetPathService.DerivedRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool HasArtworkPalette(
+        IReadOnlyDictionary<Guid, PreferredArtworkRecord> preferredArtworkRecords,
+        Guid ownerEntityId)
+    {
+        if (!preferredArtworkRecords.TryGetValue(ownerEntityId, out var artwork))
+            return false;
+
+        return !string.IsNullOrWhiteSpace(artwork.PrimaryHex)
+               && !string.IsNullOrWhiteSpace(artwork.SecondaryHex)
+               && !string.IsNullOrWhiteSpace(artwork.AccentHex);
     }
 
     private static bool ShouldRequireSidecarArtwork(LibraryStoragePolicy storagePolicy) =>
@@ -2832,10 +2946,14 @@ public static class IntegrationTestEndpoints
                 : "File should still be in staging";
         if (check.RequiresTemplateMatch && !check.PathMatchesTemplate)
             return $"Template drift: expected {check.ExpectedRelativePath}";
-        if (check.RequiresSidecarArtwork && (!check.HasPoster || !check.HasPosterThumb || !check.HasHero))
+        if (check.HasLegacyHeroSidecar)
+            return "Legacy hero.jpg sidecar still exists next to the media file";
+        if (check.HasStoredLegacyHero)
+            return "Legacy hero.jpg still exists in the central asset store";
+        if (check.RequiresSidecarArtwork && (!check.HasPoster || !check.HasPosterThumb))
             return "Sidecar artwork is incomplete next to the media file";
-        if (check.RequiresStoredArtwork && (!check.HasStoredCover || !check.HasStoredCoverThumb || !check.HasStoredHero))
-            return "Stored artwork set is incomplete in the central asset store";
+        if (check.RequiresStoredArtwork && (!check.HasStoredCover || !check.HasStoredCoverSmall || !check.HasStoredCoverMedium || !check.HasStoredCoverLarge || !check.HasStoredPalette))
+            return "Stored artwork renditions or palette metadata are incomplete in the central asset store";
 
         return "OK";
     }
@@ -2976,6 +3094,9 @@ public static class IntegrationTestEndpoints
 
     private static void WipeDirectoryContents(string dirPath)
     {
+        if (!Directory.Exists(dirPath))
+            return;
+
         var dir = new DirectoryInfo(dirPath);
         foreach (FileInfo file in dir.GetFiles("*", SearchOption.AllDirectories))
         {
@@ -2983,6 +3104,28 @@ public static class IntegrationTestEndpoints
         }
         foreach (DirectoryInfo sub in dir.GetDirectories())
         {
+            try { sub.Delete(recursive: true); } catch { }
+        }
+    }
+
+    private static void WipeDirectoryContentsExcept(string dirPath, params string[] excludedChildNames)
+    {
+        if (!Directory.Exists(dirPath))
+            return;
+
+        var excluded = new HashSet<string>(excludedChildNames ?? [], StringComparer.OrdinalIgnoreCase);
+        var dir = new DirectoryInfo(dirPath);
+
+        foreach (FileInfo file in dir.GetFiles())
+        {
+            try { file.Attributes = FileAttributes.Normal; file.Delete(); } catch { }
+        }
+
+        foreach (DirectoryInfo sub in dir.GetDirectories())
+        {
+            if (excluded.Contains(sub.Name))
+                continue;
+
             try { sub.Delete(recursive: true); } catch { }
         }
     }

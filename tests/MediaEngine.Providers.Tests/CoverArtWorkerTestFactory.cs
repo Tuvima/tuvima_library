@@ -18,7 +18,6 @@ internal static class CoverArtWorkerTestFactory
             canonicalRepo,
             workRepo,
             new NoOpImageCacheRepository(),
-            new NoOpHeroBannerGenerator(),
             new NoOpHttpClientFactory(),
             new AssetPathService(Path.Combine(Path.GetTempPath(), "tuvima-provider-tests")),
             NullLogger<CoverArtWorker>.Instance);
@@ -53,12 +52,6 @@ internal static class CoverArtWorkerTestFactory
         public Task SetUserOverrideAsync(string contentHash, bool isOverride, CancellationToken ct = default) => Task.CompletedTask;
         public Task SetPerceptualHashAsync(string contentHash, ulong phash, CancellationToken ct = default) => Task.CompletedTask;
         public Task<ulong?> GetPerceptualHashAsync(string contentHash, CancellationToken ct = default) => Task.FromResult<ulong?>(null);
-    }
-
-    private sealed class NoOpHeroBannerGenerator : IHeroBannerGenerator
-    {
-        public Task<HeroBannerResult> GenerateAsync(string coverImagePath, string outputDirectory, CancellationToken ct = default)
-            => Task.FromResult(new HeroBannerResult("hero.jpg", "#000000", false));
     }
 
     private sealed class NoOpHttpClientFactory : IHttpClientFactory

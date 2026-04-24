@@ -131,6 +131,10 @@ window.scrollSwimlaneEx = function (el, direction) {
 
 // -- Discovery card hover positioning ------------------------------------
 
+window.getDiscoveryHoverHost = function () {
+    return document.getElementById('discovery-hover-host') || document.body;
+};
+
 window.positionDiscoveryCardHover = function (cardEl) {
     if (!cardEl) return;
 
@@ -166,55 +170,198 @@ window.positionDiscoveryCardHover = function (cardEl) {
             panelTop += Math.abs(overflowTop);
         }
 
-        cardEl.style.setProperty('--discovery-hover-panel-left', panelLeft + 'px');
-        cardEl.style.setProperty('--discovery-hover-panel-top', panelTop + 'px');
+        panel.style.left = panelLeft + 'px';
+        panel.style.top = panelTop + 'px';
     });
+};
+
+window.mountDiscoveryCardHover = function (cardEl) {
+    if (!cardEl) return null;
+
+    var panel = cardEl.querySelector('.discovery-card-hover-panel');
+    if (!panel) return null;
+
+    if (!panel.__discoveryHoverOriginalParent) {
+        panel.__discoveryHoverOriginalParent = panel.parentElement;
+    }
+
+    if (!panel.__discoveryHoverOriginalNextSibling) {
+        panel.__discoveryHoverOriginalNextSibling = panel.nextSibling;
+    }
+
+    var host = window.getDiscoveryHoverHost();
+    if (panel.parentElement !== host) {
+        host.appendChild(panel);
+    }
+
+    return panel;
+};
+
+window.restoreDiscoveryCardHover = function (cardEl) {
+    if (!cardEl) return;
+
+    var panel = cardEl.querySelector('.discovery-card-hover-panel') || cardEl.__discoveryHoverPanel;
+    if (!panel || !panel.__discoveryHoverOriginalParent) return;
+
+    var originalParent = panel.__discoveryHoverOriginalParent;
+    var originalNextSibling = panel.__discoveryHoverOriginalNextSibling;
+
+    if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+        originalParent.insertBefore(panel, originalNextSibling);
+    } else {
+        originalParent.appendChild(panel);
+    }
+};
+
+window.showDiscoveryCardHover = function (cardEl) {
+    if (!cardEl) return;
+
+    var panel = window.mountDiscoveryCardHover(cardEl);
+    if (!panel) return;
+
+    cardEl.__discoveryHoverPanel = panel;
+
+    if (cardEl.__discoveryHideTimer) {
+        window.clearTimeout(cardEl.__discoveryHideTimer);
+        cardEl.__discoveryHideTimer = null;
+    }
+
+    cardEl.classList.add('is-hover-active');
+    panel.classList.add('is-visible');
+    window.positionDiscoveryCardHover(cardEl);
 };
 
 window.clearDiscoveryCardHover = function (cardEl) {
     if (!cardEl) return;
-    cardEl.style.setProperty('--discovery-hover-shift-x', '0px');
-    cardEl.style.setProperty('--discovery-hover-shift-y', '0px');
-    cardEl.style.setProperty('--discovery-hover-panel-left', '-9999px');
-    cardEl.style.setProperty('--discovery-hover-panel-top', '-9999px');
+
+    var panel = cardEl.__discoveryHoverPanel || cardEl.querySelector('.discovery-card-hover-panel');
+    cardEl.classList.remove('is-hover-active');
+
+    if (!panel) return;
+
+    panel.classList.remove('is-visible');
+    panel.style.left = '-9999px';
+    panel.style.top = '-9999px';
+
+    if (!cardEl.__discoveryPinned) {
+        window.setTimeout(function () {
+            if (!panel.classList.contains('is-visible') && panel.parentElement === window.getDiscoveryHoverHost()) {
+                window.restoreDiscoveryCardHover(cardEl);
+            }
+        }, 180);
+    }
+};
+
+window.setDiscoveryCardHoverExpanded = function (cardEl, expanded) {
+    if (!cardEl) return;
+
+    cardEl.__discoveryPinned = !!expanded;
+
+    if (expanded) {
+        window.showDiscoveryCardHover(cardEl);
+        return;
+    }
+
+    window.clearDiscoveryCardHover(cardEl);
 };
 
 window.registerDiscoveryCardHover = function (cardEl) {
     if (!cardEl || cardEl.__discoveryHoverRegistered) return;
 
-    var update = function () {
-        window.positionDiscoveryCardHover(cardEl);
+    var show = function () {
+        window.showDiscoveryCardHover(cardEl);
     };
 
-    var clear = function () {
-        window.clearDiscoveryCardHover(cardEl);
+    var scheduleHide = function () {
+        if (cardEl.__discoveryPinned) return;
+        if (cardEl.__discoveryHideTimer) {
+            window.clearTimeout(cardEl.__discoveryHideTimer);
+        }
+
+        cardEl.__discoveryHideTimer = window.setTimeout(function () {
+            window.clearDiscoveryCardHover(cardEl);
+        }, 80);
     };
 
-    cardEl.addEventListener('mouseenter', update);
-    cardEl.addEventListener('focusin', update);
-    cardEl.addEventListener('mouseleave', clear);
-    cardEl.addEventListener('focusout', clear);
+    var keepOpen = function () {
+        if (cardEl.__discoveryHideTimer) {
+            window.clearTimeout(cardEl.__discoveryHideTimer);
+            cardEl.__discoveryHideTimer = null;
+        }
+    };
 
-    cardEl.__discoveryHoverUpdate = update;
-    cardEl.__discoveryHoverClear = clear;
+    cardEl.addEventListener('mouseenter', show);
+    cardEl.addEventListener('focusin', show);
+    cardEl.addEventListener('mouseleave', scheduleHide);
+    cardEl.addEventListener('focusout', scheduleHide);
+
+    var panel = cardEl.querySelector('.discovery-card-hover-panel');
+    if (panel) {
+        panel.addEventListener('mouseenter', keepOpen);
+        panel.addEventListener('focusin', keepOpen);
+        panel.addEventListener('mouseleave', scheduleHide);
+        panel.addEventListener('focusout', scheduleHide);
+    }
+
+    var reposition = function () {
+        var activePanel = cardEl.__discoveryHoverPanel || panel;
+        if (activePanel && activePanel.classList.contains('is-visible')) {
+            window.positionDiscoveryCardHover(cardEl);
+        }
+    };
+
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+
+    cardEl.__discoveryHoverShow = show;
+    cardEl.__discoveryHoverHide = scheduleHide;
+    cardEl.__discoveryHoverKeepOpen = keepOpen;
+    cardEl.__discoveryHoverReposition = reposition;
     cardEl.__discoveryHoverRegistered = true;
 };
 
 window.unregisterDiscoveryCardHover = function (cardEl) {
     if (!cardEl || !cardEl.__discoveryHoverRegistered) return;
 
-    if (cardEl.__discoveryHoverUpdate) {
-        cardEl.removeEventListener('mouseenter', cardEl.__discoveryHoverUpdate);
-        cardEl.removeEventListener('focusin', cardEl.__discoveryHoverUpdate);
+    var panel = cardEl.__discoveryHoverPanel || cardEl.querySelector('.discovery-card-hover-panel');
+
+    if (cardEl.__discoveryHoverShow) {
+        cardEl.removeEventListener('mouseenter', cardEl.__discoveryHoverShow);
+        cardEl.removeEventListener('focusin', cardEl.__discoveryHoverShow);
     }
 
-    if (cardEl.__discoveryHoverClear) {
-        cardEl.removeEventListener('mouseleave', cardEl.__discoveryHoverClear);
-        cardEl.removeEventListener('focusout', cardEl.__discoveryHoverClear);
+    if (cardEl.__discoveryHoverHide) {
+        cardEl.removeEventListener('mouseleave', cardEl.__discoveryHoverHide);
+        cardEl.removeEventListener('focusout', cardEl.__discoveryHoverHide);
     }
 
-    delete cardEl.__discoveryHoverUpdate;
-    delete cardEl.__discoveryHoverClear;
+    if (panel && cardEl.__discoveryHoverKeepOpen) {
+        panel.removeEventListener('mouseenter', cardEl.__discoveryHoverKeepOpen);
+        panel.removeEventListener('focusin', cardEl.__discoveryHoverKeepOpen);
+        panel.removeEventListener('mouseleave', cardEl.__discoveryHoverHide);
+        panel.removeEventListener('focusout', cardEl.__discoveryHoverHide);
+    }
+
+    if (cardEl.__discoveryHoverReposition) {
+        window.removeEventListener('resize', cardEl.__discoveryHoverReposition);
+        window.removeEventListener('scroll', cardEl.__discoveryHoverReposition, true);
+    }
+
+    if (cardEl.__discoveryHideTimer) {
+        window.clearTimeout(cardEl.__discoveryHideTimer);
+    }
+
+    cardEl.__discoveryPinned = false;
+    window.clearDiscoveryCardHover(cardEl);
+    window.restoreDiscoveryCardHover(cardEl);
+
+    delete cardEl.__discoveryHoverPanel;
+    delete cardEl.__discoveryHoverShow;
+    delete cardEl.__discoveryHoverHide;
+    delete cardEl.__discoveryHoverKeepOpen;
+    delete cardEl.__discoveryHoverReposition;
+    delete cardEl.__discoveryHideTimer;
+    delete cardEl.__discoveryPinned;
     delete cardEl.__discoveryHoverRegistered;
 };
 // -- Alphabetical Grid scroll-to-letter ---------------------------------

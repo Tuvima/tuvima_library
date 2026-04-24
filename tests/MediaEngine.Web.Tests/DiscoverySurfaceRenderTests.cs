@@ -70,7 +70,7 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
 
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-banner-popover.is-banner-surface"));
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-logo"));
-        Assert.Empty(cut.FindAll(".discovery-card-hover-image.is-contained"));
+        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-image.is-contained"));
     }
 
     [Fact]

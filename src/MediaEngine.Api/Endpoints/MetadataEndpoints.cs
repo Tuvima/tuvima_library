@@ -12,6 +12,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 
@@ -1574,8 +1575,8 @@ public static partial class MetadataEndpoints
 
         // â"€â"€ POST /metadata/{entityId}/cover-from-url â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         //
-        // Downloads a cover image from a provider URL, saves as cover.jpg,
-        // regenerates the hero banner, and updates canonical values.
+        // Downloads a cover image from a provider URL, saves the managed artwork,
+        // generates renditions + palette metadata, and updates canonical values.
 
         group.MapPost("/{entityId:guid}/cover-from-url", async (
             Guid entityId,
@@ -1585,7 +1586,6 @@ public static partial class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
-            IHeroBannerGenerator heroGenerator,
             AssetPathService assetPathService,
             IHttpClientFactory httpFactory,
             ILoggerFactory loggerFactory,
@@ -1620,18 +1620,12 @@ public static partial class MetadataEndpoints
 
                 var variantId = Guid.NewGuid();
                 var coverPath = BuildArtworkUploadPath(assetPathService, "Work", ownerEntityId, "CoverArt", variantId, contentType);
-                var imageDir = Path.GetDirectoryName(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
-                if (string.IsNullOrWhiteSpace(imageDir))
-                    return Results.Problem("Could not resolve an artwork directory for the entity.", statusCode: StatusCodes.Status500InternalServerError);
                 AssetPathService.EnsureDirectory(coverPath);
-                Directory.CreateDirectory(imageDir);
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
                 logger.LogInformation(
                     "Cover downloaded from URL for entity {Id}: {Size} bytes â†’ {Path}",
                     entityId, imageBytes.Length, coverPath);
-
-                var heroResult = await heroGenerator.GenerateAsync(coverPath, imageDir, ct);
 
                 var storedAsset = new EntityAsset
                 {
@@ -1651,42 +1645,21 @@ public static partial class MetadataEndpoints
                     IsPreferredExported = false,
                     CreatedAt = DateTimeOffset.UtcNow,
                 };
+                ArtworkVariantHelper.StampMetadataAndRenditions(storedAsset, assetPathService);
 
                 await entityAssetRepo.UpsertAsync(storedAsset, ct);
                 await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
                 await SyncArtworkCanonicalAsync(ownerEntityId, "CoverArt", storedAsset, canonicalRepo, entityAssetRepo, ct);
                 await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
-                var canonicals = new List<Domain.Entities.CanonicalValue>();
-
-                if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
-                {
-                    canonicals.Add(new Domain.Entities.CanonicalValue
-                    {
-                        EntityId     = ownerEntityId,
-                        Key          = "dominant_color",
-                        Value        = heroResult.DominantHexColor,
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                    });
-                }
-
-                canonicals.Add(new Domain.Entities.CanonicalValue
-                {
-                    EntityId     = ownerEntityId,
-                    Key          = "hero",
-                    Value        = $"/stream/{ownerEntityId}/hero",
-                    LastScoredAt = DateTimeOffset.UtcNow,
-                });
-
-                await canonicalRepo.UpsertBatchAsync(canonicals, ct);
-
                 return Results.Ok(new
                 {
                     entity_id      = entityId,
                     variant_id     = storedAsset.Id,
                     cover_path     = coverPath,
-                    dominant_color = heroResult.DominantHexColor,
-                    hero_generated = heroResult.WasRegenerated,
+                    primary_hex    = storedAsset.PrimaryHex,
+                    secondary_hex  = storedAsset.SecondaryHex,
+                    accent_hex     = storedAsset.AccentHex,
                 });
             }
             catch (HttpRequestException ex)
@@ -1696,7 +1669,7 @@ public static partial class MetadataEndpoints
             }
         })
         .WithName("CoverFromUrl")
-        .WithSummary("Download cover art from a URL and regenerate hero banner. Curator+.")
+        .WithSummary("Download cover art from a URL and rebuild measured artwork metadata. Curator+.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status404NotFound)
@@ -2888,7 +2861,7 @@ public static partial class MetadataEndpoints
                         entityId,
                         coverState: "missing",
                         coverSource: null,
-                        heroState: "pending",
+                        heroState: "missing",
                         lastScoredAt: DateTimeOffset.UtcNow,
                         settled: true),
                     ct);
@@ -2897,16 +2870,10 @@ public static partial class MetadataEndpoints
             return;
         }
 
-        var canonicals = new List<CanonicalValue>
-        {
-            new()
-            {
-                EntityId = entityId,
-                Key = canonicalKey,
-                Value = BuildArtworkVariantStreamUrl(preferredAsset.Id),
-                LastScoredAt = DateTimeOffset.UtcNow,
-            },
-        };
+        var canonicals = ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(
+            entityId,
+            preferredAsset,
+            DateTimeOffset.UtcNow);
 
         if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
         {
@@ -2920,7 +2887,7 @@ public static partial class MetadataEndpoints
                 entityId,
                 coverState: "present",
                 coverSource: coverSource,
-                heroState: "pending",
+                heroState: "missing",
                 lastScoredAt: DateTimeOffset.UtcNow,
                 settled: true));
         }

@@ -807,9 +807,6 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ProviderHealthMoni
 // ── Great Inhale scanner ──────────────────────────────────────────────────────
 builder.Services.AddSingleton<ILibraryScanner, LibraryScanner>();
 
-// ── Hero banner generation (cover art → cinematic hero.jpg) ──────────────────
-builder.Services.AddSingleton<IHeroBannerGenerator, HeroBannerGenerator>();
-
 // -- EPUB reader content service (chapter serving, TOC, search) ---------------
 builder.Services.AddSingleton<IEpubContentService, EpubContentService>();
 

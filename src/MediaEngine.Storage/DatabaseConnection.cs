@@ -1442,6 +1442,7 @@ public sealed class DatabaseConnection : IDatabaseConnection
 
         // Migration M-087: storage-policy metadata on entity_assets.
         MigrateEntityAssetStorageColumns(conn);
+        MigrateEntityAssetArtworkMetadataColumns(conn);
 
         // Seed S-001: provider_registry entries for all known providers.
         // metadata_claims.provider_id has a FK to provider_registry(id), so these
@@ -1923,7 +1924,16 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','DiscArt','ClearArt','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
                 image_url        TEXT,
                 local_image_path TEXT,
+                local_image_path_s TEXT,
+                local_image_path_m TEXT,
+                local_image_path_l TEXT,
                 source_provider  TEXT,
+                width_px         INTEGER,
+                height_px        INTEGER,
+                aspect_class     TEXT NOT NULL DEFAULT 'UnsupportedRect',
+                primary_hex      TEXT,
+                secondary_hex    TEXT,
+                accent_hex       TEXT,
                 asset_class      TEXT NOT NULL DEFAULT 'Artwork',
                 storage_location TEXT NOT NULL DEFAULT 'Central',
                 owner_scope      TEXT NOT NULL DEFAULT 'Unknown',
@@ -2987,7 +2997,16 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','DiscArt','ClearArt','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
                     image_url        TEXT,
                     local_image_path TEXT,
+                    local_image_path_s TEXT,
+                    local_image_path_m TEXT,
+                    local_image_path_l TEXT,
                     source_provider  TEXT,
+                    width_px         INTEGER,
+                    height_px        INTEGER,
+                    aspect_class     TEXT NOT NULL DEFAULT 'UnsupportedRect',
+                    primary_hex      TEXT,
+                    secondary_hex    TEXT,
+                    accent_hex       TEXT,
                     asset_class      TEXT NOT NULL DEFAULT 'Artwork',
                     storage_location TEXT NOT NULL DEFAULT 'Central',
                     owner_scope      TEXT NOT NULL DEFAULT 'Unknown',
@@ -3006,7 +3025,16 @@ public sealed class DatabaseConnection : IDatabaseConnection
                     asset_type,
                     image_url,
                     local_image_path,
+                    local_image_path_s,
+                    local_image_path_m,
+                    local_image_path_l,
                     source_provider,
+                    width_px,
+                    height_px,
+                    aspect_class,
+                    primary_hex,
+                    secondary_hex,
+                    accent_hex,
                     asset_class,
                     storage_location,
                     owner_scope,
@@ -3033,7 +3061,16 @@ public sealed class DatabaseConnection : IDatabaseConnection
                             THEN REPLACE(local_image_path, 'backdrop.', 'background.')
                         ELSE local_image_path
                     END AS local_image_path,
+                    NULL AS local_image_path_s,
+                    NULL AS local_image_path_m,
+                    NULL AS local_image_path_l,
                     source_provider,
+                    NULL AS width_px,
+                    NULL AS height_px,
+                    'UnsupportedRect' AS aspect_class,
+                    NULL AS primary_hex,
+                    NULL AS secondary_hex,
+                    NULL AS accent_hex,
                     'Artwork' AS asset_class,
                     'Central' AS storage_location,
                     'Unknown' AS owner_scope,
@@ -3195,6 +3232,40 @@ public sealed class DatabaseConnection : IDatabaseConnection
                OR storage_location = ''
                OR owner_scope IS NULL
                OR owner_scope = '';
+            """;
+        backfill.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Migration M-088: measured artwork metadata and generated rendition paths on <c>entity_assets</c>.
+    /// </summary>
+    private static void MigrateEntityAssetArtworkMetadataColumns(SqliteConnection conn)
+    {
+        MigrateAddColumnIfMissing(conn, "entity_assets", "local_image_path_s",
+            "ALTER TABLE entity_assets ADD COLUMN local_image_path_s TEXT;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "local_image_path_m",
+            "ALTER TABLE entity_assets ADD COLUMN local_image_path_m TEXT;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "local_image_path_l",
+            "ALTER TABLE entity_assets ADD COLUMN local_image_path_l TEXT;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "width_px",
+            "ALTER TABLE entity_assets ADD COLUMN width_px INTEGER;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "height_px",
+            "ALTER TABLE entity_assets ADD COLUMN height_px INTEGER;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "aspect_class",
+            "ALTER TABLE entity_assets ADD COLUMN aspect_class TEXT NOT NULL DEFAULT 'UnsupportedRect';");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "primary_hex",
+            "ALTER TABLE entity_assets ADD COLUMN primary_hex TEXT;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "secondary_hex",
+            "ALTER TABLE entity_assets ADD COLUMN secondary_hex TEXT;");
+        MigrateAddColumnIfMissing(conn, "entity_assets", "accent_hex",
+            "ALTER TABLE entity_assets ADD COLUMN accent_hex TEXT;");
+
+        using var backfill = conn.CreateCommand();
+        backfill.CommandText = """
+            UPDATE entity_assets
+            SET aspect_class = COALESCE(NULLIF(aspect_class, ''), 'UnsupportedRect')
+            WHERE aspect_class IS NULL
+               OR aspect_class = '';
             """;
         backfill.ExecuteNonQuery();
     }

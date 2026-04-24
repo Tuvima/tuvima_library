@@ -484,14 +484,14 @@
 
         if (IsContainerGrouping && _groups.Count > 0)
         {
-            var preferred = PreferWideArt(_groups, group => ResolveArtwork(group.BackgroundUrl, group.BannerUrl, null, group.CoverUrl));
+            var preferred = PreferWideArt(_groups, group => ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl));
             var pick = PickStable(preferred, _groups.Select(group => group.DisplayName));
             return BuildGroupHero(pick);
         }
 
         if (_items.Count > 0)
         {
-            var preferred = PreferWideArt(_items, item => ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl));
+            var preferred = PreferWideArt(_items, item => ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl));
             var pick = PickStable(preferred, _items.Select(item => item.EntityId.ToString("N")));
             return BuildItemHero(pick);
         }
@@ -503,7 +503,7 @@
     {
         var primaryUrl = BuildJourneyPrimaryUrl(item);
         var secondaryUrl = MediaNavigation.ForJourney(item);
-        var backgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl);
+        var backgroundUrl = ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
         var listenTitle = Preset.HeroVariant == BrowseHeroVariant.Listen && !string.IsNullOrWhiteSpace(item.CollectionDisplayName)
             ? item.CollectionDisplayName!
             : item.Title;
@@ -534,6 +534,7 @@
 
     private BrowseHeroViewModel BuildItemHero(LibraryItemViewModel item)
     {
+        var backgroundUrl = ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
         return new BrowseHeroViewModel
         {
             Variant = Preset.HeroVariant,
@@ -544,7 +545,7 @@
             MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.ContextLabel, item.Year),
             SupportingLine = item.Runtime ?? item.Duration ?? item.Specs,
             CoverUrl = item.CoverUrl,
-            BackgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
+            BackgroundUrl = backgroundUrl,
             PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open album" : "Open",
             SecondaryActionLabel = "Details",
             PrimaryNavigationUrl = MediaNavigation.ForLibraryItem(item),
@@ -569,7 +570,7 @@
                     ? $"{group.AlbumCount.Value} albums"
                     : null,
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            BackgroundUrl = ResolveArtwork(group.BackgroundUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
+            BackgroundUrl = ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl),
             PrimaryActionLabel = "Explore",
             SecondaryActionLabel = "Open",
             PrimaryNavigationUrl = navigationUrl,
@@ -584,7 +585,20 @@
             "Music" => DiscoveryCardPresentation.Album,
             _ => DiscoveryCardPresentation.Default,
         };
-        var shape = item.MediaType == "Music" ? DiscoveryCardShape.Square : DiscoveryCardShape.Portrait;
+        var shape = ResolveBrowseItemShape(item);
+        var wideArtwork = ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
+        var tileImageUrl = shape == DiscoveryCardShape.Landscape
+            ? wideArtwork ?? item.CoverUrl
+            : item.ArtistPhotoUrl ?? item.CoverUrl;
+        var surfaceKind = shape switch
+        {
+            DiscoveryCardShape.Landscape when !string.IsNullOrWhiteSpace(wideArtwork) => DiscoverySurfaceKind.BannerLandscape,
+            DiscoveryCardShape.Square => DiscoverySurfaceKind.CoverSquare,
+            _ => DiscoverySurfaceKind.CoverPortrait,
+        };
+        var hoverLayout = surfaceKind == DiscoverySurfaceKind.BannerLandscape
+            ? DiscoveryHoverLayout.BannerPopover
+            : DiscoveryHoverLayout.ArtOnlyPopover;
 
         return new DiscoveryCardViewModel
         {
@@ -594,12 +608,22 @@
             Subtitle = item.Creator ?? item.ContextLabel,
             Description = BuildItemDescription(item),
             CoverUrl = item.CoverUrl,
-            BackgroundUrl = ResolveArtwork(item.BackgroundUrl, item.BannerUrl, item.HeroUrl, item.CoverUrl),
+            BackgroundUrl = wideArtwork,
+            BannerUrl = item.BannerUrl,
+            HeroUrl = null,
             MetaText = JoinParts(item.ContextLabel, item.Year, item.Runtime ?? item.Duration),
             MediaKind = FormatMediaLabel(item.MediaType),
             AccentColor = AccentForMedia(item.MediaType),
             Shape = shape,
             Presentation = presentation,
+            SurfaceKind = surfaceKind,
+            HoverLayout = hoverLayout,
+            TileImageUrl = tileImageUrl,
+            HoverImageUrl = tileImageUrl,
+            HeroBackgroundImageUrl = wideArtwork,
+            PreviewImageUrl = item.ArtistPhotoUrl ?? item.CoverUrl,
+            TileImageFitMode = surfaceKind == DiscoverySurfaceKind.BannerLandscape ? DiscoveryImageFitMode.Contain : DiscoveryImageFitMode.Fill,
+            HoverImageFitMode = DiscoveryImageFitMode.Contain,
             NavigationUrl = MediaNavigation.ForLibraryItem(item),
             DetailsNavigationUrl = MediaNavigation.ForLibraryItem(item),
             PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open" : "Details",
@@ -626,10 +650,28 @@
 
         var shape = presentation switch
         {
-            DiscoveryCardPresentation.TvSeries => DiscoveryCardShape.Landscape,
             DiscoveryCardPresentation.Album or DiscoveryCardPresentation.Artist => DiscoveryCardShape.Square,
+            DiscoveryCardPresentation.TvSeries or DiscoveryCardPresentation.MovieSeries
+                when !string.IsNullOrWhiteSpace(ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl))
+                    => DiscoveryCardShape.Landscape,
             _ => DiscoveryCardShape.Portrait,
         };
+        var wideArtwork = ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl);
+        var tileImageUrl = presentation == DiscoveryCardPresentation.Artist
+            ? group.ArtistPhotoUrl ?? group.CoverUrl
+            : shape == DiscoveryCardShape.Landscape
+                ? wideArtwork ?? group.CoverUrl
+                : group.ArtistPhotoUrl ?? group.CoverUrl;
+        var surfaceKind = presentation == DiscoveryCardPresentation.Artist
+            ? DiscoverySurfaceKind.ArtistPhotoSquare
+            : shape == DiscoveryCardShape.Landscape && !string.IsNullOrWhiteSpace(wideArtwork)
+                ? DiscoverySurfaceKind.BannerLandscape
+                : shape == DiscoveryCardShape.Square
+                    ? DiscoverySurfaceKind.CoverSquare
+                    : DiscoverySurfaceKind.CoverPortrait;
+        var hoverLayout = surfaceKind == DiscoverySurfaceKind.BannerLandscape
+            ? DiscoveryHoverLayout.BannerPopover
+            : DiscoveryHoverLayout.ArtOnlyPopover;
 
         var navigationUrl = BuildGroupNavigationUrl(group);
 
@@ -641,13 +683,23 @@
             Subtitle = group.Creator ?? group.Network,
             Description = BuildGroupDescription(group),
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            BackgroundUrl = ResolveArtwork(group.BackgroundUrl, group.BannerUrl, null, group.ArtistPhotoUrl ?? group.CoverUrl),
+            BackgroundUrl = wideArtwork,
+            BannerUrl = group.BannerUrl,
+            HeroUrl = null,
             PreviewImages = group.CoverUrl is { Length: > 0 } cover ? [cover] : [],
             MetaText = JoinParts(group.Year, $"{group.WorkCount} items"),
             MediaKind = FormatMediaLabel(group.PrimaryMediaType),
             AccentColor = AccentForMedia(group.PrimaryMediaType),
             Shape = shape,
             Presentation = presentation,
+            SurfaceKind = surfaceKind,
+            HoverLayout = hoverLayout,
+            TileImageUrl = tileImageUrl,
+            HoverImageUrl = tileImageUrl,
+            HeroBackgroundImageUrl = wideArtwork,
+            PreviewImageUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
+            TileImageFitMode = surfaceKind == DiscoverySurfaceKind.BannerLandscape ? DiscoveryImageFitMode.Contain : DiscoveryImageFitMode.Fill,
+            HoverImageFitMode = DiscoveryImageFitMode.Contain,
             NavigationUrl = navigationUrl,
             DetailsNavigationUrl = navigationUrl,
             PrimaryActionLabel = "Explore",
@@ -1018,8 +1070,27 @@
         return new Guid(bytes);
     }
 
-    private static string? ResolveArtwork(string? backgroundUrl, string? bannerUrl, string? heroUrl, string? coverUrl) =>
-        backgroundUrl ?? bannerUrl ?? heroUrl ?? coverUrl;
+    private static string? ResolveWideArtwork(string? backgroundUrl, string? bannerUrl) =>
+        backgroundUrl ?? bannerUrl;
+
+    private static DiscoveryCardShape ResolveBrowseItemShape(LibraryItemViewModel item)
+    {
+        var mediaType = item.MediaType ?? string.Empty;
+        if (string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase))
+        {
+            return DiscoveryCardShape.Square;
+        }
+
+        if ((string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(mediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrWhiteSpace(ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl)))
+        {
+            return DiscoveryCardShape.Landscape;
+        }
+
+        return DiscoveryCardShape.Portrait;
+    }
 
     private static string BuildItemDescription(LibraryItemViewModel item)
     {

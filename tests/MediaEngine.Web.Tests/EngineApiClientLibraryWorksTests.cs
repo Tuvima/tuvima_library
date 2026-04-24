@@ -27,11 +27,12 @@ public sealed class EngineApiClientLibraryWorksTests
                 "coverUrl": "/stream/22222222-2222-2222-2222-222222222222/cover",
                 "backgroundUrl": "/stream/22222222-2222-2222-2222-222222222222/background",
                 "bannerUrl": "/stream/22222222-2222-2222-2222-222222222222/banner",
-                "heroUrl": "/stream/22222222-2222-2222-2222-222222222222/hero",
                 "logoUrl": "/stream/22222222-2222-2222-2222-222222222222/logo",
                 "canonicalValues": {
                   "title": "Dune",
-                  "author": "Frank Herbert"
+                  "author": "Frank Herbert",
+                  "square_url": "/stream/artwork/44444444-4444-4444-4444-444444444444",
+                  "cover_url_s": "/stream/artwork/22222222-2222-2222-2222-222222222222?size=s"
                 }
               }
             ]
@@ -59,8 +60,10 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/cover", work.CoverUrl);
         Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/background", work.BackgroundUrl);
         Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/banner", work.BannerUrl);
-        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/hero", work.HeroUrl);
+        Assert.Null(work.HeroUrl);
         Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/logo", work.LogoUrl);
+        Assert.Equal("http://localhost:61495/stream/artwork/44444444-4444-4444-4444-444444444444", work.SquareUrl);
+        Assert.Equal("http://localhost:61495/stream/artwork/22222222-2222-2222-2222-222222222222?size=s", work.CoverUrlSmall);
     }
 
     [Fact]
@@ -73,9 +76,10 @@ public sealed class EngineApiClientLibraryWorksTests
                 "mediaType": "Books",
                 "assetId": "22222222-2222-2222-2222-222222222222",
                 "coverUrl": "stream/22222222-2222-2222-2222-222222222222/cover",
-                "heroUrl": "stream/22222222-2222-2222-2222-222222222222/hero",
                 "canonicalValues": {
-                  "title": "Dune"
+                  "title": "Dune",
+                  "square_url": "stream/artwork/22222222-2222-2222-2222-222222222222",
+                  "background_url_m": "stream/artwork/33333333-3333-3333-3333-333333333333?size=m"
                 }
               }
             ]
@@ -93,7 +97,9 @@ public sealed class EngineApiClientLibraryWorksTests
 
         var work = Assert.Single(results);
         Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/cover", work.CoverUrl);
-        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/hero", work.HeroUrl);
+        Assert.Null(work.HeroUrl);
+        Assert.Equal("http://localhost:61495/stream/artwork/22222222-2222-2222-2222-222222222222", work.SquareUrl);
+        Assert.Equal("http://localhost:61495/stream/artwork/33333333-3333-3333-3333-333333333333?size=m", work.BackgroundUrlMedium);
     }
 
     [Fact]

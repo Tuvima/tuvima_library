@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MediaEngine.Domain;
@@ -17,8 +16,7 @@ namespace MediaEngine.Ingestion;
 /// A Wikidata QID is NOT required — files are organised as soon as they have a
 /// usable title. Wikidata enrichment continues in-place after promotion.
 ///
-/// After promotion: moves companion files (cover.jpg), generates the cinematic
-/// hero banner, and publishes the completion event.
+/// After promotion: moves companion artwork files and publishes the completion event.
 /// </summary>
 public sealed class AutoOrganizeService : IAutoOrganizeService
 {
@@ -28,7 +26,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IReviewQueueRepository   _reviewRepo;
     private readonly IEventPublisher          _publisher;
-    private readonly IHeroBannerGenerator     _heroGenerator;
     private readonly IOrganizationGate        _gate;
     private readonly IngestionOptions         _options;
     private readonly IEntityAssetRepository?  _entityAssetRepo;
@@ -44,7 +41,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         ISystemActivityRepository  activityRepo,
         IReviewQueueRepository     reviewRepo,
         IEventPublisher            publisher,
-        IHeroBannerGenerator       heroGenerator,
         IOrganizationGate          gate,
         IOptions<IngestionOptions> options,
         ILogger<AutoOrganizeService> logger,
@@ -59,7 +55,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _activityRepo     = activityRepo;
         _reviewRepo       = reviewRepo;
         _publisher        = publisher;
-        _heroGenerator    = heroGenerator;
         _gate             = gate;
         _options          = options.Value;
         _entityAssetRepo  = entityAssetRepo;
@@ -222,14 +217,11 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         string sourcePath = asset.FilePathRoot;
         string editionFolder = Path.GetDirectoryName(destPath) ?? string.Empty;
 
-        // Move cover/hero companion files from staging to the library edition folder.
+        // Move companion artwork files from staging to the library edition folder.
         // CoverArtWorker writes poster.jpg next to the media file (even in staging) via
         // ImagePathService.GetMediaFilePosterPath, so companion files must always be moved
         // on promotion — regardless of whether ImagePathService is active.
         MoveCompanionFiles(sourcePath, destPath);
-
-        // Generate cinematic hero banner from cover art.
-        await GenerateHeroBannerAsync(assetId, editionFolder, ct).ConfigureAwait(false);
 
         // Clean up any .tuvima.bak files left behind by metadata taggers.
         // These backups are normally deleted on success, but can persist when the
@@ -374,101 +366,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     // Helpers
     // -------------------------------------------------------------------------
 
-    /// <summary>
-    /// Generates a cinematic hero banner from cover art after promotion to the library.
-    /// Uses the preferred centrally-managed cover variant for the work owner scope.
-    /// </summary>
-    private async Task GenerateHeroBannerAsync(
-        Guid assetId, string editionFolder, CancellationToken ct)
-    {
-        if (_entityAssetRepo is null || _assetPathService is null)
-            return;
-
-        var ownerEntityId = assetId;
-        if (_workRepo is not null)
-        {
-            var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
-            ownerEntityId = lineage?.TargetForParentScope ?? assetId;
-        }
-
-        var preferredCover = await _entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct)
-            .ConfigureAwait(false);
-        var coverPath = preferredCover?.LocalImagePath;
-        if (string.IsNullOrWhiteSpace(coverPath) || !File.Exists(coverPath))
-            return;
-
-        var heroPath = _assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg");
-        var heroOutputDir = Path.GetDirectoryName(heroPath) ?? editionFolder;
-
-        try
-        {
-            var heroResult = await _heroGenerator.GenerateAsync(coverPath, heroOutputDir, ct)
-                                                  .ConfigureAwait(false);
-
-            var heroCanonicals = new List<CanonicalValue>();
-
-            // Ensure cover_url canonical is set — it may be missing if the file
-            // lacked embedded cover art during ingestion but cover.jpg was later
-            // created by a provider download during hydration in staging.
-            heroCanonicals.Add(new CanonicalValue
-            {
-                EntityId = ownerEntityId, Key = "cover_url",
-                Value = preferredCover!.ImageUrl ?? $"/stream/artwork/{preferredCover.Id}",
-                LastScoredAt = DateTimeOffset.UtcNow,
-            });
-
-            heroCanonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
-                ownerEntityId,
-                coverState: "present",
-                coverSource: null,
-                heroState: "present",
-                lastScoredAt: DateTimeOffset.UtcNow,
-                settled: true));
-
-            if (!string.IsNullOrEmpty(heroResult.DominantHexColor))
-            {
-                heroCanonicals.Add(new CanonicalValue
-                {
-                    EntityId = ownerEntityId, Key = "dominant_color",
-                    Value = heroResult.DominantHexColor,
-                    LastScoredAt = DateTimeOffset.UtcNow,
-                });
-            }
-            heroCanonicals.Add(new CanonicalValue
-            {
-                EntityId = ownerEntityId, Key = "hero",
-                Value = $"/stream/{ownerEntityId}/hero",
-                LastScoredAt = DateTimeOffset.UtcNow,
-            });
-            await _canonicalRepo.UpsertBatchAsync(heroCanonicals, ct)
-                .ConfigureAwait(false);
-
-            try
-            {
-                await _activityRepo.LogAsync(new SystemActivityEntry
-                {
-                    ActionType = SystemActionType.HeroBannerGenerated,
-                    EntityId   = assetId,
-                    EntityType = "MediaAsset",
-                    ChangesJson = JsonSerializer.Serialize(new
-                    {
-                        dominant_color = heroResult.DominantHexColor,
-                        hero_url       = $"/stream/{assetId}/hero",
-                    }),
-                    Detail = $"Hero banner generated (dominant color: {heroResult.DominantHexColor ?? "n/a"})",
-                }, ct).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Activity log failed for hero banner — continuing");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Hero banner generation failed for {Path}", coverPath);
-        }
-    }
-
     private static void MoveCompanionFiles(string oldMediaPath, string newMediaPath)
     {
         if (string.IsNullOrWhiteSpace(oldMediaPath) || string.IsNullOrWhiteSpace(newMediaPath))
@@ -482,8 +379,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         Directory.CreateDirectory(newFolder);
 
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "poster", ".jpg", ".png");
-        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "poster-thumb", ".jpg");
-        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "hero", ".jpg");
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "fanart", ".jpg", ".png");
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "banner", ".jpg", ".png");
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "logo", ".png", ".jpg");
@@ -598,7 +493,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         {
             "poster" => Path.ChangeExtension(ImagePathService.GetMediaFilePosterPath(mediaPath), extension),
             "poster-thumb" => Path.ChangeExtension(ImagePathService.GetMediaFileThumbPath(mediaPath), extension),
-            "hero" => Path.ChangeExtension(ImagePathService.GetMediaFileHeroPath(mediaPath), extension),
             "fanart" => Path.ChangeExtension(ImagePathService.GetMediaFileFanartPath(mediaPath), extension),
             "banner" => Path.ChangeExtension(ImagePathService.GetMediaFileBannerPath(mediaPath), extension),
             "logo" => Path.ChangeExtension(ImagePathService.GetMediaFileLogoPath(mediaPath), extension),

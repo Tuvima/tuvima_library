@@ -3262,15 +3262,32 @@ public sealed class EngineApiClient : IEngineApiClient
             ? AbsoluteUrl(value)
             : value;
 
-    private static bool IsArtworkCanonicalKey(string? key) => key?.Trim().ToLowerInvariant() switch
+    private static bool IsArtworkCanonicalKey(string? key)
     {
-        "cover" or "cover_url" or
-        "background" or "background_url" or
-        "banner" or "banner_url" or
-        "hero" or "hero_url" or
-        "logo" or "logo_url" => true,
-        _ => false,
-    };
+        var normalized = key?.Trim().ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(normalized))
+            return false;
+
+        return normalized switch
+        {
+            "cover" or "cover_url" or
+            "square" or "square_url" or
+            "background" or "background_url" or
+            "banner" or "banner_url" or
+            "hero" or "hero_url" or
+            "logo" or "logo_url" or
+            "artist_photo_url" or "headshot_url" or
+            "season_poster" or "season_poster_url" or
+            "season_thumb" or "season_thumb_url" or
+            "episode_still" or "episode_still_url" or
+            "character_portrait" or "character_portrait_url" or
+            "disc_art_url" or "clear_art_url" => true,
+            _ when normalized.EndsWith("_url_s", StringComparison.Ordinal)
+                || normalized.EndsWith("_url_m", StringComparison.Ordinal)
+                || normalized.EndsWith("_url_l", StringComparison.Ordinal) => true,
+            _ => false,
+        };
+    }
 
     private WorkViewModel MapLibraryWork(LibraryWorkRaw work)
     {
@@ -3295,7 +3312,7 @@ public sealed class EngineApiClient : IEngineApiClient
             ResolvedCoverUrl = work.CoverUrl is not null ? AbsoluteUrl(work.CoverUrl) : SelectCanonicalUrl(canonicalValues, "cover_url", "cover"),
             ResolvedBackgroundUrl = work.BackgroundUrl is not null ? AbsoluteUrl(work.BackgroundUrl) : SelectCanonicalUrl(canonicalValues, "background_url", "background"),
             ResolvedBannerUrl = work.BannerUrl is not null ? AbsoluteUrl(work.BannerUrl) : SelectCanonicalUrl(canonicalValues, "banner_url", "banner"),
-            ResolvedHeroUrl = work.HeroUrl is not null ? AbsoluteUrl(work.HeroUrl) : SelectCanonicalUrl(canonicalValues, "hero_url", "hero"),
+            ResolvedHeroUrl = null,
             ResolvedLogoUrl = work.LogoUrl is not null ? AbsoluteUrl(work.LogoUrl) : SelectCanonicalUrl(canonicalValues, "logo_url", "logo"),
             CanonicalValues = canonicalValues,
         };
@@ -3319,7 +3336,7 @@ public sealed class EngineApiClient : IEngineApiClient
             ResolvedCoverUrl = SelectCanonicalUrl(canonicalValues, "cover_url", "cover"),
             ResolvedBackgroundUrl = SelectCanonicalUrl(canonicalValues, "background_url", "background"),
             ResolvedBannerUrl = SelectCanonicalUrl(canonicalValues, "banner_url", "banner"),
-            ResolvedHeroUrl = SelectCanonicalUrl(canonicalValues, "hero_url", "hero"),
+            ResolvedHeroUrl = null,
             ResolvedLogoUrl = SelectCanonicalUrl(canonicalValues, "logo_url", "logo"),
             CanonicalValues = canonicalValues,
         };

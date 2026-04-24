@@ -24,7 +24,16 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         asset_type       AS AssetTypeValue,
         image_url        AS ImageUrl,
         local_image_path AS LocalImagePath,
+        local_image_path_s AS LocalImagePathSmall,
+        local_image_path_m AS LocalImagePathMedium,
+        local_image_path_l AS LocalImagePathLarge,
         source_provider  AS SourceProvider,
+        width_px         AS WidthPx,
+        height_px        AS HeightPx,
+        aspect_class     AS AspectClass,
+        primary_hex      AS PrimaryHex,
+        secondary_hex    AS SecondaryHex,
+        accent_hex       AS AccentHex,
         asset_class      AS AssetClassValue,
         storage_location AS StorageLocationValue,
         owner_scope      AS OwnerScope,
@@ -102,15 +111,28 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         conn.Execute("""
             INSERT INTO entity_assets
                 (id, entity_id, entity_type, asset_type, image_url,
-                 local_image_path, source_provider, asset_class, storage_location, owner_scope,
+                 local_image_path, local_image_path_s, local_image_path_m, local_image_path_l,
+                 source_provider, width_px, height_px, aspect_class, primary_hex, secondary_hex, accent_hex,
+                 asset_class, storage_location, owner_scope,
                  is_preferred, is_user_override, is_locally_exported, is_preferred_exported, created_at)
             VALUES
                 (@Id, @EntityId, @EntityType, @AssetTypeValue, @ImageUrl,
-                 @LocalImagePath, @SourceProvider, @AssetClassValue, @StorageLocationValue, @OwnerScope,
+                 @LocalImagePath, @LocalImagePathSmall, @LocalImagePathMedium, @LocalImagePathLarge,
+                 @SourceProvider, @WidthPx, @HeightPx, @AspectClass, @PrimaryHex, @SecondaryHex, @AccentHex,
+                 @AssetClassValue, @StorageLocationValue, @OwnerScope,
                  @IsPreferred, @IsUserOverride, @IsLocallyExported, @IsPreferredExported, @CreatedAt)
             ON CONFLICT(id) DO UPDATE SET
                 image_url        = excluded.image_url,
                 local_image_path = excluded.local_image_path,
+                local_image_path_s = excluded.local_image_path_s,
+                local_image_path_m = excluded.local_image_path_m,
+                local_image_path_l = excluded.local_image_path_l,
+                width_px         = excluded.width_px,
+                height_px        = excluded.height_px,
+                aspect_class     = excluded.aspect_class,
+                primary_hex      = excluded.primary_hex,
+                secondary_hex    = excluded.secondary_hex,
+                accent_hex       = excluded.accent_hex,
                 asset_class      = excluded.asset_class,
                 storage_location = excluded.storage_location,
                 owner_scope      = excluded.owner_scope,
@@ -128,7 +150,16 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 asset.AssetTypeValue,
                 asset.ImageUrl,
                 asset.LocalImagePath,
+                asset.LocalImagePathSmall,
+                asset.LocalImagePathMedium,
+                asset.LocalImagePathLarge,
                 asset.SourceProvider,
+                asset.WidthPx,
+                asset.HeightPx,
+                asset.AspectClass,
+                asset.PrimaryHex,
+                asset.SecondaryHex,
+                asset.AccentHex,
                 asset.AssetClassValue,
                 asset.StorageLocationValue,
                 asset.OwnerScope,
@@ -233,5 +264,28 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
             """, new { entityId, assetType });
 
         return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<EntityAsset>> GetPreferredByEntitiesAsync(
+        IReadOnlyCollection<string> entityIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        if (entityIds.Count == 0)
+        {
+            return Task.FromResult<IReadOnlyList<EntityAsset>>([]);
+        }
+
+        using var conn = _db.CreateConnection();
+        var results = conn.Query<EntityAsset>($"""
+            SELECT {SelectColumns}
+            FROM   entity_assets
+            WHERE  is_preferred = 1
+            AND    entity_id IN @entityIds;
+            """, new { entityIds }).ToList();
+
+        return Task.FromResult<IReadOnlyList<EntityAsset>>(results);
     }
 }

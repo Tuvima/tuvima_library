@@ -445,7 +445,6 @@ public static class CollectionEndpoints
                     string? coverUrl    = BuildCoverStreamUrl(w);
                     string? backgroundUrl = BuildBackgroundStreamUrl(w);
                     string? bannerUrl   = BuildBannerStreamUrl(w);
-                    string? heroUrl     = BuildHeroStreamUrl(w);
                     string? season      = GetCanonical(workDto, "season_number");
                     string? episode     = GetCanonical(workDto, "episode_number");
                     string? trackNumber = GetCanonical(workDto, "track_number");
@@ -492,7 +491,7 @@ public static class CollectionEndpoints
                         CoverUrl      = coverUrl,
                         BackgroundUrl = backgroundUrl,
                         BannerUrl     = bannerUrl,
-                        HeroUrl       = heroUrl,
+                        HeroUrl       = null,
                         WikidataQid   = w.WikidataQid,
                         Season        = season,
                         Episode       = episode,
@@ -513,8 +512,8 @@ public static class CollectionEndpoints
             // Collection-level header canonical values come from the topmost Work row.
             // Phase 4 — parent-scoped fields (author, director, artist, genre, cover,
             // network) live on the root parent Work, not on individual child works.
-            string? collectionCreator  = ParentCv("author") ?? ParentCv("director") ?? ParentCv("artist");
-            string? collectionDirector = ParentCv("director");
+            string? collectionCreator  = ParentCv("author") ?? ParentCv("artist");
+            string? collectionDirector = isTv ? null : ParentCv("director");
             string? collectionWriter   = ParentCv("writer");
             string? collectionGenre    = ParentCv("genre");
             string? collectionNetwork  = isTv ? ParentCv("network") : null;
@@ -1286,22 +1285,19 @@ public static class CollectionEndpoints
                 string? cover = null;
                 string? background = null;
                 string? banner = null;
-                string? hero = null;
                 string? logo = null;
                 foreach (var w in h.Works)
                 {
                     cover = BuildCoverStreamUrl(w);
                     background = BuildBackgroundStreamUrl(w);
                     banner = BuildBannerStreamUrl(w);
-                    hero = BuildHeroStreamUrl(w);
                     logo = BuildLogoStreamUrl(w);
-                    if (cover is not null || background is not null || banner is not null || hero is not null || logo is not null) break;
+                    if (cover is not null || background is not null || banner is not null || logo is not null) break;
                 }
 
                 // Creator from first work.
                 var firstDto = h.Works.Count > 0 ? WorkDto.FromDomain(h.Works[0]) : null;
                 string? creator = GetCanonical(firstDto, "author")
-                                  ?? GetCanonical(firstDto, "director")
                                   ?? GetCanonical(firstDto, "artist");
                 string? releaseDate = NormalizeReleaseDate(
                     GetCanonical(firstDto, "release_date")
@@ -1318,12 +1314,14 @@ public static class CollectionEndpoints
                     CoverUrl         = cover,
                     BackgroundUrl    = background,
                     BannerUrl        = banner,
-                    HeroUrl          = hero,
+                    HeroUrl          = null,
                     LogoUrl          = logo,
                     Description      = h.Description ?? GetCanonical(firstDto, "description"),
                     Tagline          = GetCanonical(firstDto, "tagline"),
                     Creator          = creator,
-                    Director         = GetCanonical(firstDto, "director"),
+                    Director         = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                        ? null
+                        : GetCanonical(firstDto, "director"),
                     Writer           = GetCanonical(firstDto, "writer"),
                     ReleaseDate      = releaseDate,
                     UniverseStatus   = h.UniverseStatus,
@@ -1453,21 +1451,21 @@ public static class CollectionEndpoints
                         '/stream/' || g.first_asset_id || '/cover' AS cover_url,
                         '/stream/' || g.first_asset_id || '/background' AS background_url,
                         '/stream/' || g.first_asset_id || '/banner' AS banner_url,
-                        '/stream/' || g.first_asset_id || '/hero' AS hero_url,
+                        NULL AS hero_url,
                         '/stream/' || g.first_asset_id || '/logo' AS logo_url,
                         COALESCE(
                             (
                                 SELECT cv_creator.value
                                 FROM canonical_values cv_creator
                                 WHERE cv_creator.entity_id = g.first_root_work_id
-                                  AND cv_creator.key IN ('artist','author','director')
+                                  AND cv_creator.key IN ('artist','author')
                                 LIMIT 1
                             ),
                             (
                                 SELECT cv_creator2.value
                                 FROM canonical_values cv_creator2
                                 WHERE cv_creator2.entity_id = g.first_asset_id
-                                  AND cv_creator2.key IN ('artist','author','director')
+                                  AND cv_creator2.key IN ('artist','author')
                                 LIMIT 1
                             )
                         )                                           AS creator,
@@ -2367,7 +2365,9 @@ public static class CollectionEndpoints
     {
         if (w is null) return null;
         return w.CanonicalValues
-            .FirstOrDefault(c => string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault(c =>
+                string.Equals(c.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(c.Key, MetadataFieldConstants.Cover, StringComparison.OrdinalIgnoreCase))
             ?.Value;
     }
 
@@ -2375,7 +2375,9 @@ public static class CollectionEndpoints
     {
         if (w is null) return null;
         return w.CanonicalValues
-            .FirstOrDefault(c => string.Equals(c.Key, "background", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault(c =>
+                string.Equals(c.Key, "background", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(c.Key, "background_url", StringComparison.OrdinalIgnoreCase))
             ?.Value;
     }
 
@@ -2383,7 +2385,9 @@ public static class CollectionEndpoints
     {
         if (w is null) return null;
         return w.CanonicalValues
-            .FirstOrDefault(c => string.Equals(c.Key, "banner", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault(c =>
+                string.Equals(c.Key, "banner", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(c.Key, "banner_url", StringComparison.OrdinalIgnoreCase))
             ?.Value;
     }
 
@@ -2392,7 +2396,9 @@ public static class CollectionEndpoints
         if (w is null) return null;
 
         var canonicalLogo = w.CanonicalValues
-            .FirstOrDefault(c => string.Equals(c.Key, "logo", StringComparison.OrdinalIgnoreCase))
+            .FirstOrDefault(c =>
+                string.Equals(c.Key, "logo", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(c.Key, "logo_url", StringComparison.OrdinalIgnoreCase))
             ?.Value;
         if (!string.IsNullOrWhiteSpace(canonicalLogo))
             return canonicalLogo;
@@ -2404,13 +2410,7 @@ public static class CollectionEndpoints
     }
 
     private static string? BuildHeroStreamUrl(Work? w)
-    {
-        if (w is null) return null;
-        var assetId = w.CanonicalValues
-            .Select(c => c.EntityId)
-            .FirstOrDefault(id => id != Guid.Empty);
-        return assetId != Guid.Empty ? $"/stream/{assetId}/hero" : null;
-    }
+        => null;
 
     private static PlaybackTechnicalSummary? BuildPlaybackSummaryFromWork(WorkDto work)
     {
@@ -2820,7 +2820,6 @@ public static class CollectionEndpoints
                 {
                     case "title": title = val; break;
                     case "author" when creator is null: creator = val; break;
-                    case "director" when creator is null: creator = val; break;
                     case "artist" when creator is null: creator = val; break;
                     case "_asset_id": cover = $"/stream/{val}/cover"; break;
                     case "year": year = val; break;
@@ -2891,7 +2890,7 @@ public static class CollectionEndpoints
                     CoverUrl = preferred.CoverUrl,
                     BackgroundUrl = preferred.BackgroundUrl,
                     BannerUrl = preferred.BannerUrl,
-                    HeroUrl = preferred.HeroUrl,
+                    HeroUrl = null,
                     LogoUrl = preferred.LogoUrl,
                     Description = preferred.Description,
                     Tagline = preferred.Tagline,

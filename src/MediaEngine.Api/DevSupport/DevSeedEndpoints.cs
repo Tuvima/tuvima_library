@@ -1,6 +1,7 @@
 using System.Text;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
@@ -1112,11 +1113,21 @@ public static class DevSeedEndpoints
 
         // 2. Wipe the library root (organized files + .staging/).
         string? libraryRoot = options.Value.LibraryRoot;
+        AssetPathService? assetPathService = null;
+        if (!string.IsNullOrWhiteSpace(libraryRoot))
+            assetPathService = new AssetPathService(libraryRoot);
+
+        if (assetPathService is not null)
+        {
+            WipePathWithReport(wiped, "Central artwork cache", assetPathService.LegacyImagesRoot, logger);
+            WipePathWithReport(wiped, "Central artwork + renditions", assetPathService.AssetsRoot, logger);
+        }
+
         if (!string.IsNullOrWhiteSpace(libraryRoot) && Directory.Exists(libraryRoot))
         {
             try
             {
-                int count = WipeDirectoryContents(libraryRoot, logger);
+                int count = WipeDirectoryContentsExcept(libraryRoot, logger, ".data");
                 wiped.Add($"Library root ({libraryRoot}): {count} items deleted");
             }
             catch (Exception ex)
@@ -1451,6 +1462,72 @@ public static class DevSeedEndpoints
 
         logger.LogInformation("[Wipe] Wiped {Count} items from {Path}", count, dirPath);
         return count;
+    }
+
+    private static int WipeDirectoryContentsExcept(string dirPath, ILogger logger, params string[] excludedChildNames)
+    {
+        if (!Directory.Exists(dirPath))
+            return 0;
+
+        var excluded = new HashSet<string>(excludedChildNames ?? [], StringComparer.OrdinalIgnoreCase);
+        int count = 0;
+        var dir = new DirectoryInfo(dirPath);
+
+        foreach (FileInfo file in dir.GetFiles())
+        {
+            try
+            {
+                file.Attributes = FileAttributes.Normal;
+                file.Delete();
+                count++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[Wipe] Could not delete file: {Path}", file.FullName);
+            }
+        }
+
+        foreach (DirectoryInfo sub in dir.GetDirectories())
+        {
+            if (excluded.Contains(sub.Name))
+                continue;
+
+            try
+            {
+                sub.Delete(recursive: true);
+                count++;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "[Wipe] Could not delete directory: {Path}", sub.FullName);
+            }
+        }
+
+        logger.LogInformation("[Wipe] Wiped {Count} items from {Path} (excluding: {Excluded})",
+            count,
+            dirPath,
+            excluded.Count == 0 ? "(none)" : string.Join(", ", excluded));
+        return count;
+    }
+
+    private static void WipePathWithReport(List<string> wiped, string label, string path, ILogger logger)
+    {
+        if (!Directory.Exists(path))
+        {
+            wiped.Add($"{label} ({path}): not present — skipped");
+            return;
+        }
+
+        try
+        {
+            int count = WipeDirectoryContents(path, logger);
+            wiped.Add($"{label} ({path}): {count} items deleted");
+        }
+        catch (Exception ex)
+        {
+            wiped.Add($"{label} ({path}): FAILED — {ex.Message}");
+            logger.LogError(ex, "[Wipe] Failed to wipe {Label}", label);
+        }
     }
 
     /// <summary>
