@@ -129,6 +129,43 @@ public sealed class EngineApiClientPersonCreditsTests
         Assert.Equal("http://localhost:61495/stream/paul-portrait", Assert.Single(castCredit.Characters).PortraitUrl);
     }
 
+    [Fact]
+    public async Task GetPersonAliasesAsync_NormalizesLocalHeadshotRoutes()
+    {
+        const string json = """
+            {
+              "person_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+              "person_name": "Timothee Chalamet",
+              "is_pseudonym": false,
+              "aliases": [
+                {
+                  "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+                  "name": "Alias Name",
+                  "headshot_url": "/persons/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/headshot",
+                  "is_pseudonym": true,
+                  "wikidata_qid": "Q123",
+                  "relationship": "pen_name"
+                }
+              ]
+            }
+            """;
+
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var aliases = await client.GetPersonAliasesAsync(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
+
+        Assert.NotNull(aliases);
+        Assert.Equal(
+            "http://localhost:61495/persons/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/headshot",
+            Assert.Single(aliases!.Aliases).HeadshotUrl);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, HttpResponseMessage> responder) =>
         new(new StubHttpMessageHandler(responder))
         {

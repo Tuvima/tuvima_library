@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -23,6 +24,59 @@ public static class CharacterEndpoints
         var group = app.MapGroup("/library")
                        .WithTags("Library Characters");
 
+        // GET /library/portraits/{portraitId}
+        // Serves a character portrait from local storage, downloading and caching if needed.
+        group.MapGet("/portraits/{portraitId:guid}", async (
+            Guid portraitId,
+            ICharacterPortraitRepository portraitRepo,
+            IHttpClientFactory httpFactory,
+            AssetPathService assetPaths,
+            CancellationToken ct) =>
+        {
+            var portrait = await portraitRepo.FindByIdAsync(portraitId, ct);
+            if (portrait is null)
+                return Results.NotFound($"Portrait '{portraitId}' not found.");
+
+            if (!string.IsNullOrWhiteSpace(portrait.LocalImagePath) && File.Exists(portrait.LocalImagePath))
+            {
+                var bytes = await File.ReadAllBytesAsync(portrait.LocalImagePath, ct);
+                return Results.File(bytes, GetImageMimeType(portrait.LocalImagePath), Path.GetFileName(portrait.LocalImagePath));
+            }
+
+            if (string.IsNullOrWhiteSpace(portrait.ImageUrl)
+                || !Uri.TryCreate(portrait.ImageUrl, UriKind.Absolute, out var imageUri)
+                || (imageUri.Scheme != Uri.UriSchemeHttp && imageUri.Scheme != Uri.UriSchemeHttps))
+            {
+                return Results.NotFound("Portrait image source not found.");
+            }
+
+            using var client = httpFactory.CreateClient("cover_download");
+            using var response = await client.GetAsync(imageUri, ct);
+            if (!response.IsSuccessStatusCode)
+                return Results.NotFound("Portrait image source could not be retrieved.");
+
+            var bytesFromSource = await response.Content.ReadAsByteArrayAsync(ct);
+            if (bytesFromSource.Length == 0)
+                return Results.NotFound("Portrait image source was empty.");
+
+            var localPath = string.IsNullOrWhiteSpace(portrait.LocalImagePath)
+                ? assetPaths.GetCharacterPortraitPath(
+                    portrait.PersonId,
+                    portrait.FictionalEntityId,
+                    InferImageExtension(portrait.ImageUrl))
+                : portrait.LocalImagePath;
+
+            AssetPathService.EnsureDirectory(localPath);
+            await File.WriteAllBytesAsync(localPath, bytesFromSource, ct);
+
+            portrait.LocalImagePath = localPath;
+            portrait.UpdatedAt = DateTimeOffset.UtcNow;
+            await portraitRepo.UpsertAsync(portrait, ct);
+
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? GetImageMimeType(localPath);
+            return Results.File(bytesFromSource, contentType, Path.GetFileName(localPath));
+        });
+
         // GET /library/characters/{fictionalEntityId}/portraits
         // Returns all portraits for a character, enriched with actor name.
         group.MapGet("/characters/{fictionalEntityId:guid}/portraits", async (
@@ -46,7 +100,7 @@ public static class CharacterEndpoints
                     person_name         = person?.Name,
                     fictional_entity_id = p.FictionalEntityId,
                     character_name      = entity?.Label,
-                    image_url           = p.ImageUrl,
+                    image_url           = ApiImageUrls.BuildCharacterPortraitUrl(p.Id, p.LocalImagePath, p.ImageUrl),
                     is_default          = p.IsDefault,
                 });
             }
@@ -125,7 +179,12 @@ public static class CharacterEndpoints
                     character_name      = character.Label,
                     default_actor_name  = actorName,
                     default_actor_id    = defaultPortrait?.PersonId,
-                    portrait_url        = defaultPortrait?.ImageUrl,
+                    portrait_url        = defaultPortrait is null
+                        ? null
+                        : ApiImageUrls.BuildCharacterPortraitUrl(
+                            defaultPortrait.Id,
+                            defaultPortrait.LocalImagePath,
+                            defaultPortrait.ImageUrl),
                     actor_count         = charPortraits?.Count ?? 0,
                 });
             }
@@ -184,5 +243,26 @@ public static class CharacterEndpoints
 
         return app;
     }
+
+    private static string InferImageExtension(string imageUrl)
+    {
+        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
+        {
+            var uriExtension = Path.GetExtension(imageUri.AbsolutePath);
+            if (!string.IsNullOrWhiteSpace(uriExtension))
+                return uriExtension;
+        }
+
+        var directExtension = Path.GetExtension(imageUrl);
+        return string.IsNullOrWhiteSpace(directExtension) ? ".jpg" : directExtension;
+    }
+
+    private static string GetImageMimeType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".webp" => "image/webp",
+        ".gif" => "image/gif",
+        _ => "image/jpeg",
+    };
 }
 

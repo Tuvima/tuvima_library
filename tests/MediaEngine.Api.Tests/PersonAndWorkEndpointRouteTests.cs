@@ -25,10 +25,13 @@ public sealed class PersonAndWorkEndpointRouteTests
         var querySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonCreditQueries.cs"));
 
         Assert.Contains("group.MapGet(\"/persons/{personId:guid}/character-roles\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("group.MapGet(\"/portraits/{portraitId:guid}\"", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl", endpointSource, StringComparison.Ordinal);
         Assert.Contains("PersonCreditQueries.GetCharacterRolesAsync", endpointSource, StringComparison.Ordinal);
         Assert.Contains("INNER JOIN works w", querySource, StringComparison.Ordinal);
         Assert.Contains("w.wikidata_qid = cpl.work_qid", querySource, StringComparison.Ordinal);
         Assert.Contains("cpl.work_qid IS NOT NULL", querySource, StringComparison.Ordinal);
+        Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl", querySource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -44,6 +47,16 @@ public sealed class PersonAndWorkEndpointRouteTests
         Assert.Contains("CastCreditQueries.BuildForCollectionRootAsync", collectionEndpointSource, StringComparison.Ordinal);
         Assert.Contains("public List<CastCreditDto> TopCast { get; init; } = [];", dtoSource, StringComparison.Ordinal);
         Assert.Contains("app.MapWorkEndpoints();", programSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PersonAndUniverseEndpoints_PreferLocalHeadshotRoutes()
+    {
+        var personSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonEndpoints.cs"));
+        var graphSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\UniverseGraphEndpoints.cs"));
+
+        Assert.Contains("ApiImageUrls.BuildPersonHeadshotUrl", personSource, StringComparison.Ordinal);
+        Assert.Contains("ApiImageUrls.BuildPersonHeadshotUrl", graphSource, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

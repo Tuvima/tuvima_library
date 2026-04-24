@@ -227,7 +227,6 @@ public sealed class DiscoveryComposerServiceTests
                 year: "2025",
                 createdAt: new DateTimeOffset(2026, 4, 16, 12, 0, 0, TimeSpan.Zero),
                 coverUrl: "/art/movie-cover.jpg",
-                backgroundUrl: "/art/movie-background.jpg",
                 canonicalExtras: new Dictionary<string, string>
                 {
                     ["director"] = "Tom Gormican",
@@ -279,8 +278,7 @@ public sealed class DiscoveryComposerServiceTests
                 title: "Anaconda",
                 author: "Tom Gormican",
                 lastAccessed: new DateTimeOffset(2026, 4, 18, 9, 0, 0, TimeSpan.Zero),
-                coverUrl: "/art/movie-cover.jpg",
-                backgroundUrl: "/art/movie-background.jpg"),
+                coverUrl: "/art/movie-cover.jpg"),
         };
 
         var groups = new[]
@@ -412,6 +410,73 @@ public sealed class DiscoveryComposerServiceTests
     }
 
     [Fact]
+    public void ComposeHome_UsesLandscapeSurfaceForMoviesWithFanart()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var movie = CreateWork(
+            id: Guid.Parse("abababab-1111-2222-3333-444444444444"),
+            mediaType: "Movies",
+            title: "Interstellar",
+            creator: "Christopher Nolan",
+            year: "2014",
+            coverUrl: "/art/interstellar-poster.jpg",
+            backgroundUrl: "/art/interstellar-fanart.jpg");
+
+        var page = service.ComposeHome([movie], [], []);
+        var freshWatch = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh to Watch");
+        var card = Assert.Single(freshWatch.Items);
+
+        Assert.Equal(DiscoveryCardShape.Landscape, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.BannerLandscape, card.SurfaceKind);
+        Assert.Equal(DiscoveryHoverLayout.BannerPopover, card.HoverLayout);
+        Assert.Equal("/art/interstellar-fanart.jpg", card.TileImageUrl);
+    }
+
+    [Fact]
+    public void ComposeHome_UsesSquareCardsForAudiobooks()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var audiobook = CreateWork(
+            id: Guid.Parse("cdcdcdcd-1111-2222-3333-444444444444"),
+            mediaType: "Audiobooks",
+            title: "Project Hail Mary",
+            creator: "Andy Weir",
+            year: "2021",
+            coverUrl: "/art/hail-mary-square.jpg");
+
+        var page = service.ComposeHome([audiobook], [], []);
+        var freshAudiobooks = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh Audiobooks");
+        var card = Assert.Single(freshAudiobooks.Items);
+
+        Assert.Equal(DiscoveryCardShape.Square, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverSquare, card.SurfaceKind);
+    }
+
+    [Fact]
+    public void ComposeHome_HidesSingleItemCollectionShelves()
+    {
+        var service = new DiscoveryComposerService(null!);
+
+        var groups = new[]
+        {
+            new ContentGroupViewModel
+            {
+                CollectionId = Guid.Parse("eeeeeeee-1111-2222-3333-444444444444"),
+                DisplayName = "Studio Ghibli",
+                PrimaryMediaType = "Movies",
+                WorkCount = 1,
+                CoverUrl = "/art/ghibli.jpg",
+                CreatedAt = DateTimeOffset.UtcNow,
+            }
+        };
+
+        var page = service.ComposeHome([], [], groups);
+
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Title == "Movie Series");
+        Assert.Null(page.Hero);
+    }
+
+    [Fact]
     public void ComposeHome_UsesCollectionPreviewImagesWhenGroupArtIsMissing()
     {
         var service = new DiscoveryComposerService(null!);
@@ -534,6 +599,8 @@ public sealed class DiscoveryComposerServiceTests
         var artistCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Artists").Items);
         Assert.Equal(DiscoveryCardPresentation.Artist, artistCard.Presentation);
         Assert.Equal("/art/artist.jpg", artistCard.CoverUrl);
+        Assert.Equal("/art/artist.jpg", artistCard.TileImageUrl);
+        Assert.Equal(DiscoverySurfaceKind.ArtistPhotoSquare, artistCard.SurfaceKind);
         Assert.Equal("/listen/music/artists/boygenius", artistCard.NavigationUrl);
     }
 

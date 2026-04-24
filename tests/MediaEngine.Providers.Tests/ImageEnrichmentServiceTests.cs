@@ -353,6 +353,9 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
 
     private sealed class StubCharacterPortraitRepository : ICharacterPortraitRepository
     {
+        public Task<CharacterPortrait?> FindByIdAsync(Guid portraitId, CancellationToken ct = default)
+            => Task.FromResult<CharacterPortrait?>(null);
+
         public Task<IReadOnlyList<CharacterPortrait>> GetByCharacterAsync(Guid fictionalEntityId, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyList<CharacterPortrait>>([]);
 

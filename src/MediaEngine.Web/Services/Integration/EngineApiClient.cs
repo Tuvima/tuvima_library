@@ -2108,7 +2108,17 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             var response = await _http.GetAsync($"persons/{personId}/aliases", ct);
             if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<PersonAliasesResponseDto>(cancellationToken: ct);
+            var result = await response.Content.ReadFromJsonAsync<PersonAliasesResponseDto>(cancellationToken: ct);
+            if (result is not null)
+            {
+                foreach (var alias in result.Aliases)
+                {
+                    if (!string.IsNullOrWhiteSpace(alias.HeadshotUrl))
+                        alias.HeadshotUrl = AbsoluteUrl(alias.HeadshotUrl);
+                }
+            }
+
+            return result;
         }
         catch
         {

@@ -427,7 +427,8 @@ public static class UniverseGraphEndpoints
                        cpl.fictional_entity_id  AS FictionalEntityId,
                        cpl.work_qid             AS WorkQid,
                        p.name                   AS PerformerName,
-                       p.headshot_url           AS PerformerHeadshot
+                       p.headshot_url           AS PerformerHeadshot,
+                       p.local_headshot_path    AS PerformerLocalHeadshotPath
                 FROM   character_performer_links cpl
                 LEFT   JOIN persons p ON p.id = cpl.person_id
                 WHERE  cpl.fictional_entity_id IN @ids";
@@ -457,7 +458,9 @@ public static class UniverseGraphEndpoints
                     {
                         person_id    = p.PersonId,
                         name         = p.PerformerName ?? string.Empty,
-                        headshot_url = p.PerformerHeadshot,
+                        headshot_url = Guid.TryParse(p.PersonId, out var performerId)
+                            ? ApiImageUrls.BuildPersonHeadshotUrl(performerId, p.PerformerLocalHeadshotPath, p.PerformerHeadshot)
+                            : p.PerformerHeadshot,
                         work_qid     = p.WorkQid,
                         year         = (int?)null,
                     }),
@@ -575,6 +578,7 @@ public static class UniverseGraphEndpoints
         public string? WorkQid           { get; init; }
         public string? PerformerName     { get; init; }
         public string? PerformerHeadshot { get; init; }
+        public string? PerformerLocalHeadshotPath { get; init; }
     }
 
     /// <summary>

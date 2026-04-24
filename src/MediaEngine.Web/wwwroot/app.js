@@ -142,34 +142,32 @@ window.positionDiscoveryCardHover = function (cardEl) {
         var panelWidth = panel.offsetWidth;
         var panelHeight = panel.offsetHeight;
         var gutter = 12;
-        var shiftX = 0;
-        var shiftY = 0;
-        var panelLeft = cardRect.left;
         var computedStyle = window.getComputedStyle(cardEl);
         var hoverLift = parseFloat(computedStyle.getPropertyValue('--discovery-hover-lift')) || 0;
-        var defaultTop = cardRect.top - hoverLift;
+        var panelLeft = cardRect.left;
+        var panelTop = cardRect.top - hoverLift;
 
         if (panelLeft < gutter) {
-            shiftX = gutter - panelLeft;
+            panelLeft = gutter;
         }
 
-        var overflowRight = panelLeft + shiftX + panelWidth - (window.innerWidth - gutter);
+        var overflowRight = panelLeft + panelWidth - (window.innerWidth - gutter);
         if (overflowRight > 0) {
-            shiftX -= overflowRight;
+            panelLeft -= overflowRight;
         }
 
-        var overflowBottom = defaultTop + panelHeight - (window.innerHeight - gutter);
+        var overflowBottom = panelTop + panelHeight - (window.innerHeight - gutter);
         if (overflowBottom > 0) {
-            shiftY -= overflowBottom;
+            panelTop -= overflowBottom;
         }
 
-        var overflowTop = defaultTop + shiftY - gutter;
+        var overflowTop = panelTop - gutter;
         if (overflowTop < 0) {
-            shiftY += Math.abs(overflowTop);
+            panelTop += Math.abs(overflowTop);
         }
 
-        cardEl.style.setProperty('--discovery-hover-shift-x', shiftX + 'px');
-        cardEl.style.setProperty('--discovery-hover-shift-y', shiftY + 'px');
+        cardEl.style.setProperty('--discovery-hover-panel-left', panelLeft + 'px');
+        cardEl.style.setProperty('--discovery-hover-panel-top', panelTop + 'px');
     });
 };
 
@@ -177,6 +175,8 @@ window.clearDiscoveryCardHover = function (cardEl) {
     if (!cardEl) return;
     cardEl.style.setProperty('--discovery-hover-shift-x', '0px');
     cardEl.style.setProperty('--discovery-hover-shift-y', '0px');
+    cardEl.style.setProperty('--discovery-hover-panel-left', '-9999px');
+    cardEl.style.setProperty('--discovery-hover-panel-top', '-9999px');
 };
 
 window.registerDiscoveryCardHover = function (cardEl) {

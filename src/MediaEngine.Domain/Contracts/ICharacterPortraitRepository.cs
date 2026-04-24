@@ -7,6 +7,10 @@ namespace MediaEngine.Domain.Contracts;
 /// </summary>
 public interface ICharacterPortraitRepository
 {
+    /// <summary>Find a portrait by its row id.</summary>
+    Task<CharacterPortrait?> FindByIdAsync(
+        Guid portraitId, CancellationToken ct = default);
+
     /// <summary>Get all portraits for a fictional character.</summary>
     Task<IReadOnlyList<CharacterPortrait>> GetByCharacterAsync(
         Guid fictionalEntityId, CancellationToken ct = default);

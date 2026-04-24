@@ -76,6 +76,7 @@ internal static class CastCreditQueries
                    fe.label              AS CharacterName,
                    fe.wikidata_qid       AS CharacterQid,
                    fe.image_url          AS CharacterImageUrl,
+                   cp.id                 AS PortraitId,
                    cp.image_url          AS PortraitImageUrl,
                    cp.local_image_path   AS PortraitLocalImagePath,
                    cp.is_default         AS PortraitIsDefault
@@ -122,7 +123,11 @@ internal static class CastCreditQueries
                             FictionalEntityId = characterGroup.Key.CharacterId,
                             CharacterName = characterGroup.Key.CharacterName,
                             CharacterQid = characterGroup.Key.CharacterQid,
-                            PortraitUrl = preferred.PortraitImageUrl ?? preferred.CharacterImageUrl,
+                            PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
+                                preferred.PortraitId,
+                                preferred.PortraitLocalImagePath,
+                                preferred.PortraitImageUrl)
+                                ?? preferred.CharacterImageUrl,
                         };
                     })
                     .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
@@ -204,8 +209,8 @@ internal static class CastCreditQueries
     }
 
     private static string? BuildHeadshotUrl(Guid? personId, string? localHeadshotPath, string? remoteHeadshotUrl)
-        => !string.IsNullOrWhiteSpace(localHeadshotPath) && personId.HasValue
-            ? $"/persons/{personId.Value}/headshot"
+        => personId.HasValue
+            ? ApiImageUrls.BuildPersonHeadshotUrl(personId.Value, localHeadshotPath, remoteHeadshotUrl)
             : remoteHeadshotUrl;
 
     private sealed class WorkIdentityRow
@@ -225,6 +230,7 @@ internal static class CastCreditQueries
         public string? CharacterName { get; init; }
         public string? CharacterQid { get; init; }
         public string? CharacterImageUrl { get; init; }
+        public Guid? PortraitId { get; init; }
         public string? PortraitImageUrl { get; init; }
         public string? PortraitLocalImagePath { get; init; }
         public bool PortraitIsDefault { get; init; }
@@ -328,6 +334,7 @@ internal static class PersonCreditQueries
                        fe.label               AS CharacterName,
                        fe.wikidata_qid        AS CharacterQid,
                        fe.image_url           AS CharacterImageUrl,
+                       cp.id                  AS PortraitId,
                        cp.image_url           AS PortraitImageUrl,
                        cp.local_image_path    AS PortraitLocalImagePath,
                        cp.is_default          AS PortraitIsDefault
@@ -361,7 +368,11 @@ internal static class PersonCreditQueries
                                 FictionalEntityId = characterGroup.Key.CharacterId,
                                 CharacterName = characterGroup.Key.CharacterName,
                                 CharacterQid = characterGroup.Key.CharacterQid,
-                                PortraitUrl = preferred.PortraitImageUrl ?? preferred.CharacterImageUrl,
+                                PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
+                                    preferred.PortraitId,
+                                    preferred.PortraitLocalImagePath,
+                                    preferred.PortraitImageUrl)
+                                    ?? preferred.CharacterImageUrl,
                             };
                         })
                         .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
@@ -404,6 +415,7 @@ internal static class PersonCreditQueries
             SELECT cpl.fictional_entity_id  AS FictionalEntityId,
                    fe.label                 AS CharacterName,
                    fe.image_url             AS CharacterImageUrl,
+                   cp.id                    AS PortraitId,
                    cp.image_url             AS PortraitImageUrl,
                    cp.local_image_path      AS PortraitLocalImagePath,
                    cp.is_default            AS PortraitIsDefault,
@@ -427,7 +439,7 @@ internal static class PersonCreditQueries
                AND cp.person_id = cpl.person_id
             WHERE cpl.person_id = @personId
               AND cpl.work_qid IS NOT NULL
-            GROUP BY cpl.fictional_entity_id, fe.label, fe.image_url, cp.image_url, cp.local_image_path, cp.is_default,
+            GROUP BY cpl.fictional_entity_id, fe.label, fe.image_url, cp.id, cp.image_url, cp.local_image_path, cp.is_default,
                      w.id, w.wikidata_qid, w.collection_id, w.media_type, fe.fictional_universe_qid, fe.fictional_universe_label
             ORDER BY UniverseLabel, WorkTitle, CharacterName, cp.is_default DESC;
             """,
@@ -446,7 +458,11 @@ internal static class PersonCreditQueries
                 {
                     FictionalEntityId = group.Key.FictionalEntityId,
                     CharacterName = preferred.CharacterName,
-                    PortraitUrl = preferred.PortraitImageUrl ?? preferred.CharacterImageUrl,
+                    PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
+                        preferred.PortraitId,
+                        preferred.PortraitLocalImagePath,
+                        preferred.PortraitImageUrl)
+                        ?? preferred.CharacterImageUrl,
                     WorkId = preferred.WorkId,
                     WorkQid = preferred.WorkQid,
                     WorkTitle = preferred.WorkTitle,
@@ -488,6 +504,7 @@ internal static class PersonCreditQueries
         public string? CharacterName { get; init; }
         public string? CharacterQid { get; init; }
         public string? CharacterImageUrl { get; init; }
+        public Guid? PortraitId { get; init; }
         public string? PortraitImageUrl { get; init; }
         public string? PortraitLocalImagePath { get; init; }
         public bool PortraitIsDefault { get; init; }
@@ -498,6 +515,7 @@ internal static class PersonCreditQueries
         public Guid FictionalEntityId { get; init; }
         public string? CharacterName { get; init; }
         public string? CharacterImageUrl { get; init; }
+        public Guid? PortraitId { get; init; }
         public string? PortraitImageUrl { get; init; }
         public string? PortraitLocalImagePath { get; init; }
         public bool PortraitIsDefault { get; init; }

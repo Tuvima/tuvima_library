@@ -195,6 +195,7 @@ public sealed class DiscoveryComposerService
 
         var readGroups = groups
             .Where(group => IsReadKind(NormalizeDisplayKind(group.PrimaryMediaType)))
+            .Where(ShouldDisplayCollectionGroup)
             .OrderByDescending(group => group.WorkCount)
             .ThenByDescending(group => group.CreatedAt)
             .ToList();
@@ -300,6 +301,7 @@ public sealed class DiscoveryComposerService
 
         var watchGroups = groups
             .Where(group => IsWatchKind(NormalizeDisplayKind(group.PrimaryMediaType)))
+            .Where(ShouldDisplayCollectionGroup)
             .OrderByDescending(group => group.WorkCount)
             .ThenByDescending(group => group.CreatedAt)
             .ToList();
@@ -409,6 +411,7 @@ public sealed class DiscoveryComposerService
 
         var listenGroups = groups
             .Where(group => IsListenKind(NormalizeDisplayKind(group.PrimaryMediaType)))
+            .Where(ShouldDisplayCollectionGroup)
             .OrderByDescending(group => group.WorkCount)
             .ThenByDescending(group => group.CreatedAt)
             .ToList();
@@ -654,6 +657,7 @@ public sealed class DiscoveryComposerService
             return ToHeroFromCard(freshHero, "Fresh in your library", accentColor);
 
         var featuredGroup = contentGroups
+            .Where(ShouldDisplayCollectionGroup)
             .Concat(musicAlbumGroups)
             .OrderByDescending(group => GroupTasteScore(group, tasteProfile))
             .ThenByDescending(group => group.WorkCount)
@@ -840,7 +844,11 @@ public sealed class DiscoveryComposerService
         var title = group?.DisplayName ?? latest.CollectionDisplayName ?? latest.Series ?? latest.Title;
         var detailsUrl = BuildJourneyDetailsUrl(latest);
         var primaryUrl = MediaNavigation.ForJourney(latest);
-        var shape = HomeShapeForBucket(DiscoveryBucket.Tv, group?.BannerUrl ?? latest.BannerUrl);
+        var shape = HomeShapeForBucket(
+            DiscoveryBucket.Tv,
+            group?.BannerUrl ?? latest.BannerUrl,
+            group?.BackgroundUrl ?? latest.BackgroundUrl,
+            group?.HeroUrl ?? latest.HeroUrl);
         var surface = ResolveDiscoverySurface(
             DiscoveryBucket.Tv,
             shape,
@@ -961,7 +969,11 @@ public sealed class DiscoveryComposerService
             .First();
         var detailsUrl = BuildWorkDetailsUrl(latest);
         var title = group?.DisplayName ?? latest.ShowName ?? latest.Series ?? latest.Title;
-        var shape = HomeShapeForBucket(DiscoveryBucket.Tv, group?.BannerUrl ?? latest.BannerUrl);
+        var shape = HomeShapeForBucket(
+            DiscoveryBucket.Tv,
+            group?.BannerUrl ?? latest.BannerUrl,
+            group?.BackgroundUrl ?? latest.BackgroundUrl,
+            group?.HeroUrl ?? latest.HeroUrl);
         var surface = ResolveDiscoverySurface(
             DiscoveryBucket.Tv,
             shape,
@@ -1182,6 +1194,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Shows and seasons organized from your library",
             seeAllRoute: "/watch/tv",
             items: contentGroups
+                .Where(ShouldDisplayCollectionGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Tv)
                 .Select(group => CreateTvCollectionCard(group, groupPreviewImages)));
 
@@ -1191,6 +1204,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Franchises and sequels presented as stacked movie cards",
             seeAllRoute: "/watch/movies",
             items: contentGroups
+                .Where(ShouldDisplayCollectionGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Movie)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1204,6 +1218,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Reading sequences collected from the books you own",
             seeAllRoute: "/read/books",
             items: contentGroups
+                .Where(ShouldDisplayCollectionGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Book)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1217,6 +1232,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Issue runs and comic arcs grouped for quick browsing",
             seeAllRoute: "/read/comics",
             items: contentGroups
+                .Where(ShouldDisplayCollectionGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Comic)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1251,6 +1267,7 @@ public sealed class DiscoveryComposerService
             subtitle: "Series-aware audiobook browsing without recommendations",
             seeAllRoute: "/listen/audiobooks",
             items: contentGroups
+                .Where(ShouldDisplayCollectionGroup)
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Audiobook)
                 .Select(group => CreateCollectionShelfCard(
                     group,
@@ -1283,11 +1300,25 @@ public sealed class DiscoveryComposerService
         });
     }
 
-    private static DiscoveryCardShape HomeShapeForBucket(DiscoveryBucket bucket, string? bannerUrl) => bucket switch
+    private static bool HasLandscapeArt(string? bannerUrl, string? backgroundUrl, string? heroUrl) =>
+        !string.IsNullOrWhiteSpace(bannerUrl)
+        || !string.IsNullOrWhiteSpace(backgroundUrl)
+        || !string.IsNullOrWhiteSpace(heroUrl);
+
+    private static bool ShouldDisplayCollectionGroup(ContentGroupViewModel group) =>
+        group.WorkCount > 1
+        || group.SeasonCount is > 1
+        || group.AlbumCount is > 1;
+
+    private static DiscoveryCardShape HomeShapeForBucket(
+        DiscoveryBucket bucket,
+        string? bannerUrl,
+        string? backgroundUrl = null,
+        string? heroUrl = null) => bucket switch
     {
-        DiscoveryBucket.Movie or DiscoveryBucket.Tv when !string.IsNullOrWhiteSpace(bannerUrl) => DiscoveryCardShape.Landscape,
+        DiscoveryBucket.Movie or DiscoveryBucket.Tv when HasLandscapeArt(bannerUrl, backgroundUrl, heroUrl) => DiscoveryCardShape.Landscape,
         DiscoveryBucket.Movie or DiscoveryBucket.Tv => DiscoveryCardShape.Portrait,
-        DiscoveryBucket.Music => DiscoveryCardShape.Square,
+        DiscoveryBucket.Music or DiscoveryBucket.Audiobook => DiscoveryCardShape.Square,
         _ => DiscoveryCardShape.Portrait,
     };
 
@@ -1316,7 +1347,7 @@ public sealed class DiscoveryComposerService
 
         if (bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv
             && shape == DiscoveryCardShape.Landscape
-            && !string.IsNullOrWhiteSpace(bannerUrl))
+            && HasLandscapeArt(bannerUrl, backgroundUrl, heroUrl))
         {
             var bannerImageUrl = FirstNonBlank(bannerUrl, backgroundUrl, heroUrl, coverUrl);
             return new DiscoverySurfaceSelection(
@@ -1859,10 +1890,15 @@ public sealed class DiscoveryComposerService
     private static DiscoveryCardViewModel ToHomeJourneyCard(
         JourneyItemViewModel item,
         WorkViewModel? representativeWork = null)
-        => ToJourneyCard(item, representativeWork, HomeShapeForBucket(GetBucket(item.MediaType), item.BannerUrl));
+        => ToJourneyCard(
+            item,
+            representativeWork,
+            HomeShapeForBucket(GetBucket(item.MediaType), item.BannerUrl, item.BackgroundUrl, item.HeroUrl));
 
     private static DiscoveryCardViewModel ToHomeWorkCard(WorkViewModel work)
-        => ToWorkCard(work, shapeOverride: HomeShapeForBucket(GetBucket(work.MediaType), work.BannerUrl));
+        => ToWorkCard(
+            work,
+            shapeOverride: HomeShapeForBucket(GetBucket(work.MediaType), work.BannerUrl, work.BackgroundUrl, work.HeroUrl));
 
     private static DiscoveryCardViewModel ToCollectionCard(
         ContentGroupViewModel group,
@@ -2031,7 +2067,7 @@ public sealed class DiscoveryComposerService
     private static DiscoveryCardShape ShapeForBucket(DiscoveryBucket bucket) => bucket switch
     {
         DiscoveryBucket.Movie or DiscoveryBucket.Tv => DiscoveryCardShape.Landscape,
-        DiscoveryBucket.Music => DiscoveryCardShape.Square,
+        DiscoveryBucket.Music or DiscoveryBucket.Audiobook => DiscoveryCardShape.Square,
         _ => DiscoveryCardShape.Portrait,
     };
 

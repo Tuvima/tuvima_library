@@ -36,6 +36,22 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
     }
 
     /// <inheritdoc/>
+    public Task<CharacterPortrait?> FindByIdAsync(
+        Guid portraitId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var result = conn.QueryFirstOrDefault<CharacterPortrait>($"""
+            {SelectColumns}
+            WHERE  id = @portraitId
+            LIMIT  1;
+            """, new { portraitId = portraitId.ToString() });
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<CharacterPortrait>> GetByCharacterAsync(
         Guid fictionalEntityId, CancellationToken ct = default)
     {
