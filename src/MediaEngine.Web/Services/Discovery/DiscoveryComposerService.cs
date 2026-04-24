@@ -20,13 +20,10 @@ public sealed class DiscoveryComposerService
 
     public async Task<DiscoveryPageViewModel> BuildHomeAsync(CancellationToken ct = default)
     {
-        if (_api is not null)
+        var displayPage = await _api.GetDisplayHomeAsync(ct);
+        if (displayPage is not null)
         {
-            var displayPage = await _api.GetDisplayHomeAsync(ct);
-            if (displayPage is not null)
-            {
-                return FromDisplayPage(displayPage);
-            }
+            return FromDisplayPage(displayPage);
         }
 
         var worksTask = _api.GetLibraryWorksAsync(ct);

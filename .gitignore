@@ -78,6 +78,7 @@ site/
 
 # Local Codex-derived context
 .codex/
+.codex-runlogs/
 
 # Local .NET CLI tooling
 .dotnet-cli/
