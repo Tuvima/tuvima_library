@@ -434,6 +434,41 @@ public sealed class DiscoveryComposerServiceTests
     }
 
     [Fact]
+    public void ComposeHome_AffinityRowsKeepResolvedArtworkShapes()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var movie = CreateWork(
+            id: Guid.Parse("abababab-3333-4444-5555-666666666666"),
+            mediaType: "Movies",
+            title: "Foundation",
+            creator: "David S. Goyer",
+            year: "2021",
+            coverUrl: "/art/foundation-poster.jpg",
+            backgroundUrl: "/art/foundation-background.jpg");
+        var song = CreateWork(
+            id: Guid.Parse("bcbcbcbc-3333-4444-5555-666666666666"),
+            mediaType: "Music",
+            title: "Clair de Lune",
+            creator: "Claude Debussy",
+            year: "1905",
+            coverUrl: "/art/debussy-cover.jpg");
+
+        var page = service.ComposeHome([movie, song], [], []);
+
+        var watchNext = Assert.Single(page.Shelves, shelf => shelf.Title == "Watch next");
+        var watchCard = Assert.Single(watchNext.Items);
+        Assert.Equal(DiscoveryCardShape.Landscape, watchCard.Shape);
+        Assert.Equal(DiscoverySurfaceKind.BannerLandscape, watchCard.SurfaceKind);
+        Assert.Equal(DiscoveryHoverLayout.BannerPopover, watchCard.HoverLayout);
+
+        var listenNext = Assert.Single(page.Shelves, shelf => shelf.Title == "Listen next");
+        var listenCard = Assert.Single(listenNext.Items);
+        Assert.Equal(DiscoveryCardShape.Square, listenCard.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverSquare, listenCard.SurfaceKind);
+        Assert.Equal(DiscoveryHoverLayout.ArtOnlyPopover, listenCard.HoverLayout);
+    }
+
+    [Fact]
     public void ComposeHome_DoesNotUsePosterAsLandscapeTile()
     {
         var service = new DiscoveryComposerService(null!);
