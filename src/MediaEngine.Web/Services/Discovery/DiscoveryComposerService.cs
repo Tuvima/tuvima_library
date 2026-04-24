@@ -53,7 +53,7 @@ public sealed class DiscoveryComposerService
         return ComposeHome(works, journey, groups, previewImages, musicAlbumGroups, musicArtistGroups, tvShowGroups, tasteProfile);
     }
 
-    private static DiscoveryPageViewModel FromDisplayPage(DisplayPageViewModel page)
+    public static DiscoveryPageViewModel FromDisplayPage(DisplayPageViewModel page)
     {
         var shelves = page.Shelves
             .Select(shelf => new DiscoveryShelfViewModel
@@ -93,7 +93,7 @@ public sealed class DiscoveryComposerService
         };
     }
 
-    private static DiscoveryCardViewModel FromDisplayCard(DisplayCardViewModel card)
+    public static DiscoveryCardViewModel FromDisplayCard(DisplayCardViewModel card)
     {
         var shape = card.PreferredShape switch
         {
@@ -171,6 +171,12 @@ public sealed class DiscoveryComposerService
 
     public async Task<DiscoveryPageViewModel> BuildReadAsync(CancellationToken ct = default)
     {
+        var displayPage = await _api.GetDisplayBrowseAsync(lane: "read", grouping: "all", ct: ct);
+        if (displayPage is not null)
+        {
+            return FromDisplayPage(displayPage);
+        }
+
         var worksTask = _api.GetLibraryWorksAsync(ct);
         var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
         var groupsTask = _api.GetContentGroupsAsync(ct);
@@ -194,6 +200,12 @@ public sealed class DiscoveryComposerService
 
     public async Task<DiscoveryPageViewModel> BuildWatchAsync(CancellationToken ct = default)
     {
+        var displayPage = await _api.GetDisplayBrowseAsync(lane: "watch", grouping: "all", ct: ct);
+        if (displayPage is not null)
+        {
+            return FromDisplayPage(displayPage);
+        }
+
         var worksTask = _api.GetLibraryWorksAsync(ct);
         var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
         var groupsTask = _api.GetContentGroupsAsync(ct);
@@ -217,6 +229,12 @@ public sealed class DiscoveryComposerService
 
     public async Task<DiscoveryPageViewModel> BuildListenAsync(CancellationToken ct = default)
     {
+        var displayPage = await _api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", ct: ct);
+        if (displayPage is not null)
+        {
+            return FromDisplayPage(displayPage);
+        }
+
         var worksTask = _api.GetLibraryWorksAsync(ct);
         var journeyTask = _api.GetJourneyAsync(limit: 18, ct: ct);
         var groupsTask = _api.GetContentGroupsAsync(ct);

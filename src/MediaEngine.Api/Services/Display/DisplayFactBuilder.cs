@@ -29,7 +29,6 @@ public static class DisplayFactBuilder
             case "Book":
             case "Comic":
                 AddFact(facts, author, title);
-                AddFact(facts, series, title);
                 break;
             case "Audiobook":
                 AddFact(facts, author, title);

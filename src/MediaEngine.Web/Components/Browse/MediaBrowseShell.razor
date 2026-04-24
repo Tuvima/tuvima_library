@@ -362,6 +362,7 @@
         }
 
         _loading = true;
+        _hero = null;
         StateHasChanged();
 
         var journeyTask = ApiClient.GetJourneyAsync(limit: 24);
@@ -375,15 +376,57 @@
         }
         else
         {
-            var itemsTask = LoadItemsAsync(append);
-            await Task.WhenAll(journeyTask, itemsTask);
-            _cards.Clear();
-            _cards.AddRange(_items.Select(ToItemCard));
+            if (!UseListLayout && await LoadDisplayCardsAsync(append))
+            {
+                await journeyTask;
+            }
+            else
+            {
+                var itemsTask = LoadItemsAsync(append);
+                await Task.WhenAll(journeyTask, itemsTask);
+                _cards.Clear();
+                _cards.AddRange(_items.Select(ToItemCard));
+            }
         }
 
-        _hero = BuildHero(journeyTask.Result);
+        _hero ??= BuildHero(journeyTask.Result);
         _loading = false;
         _hasLoadedOnce = true;
+    }
+
+    private async Task<bool> LoadDisplayCardsAsync(bool append)
+    {
+        var requestedOffset = append ? _cards.Count : 0;
+        var page = await ApiClient.GetDisplayBrowseAsync(
+            mediaType: CurrentTab.MediaType,
+            grouping: _grouping,
+            search: string.IsNullOrWhiteSpace(_searchText) ? null : _searchText,
+            offset: requestedOffset,
+            limit: PageSize);
+
+        if (page is null)
+        {
+            return false;
+        }
+
+        var incoming = SortCards(page.Catalog.Select(DiscoveryComposerService.FromDisplayCard)).ToList();
+        if (append)
+        {
+            _cards.AddRange(incoming);
+            var sorted = SortCards(_cards).ToList();
+            _cards.Clear();
+            _cards.AddRange(sorted);
+        }
+        else
+        {
+            _cards.Clear();
+            _cards.AddRange(incoming);
+        }
+
+        _items = [];
+        _hasMore = page.Catalog.Count >= PageSize;
+        _hero = BuildDisplayHero(page.Hero);
+        return true;
     }
 
     private async Task LoadItemsAsync(bool append)
@@ -467,6 +510,46 @@
             "title" => source.OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
             "newest" => source.OrderByDescending(group => group.CreatedAt).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
             _ => source.OrderByDescending(group => group.WorkCount).ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase).ToList(),
+        };
+    }
+
+    private IEnumerable<DiscoveryCardViewModel> SortCards(IEnumerable<DiscoveryCardViewModel> source)
+    {
+        return _sortBy switch
+        {
+            "title" => source.OrderBy(card => card.Title, StringComparer.OrdinalIgnoreCase),
+            "oldest" => source.OrderBy(card => card.SortTimestamp),
+            "creator" => source.OrderBy(card => card.Creator ?? card.Subtitle ?? card.Title, StringComparer.OrdinalIgnoreCase),
+            "year" => source.OrderByDescending(card => card.SortYear).ThenBy(card => card.Title, StringComparer.OrdinalIgnoreCase),
+            _ => source.OrderByDescending(card => card.SortTimestamp),
+        };
+    }
+
+    private BrowseHeroViewModel? BuildDisplayHero(DisplayHeroViewModel? hero)
+    {
+        if (hero is null)
+        {
+            return null;
+        }
+
+        var primaryAction = hero.Progress?.ResumeAction ?? hero.Actions.FirstOrDefault();
+        var secondaryAction = hero.Actions.Skip(1).FirstOrDefault() ?? hero.Actions.FirstOrDefault();
+        return new BrowseHeroViewModel
+        {
+            Variant = Preset.HeroVariant,
+            Eyebrow = hero.Eyebrow ?? "From your library",
+            Title = hero.Title,
+            Subtitle = hero.Subtitle,
+            Description = null,
+            MetaLine = null,
+            SupportingLine = hero.Progress?.Label,
+            CoverUrl = hero.Artwork.CoverUrl ?? hero.Artwork.SquareUrl,
+            BackgroundUrl = ResolveWideArtwork(hero.Artwork.BackgroundUrl, hero.Artwork.BannerUrl),
+            ProgressPct = hero.Progress?.Percent,
+            PrimaryActionLabel = primaryAction?.Label ?? "Open",
+            SecondaryActionLabel = secondaryAction is null ? null : "Details",
+            PrimaryNavigationUrl = primaryAction?.WebUrl ?? "/",
+            SecondaryNavigationUrl = secondaryAction?.WebUrl,
         };
     }
 

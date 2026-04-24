@@ -414,6 +414,36 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<DisplayPageViewModel?> GetDisplayBrowseAsync(
+        string? lane = null,
+        string? mediaType = null,
+        string? grouping = null,
+        string? search = null,
+        int? offset = null,
+        int? limit = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var query = new List<string>();
+            AddQuery(query, "lane", lane);
+            AddQuery(query, "mediaType", mediaType);
+            AddQuery(query, "grouping", grouping);
+            AddQuery(query, "search", search);
+            AddQuery(query, "offset", offset?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            var url = "/api/v1/display/browse" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
+            var page = await _http.GetFromJsonAsync<DisplayPageViewModel>(url, ct);
+            return NormalizeDisplayPage(page);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /api/v1/display/browse failed");
+            return null;
+        }
+    }
+
     public async Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default)
     {
         try
@@ -3306,6 +3336,14 @@ public sealed class EngineApiClient : IEngineApiClient
             return new Uri(baseAddr, value.StartsWith('/') ? value : $"/{value}").ToString();
 
         return value;
+    }
+
+    private static void AddQuery(ICollection<string> query, string name, string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        query.Add($"{Uri.EscapeDataString(name)}={Uri.EscapeDataString(value)}");
     }
 
     private string NormalizeCanonicalValue(string key, string value) =>

@@ -84,6 +84,36 @@ public sealed class DisplayContractTests
         Assert.Contains("app.MapDisplayEndpoints();", programSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void DisplayBrowse_LaneRequestsUseRichConsumerPageComposition()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayComposerService.cs"));
+
+        Assert.Contains("BuildLaneAsync(normalizedLane, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("BuildWatchShelves", source, StringComparison.Ordinal);
+        Assert.Contains("BuildReadShelves", source, StringComparison.Ordinal);
+        Assert.Contains("BuildListenShelves", source, StringComparison.Ordinal);
+        Assert.Contains("\"continue-watching\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"continue-reading\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"continue-listening\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"openCollection\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void WebBrowseSurfaces_UseDisplayApiBeforeLegacyComposition()
+    {
+        var clientSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IEngineApiClient.cs"));
+        var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Discovery\DiscoveryComposerService.cs"));
+        var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
+
+        Assert.Contains("GetDisplayBrowseAsync", clientSource, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayBrowseAsync(lane: \"read\"", composerSource, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayBrowseAsync(lane: \"watch\"", composerSource, StringComparison.Ordinal);
+        Assert.Contains("GetDisplayBrowseAsync(lane: \"listen\"", composerSource, StringComparison.Ordinal);
+        Assert.Contains("LoadDisplayCardsAsync", browseShellSource, StringComparison.Ordinal);
+        Assert.Contains("DiscoveryComposerService.FromDisplayCard", browseShellSource, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

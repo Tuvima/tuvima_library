@@ -23,7 +23,7 @@ public sealed class DisplayFactBuilderTests
             mediaKind: "Book",
             title: "Dune",
             author: "Frank Herbert",
-            series: "Dune",
+            series: "Dune Saga",
             genre: "Science Fiction;Adventure");
 
         Assert.Equal(["Frank Herbert", "Science Fiction", "Adventure"], facts);

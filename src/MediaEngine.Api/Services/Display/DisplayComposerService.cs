@@ -76,6 +76,16 @@ public sealed class DisplayComposerService
 
     public async Task<DisplayPageDto> BuildBrowseAsync(string? lane, string? mediaType, string? grouping, string? search, int offset, int limit, CancellationToken ct = default)
     {
+        var normalizedLane = NormalizeLane(lane);
+        if (normalizedLane is not null &&
+            string.IsNullOrWhiteSpace(mediaType) &&
+            string.IsNullOrWhiteSpace(search) &&
+            (string.IsNullOrWhiteSpace(grouping) || string.Equals(grouping, "all", StringComparison.OrdinalIgnoreCase)) &&
+            offset <= 0)
+        {
+            return await BuildLaneAsync(normalizedLane, ct);
+        }
+
         var works = await LoadWorksAsync(ct);
         var journey = await LoadJourneyAsync(null, ct);
         var progressByWork = journey
@@ -123,6 +133,134 @@ public sealed class DisplayComposerService
             Hero: cards.FirstOrDefault() is { } hero ? ToHero(hero, "From your library") : null,
             Shelves: [new DisplayShelfDto("results", "Results", null, cards, null)],
             Catalog: cards);
+    }
+
+    private async Task<DisplayPageDto> BuildLaneAsync(string lane, CancellationToken ct)
+    {
+        var works = await LoadWorksAsync(ct);
+        var journey = await LoadJourneyAsync(lane, ct);
+        var progressByWork = journey
+            .GroupBy(item => item.WorkId)
+            .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.LastAccessed).First());
+
+        var laneWorks = works
+            .Where(work => lane switch
+            {
+                "watch" => IsWatchKind(work.MediaType),
+                "read" => IsReadKind(work.MediaType),
+                "listen" => IsListenKind(work.MediaType),
+                _ => true,
+            })
+            .OrderByDescending(work => work.CreatedAt)
+            .ThenByDescending(work => ParseDouble(work.Year) ?? 0)
+            .ToList();
+
+        var laneJourney = journey
+            .OrderByDescending(item => item.LastAccessed)
+            .ToList();
+
+        var catalog = laneWorks
+            .Select(work => ToWorkCard(work, lane, progressByWork.GetValueOrDefault(work.WorkId)))
+            .ToList();
+
+        var shelves = lane switch
+        {
+            "watch" => BuildWatchShelves(laneWorks, laneJourney, progressByWork),
+            "read" => BuildReadShelves(laneWorks, laneJourney, progressByWork),
+            "listen" => BuildListenShelves(laneWorks, laneJourney, progressByWork),
+            _ => [new DisplayShelfDto("results", "Results", null, catalog, null)],
+        };
+
+        var heroCard = laneJourney.FirstOrDefault() is { } journeyHero
+            ? ToJourneyCard(journeyHero, lane)
+            : catalog.FirstOrDefault();
+
+        return new DisplayPageDto(
+            Key: lane,
+            Title: TitleForLane(lane),
+            Subtitle: SubtitleForLane(lane),
+            Hero: heroCard is null ? null : ToHero(heroCard, EyebrowForLane(lane, laneJourney.Count > 0)),
+            Shelves: shelves,
+            Catalog: catalog);
+    }
+
+    private static IReadOnlyList<DisplayShelfDto> BuildReadShelves(
+        IReadOnlyList<DisplayWorkRow> works,
+        IReadOnlyList<DisplayJourneyRow> journey,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow> progressByWork)
+    {
+        var shelves = new List<DisplayShelfDto>();
+        AddShelf(shelves, "continue-reading", "Continue reading", "Books, comics, and audiobooks already in motion",
+            journey.Take(12).Select(item => ToJourneyCard(item, "read")).ToList(), null);
+        AddShelf(shelves, "reading-collections", "Collections to explore", "Series and grouped reading pulled from your library",
+            BuildCollectionCards(works, "read").Take(12).ToList(), "/collections");
+        AddShelf(shelves, "recently-added", "Recently added to read", "Fresh pages ready to pick up",
+            works.Take(18).Select(work => ToWorkCard(work, "read", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
+
+        var authorShelves = works
+            .Where(work => !string.IsNullOrWhiteSpace(work.Author))
+            .GroupBy(work => work.Author!, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() >= 2)
+            .OrderByDescending(group => group.Count())
+            .Take(3)
+            .Select(group => new DisplayShelfDto(
+                Key: $"author-{StableKey(group.Key)}",
+                Title: group.Key,
+                Subtitle: $"{group.Count()} titles",
+                Items: group.Take(12).Select(work => ToWorkCard(work, "read", progressByWork.GetValueOrDefault(work.WorkId))).ToList(),
+                SeeAllRoute: null));
+
+        shelves.AddRange(authorShelves);
+        return shelves;
+    }
+
+    private static IReadOnlyList<DisplayShelfDto> BuildWatchShelves(
+        IReadOnlyList<DisplayWorkRow> works,
+        IReadOnlyList<DisplayJourneyRow> journey,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow> progressByWork)
+    {
+        var shelves = new List<DisplayShelfDto>();
+        AddShelf(shelves, "continue-watching", "Continue watching", "Movies and shows already in progress",
+            journey.Take(12).Select(item => ToJourneyCard(item, "watch")).ToList(), null);
+        AddShelf(shelves, "watch-collections", "Collections to watch", "Shows, series, and grouped franchises from your library",
+            BuildCollectionCards(works, "watch").Take(12).ToList(), "/collections");
+        AddShelf(shelves, "movies", "Movies in your library", "Feature films ready to play",
+            works.Where(work => NormalizeDisplayKind(work.MediaType) == "Movie").Take(18).Select(work => ToWorkCard(work, "watch", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
+        AddShelf(shelves, "tv", "TV in your library", "Shows and episodes ready to continue",
+            works.Where(work => NormalizeDisplayKind(work.MediaType) == "TV").Take(18).Select(work => ToWorkCard(work, "watch", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
+
+        var genreShelves = works
+            .SelectMany(work => SplitValues(work.Genre).Select(genre => (Genre: genre, Work: work)))
+            .GroupBy(item => item.Genre, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() >= 3)
+            .OrderByDescending(group => group.Count())
+            .Take(3)
+            .Select(group => new DisplayShelfDto(
+                Key: $"genre-{StableKey(group.Key)}",
+                Title: group.Key,
+                Subtitle: $"{group.Count()} titles",
+                Items: group.Take(12).Select(item => ToWorkCard(item.Work, "watch", progressByWork.GetValueOrDefault(item.Work.WorkId))).ToList(),
+                SeeAllRoute: null));
+
+        shelves.AddRange(genreShelves);
+        return shelves;
+    }
+
+    private static IReadOnlyList<DisplayShelfDto> BuildListenShelves(
+        IReadOnlyList<DisplayWorkRow> works,
+        IReadOnlyList<DisplayJourneyRow> journey,
+        IReadOnlyDictionary<Guid, DisplayJourneyRow> progressByWork)
+    {
+        var shelves = new List<DisplayShelfDto>();
+        AddShelf(shelves, "continue-listening", "Continue listening", "Resume music and audiobooks already in progress",
+            journey.Take(12).Select(item => ToJourneyCard(item, "listen")).ToList(), null);
+        AddShelf(shelves, "listen-collections", "Collections and mixes", "Albums, artists, and audiobook series from your library",
+            BuildCollectionCards(works, "listen").Take(12).ToList(), "/collections");
+        AddShelf(shelves, "music", "New music in your library", "Album art first for recent music",
+            works.Where(work => NormalizeDisplayKind(work.MediaType) == "Music").Take(18).Select(work => ToWorkCard(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
+        AddShelf(shelves, "audiobooks", "Audiobooks on deck", "Spoken-word titles ready to continue",
+            works.Where(work => NormalizeDisplayKind(work.MediaType) == "Audiobook").Take(18).Select(work => ToWorkCard(work, "listen", progressByWork.GetValueOrDefault(work.WorkId))).ToList(), null);
+        return shelves;
     }
 
     public async Task<DisplayPageDto> BuildContinueAsync(string? lane, int limit, CancellationToken ct = default)
@@ -387,7 +525,7 @@ public sealed class DisplayComposerService
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
-            PreviewPlacement: IsReadKind(row.MediaType) && string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "bottom" : "smart",
+            PreviewPlacement: IsReadKind(row.MediaType) ? "bottom" : "smart",
             Progress: progressDto,
             Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind)],
             Flags: FlagsFor(row.MediaType, isCollection: false),
@@ -412,11 +550,58 @@ public sealed class DisplayComposerService
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
-            PreviewPlacement: IsReadKind(row.MediaType) && string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "bottom" : "smart",
+            PreviewPlacement: IsReadKind(row.MediaType) ? "bottom" : "smart",
             Progress: ToProgress(row, action),
             Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind)],
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.LastAccessed);
+    }
+
+    private static IReadOnlyList<DisplayCardDto> BuildCollectionCards(IReadOnlyList<DisplayWorkRow> works, string lane) =>
+        works
+            .Where(work => work.CollectionId.HasValue)
+            .GroupBy(work => work.CollectionId!.Value)
+            .Select(group => ToCollectionCard(group.Key, group.ToList(), lane))
+            .Where(card => card is not null)
+            .Cast<DisplayCardDto>()
+            .OrderByDescending(card => card.SortTimestamp)
+            .ToList();
+
+    private static DisplayCardDto? ToCollectionCard(Guid collectionId, IReadOnlyList<DisplayWorkRow> works, string lane)
+    {
+        if (works.Count == 0)
+        {
+            return null;
+        }
+
+        var representative = works
+            .OrderByDescending(work => !string.IsNullOrWhiteSpace(work.BackgroundUrl) || !string.IsNullOrWhiteSpace(work.BannerUrl))
+            .ThenByDescending(work => !string.IsNullOrWhiteSpace(work.CoverUrl) || !string.IsNullOrWhiteSpace(work.SquareUrl))
+            .ThenByDescending(work => work.CreatedAt)
+            .First();
+        var mediaKind = NormalizeDisplayKind(representative.MediaType);
+        var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
+        var action = new DisplayActionDto("openCollection", "Open", null, null, collectionId, $"/collection/{collectionId}");
+
+        return new DisplayCardDto(
+            Id: collectionId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: collectionId,
+            MediaType: mediaKind,
+            GroupingType: "collection",
+            Title: title,
+            Subtitle: $"{works.Count} titles",
+            Facts: CollectionFacts(mediaKind, works.Count, representative.Genre),
+            Artwork: ArtworkFor(representative),
+            PreferredShape: CollectionShape(lane, mediaKind, representative),
+            Presentation: CollectionPresentation(lane, mediaKind),
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: FlagsFor(representative.MediaType, isCollection: true),
+            SortTimestamp: works.Max(work => work.CreatedAt));
     }
 
     private static DisplayHeroDto ToHero(DisplayCardDto card, string eyebrow) =>
@@ -533,6 +718,56 @@ public sealed class DisplayComposerService
         _ => "Browse",
     };
 
+    private static string SubtitleForLane(string lane) => lane switch
+    {
+        "watch" => "Movies and shows from your local library",
+        "read" => "Books, comics, and audiobooks from your local library",
+        "listen" => "Music and audiobooks from your local library",
+        _ => "Browse your local library",
+    };
+
+    private static string EyebrowForLane(string lane, bool hasProgress) => lane switch
+    {
+        "watch" => hasProgress ? "Continue watching" : "Featured from your library",
+        "read" => hasProgress ? "Continue reading" : "New on your shelf",
+        "listen" => hasProgress ? "Continue listening" : "Featured from your library",
+        _ => "From your library",
+    };
+
+    private static string CollectionShape(string lane, string mediaKind, DisplayWorkRow representative)
+    {
+        if (lane == "watch")
+        {
+            return "landscape";
+        }
+
+        if (lane == "listen" || mediaKind is "Music" or "Audiobook")
+        {
+            return "square";
+        }
+
+        return PreferredShape(representative.MediaType, representative.BackgroundUrl, representative.BannerUrl, representative.SquareUrl);
+    }
+
+    private static string CollectionPresentation(string lane, string mediaKind) => mediaKind switch
+    {
+        "TV" => "tvSeries",
+        "Movie" => "movieSeries",
+        "Book" => "bookSeries",
+        "Comic" => "comicSeries",
+        "Audiobook" => "audiobookSeries",
+        "Music" when lane == "listen" => "album",
+        "Music" => "album",
+        _ => "default",
+    };
+
+    private static IReadOnlyList<string> CollectionFacts(string mediaKind, int count, string? genre)
+    {
+        var facts = new List<string> { $"{count} titles" };
+        facts.AddRange(SplitValues(genre).Where(value => !string.Equals(value, mediaKind, StringComparison.OrdinalIgnoreCase)).Take(2));
+        return facts;
+    }
+
     private static bool Contains(string? value, string query) =>
         !string.IsNullOrWhiteSpace(value) && value.Contains(query, StringComparison.OrdinalIgnoreCase);
 
@@ -563,6 +798,33 @@ public sealed class DisplayComposerService
     private static bool IsWatchKind(string mediaType) => NormalizeDisplayKind(mediaType) is "Movie" or "TV";
     private static bool IsReadKind(string mediaType) => NormalizeDisplayKind(mediaType) is "Book" or "Comic" or "Audiobook";
     private static bool IsListenKind(string mediaType) => NormalizeDisplayKind(mediaType) is "Music" or "Audiobook";
+
+    private static IReadOnlyList<string> SplitValues(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return [];
+        }
+
+        return value
+            .Split(['|', ';', ','], StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static string StableKey(string value)
+    {
+        var chars = value.Trim().ToLowerInvariant()
+            .Select(ch => char.IsLetterOrDigit(ch) ? ch : '-')
+            .ToArray();
+        var key = new string(chars).Trim('-');
+        while (key.Contains("--", StringComparison.Ordinal))
+        {
+            key = key.Replace("--", "-", StringComparison.Ordinal);
+        }
+
+        return string.IsNullOrWhiteSpace(key) ? "group" : key;
+    }
 
     private static string ContinueLabel(string mediaKind) => mediaKind switch
     {

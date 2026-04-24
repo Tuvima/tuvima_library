@@ -25,6 +25,16 @@ public interface IEngineApiClient
     /// <summary>GET /api/v1/display/home — cross-platform consumer display model for Home.</summary>
     Task<DisplayPageViewModel?> GetDisplayHomeAsync(CancellationToken ct = default);
 
+    /// <summary>GET /api/v1/display/browse — cross-platform consumer display model for Watch, Read, Listen, and browse surfaces.</summary>
+    Task<DisplayPageViewModel?> GetDisplayBrowseAsync(
+        string? lane = null,
+        string? mediaType = null,
+        string? grouping = null,
+        string? search = null,
+        int? offset = null,
+        int? limit = null,
+        CancellationToken ct = default);
+
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>
     Task<ScanResultViewModel?> TriggerScanAsync(string? rootPath = null, CancellationToken ct = default);
 
