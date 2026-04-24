@@ -68,3 +68,5 @@ Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
 [16:55:55 INF] Poll sweep: inspected 8, changed 0, queued 0, unchanged 8, ignored 0, missing 0 in C:\temp\tuvima-watch
 [17:00:00 INF] [DESCRIPTION-INTEL-BATCH] Next run in 00:14:59.9937238
 [17:00:55 INF] Poll sweep: inspected 8, changed 0, queued 0, unchanged 8, ignored 0, missing 0 in C:\temp\tuvima-watch
+[17:05:55 INF] Poll sweep: inspected 8, changed 0, queued 0, unchanged 8, ignored 0, missing 0 in C:\temp\tuvima-watch
+[17:10:55 INF] Poll sweep: inspected 8, changed 0, queued 0, unchanged 8, ignored 0, missing 0 in C:\temp\tuvima-watch
