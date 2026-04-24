@@ -139,7 +139,7 @@ window.positionDiscoveryCardHover = function (cardEl) {
     if (!cardEl) return;
 
     window.requestAnimationFrame(function () {
-        var panel = cardEl.querySelector('.discovery-card-hover-panel');
+        var panel = cardEl.__discoveryHoverPanel || cardEl.querySelector('.discovery-card-hover-panel');
         if (!panel) return;
 
         var cardRect = cardEl.getBoundingClientRect();

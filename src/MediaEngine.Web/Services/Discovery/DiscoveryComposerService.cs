@@ -1195,7 +1195,7 @@ public sealed class DiscoveryComposerService
         IReadOnlyDictionary<Guid, IReadOnlyList<string>>? groupPreviewImages) =>
         ToCollectionCard(
             group,
-            DiscoveryCardShape.Landscape,
+            OverrideShapeForGroup(group, "home"),
             DiscoveryCardPresentation.TvSeries,
             GetPreviewImages(groupPreviewImages, group.CollectionId),
             navigationUrl: BuildCollectionDetailsUrl(DiscoveryBucket.Tv, group.CollectionId),
@@ -1241,7 +1241,7 @@ public sealed class DiscoveryComposerService
                 .Where(group => GetBucket(group.PrimaryMediaType) == DiscoveryBucket.Movie)
                 .Select(group => CreateCollectionShelfCard(
                     group,
-                    DiscoveryCardShape.Landscape,
+                    OverrideShapeForGroup(group, "home"),
                     DiscoveryCardPresentation.MovieSeries,
                     groupPreviewImages)));
 
@@ -1381,6 +1381,31 @@ public sealed class DiscoveryComposerService
             backgroundAspectClass,
             bannerAspectClass);
 
+    private static DiscoveryCardShape HomeShapeForItem(
+        DiscoveryBucket bucket,
+        string? bannerUrl,
+        string? backgroundUrl,
+        string? squareUrl,
+        string? coverAspectClass = null,
+        string? squareAspectClass = null,
+        string? backgroundAspectClass = null,
+        string? bannerAspectClass = null)
+    {
+        if (bucket == DiscoveryBucket.Audiobook && !string.IsNullOrWhiteSpace(squareUrl))
+        {
+            return DiscoveryCardShape.Square;
+        }
+
+        return HomeShapeForBucket(
+            bucket,
+            bannerUrl,
+            backgroundUrl,
+            coverAspectClass,
+            squareAspectClass,
+            backgroundAspectClass,
+            bannerAspectClass);
+    }
+
     private static DiscoverySurfaceSelection ResolveDiscoverySurface(
         DiscoveryBucket bucket,
         DiscoveryCardShape shape,
@@ -1414,7 +1439,7 @@ public sealed class DiscoveryComposerService
             && shape == DiscoveryCardShape.Landscape
             && HasWideArtwork(backgroundUrl, bannerUrl, backgroundAspectClass, bannerAspectClass))
         {
-            var wideImageUrl = FirstNonBlank(backgroundUrl, bannerUrl, coverUrl);
+            var wideImageUrl = FirstNonBlank(backgroundUrl, bannerUrl);
             return new DiscoverySurfaceSelection(
                 DiscoverySurfaceKind.BannerLandscape,
                 DiscoveryHoverLayout.BannerPopover,
@@ -1427,8 +1452,8 @@ public sealed class DiscoveryComposerService
         }
 
         var coverImageUrl = shape == DiscoveryCardShape.Square
-            ? FirstNonBlank(squareUrl, coverUrl, artistPhotoUrl, backgroundUrl, bannerUrl)
-            : FirstNonBlank(coverUrl, squareUrl, artistPhotoUrl, backgroundUrl, bannerUrl);
+            ? FirstNonBlank(squareUrl, IsSquareArtwork(coverAspectClass) ? coverUrl : null, artistPhotoUrl)
+            : FirstNonBlank(coverUrl, artistPhotoUrl);
         var surfaceKind = shape == DiscoveryCardShape.Square
             ? DiscoverySurfaceKind.CoverSquare
             : DiscoverySurfaceKind.CoverPortrait;
@@ -1768,6 +1793,12 @@ public sealed class DiscoveryComposerService
             representativeWork?.SquareAspectClass,
             representativeWork?.BackgroundAspectClass,
             representativeWork?.BannerAspectClass);
+        if (shapeOverride is null
+            && bucket == DiscoveryBucket.Audiobook
+            && !string.IsNullOrWhiteSpace(representativeWork?.SquareUrl))
+        {
+            shape = DiscoveryCardShape.Square;
+        }
         var surface = ResolveDiscoverySurface(
             bucket,
             shape,
@@ -1840,6 +1871,12 @@ public sealed class DiscoveryComposerService
             work.SquareAspectClass,
             work.BackgroundAspectClass,
             work.BannerAspectClass);
+        if (shapeOverride is null
+            && bucket == DiscoveryBucket.Audiobook
+            && !string.IsNullOrWhiteSpace(work.SquareUrl))
+        {
+            shape = DiscoveryCardShape.Square;
+        }
         var surface = ResolveDiscoverySurface(
             bucket,
             shape,
@@ -1907,10 +1944,11 @@ public sealed class DiscoveryComposerService
         => ToJourneyCard(
             item,
             representativeWork,
-            HomeShapeForBucket(
+            HomeShapeForItem(
                 GetBucket(item.MediaType),
                 item.BannerUrl,
                 item.BackgroundUrl,
+                representativeWork?.SquareUrl,
                 representativeWork?.CoverAspectClass,
                 representativeWork?.SquareAspectClass,
                 representativeWork?.BackgroundAspectClass,
@@ -1919,10 +1957,11 @@ public sealed class DiscoveryComposerService
     private static DiscoveryCardViewModel ToHomeWorkCard(WorkViewModel work)
         => ToWorkCard(
             work,
-            shapeOverride: HomeShapeForBucket(
+            shapeOverride: HomeShapeForItem(
                 GetBucket(work.MediaType),
                 work.BannerUrl,
                 work.BackgroundUrl,
+                work.SquareUrl,
                 work.CoverAspectClass,
                 work.SquareAspectClass,
                 work.BackgroundAspectClass,
@@ -1961,7 +2000,11 @@ public sealed class DiscoveryComposerService
             null,
             backgroundUrl,
             group.BannerUrl,
-            group.ArtistPhotoUrl);
+            group.ArtistPhotoUrl,
+            coverAspectClass: group.CoverAspectClass,
+            squareAspectClass: group.SquareAspectClass,
+            backgroundAspectClass: group.BackgroundAspectClass,
+            bannerAspectClass: group.BannerAspectClass);
 
         return new DiscoveryCardViewModel
         {
@@ -2089,9 +2132,9 @@ public sealed class DiscoveryComposerService
         {
             "listen" when bucket == DiscoveryBucket.Music => DiscoveryCardShape.Square,
             "watch" when bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv
-                => HasWideArtwork(group.BackgroundUrl, group.BannerUrl) ? DiscoveryCardShape.Landscape : DiscoveryCardShape.Portrait,
+                => HasWideArtwork(group.BackgroundUrl, group.BannerUrl, group.BackgroundAspectClass, group.BannerAspectClass) ? DiscoveryCardShape.Landscape : DiscoveryCardShape.Portrait,
             "home" when bucket is DiscoveryBucket.Movie or DiscoveryBucket.Tv
-                => HasWideArtwork(group.BackgroundUrl, group.BannerUrl) ? DiscoveryCardShape.Landscape : DiscoveryCardShape.Portrait,
+                => HasWideArtwork(group.BackgroundUrl, group.BannerUrl, group.BackgroundAspectClass, group.BannerAspectClass) ? DiscoveryCardShape.Landscape : DiscoveryCardShape.Portrait,
             _ => ShapeForBucket(bucket),
         };
     }

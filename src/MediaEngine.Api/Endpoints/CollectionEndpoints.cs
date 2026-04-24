@@ -1316,6 +1316,10 @@ public static class CollectionEndpoints
                     BannerUrl        = banner,
                     HeroUrl          = null,
                     LogoUrl          = logo,
+                    CoverAspectClass = GetCanonical(firstDto, "cover_aspect_class"),
+                    SquareAspectClass = GetCanonical(firstDto, "square_aspect_class"),
+                    BackgroundAspectClass = GetCanonical(firstDto, "background_aspect_class"),
+                    BannerAspectClass = GetCanonical(firstDto, "banner_aspect_class"),
                     Description      = h.Description ?? GetCanonical(firstDto, "description"),
                     Tagline          = GetCanonical(firstDto, "tagline"),
                     Creator          = creator,
@@ -1515,6 +1519,70 @@ public static class CollectionEndpoints
                               AND cv_tagline.key = 'tagline'
                             LIMIT 1
                         )                                           AS tagline,
+                        COALESCE(
+                            (
+                                SELECT cv_cover_aspect.value
+                                FROM canonical_values cv_cover_aspect
+                                WHERE cv_cover_aspect.entity_id = g.first_root_work_id
+                                  AND cv_cover_aspect.key = 'cover_aspect_class'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_cover_aspect2.value
+                                FROM canonical_values cv_cover_aspect2
+                                WHERE cv_cover_aspect2.entity_id = g.first_asset_id
+                                  AND cv_cover_aspect2.key = 'cover_aspect_class'
+                                LIMIT 1
+                            )
+                        )                                           AS cover_aspect_class,
+                        COALESCE(
+                            (
+                                SELECT cv_square_aspect.value
+                                FROM canonical_values cv_square_aspect
+                                WHERE cv_square_aspect.entity_id = g.first_root_work_id
+                                  AND cv_square_aspect.key = 'square_aspect_class'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_square_aspect2.value
+                                FROM canonical_values cv_square_aspect2
+                                WHERE cv_square_aspect2.entity_id = g.first_asset_id
+                                  AND cv_square_aspect2.key = 'square_aspect_class'
+                                LIMIT 1
+                            )
+                        )                                           AS square_aspect_class,
+                        COALESCE(
+                            (
+                                SELECT cv_background_aspect.value
+                                FROM canonical_values cv_background_aspect
+                                WHERE cv_background_aspect.entity_id = g.first_root_work_id
+                                  AND cv_background_aspect.key = 'background_aspect_class'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_background_aspect2.value
+                                FROM canonical_values cv_background_aspect2
+                                WHERE cv_background_aspect2.entity_id = g.first_asset_id
+                                  AND cv_background_aspect2.key = 'background_aspect_class'
+                                LIMIT 1
+                            )
+                        )                                           AS background_aspect_class,
+                        COALESCE(
+                            (
+                                SELECT cv_banner_aspect.value
+                                FROM canonical_values cv_banner_aspect
+                                WHERE cv_banner_aspect.entity_id = g.first_root_work_id
+                                  AND cv_banner_aspect.key = 'banner_aspect_class'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_banner_aspect2.value
+                                FROM canonical_values cv_banner_aspect2
+                                WHERE cv_banner_aspect2.entity_id = g.first_asset_id
+                                  AND cv_banner_aspect2.key = 'banner_aspect_class'
+                                LIMIT 1
+                            )
+                        )                                           AS banner_aspect_class,
                         (
                             SELECT COUNT(DISTINCT cv_sn.value)
                             FROM work_assets wa_sn
@@ -1534,7 +1602,7 @@ public static class CollectionEndpoints
                 cmd.Parameters.Add(gp);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, int? SeasonCount, int AlbumCount)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, string? CoverAspectClass, string? SquareAspectClass, string? BackgroundAspectClass, string? BannerAspectClass, int? SeasonCount, int AlbumCount)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1554,8 +1622,12 @@ public static class CollectionEndpoints
                             reader.IsDBNull(9) ? null : reader.GetString(9),
                             reader.IsDBNull(10) ? null : reader.GetString(10),
                             reader.IsDBNull(11) ? null : reader.GetString(11),
-                            reader.IsDBNull(12) ? null : (int?)reader.GetInt32(12),
-                            reader.IsDBNull(13) ? 0 : reader.GetInt32(13)
+                            reader.IsDBNull(12) ? null : reader.GetString(12),
+                            reader.IsDBNull(13) ? null : reader.GetString(13),
+                            reader.IsDBNull(14) ? null : reader.GetString(14),
+                            reader.IsDBNull(15) ? null : reader.GetString(15),
+                            reader.IsDBNull(16) ? null : (int?)reader.GetInt32(16),
+                            reader.IsDBNull(17) ? 0 : reader.GetInt32(17)
                         ));
                     }
                 }
@@ -1597,6 +1669,10 @@ public static class CollectionEndpoints
                         BannerUrl        = row.BannerUrl,
                         HeroUrl          = row.HeroUrl,
                         LogoUrl          = row.LogoUrl,
+                        CoverAspectClass = row.CoverAspectClass,
+                        SquareAspectClass = row.SquareAspectClass,
+                        BackgroundAspectClass = row.BackgroundAspectClass,
+                        BannerAspectClass = row.BannerAspectClass,
                         Description      = row.Description,
                         Tagline          = row.Tagline,
                         Creator          = row.Creator,
@@ -2892,6 +2968,10 @@ public static class CollectionEndpoints
                     BannerUrl = preferred.BannerUrl,
                     HeroUrl = null,
                     LogoUrl = preferred.LogoUrl,
+                    CoverAspectClass = preferred.CoverAspectClass,
+                    SquareAspectClass = preferred.SquareAspectClass,
+                    BackgroundAspectClass = preferred.BackgroundAspectClass,
+                    BannerAspectClass = preferred.BannerAspectClass,
                     Description = preferred.Description,
                     Tagline = preferred.Tagline,
                     Creator = preferred.Creator,

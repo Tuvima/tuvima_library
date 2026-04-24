@@ -434,6 +434,84 @@ public sealed class DiscoveryComposerServiceTests
     }
 
     [Fact]
+    public void ComposeHome_DoesNotUsePosterAsLandscapeTile()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var movie = CreateWork(
+            id: Guid.Parse("abababab-2222-3333-4444-555555555555"),
+            mediaType: "Movies",
+            title: "Arrival",
+            creator: "Denis Villeneuve",
+            year: "2016",
+            coverUrl: "/art/arrival-poster.jpg");
+
+        var page = service.ComposeHome([movie], [], []);
+        var posterShelf = Assert.Single(page.Shelves, shelf => shelf.Title == "Watch Posters");
+        var card = Assert.Single(posterShelf.Items);
+
+        Assert.Equal(DiscoveryCardShape.Portrait, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverPortrait, card.SurfaceKind);
+        Assert.Equal("/art/arrival-poster.jpg", card.TileImageUrl);
+        Assert.Null(card.BackgroundUrl);
+        Assert.Null(card.BannerUrl);
+    }
+
+    [Fact]
+    public void ComposeHome_DoesNotUseBackgroundAsPortraitTile()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var book = CreateWork(
+            id: Guid.Parse("bcbcbcbc-2222-3333-4444-555555555555"),
+            mediaType: "Books",
+            title: "Posterless Book",
+            creator: "An Author",
+            year: "2026",
+            backgroundUrl: "/art/book-background.jpg");
+
+        var page = service.ComposeHome([book], [], []);
+        var freshReads = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh Reads");
+        var card = Assert.Single(freshReads.Items);
+
+        Assert.Equal(DiscoveryCardShape.Portrait, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverPortrait, card.SurfaceKind);
+        Assert.Null(card.TileImageUrl);
+        Assert.Equal("/art/book-background.jpg", card.BackgroundUrl);
+    }
+
+    [Fact]
+    public void ComposeHome_UsesPreviewStackForPosterlessTvSeriesWithoutWideArt()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var groupId = Guid.Parse("12345678-2222-3333-4444-555555555555");
+        var group = new ContentGroupViewModel
+        {
+            CollectionId = groupId,
+            DisplayName = "Breaking Bad",
+            PrimaryMediaType = "TV",
+            WorkCount = 62,
+            SeasonCount = 5,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var page = service.ComposeHome(
+            [],
+            [],
+            [group],
+            groupPreviewImages: new Dictionary<Guid, IReadOnlyList<string>>
+            {
+                [groupId] = ["/art/breaking-bad-s1.jpg", "/art/breaking-bad-s2.jpg"]
+            });
+
+        var shelf = Assert.Single(page.Shelves, shelf => shelf.Title == "TV Series");
+        var card = Assert.Single(shelf.Items);
+
+        Assert.Equal(DiscoveryCardShape.Portrait, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverPortrait, card.SurfaceKind);
+        Assert.Null(card.TileImageUrl);
+        Assert.Equal(2, card.PreviewImages.Count);
+    }
+
+    [Fact]
     public void ComposeHome_UsesSquareCardsForAudiobooks()
     {
         var service = new DiscoveryComposerService(null!);
@@ -455,6 +533,56 @@ public sealed class DiscoveryComposerServiceTests
 
         Assert.Equal(DiscoveryCardShape.Square, card.Shape);
         Assert.Equal(DiscoverySurfaceKind.CoverSquare, card.SurfaceKind);
+    }
+
+    [Fact]
+    public void ComposeHome_UsesSquareCardsForAudiobooksWithSquareUrl()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var audiobook = CreateWork(
+            id: Guid.Parse("dcdcdcdc-1111-2222-3333-444444444444"),
+            mediaType: "Audiobooks",
+            title: "Neuromancer",
+            creator: "William Gibson",
+            year: "1984",
+            coverUrl: "/art/neuromancer-cover.jpg",
+            canonicalExtras: new Dictionary<string, string>
+            {
+                ["square_url"] = "/art/neuromancer-square.jpg",
+            });
+
+        var page = service.ComposeHome([audiobook], [], []);
+        var freshAudiobooks = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh Audiobooks");
+        var card = Assert.Single(freshAudiobooks.Items);
+
+        Assert.Equal(DiscoveryCardShape.Square, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverSquare, card.SurfaceKind);
+        Assert.Equal("/art/neuromancer-square.jpg", card.TileImageUrl);
+    }
+
+    [Fact]
+    public void ComposeHome_KeepsPortraitAudiobookCoversPortrait()
+    {
+        var service = new DiscoveryComposerService(null!);
+        var audiobook = CreateWork(
+            id: Guid.Parse("edededed-1111-2222-3333-444444444444"),
+            mediaType: "Audiobooks",
+            title: "The Hobbit",
+            creator: "J.R.R. Tolkien",
+            year: "1937",
+            coverUrl: "/art/hobbit-cover.jpg",
+            canonicalExtras: new Dictionary<string, string>
+            {
+                ["cover_aspect_class"] = ArtworkAspectClasses.Portrait,
+            });
+
+        var page = service.ComposeHome([audiobook], [], []);
+        var freshAudiobooks = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh Audiobooks");
+        var card = Assert.Single(freshAudiobooks.Items);
+
+        Assert.Equal(DiscoveryCardShape.Portrait, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverPortrait, card.SurfaceKind);
+        Assert.Equal("/art/hobbit-cover.jpg", card.TileImageUrl);
     }
 
     [Fact]

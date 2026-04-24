@@ -10,7 +10,7 @@
      tabindex="0"
      @onkeydown="HandleKeyDown">
     <div class="discovery-card-frame">
-        <div class="discovery-card-media" @onclick="OpenCard">
+        <div class="discovery-card-media @(HasArtworkSurface ? "has-artwork-surface" : null)" @onclick="OpenCard">
             @if (ShowPreviewStack)
             {
                 <div class="discovery-card-stack" aria-hidden="true">
@@ -229,22 +229,14 @@
 
     private bool ShowPreviewStack => string.IsNullOrWhiteSpace(CardImageUrl) && PreviewImages.Count > 0;
 
-    private string CardImageUrl => FirstNonBlank(
-        Item.TileImageUrl,
-        Item.CoverUrl,
-        Item.PreviewImageUrl,
-        Item.BackgroundUrl,
-        Item.BannerUrl,
-        PreviewImages.FirstOrDefault()) ?? string.Empty;
+    private string CardImageUrl => Item.TileImageUrl ?? string.Empty;
+
+    private bool HasArtworkSurface => !string.IsNullOrWhiteSpace(CardImageUrl) || ShowPreviewStack;
 
     private IReadOnlyList<string> HoverImageCandidates => new[]
         {
             Item.HoverImageUrl,
             Item.TileImageUrl,
-            Item.PreviewImageUrl,
-            Item.CoverUrl,
-            Item.BackgroundUrl,
-            Item.BannerUrl,
             PreviewImages.FirstOrDefault(),
         }
         .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -469,7 +461,9 @@
     .discovery-card-frame { position:relative; display:flex; flex-direction:column; overflow:visible; }
     .discovery-card:hover, .discovery-card:focus-within, .discovery-card.is-expanded, .discovery-card.is-hover-active { z-index:24; }
     .discovery-card-media { position:relative; overflow:hidden; height:var(--discovery-card-media-height); border-radius:var(--app-radius-md); background:radial-gradient(circle at top left,color-mix(in srgb,var(--discovery-accent) 28%,transparent) 0%,transparent 55%),linear-gradient(180deg,rgba(16,21,36,.94) 0%,rgba(7,10,18,.96) 100%); border:1px solid rgba(255,255,255,.08); box-shadow:0 18px 44px rgba(0,0,0,.26); cursor:pointer; z-index:1; transform-origin:center top; transition:transform .2s ease,border-color .18s ease,box-shadow .18s ease; }
+    .discovery-card-media.has-artwork-surface { background:transparent; border-color:transparent; }
     .discovery-card:hover .discovery-card-media, .discovery-card:focus-within .discovery-card-media, .discovery-card.is-expanded .discovery-card-media, .discovery-card.is-hover-active .discovery-card-media { transform:translateY(calc(-1 * var(--discovery-hover-lift))) scale(1.01); border-color:color-mix(in srgb,var(--discovery-accent) 42%,rgba(255,255,255,.16)); box-shadow:0 18px 40px rgba(0,0,0,.3); }
+    .discovery-card:hover .discovery-card-media.has-artwork-surface, .discovery-card:focus-within .discovery-card-media.has-artwork-surface, .discovery-card.is-expanded .discovery-card-media.has-artwork-surface, .discovery-card.is-hover-active .discovery-card-media.has-artwork-surface { border-color:transparent; }
     .discovery-card-image { width:100%; height:100%; display:block; transition:transform .45s ease; }
     .discovery-card-image.is-fill { object-fit:cover; }
     .discovery-card-image.is-contained { object-fit:contain; padding:14px; background:radial-gradient(circle at top left,color-mix(in srgb,var(--discovery-accent) 16%,transparent) 0%,transparent 54%),linear-gradient(180deg,rgba(12,16,26,.92) 0%,rgba(5,8,14,.96) 100%); }

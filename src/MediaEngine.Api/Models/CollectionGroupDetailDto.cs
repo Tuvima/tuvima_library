@@ -249,6 +249,18 @@ public sealed class ContentGroupDto
     [JsonPropertyName("logo_url")]
     public string? LogoUrl { get; init; }
 
+    [JsonPropertyName("cover_aspect_class")]
+    public string? CoverAspectClass { get; init; }
+
+    [JsonPropertyName("square_aspect_class")]
+    public string? SquareAspectClass { get; init; }
+
+    [JsonPropertyName("background_aspect_class")]
+    public string? BackgroundAspectClass { get; init; }
+
+    [JsonPropertyName("banner_aspect_class")]
+    public string? BannerAspectClass { get; init; }
+
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 

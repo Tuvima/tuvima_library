@@ -39,6 +39,18 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("logo_url")]
     public string? LogoUrl { get; set; }
 
+    [JsonPropertyName("cover_aspect_class")]
+    public string? CoverAspectClass { get; set; }
+
+    [JsonPropertyName("square_aspect_class")]
+    public string? SquareAspectClass { get; set; }
+
+    [JsonPropertyName("background_aspect_class")]
+    public string? BackgroundAspectClass { get; set; }
+
+    [JsonPropertyName("banner_aspect_class")]
+    public string? BannerAspectClass { get; set; }
+
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 

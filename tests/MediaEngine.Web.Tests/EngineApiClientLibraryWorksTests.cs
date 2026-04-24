@@ -116,6 +116,10 @@ public sealed class EngineApiClientLibraryWorksTests
                 "background_url": "/stream/background",
                 "banner_url": "/stream/banner",
                 "logo_url": "/stream/logo",
+                "cover_aspect_class": "Portrait",
+                "square_aspect_class": "Square",
+                "background_aspect_class": "LandscapeWide",
+                "banner_aspect_class": "BannerStrip",
                 "description": "Competition series",
                 "tagline": "New episodes coming Monday",
                 "creator": "Kevin Hart",
@@ -146,6 +150,10 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("http://localhost:61495/stream/background", group.BackgroundUrl);
         Assert.Equal("http://localhost:61495/stream/banner", group.BannerUrl);
         Assert.Equal("http://localhost:61495/stream/logo", group.LogoUrl);
+        Assert.Equal("Portrait", group.CoverAspectClass);
+        Assert.Equal("Square", group.SquareAspectClass);
+        Assert.Equal("LandscapeWide", group.BackgroundAspectClass);
+        Assert.Equal("BannerStrip", group.BannerAspectClass);
         Assert.Equal("Competition series", group.Description);
         Assert.Equal("New episodes coming Monday", group.Tagline);
         Assert.Equal("Kevin Hart", group.Creator);
