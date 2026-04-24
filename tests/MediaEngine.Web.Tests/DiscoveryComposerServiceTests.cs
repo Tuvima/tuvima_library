@@ -561,7 +561,7 @@ public sealed class DiscoveryComposerServiceTests
     }
 
     [Fact]
-    public void ComposeHome_KeepsPortraitAudiobookCoversPortrait()
+    public void ComposeHome_RendersAudiobookCoversInSquareTiles()
     {
         var service = new DiscoveryComposerService(null!);
         var audiobook = CreateWork(
@@ -580,9 +580,10 @@ public sealed class DiscoveryComposerServiceTests
         var freshAudiobooks = Assert.Single(page.Shelves, shelf => shelf.Title == "Fresh Audiobooks");
         var card = Assert.Single(freshAudiobooks.Items);
 
-        Assert.Equal(DiscoveryCardShape.Portrait, card.Shape);
-        Assert.Equal(DiscoverySurfaceKind.CoverPortrait, card.SurfaceKind);
+        Assert.Equal(DiscoveryCardShape.Square, card.Shape);
+        Assert.Equal(DiscoverySurfaceKind.CoverSquare, card.SurfaceKind);
         Assert.Equal("/art/hobbit-cover.jpg", card.TileImageUrl);
+        Assert.Equal(DiscoveryImageFitMode.Contain, card.TileImageFitMode);
     }
 
     [Fact]
@@ -735,6 +736,10 @@ public sealed class DiscoveryComposerServiceTests
         Assert.Equal("/art/artist.jpg", artistCard.TileImageUrl);
         Assert.Equal(DiscoverySurfaceKind.ArtistPhotoSquare, artistCard.SurfaceKind);
         Assert.Equal("/listen/music/artists/boygenius", artistCard.NavigationUrl);
+
+        var audiobookCard = Assert.Single(page.Shelves.Single(shelf => shelf.Title == "Audiobook Series").Items);
+        Assert.Equal(DiscoveryCardPresentation.AudiobookSeries, audiobookCard.Presentation);
+        Assert.Equal(DiscoveryCardShape.Square, audiobookCard.Shape);
     }
 
     private static WorkViewModel CreateWork(

@@ -118,6 +118,14 @@ public sealed class WorkViewModel
     public string? SquareAspectClass => Canonical("square_aspect_class");
     public string? BackgroundAspectClass => Canonical("background_aspect_class");
     public string? BannerAspectClass => Canonical("banner_aspect_class");
+    public int? CoverWidthPx => CanonicalInt("cover_width_px");
+    public int? CoverHeightPx => CanonicalInt("cover_height_px");
+    public int? SquareWidthPx => CanonicalInt("square_width_px");
+    public int? SquareHeightPx => CanonicalInt("square_height_px");
+    public int? BackgroundWidthPx => CanonicalInt("background_width_px");
+    public int? BackgroundHeightPx => CanonicalInt("background_height_px");
+    public int? BannerWidthPx => CanonicalInt("banner_width_px");
+    public int? BannerHeightPx => CanonicalInt("banner_height_px");
     public string? ArtworkPrimaryHex => Canonical(MetadataFieldConstants.ArtworkPrimaryHex);
     public string? ArtworkSecondaryHex => Canonical(MetadataFieldConstants.ArtworkSecondaryHex);
     public string? ArtworkAccentHex => Canonical(MetadataFieldConstants.ArtworkAccentHex);
@@ -197,6 +205,9 @@ public sealed class WorkViewModel
             return raw.Split("|||", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         return raw;
     }
+
+    private int? CanonicalInt(string key) =>
+        int.TryParse(Canonical(key), out var value) && value > 0 ? value : null;
 
     private IReadOnlyList<string> CanonicalList(string key) =>
         CanonicalValues

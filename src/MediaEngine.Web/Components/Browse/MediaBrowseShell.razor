@@ -4,6 +4,7 @@
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Discovery
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Navigation
 
@@ -580,25 +581,22 @@
 
     private DiscoveryCardViewModel ToItemCard(LibraryItemViewModel item)
     {
+        var bucket = GetDiscoveryBucket(item.MediaType);
         var presentation = item.MediaType switch
         {
             "Music" => DiscoveryCardPresentation.Album,
             _ => DiscoveryCardPresentation.Default,
         };
-        var shape = ResolveBrowseItemShape(item);
         var wideArtwork = ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl);
-        var tileImageUrl = shape == DiscoveryCardShape.Landscape
-            ? wideArtwork ?? item.CoverUrl
-            : item.ArtistPhotoUrl ?? item.CoverUrl;
-        var surfaceKind = shape switch
-        {
-            DiscoveryCardShape.Landscape when !string.IsNullOrWhiteSpace(wideArtwork) => DiscoverySurfaceKind.BannerLandscape,
-            DiscoveryCardShape.Square => DiscoverySurfaceKind.CoverSquare,
-            _ => DiscoverySurfaceKind.CoverPortrait,
-        };
-        var hoverLayout = surfaceKind == DiscoverySurfaceKind.BannerLandscape
-            ? DiscoveryHoverLayout.BannerPopover
-            : DiscoveryHoverLayout.ArtOnlyPopover;
+        var surface = DiscoveryArtworkResolver.Resolve(
+            bucket,
+            presentation,
+            [
+                new ArtworkVariant(ArtworkRole.ArtistPhoto, item.ArtistPhotoUrl),
+                new ArtworkVariant(ArtworkRole.Background, item.BackgroundUrl),
+                new ArtworkVariant(ArtworkRole.Banner, item.BannerUrl),
+                new ArtworkVariant(ArtworkRole.Cover, item.CoverUrl),
+            ]);
 
         return new DiscoveryCardViewModel
         {
@@ -614,16 +612,16 @@
             MetaText = JoinParts(item.ContextLabel, item.Year, item.Runtime ?? item.Duration),
             MediaKind = FormatMediaLabel(item.MediaType),
             AccentColor = AccentForMedia(item.MediaType),
-            Shape = shape,
+            Shape = surface.Shape,
             Presentation = presentation,
-            SurfaceKind = surfaceKind,
-            HoverLayout = hoverLayout,
-            TileImageUrl = tileImageUrl,
-            HoverImageUrl = tileImageUrl,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = wideArtwork,
             PreviewImageUrl = item.ArtistPhotoUrl ?? item.CoverUrl,
-            TileImageFitMode = surfaceKind == DiscoverySurfaceKind.BannerLandscape ? DiscoveryImageFitMode.Contain : DiscoveryImageFitMode.Fill,
-            HoverImageFitMode = DiscoveryImageFitMode.Contain,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             NavigationUrl = MediaNavigation.ForLibraryItem(item),
             DetailsNavigationUrl = MediaNavigation.ForLibraryItem(item),
             PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open" : "Details",
@@ -648,30 +646,17 @@
             _ => DiscoveryCardPresentation.Default,
         };
 
-        var shape = presentation switch
-        {
-            DiscoveryCardPresentation.Album or DiscoveryCardPresentation.Artist => DiscoveryCardShape.Square,
-            DiscoveryCardPresentation.TvSeries or DiscoveryCardPresentation.MovieSeries
-                when !string.IsNullOrWhiteSpace(ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl))
-                    => DiscoveryCardShape.Landscape,
-            _ => DiscoveryCardShape.Portrait,
-        };
         var wideArtwork = ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl);
-        var tileImageUrl = presentation == DiscoveryCardPresentation.Artist
-            ? group.ArtistPhotoUrl ?? group.CoverUrl
-            : shape == DiscoveryCardShape.Landscape
-                ? wideArtwork ?? group.CoverUrl
-                : group.ArtistPhotoUrl ?? group.CoverUrl;
-        var surfaceKind = presentation == DiscoveryCardPresentation.Artist
-            ? DiscoverySurfaceKind.ArtistPhotoSquare
-            : shape == DiscoveryCardShape.Landscape && !string.IsNullOrWhiteSpace(wideArtwork)
-                ? DiscoverySurfaceKind.BannerLandscape
-                : shape == DiscoveryCardShape.Square
-                    ? DiscoverySurfaceKind.CoverSquare
-                    : DiscoverySurfaceKind.CoverPortrait;
-        var hoverLayout = surfaceKind == DiscoverySurfaceKind.BannerLandscape
-            ? DiscoveryHoverLayout.BannerPopover
-            : DiscoveryHoverLayout.ArtOnlyPopover;
+        var surface = DiscoveryArtworkResolver.Resolve(
+            GetDiscoveryBucket(group.PrimaryMediaType),
+            presentation,
+            [
+                new ArtworkVariant(ArtworkRole.ArtistPhoto, group.ArtistPhotoUrl),
+                new ArtworkVariant(ArtworkRole.Background, group.BackgroundUrl, group.BackgroundWidthPx, group.BackgroundHeightPx, group.BackgroundAspectClass),
+                new ArtworkVariant(ArtworkRole.Banner, group.BannerUrl, group.BannerWidthPx, group.BannerHeightPx, group.BannerAspectClass),
+                new ArtworkVariant(ArtworkRole.Square, null, group.SquareWidthPx, group.SquareHeightPx, group.SquareAspectClass),
+                new ArtworkVariant(ArtworkRole.Cover, group.CoverUrl, group.CoverWidthPx, group.CoverHeightPx, group.CoverAspectClass),
+            ]);
 
         var navigationUrl = BuildGroupNavigationUrl(group);
 
@@ -682,24 +667,24 @@
             Title = group.DisplayName,
             Subtitle = group.Creator ?? group.Network,
             Description = BuildGroupDescription(group),
-            CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
+            CoverUrl = presentation == DiscoveryCardPresentation.Artist ? group.ArtistPhotoUrl : group.CoverUrl,
             BackgroundUrl = wideArtwork,
             BannerUrl = group.BannerUrl,
             HeroUrl = null,
-            PreviewImages = group.CoverUrl is { Length: > 0 } cover ? [cover] : [],
+            PreviewImages = presentation != DiscoveryCardPresentation.Artist && group.CoverUrl is { Length: > 0 } cover ? [cover] : [],
             MetaText = JoinParts(group.Year, $"{group.WorkCount} items"),
             MediaKind = FormatMediaLabel(group.PrimaryMediaType),
             AccentColor = AccentForMedia(group.PrimaryMediaType),
-            Shape = shape,
+            Shape = surface.Shape,
             Presentation = presentation,
-            SurfaceKind = surfaceKind,
-            HoverLayout = hoverLayout,
-            TileImageUrl = tileImageUrl,
-            HoverImageUrl = tileImageUrl,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
+            TileImageUrl = surface.TileImageUrl,
+            HoverImageUrl = surface.HoverImageUrl,
             HeroBackgroundImageUrl = wideArtwork,
             PreviewImageUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
-            TileImageFitMode = surfaceKind == DiscoverySurfaceKind.BannerLandscape ? DiscoveryImageFitMode.Contain : DiscoveryImageFitMode.Fill,
-            HoverImageFitMode = DiscoveryImageFitMode.Contain,
+            TileImageFitMode = surface.TileImageFitMode,
+            HoverImageFitMode = surface.HoverImageFitMode,
             NavigationUrl = navigationUrl,
             DetailsNavigationUrl = navigationUrl,
             PrimaryActionLabel = "Explore",
@@ -720,6 +705,7 @@
             Title = group.DisplayName,
             MediaType = group.PrimaryMediaType,
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
+            ArtistPhotoUrl = group.ArtistPhotoUrl,
             BackgroundUrl = group.BackgroundUrl,
             BannerUrl = group.BannerUrl,
             Author = group.Creator,
@@ -729,7 +715,6 @@
             SeasonCount = group.SeasonCount?.ToString(),
             AlbumCount = group.AlbumCount?.ToString(),
             TrackCount = group.WorkCount.ToString(),
-            ArtistPhotoUrl = group.ArtistPhotoUrl,
         }).ToList();
     }
 
@@ -1073,23 +1058,40 @@
     private static string? ResolveWideArtwork(string? backgroundUrl, string? bannerUrl) =>
         backgroundUrl ?? bannerUrl;
 
-    private static DiscoveryCardShape ResolveBrowseItemShape(LibraryItemViewModel item)
+    private static DiscoveryBucket GetDiscoveryBucket(string? mediaType)
     {
-        var mediaType = item.MediaType ?? string.Empty;
-        if (string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase))
+        var normalized = mediaType ?? string.Empty;
+        if (normalized.Contains("music", StringComparison.OrdinalIgnoreCase))
         {
-            return DiscoveryCardShape.Square;
+            return DiscoveryBucket.Music;
         }
 
-        if ((string.Equals(mediaType, "Movies", StringComparison.OrdinalIgnoreCase)
-             || string.Equals(mediaType, "TV", StringComparison.OrdinalIgnoreCase))
-            && !string.IsNullOrWhiteSpace(ResolveWideArtwork(item.BackgroundUrl, item.BannerUrl)))
+        if (normalized.Contains("audio", StringComparison.OrdinalIgnoreCase))
         {
-            return DiscoveryCardShape.Landscape;
+            return DiscoveryBucket.Audiobook;
         }
 
-        return DiscoveryCardShape.Portrait;
+        if (normalized.Contains("tv", StringComparison.OrdinalIgnoreCase))
+        {
+            return DiscoveryBucket.Tv;
+        }
+
+        if (normalized.Contains("movie", StringComparison.OrdinalIgnoreCase))
+        {
+            return DiscoveryBucket.Movie;
+        }
+
+        if (normalized.Contains("comic", StringComparison.OrdinalIgnoreCase))
+        {
+            return DiscoveryBucket.Comic;
+        }
+
+        if (normalized.Contains("book", StringComparison.OrdinalIgnoreCase))
+        {
+            return DiscoveryBucket.Book;
+        }
+
+        return DiscoveryBucket.Other;
     }
 
     private static string BuildItemDescription(LibraryItemViewModel item)

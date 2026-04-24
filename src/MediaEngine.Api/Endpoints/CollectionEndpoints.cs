@@ -1320,6 +1320,14 @@ public static class CollectionEndpoints
                     SquareAspectClass = GetCanonical(firstDto, "square_aspect_class"),
                     BackgroundAspectClass = GetCanonical(firstDto, "background_aspect_class"),
                     BannerAspectClass = GetCanonical(firstDto, "banner_aspect_class"),
+                    CoverWidthPx = ParseNullableInt(GetCanonical(firstDto, "cover_width_px")),
+                    CoverHeightPx = ParseNullableInt(GetCanonical(firstDto, "cover_height_px")),
+                    SquareWidthPx = ParseNullableInt(GetCanonical(firstDto, "square_width_px")),
+                    SquareHeightPx = ParseNullableInt(GetCanonical(firstDto, "square_height_px")),
+                    BackgroundWidthPx = ParseNullableInt(GetCanonical(firstDto, "background_width_px")),
+                    BackgroundHeightPx = ParseNullableInt(GetCanonical(firstDto, "background_height_px")),
+                    BannerWidthPx = ParseNullableInt(GetCanonical(firstDto, "banner_width_px")),
+                    BannerHeightPx = ParseNullableInt(GetCanonical(firstDto, "banner_height_px")),
                     Description      = h.Description ?? GetCanonical(firstDto, "description"),
                     Tagline          = GetCanonical(firstDto, "tagline"),
                     Creator          = creator,
@@ -1452,11 +1460,27 @@ public static class CollectionEndpoints
                     SELECT
                         g.group_name,
                         g.work_count,
-                        '/stream/' || g.first_asset_id || '/cover' AS cover_url,
-                        '/stream/' || g.first_asset_id || '/background' AS background_url,
-                        '/stream/' || g.first_asset_id || '/banner' AS banner_url,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM canonical_values cv_cover_present
+                            WHERE cv_cover_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
+                              AND cv_cover_present.key IN ('cover','cover_url','cover_width_px','cover_aspect_class')
+                        ) THEN '/stream/' || g.first_asset_id || '/cover' END AS cover_url,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM canonical_values cv_background_present
+                            WHERE cv_background_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
+                              AND cv_background_present.key IN ('background','background_url','background_width_px','background_aspect_class')
+                        ) THEN '/stream/' || g.first_asset_id || '/background' END AS background_url,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM canonical_values cv_banner_present
+                            WHERE cv_banner_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
+                              AND cv_banner_present.key IN ('banner','banner_url','banner_width_px','banner_aspect_class')
+                        ) THEN '/stream/' || g.first_asset_id || '/banner' END AS banner_url,
                         NULL AS hero_url,
-                        '/stream/' || g.first_asset_id || '/logo' AS logo_url,
+                        CASE WHEN EXISTS (
+                            SELECT 1 FROM canonical_values cv_logo_present
+                            WHERE cv_logo_present.entity_id IN (g.first_root_work_id, g.first_asset_id)
+                              AND cv_logo_present.key IN ('logo','logo_url')
+                        ) THEN '/stream/' || g.first_asset_id || '/logo' END AS logo_url,
                         COALESCE(
                             (
                                 SELECT cv_creator.value
@@ -1583,6 +1607,134 @@ public static class CollectionEndpoints
                                 LIMIT 1
                             )
                         )                                           AS banner_aspect_class,
+                        COALESCE(
+                            (
+                                SELECT cv_cover_width.value
+                                FROM canonical_values cv_cover_width
+                                WHERE cv_cover_width.entity_id = g.first_root_work_id
+                                  AND cv_cover_width.key = 'cover_width_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_cover_width2.value
+                                FROM canonical_values cv_cover_width2
+                                WHERE cv_cover_width2.entity_id = g.first_asset_id
+                                  AND cv_cover_width2.key = 'cover_width_px'
+                                LIMIT 1
+                            )
+                        )                                           AS cover_width_px,
+                        COALESCE(
+                            (
+                                SELECT cv_cover_height.value
+                                FROM canonical_values cv_cover_height
+                                WHERE cv_cover_height.entity_id = g.first_root_work_id
+                                  AND cv_cover_height.key = 'cover_height_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_cover_height2.value
+                                FROM canonical_values cv_cover_height2
+                                WHERE cv_cover_height2.entity_id = g.first_asset_id
+                                  AND cv_cover_height2.key = 'cover_height_px'
+                                LIMIT 1
+                            )
+                        )                                           AS cover_height_px,
+                        COALESCE(
+                            (
+                                SELECT cv_square_width.value
+                                FROM canonical_values cv_square_width
+                                WHERE cv_square_width.entity_id = g.first_root_work_id
+                                  AND cv_square_width.key = 'square_width_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_square_width2.value
+                                FROM canonical_values cv_square_width2
+                                WHERE cv_square_width2.entity_id = g.first_asset_id
+                                  AND cv_square_width2.key = 'square_width_px'
+                                LIMIT 1
+                            )
+                        )                                           AS square_width_px,
+                        COALESCE(
+                            (
+                                SELECT cv_square_height.value
+                                FROM canonical_values cv_square_height
+                                WHERE cv_square_height.entity_id = g.first_root_work_id
+                                  AND cv_square_height.key = 'square_height_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_square_height2.value
+                                FROM canonical_values cv_square_height2
+                                WHERE cv_square_height2.entity_id = g.first_asset_id
+                                  AND cv_square_height2.key = 'square_height_px'
+                                LIMIT 1
+                            )
+                        )                                           AS square_height_px,
+                        COALESCE(
+                            (
+                                SELECT cv_background_width.value
+                                FROM canonical_values cv_background_width
+                                WHERE cv_background_width.entity_id = g.first_root_work_id
+                                  AND cv_background_width.key = 'background_width_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_background_width2.value
+                                FROM canonical_values cv_background_width2
+                                WHERE cv_background_width2.entity_id = g.first_asset_id
+                                  AND cv_background_width2.key = 'background_width_px'
+                                LIMIT 1
+                            )
+                        )                                           AS background_width_px,
+                        COALESCE(
+                            (
+                                SELECT cv_background_height.value
+                                FROM canonical_values cv_background_height
+                                WHERE cv_background_height.entity_id = g.first_root_work_id
+                                  AND cv_background_height.key = 'background_height_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_background_height2.value
+                                FROM canonical_values cv_background_height2
+                                WHERE cv_background_height2.entity_id = g.first_asset_id
+                                  AND cv_background_height2.key = 'background_height_px'
+                                LIMIT 1
+                            )
+                        )                                           AS background_height_px,
+                        COALESCE(
+                            (
+                                SELECT cv_banner_width.value
+                                FROM canonical_values cv_banner_width
+                                WHERE cv_banner_width.entity_id = g.first_root_work_id
+                                  AND cv_banner_width.key = 'banner_width_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_banner_width2.value
+                                FROM canonical_values cv_banner_width2
+                                WHERE cv_banner_width2.entity_id = g.first_asset_id
+                                  AND cv_banner_width2.key = 'banner_width_px'
+                                LIMIT 1
+                            )
+                        )                                           AS banner_width_px,
+                        COALESCE(
+                            (
+                                SELECT cv_banner_height.value
+                                FROM canonical_values cv_banner_height
+                                WHERE cv_banner_height.entity_id = g.first_root_work_id
+                                  AND cv_banner_height.key = 'banner_height_px'
+                                LIMIT 1
+                            ),
+                            (
+                                SELECT cv_banner_height2.value
+                                FROM canonical_values cv_banner_height2
+                                WHERE cv_banner_height2.entity_id = g.first_asset_id
+                                  AND cv_banner_height2.key = 'banner_height_px'
+                                LIMIT 1
+                            )
+                        )                                           AS banner_height_px,
                         (
                             SELECT COUNT(DISTINCT cv_sn.value)
                             FROM work_assets wa_sn
@@ -1602,7 +1754,7 @@ public static class CollectionEndpoints
                 cmd.Parameters.Add(gp);
 
                 // Collect rows first so we can close the reader before doing async person lookups.
-                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, string? CoverAspectClass, string? SquareAspectClass, string? BackgroundAspectClass, string? BannerAspectClass, int? SeasonCount, int AlbumCount)>();
+                var rows = new List<(string GroupName, int WorkCount, string? CoverUrl, string? BackgroundUrl, string? BannerUrl, string? HeroUrl, string? LogoUrl, string? Creator, string? Network, string? Year, string? Description, string? Tagline, string? CoverAspectClass, string? SquareAspectClass, string? BackgroundAspectClass, string? BannerAspectClass, int? CoverWidthPx, int? CoverHeightPx, int? SquareWidthPx, int? SquareHeightPx, int? BackgroundWidthPx, int? BackgroundHeightPx, int? BannerWidthPx, int? BannerHeightPx, int? SeasonCount, int AlbumCount)>();
                 using (var reader = cmd.ExecuteReader())
                 {
                     while (reader.Read())
@@ -1626,8 +1778,16 @@ public static class CollectionEndpoints
                             reader.IsDBNull(13) ? null : reader.GetString(13),
                             reader.IsDBNull(14) ? null : reader.GetString(14),
                             reader.IsDBNull(15) ? null : reader.GetString(15),
-                            reader.IsDBNull(16) ? null : (int?)reader.GetInt32(16),
-                            reader.IsDBNull(17) ? 0 : reader.GetInt32(17)
+                            ReadNullableInt(reader, 16),
+                            ReadNullableInt(reader, 17),
+                            ReadNullableInt(reader, 18),
+                            ReadNullableInt(reader, 19),
+                            ReadNullableInt(reader, 20),
+                            ReadNullableInt(reader, 21),
+                            ReadNullableInt(reader, 22),
+                            ReadNullableInt(reader, 23),
+                            reader.IsDBNull(24) ? null : (int?)reader.GetInt32(24),
+                            reader.IsDBNull(25) ? 0 : reader.GetInt32(25)
                         ));
                     }
                 }
@@ -1673,6 +1833,14 @@ public static class CollectionEndpoints
                         SquareAspectClass = row.SquareAspectClass,
                         BackgroundAspectClass = row.BackgroundAspectClass,
                         BannerAspectClass = row.BannerAspectClass,
+                        CoverWidthPx = row.CoverWidthPx,
+                        CoverHeightPx = row.CoverHeightPx,
+                        SquareWidthPx = row.SquareWidthPx,
+                        SquareHeightPx = row.SquareHeightPx,
+                        BackgroundWidthPx = row.BackgroundWidthPx,
+                        BackgroundHeightPx = row.BackgroundHeightPx,
+                        BannerWidthPx = row.BannerWidthPx,
+                        BannerHeightPx = row.BannerHeightPx,
                         Description      = row.Description,
                         Tagline          = row.Tagline,
                         Creator          = row.Creator,
@@ -2536,6 +2704,21 @@ public static class CollectionEndpoints
     private static int? ParseNullableInt(string? value) =>
         int.TryParse(value, out var parsed) ? parsed : null;
 
+    private static int? ReadNullableInt(System.Data.IDataRecord reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+            return null;
+
+        var raw = reader.GetValue(ordinal);
+        return raw switch
+        {
+            int value when value > 0 => value,
+            long value when value > 0 => (int)value,
+            string value when int.TryParse(value, out var parsed) && parsed > 0 => parsed,
+            _ => null,
+        };
+    }
+
     private static List<string> SplitValues(string? value) =>
         string.IsNullOrWhiteSpace(value)
             ? []
@@ -2972,6 +3155,14 @@ public static class CollectionEndpoints
                     SquareAspectClass = preferred.SquareAspectClass,
                     BackgroundAspectClass = preferred.BackgroundAspectClass,
                     BannerAspectClass = preferred.BannerAspectClass,
+                    CoverWidthPx = preferred.CoverWidthPx,
+                    CoverHeightPx = preferred.CoverHeightPx,
+                    SquareWidthPx = preferred.SquareWidthPx,
+                    SquareHeightPx = preferred.SquareHeightPx,
+                    BackgroundWidthPx = preferred.BackgroundWidthPx,
+                    BackgroundHeightPx = preferred.BackgroundHeightPx,
+                    BannerWidthPx = preferred.BannerWidthPx,
+                    BannerHeightPx = preferred.BannerHeightPx,
                     Description = preferred.Description,
                     Tagline = preferred.Tagline,
                     Creator = preferred.Creator,

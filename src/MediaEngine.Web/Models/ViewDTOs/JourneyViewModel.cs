@@ -19,6 +19,12 @@ public sealed class JourneyItemViewModel
     public string? BannerUrl       { get; init; }
     public string? HeroUrl         { get; init; }
     public string? LogoUrl         { get; init; }
+    public int? CoverWidthPx       { get; init; }
+    public int? CoverHeightPx      { get; init; }
+    public int? BackgroundWidthPx  { get; init; }
+    public int? BackgroundHeightPx { get; init; }
+    public int? BannerWidthPx      { get; init; }
+    public int? BannerHeightPx     { get; init; }
     public string? Narrator        { get; init; }
     public string? Series          { get; init; }
     public string? SeriesPosition  { get; init; }

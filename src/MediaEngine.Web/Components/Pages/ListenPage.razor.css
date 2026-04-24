@@ -332,7 +332,16 @@
 }
 
 .listen-card-grid--books {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--listen-album-tile-size), var(--listen-album-tile-size)));
+    justify-content: start;
+    align-items: start;
+}
+
+.listen-card-grid--books > * {
+    inline-size: var(--listen-album-tile-size);
+    min-inline-size: var(--listen-album-tile-size);
+    max-inline-size: var(--listen-album-tile-size);
+    place-self: start;
 }
 
 .listen-card {
@@ -390,8 +399,8 @@
     max-inline-size: none;
     aspect-ratio: 1 / 1;
     align-self: stretch;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: transparent;
+    border: 0;
 }
 
 .listen-card__art--playlist {
@@ -399,7 +408,8 @@
 }
 
 .listen-card__art--book {
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 1 / 1;
+    background: transparent;
 }
 
 .listen-card__art img,

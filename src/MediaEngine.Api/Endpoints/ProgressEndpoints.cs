@@ -102,6 +102,12 @@ public static class ProgressEndpoints
                     cv_background_w.value AS background_url,
                     cv_banner_w.value     AS banner_url,
                     cv_logo_w.value       AS logo_url,
+                    cv_cover_width_w.value      AS cover_width_px,
+                    cv_cover_height_w.value     AS cover_height_px,
+                    cv_background_width_w.value AS background_width_px,
+                    cv_background_height_w.value AS background_height_px,
+                    cv_banner_width_w.value     AS banner_width_px,
+                    cv_banner_height_w.value    AS banner_height_px,
                     cv_narrator_w.value   AS narrator,
                     cv_series_w.value     AS series,
                     cv_series_pos_a.value AS series_position,
@@ -137,6 +143,24 @@ public static class ProgressEndpoints
                 LEFT JOIN canonical_values cv_logo_w
                     ON cv_logo_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_logo_w.key = 'logo'
+                LEFT JOIN canonical_values cv_cover_width_w
+                    ON cv_cover_width_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_cover_width_w.key = 'cover_width_px'
+                LEFT JOIN canonical_values cv_cover_height_w
+                    ON cv_cover_height_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_cover_height_w.key = 'cover_height_px'
+                LEFT JOIN canonical_values cv_background_width_w
+                    ON cv_background_width_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_background_width_w.key = 'background_width_px'
+                LEFT JOIN canonical_values cv_background_height_w
+                    ON cv_background_height_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_background_height_w.key = 'background_height_px'
+                LEFT JOIN canonical_values cv_banner_width_w
+                    ON cv_banner_width_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_banner_width_w.key = 'banner_width_px'
+                LEFT JOIN canonical_values cv_banner_height_w
+                    ON cv_banner_height_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
+                   AND cv_banner_height_w.key = 'banner_height_px'
                 LEFT JOIN canonical_values cv_series_w
                     ON cv_series_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
                    AND cv_series_w.key = 'series'
@@ -185,10 +209,16 @@ public static class ProgressEndpoints
                     BackgroundUrl:     reader.IsDBNull(11) ? null : reader.GetString(11),
                     BannerUrl:         reader.IsDBNull(12) ? null : reader.GetString(12),
                     LogoUrl:           reader.IsDBNull(13) ? null : reader.GetString(13),
-                    Narrator:          reader.IsDBNull(14) ? null : reader.GetString(14),
-                    Series:            reader.IsDBNull(15) ? null : reader.GetString(15),
-                    SeriesPosition:    reader.IsDBNull(16) ? null : reader.GetString(16),
-                    Description:       reader.IsDBNull(17) ? null : reader.GetString(17),
+                    CoverWidthPx:      ReadNullableInt(reader, 14),
+                    CoverHeightPx:     ReadNullableInt(reader, 15),
+                    BackgroundWidthPx: ReadNullableInt(reader, 16),
+                    BackgroundHeightPx: ReadNullableInt(reader, 17),
+                    BannerWidthPx:     ReadNullableInt(reader, 18),
+                    BannerHeightPx:    ReadNullableInt(reader, 19),
+                    Narrator:          reader.IsDBNull(20) ? null : reader.GetString(20),
+                    Series:            reader.IsDBNull(21) ? null : reader.GetString(21),
+                    SeriesPosition:    reader.IsDBNull(22) ? null : reader.GetString(22),
+                    Description:       reader.IsDBNull(23) ? null : reader.GetString(23),
                     HeroUrl:           null));
             }
 
@@ -208,6 +238,21 @@ public static class ProgressEndpoints
         Guid.TryParse(userId, out var parsed)
             ? parsed
             : Guid.Parse("00000000-0000-0000-0000-000000000001"); // default owner
+
+    private static int? ReadNullableInt(System.Data.IDataRecord reader, int ordinal)
+    {
+        if (reader.IsDBNull(ordinal))
+            return null;
+
+        var raw = reader.GetValue(ordinal);
+        return raw switch
+        {
+            int value when value > 0 => value,
+            long value when value > 0 => (int)value,
+            string value when int.TryParse(value, out var parsed) && parsed > 0 => parsed,
+            _ => null,
+        };
+    }
 
     private static object MapStateResponse(UserState s) => new
     {
@@ -237,6 +282,12 @@ public sealed record JourneyItemResponse(
     string?                      BackgroundUrl,
     string?                      BannerUrl,
     string?                      LogoUrl,
+    int?                         CoverWidthPx,
+    int?                         CoverHeightPx,
+    int?                         BackgroundWidthPx,
+    int?                         BackgroundHeightPx,
+    int?                         BannerWidthPx,
+    int?                         BannerHeightPx,
     string?                      Narrator,
     string?                      Series,
     string?                      SeriesPosition,

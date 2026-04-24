@@ -39,6 +39,8 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
         var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-art-popover.is-cover-square"));
+        Assert.Contains("--discovery-hover-panel-width: clamp(260px, 19vw, 312px)", cut.Markup);
+        Assert.DoesNotContain("overflow:hidden auto", cut.Markup);
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-image.is-contained"));
         Assert.Equal(2, cut.FindAll(".discovery-card-chip").Count);
         Assert.Contains("A sharp indie record with close harmonies.", cut.Markup);
@@ -60,6 +62,8 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
             HoverLayout = DiscoveryHoverLayout.BannerPopover,
             TileImageUrl = "/art/banner.jpg",
             HoverImageUrl = "/art/banner.jpg",
+            TileImageFitMode = DiscoveryImageFitMode.Fill,
+            HoverImageFitMode = DiscoveryImageFitMode.Fill,
             LogoUrl = "/art/logo.png",
             NavigationUrl = "/watch/tv",
             PrimaryNavigationUrl = "/watch/tv",
@@ -69,8 +73,10 @@ public sealed class DiscoverySurfaceRenderTests : TestContext
         var cut = RenderComponent<DiscoveryCard>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-banner-popover.is-banner-surface"));
+        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-panel.is-landscape"));
+        Assert.Contains("--discovery-hover-panel-width: clamp(348px, 27vw, 430px)", cut.Markup);
         Assert.NotEmpty(cut.FindAll(".discovery-card-hover-logo"));
-        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-image.is-contained"));
+        Assert.NotEmpty(cut.FindAll(".discovery-card-hover-image.is-fill"));
     }
 
     [Fact]

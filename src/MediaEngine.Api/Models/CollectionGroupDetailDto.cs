@@ -261,6 +261,30 @@ public sealed class ContentGroupDto
     [JsonPropertyName("banner_aspect_class")]
     public string? BannerAspectClass { get; init; }
 
+    [JsonPropertyName("cover_width_px")]
+    public int? CoverWidthPx { get; init; }
+
+    [JsonPropertyName("cover_height_px")]
+    public int? CoverHeightPx { get; init; }
+
+    [JsonPropertyName("square_width_px")]
+    public int? SquareWidthPx { get; init; }
+
+    [JsonPropertyName("square_height_px")]
+    public int? SquareHeightPx { get; init; }
+
+    [JsonPropertyName("background_width_px")]
+    public int? BackgroundWidthPx { get; init; }
+
+    [JsonPropertyName("background_height_px")]
+    public int? BackgroundHeightPx { get; init; }
+
+    [JsonPropertyName("banner_width_px")]
+    public int? BannerWidthPx { get; init; }
+
+    [JsonPropertyName("banner_height_px")]
+    public int? BannerHeightPx { get; init; }
+
     [JsonPropertyName("description")]
     public string? Description { get; init; }
 

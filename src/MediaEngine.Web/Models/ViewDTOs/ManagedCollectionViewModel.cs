@@ -51,6 +51,30 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("banner_aspect_class")]
     public string? BannerAspectClass { get; set; }
 
+    [JsonPropertyName("cover_width_px")]
+    public int? CoverWidthPx { get; set; }
+
+    [JsonPropertyName("cover_height_px")]
+    public int? CoverHeightPx { get; set; }
+
+    [JsonPropertyName("square_width_px")]
+    public int? SquareWidthPx { get; set; }
+
+    [JsonPropertyName("square_height_px")]
+    public int? SquareHeightPx { get; set; }
+
+    [JsonPropertyName("background_width_px")]
+    public int? BackgroundWidthPx { get; set; }
+
+    [JsonPropertyName("background_height_px")]
+    public int? BackgroundHeightPx { get; set; }
+
+    [JsonPropertyName("banner_width_px")]
+    public int? BannerWidthPx { get; set; }
+
+    [JsonPropertyName("banner_height_px")]
+    public int? BannerHeightPx { get; set; }
+
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
