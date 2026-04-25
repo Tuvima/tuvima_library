@@ -37,6 +37,7 @@ public sealed class ListenPlaybackService
     public bool IsMuted { get; private set; }
     public bool IsPlaying { get; private set; } = true;
     public bool IsPopupOpen { get; private set; }
+    public string? CurrentError { get; private set; }
 
     public bool HasQueue => _queue.Count > 0 && !IsDismissed;
 
@@ -65,6 +66,7 @@ public sealed class ListenPlaybackService
         CurrentTimeSeconds = 0;
         DurationSeconds = 0;
         IsPlaying = true;
+        CurrentError = null;
         NotifyChanged();
         return Task.CompletedTask;
     }
@@ -100,6 +102,7 @@ public sealed class ListenPlaybackService
         CurrentTimeSeconds = 0;
         DurationSeconds = 0;
         IsPlaying = true;
+        CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         NotifyChanged();
     }
@@ -114,6 +117,7 @@ public sealed class ListenPlaybackService
             SourceLabel = work.Album ?? work.Title;
             IsDismissed = false;
             IsPlaying = true;
+            CurrentError = null;
             await EnsurePlayableAsync(CurrentIndex, ct);
             NotifyChanged();
             return;
@@ -134,6 +138,7 @@ public sealed class ListenPlaybackService
             SourceLabel = work.Album ?? work.Title;
             IsDismissed = false;
             IsPlaying = true;
+            CurrentError = null;
             await EnsurePlayableAsync(CurrentIndex, ct);
             NotifyChanged();
             return;
@@ -160,6 +165,7 @@ public sealed class ListenPlaybackService
         DurationSeconds = 0;
         IsDismissed = false;
         IsPlaying = true;
+        CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         NotifyChanged();
     }
@@ -179,6 +185,7 @@ public sealed class ListenPlaybackService
         CurrentTimeSeconds = 0;
         DurationSeconds = 0;
         IsPlaying = true;
+        CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         NotifyChanged();
         return true;
@@ -197,6 +204,7 @@ public sealed class ListenPlaybackService
         CurrentTimeSeconds = 0;
         DurationSeconds = 0;
         IsPlaying = true;
+        CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         NotifyChanged();
     }
@@ -220,6 +228,7 @@ public sealed class ListenPlaybackService
         CurrentTimeSeconds = 0;
         DurationSeconds = 0;
         IsPlaying = true;
+        CurrentError = null;
         await EnsurePlayableAsync(CurrentIndex, ct);
         NotifyChanged();
     }
@@ -343,6 +352,15 @@ public sealed class ListenPlaybackService
         }
     }
 
+    public void MarkCurrentFailed(string message)
+    {
+        CurrentError = string.IsNullOrWhiteSpace(message)
+            ? "Playback failed for this item."
+            : message;
+        IsPlaying = false;
+        NotifyChanged();
+    }
+
     public void SetPopupOpen(bool isOpen)
     {
         if (IsPopupOpen == isOpen)
@@ -369,6 +387,7 @@ public sealed class ListenPlaybackService
         IsMuted = false;
         IsPlaying = false;
         IsPopupOpen = false;
+        CurrentError = null;
         NotifyChanged();
     }
 
@@ -393,6 +412,7 @@ public sealed class ListenPlaybackService
         IsMuted = snapshot.IsMuted;
         IsPlaying = snapshot.IsPlaying && _queue.Count > 0;
         IsPopupOpen = snapshot.IsPopupOpen;
+        CurrentError = snapshot.CurrentError;
         NotifyChanged();
     }
 
@@ -411,6 +431,7 @@ public sealed class ListenPlaybackService
         IsMuted = IsMuted,
         IsPlaying = IsPlaying,
         IsPopupOpen = IsPopupOpen,
+        CurrentError = CurrentError,
     };
 
     private void RememberCurrentItem()
@@ -453,14 +474,24 @@ public sealed class ListenPlaybackService
 
         if (!assetId.HasValue)
         {
+            MarkCurrentFailed("No playable audio file could be resolved for this item.");
+            return;
+        }
+
+        var manifest = await _apiClient.GetPlaybackManifestAsync(assetId.Value, "web", ct);
+        var streamUrl = manifest?.DirectStreamUrl;
+        if (string.IsNullOrWhiteSpace(streamUrl))
+        {
+            MarkCurrentFailed("The Engine did not return a playable audio stream for this item.");
             return;
         }
 
         _queue[index] = item with
         {
             AssetId = assetId,
-            StreamUrl = _apiClient.ToAbsoluteEngineUrl($"/stream/{assetId.Value}"),
+            StreamUrl = _apiClient.ToAbsoluteEngineUrl(streamUrl),
         };
+        CurrentError = null;
     }
 
     private static ListenQueueItem CreateQueueItem(WorkViewModel work)
@@ -568,4 +599,7 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("is_popup_open")]
     public bool IsPopupOpen { get; init; }
+
+    [JsonPropertyName("current_error")]
+    public string? CurrentError { get; init; }
 }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -27,6 +28,84 @@ public sealed class EngineApiClient : IEngineApiClient
     }
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
+
+    public async Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default)
+    {
+        try
+        {
+            var encodedClient = Uri.EscapeDataString(string.IsNullOrWhiteSpace(client) ? "web" : client);
+            return await _http.GetFromJsonAsync<PlaybackManifestDto>($"/playback/{assetId}/manifest?client={encodedClient}", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /playback/{AssetId}/manifest failed", assetId);
+            return null;
+        }
+    }
+
+    public async Task<List<EncodeJobDto>> GetEncodeJobsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<EncodeJobDto>>("/playback/encode/jobs", ct) ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /playback/encode/jobs failed");
+            return [];
+        }
+    }
+
+    public async Task<EncodeJobDto?> QueueEncodeAsync(Guid assetId, QueueEncodeRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"/playback/{assetId}/encode", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<EncodeJobDto>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /playback/{AssetId}/encode failed", assetId);
+            return null;
+        }
+    }
+
+    public async Task<bool> CancelEncodeJobAsync(Guid jobId, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync($"/playback/encode/jobs/{jobId}/cancel", new { }, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /playback/encode/jobs/{JobId}/cancel failed", jobId);
+            return false;
+        }
+    }
+
+    public async Task<PlaybackDiagnosticsDto?> GetPlaybackDiagnosticsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<PlaybackDiagnosticsDto>("/playback/diagnostics", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /playback/diagnostics failed");
+            return null;
+        }
+    }
 
     // ── GET /system/status ────────────────────────────────────────────────────
 

@@ -241,6 +241,139 @@ public sealed class PlaybackStateRepository
         return Task.CompletedTask;
     }
 
+    public Task<LeasedEncodeJob?> LeaseNextEncodeJobAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var row = conn.QueryFirstOrDefault<LeasedEncodeJobRow>("""
+            SELECT id AS Id,
+                   asset_id AS AssetId,
+                   profile_key AS ProfileKey,
+                   source_hash AS SourceHash
+            FROM encode_jobs
+            WHERE status IN ('queued', 'scheduled')
+              AND (scheduled_for IS NULL OR scheduled_for <= @now)
+            ORDER BY COALESCE(scheduled_for, created_at), created_at
+            LIMIT 1;
+            """,
+            new { now = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture) });
+
+        if (row is null)
+        {
+            return Task.FromResult<LeasedEncodeJob?>(null);
+        }
+
+        var changed = conn.Execute("""
+            UPDATE encode_jobs
+            SET status = 'running',
+                started_at = @startedAt,
+                progress_pct = 1
+            WHERE id = @jobId
+              AND status IN ('queued', 'scheduled');
+            """,
+            new
+            {
+                jobId = row.Id,
+                startedAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+            });
+
+        return Task.FromResult(changed == 0
+            ? null
+            : new LeasedEncodeJob(Guid.Parse(row.Id), Guid.Parse(row.AssetId), row.ProfileKey, row.SourceHash));
+    }
+
+    public Task CompleteEncodeJobAsync(
+        LeasedEncodeJob job,
+        string outputPath,
+        string displayName,
+        string container,
+        string? videoCodec,
+        string? audioCodec,
+        int? width,
+        int? height,
+        int? bitrateKbps,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var info = new FileInfo(outputPath);
+        var variantId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);
+
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            INSERT INTO offline_variants
+                (id, asset_id, profile_key, source_hash, display_name, status, output_path, file_size,
+                 container, video_codec, audio_codec, width, height, bitrate_kbps, created_at)
+            VALUES
+                (@id, @assetId, @profileKey, @sourceHash, @displayName, 'ready', @outputPath, @fileSize,
+                 @container, @videoCodec, @audioCodec, @width, @height, @bitrateKbps, @createdAt)
+            ON CONFLICT(asset_id, profile_key, source_hash) DO UPDATE SET
+                id = excluded.id,
+                display_name = excluded.display_name,
+                status = excluded.status,
+                output_path = excluded.output_path,
+                file_size = excluded.file_size,
+                container = excluded.container,
+                video_codec = excluded.video_codec,
+                audio_codec = excluded.audio_codec,
+                width = excluded.width,
+                height = excluded.height,
+                bitrate_kbps = excluded.bitrate_kbps,
+                created_at = excluded.created_at;
+
+            UPDATE encode_jobs
+            SET status = 'complete',
+                completed_at = @createdAt,
+                progress_pct = 100,
+                output_path = @outputPath,
+                output_bytes = @fileSize,
+                last_error = NULL
+            WHERE id = @jobId;
+            """,
+            new
+            {
+                id = variantId.ToString(),
+                assetId = job.AssetId.ToString(),
+                profileKey = job.ProfileKey,
+                sourceHash = job.SourceHash,
+                displayName,
+                outputPath,
+                fileSize = info.Exists ? info.Length : 0,
+                container,
+                videoCodec,
+                audioCodec,
+                width,
+                height,
+                bitrateKbps,
+                createdAt = now,
+                jobId = job.Id.ToString(),
+            });
+
+        return Task.CompletedTask;
+    }
+
+    public Task FailEncodeJobAsync(Guid jobId, string error, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE encode_jobs
+            SET status = 'failed',
+                completed_at = @completedAt,
+                last_error = @error,
+                retry_count = retry_count + 1
+            WHERE id = @jobId;
+            """,
+            new
+            {
+                jobId = jobId.ToString(),
+                completedAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                error,
+            });
+
+        return Task.CompletedTask;
+    }
+
     private static OfflineVariantDto ToDto(OfflineVariantRow row)
     {
         var id = Guid.Parse(row.Id);
@@ -322,6 +455,10 @@ public sealed class PlaybackStateRepository
         long? OutputBytes,
         string? LastError,
         int RetryCount);
+
+    private sealed record LeasedEncodeJobRow(string Id, string AssetId, string ProfileKey, string SourceHash);
 }
 
 public sealed record OfflineVariantFile(string? OutputPath, string Status, long? FileSizeBytes);
+
+public sealed record LeasedEncodeJob(Guid Id, Guid AssetId, string ProfileKey, string SourceHash);

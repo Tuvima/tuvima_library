@@ -142,6 +142,12 @@
             case SettingsSection.Activity:
                 <ActivityTab />
                 break;
+            case SettingsSection.Encode:
+                <EncodeSettingsTab />
+                break;
+            case SettingsSection.OfflineDownloads:
+                <OfflineDownloadsTab />
+                break;
             case SettingsSection.Maintenance:
                 <MaintenanceTab />
                 break;
@@ -363,6 +369,8 @@
         SettingsSection.Security => "Connection rules, API keys, and access controls.",
         SettingsSection.Users => "Profiles, roles, and user management.",
         SettingsSection.Activity => "Recent operational history and retention.",
+        SettingsSection.Encode => "Transcoding, scheduled encode, and generated variant controls.",
+        SettingsSection.OfflineDownloads => "Prepared mobile downloads, queue status, and variant cleanup.",
         SettingsSection.Maintenance => "Repair, cleanup, and recovery tools.",
         SettingsSection.Setup => "Guided configuration and readiness checks.",
         _ => "Settings",

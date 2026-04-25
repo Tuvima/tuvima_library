@@ -12,14 +12,20 @@ public static class StreamEndpoints
         new(StringComparer.OrdinalIgnoreCase)
         {
             [".mp4"]  = "video/mp4",
+            [".m4v"]  = "video/x-m4v",
             [".mkv"]  = "video/x-matroska",
+            [".webm"] = "video/webm",
             [".avi"]  = "video/x-msvideo",
             [".mp3"]  = "audio/mpeg",
             [".m4a"]  = "audio/mp4",
             [".m4b"]  = "audio/mp4",
+            [".aac"]  = "audio/aac",
+            [".flac"] = "audio/flac",
             [".ogg"]  = "audio/ogg",
+            [".wav"]  = "audio/wav",
             [".epub"] = "application/epub+zip",
             [".cbz"]  = "application/x-cbz",
+            [".cbr"]  = "application/x-cbr",
             [".pdf"]  = "application/pdf",
         };
 

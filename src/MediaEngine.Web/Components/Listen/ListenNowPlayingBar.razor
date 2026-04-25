@@ -149,6 +149,7 @@
                    @ontimeupdate="HandleAudioMetricsChangedAsync"
                    @onplay="HandleAudioStarted"
                    @onpause="HandleAudioPaused"
+                   @onerror="HandleAudioErrorAsync"
                    @onended="HandleAudioEndedAsync">
             </audio>
 
@@ -167,6 +168,10 @@
                 <div class="listen-player__copy">
                     <div class="listen-player__title">@Playback.CurrentItem.Title</div>
                     <div class="listen-player__subtitle">@PlayerSubtitleFor(Playback.CurrentItem, Playback.SourceLabel)</div>
+                    @if (!string.IsNullOrWhiteSpace(Playback.CurrentError))
+                    {
+                        <div class="listen-player__error">@Playback.CurrentError</div>
+                    }
                 </div>
             </div>
 
@@ -322,7 +327,11 @@
         {
             if (Playback.IsPlaying)
             {
-                await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
+                var started = await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
+                if (!started)
+                {
+                    Playback.MarkCurrentFailed("This audio source could not start playback.");
+                }
             }
             else
             {
@@ -361,6 +370,12 @@
         await Playback.CompleteCurrentAsync();
     }
 
+    private Task HandleAudioErrorAsync()
+    {
+        Playback.MarkCurrentFailed("This audio source failed to load or play.");
+        return Task.CompletedTask;
+    }
+
     private async Task TogglePlayPauseAsync()
     {
         if (Playback.IsPlaying)
@@ -370,8 +385,15 @@
         }
         else
         {
-            await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
-            Playback.UpdateTransportState(isPlaying: true);
+            var started = await JS.InvokeAsync<bool>("listenPlayback.playAudio", _audioRef);
+            if (started)
+            {
+                Playback.UpdateTransportState(isPlaying: true);
+            }
+            else
+            {
+                Playback.MarkCurrentFailed("This audio source could not start playback.");
+            }
         }
     }
 
@@ -650,11 +672,16 @@
     }
 
     .listen-player__subtitle,
+    .listen-player__error,
     .listen-player-panel__subtitle,
     .listen-player-panel__item-subtitle,
     .listen-player-panel__item-duration {
         color: rgba(255, 255, 255, 0.6);
         font-size: 0.82rem;
+    }
+
+    .listen-player__error {
+        color: #ff9aa9;
     }
 
     .listen-player__transport {

@@ -20,6 +20,49 @@
 
     <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
              Style="letter-spacing: 0.08em;">
+        Client Profiles
+    </MudText>
+
+    <MudGrid Spacing="4" Class="mb-6">
+        <MudItem xs="12" sm="6" lg="4">
+            <MudSelect T="string" @bind-Value="_webDelivery" Label="Web delivery" Variant="Variant.Outlined" FullWidth="true">
+                <MudSelectItem T="string" Value="@("direct")">Prefer direct play</MudSelectItem>
+                <MudSelectItem T="string" Value="@("hls")">Prefer HLS fallback</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="4">
+            <MudSelect T="string" @bind-Value="_tvDelivery" Label="TV delivery" Variant="Variant.Outlined" FullWidth="true">
+                <MudSelectItem T="string" Value="@("hls")">Prefer HLS fallback</MudSelectItem>
+                <MudSelectItem T="string" Value="@("direct")">Prefer direct play</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="4">
+            <MudSelect T="string" @bind-Value="_mobileDownloadProfile" Label="Mobile download profile" Variant="Variant.Outlined" FullWidth="true">
+                <MudSelectItem T="string" Value="@("mobile-small")">Mobile small</MudSelectItem>
+                <MudSelectItem T="string" Value="@("mobile-standard")">Mobile standard</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="4">
+            <MudSelect T="string" @bind-Value="_defaultAudioLanguage" Label="Default audio language" Variant="Variant.Outlined" FullWidth="true">
+                <MudSelectItem T="string" Value="@("auto")">Auto</MudSelectItem>
+                <MudSelectItem T="string" Value="@("en")">English</MudSelectItem>
+                <MudSelectItem T="string" Value="@("original")">Original language</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="4">
+            <MudSelect T="string" @bind-Value="_defaultSubtitleLanguage" Label="Subtitle language" Variant="Variant.Outlined" FullWidth="true">
+                <MudSelectItem T="string" Value="@("off")">Off</MudSelectItem>
+                <MudSelectItem T="string" Value="@("en")">English</MudSelectItem>
+                <MudSelectItem T="string" Value="@("forced")">Forced only</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="6" lg="4">
+            <MudSwitch T="bool" @bind-Value="_forcedSubtitles" Color="Color.Primary" Label="Show forced subtitles automatically" />
+        </MudItem>
+    </MudGrid>
+
+    <MudText Typo="Typo.overline" Color="Color.Secondary" Class="mb-4"
+             Style="letter-spacing: 0.08em;">
         General
     </MudText>
 
@@ -205,6 +248,12 @@
     // General
     private double _playbackSpeed    = 1.0;
     private string _resumeBehaviour  = "resume";
+    private string _webDelivery = "direct";
+    private string _tvDelivery = "hls";
+    private string _mobileDownloadProfile = "mobile-small";
+    private string _defaultAudioLanguage = "auto";
+    private string _defaultSubtitleLanguage = "forced";
+    private bool _forcedSubtitles = true;
 
     // Skip intervals (seconds)
     private int    _skipForwardSeconds  = 30;

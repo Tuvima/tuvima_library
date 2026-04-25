@@ -1,0 +1,135 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<div class="st-page">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.DownloadForOffline" Class="mr-2" />
+        <MudText Typo="Typo.h6">Offline Downloads</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Prepared variants for phones, tablets, and travel playback.
+    </MudText>
+
+    <MudStack Row="true" Spacing="2" Class="mb-4">
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@LoadJobsAsync">Refresh</MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@CleanupAsync">Run cleanup</MudButton>
+    </MudStack>
+
+    <MudPaper Elevation="0" Class="pa-4">
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Encode Queue</MudText>
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" Class="mt-3" />
+        }
+        else if (_jobs.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">No encode jobs have been queued yet.</MudText>
+        }
+        else
+        {
+            <MudTable Items="_jobs" Dense="true" Hover="true" Class="mt-3">
+                <HeaderContent>
+                    <MudTh>Asset</MudTh>
+                    <MudTh>Profile</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Progress</MudTh>
+                    <MudTh>Scheduled</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.AssetId</MudTd>
+                    <MudTd>@context.ProfileKey</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)" Variant="Variant.Outlined">@context.Status</MudChip>
+                    </MudTd>
+                    <MudTd>@context.ProgressPct.ToString("0.#")%</MudTd>
+                    <MudTd>@(context.ScheduledFor?.LocalDateTime.ToString("g") ?? "Immediate")</MudTd>
+                    <MudTd>
+                        <MudButton Size="Size.Small"
+                                   Variant="Variant.Text"
+                                   Color="Color.Warning"
+                                   Disabled="@IsTerminal(context.Status)"
+                                   OnClick="@(() => CancelAsync(context.Id))">
+                            Cancel
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+    </MudPaper>
+
+    <MudPaper Elevation="0" Class="pa-4 mt-4">
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Prepared Variant Actions</MudText>
+        <MudGrid Class="mt-2">
+            <MudItem xs="12" md="4">
+                <div class="offline-action-block">
+                    <MudText Typo="Typo.subtitle2">Queue</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Prepare mobile versions from item detail pages or future watchlist rules.</MudText>
+                </div>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <div class="offline-action-block">
+                    <MudText Typo="Typo.subtitle2">Retry and delete</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Failed jobs and old variants are managed without touching original library files.</MudText>
+                </div>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <div class="offline-action-block">
+                    <MudText Typo="Typo.subtitle2">Download</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ready variants use range-capable Engine download URLs for clients.</MudText>
+                </div>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</div>
+
+@code {
+    private bool _loading;
+    private List<EncodeJobDto> _jobs = [];
+
+    protected override async Task OnInitializedAsync() => await LoadJobsAsync();
+
+    private async Task LoadJobsAsync()
+    {
+        _loading = true;
+        _jobs = await ApiClient.GetEncodeJobsAsync();
+        _loading = false;
+    }
+
+    private async Task CancelAsync(Guid jobId)
+    {
+        var ok = await ApiClient.CancelEncodeJobAsync(jobId);
+        Snackbar.Add(ok ? "Encode job cancelled" : "Encode job could not be cancelled", ok ? Severity.Success : Severity.Warning);
+        await LoadJobsAsync();
+    }
+
+    private Task CleanupAsync()
+    {
+        Snackbar.Add("Cleanup policy is captured here; backend cleanup execution comes with variant generation.", Severity.Info);
+        return Task.CompletedTask;
+    }
+
+    private static bool IsTerminal(string status) =>
+        status.Equals(EncodeJobStatuses.Complete, StringComparison.OrdinalIgnoreCase)
+        || status.Equals(EncodeJobStatuses.Failed, StringComparison.OrdinalIgnoreCase)
+        || status.Equals(EncodeJobStatuses.Cancelled, StringComparison.OrdinalIgnoreCase);
+
+    private static Color StatusColor(string status) => status.ToLowerInvariant() switch
+    {
+        EncodeJobStatuses.Complete => Color.Success,
+        EncodeJobStatuses.Failed => Color.Error,
+        EncodeJobStatuses.Cancelled => Color.Default,
+        EncodeJobStatuses.Running => Color.Info,
+        _ => Color.Warning,
+    };
+}
+
+<style>
+    .offline-action-block {
+        min-height: 100%;
+        padding: 12px 0;
+    }
+</style>

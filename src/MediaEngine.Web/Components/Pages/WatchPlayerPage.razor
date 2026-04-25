@@ -1,6 +1,7 @@
 @page "/watch/player/{AssetId:guid}"
 @using Microsoft.AspNetCore.Components
 @using Microsoft.JSInterop
+@using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Watch
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -40,6 +41,12 @@ else
 
         @if (!string.IsNullOrWhiteSpace(_streamUrl))
         {
+            @if (_manifest?.Warnings.Count > 0)
+            {
+                <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
+                    @string.Join(" ", _manifest.Warnings)
+                </MudAlert>
+            }
             <div class="watch-player-page__surface">
                 <video @ref="_videoRef"
                        class="watch-player-page__video"
@@ -69,6 +76,7 @@ else
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
     private RegistryItemDetailViewModel? _detail;
+    private PlaybackManifestDto? _manifest;
     private string? _streamUrl;
     private ProgressStateDto? _progress;
     private Guid? _activeProfileId;
@@ -92,13 +100,15 @@ else
             : Task.FromResult<RegistryItemDetailViewModel?>(null);
         var progressTask = Orchestrator.GetProgressAsync(AssetId);
         var profileTask = Orchestrator.GetActiveProfileAsync();
+        var manifestTask = ApiClient.GetPlaybackManifestAsync(AssetId, "web");
 
-        await Task.WhenAll(detailTask, progressTask, profileTask);
+        await Task.WhenAll(detailTask, progressTask, profileTask, manifestTask);
 
         _detail = detailTask.Result;
         _progress = progressTask.Result;
         _activeProfileId = profileTask.Result?.Id;
-        _streamUrl = ApiClient.ToAbsoluteEngineUrl($"/stream/{AssetId}");
+        _manifest = manifestTask.Result;
+        _streamUrl = ApiClient.ToAbsoluteEngineUrl(_manifest?.DirectStreamUrl ?? $"/stream/{AssetId}");
         _loading = false;
     }
 

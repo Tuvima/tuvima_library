@@ -112,16 +112,18 @@
     line-height: var(--reader-line-height);
     user-select: none;
     -webkit-user-select: none;
+    --reader-chrome-top: 56px;
+    --reader-chrome-bottom: 72px;
 }
 
 /* ── Content container (CSS multi-column pagination) ───────────────────────── */
 
 .reader-content-viewport {
     position: absolute;
-    top: 0;
+    top: var(--reader-chrome-top);
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: var(--reader-chrome-bottom);
     overflow: hidden;
     padding: var(--reader-margin-v) var(--reader-margin-h);
 }

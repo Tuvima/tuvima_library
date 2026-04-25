@@ -708,7 +708,7 @@
             await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-font-family", fontCss);
             await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-font-size", $"{_settings.FontSize}px");
             await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-line-height", _settings.LineHeight.ToString("F1"));
-            await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-margin", $"{_settings.Margins}px");
+            await JS.InvokeVoidAsync("epubReader.setReaderStyle", "--reader-margin-h", $"{_settings.Margins}px");
 
             // Re-paginate after style change
             await Task.Delay(100);

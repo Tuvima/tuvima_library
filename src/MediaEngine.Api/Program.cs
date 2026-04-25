@@ -5,6 +5,7 @@ using MediaEngine.Api.Realtime;
 using MediaEngine.Api.Middleware;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Playback;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion;
@@ -257,6 +258,9 @@ builder.Services.AddSingleton<IProfileExternalLoginService, ProfileExternalLogin
 // Auto-detects ffmpeg/ffprobe from tools/ffmpeg/ → PATH → config override.
 // Logs a warning (not error) when binaries are absent — transcoding is optional.
 builder.Services.AddSingleton<IFFmpegService, FFmpegService>();
+builder.Services.AddSingleton<PlaybackStateRepository>();
+builder.Services.AddSingleton<PlaybackCapabilitiesService>();
+builder.Services.AddHostedService<EncodeQueueService>();
 
 // ── Processors ────────────────────────────────────────────────────────────────
 builder.Services.AddSingleton<IVideoMetadataExtractor, FFmpegVideoMetadataExtractor>();
@@ -987,6 +991,7 @@ app.MapAdminEndpoints();
 app.MapCollectionEndpoints();
 app.MapLibraryEndpoints();
 app.MapStreamEndpoints();
+app.MapPlaybackEndpoints();
 app.MapReadEndpoints();
 app.MapReaderEndpoints();
 app.MapIngestionEndpoints();

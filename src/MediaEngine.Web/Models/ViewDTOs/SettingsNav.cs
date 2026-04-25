@@ -24,6 +24,8 @@ public enum SettingsSection
     Activity,
     Maintenance,
     Setup,
+    Encode,
+    OfflineDownloads,
 }
 
 /// <summary>A primary settings destination shown in the top tab row.</summary>
@@ -92,6 +94,8 @@ public static class SettingsNav
         new(SettingsSection.Security,   "server",    "security",     Icons.Material.Outlined.VpnKey,      "Security",    true,  null, ["apikeys"]),
         new(SettingsSection.Users,      "server",    "users",        Icons.Material.Outlined.Group,       "Users",       true,  null, []),
         new(SettingsSection.Activity,   "server",    "activity",     Icons.Material.Outlined.Timeline,    "Activity",    true,  null, []),
+        new(SettingsSection.Encode,     "server",    "encode",       Icons.Material.Outlined.VideoSettings,"Encode",      true,  null, ["transcoding", "transcode", "offlinevariants"]),
+        new(SettingsSection.OfflineDownloads,"server","offline-downloads", Icons.Material.Outlined.DownloadForOffline,"Offline", true, null, ["downloads", "mobiledownloads", "preparedmedia"]),
         new(SettingsSection.Maintenance,"server",    "maintenance",  Icons.Material.Outlined.Build,       "Maintenance", true,  null, []),
         new(SettingsSection.Setup,      "server",    "setup",        Icons.Material.Outlined.RocketLaunch,"Setup",       true,  null, []),
     ];

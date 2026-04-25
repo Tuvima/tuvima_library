@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Storage.Models;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -13,6 +14,16 @@ namespace MediaEngine.Web.Services.Integration;
 public interface IEngineApiClient
 {
     string ToAbsoluteEngineUrl(string value);
+
+    Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", CancellationToken ct = default);
+
+    Task<List<EncodeJobDto>> GetEncodeJobsAsync(CancellationToken ct = default);
+
+    Task<EncodeJobDto?> QueueEncodeAsync(Guid assetId, QueueEncodeRequestDto request, CancellationToken ct = default);
+
+    Task<bool> CancelEncodeJobAsync(Guid jobId, CancellationToken ct = default);
+
+    Task<PlaybackDiagnosticsDto?> GetPlaybackDiagnosticsAsync(CancellationToken ct = default);
 
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);

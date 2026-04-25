@@ -1,0 +1,133 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<div class="st-page">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+        <MudIcon Icon="@Icons.Material.Outlined.VideoSettings" Class="mr-2" />
+        <MudText Typo="Typo.h6">Encode Settings</MudText>
+    </MudStack>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
+        Server-side controls for scheduled encodes, HLS fallback packages, and mobile-ready variants.
+    </MudText>
+
+    <MudGrid Spacing="4">
+        <MudItem xs="12" lg="6">
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Scheduling</MudText>
+                <MudSwitch T="bool" @bind-Value="_scheduledEncodesEnabled" Color="Color.Primary" Label="Enable scheduled encodes" Class="mt-2" />
+                <MudTextField @bind-Value="_maintenanceWindow" Label="Maintenance window" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
+                <MudNumericField T="int" @bind-Value="_maxConcurrentJobs" Label="Maximum active jobs" Min="1" Max="4" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
+                <MudSelect T="string" @bind-Value="_hardwarePreference" Label="Hardware preference" Variant="Variant.Outlined" FullWidth="true" Class="mt-3">
+                    <MudSelectItem T="string" Value="@("auto")">Auto</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("cpu")">CPU</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("gpu")">GPU when available</MudSelectItem>
+                </MudSelect>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" lg="6">
+            <MudPaper Elevation="0" Class="pa-4">
+                <MudText Typo="Typo.overline" Color="Color.Secondary">Storage Policy</MudText>
+                <MudTextField @bind-Value="_variantRoot" Label="Variant cache location" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
+                <MudNumericField T="int" @bind-Value="_cacheSizeGb" Label="Cache size limit (GB)" Min="1" Max="5000" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
+                <MudNumericField T="int" @bind-Value="_retentionDays" Label="Retention days" Min="1" Max="3650" Variant="Variant.Outlined" FullWidth="true" Class="mt-3" />
+                <MudSwitch T="bool" @bind-Value="_cleanupLru" Color="Color.Primary" Label="Use least-recently-used cleanup before deleting old variants" Class="mt-2" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Elevation="0" Class="pa-4 mt-4">
+        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudText Typo="Typo.overline" Color="Color.Secondary">Profiles</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="@AddProfile">Add profile</MudButton>
+        </MudStack>
+
+        <MudTable Items="_profiles" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Profile</MudTh>
+                <MudTh>Target</MudTh>
+                <MudTh>Codec</MudTh>
+                <MudTh>Container</MudTh>
+                <MudTh>Size guidance</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.Name</MudTd>
+                <MudTd>@context.Target</MudTd>
+                <MudTd>@context.Codec</MudTd>
+                <MudTd>@context.Container</MudTd>
+                <MudTd>@context.SizeGuidance</MudTd>
+            </RowTemplate>
+        </MudTable>
+    </MudPaper>
+
+    <MudPaper Elevation="0" Class="pa-4 mt-4">
+        <MudText Typo="Typo.overline" Color="Color.Secondary">Diagnostics</MudText>
+        @if (_diagnostics is null)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">Diagnostics unavailable.</MudText>
+        }
+        else
+        {
+            <MudGrid Class="mt-2">
+                <MudItem xs="12" md="4">
+                    <MudText Typo="Typo.subtitle2">FFmpeg</MudText>
+                    <MudText Typo="Typo.body2" Color="@(_diagnostics.FFmpegAvailable ? Color.Success : Color.Warning)">
+                        @(_diagnostics.FFmpegAvailable ? "Available" : "Unavailable")
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudText Typo="Typo.subtitle2">MediaInfo</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Warning">
+                        @(_diagnostics.MediaInfoAvailable ? "Available" : "Not wired yet")
+                    </MudText>
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudText Typo="Typo.subtitle2">Active jobs</MudText>
+                    <MudText Typo="Typo.body2">@_diagnostics.ActiveJobs.Count</MudText>
+                </MudItem>
+            </MudGrid>
+        }
+    </MudPaper>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Class="mt-6" OnClick="@SaveAsync">
+        Save Encode Settings
+    </MudButton>
+</div>
+
+@code {
+    private bool _scheduledEncodesEnabled = true;
+    private string _maintenanceWindow = "01:00-05:00";
+    private int _maxConcurrentJobs = 1;
+    private string _hardwarePreference = "auto";
+    private string _variantRoot = ".data/variants";
+    private int _cacheSizeGb = 250;
+    private int _retentionDays = 30;
+    private bool _cleanupLru = true;
+    private PlaybackDiagnosticsDto? _diagnostics;
+    private readonly List<EncodeProfileRow> _profiles =
+    [
+        new("mobile-small", "480p/540p", "H.264/AAC", "MP4", "400-700 MB for a typical 2-hour movie"),
+        new("mobile-standard", "720p", "H.264/AAC", "MP4", "Offline-friendly quality"),
+        new("tv-direct-hls", "Source-limited TV", "H.264 or HEVC/AAC", "HLS", "High-quality TV fallback"),
+        new("audio-mobile", "Audio", "AAC/MP3", "M4A/MP3", "Lower bitrate audiobook/music option"),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _diagnostics = await ApiClient.GetPlaybackDiagnosticsAsync();
+    }
+
+    private void AddProfile() =>
+        Snackbar.Add("Custom encode profile editing will persist once settings storage is wired.", Severity.Info);
+
+    private Task SaveAsync()
+    {
+        Snackbar.Add("Encode settings model saved locally for this session. Engine persistence is the next backend step.", Severity.Info);
+        return Task.CompletedTask;
+    }
+
+    private sealed record EncodeProfileRow(string Name, string Target, string Codec, string Container, string SizeGuidance);
+}
