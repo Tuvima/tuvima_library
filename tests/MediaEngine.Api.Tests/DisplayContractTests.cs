@@ -90,14 +90,16 @@ public sealed class DisplayContractTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayComposerService.cs"));
         var cardBuilderSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayCardBuilder.cs"));
+        var shelfBuilderSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Display\DisplayShelfBuilder.cs"));
 
         Assert.Contains("BuildLaneAsync(normalizedLane, includeCatalog, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("BuildWatchShelves", source, StringComparison.Ordinal);
-        Assert.Contains("BuildReadShelves", source, StringComparison.Ordinal);
-        Assert.Contains("BuildListenShelves", source, StringComparison.Ordinal);
-        Assert.Contains("\"continue-watching\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"continue-reading\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"continue-listening\"", source, StringComparison.Ordinal);
+        Assert.Contains("DisplayShelfBuilder", source, StringComparison.Ordinal);
+        Assert.Contains("BuildWatchShelves", shelfBuilderSource, StringComparison.Ordinal);
+        Assert.Contains("BuildReadShelves", shelfBuilderSource, StringComparison.Ordinal);
+        Assert.Contains("BuildListenShelves", shelfBuilderSource, StringComparison.Ordinal);
+        Assert.Contains("\"continue-watching\"", shelfBuilderSource, StringComparison.Ordinal);
+        Assert.Contains("\"continue-reading\"", shelfBuilderSource, StringComparison.Ordinal);
+        Assert.Contains("\"continue-listening\"", shelfBuilderSource, StringComparison.Ordinal);
         Assert.Contains("\"openCollection\"", cardBuilderSource, StringComparison.Ordinal);
     }
 

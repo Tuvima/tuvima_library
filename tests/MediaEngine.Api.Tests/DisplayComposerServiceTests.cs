@@ -17,7 +17,7 @@ public sealed class DisplayComposerServiceTests
             [
                 Journey(movieId, "Movie", "Arrival", progressPct: 42, year: "2016", genre: "Science Fiction|||Drama"),
             ]);
-        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+        var composer = CreateComposer(repository);
 
         var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48);
 
@@ -45,7 +45,7 @@ public sealed class DisplayComposerServiceTests
             [
                 Journey(bookId, "Book", "Dune", progressPct: 31, author: "Frank Herbert", genre: "Science Fiction;Adventure"),
             ]);
-        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+        var composer = CreateComposer(repository);
 
         var page = await composer.BuildBrowseAsync("read", null, "all", null, 0, 48);
 
@@ -75,7 +75,7 @@ public sealed class DisplayComposerServiceTests
             [
                 Journey(audiobookId, "Audiobook", "Project Hail Mary", progressPct: 58, author: "Andy Weir", narrator: "Ray Porter", genre: "Science Fiction"),
             ]);
-        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+        var composer = CreateComposer(repository);
 
         var page = await composer.BuildBrowseAsync("listen", null, "all", null, 0, 48);
 
@@ -99,13 +99,29 @@ public sealed class DisplayComposerServiceTests
         var repository = new StubDisplayProjectionRepository(
             [Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction")],
             []);
-        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+        var composer = CreateComposer(repository);
 
         var page = await composer.BuildBrowseAsync("watch", null, "all", null, 0, 48, includeCatalog: false);
 
         Assert.Empty(page.Catalog);
         Assert.NotEmpty(page.Shelves);
         Assert.Contains(page.Shelves, shelf => shelf.Items.Any(card => card.Title == "Arrival"));
+    }
+
+    [Fact]
+    public async Task BrowseResults_UseCatalogOnlyPayloadByDefault()
+    {
+        var movieId = Guid.Parse("77777777-8888-8888-8888-777777777777");
+        var repository = new StubDisplayProjectionRepository(
+            [Work(movieId, "Movie", "Arrival", year: "2016", genre: "Science Fiction")],
+            []);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("watch", "Movie", "all", null, 0, 48, includeCatalog: true);
+
+        Assert.Empty(page.Shelves);
+        Assert.Single(page.Catalog);
+        Assert.Equal("Arrival", page.Catalog[0].Title);
     }
 
     [Fact]
@@ -119,7 +135,7 @@ public sealed class DisplayComposerServiceTests
                 Work(secondId, "Movie", "Heat", year: "1995", genre: "Crime"),
             ],
             []);
-        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+        var composer = CreateComposer(repository);
 
         var page = await composer.BuildShelfPageAsync(
             "movies",
@@ -156,7 +172,7 @@ public sealed class DisplayComposerServiceTests
                 Journey(secondTrack, "Music", "Signals", progressPct: 44, artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "2", collectionId: albumId),
             ],
             new HashSet<Guid> { firstTrack });
-        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+        var composer = CreateComposer(repository);
 
         var page = await composer.BuildBrowseAsync("listen", "Music", "home", null, 0, 48, includeCatalog: true, profileId: profileId);
 
@@ -254,6 +270,12 @@ public sealed class DisplayComposerServiceTests
             EpisodeNumber = episode,
             TrackNumber = track,
         };
+    }
+
+    private static DisplayComposerService CreateComposer(IDisplayProjectionRepository repository)
+    {
+        var cards = new DisplayCardBuilder();
+        return new DisplayComposerService(repository, cards, new DisplayShelfBuilder(cards));
     }
 
     private sealed class StubDisplayProjectionRepository : IDisplayProjectionRepository
