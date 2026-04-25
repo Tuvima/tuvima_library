@@ -37,10 +37,12 @@ public sealed class DisplayComposerServiceTests
     {
         var bookId = Guid.Parse("33333333-3333-3333-3333-333333333333");
         var comicId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var audiobookId = Guid.Parse("44444444-5555-5555-5555-444444444444");
         var repository = new StubDisplayProjectionRepository(
             [
                 Work(bookId, "Book", "Dune", author: "Frank Herbert", genre: "Science Fiction;Adventure"),
                 Work(comicId, "Comic", "Saga", author: "Brian K. Vaughan", genre: "Space Opera"),
+                Work(audiobookId, "Audiobook", "Project Hail Mary", author: "Andy Weir", narrator: "Ray Porter", genre: "Science Fiction"),
             ],
             [
                 Journey(bookId, "Book", "Dune", progressPct: 31, author: "Frank Herbert", genre: "Science Fiction;Adventure"),
@@ -60,6 +62,9 @@ public sealed class DisplayComposerServiceTests
         var catalogCard = page.Catalog.Single(card => card.Title == "Dune");
         Assert.Equal("bottom", catalogCard.PreviewPlacement);
         Assert.Equal(31, catalogCard.Progress?.Percent);
+
+        Assert.Equal("bottom", page.Catalog.Single(card => card.Title == "Saga").PreviewPlacement);
+        Assert.Equal("bottom", page.Catalog.Single(card => card.Title == "Project Hail Mary").PreviewPlacement);
     }
 
     [Fact]

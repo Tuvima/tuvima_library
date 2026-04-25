@@ -159,7 +159,7 @@ window.positionDiscoveryCardHover = function (cardEl) {
 
         if (prefersBottomPlacement) {
             panelLeft = cardRect.left + (cardRect.width / 2) - (panelWidth / 2);
-            panelTop = cardRect.bottom + gutter;
+            panelTop = cardRect.top - hoverLift;
         } else if (isSideBySidePortrait) {
             var rightCandidate = cardRect.right + gutter;
             var leftCandidate = cardRect.left - panelWidth - gutter;
