@@ -8,7 +8,9 @@
 @page "/listen/music/playlists/system/{PlaylistKey}"
 @page "/listen/audiobooks"
 @page "/listen/audiobook/{WorkId:guid}"
+@using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
+@using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Components.Listen
@@ -38,30 +40,8 @@ else
 {
     <div class="listen-page">
         <aside class="listen-rail">
-            <div class="listen-rail__header">
-                <div>
-                    <div class="listen-kicker">Library</div>
-                    <h2>Listen</h2>
-                </div>
-            </div>
-
             @if (IsMusicMode)
             {
-                <section class="listen-rail__section">
-                    <div class="listen-rail__label">Pins</div>
-                    @foreach (var item in PinnedItems)
-                    {
-                        <button type="button" class="listen-rail__item @(IsRouteActive(item.Route) ? "is-active" : null)" @onclick="@(() => NavigateTo(item.Route))">
-                            <MudIcon Icon="@item.Icon" Style="font-size: 18px;" />
-                            <span>@item.Label</span>
-                            @if (!string.IsNullOrWhiteSpace(item.Meta))
-                            {
-                                <span class="listen-rail__meta">@item.Meta</span>
-                            }
-                        </button>
-                    }
-                </section>
-
                 <section class="listen-rail__section">
                     <div class="listen-rail__label">Music</div>
                     @foreach (var item in MusicLibraryItems)
@@ -75,8 +55,8 @@ else
                 </section>
 
                 <section class="listen-rail__section">
-                    <div class="listen-rail__label">Playlists</div>
-                    @foreach (var item in PlaylistNavItems.Take(1))
+                    <div class="listen-rail__label">Quick access</div>
+                    @foreach (var item in QuickAccessItems)
                     {
                         <button type="button" class="listen-rail__item @(IsRouteActive(item.Route) ? "is-active" : null)" @onclick="@(() => NavigateTo(item.Route))">
                             <MudIcon Icon="@item.Icon" Style="font-size: 18px;" />
@@ -87,29 +67,68 @@ else
                             }
                         </button>
                     }
+                </section>
 
-                    @if (PlaylistCollections.Count == 0)
+                <section class="listen-rail__section">
+                    <button type="button"
+                            class="listen-rail__section-toggle"
+                            aria-expanded="@_playlistsExpanded"
+                            @onclick="@(() => _playlistsExpanded = !_playlistsExpanded)">
+                        <span>Playlists</span>
+                        <span class="listen-rail__meta">@PlaylistCollections.Count</span>
+                        <MudIcon Icon="@(_playlistsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)" Style="font-size: 18px;" />
+                    </button>
+
+                    @if (_playlistsExpanded)
                     {
-                        <div class="listen-playlist-dropzone"
-                             @ondragover:preventDefault="true"
-                             @ondrop="@(() => HandlePlaylistDropAsync())">
-                            <div class="listen-playlist-dropzone__title">Drop songs here to create your first playlist</div>
-                            <div class="listen-playlist-dropzone__meta">Or open Playlists to start one manually.</div>
-                        </div>
-                    }
-                    else
-                    {
-                        @foreach (var playlist in PlaylistCollections)
+                        <button type="button" class="listen-rail__item @(IsRouteActive(PlaylistsRoute) ? "is-active" : null)" @onclick="@(() => NavigateTo(PlaylistsRoute))">
+                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 18px;" />
+                            <span>All Playlists</span>
+                            <span class="listen-rail__meta">@PlaylistCollections.Count</span>
+                        </button>
+
+                        @if (PlaylistCollections.Count == 0)
                         {
-                            <button type="button"
-                                    class="listen-rail__item is-child @(IsRouteActive($"/listen/music/playlists/{playlist.Id}") ? "is-active" : null)"
-                                    @onclick="@(() => NavigateTo($"/listen/music/playlists/{playlist.Id}"))"
-                                    @ondragover:preventDefault="true"
-                                    @ondrop="@(() => HandlePlaylistDropAsync(playlist.Id))">
-                                <MudIcon Icon="@PlaylistIconFor(playlist)" Style="font-size: 18px;" />
-                                <span>@playlist.Name</span>
-                                <span class="listen-rail__meta">@playlist.ItemCount</span>
-                            </button>
+                            <div class="listen-playlist-dropzone"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="@(() => HandlePlaylistDropAsync())">
+                                <div class="listen-playlist-dropzone__title">Drop songs here to create your first playlist</div>
+                                <div class="listen-playlist-dropzone__meta">Or open Playlists to start one manually.</div>
+                            </div>
+                        }
+                        else
+                        {
+                            var index = 0;
+                            @foreach (var playlist in PlaylistCollections)
+                            {
+                                var playlistIndex = index++;
+                                <div class="listen-rail__playlist-row">
+                                    <button type="button"
+                                            class="listen-rail__item is-child @(IsRouteActive($"/listen/music/playlists/{playlist.Id}") ? "is-active" : null)"
+                                            @onclick="@(() => NavigateTo($"/listen/music/playlists/{playlist.Id}"))"
+                                            @ondragover:preventDefault="true"
+                                            @ondrop="@(() => HandlePlaylistDropAsync(playlist.Id))">
+                                        @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
+                                        {
+                                            <span class="listen-rail__thumb"><img src="@playlist.SquareArtworkUrl" alt="" /></span>
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@PlaylistIconFor(playlist)" Style="font-size: 18px;" />
+                                        }
+                                        <span>@playlist.Name</span>
+                                        <span class="listen-rail__meta">@playlist.ItemCount</span>
+                                    </button>
+                                    <div class="listen-rail__playlist-order" aria-label="@($"Reorder {playlist.Name}")">
+                                        <button type="button" aria-label="Move playlist up" disabled="@(playlistIndex == 0)" @onclick="@(() => MovePlaylistAsync(playlist.Id, -1))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowUp" Style="font-size: 16px;" />
+                                        </button>
+                                        <button type="button" aria-label="Move playlist down" disabled="@(playlistIndex >= PlaylistCollections.Count - 1)" @onclick="@(() => MovePlaylistAsync(playlist.Id, 1))">
+                                            <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Style="font-size: 16px;" />
+                                        </button>
+                                    </div>
+                                </div>
+                            }
                         }
                     }
                 </section>
@@ -137,8 +156,7 @@ else
             <header class="listen-topbar">
                 <div class="listen-topbar__identity">
                     <div>
-                        <div class="listen-kicker">Library</div>
-                        <h1>Listen</h1>
+                        <h1>@(IsAudiobooksView ? "Audiobooks" : "Music")</h1>
                     </div>
                 </div>
 
@@ -194,7 +212,14 @@ else
                                                 class="listen-card listen-card--playlist"
                                                 @onclick="@(() => NavigateTo(playlist.Route))">
                                             <div class="listen-card__art listen-card__art--playlist">
-                                                <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                                @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
+                                                {
+                                                    <img src="@playlist.SquareArtworkUrl" alt="" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                                }
                                             </div>
                                             <div class="listen-card__meta listen-card__meta--label">@playlist.Type</div>
                                             <div class="listen-card__title">@playlist.Title</div>
@@ -670,7 +695,7 @@ else
                         <div class="listen-empty">
                             <div>
                                 <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 56px; opacity: 0.22;" />
-                                <p>No saved playlists yet. Favorites and recently added stay available from Pins.</p>
+                                <p>No saved playlists yet. Favorites and recently added stay available from Quick access.</p>
                             </div>
                         </div>
                     }
@@ -685,7 +710,14 @@ else
                                         class="listen-card listen-card--playlist"
                                         @onclick="@(() => NavigateTo(card.Route))">
                                     <div class="listen-card__art listen-card__art--playlist">
-                                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                        @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
+                                        {
+                                            <img src="@playlist.SquareArtworkUrl" alt="" />
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 42px;" />
+                                        }
                                     </div>
                                     <div class="listen-card__meta listen-card__meta--label">@card.Type</div>
                                     <div class="listen-card__title">@card.Title</div>
@@ -701,7 +733,11 @@ else
             {
                 <section class="listen-detail listen-detail--collection">
                     <div class="listen-detail__collage">
-                        @if (PlaylistCoverUrls.Count == 0)
+                        @if (!string.IsNullOrWhiteSpace(ActivePlaylistCollection?.SquareArtworkUrl))
+                        {
+                            <img class="listen-detail__custom-art" src="@ActivePlaylistCollection.SquareArtworkUrl" alt="" />
+                        }
+                        else if (PlaylistCoverUrls.Count == 0)
                         {
                             <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 64px;" />
                         }
@@ -731,11 +767,77 @@ else
                         }
                         <div class="listen-actions">
                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => NavigateTo(PlaylistsRoute))">All playlists</button>
+                            @if (ActivePlaylistCollection is not null)
+                            {
+                                <button type="button" class="listen-button listen-button--secondary" @onclick="OpenPlaylistEditor">Edit</button>
+                            }
                             <button type="button" class="listen-button listen-button--primary" @onclick="@(() => PlayTracksAsync(ActivePlaylistTracks, null, ActivePlaylistTitle))" disabled="@(ActivePlaylistTracks.Count == 0)">Play</button>
                             <button type="button" class="listen-button listen-button--secondary" @onclick="@(() => PlayTracksAsync(ActivePlaylistTracks, null, ActivePlaylistTitle, true))" disabled="@(ActivePlaylistTracks.Count == 0)">Shuffle</button>
                         </div>
                     </div>
                 </section>
+
+                @if (_playlistEditOpen && ActivePlaylistCollection is not null)
+                {
+                    <section class="listen-playlist-editor">
+                        <div class="listen-section__header">
+                            <div>
+                                <div class="listen-kicker">Playlist</div>
+                                <h2>Edit playlist</h2>
+                                <p class="listen-section__summary">Custom artwork is stored on the collection and reused anywhere this playlist appears.</p>
+                            </div>
+                        </div>
+                        <div class="listen-playlist-editor__body">
+                            <div class="listen-playlist-editor__art">
+                                @if (!string.IsNullOrWhiteSpace(_playlistArtworkPreviewUrl))
+                                {
+                                    <img src="@_playlistArtworkPreviewUrl" alt="Selected playlist artwork" />
+                                }
+                                else if (!string.IsNullOrWhiteSpace(ActivePlaylistCollection.SquareArtworkUrl))
+                                {
+                                    <img src="@ActivePlaylistCollection.SquareArtworkUrl" alt="Current playlist artwork" />
+                                }
+                                else if (PlaylistCoverUrls.Count > 0)
+                                {
+                                    <div class="listen-detail__collage listen-detail__collage--preview">
+                                        @foreach (var cover in PlaylistCoverUrls)
+                                        {
+                                            <div class="listen-detail__collage-tile">
+                                                <img src="@cover" alt="" />
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Style="font-size: 48px;" />
+                                }
+                            </div>
+                            <div class="listen-playlist-editor__fields">
+                                <label>
+                                    <span>Name</span>
+                                    <input class="listen-filter-input" @bind="_playlistEditName" />
+                                </label>
+                                <label>
+                                    <span>Description</span>
+                                    <textarea class="listen-filter-input listen-filter-input--textarea" @bind="_playlistEditDescription"></textarea>
+                                </label>
+                                <label class="listen-upload-button">
+                                    <InputFile OnChange="OnPlaylistArtworkSelected" accept=".jpg,.jpeg,.png" />
+                                    <span>Choose square artwork</span>
+                                </label>
+                                <div class="listen-actions">
+                                    <button type="button" class="listen-button listen-button--primary" @onclick="SavePlaylistEditorAsync" disabled="@_playlistSaving">Save</button>
+                                    <button type="button" class="listen-button listen-button--secondary" @onclick="ClosePlaylistEditor" disabled="@_playlistSaving">Cancel</button>
+                                    @if (!string.IsNullOrWhiteSpace(ActivePlaylistCollection.SquareArtworkUrl))
+                                    {
+                                        <button type="button" class="listen-button listen-button--secondary" @onclick="ClearPlaylistArtworkAsync" disabled="@_playlistSaving">Use default artwork</button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+                }
 
                 <section class="listen-section">
                     @if (ActivePlaylistTracks.Count == 0)
@@ -795,53 +897,8 @@ else
             }
             else if (IsAudiobooksView)
             {
-                <section class="listen-section">
-                    <div class="listen-section__header">
-                        <div>
-                            <div class="listen-kicker">Audiobooks</div>
-                            <h2>Library</h2>
-                            <p class="listen-section__summary">@Pluralize(_audiobookWorks.Count, "title") ready to play or open.</p>
-                        </div>
-                    </div>
-
-                    @if (_audiobookWorks.Count == 0)
-                    {
-                        <div class="listen-empty">
-                            <div>
-                                <MudIcon Icon="@Icons.Material.Outlined.Headphones" Style="font-size: 56px; opacity: 0.22;" />
-                                <p>No audiobooks are ready yet.</p>
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="listen-card-grid listen-card-grid--books">
-                            @foreach (var book in _audiobookWorks.OrderByDescending(work => work.CreatedAt))
-                            {
-                                <article class="listen-card listen-card--book">
-                                    <button type="button" class="listen-card__surface" @onclick="@(() => Nav.NavigateTo($"/book/{book.Id}?mode=listen"))">
-                                        <div class="listen-card__art listen-card__art--book">
-                                            @if (!string.IsNullOrWhiteSpace(book.CoverUrl))
-                                            {
-                                                <img src="@book.CoverUrl" alt="@book.Title" />
-                                            }
-                                            else
-                                            {
-                                                <MudIcon Icon="@Icons.Material.Outlined.Headphones" Style="font-size: 42px;" />
-                                            }
-                                        </div>
-                                        <div class="listen-card__title">@book.Title</div>
-                                        <div class="listen-card__meta">@FirstNonBlank(book.Author, book.Narrator, book.Series)</div>
-                                    </button>
-                                    <div class="listen-card__actions">
-                                        <button type="button" class="listen-inline-link" @onclick="@(() => PlaySingleWorkAsync(book, "Audiobooks"))">Listen</button>
-                                        <button type="button" class="listen-inline-link" @onclick="@(() => Nav.NavigateTo($"/book/{book.Id}?mode=read"))">Open page</button>
-                                    </div>
-                                </article>
-                            }
-                        </div>
-                    }
-                </section>
+                <MediaBrowseShell Tab="audiobooks"
+                                  Preset="@AudiobookBrowsePreset" />
             }
         </main>
 

@@ -157,6 +157,9 @@ public interface ICollectionRepository
     /// <summary>Toggles the is_featured flag on a collection.</summary>
     Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default);
 
+    /// <summary>Sets or clears custom square artwork metadata for a collection.</summary>
+    Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default);
+
     /// <summary>Adds a work to a collection's curated items.</summary>
     Task AddCollectionItemAsync(CollectionItem item, CancellationToken ct = default);
 

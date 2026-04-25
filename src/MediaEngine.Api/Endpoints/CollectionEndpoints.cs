@@ -6,6 +6,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
@@ -2086,6 +2087,120 @@ public static class CollectionEndpoints
         .WithSummary("Removes a work from a saved/manual collection.")
         .RequireAnyRole();
 
+        // GET /collections/{id}/square-artwork — serve collection-owned square artwork.
+        group.MapGet("/{id:guid}/square-artwork", async (
+            Guid id,
+            ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
+                return Results.Forbid();
+            if (string.IsNullOrWhiteSpace(collection.SquareArtworkPath) || !File.Exists(collection.SquareArtworkPath))
+                return Results.NotFound();
+
+            var bytes = await File.ReadAllBytesAsync(collection.SquareArtworkPath, ct);
+            return Results.File(
+                bytes,
+                string.IsNullOrWhiteSpace(collection.SquareArtworkMimeType)
+                    ? GetCollectionArtworkMimeType(collection.SquareArtworkPath)
+                    : collection.SquareArtworkMimeType,
+                Path.GetFileName(collection.SquareArtworkPath));
+        })
+        .WithName("GetCollectionSquareArtwork")
+        .WithSummary("Serves custom square artwork for a collection.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        // POST /collections/{id}/square-artwork — upload collection-owned square artwork.
+        group.MapPost("/{id:guid}/square-artwork", async (
+            Guid id,
+            HttpRequest request,
+            ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            TuvimaDataPaths dataPaths,
+            Guid? profileId,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
+            if (!request.HasFormContentType)
+                return Results.BadRequest("Expected multipart form data.");
+
+            var form = await request.ReadFormAsync(ct);
+            var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
+            if (file is null || file.Length == 0)
+                return Results.BadRequest("No file uploaded.");
+            if (file.Length > 5 * 1024 * 1024)
+                return Results.BadRequest("Artwork must be 5 MB or smaller.");
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            var mimeType = NormalizeCollectionArtworkMimeType(file.ContentType, extension);
+            if (mimeType is null)
+                return Results.BadRequest("Artwork must be a JPEG or PNG image.");
+
+            dataPaths.EnsureRootExists();
+            var directory = Path.Combine(dataPaths.Root, "collections", id.ToString("D"));
+            Directory.CreateDirectory(directory);
+            var targetPath = Path.Combine(directory, $"square{extension}");
+
+            if (!string.IsNullOrWhiteSpace(collection.SquareArtworkPath)
+                && !string.Equals(collection.SquareArtworkPath, targetPath, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(collection.SquareArtworkPath))
+            {
+                File.Delete(collection.SquareArtworkPath);
+            }
+
+            await using (var stream = File.Create(targetPath))
+            await using (var upload = file.OpenReadStream())
+            {
+                await upload.CopyToAsync(stream, ct);
+            }
+
+            await collectionRepo.UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType, ct);
+            return Results.Ok(new { square_artwork_url = $"/collections/{id}/square-artwork" });
+        })
+        .WithName("UploadCollectionSquareArtwork")
+        .WithSummary("Uploads custom square artwork for a managed collection.")
+        .DisableAntiforgery()
+        .RequireAnyRole();
+
+        // DELETE /collections/{id}/square-artwork — clear collection-owned square artwork.
+        group.MapDelete("/{id:guid}/square-artwork", async (
+            Guid id,
+            ICollectionRepository collectionRepo,
+            IProfileRepository profileRepo,
+            Guid? profileId,
+            CancellationToken ct) =>
+        {
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var collection = await collectionRepo.GetByIdAsync(id, ct);
+            if (collection is null) return Results.NotFound();
+            if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
+                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+                return Results.Forbid();
+
+            if (!string.IsNullOrWhiteSpace(collection.SquareArtworkPath) && File.Exists(collection.SquareArtworkPath))
+                File.Delete(collection.SquareArtworkPath);
+
+            await collectionRepo.UpdateCollectionSquareArtworkAsync(id, null, null, ct);
+            return Results.Ok();
+        })
+        .WithName("DeleteCollectionSquareArtwork")
+        .WithSummary("Clears custom square artwork for a managed collection.")
+        .RequireAnyRole();
+
         // PUT /collections/{id}/enabled — toggle collection visibility.
         group.MapPut("/{id:guid}/enabled", async (
             Guid id,
@@ -2587,6 +2702,26 @@ public static class CollectionEndpoints
 
         return await collectionRepo.GetCollectionItemCountAsync(collection.Id, ct);
     }
+
+    private static string? NormalizeCollectionArtworkMimeType(string? contentType, string extension)
+    {
+        if (string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase) || extension == ".png")
+            return "image/png";
+
+        if (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(contentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
+            || extension is ".jpg" or ".jpeg")
+        {
+            return "image/jpeg";
+        }
+
+        return null;
+    }
+
+    private static string GetCollectionArtworkMimeType(string path) =>
+        string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)
+            ? "image/png"
+            : "image/jpeg";
 
     private static bool WorkMatchesQuery(WorkDto w, string query) =>
         w.CanonicalValues.Any(cv =>

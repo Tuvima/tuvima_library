@@ -163,6 +163,9 @@ public sealed class ManagedCollectionViewModel
     [JsonPropertyName("icon_name")]
     public string? IconName { get; set; }
 
+    [JsonPropertyName("square_artwork_url")]
+    public string? SquareArtworkUrl { get; set; }
+
     [JsonPropertyName("collection_type")]
     public string CollectionType { get; set; } = "Smart";
 

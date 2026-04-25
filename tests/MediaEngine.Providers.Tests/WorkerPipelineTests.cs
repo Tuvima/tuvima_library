@@ -2293,6 +2293,7 @@ public sealed class WorkerPipelineTests
         public Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default) => Task.FromResult(new Dictionary<string, int>());
         public Task<IReadOnlyList<CollectionItem>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionItem>>([]);
         public Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult(0);
+        public Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default) => Task.CompletedTask;
         public Task AddCollectionItemAsync(CollectionItem item, CancellationToken ct = default) => Task.CompletedTask;

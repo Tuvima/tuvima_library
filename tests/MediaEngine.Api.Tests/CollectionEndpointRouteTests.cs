@@ -20,6 +20,11 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("Network          = row.Network", source, StringComparison.Ordinal);
         Assert.Contains("SeasonCount      = row.SeasonCount", source, StringComparison.Ordinal);
         Assert.Contains("LogoUrl          = row.LogoUrl", source, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapDelete(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateCollectionSquareArtworkAsync(id, null, null", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

@@ -3570,6 +3570,11 @@ public sealed class EngineApiClient : IEngineApiClient
         return value;
     }
 
+    private static string GetImageContentType(string fileName) =>
+        string.Equals(Path.GetExtension(fileName), ".png", StringComparison.OrdinalIgnoreCase)
+            ? "image/png"
+            : "image/jpeg";
+
     private string? ResolvePersonHeadshotUrl(PersonRaw person) =>
         person.HasLocalHeadshot || !string.IsNullOrWhiteSpace(person.HeadshotUrl)
             ? AbsoluteUrl($"/persons/{person.Id}/headshot")
@@ -4239,7 +4244,14 @@ public sealed class EngineApiClient : IEngineApiClient
         try
         {
             var url = AppendCollectionProfileQuery("/collections/managed", profileId);
-            return await _http.GetFromJsonAsync<List<ManagedCollectionViewModel>>(url, ct) ?? [];
+            var collections = await _http.GetFromJsonAsync<List<ManagedCollectionViewModel>>(url, ct) ?? [];
+            foreach (var collection in collections)
+            {
+                if (collection.SquareArtworkUrl is not null)
+                    collection.SquareArtworkUrl = AbsoluteUrl(collection.SquareArtworkUrl);
+            }
+
+            return collections;
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -4519,6 +4531,48 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "PUT /collections/{CollectionId} failed", collectionId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> UploadCollectionSquareArtworkAsync(
+        Guid collectionId,
+        Stream fileStream,
+        string fileName,
+        Guid? profileId = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(fileStream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetImageContentType(fileName));
+            content.Add(fileContent, "file", fileName);
+
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/square-artwork", profileId);
+            var response = await _http.PostAsync(url, content, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /collections/{CollectionId}/square-artwork failed", collectionId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> DeleteCollectionSquareArtworkAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        try
+        {
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/square-artwork", profileId);
+            var response = await _http.DeleteAsync(url, ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /collections/{CollectionId}/square-artwork failed", collectionId);
             LastError = ex.Message;
             return false;
         }

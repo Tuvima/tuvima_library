@@ -2971,6 +2971,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
             "ALTER TABLE collections ADD COLUMN sort_direction TEXT NOT NULL DEFAULT 'desc';");
         MigrateAddColumnIfMissing(conn, "collections", "live_updating",
             "ALTER TABLE collections ADD COLUMN live_updating INTEGER NOT NULL DEFAULT 1;");
+        MigrateAddColumnIfMissing(conn, "collections", "square_artwork_path",
+            "ALTER TABLE collections ADD COLUMN square_artwork_path TEXT;");
+        MigrateAddColumnIfMissing(conn, "collections", "square_artwork_mime_type",
+            "ALTER TABLE collections ADD COLUMN square_artwork_mime_type TEXT;");
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """

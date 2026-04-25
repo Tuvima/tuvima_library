@@ -21,6 +21,9 @@ public sealed class ManagedCollectionDto
     [JsonPropertyName("icon_name")]
     public string? IconName { get; init; }
 
+    [JsonPropertyName("square_artwork_url")]
+    public string? SquareArtworkUrl { get; init; }
+
     [JsonPropertyName("collection_type")]
     public string CollectionType { get; init; } = "Smart";
 
@@ -93,6 +96,11 @@ public sealed class ManagedCollectionDto
         Name            = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
         Description     = collection.Description,
         IconName        = collection.IconName,
+        SquareArtworkUrl = string.IsNullOrWhiteSpace(collection.SquareArtworkPath)
+            ? null
+            : activeProfile is null
+                ? $"/collections/{collection.Id}/square-artwork"
+                : $"/collections/{collection.Id}/square-artwork?profileId={activeProfile.Id:D}",
         CollectionType         = collection.CollectionType,
         Scope           = collection.Scope,
         ProfileId       = collection.ProfileId,

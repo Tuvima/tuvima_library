@@ -31,6 +31,8 @@ public sealed class CollectionRepository : ICollectionRepository
         collection_type          AS CollectionType,
         description       AS Description,
         icon_name         AS IconName,
+        square_artwork_path      AS SquareArtworkPath,
+        square_artwork_mime_type AS SquareArtworkMimeType,
         scope             AS Scope,
         profile_id        AS ProfileId,
         is_enabled        AS IsEnabled,
@@ -443,15 +445,20 @@ public sealed class CollectionRepository : ICollectionRepository
         using var conn = _db.CreateConnection();
         conn.Execute("""
             INSERT OR IGNORE INTO collections(id, universe_id, parent_collection_id, display_name, created_at,
-                universe_status, wikidata_qid, collection_type, description, icon_name, scope, profile_id,
+                universe_status, wikidata_qid, collection_type, description, icon_name,
+                square_artwork_path, square_artwork_mime_type, scope, profile_id,
                 is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
                 group_by_field, match_mode, sort_field, sort_direction, live_updating)
-                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon, @scope, @pid,
+                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
+                    @squareArtworkPath, @squareArtworkMimeType, @scope, @pid,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
                     @groupByField, @matchMode, @sortField, @sortDirection, @liveUpdating);
             UPDATE collections SET display_name = @dn, universe_status = @us, parent_collection_id = @phid,
                             wikidata_qid = @wqid, collection_type = @ht, description = @desc,
-                            icon_name = @icon, scope = @scope, profile_id = @pid,
+                            icon_name = @icon,
+                            square_artwork_path = @squareArtworkPath,
+                            square_artwork_mime_type = @squareArtworkMimeType,
+                            scope = @scope, profile_id = @pid,
                             is_enabled = @enabled, is_featured = @featured, min_items = @minItems,
                             rule_json = @ruleJson, resolution = @resolution, rule_hash = @ruleHash,
                             group_by_field = @groupByField, match_mode = @matchMode,
@@ -471,6 +478,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 ht   = collection.CollectionType ?? "Universe",
                 desc = collection.Description,
                 icon = collection.IconName,
+                squareArtworkPath = collection.SquareArtworkPath,
+                squareArtworkMimeType = collection.SquareArtworkMimeType,
                 scope = collection.Scope ?? "library",
                 pid  = collection.ProfileId.HasValue ? collection.ProfileId.Value.ToString() : null,
                 enabled = collection.IsEnabled ? 1 : 0,
@@ -894,6 +903,22 @@ public sealed class CollectionRepository : ICollectionRepository
         await conn.ExecuteAsync(
             "UPDATE collections SET is_featured = @Featured, modified_at = datetime('now') WHERE id = @Id",
             new { Id = collectionId.ToString(), Featured = featured ? 1 : 0 });
+    }
+
+    /// <inheritdoc/>
+    public async Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            """
+            UPDATE collections
+            SET square_artwork_path = @LocalPath,
+                square_artwork_mime_type = @MimeType,
+                modified_at = datetime('now')
+            WHERE id = @Id
+            """,
+            new { Id = collectionId.ToString(), LocalPath = localPath, MimeType = mimeType });
     }
 
     /// <inheritdoc/>

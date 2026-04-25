@@ -179,7 +179,31 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".listen-rail"));
             Assert.Empty(cut.FindAll(".listen-topbar__menu"));
             Assert.Empty(cut.FindAll(".listen-rail__close"));
-            Assert.Contains("Listen", cut.Markup);
+            Assert.DoesNotContain("Pins", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void ListenPage_RendersMusicQuickAccessAndPlaylistsInOrder()
+    {
+        var cut = RenderComponent<ListenPage>(parameters => parameters
+            .Add(page => page.Section, "songs"));
+
+        cut.WaitForAssertion(() =>
+        {
+            var markup = cut.Markup;
+            var music = markup.IndexOf(">Music<", StringComparison.Ordinal);
+            var quickAccess = markup.IndexOf(">Quick access<", StringComparison.Ordinal);
+            var playlists = markup.IndexOf(">Playlists<", StringComparison.Ordinal);
+
+            Assert.True(music >= 0, "Music section should render.");
+            Assert.True(quickAccess > music, "Quick access should render below Music.");
+            Assert.True(playlists > quickAccess, "Playlists should render below Quick access.");
+            Assert.Single(cut.FindAll(".listen-rail__section-toggle"));
+            Assert.Contains("Summer Movies", markup);
+            Assert.Contains("Move playlist up", markup);
+            Assert.DoesNotContain("Edit playlist", markup);
+            Assert.DoesNotContain("All Songs", markup);
         });
     }
 

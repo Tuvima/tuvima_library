@@ -1,6 +1,9 @@
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
@@ -57,6 +60,7 @@ public partial class ListenPage
     private CollectionGroupDetailViewModel? _artistDetail;
     private DiscoveryPageViewModel _musicHomePage = new() { Key = "listen-music" };
     private ListenTrackDataGrid? _trackGrid;
+    private ProfileViewModel? _activeProfile;
     private Guid? _activeProfileId;
     private HashSet<Guid> _favoriteWorkIds = [];
     private HashSet<Guid> _dislikedWorkIds = [];
@@ -93,6 +97,15 @@ public partial class ListenPage
     private string _trackContextMenuSourceLabel = "All Music";
     private double _trackContextMenuX;
     private double _trackContextMenuY;
+    private bool _playlistsExpanded = true;
+    private bool _playlistEditOpen;
+    private bool _playlistSaving;
+    private string _playlistEditName = string.Empty;
+    private string _playlistEditDescription = string.Empty;
+    private IBrowserFile? _playlistArtworkFile;
+    private string? _playlistArtworkPreviewUrl;
+    private string? _playlistNavigationConfig;
+    private List<Guid> _playlistOrder = [];
 
     private string CurrentPath => Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
     private string NormalizedSection => string.IsNullOrWhiteSpace(Section) ? string.Empty : Section.Trim().ToLowerInvariant();
@@ -141,7 +154,8 @@ public partial class ListenPage
     private IReadOnlyList<string> PlaylistCoverUrls => ActivePlaylistTracks.Select(track => track.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Distinct().Cast<string>().Take(4).ToList();
     private IReadOnlyList<ManagedCollectionViewModel> PlaylistCollections => _managedCollections
         .Where(IsUserVisiblePlaylist)
-        .OrderBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase)
+        .OrderBy(GetPlaylistOrderIndex)
+        .ThenBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase)
         .ToList();
     private bool HasPlaylistCollections => PlaylistCollections.Count > 0;
     private IReadOnlyList<ListenPlaylistCard> HomePlaylistCards => PlaylistCollections
@@ -217,11 +231,33 @@ public partial class ListenPage
             ? null
             : $"{ActivePlaylistCollection.ItemCount} items";
 
-    private IReadOnlyList<ListenNavItem> PinnedItems =>
+    private static readonly LibraryBrowsePreset AudiobookBrowsePreset = new()
+    {
+        RouteBase = "/listen/audiobooks",
+        Title = "Audiobooks",
+        HeroVariant = BrowseHeroVariant.Listen,
+        Tabs =
+        [
+            new BrowseTabPreset
+            {
+                Id = "audiobooks",
+                Label = "Audiobooks",
+                MediaType = "Audiobooks",
+                GroupingOptions =
+                [
+                    new("all", "All Audiobooks", Icons.Material.Outlined.Headphones),
+                    new("series", "Series", Icons.Material.Outlined.CollectionsBookmark),
+                ],
+                DefaultGrouping = "all",
+                DefaultLayout = LibraryLayoutMode.Card,
+            },
+        ],
+    };
+
+    private IReadOnlyList<ListenNavItem> QuickAccessItems =>
     [
         new("Recently Added", "/listen/music/playlists/system/recently-added", Icons.Material.Outlined.Schedule, RecentlyAddedTracks.Count.ToString(CultureInfo.InvariantCulture)),
         new("Favorite Songs", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder, _favoriteWorkIds.Count.ToString(CultureInfo.InvariantCulture)),
-        new("All Songs", SongsRoute, Icons.Material.Outlined.LibraryMusic, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
     ];
 
     private IReadOnlyList<ListenNavItem> MusicLibraryItems
@@ -234,7 +270,6 @@ public partial class ListenPage
                 new("Albums", AlbumsRoute, Icons.Material.Outlined.Album, _albumGroups.Count.ToString(CultureInfo.InvariantCulture)),
                 new("Artists", ArtistsRoute, Icons.Material.Outlined.PersonOutline, _artistGroups.Count.ToString(CultureInfo.InvariantCulture)),
                 new("Songs", SongsRoute, Icons.Material.Outlined.MusicNote, _musicWorks.Count.ToString(CultureInfo.InvariantCulture)),
-                new("Playlists", PlaylistsRoute, Icons.Material.Outlined.QueueMusic, PlaylistCollections.Count.ToString(CultureInfo.InvariantCulture)),
             };
 
             return items;
@@ -313,7 +348,10 @@ public partial class ListenPage
         try
         {
             var profile = await Orchestrator.GetActiveProfileAsync();
+            _activeProfile = profile;
             _activeProfileId = profile?.Id;
+            _playlistNavigationConfig = profile?.NavigationConfig;
+            _playlistOrder = ReadPlaylistOrder(profile?.NavigationConfig);
 
             var worksTask = Orchestrator.GetLibraryWorksAsync();
             var journeyTask = Orchestrator.GetJourneyAsync(_activeProfileId, 48);
@@ -438,6 +476,195 @@ public partial class ListenPage
         }
         catch
         {
+        }
+    }
+
+    private int GetPlaylistOrderIndex(ManagedCollectionViewModel playlist)
+    {
+        var index = _playlistOrder.IndexOf(playlist.Id);
+        return index < 0 ? int.MaxValue : index;
+    }
+
+    private async Task MovePlaylistAsync(Guid playlistId, int direction)
+    {
+        var orderedIds = PlaylistCollections.Select(playlist => playlist.Id).ToList();
+        var index = orderedIds.IndexOf(playlistId);
+        if (index < 0)
+            return;
+
+        var targetIndex = Math.Clamp(index + direction, 0, orderedIds.Count - 1);
+        if (targetIndex == index)
+            return;
+
+        orderedIds.RemoveAt(index);
+        orderedIds.Insert(targetIndex, playlistId);
+        _playlistOrder = orderedIds;
+        await SavePlaylistOrderAsync();
+    }
+
+    private async Task SavePlaylistOrderAsync()
+    {
+        if (_activeProfile is null)
+            return;
+
+        var root = ParseNavigationConfig(_playlistNavigationConfig);
+        root["listenPlaylistOrder"] = new JsonArray(_playlistOrder.Select(id => JsonValue.Create(id.ToString("D"))).ToArray<JsonNode?>());
+        var updatedConfig = root.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+        var saved = await Orchestrator.UpdateProfileAsync(
+            _activeProfile.Id,
+            _activeProfile.DisplayName,
+            _activeProfile.AvatarColor,
+            _activeProfile.Role,
+            updatedConfig);
+
+        if (saved)
+        {
+            _playlistNavigationConfig = updatedConfig;
+            Snackbar.Add("Playlist order saved.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Playlist order could not be saved.", Severity.Warning);
+        }
+    }
+
+    private static List<Guid> ReadPlaylistOrder(string? navigationConfig)
+    {
+        try
+        {
+            var root = JsonNode.Parse(navigationConfig ?? "{}") as JsonObject;
+            var order = root?["listenPlaylistOrder"] as JsonArray;
+            return order?
+                .Select(node => Guid.TryParse(node?.GetValue<string>(), out var id) ? id : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .Distinct()
+                .ToList() ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private static JsonObject ParseNavigationConfig(string? navigationConfig)
+    {
+        try
+        {
+            return JsonNode.Parse(navigationConfig ?? "{}") as JsonObject ?? [];
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private void OpenPlaylistEditor()
+    {
+        if (ActivePlaylistCollection is null)
+            return;
+
+        _playlistEditName = ActivePlaylistCollection.Name;
+        _playlistEditDescription = ActivePlaylistCollection.Description ?? string.Empty;
+        _playlistArtworkFile = null;
+        _playlistArtworkPreviewUrl = null;
+        _playlistEditOpen = true;
+    }
+
+    private void ClosePlaylistEditor()
+    {
+        _playlistEditOpen = false;
+        _playlistArtworkFile = null;
+        _playlistArtworkPreviewUrl = null;
+    }
+
+    private async Task OnPlaylistArtworkSelected(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+        _playlistArtworkFile = file;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            _playlistArtworkPreviewUrl = $"data:{(file.ContentType ?? "image/jpeg")};base64,{Convert.ToBase64String(ms.ToArray())}";
+        }
+        catch
+        {
+            _playlistArtworkPreviewUrl = null;
+            Snackbar.Add("Artwork preview could not be loaded.", Severity.Warning);
+        }
+    }
+
+    private async Task SavePlaylistEditorAsync()
+    {
+        if (ActivePlaylistCollection is null)
+            return;
+
+        _playlistSaving = true;
+        try
+        {
+            var updated = await ApiClient.UpdateCollectionAsync(
+                ActivePlaylistCollection.Id,
+                string.IsNullOrWhiteSpace(_playlistEditName) ? ActivePlaylistCollection.Name : _playlistEditName.Trim(),
+                _playlistEditDescription.Trim(),
+                ActivePlaylistCollection.IconName,
+                rules: null,
+                matchMode: null,
+                visibility: ActivePlaylistCollection.Visibility,
+                sortField: null,
+                sortDirection: null,
+                liveUpdating: null,
+                isEnabled: null,
+                isFeatured: null,
+                profileId: _activeProfileId);
+
+            if (!updated)
+            {
+                Snackbar.Add("Playlist details could not be saved.", Severity.Warning);
+                return;
+            }
+
+            if (_playlistArtworkFile is not null)
+            {
+                await using var stream = _playlistArtworkFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                var uploaded = await ApiClient.UploadCollectionSquareArtworkAsync(
+                    ActivePlaylistCollection.Id,
+                    stream,
+                    _playlistArtworkFile.Name,
+                    _activeProfileId);
+
+                if (!uploaded)
+                {
+                    Snackbar.Add("Playlist artwork could not be uploaded.", Severity.Warning);
+                    return;
+                }
+            }
+
+            Snackbar.Add("Playlist updated.", Severity.Success);
+            ClosePlaylistEditor();
+            await LoadAsync();
+        }
+        finally
+        {
+            _playlistSaving = false;
+        }
+    }
+
+    private async Task ClearPlaylistArtworkAsync()
+    {
+        if (ActivePlaylistCollection is null)
+            return;
+
+        var cleared = await ApiClient.DeleteCollectionSquareArtworkAsync(ActivePlaylistCollection.Id, _activeProfileId);
+        if (cleared)
+        {
+            Snackbar.Add("Playlist artwork cleared.", Severity.Success);
+            ClosePlaylistEditor();
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add("Playlist artwork could not be cleared.", Severity.Warning);
         }
     }
 
@@ -1477,10 +1704,7 @@ public partial class ListenPage
             return false;
         }
 
-        return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(collection.CollectionType, "Mix", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(collection.CollectionType, "System", StringComparison.OrdinalIgnoreCase);
+        return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string Pluralize(int count, string singular)
@@ -1492,8 +1716,9 @@ public partial class ListenPage
             $"{playlist.TypeLabel} Playlist",
             $"{playlist.ItemCount} items",
             $"/listen/music/playlists/{playlist.Id}",
-            playlist.Description ?? "Playlist detail with queue-first listening controls.");
+            playlist.Description ?? "Playlist detail with queue-first listening controls.",
+            playlist.SquareArtworkUrl);
 
     private sealed record ListenNavItem(string Label, string Route, string Icon, string? Meta = null, bool IsChild = false);
-    private sealed record ListenPlaylistCard(string Title, string Type, string Meta, string Route, string Description);
+    private sealed record ListenPlaylistCard(string Title, string Type, string Meta, string Route, string Description, string? SquareArtworkUrl);
 }

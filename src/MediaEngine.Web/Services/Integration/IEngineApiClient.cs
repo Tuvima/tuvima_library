@@ -838,6 +838,12 @@ public interface IEngineApiClient
     /// <summary>PUT /collections/{id} — update a collection.</summary>
     Task<bool> UpdateCollectionAsync(Guid collectionId, string? name, string? description, string? iconName, List<CollectionRulePredicateViewModel>? rules, string? matchMode, string? visibility, string? sortField, string? sortDirection, bool? liveUpdating, bool? isEnabled, bool? isFeatured, Guid? profileId = null, CancellationToken ct = default);
 
+    /// <summary>POST /collections/{id}/square-artwork — upload custom square artwork for a collection.</summary>
+    Task<bool> UploadCollectionSquareArtworkAsync(Guid collectionId, Stream fileStream, string fileName, Guid? profileId = null, CancellationToken ct = default);
+
+    /// <summary>DELETE /collections/{id}/square-artwork — clear custom square artwork for a collection.</summary>
+    Task<bool> DeleteCollectionSquareArtworkAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
+
     /// <summary>DELETE /collections/{id} — soft delete.</summary>
     Task<bool> DeleteCollectionAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
 
