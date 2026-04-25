@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>MediaEngine.Contracts</RootNamespace>
+    <AssemblyName>MediaEngine.Contracts</AssemblyName>
+  </PropertyGroup>
+
+</Project>

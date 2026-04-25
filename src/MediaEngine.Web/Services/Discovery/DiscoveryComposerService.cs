@@ -1,3 +1,4 @@
+using MediaEngine.Contracts.Display;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
@@ -53,7 +54,7 @@ public sealed class DiscoveryComposerService
         return ComposeHome(works, journey, groups, previewImages, musicAlbumGroups, musicArtistGroups, tvShowGroups, tasteProfile);
     }
 
-    public static DiscoveryPageViewModel FromDisplayPage(DisplayPageViewModel page)
+    public static DiscoveryPageViewModel FromDisplayPage(DisplayPageDto page)
     {
         var shelves = page.Shelves
             .Select(shelf => new DiscoveryShelfViewModel
@@ -93,7 +94,7 @@ public sealed class DiscoveryComposerService
         };
     }
 
-    public static DiscoveryCardViewModel FromDisplayCard(DisplayCardViewModel card)
+    public static DiscoveryCardViewModel FromDisplayCard(DisplayCardDto card)
     {
         var shape = card.PreferredShape switch
         {

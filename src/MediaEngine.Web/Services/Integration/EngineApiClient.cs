@@ -1,8 +1,9 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -399,11 +400,11 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── GET /api/v1/display/home ─────────────────────────────────────────────
 
-    public async Task<DisplayPageViewModel?> GetDisplayHomeAsync(CancellationToken ct = default)
+    public async Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default)
     {
         try
         {
-            var page = await _http.GetFromJsonAsync<DisplayPageViewModel>("/api/v1/display/home", ct);
+            var page = await _http.GetFromJsonAsync<DisplayPageDto>("/api/v1/display/home", ct);
             return NormalizeDisplayPage(page);
         }
         catch (OperationCanceledException) { return null; }
@@ -414,7 +415,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<DisplayPageViewModel?> GetDisplayBrowseAsync(
+    public async Task<DisplayPageDto?> GetDisplayBrowseAsync(
         string? lane = null,
         string? mediaType = null,
         string? grouping = null,
@@ -433,7 +434,7 @@ public sealed class EngineApiClient : IEngineApiClient
             AddQuery(query, "offset", offset?.ToString(System.Globalization.CultureInfo.InvariantCulture));
             AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
             var url = "/api/v1/display/browse" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
-            var page = await _http.GetFromJsonAsync<DisplayPageViewModel>(url, ct);
+            var page = await _http.GetFromJsonAsync<DisplayPageDto>(url, ct);
             return NormalizeDisplayPage(page);
         }
         catch (OperationCanceledException) { return null; }
@@ -3292,7 +3293,7 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
-    private DisplayPageViewModel? NormalizeDisplayPage(DisplayPageViewModel? page)
+    private DisplayPageDto? NormalizeDisplayPage(DisplayPageDto? page)
     {
         if (page is null)
             return null;
@@ -3307,10 +3308,10 @@ public sealed class EngineApiClient : IEngineApiClient
         };
     }
 
-    private DisplayCardViewModel NormalizeDisplayCard(DisplayCardViewModel card) =>
+    private DisplayCardDto NormalizeDisplayCard(DisplayCardDto card) =>
         card with { Artwork = NormalizeDisplayArtwork(card.Artwork) };
 
-    private DisplayArtworkViewModel NormalizeDisplayArtwork(DisplayArtworkViewModel artwork) =>
+    private DisplayArtworkDto NormalizeDisplayArtwork(DisplayArtworkDto artwork) =>
         artwork with
         {
             CoverUrl = artwork.CoverUrl is null ? null : AbsoluteUrl(artwork.CoverUrl),

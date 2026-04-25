@@ -1,4 +1,4 @@
-namespace MediaEngine.Api.Models;
+namespace MediaEngine.Contracts.Display;
 
 public sealed record DisplayPageDto(
     string Key,

@@ -1,4 +1,5 @@
-﻿using MediaEngine.Storage.Models;
+using MediaEngine.Contracts.Display;
+using MediaEngine.Storage.Models;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 
@@ -23,10 +24,10 @@ public interface IEngineApiClient
     Task<List<WorkViewModel>> GetLibraryWorksAsync(CancellationToken ct = default);
 
     /// <summary>GET /api/v1/display/home — cross-platform consumer display model for Home.</summary>
-    Task<DisplayPageViewModel?> GetDisplayHomeAsync(CancellationToken ct = default);
+    Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default);
 
     /// <summary>GET /api/v1/display/browse — cross-platform consumer display model for Watch, Read, Listen, and browse surfaces.</summary>
-    Task<DisplayPageViewModel?> GetDisplayBrowseAsync(
+    Task<DisplayPageDto?> GetDisplayBrowseAsync(
         string? lane = null,
         string? mediaType = null,
         string? grouping = null,

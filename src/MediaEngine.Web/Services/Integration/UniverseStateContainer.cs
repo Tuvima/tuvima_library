@@ -2,8 +2,6 @@
 
 namespace MediaEngine.Web.Services.Integration;
 
-// Navigation lanes defined in ContentLanes.cs — fixed content-type lanes replace Virtual Libraries.
-
 /// <summary>
 /// Scoped state container (one per Blazor Server circuit) that caches the
 /// current Library view and surfaces real-time event data received from

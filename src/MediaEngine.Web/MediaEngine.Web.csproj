@@ -14,6 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Cross-platform display contracts shared with Engine and native clients. -->
+    <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
     <!-- Domain constants (MetadataFieldConstants) shared with Engine -->
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
     <!-- Storage models (PipelineConfiguration) used by pipeline settings endpoints -->

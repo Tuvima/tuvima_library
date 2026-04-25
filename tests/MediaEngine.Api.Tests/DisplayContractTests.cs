@@ -1,5 +1,5 @@
 using System.Text.Json;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Display;
 
 namespace MediaEngine.Api.Tests;
 

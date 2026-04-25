@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Browse
 @using System.Security.Cryptography
 @using System.Text
+@using MediaEngine.Contracts.Display
 @using MediaEngine.Web.Components.Discovery
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
@@ -525,7 +526,7 @@
         };
     }
 
-    private BrowseHeroViewModel? BuildDisplayHero(DisplayHeroViewModel? hero)
+    private BrowseHeroViewModel? BuildDisplayHero(DisplayHeroDto? hero)
     {
         if (hero is null)
         {

@@ -1,4 +1,4 @@
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
 
