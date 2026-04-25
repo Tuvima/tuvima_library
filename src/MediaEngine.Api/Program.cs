@@ -250,6 +250,8 @@ builder.Services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IProfileRepository, ProfileRepository>();
 builder.Services.AddSingleton<IProfileService, ProfileService>();
+builder.Services.AddSingleton<IProfileExternalLoginRepository, ProfileExternalLoginRepository>();
+builder.Services.AddSingleton<IProfileExternalLoginService, ProfileExternalLoginService>();
 
 // ── FFmpeg Service ────────────────────────────────────────────────────────────
 // Auto-detects ffmpeg/ffprobe from tools/ffmpeg/ → PATH → config override.

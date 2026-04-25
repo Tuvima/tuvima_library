@@ -17,6 +17,9 @@ public interface IEngineApiClient
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);
 
+    /// <summary>GET /settings/security/auth - sign-in and SSO configuration.</summary>
+    Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default);
+
     /// <summary>GET /collections — full collection list with works and canonical values.</summary>
     Task<List<CollectionViewModel>> GetCollectionsAsync(CancellationToken ct = default);
 
@@ -34,6 +37,21 @@ public interface IEngineApiClient
         string? search = null,
         int? offset = null,
         int? limit = null,
+        bool? includeCatalog = null,
+        Guid? profileId = null,
+        CancellationToken ct = default);
+
+    /// <summary>GET /api/v1/display/shelves/{shelfKey} - paged display shelf for native and TV clients.</summary>
+    Task<DisplayShelfPageDto?> GetDisplayShelfAsync(
+        string shelfKey,
+        string? lane = null,
+        string? mediaType = null,
+        string? grouping = null,
+        string? search = null,
+        string? cursor = null,
+        int? offset = null,
+        int? limit = null,
+        Guid? profileId = null,
         CancellationToken ct = default);
 
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>
@@ -94,6 +112,21 @@ public interface IEngineApiClient
 
     /// <summary>DELETE /profiles/{id} — delete a profile.</summary>
     Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /profiles/{id}/external-logins — list linked SSO/OAuth accounts.</summary>
+    Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(Guid profileId, CancellationToken ct = default);
+
+    /// <summary>POST /profiles/{id}/external-logins — link a sign-in account.</summary>
+    Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
+        Guid profileId,
+        string provider,
+        string subject,
+        string? email = null,
+        string? displayName = null,
+        CancellationToken ct = default);
+
+    /// <summary>DELETE /profiles/external-logins/{loginId} — unlink a sign-in account.</summary>
+    Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default);
 
     /// <summary>GET /profiles/{id}/taste — read the computed taste profile for a user.</summary>
     Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);

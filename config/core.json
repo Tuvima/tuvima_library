@@ -19,6 +19,18 @@
   "country": "US",
   "date_format": "system",
   "time_format": "system",
+  "auth": {
+    "mode": "DisabledLocalOnly",
+    "localhost_bypass": true,
+    "require_https_remote": false,
+    "oidc": {
+      "enabled": false,
+      "authority": "",
+      "client_id": "",
+      "display_name": "OpenID Connect",
+      "scopes": [ "openid", "profile", "email" ]
+    }
+  },
   "pipeline": {
     "lease_sizes": {
       "retail": 50,

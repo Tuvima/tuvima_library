@@ -180,6 +180,30 @@ public sealed class DatabaseConnection : IDatabaseConnection
                 );
                 """);
 
+        // Migration M-005b: profile-to-SSO account bindings.
+        // Local profiles stay as the app persona; external OIDC/OAuth accounts
+        // are linked here by provider + subject so providers can be swapped or
+        // added without changing user-owned library state.
+        MigrateCreateTableIfMissing(
+            conn,
+            probeTable:  "profile_external_logins",
+            probeColumn: "id",
+            ddl: """
+                CREATE TABLE IF NOT EXISTS profile_external_logins (
+                    id            TEXT NOT NULL PRIMARY KEY,
+                    profile_id    TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                    provider      TEXT NOT NULL,
+                    subject       TEXT NOT NULL,
+                    email         TEXT,
+                    display_name  TEXT,
+                    linked_at     TEXT NOT NULL,
+                    last_login_at TEXT,
+                    UNIQUE(provider, subject)
+                );
+                CREATE INDEX IF NOT EXISTS idx_profile_external_logins_profile
+                    ON profile_external_logins(profile_id);
+                """);
+
         // Migration M-006: Phase A Security — add role column to api_keys.
         // Databases created before Phase A will not have this column; the ALTER
         // TABLE adds it with DEFAULT 'Administrator' so all existing keys retain

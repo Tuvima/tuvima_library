@@ -27,7 +27,6 @@ public partial class ListenPage
     [Inject] private UIOrchestratorService Orchestrator { get; set; } = default!;
     [Inject] private ListenPlaybackService Playback { get; set; } = default!;
     [Inject] private MediaReactionService Reactions { get; set; } = default!;
-    [Inject] private DiscoveryComposerService Discovery { get; set; } = default!;
     [Inject] private MediaEditorLauncherService MediaEditorLauncher { get; set; } = default!;
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
@@ -320,11 +319,17 @@ public partial class ListenPage
             var journeyTask = Orchestrator.GetJourneyAsync(_activeProfileId, 48);
             var albumGroupsTask = ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "album");
             var artistGroupsTask = ApiClient.GetSystemViewGroupsAsync(mediaType: "Music", groupField: "artist");
+            var musicHomeTask = ApiClient.GetDisplayBrowseAsync(
+                lane: "listen",
+                mediaType: "Music",
+                grouping: "home",
+                includeCatalog: false,
+                profileId: _activeProfileId);
             var collectionsTask = _activeProfileId.HasValue
                 ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
 
-            await Task.WhenAll(worksTask, journeyTask, albumGroupsTask, artistGroupsTask, collectionsTask);
+            await Task.WhenAll(worksTask, journeyTask, albumGroupsTask, artistGroupsTask, musicHomeTask, collectionsTask);
 
             _allWorks.Clear();
             _allWorks.AddRange(worksTask.Result);
@@ -355,7 +360,8 @@ public partial class ListenPage
 
             _favoriteWorkIds = (await Reactions.GetFavoriteWorkIdsAsync(_activeProfileId)).ToHashSet();
             _dislikedWorkIds = (await Reactions.GetDislikedWorkIdsAsync(_activeProfileId)).ToHashSet();
-            _musicHomePage = Discovery.ComposeMusicHome(_musicWorks, _musicJourney, _albumGroups, _artistGroups, _favoriteWorkIds);
+            _musicHomePage = DiscoveryComposerService.FromDisplayPage(
+                musicHomeTask.Result ?? throw new InvalidOperationException("Display API did not return the music home page."));
 
             if (IsAlbumDetail)
             {

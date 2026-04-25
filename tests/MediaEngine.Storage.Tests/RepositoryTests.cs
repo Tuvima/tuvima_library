@@ -35,6 +35,40 @@ public sealed class RepositoryTests : IDisposable
     // ════════════════════════════════════════════════════════════════════════
 
     [Fact]
+    public async Task ProfileExternalLogin_InsertFindTouchAndDelete()
+    {
+        var repo = new ProfileExternalLoginRepository(_db);
+        var login = new ProfileExternalLogin
+        {
+            Id = Guid.NewGuid(),
+            ProfileId = Profile.SeedProfileId,
+            Provider = "oidc",
+            Subject = $"subject-{Guid.NewGuid():N}",
+            Email = "owner@example.com",
+            DisplayName = "Owner",
+            LinkedAt = DateTimeOffset.UtcNow,
+        };
+
+        await repo.InsertAsync(login);
+
+        var byProfile = await repo.GetByProfileAsync(Profile.SeedProfileId);
+        var bySubject = await repo.GetByProviderSubjectAsync(login.Provider, login.Subject);
+
+        Assert.Contains(byProfile, item => item.Id == login.Id);
+        Assert.NotNull(bySubject);
+        Assert.Equal(login.Email, bySubject.Email);
+
+        var lastLoginAt = DateTimeOffset.UtcNow.AddMinutes(1);
+        Assert.True(await repo.TouchLastLoginAsync(login.Id, lastLoginAt));
+
+        var touched = await repo.GetByProviderSubjectAsync(login.Provider, login.Subject);
+        Assert.NotNull(touched?.LastLoginAt);
+
+        Assert.True(await repo.DeleteAsync(login.Id));
+        Assert.Null(await repo.GetByProviderSubjectAsync(login.Provider, login.Subject));
+    }
+
+    [Fact]
     public async Task MediaAsset_InsertAndFindByHash()
     {
         var repo = new MediaAssetRepository(_db);

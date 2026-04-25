@@ -53,6 +53,20 @@ public sealed class EngineApiClient : IEngineApiClient
 
     // ── GET /collections ─────────────────────────────────────────────────────────────
 
+    public async Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<AuthSettingsViewModel>("/settings/security/auth", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /settings/security/auth failed");
+            return null;
+        }
+    }
+
     public async Task<List<CollectionViewModel>> GetCollectionsAsync(CancellationToken ct = default)
     {
         try
@@ -398,6 +412,62 @@ public sealed class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(
+        Guid profileId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var raw = await _http.GetFromJsonAsync<List<ProfileExternalLoginViewModel>>(
+                $"/profiles/{profileId}/external-logins", ct);
+            return raw ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /profiles/{ProfileId}/external-logins failed", profileId);
+            return [];
+        }
+    }
+
+    public async Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
+        Guid profileId,
+        string provider,
+        string subject,
+        string? email = null,
+        string? displayName = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var body = new { provider, subject, email, display_name = displayName };
+            var resp = await _http.PostAsJsonAsync($"/profiles/{profileId}/external-logins", body, ct);
+            if (!resp.IsSuccessStatusCode) return null;
+            return await resp.Content.ReadFromJsonAsync<ProfileExternalLoginViewModel>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /profiles/{ProfileId}/external-logins failed", profileId);
+            return null;
+        }
+    }
+
+    public async Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.DeleteAsync($"/profiles/external-logins/{loginId}", ct);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /profiles/external-logins/{LoginId} failed", loginId);
+            return false;
+        }
+    }
+
     // ── GET /api/v1/display/home ─────────────────────────────────────────────
 
     public async Task<DisplayPageDto?> GetDisplayHomeAsync(CancellationToken ct = default)
@@ -422,6 +492,8 @@ public sealed class EngineApiClient : IEngineApiClient
         string? search = null,
         int? offset = null,
         int? limit = null,
+        bool? includeCatalog = null,
+        Guid? profileId = null,
         CancellationToken ct = default)
     {
         try
@@ -433,6 +505,8 @@ public sealed class EngineApiClient : IEngineApiClient
             AddQuery(query, "search", search);
             AddQuery(query, "offset", offset?.ToString(System.Globalization.CultureInfo.InvariantCulture));
             AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            AddQuery(query, "includeCatalog", includeCatalog?.ToString().ToLowerInvariant());
+            AddQuery(query, "profileId", profileId?.ToString("D"));
             var url = "/api/v1/display/browse" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
             var page = await _http.GetFromJsonAsync<DisplayPageDto>(url, ct);
             return NormalizeDisplayPage(page);
@@ -441,6 +515,41 @@ public sealed class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /api/v1/display/browse failed");
+            return null;
+        }
+    }
+
+    public async Task<DisplayShelfPageDto?> GetDisplayShelfAsync(
+        string shelfKey,
+        string? lane = null,
+        string? mediaType = null,
+        string? grouping = null,
+        string? search = null,
+        string? cursor = null,
+        int? offset = null,
+        int? limit = null,
+        Guid? profileId = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var query = new List<string>();
+            AddQuery(query, "lane", lane);
+            AddQuery(query, "mediaType", mediaType);
+            AddQuery(query, "grouping", grouping);
+            AddQuery(query, "search", search);
+            AddQuery(query, "cursor", cursor);
+            AddQuery(query, "offset", offset?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            AddQuery(query, "profileId", profileId?.ToString("D"));
+            var url = $"/api/v1/display/shelves/{Uri.EscapeDataString(shelfKey)}" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
+            var page = await _http.GetFromJsonAsync<DisplayShelfPageDto>(url, ct);
+            return page is null ? null : page with { Shelf = NormalizeDisplayShelf(page.Shelf) };
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /api/v1/display/shelves/{ShelfKey} failed", shelfKey);
             return null;
         }
     }
@@ -3310,6 +3419,9 @@ public sealed class EngineApiClient : IEngineApiClient
 
     private DisplayCardDto NormalizeDisplayCard(DisplayCardDto card) =>
         card with { Artwork = NormalizeDisplayArtwork(card.Artwork) };
+
+    private DisplayShelfDto NormalizeDisplayShelf(DisplayShelfDto shelf) =>
+        shelf with { Items = shelf.Items.Select(NormalizeDisplayCard).ToList() };
 
     private DisplayArtworkDto NormalizeDisplayArtwork(DisplayArtworkDto artwork) =>
         artwork with

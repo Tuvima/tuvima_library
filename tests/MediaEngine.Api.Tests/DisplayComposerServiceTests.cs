@@ -108,6 +108,82 @@ public sealed class DisplayComposerServiceTests
         Assert.Contains(page.Shelves, shelf => shelf.Items.Any(card => card.Title == "Arrival"));
     }
 
+    [Fact]
+    public async Task ShelfPage_ReturnsCursorPagedShelfItems()
+    {
+        var firstId = Guid.Parse("77777777-1111-1111-1111-777777777777");
+        var secondId = Guid.Parse("77777777-2222-2222-2222-777777777777");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(firstId, "Movie", "Arrival", year: "2016", genre: "Science Fiction"),
+                Work(secondId, "Movie", "Heat", year: "1995", genre: "Crime"),
+            ],
+            []);
+        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+
+        var page = await composer.BuildShelfPageAsync(
+            "movies",
+            lane: "watch",
+            mediaType: null,
+            grouping: "all",
+            search: null,
+            cursor: null,
+            offset: 0,
+            limit: 1);
+
+        Assert.NotNull(page);
+        Assert.Equal("movies", page.Shelf.Key);
+        Assert.Single(page.Shelf.Items);
+        Assert.Equal("1", page.NextCursor);
+        Assert.Equal(0, page.Offset);
+        Assert.Equal(1, page.Limit);
+        Assert.True(page.HasMore);
+    }
+
+    [Fact]
+    public async Task MusicHome_ComposesStreamingStyleShelvesFromDisplayApi()
+    {
+        var albumId = Guid.Parse("88888888-8888-8888-8888-888888888888");
+        var firstTrack = Guid.Parse("99999999-9999-9999-9999-999999999999");
+        var secondTrack = Guid.Parse("aaaaaaaa-9999-9999-9999-aaaaaaaaaaaa");
+        var profileId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(firstTrack, "Music", "Static", artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "1", collectionId: albumId),
+                Work(secondTrack, "Music", "Signals", artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "2", collectionId: albumId),
+            ],
+            [
+                Journey(secondTrack, "Music", "Signals", progressPct: 44, artist: "Among The Outcasts", album: "Static On The Line", genre: "Rock", track: "2", collectionId: albumId),
+            ],
+            new HashSet<Guid> { firstTrack });
+        var composer = new DisplayComposerService(repository, new DisplayCardBuilder());
+
+        var page = await composer.BuildBrowseAsync("listen", "Music", "home", null, 0, 48, includeCatalog: true, profileId: profileId);
+
+        Assert.Equal("listen-music", page.Key);
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-played");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "favorite-songs");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-added");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "albums");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "artists");
+
+        var favoriteCard = page.Shelves.Single(shelf => shelf.Key == "favorite-songs").Items.Single();
+        Assert.Equal(firstTrack, favoriteCard.WorkId);
+        Assert.True(favoriteCard.Flags.IsFavorite);
+
+        var albumCard = page.Shelves.Single(shelf => shelf.Key == "albums").Items.Single();
+        Assert.Equal("Static On The Line", albumCard.Title);
+        Assert.Equal("album", albumCard.GroupingType);
+        Assert.Equal("album", albumCard.Presentation);
+        Assert.Equal("square", albumCard.PreferredShape);
+        Assert.Equal($"/listen/music/albums/{albumId:D}", albumCard.Actions[0].WebUrl);
+
+        var artistCard = page.Shelves.Single(shelf => shelf.Key == "artists").Items.Single();
+        Assert.Equal("Among The Outcasts", artistCard.Title);
+        Assert.Equal("artist", artistCard.GroupingType);
+        Assert.Equal("artist", artistCard.Presentation);
+    }
+
     private static DisplayWorkRow Work(
         Guid workId,
         string mediaType,
@@ -120,12 +196,14 @@ public sealed class DisplayComposerServiceTests
         string? narrator = null,
         string? season = null,
         string? episode = null,
-        string? track = null)
+        string? track = null,
+        Guid? collectionId = null)
     {
         return new DisplayWorkRow
         {
             WorkId = workId,
             AssetId = Guid.NewGuid(),
+            CollectionId = collectionId,
             MediaType = mediaType,
             CreatedAt = DateTimeOffset.Parse("2026-04-24T12:00:00Z"),
             Title = title,
@@ -154,12 +232,14 @@ public sealed class DisplayComposerServiceTests
         string? narrator = null,
         string? season = null,
         string? episode = null,
-        string? track = null)
+        string? track = null,
+        Guid? collectionId = null)
     {
         return new DisplayJourneyRow
         {
             WorkId = workId,
             AssetId = Guid.NewGuid(),
+            CollectionId = collectionId,
             MediaType = mediaType,
             ProgressPct = progressPct,
             LastAccessed = DateTimeOffset.Parse("2026-04-24T13:00:00Z"),
@@ -180,11 +260,16 @@ public sealed class DisplayComposerServiceTests
     {
         private readonly IReadOnlyList<DisplayWorkRow> _works;
         private readonly IReadOnlyList<DisplayJourneyRow> _journey;
+        private readonly IReadOnlySet<Guid> _favoriteWorkIds;
 
-        public StubDisplayProjectionRepository(IReadOnlyList<DisplayWorkRow> works, IReadOnlyList<DisplayJourneyRow> journey)
+        public StubDisplayProjectionRepository(
+            IReadOnlyList<DisplayWorkRow> works,
+            IReadOnlyList<DisplayJourneyRow> journey,
+            IReadOnlySet<Guid>? favoriteWorkIds = null)
         {
             _works = works;
             _journey = journey;
+            _favoriteWorkIds = favoriteWorkIds ?? new HashSet<Guid>();
         }
 
         public Task<IReadOnlyList<DisplayWorkRow>> LoadWorksAsync(CancellationToken ct) =>
@@ -202,5 +287,8 @@ public sealed class DisplayComposerServiceTests
 
             return Task.FromResult<IReadOnlyList<DisplayJourneyRow>>(filtered.ToList());
         }
+
+        public Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct) =>
+            Task.FromResult(profileId.HasValue ? _favoriteWorkIds : new HashSet<Guid>());
     }
 }

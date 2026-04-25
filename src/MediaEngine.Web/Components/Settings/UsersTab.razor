@@ -43,6 +43,7 @@
                     <th style="@ThStyle">@L["Users_ColAvatar"]</th>
                     <th style="@ThStyle">@L["Users_ColName"]</th>
                     <th style="@ThStyle">@L["Users_ColRole"]</th>
+                    <th style="@ThStyle">Sign-in</th>
                     <th style="@ThStyle">@L["Users_ColLastActive"]</th>
                     <th style="@ThStyle">@L["Users_ColStatus"]</th>
                     <th style="@ThStyle text-align:right">@L["Users_ColActions"]</th>
@@ -74,6 +75,12 @@
                             </MudChip>
                         </td>
 
+                        <td style="@TdStyle">
+                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="font-size: 0.75rem;">
+                                @(row.ExternalLoginCount == 0 ? "Local profile" : $"{row.ExternalLoginCount} linked")
+                            </MudChip>
+                        </td>
+
                         @* Last Active *@
                         <td style="@TdStyle">
                             <MudText Typo="Typo.body2" Color="Color.Secondary">
@@ -90,6 +97,12 @@
 
                         @* Actions *@
                         <td style="@TdStyle text-align:right">
+                            <MudIconButton Icon="@Icons.Material.Outlined.Link"
+                                           Color="Color.Default"
+                                           Size="Size.Medium"
+                                           title="Manage sign-in accounts"
+                                           Disabled="@row.Id.Equals(Guid.Empty)"
+                                           OnClick="@(() => OpenExternalLoginsDialogAsync(row))" />
                             <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                            Color="Color.Error"
                                            Size="Size.Medium"
@@ -163,6 +176,88 @@
     </DialogActions>
 </MudDialog>
 
+<MudDialog @bind-Visible="_externalLoginsOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Outlined.Link" Class="mr-2" />
+            Sign-in accounts
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_selectedUser is not null)
+        {
+            <MudText Typo="Typo.subtitle2" Class="mb-3">@_selectedUser.DisplayName</MudText>
+        }
+
+        @if (_externalLoginsLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+        }
+        else if (_externalLogins.Count == 0)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                No SSO or OAuth accounts are linked to this profile yet.
+            </MudAlert>
+        }
+        else
+        {
+            <MudStack Spacing="2" Class="mb-4">
+                @foreach (var login in _externalLogins)
+                {
+                    <MudPaper Elevation="0" Style="@LinkedAccountStyle">
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <MudStack Spacing="0" Style="flex:1; min-width: 0;">
+                                <MudText Typo="Typo.body2" Style="font-weight:600;">@login.Provider</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                    @(login.Email ?? login.DisplayName ?? login.Subject)
+                                </MudText>
+                            </MudStack>
+                            <MudIconButton Icon="@Icons.Material.Outlined.LinkOff"
+                                           Color="Color.Error"
+                                           Size="Size.Small"
+                                           title="Unlink account"
+                                           OnClick="@(() => UnlinkExternalLoginAsync(login.Id))" />
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+
+        <MudDivider Class="my-4" />
+        <MudText Typo="Typo.subtitle2" Class="mb-3">Link account manually</MudText>
+        <MudTextField @bind-Value="_newLoginProvider"
+                      Label="Provider"
+                      Placeholder="oidc, google, microsoft, authentik"
+                      Variant="Variant.Outlined"
+                      FullWidth="true"
+                      Class="mb-3" />
+        <MudTextField @bind-Value="_newLoginSubject"
+                      Label="Subject"
+                      Placeholder="Stable user ID from the identity provider"
+                      Variant="Variant.Outlined"
+                      FullWidth="true"
+                      Class="mb-3" />
+        <MudTextField @bind-Value="_newLoginEmail"
+                      Label="Email"
+                      Variant="Variant.Outlined"
+                      FullWidth="true"
+                      Class="mb-3" />
+        <MudTextField @bind-Value="_newLoginDisplayName"
+                      Label="Display name"
+                      Variant="Variant.Outlined"
+                      FullWidth="true" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="@CloseExternalLoginsDialog">Close</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="@(_selectedUser is null || string.IsNullOrWhiteSpace(_newLoginProvider) || string.IsNullOrWhiteSpace(_newLoginSubject) || _linkingExternalLogin)"
+                   OnClick="@LinkExternalLoginAsync">
+            @(_linkingExternalLogin ? "Linking" : "Link account")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
 
     private const string ThStyle =
@@ -178,6 +273,12 @@
         "border-bottom: 1px solid rgba(255,255,255,0.04); " +
         "vertical-align: middle;";
 
+    private const string LinkedAccountStyle =
+        "background: var(--app-glass-inner-bg); " +
+        "border: 1px solid var(--app-glass-inner-border); " +
+        "border-radius: 8px; " +
+        "padding: 12px;";
+
     private static readonly string[] _avatarPresets =
     [
         "#7C4DFF", "#00BFA5", "#FF8F00", "#E91E63",
@@ -192,6 +293,7 @@
         string Initials,
         string AvatarColor,
         string Role,
+        int    ExternalLoginCount,
         string LastActive,
         string Status,
         bool   IsSeed);
@@ -207,6 +309,15 @@
     private string _newDisplayName = string.Empty;
     private string _newRole        = "Consumer";
     private string _newAvatarColor = "#7C4DFF";
+    private bool   _externalLoginsOpen;
+    private bool   _externalLoginsLoading;
+    private bool   _linkingExternalLogin;
+    private UserRow? _selectedUser;
+    private List<ProfileExternalLoginViewModel> _externalLogins = [];
+    private string _newLoginProvider = string.Empty;
+    private string _newLoginSubject = string.Empty;
+    private string? _newLoginEmail;
+    private string? _newLoginDisplayName;
 
     private readonly DialogOptions _dialogOptions = new()
     {
@@ -269,26 +380,32 @@
         // when no profiles exist yet (e.g. fresh install) to demonstrate layout.
         if (profiles.Count > 0)
         {
-            _allRows = profiles
-                .Select(p => new UserRow(
+            var rows = new List<UserRow>();
+            foreach (var p in profiles)
+            {
+                var linkedAccounts = await Orchestrator.GetProfileExternalLoginsAsync(p.Id);
+                rows.Add(new UserRow(
                     p.Id,
                     p.DisplayName,
                     GetInitials(p.DisplayName),
                     p.AvatarColor,
                     p.Role,
+                    linkedAccounts.Count,
                     p.CreatedAt.LocalDateTime.ToString("MMM d, yyyy"),
                     "Active",
-                    p.IsSeed))
-                .ToList();
+                    p.IsSeed));
+            }
+
+            _allRows = rows;
         }
         else
         {
             // Placeholder rows shown until real profiles are created.
             _allRows =
             [
-                new(Guid.Empty, "Bob Smith",    "BS", "#7C4DFF", "Administrator", "Now",        "Active",  true),
-                new(Guid.Empty, "Alice Chen",   "AC", "#00BFA5", "Viewer",         "2 days ago", "Active",  false),
-                new(Guid.Empty, "Charlie Dave", "CD", "#FF8F00", "Reviewer",       "1 week ago", "Pending", false),
+                new(Guid.Empty, "Bob Smith",    "BS", "#7C4DFF", "Administrator", 0, "Now",        "Active",  true),
+                new(Guid.Empty, "Alice Chen",   "AC", "#00BFA5", "Viewer",        0, "2 days ago", "Active",  false),
+                new(Guid.Empty, "Charlie Dave", "CD", "#FF8F00", "Reviewer",      0, "1 week ago", "Pending", false),
             ];
         }
 
@@ -347,6 +464,79 @@
         {
             Snackbar.Add(L["Users_DeleteError"], Severity.Error);
         }
+    }
+
+    private async Task OpenExternalLoginsDialogAsync(UserRow row)
+    {
+        _selectedUser = row;
+        _externalLoginsOpen = true;
+        _externalLoginsLoading = true;
+        ResetExternalLoginForm();
+        _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(row.Id);
+        _externalLoginsLoading = false;
+    }
+
+    private void CloseExternalLoginsDialog()
+    {
+        _externalLoginsOpen = false;
+        _selectedUser = null;
+        _externalLogins = [];
+        ResetExternalLoginForm();
+    }
+
+    private async Task LinkExternalLoginAsync()
+    {
+        if (_selectedUser is null ||
+            string.IsNullOrWhiteSpace(_newLoginProvider) ||
+            string.IsNullOrWhiteSpace(_newLoginSubject))
+        {
+            return;
+        }
+
+        _linkingExternalLogin = true;
+        var login = await Orchestrator.LinkProfileExternalLoginAsync(
+            _selectedUser.Id,
+            _newLoginProvider,
+            _newLoginSubject,
+            _newLoginEmail,
+            _newLoginDisplayName);
+        _linkingExternalLogin = false;
+
+        if (login is null)
+        {
+            Snackbar.Add("Could not link sign-in account.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Sign-in account linked.", Severity.Success);
+        ResetExternalLoginForm();
+        _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(_selectedUser.Id);
+        await RefreshProfilesAsync();
+    }
+
+    private async Task UnlinkExternalLoginAsync(Guid loginId)
+    {
+        if (_selectedUser is null)
+            return;
+
+        var ok = await Orchestrator.UnlinkProfileExternalLoginAsync(loginId);
+        if (!ok)
+        {
+            Snackbar.Add("Could not unlink sign-in account.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add("Sign-in account unlinked.", Severity.Info);
+        _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(_selectedUser.Id);
+        await RefreshProfilesAsync();
+    }
+
+    private void ResetExternalLoginForm()
+    {
+        _newLoginProvider = string.Empty;
+        _newLoginSubject = string.Empty;
+        _newLoginEmail = null;
+        _newLoginDisplayName = null;
     }
 
     private string CreateSwatchStyle(string hex)

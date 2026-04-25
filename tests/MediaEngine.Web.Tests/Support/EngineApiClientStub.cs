@@ -1,4 +1,5 @@
 using System.Reflection;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
@@ -133,8 +134,60 @@ internal class EngineApiClientStub : DispatchProxy
                 },
             });
 
+        _handlers[nameof(IEngineApiClient.GetDisplayHomeAsync)] =
+            _ => Task.FromResult<DisplayPageDto?>(CreateDisplayPage("home", "Home"));
+
+        _handlers[nameof(IEngineApiClient.GetDisplayBrowseAsync)] =
+            args =>
+            {
+                var lane = args?[0]?.ToString();
+                var mediaType = args?[1]?.ToString();
+                var grouping = args?[2]?.ToString();
+                var key = string.Equals(lane, "listen", StringComparison.OrdinalIgnoreCase)
+                          && string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
+                          && string.Equals(grouping, "home", StringComparison.OrdinalIgnoreCase)
+                    ? "listen-music"
+                    : lane ?? "browse";
+                var title = key == "listen-music" ? "Music" : key;
+                return Task.FromResult<DisplayPageDto?>(CreateDisplayPage(key, title));
+            };
+
         _handlers[nameof(IEngineApiClient.SearchWorksAsync)] =
             _ => Task.FromResult(new List<SearchResultViewModel>());
+    }
+
+    private static DisplayPageDto CreateDisplayPage(string key, string title)
+    {
+        var workId = Guid.Parse("90000000-0000-0000-0000-000000000001");
+        var action = new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: "/listen/music/songs");
+        var artwork = new DisplayArtworkDto("/art/test-cover.jpg", "/art/test-square.jpg", null, null, null, null, null, null, null, null, null, null, null, "#1ED760");
+        var card = new DisplayCardDto(
+            Id: workId,
+            WorkId: workId,
+            AssetId: null,
+            CollectionId: null,
+            MediaType: "Music",
+            GroupingType: "work",
+            Title: "Test Track",
+            Subtitle: "Test Artist",
+            Facts: ["Test Artist", "Test Album"],
+            Artwork: artwork,
+            PreferredShape: "square",
+            Presentation: "album",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [action],
+            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            SortTimestamp: DateTimeOffset.UtcNow);
+
+        return new DisplayPageDto(
+            Key: key,
+            Title: title,
+            Subtitle: null,
+            Hero: new DisplayHeroDto(title, "Test Artist", "Library", artwork, null, [action]),
+            Shelves: [new DisplayShelfDto("recently-added", "Recently Added", "Fresh arrivals", [card], "/listen/music/playlists/system/recently-added")],
+            Catalog: [card]);
     }
 
     private static object? CreateDefaultValue(Type returnType)

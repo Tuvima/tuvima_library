@@ -853,6 +853,87 @@ public sealed class UpdateProfileRequest
     public string? NavigationConfig { get; init; }
 }
 
+public sealed class ProfileExternalLoginDto
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("profile_id")]
+    public Guid ProfileId { get; init; }
+
+    [JsonPropertyName("provider")]
+    public string Provider { get; init; } = string.Empty;
+
+    [JsonPropertyName("subject")]
+    public string Subject { get; init; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string? Email { get; init; }
+
+    [JsonPropertyName("display_name")]
+    public string? DisplayName { get; init; }
+
+    [JsonPropertyName("linked_at")]
+    public DateTimeOffset LinkedAt { get; init; }
+
+    [JsonPropertyName("last_login_at")]
+    public DateTimeOffset? LastLoginAt { get; init; }
+
+    public static ProfileExternalLoginDto FromDomain(ProfileExternalLogin login) => new()
+    {
+        Id = login.Id,
+        ProfileId = login.ProfileId,
+        Provider = login.Provider,
+        Subject = login.Subject,
+        Email = login.Email,
+        DisplayName = login.DisplayName,
+        LinkedAt = login.LinkedAt,
+        LastLoginAt = login.LastLoginAt,
+    };
+}
+
+public sealed class LinkProfileExternalLoginRequest
+{
+    [JsonPropertyName("provider")]
+    public string Provider { get; init; } = string.Empty;
+
+    [JsonPropertyName("subject")]
+    public string Subject { get; init; } = string.Empty;
+
+    [JsonPropertyName("email")]
+    public string? Email { get; init; }
+
+    [JsonPropertyName("display_name")]
+    public string? DisplayName { get; init; }
+}
+
+public sealed class AuthSettingsDto
+{
+    [JsonPropertyName("mode")]
+    public string Mode { get; init; } = "DisabledLocalOnly";
+
+    [JsonPropertyName("localhost_bypass")]
+    public bool LocalhostBypass { get; init; } = true;
+
+    [JsonPropertyName("require_https_remote")]
+    public bool RequireHttpsRemote { get; init; }
+
+    [JsonPropertyName("oidc_enabled")]
+    public bool OidcEnabled { get; init; }
+
+    [JsonPropertyName("oidc_display_name")]
+    public string OidcDisplayName { get; init; } = "OpenID Connect";
+
+    [JsonPropertyName("oidc_authority")]
+    public string OidcAuthority { get; init; } = string.Empty;
+
+    [JsonPropertyName("oidc_client_id")]
+    public string OidcClientId { get; init; } = string.Empty;
+
+    [JsonPropertyName("oidc_scopes")]
+    public List<string> OidcScopes { get; init; } = [];
+}
+
 // ── GET /metadata/claims/{entityId} ──────────────────────────────────────────
 
 public sealed class ClaimDto

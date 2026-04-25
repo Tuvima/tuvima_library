@@ -10,6 +10,9 @@ using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
 using System.Globalization;
 
@@ -59,6 +62,50 @@ string configDir = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
 string manifestPath = builder.Configuration["MediaEngine:ManifestPath"] ?? "legacy_manifest.json";
 IConfigurationLoader configLoader = new ConfigurationDirectoryLoader(configDir, manifestPath);
 builder.Services.AddSingleton(configLoader);
+
+var authSettings = configLoader.LoadCore().Auth;
+var ssoEnabled =
+    authSettings.Oidc.Enabled &&
+    (string.Equals(authSettings.Mode, "Oidc", StringComparison.OrdinalIgnoreCase) ||
+     string.Equals(authSettings.Mode, "Hybrid", StringComparison.OrdinalIgnoreCase));
+
+if (ssoEnabled)
+{
+    builder.Services
+        .AddAuthentication(options =>
+        {
+            options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
+        })
+        .AddCookie(options =>
+        {
+            options.Cookie.Name = "Tuvima.Auth";
+            options.SlidingExpiration = true;
+        })
+        .AddOpenIdConnect(options =>
+        {
+            options.Authority = authSettings.Oidc.Authority;
+            options.ClientId = authSettings.Oidc.ClientId;
+            if (!string.IsNullOrWhiteSpace(authSettings.Oidc.ClientSecret))
+                options.ClientSecret = authSettings.Oidc.ClientSecret;
+
+            options.ResponseType = "code";
+            options.SaveTokens = false;
+            options.GetClaimsFromUserInfoEndpoint = true;
+            options.MapInboundClaims = false;
+
+            options.Scope.Clear();
+            foreach (var scope in authSettings.Oidc.Scopes.Where(scope => !string.IsNullOrWhiteSpace(scope)))
+                options.Scope.Add(scope);
+        });
+
+    builder.Services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+    });
+}
 
 PaletteProvider.Initialize(configLoader.LoadPalette());
 
@@ -128,6 +175,11 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 app.UseRequestLocalization();
+if (ssoEnabled)
+{
+    app.UseAuthentication();
+    app.UseAuthorization();
+}
 app.UseAntiforgery();
 
 // ── Culture cookie setter ─────────────────────────────────────────────────────
@@ -144,6 +196,23 @@ app.MapGet("/culture/set", (string culture, string redirectUri, HttpContext ctx)
     }
     return Results.Redirect(redirectUri);
 }).AllowAnonymous();
+
+if (ssoEnabled)
+{
+    app.MapGet("/auth/login", (string? returnUrl) =>
+        Results.Challenge(
+            new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+            {
+                RedirectUri = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl,
+            },
+            [OpenIdConnectDefaults.AuthenticationScheme]))
+        .AllowAnonymous();
+
+    app.MapPost("/auth/logout", () =>
+        Results.SignOut(
+            new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/" },
+            [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]));
+}
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

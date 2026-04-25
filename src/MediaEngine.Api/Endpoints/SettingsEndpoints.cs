@@ -68,6 +68,26 @@ public static class SettingsEndpoints
     {
         var grp = app.MapGroup("/settings").WithTags("Settings");
 
+        grp.MapGet("/security/auth", (IConfigurationLoader configLoader) =>
+        {
+            var auth = configLoader.LoadCore().Auth;
+            return Results.Ok(new AuthSettingsDto
+            {
+                Mode = auth.Mode,
+                LocalhostBypass = auth.LocalhostBypass,
+                RequireHttpsRemote = auth.RequireHttpsRemote,
+                OidcEnabled = auth.Oidc.Enabled,
+                OidcDisplayName = auth.Oidc.DisplayName,
+                OidcAuthority = auth.Oidc.Authority,
+                OidcClientId = auth.Oidc.ClientId,
+                OidcScopes = auth.Oidc.Scopes,
+            });
+        })
+        .WithName("GetAuthSettings")
+        .WithSummary("Returns user sign-in and SSO/OIDC configuration.")
+        .Produces<AuthSettingsDto>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
         // ── GET /settings/folders ──────────────────────────────────────────────
 
         grp.MapGet("/folders", (IConfigurationLoader configLoader) =>

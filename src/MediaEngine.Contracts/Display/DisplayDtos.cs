@@ -23,6 +23,13 @@ public sealed record DisplayShelfDto(
     IReadOnlyList<DisplayCardDto> Items,
     string? SeeAllRoute);
 
+public sealed record DisplayShelfPageDto(
+    DisplayShelfDto Shelf,
+    string? NextCursor,
+    int Offset,
+    int Limit,
+    bool HasMore);
+
 public sealed record DisplayCardDto(
     Guid Id,
     Guid? WorkId,

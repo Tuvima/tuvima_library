@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
 @inject IStringLocalizer<SharedStrings> L
 
 @* Security — connection security toggles, rate limit display, and API key management. *@
@@ -123,6 +124,45 @@
 
         </MudPaper>
 
+        <MudPaper Elevation="0" Style="@InnerCardStyle" Class="mt-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Outlined.Login"
+                         Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight: 600;">
+                    User sign-in
+                </MudText>
+                <MudSpacer />
+                <MudChip T="string" Size="Size.Small" Color="@AuthModeColor" Style="font-size: 0.7rem;">
+                    @_authMode
+                </MudChip>
+            </MudStack>
+
+            @if (_authLoading)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="justify-content: space-between;">
+                        <MudText Typo="Typo.body2">OpenID Connect provider</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@OidcSummary</MudText>
+                    </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="justify-content: space-between;">
+                        <MudText Typo="Typo.body2">Authority</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@(_authSettings?.OidcAuthority ?? "Not configured")</MudText>
+                    </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="justify-content: space-between;">
+                        <MudText Typo="Typo.body2">Client ID</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@(_authSettings?.OidcClientId ?? "Not configured")</MudText>
+                    </MudStack>
+                    <MudAlert Severity="Severity.Info" Class="mt-2">
+                        SSO accounts are linked to local Tuvima profiles in Settings > Users. OIDC sign-in can be enabled after the authority and client ID are configured.
+                    </MudAlert>
+                </MudStack>
+            }
+        </MudPaper>
+
     </div>
 
     @* ── API Keys section — embed the existing component ─────────────────── *@
@@ -142,4 +182,28 @@
 
     private bool _localhostBypass    = true;
     private bool _requireHttpsRemote = false;
+    private bool _authLoading = true;
+    private AuthSettingsViewModel? _authSettings;
+
+    private string _authMode => _authSettings?.Mode ?? "DisabledLocalOnly";
+
+    private Color AuthModeColor => string.Equals(_authMode, "DisabledLocalOnly", StringComparison.OrdinalIgnoreCase)
+        ? Color.Default
+        : Color.Primary;
+
+    private string OidcSummary => _authSettings?.OidcEnabled == true
+        ? _authSettings.OidcDisplayName
+        : "Disabled";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _authSettings = await Orchestrator.GetAuthSettingsAsync();
+        if (_authSettings is not null)
+        {
+            _localhostBypass = _authSettings.LocalhostBypass;
+            _requireHttpsRemote = _authSettings.RequireHttpsRemote;
+        }
+
+        _authLoading = false;
+    }
 }

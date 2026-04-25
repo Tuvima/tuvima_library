@@ -301,6 +301,21 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at   TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS profile_external_logins (
+    id            TEXT NOT NULL PRIMARY KEY,
+    profile_id    TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    provider      TEXT NOT NULL,
+    subject       TEXT NOT NULL,
+    email         TEXT,
+    display_name  TEXT,
+    linked_at     TEXT NOT NULL,
+    last_login_at TEXT,
+    UNIQUE(provider, subject)
+);
+
+CREATE INDEX IF NOT EXISTS idx_profile_external_logins_profile
+    ON profile_external_logins(profile_id);
+
 
 -- =============================================================================
 -- 7. PERSONS & PERSON-ASSET LINKS

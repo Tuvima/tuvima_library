@@ -96,6 +96,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return status;
     }
 
+    public Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default)
+        => _api.GetAuthSettingsAsync(ct);
+
     // ── Ingestion ─────────────────────────────────────────────────────────────
 
     /// <summary>Triggers a dry-run scan and invalidates the collection cache on success.</summary>
@@ -192,6 +195,26 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
     public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
         => _api.DeleteProfileAsync(id, ct);
+
+    /// <summary>Lists external SSO/OAuth accounts linked to a profile.</summary>
+    public Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(
+        Guid profileId,
+        CancellationToken ct = default)
+        => _api.GetProfileExternalLoginsAsync(profileId, ct);
+
+    /// <summary>Links an external SSO/OAuth account to a profile.</summary>
+    public Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
+        Guid profileId,
+        string provider,
+        string subject,
+        string? email = null,
+        string? displayName = null,
+        CancellationToken ct = default)
+        => _api.LinkProfileExternalLoginAsync(profileId, provider, subject, email, displayName, ct);
+
+    /// <summary>Unlinks an external SSO/OAuth account from a profile.</summary>
+    public Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default)
+        => _api.UnlinkProfileExternalLoginAsync(loginId, ct);
 
     // ── Metadata Claims ─────────────────────────────────────────────────────────
 
