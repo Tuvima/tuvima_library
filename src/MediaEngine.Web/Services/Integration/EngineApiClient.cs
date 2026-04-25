@@ -2040,19 +2040,21 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
                 $"/persons?role={Uri.EscapeDataString(role)}&limit={limit}", ct);
-            return raw?.Select(p => new PersonViewModel
+            return raw?.Select(p =>
+            {
+                var headshotUrl = ResolvePersonHeadshotUrl(p);
+                return new PersonViewModel
             {
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
                 Roles            = p.Roles ?? [],
                 WikidataQid      = p.WikidataQid,
-                HeadshotUrl      = p.HeadshotUrl,
+                HeadshotUrl      = headshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
-                                   ? AbsoluteUrl($"/persons/{p.Id}/headshot")
-                                   : null,
+                LocalHeadshotUrl = headshotUrl,
                 Biography        = p.Biography,
                 Occupation       = p.Occupation,
+            };
             }).ToList() ?? [];
         }
         catch (Exception ex)
@@ -2070,19 +2072,21 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
                 $"/persons/by-collection/{collectionId}", ct);
-            return raw?.Select(p => new PersonViewModel
+            return raw?.Select(p =>
+            {
+                var headshotUrl = ResolvePersonHeadshotUrl(p);
+                return new PersonViewModel
             {
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
                 Roles            = p.Roles ?? [],
                 WikidataQid      = p.WikidataQid,
-                HeadshotUrl      = p.HeadshotUrl,
+                HeadshotUrl      = headshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
-                                   ? AbsoluteUrl($"/persons/{p.Id}/headshot")
-                                   : null,
+                LocalHeadshotUrl = headshotUrl,
                 Biography        = p.Biography,
                 Occupation       = p.Occupation,
+            };
             }).ToList() ?? [];
         }
         catch (Exception ex)
@@ -2100,19 +2104,21 @@ public sealed class EngineApiClient : IEngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
                 $"/persons/by-work/{workId}", ct);
-            return raw?.Select(p => new PersonViewModel
+            return raw?.Select(p =>
+            {
+                var headshotUrl = ResolvePersonHeadshotUrl(p);
+                return new PersonViewModel
             {
                 Id               = p.Id,
                 Name             = p.Name ?? string.Empty,
                 Roles            = p.Roles ?? [],
                 WikidataQid      = p.WikidataQid,
-                HeadshotUrl      = p.HeadshotUrl,
+                HeadshotUrl      = headshotUrl,
                 HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
-                                   ? AbsoluteUrl($"/persons/{p.Id}/headshot")
-                                   : null,
+                LocalHeadshotUrl = headshotUrl,
                 Biography        = p.Biography,
                 Occupation       = p.Occupation,
+            };
             }).ToList() ?? [];
         }
         catch (Exception ex)
@@ -3450,6 +3456,11 @@ public sealed class EngineApiClient : IEngineApiClient
 
         return value;
     }
+
+    private string? ResolvePersonHeadshotUrl(PersonRaw person) =>
+        person.HasLocalHeadshot || !string.IsNullOrWhiteSpace(person.HeadshotUrl)
+            ? AbsoluteUrl($"/persons/{person.Id}/headshot")
+            : null;
 
     private static void AddQuery(ICollection<string> query, string name, string? value)
     {

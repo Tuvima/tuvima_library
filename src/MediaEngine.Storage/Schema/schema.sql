@@ -258,6 +258,63 @@ CREATE TABLE IF NOT EXISTS user_states (
     PRIMARY KEY (user_id, asset_id)
 );
 
+-- Cached media inspection used by the Engine playback manifest layer.
+-- Results are keyed by asset and source fingerprint so stale codec/track
+-- decisions are ignored after a source file changes.
+CREATE TABLE IF NOT EXISTS playback_inspection_cache (
+    asset_id       TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    source_hash    TEXT NOT NULL,
+    inspected_at   TEXT NOT NULL,
+    file_size      INTEGER,
+    duration_secs  REAL,
+    container      TEXT,
+    metadata_json  TEXT,
+    PRIMARY KEY (asset_id, source_hash)
+);
+
+CREATE TABLE IF NOT EXISTS offline_variants (
+    id            TEXT NOT NULL PRIMARY KEY,
+    asset_id      TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    profile_key   TEXT NOT NULL,
+    source_hash   TEXT NOT NULL,
+    display_name  TEXT NOT NULL,
+    status        TEXT NOT NULL,
+    output_path   TEXT,
+    file_size     INTEGER,
+    container     TEXT,
+    video_codec   TEXT,
+    audio_codec   TEXT,
+    width         INTEGER,
+    height        INTEGER,
+    bitrate_kbps  INTEGER,
+    created_at    TEXT NOT NULL,
+    expires_at    TEXT,
+    UNIQUE(asset_id, profile_key, source_hash)
+);
+
+CREATE TABLE IF NOT EXISTS encode_jobs (
+    id             TEXT NOT NULL PRIMARY KEY,
+    asset_id       TEXT NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    profile_key    TEXT NOT NULL,
+    source_hash    TEXT NOT NULL,
+    status         TEXT NOT NULL,
+    created_at     TEXT NOT NULL,
+    scheduled_for  TEXT,
+    started_at     TEXT,
+    completed_at   TEXT,
+    progress_pct   REAL NOT NULL DEFAULT 0,
+    output_path    TEXT,
+    output_bytes   INTEGER,
+    last_error     TEXT,
+    retry_count    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_encode_jobs_status_schedule
+    ON encode_jobs(status, scheduled_for, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_offline_variants_asset
+    ON offline_variants(asset_id, status);
+
 -- Audit trail for system-level entity changes.
 -- AUTOINCREMENT ensures monotonically increasing IDs for ordered pruning.
 CREATE TABLE IF NOT EXISTS transaction_log (

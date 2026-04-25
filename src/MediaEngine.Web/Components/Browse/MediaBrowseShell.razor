@@ -545,6 +545,7 @@
             MetaLine = null,
             SupportingLine = hero.Progress?.Label,
             CoverUrl = hero.Artwork.CoverUrl ?? hero.Artwork.SquareUrl,
+            CoverAspectRatioCss = ResolveArtworkAspectRatio(hero.Artwork.CoverUrl, hero.Artwork.CoverWidthPx, hero.Artwork.CoverHeightPx, hero.Artwork.SquareWidthPx, hero.Artwork.SquareHeightPx),
             BackgroundUrl = ResolveWideArtwork(hero.Artwork.BackgroundUrl, hero.Artwork.BannerUrl),
             ProgressPct = hero.Progress?.Percent,
             PrimaryActionLabel = primaryAction?.Label ?? "Open",
@@ -608,6 +609,7 @@
             MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.Series, item.ProgressDisplay),
             SupportingLine = supporting,
             CoverUrl = item.CoverUrl,
+            CoverAspectRatioCss = ResolveArtworkAspectRatio(item.CoverUrl, item.CoverWidthPx, item.CoverHeightPx),
             BackgroundUrl = backgroundUrl,
             ProgressPct = item.ProgressPct,
             PrimaryActionLabel = item.ActionVerb,
@@ -630,6 +632,7 @@
             MetaLine = JoinParts(FormatMediaLabel(item.MediaType), item.ContextLabel, item.Year),
             SupportingLine = item.Runtime ?? item.Duration ?? item.Specs,
             CoverUrl = item.CoverUrl,
+            CoverAspectRatioCss = Preset.HeroVariant == BrowseHeroVariant.Listen ? "1 / 1" : "2 / 3",
             BackgroundUrl = backgroundUrl,
             PrimaryActionLabel = Preset.HeroVariant == BrowseHeroVariant.Listen ? "Open album" : "Open",
             SecondaryActionLabel = "Details",
@@ -655,6 +658,7 @@
                     ? $"{group.AlbumCount.Value} albums"
                     : null,
             CoverUrl = group.ArtistPhotoUrl ?? group.CoverUrl,
+            CoverAspectRatioCss = ResolveArtworkAspectRatio(group.ArtistPhotoUrl ?? group.CoverUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx),
             BackgroundUrl = ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl),
             PrimaryActionLabel = "Explore",
             SecondaryActionLabel = "Open",
@@ -1116,6 +1120,33 @@
 
     private static string? ResolveWideArtwork(string? backgroundUrl, string? bannerUrl) =>
         backgroundUrl ?? bannerUrl;
+
+    private static string ResolveArtworkAspectRatio(
+        string? artworkUrl,
+        int? width,
+        int? height,
+        int? squareWidth = null,
+        int? squareHeight = null)
+    {
+        if (width is > 0 && height is > 0)
+        {
+            return $"{width.Value} / {height.Value}";
+        }
+
+        if (squareWidth is > 0 && squareHeight is > 0)
+        {
+            return $"{squareWidth.Value} / {squareHeight.Value}";
+        }
+
+        return !string.IsNullOrWhiteSpace(artworkUrl) && IsLikelySquareArtwork(artworkUrl)
+            ? "1 / 1"
+            : "2 / 3";
+    }
+
+    private static bool IsLikelySquareArtwork(string artworkUrl) =>
+        artworkUrl.Contains("square", StringComparison.OrdinalIgnoreCase)
+        || artworkUrl.Contains("album", StringComparison.OrdinalIgnoreCase)
+        || artworkUrl.Contains("artist", StringComparison.OrdinalIgnoreCase);
 
     private static DiscoveryCardViewModel WithCardOverrides(
         DiscoveryCardViewModel card,

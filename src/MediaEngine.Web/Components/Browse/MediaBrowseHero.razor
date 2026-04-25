@@ -99,7 +99,7 @@
         </div>
     </div>;
 
-    private RenderFragment RenderCover() => @<div class="browse-hero__cover-frame">
+    private RenderFragment RenderCover() => @<div class="browse-hero__cover-frame" style="@($"--browse-hero-cover-aspect: {Hero?.CoverAspectRatioCss ?? "2 / 3"};")">
         @if (!string.IsNullOrWhiteSpace(Hero?.CoverUrl))
         {
             <img src="@Hero.CoverUrl" alt="@Hero.Title" class="browse-hero__cover" />
@@ -337,12 +337,12 @@
     .browse-hero__art--watch .browse-hero__cover-frame,
     .browse-hero__art--portrait .browse-hero__cover-frame {
         width: clamp(188px, 20vw, 270px);
-        aspect-ratio: 2 / 3;
+        aspect-ratio: var(--browse-hero-cover-aspect, 2 / 3);
     }
 
     .browse-hero__art--square .browse-hero__cover-frame {
         width: clamp(196px, 24vw, 280px);
-        aspect-ratio: 1;
+        aspect-ratio: var(--browse-hero-cover-aspect, 1 / 1);
     }
 
     .browse-hero__cover,

@@ -43,6 +43,7 @@ public sealed record BrowseHeroViewModel
     public string? MetaLine { get; init; }
     public string? SupportingLine { get; init; }
     public string? CoverUrl { get; init; }
+    public string CoverAspectRatioCss { get; init; } = "2 / 3";
     public string? BackgroundUrl { get; init; }
     public double? ProgressPct { get; init; }
     public string PrimaryActionLabel { get; init; } = "Open";

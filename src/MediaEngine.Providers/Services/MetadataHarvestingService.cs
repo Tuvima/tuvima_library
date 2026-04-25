@@ -934,6 +934,8 @@ public sealed class MetadataHarvestingService : IMetadataHarvestingService, IAsy
             if (File.Exists(headshotPath))
             {
                 _logger.LogDebug("Person {Name}: headshot already exists at {Path} — skipping download", person.Name, headshotPath);
+                await _personRepo.UpdateLocalHeadshotPathAsync(personId, headshotPath, ct)
+                    .ConfigureAwait(false);
                 return;
             }
 

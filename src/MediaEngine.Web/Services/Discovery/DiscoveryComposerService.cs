@@ -37,6 +37,10 @@ public sealed class DiscoveryComposerService
             })
             .ToList();
 
+        var heroArtwork = page.Hero?.Artwork;
+        var heroSurfaceKind = heroArtwork is null ? DiscoverySurfaceKind.BannerLandscape : ResolveHeroSurfaceKind(heroArtwork);
+        var heroPreviewSurfaceKind = heroArtwork is null ? DiscoverySurfaceKind.CoverPortrait : ResolvePreviewSurfaceKind(heroArtwork);
+
         return new DiscoveryPageViewModel
         {
             Key = page.Key,
@@ -50,6 +54,8 @@ public sealed class DiscoveryComposerService
                 HeroBackgroundImageUrl = page.Hero.Artwork.BackgroundUrl ?? page.Hero.Artwork.BannerUrl,
                 BannerImageUrl = page.Hero.Artwork.BannerUrl,
                 PreviewImageUrl = page.Hero.Artwork.CoverUrl ?? page.Hero.Artwork.SquareUrl,
+                SurfaceKind = heroSurfaceKind,
+                PreviewSurfaceKind = heroPreviewSurfaceKind,
                 LogoUrl = page.Hero.Artwork.LogoUrl,
                 AccentColor = page.Hero.Artwork.AccentColor ?? "#1CE783",
                 ProgressPct = page.Hero.Progress?.Percent,
@@ -194,6 +200,61 @@ public sealed class DiscoveryComposerService
         DiscoveryBucket.Music => "#1ED760",
         _ => "#C9922E",
     };
+
+    private static DiscoverySurfaceKind ResolveHeroSurfaceKind(DisplayArtworkDto artwork)
+    {
+        if (HasUsableLandscape(artwork.BackgroundUrl, artwork.BackgroundWidthPx, artwork.BackgroundHeightPx)
+            || HasUsableLandscape(artwork.BannerUrl, artwork.BannerWidthPx, artwork.BannerHeightPx))
+        {
+            return DiscoverySurfaceKind.BannerLandscape;
+        }
+
+        return ResolvePreviewSurfaceKind(artwork);
+    }
+
+    private static DiscoverySurfaceKind ResolvePreviewSurfaceKind(DisplayArtworkDto artwork)
+    {
+        if (!string.IsNullOrWhiteSpace(artwork.CoverUrl))
+        {
+            return ShapeFromDimensions(artwork.CoverWidthPx, artwork.CoverHeightPx);
+        }
+
+        if (!string.IsNullOrWhiteSpace(artwork.SquareUrl))
+        {
+            return ShapeFromDimensions(artwork.SquareWidthPx, artwork.SquareHeightPx, DiscoverySurfaceKind.CoverSquare);
+        }
+
+        if (!string.IsNullOrWhiteSpace(artwork.BannerUrl))
+        {
+            return DiscoverySurfaceKind.BannerLandscape;
+        }
+
+        return DiscoverySurfaceKind.CoverPortrait;
+    }
+
+    private static DiscoverySurfaceKind ShapeFromDimensions(int? width, int? height, DiscoverySurfaceKind fallback = DiscoverySurfaceKind.CoverPortrait)
+    {
+        if (width is not > 0 || height is not > 0)
+        {
+            return fallback;
+        }
+
+        var ratio = width.Value / (double)height.Value;
+        if (ratio >= 1.45)
+        {
+            return DiscoverySurfaceKind.BannerLandscape;
+        }
+
+        return ratio >= 0.85
+            ? DiscoverySurfaceKind.CoverSquare
+            : DiscoverySurfaceKind.CoverPortrait;
+    }
+
+    private static bool HasUsableLandscape(string? url, int? width, int? height) =>
+        !string.IsNullOrWhiteSpace(url)
+        && width is > 0
+        && height is > 0
+        && width.Value / (double)height.Value >= 1.45;
 }
 
 public enum DiscoveryBucket

@@ -2484,12 +2484,14 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // Without this, the title claim at ReconciliationTitle confidence (0.98) is never emitted,
             // and the title falls through to Data Extension at lower confidence (0.90).
             // Labels.GetAsync replaces a GetPropertiesAsync(qid, [$"L{lang}"]) call with
-            // a single label-only fetch and built-in language fallback.
+            // a single label-only fetch. Avoid arbitrary language fallback for
+            // display metadata; an English library should not surface a
+            // foreign-language label just because English is missing.
             try
             {
                 var labelLanguage = _configLoader?.LoadCore().Language.Metadata ?? "en";
                 var label = await _reconciler!.Labels
-                    .GetAsync(qid, labelLanguage, withFallbackLanguage: true, ct)
+                    .GetAsync(qid, labelLanguage, withFallbackLanguage: false, ct)
                     .ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(label))
                     reconciliationLabel = label;
@@ -3755,16 +3757,23 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             // return the original Japanese or French title first for foreign-language works
             // (e.g. "千と千尋の神隠し" for Spirited Away when the user expects English).
             bool isMonolingualTitle = string.Equals(pCode, "P1476", StringComparison.OrdinalIgnoreCase);
-            if (isMonolingualTitle && !string.IsNullOrWhiteSpace(metadataLanguage) && claims.Count > 1)
+            if (isMonolingualTitle && !string.IsNullOrWhiteSpace(metadataLanguage))
             {
-                // Prefer the value in the user's metadata language; fall through to the
-                // original order (first value) if no match is found.
+                // Prefer the value in the user's metadata language. If there is
+                // no preferred-language value, skip P1476 instead of emitting the
+                // first arbitrary language value as a canonical title.
                 var langNorm = metadataLanguage.Split('-', '_')[0].ToLowerInvariant();
                 var preferredClaim = claims.FirstOrDefault(c =>
                     !string.IsNullOrWhiteSpace(c.Value?.Language)
                     && c.Value!.Language!.Split('-', '_')[0].Equals(langNorm, StringComparison.OrdinalIgnoreCase));
                 if (preferredClaim is not null)
+                {
                     claims = [preferredClaim];
+                }
+                else
+                {
+                    continue;
+                }
             }
 
             foreach (var claim in claims)

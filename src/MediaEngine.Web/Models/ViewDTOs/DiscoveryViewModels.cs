@@ -63,6 +63,7 @@ public sealed class DiscoveryHeroViewModel
     public string? HeroBackgroundImageUrl { get; init; }
     public string? BannerImageUrl { get; init; }
     public string? PreviewImageUrl { get; init; }
+    public DiscoverySurfaceKind PreviewSurfaceKind { get; init; } = DiscoverySurfaceKind.CoverPortrait;
     public DiscoveryImageFitMode TileImageFitMode { get; init; } = DiscoveryImageFitMode.Fill;
     public DiscoveryImageFitMode HoverImageFitMode { get; init; } = DiscoveryImageFitMode.Contain;
     public string? LogoUrl { get; init; }

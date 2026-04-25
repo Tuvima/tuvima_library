@@ -119,9 +119,10 @@
 
     private string HeroSurfaceClass => Hero.SurfaceKind == DiscoverySurfaceKind.BannerLandscape ? "is-banner-hero" : "is-cover-hero";
 
-    private string PreviewClass => Hero.SurfaceKind switch
+    private string PreviewClass => Hero.PreviewSurfaceKind switch
     {
         DiscoverySurfaceKind.CoverSquare or DiscoverySurfaceKind.ArtistPhotoSquare => "is-square-preview",
+        DiscoverySurfaceKind.BannerLandscape => "is-landscape-preview",
         _ => "is-portrait-preview",
     };
 
@@ -259,6 +260,7 @@
     .discovery-hero-preview { align-self:center; justify-self:end; width:min(100%,292px); overflow:hidden; border-radius:var(--app-radius-md); box-shadow:0 26px 52px rgba(0,0,0,.44); background:rgba(0,0,0,.2); }
     .discovery-hero-preview.is-portrait-preview { aspect-ratio:2 / 3; }
     .discovery-hero-preview.is-square-preview { aspect-ratio:1 / 1; }
+    .discovery-hero-preview.is-landscape-preview { aspect-ratio:16 / 9; width:min(100%,360px); }
     .discovery-hero-preview-image { width:100%; height:100%; display:block; }
     .discovery-hero-preview-image.is-fill { object-fit:cover; }
     .discovery-hero-preview-image.is-contained { object-fit:contain; background:linear-gradient(180deg,rgba(12,16,26,.92) 0%,rgba(5,8,14,.96) 100%); }
