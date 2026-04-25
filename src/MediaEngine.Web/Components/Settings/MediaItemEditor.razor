@@ -221,7 +221,7 @@
                                 }
                                 else if (_confirmingItem is not null)
                                 {
-                                    <span style="font-family: 'Montserrat', sans-serif; font-size: 0.8rem; color: rgba(255,255,255,0.6);">Confirm Apply?</span>
+                                    <span style="font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size: 0.8rem; color: rgba(255,255,255,0.6);">Confirm Apply?</span>
                                     <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
                                                OnClick="@(() => OnConfirmApply(_confirmingItem))"
                                                Disabled="@_applying">
@@ -933,7 +933,7 @@
     }
 
     .eo-title {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-weight: 600;
         font-size: 0.92rem;
         color: rgba(248, 248, 248, 0.90);
@@ -958,7 +958,7 @@
         border: none;
         background: transparent;
         color: rgba(255, 255, 255, 0.35);
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         transition: all 0.15s ease;
         border-radius: 4px;
         white-space: nowrap;
@@ -1048,7 +1048,7 @@
     }
 
     .eo-poster-provider {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.70rem;
         font-weight: 600;
         color: rgba(255, 255, 255, 0.30);
@@ -1096,7 +1096,7 @@
     }
 
     .eo-thumb-label {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.58rem;
         font-weight: 600;
         color: rgba(255,255,255,0.25);
@@ -1127,7 +1127,7 @@
         gap: 10px;
         padding: 50px 0;
         color: rgba(255, 255, 255, 0.2);
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.8rem;
     }
 
@@ -1189,7 +1189,7 @@
     }
 
     .eo-result-title {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.85rem;
         font-weight: 600;
         color: rgba(248, 248, 248, 0.90);
@@ -1197,14 +1197,14 @@
     }
 
     .eo-result-desc {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.73rem;
         color: rgba(248, 248, 248, 0.35);
         line-height: 1.4;
     }
 
     .eo-result-conf {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.7rem;
         font-weight: 600;
         color: rgba(201, 146, 46, 0.7);
@@ -1241,7 +1241,7 @@
     .eo-chk--confirm:hover { background: rgba(34, 197, 94, 0.18); }
 
     .eo-confirm-lbl {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.68rem;
         font-weight: 600;
         color: #22c55e;
@@ -1264,7 +1264,7 @@
         border-radius: 8px;
         background: rgba(201, 146, 46, 0.06);
         border: 1px solid rgba(201, 146, 46, 0.15);
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.75rem;
         font-weight: 500;
         color: rgba(201, 146, 46, 0.65);
@@ -1283,7 +1283,7 @@
     }
 
     .eo-group-title {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.68rem;
         font-weight: 700;
         color: rgba(255, 255, 255, 0.30);
@@ -1301,7 +1301,7 @@
     }
 
     .eo-section-title {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.78rem;
         font-weight: 700;
         color: rgba(255, 255, 255, 0.50);
@@ -1314,8 +1314,8 @@
         align-items: center;
         gap: 4px;
         padding: 2px 8px;
-        border-radius: 10px;
-        font-family: 'Montserrat', sans-serif;
+        border-radius: var(--app-radius-lg, 8px);
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.7rem;
         font-weight: 600;
         color: #C9922E;
@@ -1350,7 +1350,7 @@
     .eo-row:last-child { border-bottom: none; }
 
     .eo-row-label {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.78rem;
         font-weight: 600;
         color: rgba(255, 255, 255, 0.40);
@@ -1360,7 +1360,7 @@
     }
 
     .eo-row-value {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.85rem;
         color: rgba(255, 255, 255, 0.85);
         word-break: break-word;
@@ -1411,7 +1411,6 @@
         padding: 12px 16px;
         background: rgba(13, 17, 23, 0.95);
         border-top: 1px solid rgba(255, 255, 255, 0.06);
-        backdrop-filter: blur(8px);
         display: flex;
         align-items: center;
         justify-content: flex-end;

@@ -1,7 +1,7 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 
-@* â”€â”€ Side-by-side cover art comparison â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ *@
+@* ── Side-by-side cover art comparison ──────────────────────────────────────── *@
 
 <div class="cover-compare-wrap">
     <div class="cover-compare-section">
@@ -19,7 +19,7 @@
         }
         <MudRadioGroup T="string" Value="@_selection" ValueChanged="@OnSelectionChanged">
             <MudRadio T="string" Value="@("current")" Color="Color.Primary" Dense="true"
-                      Style="font-family:'Montserrat',sans-serif; font-size:0.75rem;">
+                      Style="font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:0.75rem;">
                 Keep Current
             </MudRadio>
         </MudRadioGroup>
@@ -45,7 +45,7 @@
         }
         <MudRadioGroup T="string" Value="@_selection" ValueChanged="@OnSelectionChanged">
             <MudRadio T="string" Value="@("provider")" Color="Color.Primary" Dense="true"
-                      Style="font-family:'Montserrat',sans-serif; font-size:0.75rem;">
+                      Style="font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:0.75rem;">
                 Use Provider
             </MudRadio>
         </MudRadioGroup>
@@ -93,7 +93,7 @@
     }
 
     .cover-compare-label {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.68rem;
         font-weight: 700;
         color: rgba(248, 248, 248, 0.40);

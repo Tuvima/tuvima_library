@@ -7,7 +7,7 @@
 
 .person-detail-back {
     color: rgba(248, 248, 248, 0.60) !important;
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.85rem;
     text-transform: none;
     letter-spacing: 0;
@@ -69,7 +69,7 @@
     background: rgba(201, 146, 46, 0.18);
     border: 1px solid rgba(201, 146, 46, 0.28);
     color: var(--app-accent);
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 2.1rem;
     font-weight: 700;
 }
@@ -82,7 +82,7 @@
 }
 
 .person-detail-occupation {
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.72rem;
     font-weight: 700;
     color: rgba(233, 190, 104, 0.92);
@@ -92,7 +92,7 @@
 
 .person-detail-name {
     margin: 0;
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 2.5rem;
     font-weight: 700;
     color: rgba(248, 248, 248, 0.96);
@@ -199,7 +199,7 @@
 
 .person-detail-section-title {
     margin: 0;
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.92rem;
     font-weight: 700;
     color: rgba(248, 248, 248, 0.52);
@@ -210,7 +210,7 @@
 .person-detail-bio {
     margin: 0;
     max-width: 860px;
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.96rem;
     font-weight: 300;
     line-height: 1.75;
@@ -221,7 +221,7 @@
 .person-detail-expand-btn {
     align-self: flex-start;
     padding: 0;
-    font-family: "Montserrat", sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.82rem;
     font-weight: 600;
     text-transform: none;

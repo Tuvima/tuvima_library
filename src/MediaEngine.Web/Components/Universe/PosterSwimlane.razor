@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 
 @inject IJSRuntime JS
 
@@ -31,7 +31,7 @@
         </div>
 
         <div class="swimlane-scroll-wrapper">
-            @* Left arrow — only when there are multiple items and we can scroll left *@
+            @* Left arrow � only when there are multiple items and we can scroll left *@
             @if (Items.Count > 1 && !_atStart)
             {
                 <button class="swimlane-arrow swimlane-arrow-left" @onclick="ScrollLeft"
@@ -48,7 +48,7 @@
                 }
             </div>
 
-            @* Right arrow — only when there are multiple items and we can scroll right *@
+            @* Right arrow � only when there are multiple items and we can scroll right *@
             @if (Items.Count > 1 && !_atEnd)
             {
                 <button class="swimlane-arrow swimlane-arrow-right" @onclick="ScrollRight"
@@ -73,9 +73,9 @@
 
     private ElementReference _scrollRef;
 
-    // ── Scroll boundary state ────────────────────────────────────────────────
-    // _atStart: true → left arrow hidden (can't scroll further left)
-    // _atEnd:   false → right arrow visible (more items to the right)
+    // -- Scroll boundary state ------------------------------------------------
+    // _atStart: true ? left arrow hidden (can't scroll further left)
+    // _atEnd:   false ? right arrow visible (more items to the right)
     private bool _atStart = true;
     private bool _atEnd   = false;
 
@@ -83,7 +83,7 @@
     {
         if (firstRender && Items.Count > 1)
         {
-            // Determine initial scroll state — content may already overflow right.
+            // Determine initial scroll state � content may already overflow right.
             var state = await JS.InvokeAsync<ScrollBoundary>("getSwimlaneScrollState", _scrollRef);
             _atStart = state.AtStart;
             _atEnd   = state.AtEnd;
@@ -147,7 +147,7 @@
     }
 
     .swimlane-title {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: clamp(1.25rem, 1.4vw, 1.6rem);
         font-weight: 600;
         color: rgba(248, 248, 248, 0.90);
@@ -156,14 +156,14 @@
     }
 
     .swimlane-count {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.85rem;
         font-weight: 500;
         color: rgba(248, 248, 248, 0.40);
     }
 
     .swimlane-see-all {
-        font-family: 'Montserrat', sans-serif;
+        font-family: var(--app-font-sans, 'Nunito', sans-serif);
         font-size: 0.8rem;
         font-weight: 500;
         color: rgba(248, 248, 248, 0.45);

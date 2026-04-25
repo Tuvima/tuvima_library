@@ -237,17 +237,17 @@
     .discovery-hero-texture { background:radial-gradient(circle at top right,color-mix(in srgb,var(--hero-accent) 8%,transparent) 0%,transparent 34%),linear-gradient(180deg,rgba(255,255,255,.02) 0%,rgba(255,255,255,0) 24%); mix-blend-mode:screen; opacity:.18; pointer-events:none; }
     .discovery-hero-content { position:relative; z-index:1; min-height:inherit; display:grid; grid-template-columns:minmax(0,1fr) minmax(220px,320px); align-items:center; gap:clamp(28px,3vw,44px); padding:clamp(22px,3vw,34px) clamp(28px,4vw,48px) clamp(28px,4vw,44px); }
     .discovery-hero-copy { max-width:min(720px,100%); display:flex; flex-direction:column; gap:14px; }
-    .discovery-hero-eyebrow, .discovery-hero-meta, .discovery-hero-progress-label, .discovery-hero-btn { font-family:'Montserrat',sans-serif; text-transform:uppercase; }
+    .discovery-hero-eyebrow, .discovery-hero-meta, .discovery-hero-progress-label, .discovery-hero-btn { font-family: var(--app-font-sans, 'Nunito', sans-serif); text-transform:uppercase; }
     .discovery-hero-eyebrow { display:inline-flex; width:fit-content; align-items:center; padding:7px 12px; border-radius:var(--app-radius-md); background:color-mix(in srgb,var(--hero-accent) 18%,rgba(255,255,255,.02)); border:1px solid color-mix(in srgb,var(--hero-accent) 36%,rgba(255,255,255,.12)); font-size:10px; font-weight:800; letter-spacing:.18em; color:rgba(226,232,240,.94); }
     .discovery-hero-logo { width:min(100%,460px); max-height:180px; object-fit:contain; object-position:left center; display:block; filter:drop-shadow(0 16px 34px rgba(0,0,0,.42)); }
     .discovery-hero-title { margin:0; font-family:Georgia,'Times New Roman',serif; font-size:clamp(2.8rem,6vw,5.4rem); font-weight:700; line-height:.93; letter-spacing:-.04em; color:rgba(248,250,252,.98); text-wrap:balance; }
-    .discovery-hero-subtitle { font-family:'Montserrat',sans-serif; font-size:clamp(1rem,1.6vw,1.2rem); font-weight:600; color:rgba(226,232,240,.9); }
-    .discovery-hero-status { font-family:'Montserrat',sans-serif; font-size:.88rem; font-weight:700; color:color-mix(in srgb,var(--hero-accent) 82%,white 10%); }
+    .discovery-hero-subtitle { font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:clamp(1rem,1.6vw,1.2rem); font-weight:600; color:rgba(226,232,240,.9); }
+    .discovery-hero-status { font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:.88rem; font-weight:700; color:color-mix(in srgb,var(--hero-accent) 82%,white 10%); }
     .discovery-hero-meta-row, .discovery-hero-chips, .discovery-hero-actions { display:flex; flex-wrap:wrap; align-items:center; gap:10px; }
     .discovery-hero-kind { width:34px; height:34px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.1); color:rgba(248,250,252,.92); backdrop-filter:blur(12px); }
     .discovery-hero-meta { font-size:.78rem; font-weight:700; letter-spacing:.16em; color:rgba(226,232,240,.82); }
-    .discovery-hero-chip { display:inline-flex; align-items:center; padding:6px 10px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-family:'Montserrat',sans-serif; font-size:.74rem; color:rgba(248,250,252,.88); }
-    .discovery-hero-description { margin:0; max-width:680px; font-family:'Montserrat',sans-serif; font-size:1rem; line-height:1.68; color:rgba(226,232,240,.86); text-shadow:0 2px 14px rgba(0,0,0,.26); }
+    .discovery-hero-chip { display:inline-flex; align-items:center; padding:6px 10px; border-radius:var(--app-radius-md); background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:.74rem; color:rgba(248,250,252,.88); }
+    .discovery-hero-description { margin:0; max-width:680px; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:1rem; line-height:1.68; color:rgba(226,232,240,.86); text-shadow:0 2px 14px rgba(0,0,0,.26); }
     .discovery-hero-progress { display:flex; flex-direction:column; gap:8px; max-width:320px; margin-top:4px; }
     .discovery-hero-progress-label { font-size:10px; font-weight:800; letter-spacing:.18em; color:rgba(148,163,184,.92); }
     .discovery-hero-progress-bar { height:6px; overflow:hidden; border-radius:var(--app-radius-md); background:rgba(255,255,255,.14); }

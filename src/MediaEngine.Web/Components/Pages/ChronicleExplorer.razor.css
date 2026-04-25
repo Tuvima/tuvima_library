@@ -1,5 +1,5 @@
 .chronicle-explorer-title {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
 }
 
 .chronicle-explorer-controls {

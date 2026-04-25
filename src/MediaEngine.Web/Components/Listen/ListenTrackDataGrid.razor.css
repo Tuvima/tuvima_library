@@ -1,6 +1,9 @@
 .listen-track-grid {
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(10, 12, 18, 0.88);
+    border: 1px solid var(--app-border, #293036);
+    border-radius: var(--app-radius-lg, 8px);
+    background: var(--app-surface, #1e1f27);
+    box-shadow: var(--app-shadow, 0 1px 4px rgba(130, 143, 163, 0.15));
+    overflow: hidden;
 }
 
 .listen-track-grid ::deep .mud-table-container {
@@ -15,24 +18,24 @@
 }
 
 .listen-track-grid ::deep thead th {
-    background: rgba(255, 255, 255, 0.02);
-    color: rgba(255, 255, 255, 0.72);
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.01em;
-    text-transform: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(39, 40, 50, 0.72) !important;
+    color: var(--app-text-muted, #8391a2) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em !important;
+    text-transform: uppercase !important;
+    border-bottom: 1px solid var(--app-border, #293036) !important;
 }
 
 .listen-track-grid ::deep tbody td {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    color: rgba(255, 255, 255, 0.9);
+    border-bottom: 1px solid var(--app-border, #293036) !important;
+    color: var(--app-text-primary, #aab8c5) !important;
     vertical-align: middle;
 }
 
 .listen-track-grid ::deep .mud-table-cell,
 .listen-track-grid ::deep .column-header {
-    padding: 0.72rem 0.9rem;
+    padding: 10px 12px !important;
 }
 
 .listen-track-grid ::deep th {
@@ -44,11 +47,11 @@
 }
 
 .listen-track-grid ::deep tr.listen-track-grid__row:hover {
-    background: rgba(255, 255, 255, 0.035);
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
 }
 
 .listen-track-grid ::deep tr.listen-track-grid__row--selected {
-    background: rgba(255, 255, 255, 0.07);
+    background: var(--app-active-overlay, rgba(35, 109, 201, 0.16)) !important;
 }
 
 .listen-track-grid__play-cell,
@@ -67,18 +70,20 @@
     justify-content: center;
     padding: 0;
     border: 0;
+    border-radius: var(--app-radius-sm, 5px);
     background: transparent;
-    color: rgba(255, 255, 255, 0.62);
+    color: var(--app-text-muted, #8391a2);
     cursor: pointer;
 }
 
 .listen-track-grid__icon-button:hover,
 .listen-track-grid__favorite:hover {
-    color: rgba(255, 255, 255, 0.96);
+    color: var(--app-text-primary, #aab8c5);
+    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035));
 }
 
 .listen-track-grid__favorite.is-active {
-    color: #ff4f76;
+    color: var(--app-warning, #f6c000);
 }
 
 .listen-track-grid__title-text,
@@ -94,24 +99,24 @@
     padding: 0;
     border: 0;
     background: transparent;
-    color: rgba(255, 255, 255, 0.82);
+    color: var(--app-text-primary, #aab8c5);
     cursor: pointer;
     text-align: left;
 }
 
 .listen-track-grid__link:hover {
-    color: white;
+    color: #fff;
 }
 
 .listen-track-grid__muted {
-    color: rgba(255, 255, 255, 0.62);
+    color: var(--app-text-muted, #8391a2);
 }
 
 .listen-track-grid__mono {
-    color: rgba(255, 255, 255, 0.74);
+    color: var(--app-text-soft, #9aa8b7);
     font-variant-numeric: tabular-nums;
 }
 
 .listen-track-grid ::deep .mud-table-loading {
-    background: rgba(10, 12, 18, 0.88);
+    background: var(--app-surface, #1e1f27);
 }

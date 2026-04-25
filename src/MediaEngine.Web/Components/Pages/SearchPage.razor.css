@@ -19,7 +19,7 @@
 }
 
 .search-page-title {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 1.6rem;
     font-weight: 700;
     color: rgba(248, 248, 248, 0.85);
@@ -27,14 +27,14 @@
 }
 
 .search-page-subtitle {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.95rem;
     color: rgba(248, 248, 248, 0.40);
     margin: 0;
 }
 
 .search-recent-title {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 1rem;
     font-weight: 600;
     color: rgba(248, 248, 248, 0.60);
@@ -84,7 +84,7 @@
 }
 
 .search-recent-name {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.75rem;
     font-weight: 500;
     color: rgba(248, 248, 248, 0.70);

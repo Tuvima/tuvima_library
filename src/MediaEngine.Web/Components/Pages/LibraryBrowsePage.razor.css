@@ -55,7 +55,7 @@
 
 .home-discovery-empty-title {
     margin: 0;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 1.7rem;
     font-weight: 700;
     color: rgba(248, 248, 248, 0.88);
@@ -64,14 +64,14 @@
 .home-discovery-empty-subtitle {
     margin: 0;
     max-width: 460px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-size: 0.96rem;
     line-height: 1.6;
     color: rgba(248, 248, 248, 0.56);
 }
 
 .home-discovery-seed-button {
-    font-family: 'Montserrat', sans-serif;
+    font-family: var(--app-font-sans, 'Nunito', sans-serif);
     font-weight: 600;
     text-transform: none;
     border-radius: var(--app-radius-md);

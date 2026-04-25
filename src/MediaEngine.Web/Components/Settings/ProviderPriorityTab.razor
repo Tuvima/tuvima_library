@@ -38,9 +38,9 @@
         display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-bottom: 24px;
     }
     .chain-card {
-        position: relative; background: var(--app-glass-inner-bg, rgba(255,255,255,0.04));
-        border: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
-        border-radius: 10px; padding: 14px 16px 10px; cursor: pointer;
+        position: relative; background: var(--app-surface-2, #272832);
+        border: 1px solid var(--app-border, #293036);
+        border-radius: var(--app-radius-lg, 8px); padding: 14px 16px 10px; cursor: pointer;
         transition: border-color 0.15s, box-shadow 0.15s;
         display: flex; flex-direction: column; align-items: flex-start;
         flex: 1 1 200px; min-width: 180px; max-width: 320px;
@@ -77,7 +77,7 @@
     /* ── Small chip ── */
     .provider-chip {
         display: inline-block; font-size: 0.66rem; padding: 1px 6px;
-        border-radius: 10px; border: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
+        border-radius: var(--app-radius-lg, 8px); border: 1px solid var(--app-border, #293036);
         color: var(--mud-palette-text-secondary); line-height: 1.6;
     }
 
@@ -85,9 +85,8 @@
     .drawer-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 1200; }
     .drawer-panel {
         position: fixed; top: 64px; right: 0; bottom: 0; width: 380px;
-        background: var(--app-glass-bg, rgba(10,14,30,0.95));
-        border-left: 1px solid var(--app-glass-border, rgba(255,255,255,0.06));
-        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        background: var(--app-surface, #1e1f27);
+        border-left: 1px solid var(--app-border, #293036);
         z-index: 1201; padding: 0; overflow-y: auto;
         display: flex; flex-direction: column;
     }
@@ -95,7 +94,7 @@
         padding: 24px 24px 16px; border-bottom: 1px solid var(--app-glass-inner-border, rgba(255,255,255,0.08));
     }
     .drawer-icon-circle {
-        width: 44px; height: 44px; border-radius: 10px;
+        width: 44px; height: 44px; border-radius: var(--app-radius-lg, 8px);
         background: var(--mud-palette-primary); display: flex;
         align-items: center; justify-content: center; flex-shrink: 0;
     }

@@ -329,10 +329,8 @@
         gap: 10px;
         padding: 10px 14px;
         border-radius: 6px;
-        background: var(--app-glass-bg);
-        border: 1px solid var(--app-glass-border);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: var(--app-surface);
+        border: 1px solid var(--app-border);
         cursor: grab;
         user-select: none;
         transition: box-shadow 0.15s ease, border-color 0.15s ease;
@@ -409,10 +407,8 @@
         width: 360px;
         padding: 20px;
         border-radius: 8px !important;
-        background: var(--app-glass-bg, rgba(30, 30, 30, 0.95)) !important;
-        border: 1px solid var(--app-glass-border, rgba(255,255,255,0.1)) !important;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+        background: var(--app-surface, #1e1f27) !important;
+        border: 1px solid var(--app-border, #293036) !important;
+        box-shadow: var(--app-shadow-lg, 0 22px 48px rgba(0, 0, 0, 0.3)) !important;
     }
 </style>

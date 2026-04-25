@@ -503,7 +503,7 @@
     .discovery-card-stack { position:absolute; inset:0; }
     .discovery-card-stack-image { position:absolute; aspect-ratio:2 / 3; border-radius:var(--app-radius-md); object-fit:cover; box-shadow:0 20px 36px rgba(0,0,0,.34); border:1px solid rgba(255,255,255,.14); opacity:.98; }
     .discovery-card-fallback, .discovery-card-hover-fallback { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
-    .discovery-card-fallback { flex-direction:column; gap:12px; padding:18px; text-align:center; font-family:'Montserrat',sans-serif; font-size:.92rem; font-weight:700; color:rgba(248,250,252,.72); }
+    .discovery-card-fallback { flex-direction:column; gap:12px; padding:18px; text-align:center; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-size:.92rem; font-weight:700; color:rgba(248,250,252,.72); }
     .discovery-card-hover-fallback { color:rgba(255,255,255,.2); }
     .discovery-card-hover-fallback .mud-icon-root { font-size:68px; }
     .discovery-card-gradient { position:absolute; inset:0; pointer-events:none; }
@@ -547,10 +547,10 @@
     .discovery-card-icon-button-primary { background:color-mix(in srgb,var(--discovery-accent) 22%,rgba(255,255,255,.06)); border-color:color-mix(in srgb,var(--discovery-accent) 44%,rgba(255,255,255,.16)); }
     .discovery-card-hover-heading, .discovery-card-caption, .discovery-card-hover-context-list { display:flex; flex-direction:column; gap:4px; }
     .discovery-card-hover-context-list { gap:6px; }
-    .discovery-card-hover-title, .discovery-card-title { font-family:'Montserrat',sans-serif; font-weight:800; line-height:1.25; color:rgba(248,250,252,.98); }
+    .discovery-card-hover-title, .discovery-card-title { font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight:800; line-height:1.25; color:rgba(248,250,252,.98); }
     .discovery-card-hover-title { font-size:.98rem; }
     .discovery-card-title { font-size:.94rem; }
-    .discovery-card-hover-subtitle, .discovery-card-subtitle, .discovery-card-hover-context, .discovery-card-hover-description, .discovery-card-hover-status, .discovery-card-hover-meta, .discovery-card-chip, .discovery-card-hover-fact { font-family:'Montserrat',sans-serif; }
+    .discovery-card-hover-subtitle, .discovery-card-subtitle, .discovery-card-hover-context, .discovery-card-hover-description, .discovery-card-hover-status, .discovery-card-hover-meta, .discovery-card-chip, .discovery-card-hover-fact { font-family: var(--app-font-sans, 'Nunito', sans-serif); }
     .discovery-card-hover-subtitle { font-size:.8rem; font-weight:600; line-height:1.45; color:rgba(203,213,225,.78); }
     .discovery-card-subtitle { font-size:.82rem; line-height:1.45; color:rgba(148,163,184,.84); }
     .discovery-card-hover-status { font-size:.78rem; font-weight:700; color:color-mix(in srgb,var(--discovery-accent) 78%,white 12%); }

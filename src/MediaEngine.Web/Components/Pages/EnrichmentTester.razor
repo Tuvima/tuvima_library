@@ -11,7 +11,7 @@
 <MudContainer MaxWidth="MaxWidth.Large" Class="pa-4">
 
     <MudText Typo="Typo.h4" GutterBottom="true"
-             Style="color: #F8F8F8; font-family: 'Montserrat', sans-serif; font-weight: 700;">
+             Style="color: #F8F8F8; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 700;">
         Enrichment Tester
     </MudText>
     <MudText Typo="Typo.body2" Class="mb-6"
@@ -203,7 +203,7 @@
         {
             @* ── 1. Identity Card ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Identity
             </MudText>
             <MudPaper Elevation="0" Class="pa-4 mb-4"
@@ -310,7 +310,7 @@
             @if (GetBridgeClaims(_result).Count > 0)
             {
                 <MudText Typo="Typo.h6" Class="mb-2"
-                         Style="color: #C9922E; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+                         Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                     Bridge IDs (@GetBridgeClaims(_result).Count)
                 </MudText>
                 <MudPaper Elevation="0" Class="pa-4 mb-4"
@@ -340,7 +340,7 @@
 
             @* ── 1c. Bridge Hint Preview ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Bridge Hint Preview (@(_result.BridgeHintPreview?.Count ?? 0))
             </MudText>
             @if (_result.BridgeHintPreview is { Count: > 0 })
@@ -405,7 +405,7 @@
 
             @* ── 2. People ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 People (@_result.Persons.Count)
             </MudText>
 
@@ -500,7 +500,7 @@
 
             @* ── 3. Fictional Entities ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Fictional Entities (@_result.FictionalEntities.Count)
             </MudText>
 
@@ -549,7 +549,7 @@
 
             @* ── 4. Relationships ── *@
             <MudText Typo="Typo.h6" Class="mb-2"
-                     Style="color: #C9922E; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+                     Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                 Relationships (@_result.Relationships.Count)
             </MudText>
 
@@ -621,7 +621,7 @@
                 <MudExpansionPanel Style="background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
                     <TitleContent>
                         <MudText Typo="Typo.h6"
-                                 Style="color: #C9922E; font-family: 'Montserrat', sans-serif; font-weight: 600;">
+                                 Style="color: #C9922E; font-family: var(--app-font-sans, 'Nunito', sans-serif); font-weight: 600;">
                             Raw Claims —
                             @(_result.ClaimGroups.Sum(g => g.Claims.Count)) total
                         </MudText>

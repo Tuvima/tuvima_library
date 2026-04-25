@@ -19,7 +19,7 @@
     </MudText>
 
     @* ── Hardware Profile ─────────────────────────────────────────────── *@
-    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(201,146,46,0.2); border-radius: 12px;">
+    <MudPaper Class="pa-4 mb-4 app-section-card">
         <div class="d-flex align-center justify-space-between mb-3">
             <MudText Typo="Typo.h6" Style="color: #C9922E;">@L["Models_HardwareProfile"]</MudText>
             <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
@@ -83,7 +83,7 @@
     </MudPaper>
 
     @* ── Resource Monitor ────────────────────────────────────────────────── *@
-    <MudPaper Class="pa-4 mb-4" Style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 12px;">
+    <MudPaper Class="pa-4 mb-4 app-section-card">
         <MudText Typo="Typo.subtitle2" Style="font-weight: 600; margin-bottom: 12px;">@L["Models_ResourceMonitor"]</MudText>
         <div class="d-flex gap-6 flex-wrap">
             <div>
@@ -333,9 +333,9 @@
     // ── Styles ────────────────────────────────────────────────────────────────────
 
     private const string ModelCardStyle =
-        "background: rgba(255,255,255,0.02); " +
-        "border: 1px solid rgba(255,255,255,0.06); " +
-        "border-radius: 10px; " +
+        "background: var(--app-surface-2); " +
+        "border: 1px solid var(--app-border); " +
+        "border-radius: 8px; " +
         "padding: 20px; " +
         "height: 100%;";
 
