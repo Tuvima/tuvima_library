@@ -638,26 +638,6 @@
   <data name="Settings_Reset" xml:space="preserve"><value>Restablecer</value></data>
   <data name="Settings_Saving" xml:space="preserve"><value>Guardando…</value></data>
 
-  <!-- ── Media Lane Page ────────────────────────────────────────────────── -->
-  <data name="MediaLane_UnknownLane" xml:space="preserve"><value>Sección de contenido desconocida.</value></data>
-  <data name="MediaLane_ComingSoon" xml:space="preserve"><value>Próximamente</value></data>
-  <data name="MediaLane_SmartSections" xml:space="preserve"><value>Secciones inteligentes</value></data>
-  <data name="MediaLane_BrowseAZ" xml:space="preserve"><value>Explorar A-Z</value></data>
-  <data name="MediaLane_RecentlyAdded" xml:space="preserve"><value>Agregados recientemente</value></data>
-  <data name="MediaLane_ContinueReading" xml:space="preserve"><value>Continuar leyendo</value></data>
-  <data name="MediaLane_ContinueWatching" xml:space="preserve"><value>Continuar viendo</value></data>
-  <data name="MediaLane_ContinueListening" xml:space="preserve"><value>Continuar escuchando</value></data>
-  <data name="MediaLane_Continue" xml:space="preserve"><value>Continuar</value></data>
-  <data name="MediaLane_FormatEBooks" xml:space="preserve"><value>eBooks</value></data>
-  <data name="MediaLane_FormatMovies" xml:space="preserve"><value>Películas</value></data>
-  <data name="MediaLane_FormatAudiobooks" xml:space="preserve"><value>Audiolibros</value></data>
-  <data name="MediaLane_FormatComics" xml:space="preserve"><value>Cómics</value></data>
-  <data name="MediaLane_FormatTVShows" xml:space="preserve"><value>Series de televisión</value></data>
-  <data name="MediaLane_EmptyBooks" xml:space="preserve"><value>Su colección de libros y audiolibros aparecerá aquí. Suelte archivos EPUB o M4B en su carpeta vigilada para comenzar.</value></data>
-  <data name="MediaLane_EmptyVideo" xml:space="preserve"><value>Sus películas y series de televisión aparecerán aquí. Suelte archivos MP4, MKV o AVI en su carpeta vigilada.</value></data>
-  <data name="MediaLane_EmptyMusic" xml:space="preserve"><value>Su colección de música aparecerá aquí cuando el soporte de música esté disponible.</value></data>
-  <data name="MediaLane_EmptyComics" xml:space="preserve"><value>Sus cómics y manga aparecerán aquí. Suelte archivos CBZ o CBR en su carpeta vigilada.</value></data>
-  <data name="MediaLane_EmptyDefault" xml:space="preserve"><value>El contenido aparecerá aquí una vez que haya sido agregado a su biblioteca.</value></data>
 
   <!-- ── Search Page ────────────────────────────────────────────────────── -->
   <data name="Search_Title" xml:space="preserve"><value>Buscar en su biblioteca</value></data>

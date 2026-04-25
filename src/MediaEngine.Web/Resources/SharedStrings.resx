@@ -638,26 +638,6 @@
   <data name="Settings_Reset" xml:space="preserve"><value>Reset</value></data>
   <data name="Settings_Saving" xml:space="preserve"><value>Saving…</value></data>
 
-  <!-- ── Media Lane Page ────────────────────────────────────────────────── -->
-  <data name="MediaLane_UnknownLane" xml:space="preserve"><value>Unknown content lane.</value></data>
-  <data name="MediaLane_ComingSoon" xml:space="preserve"><value>Coming Soon</value></data>
-  <data name="MediaLane_SmartSections" xml:space="preserve"><value>Smart Sections</value></data>
-  <data name="MediaLane_BrowseAZ" xml:space="preserve"><value>Browse A-Z</value></data>
-  <data name="MediaLane_RecentlyAdded" xml:space="preserve"><value>Recently Added</value></data>
-  <data name="MediaLane_ContinueReading" xml:space="preserve"><value>Continue Reading</value></data>
-  <data name="MediaLane_ContinueWatching" xml:space="preserve"><value>Continue Watching</value></data>
-  <data name="MediaLane_ContinueListening" xml:space="preserve"><value>Continue Listening</value></data>
-  <data name="MediaLane_Continue" xml:space="preserve"><value>Continue</value></data>
-  <data name="MediaLane_FormatEBooks" xml:space="preserve"><value>eBooks</value></data>
-  <data name="MediaLane_FormatMovies" xml:space="preserve"><value>Movies</value></data>
-  <data name="MediaLane_FormatAudiobooks" xml:space="preserve"><value>Audiobooks</value></data>
-  <data name="MediaLane_FormatComics" xml:space="preserve"><value>Comics</value></data>
-  <data name="MediaLane_FormatTVShows" xml:space="preserve"><value>TV Shows</value></data>
-  <data name="MediaLane_EmptyBooks" xml:space="preserve"><value>Your book and audiobook collection will appear here. Drop EPUB or M4B files into your Watch Folder to get started.</value></data>
-  <data name="MediaLane_EmptyVideo" xml:space="preserve"><value>Your movies and TV shows will appear here. Drop MP4, MKV, or AVI files into your Watch Folder.</value></data>
-  <data name="MediaLane_EmptyMusic" xml:space="preserve"><value>Your music collection will appear here once music support is available.</value></data>
-  <data name="MediaLane_EmptyComics" xml:space="preserve"><value>Your comics and manga will appear here. Drop CBZ or CBR files into your Watch Folder.</value></data>
-  <data name="MediaLane_EmptyDefault" xml:space="preserve"><value>Content will appear here once it's been added to your library.</value></data>
 
   <!-- ── Search Page ────────────────────────────────────────────────────── -->
   <data name="Search_Title" xml:space="preserve"><value>Search your library</value></data>
