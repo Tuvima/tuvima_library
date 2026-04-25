@@ -143,13 +143,21 @@ window.positionDiscoveryCardHover = function (cardEl) {
         if (!panel) return;
 
         var cardRect = cardEl.getBoundingClientRect();
-        var panelWidth = panel.offsetWidth;
-        var panelHeight = panel.offsetHeight;
         var gutter = 12;
         var computedStyle = window.getComputedStyle(cardEl);
         var hoverLift = parseFloat(computedStyle.getPropertyValue('--discovery-hover-lift')) || 0;
         var prefersBottomPlacement = panel.classList.contains('is-placement-bottom')
             && window.innerWidth > 700;
+        if (window.innerWidth > 700) {
+            var hoverPanelScale = 1.08;
+            var targetPanelWidth = Math.min(window.innerWidth - (gutter * 2), cardRect.width * hoverPanelScale);
+            panel.style.width = targetPanelWidth + 'px';
+        } else {
+            panel.style.width = '';
+        }
+
+        var panelWidth = panel.offsetWidth;
+        var panelHeight = panel.offsetHeight;
         var isSideBySidePortrait = !prefersBottomPlacement
             && panel.classList.contains('is-art-popover')
             && panel.classList.contains('is-portrait')
